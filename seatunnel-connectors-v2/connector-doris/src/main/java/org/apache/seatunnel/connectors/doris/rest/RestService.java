@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.doris.rest;
 
 import org.apache.seatunnel.connectors.doris.config.DorisConfig;
+import org.apache.seatunnel.connectors.doris.config.DorisOptions;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorErrorCode;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorException;
 import org.apache.seatunnel.connectors.doris.rest.models.Backend;
@@ -83,15 +84,15 @@ public class RestService implements Serializable {
             throws DorisConnectorException {
         int connectTimeout =
                 dorisConfig.getRequestConnectTimeoutMs() == null
-                        ? DorisConfig.DORIS_REQUEST_CONNECT_TIMEOUT_MS_DEFAULT
+                        ? DorisOptions.DORIS_REQUEST_CONNECT_TIMEOUT_MS_DEFAULT
                         : dorisConfig.getRequestConnectTimeoutMs();
         int socketTimeout =
                 dorisConfig.getRequestReadTimeoutMs() == null
-                        ? DorisConfig.DORIS_REQUEST_READ_TIMEOUT_MS_DEFAULT
+                        ? DorisOptions.DORIS_REQUEST_READ_TIMEOUT_MS_DEFAULT
                         : dorisConfig.getRequestReadTimeoutMs();
         int retries =
                 dorisConfig.getRequestRetries() == null
-                        ? DorisConfig.DORIS_REQUEST_RETRIES_DEFAULT
+                        ? DorisOptions.DORIS_REQUEST_RETRIES_DEFAULT
                         : dorisConfig.getRequestRetries();
         logger.trace(
                 "connect timeout set to '{}'. socket timeout set to '{}'. retries set to '{}'.",
@@ -371,8 +372,7 @@ public class RestService implements Serializable {
                 HttpGet httpGet = new HttpGet(beUrl);
                 String response = send(dorisConfig, httpGet, logger);
                 logger.info("Backend Info:{}", response);
-                List<BackendV2.BackendRowV2> backends = parseBackendV2(response, logger);
-                return backends;
+                return parseBackendV2(response, logger);
             } catch (DorisConnectorException e) {
                 logger.info(
                         "Doris FE node {} is unavailable: {}, Request the next Doris FE node",
@@ -618,17 +618,17 @@ public class RestService implements Serializable {
 
     @VisibleForTesting
     static int tabletCountLimitForOnePartition(DorisConfig dorisConfig, Logger logger) {
-        int tabletsSize = DorisConfig.DORIS_TABLET_SIZE_DEFAULT;
+        int tabletsSize = DorisOptions.DORIS_TABLET_SIZE_DEFAULT;
         if (dorisConfig.getTabletSize() != null) {
             tabletsSize = dorisConfig.getTabletSize();
         }
-        if (tabletsSize < DorisConfig.DORIS_TABLET_SIZE_MIN) {
+        if (tabletsSize < DorisOptions.DORIS_TABLET_SIZE_MIN) {
             logger.warn(
                     "{} is less than {}, set to default value {}.",
-                    DorisConfig.DORIS_TABLET_SIZE,
-                    DorisConfig.DORIS_TABLET_SIZE_MIN,
-                    DorisConfig.DORIS_TABLET_SIZE_MIN);
-            tabletsSize = DorisConfig.DORIS_TABLET_SIZE_MIN;
+                    DorisOptions.DORIS_TABLET_SIZE,
+                    DorisOptions.DORIS_TABLET_SIZE_MIN,
+                    DorisOptions.DORIS_TABLET_SIZE_MIN);
+            tabletsSize = DorisOptions.DORIS_TABLET_SIZE_MIN;
         }
         logger.debug("Tablet size is set to {}.", tabletsSize);
         return tabletsSize;

@@ -193,19 +193,13 @@ public class SamplingSplitStrategy implements MongoSplitStrategy, Serializable {
 
         private static final BsonDocument EMPTY_PROJECTION = new BsonDocument();
 
-        private static final String DEFAULT_SPLIT_KEY = "_id";
-
         private static final long DEFAULT_SAMPLES_PER_SPLIT = 10;
-
-        private static final long DEFAULT_SIZE_PER_SPLIT = 64 * 1024 * 1024;
 
         Builder() {
             this.clientProvider = null;
-            this.splitKey = DEFAULT_SPLIT_KEY;
             this.matchQuery = EMPTY_MATCH_QUERY;
             this.projection = EMPTY_PROJECTION;
             this.samplesPerSplit = DEFAULT_SAMPLES_PER_SPLIT;
-            this.sizePerSplit = DEFAULT_SIZE_PER_SPLIT;
         }
 
         public Builder setClientProvider(MongodbClientProvider clientProvider) {

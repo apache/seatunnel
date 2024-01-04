@@ -35,8 +35,10 @@ import org.apache.commons.lang3.StringUtils;
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -122,7 +124,8 @@ public class DamengCatalog extends AbstractJdbcCatalog {
         Object defaultValue = resultSet.getObject("DATA_DEFAULT");
         boolean isNullable = resultSet.getString("NULLABLE").equals("Y");
 
-        SeaTunnelDataType<?> type = fromJdbcType(typeName, columnPrecision, columnScale);
+        SeaTunnelDataType<?> type =
+                fromJdbcType(columnName, typeName, columnPrecision, columnScale);
 
         return PhysicalColumn.of(
                 columnName,
@@ -139,11 +142,12 @@ public class DamengCatalog extends AbstractJdbcCatalog {
                 columnLength);
     }
 
-    private SeaTunnelDataType<?> fromJdbcType(String typeName, long precision, long scale) {
+    private SeaTunnelDataType<?> fromJdbcType(
+            String columnName, String typeName, long precision, long scale) {
         Map<String, Object> dataTypeProperties = new HashMap<>();
         dataTypeProperties.put(DamengDataTypeConvertor.PRECISION, precision);
         dataTypeProperties.put(DamengDataTypeConvertor.SCALE, scale);
-        return DATA_TYPE_CONVERTOR.toSeaTunnelType(typeName, dataTypeProperties);
+        return DATA_TYPE_CONVERTOR.toSeaTunnelType(columnName, typeName, dataTypeProperties);
     }
 
     @Override
@@ -173,6 +177,33 @@ public class DamengCatalog extends AbstractJdbcCatalog {
     private List<String> listTables() {
         List<String> databases = listDatabases();
         return listTables(databases.get(0));
+    }
+
+    @Override
+    public List<String> listTables(String databaseName)
+            throws CatalogException, DatabaseNotExistException {
+        if (!databaseExists(databaseName)) {
+            throw new DatabaseNotExistException(this.catalogName, databaseName);
+        }
+
+        try (PreparedStatement ps =
+                        getConnection(defaultUrl)
+                                .prepareStatement("SELECT OWNER, TABLE_NAME FROM ALL_TABLES");
+                ResultSet rs = ps.executeQuery()) {
+
+            List<String> tables = new ArrayList<>();
+            while (rs.next()) {
+                if (EXCLUDED_SCHEMAS.contains(rs.getString(1))) {
+                    continue;
+                }
+                tables.add(rs.getString(1) + "." + rs.getString(2));
+            }
+
+            return tables;
+        } catch (Exception e) {
+            throw new CatalogException(
+                    String.format("Failed listing table in catalog %s", catalogName), e);
+        }
     }
 
     @Override

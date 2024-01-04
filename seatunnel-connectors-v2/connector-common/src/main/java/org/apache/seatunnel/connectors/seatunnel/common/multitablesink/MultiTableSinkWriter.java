@@ -55,11 +55,11 @@ public class MultiTableSinkWriter
     public MultiTableSinkWriter(
             Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters, int queueSize) {
         this.sinkWriters = sinkWriters;
+        AtomicInteger cnt = new AtomicInteger(0);
         executorService =
                 Executors.newFixedThreadPool(
                         queueSize,
                         runnable -> {
-                            AtomicInteger cnt = new AtomicInteger(0);
                             Thread thread = new Thread(runnable);
                             thread.setDaemon(true);
                             thread.setName(
@@ -196,8 +196,12 @@ public class MultiTableSinkWriter
 
     @Override
     public void abortPrepare() {
-        checkQueueRemain();
         Throwable firstE = null;
+        try {
+            checkQueueRemain();
+        } catch (Exception e) {
+            firstE = e;
+        }
         for (int i = 0; i < sinkWritersWithIndex.size(); i++) {
             synchronized (runnable.get(i)) {
                 for (SinkWriter<SeaTunnelRow, ?, ?> sinkWriter :
@@ -220,9 +224,13 @@ public class MultiTableSinkWriter
 
     @Override
     public void close() throws IOException {
-        checkQueueRemain();
-        executorService.shutdownNow();
         Throwable firstE = null;
+        try {
+            checkQueueRemain();
+        } catch (Exception e) {
+            firstE = e;
+        }
+        executorService.shutdownNow();
         for (int i = 0; i < sinkWritersWithIndex.size(); i++) {
             synchronized (runnable.get(i)) {
                 for (SinkWriter<SeaTunnelRow, ?, ?> sinkWriter :

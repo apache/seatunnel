@@ -179,7 +179,12 @@ public class SplitFetcher<E, SplitT extends SourceSplit> implements Runnable {
     }
 
     private SplitFetcherTask getNextTaskUnsafe() {
-        assert lock.isHeldByCurrentThread();
+        if (!lock.isHeldByCurrentThread()) {
+            throw new RuntimeException(
+                    String.format(
+                            "Unsafe invoke, the current thread[%s] has not acquired the lock[%s].",
+                            Thread.currentThread().getName(), this.lock.toString()));
+        }
 
         try {
             if (!taskQueue.isEmpty()) {
@@ -201,7 +206,12 @@ public class SplitFetcher<E, SplitT extends SourceSplit> implements Runnable {
     }
 
     private void wakeUpUnsafe(boolean taskOnly) {
-        assert lock.isHeldByCurrentThread();
+        if (!lock.isHeldByCurrentThread()) {
+            throw new RuntimeException(
+                    String.format(
+                            "Unsafe invoke, the current thread[%s] has not acquired the lock[%s].",
+                            Thread.currentThread().getName(), this.lock.toString()));
+        }
 
         SplitFetcherTask currentTask = runningTask;
         if (currentTask != null) {
@@ -214,7 +224,12 @@ public class SplitFetcher<E, SplitT extends SourceSplit> implements Runnable {
     }
 
     private void addTaskUnsafe(SplitFetcherTask task) {
-        assert lock.isHeldByCurrentThread();
+        if (!lock.isHeldByCurrentThread()) {
+            throw new RuntimeException(
+                    String.format(
+                            "Unsafe invoke, the current thread[%s] has not acquired the lock[%s].",
+                            Thread.currentThread().getName(), this.lock.toString()));
+        }
 
         taskQueue.add(task);
         nonEmpty.signal();

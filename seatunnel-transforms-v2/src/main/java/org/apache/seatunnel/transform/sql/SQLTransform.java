@@ -56,9 +56,9 @@ public class SQLTransform extends AbstractCatalogSupportTransform {
                     .defaultValue(ZETA.name())
                     .withDescription("The SQL engine type");
 
-    private String query;
+    private final String query;
 
-    private EngineType engineType;
+    private final EngineType engineType;
 
     private transient SQLEngine sqlEngine;
 
@@ -126,7 +126,7 @@ public class SQLTransform extends AbstractCatalogSupportTransform {
         if (inputCatalogTable.getTableSchema().getPrimaryKey() != null
                 && outputColumns.containsAll(
                         inputCatalogTable.getTableSchema().getPrimaryKey().getColumnNames())) {
-            builder = builder.primaryKey(inputCatalogTable.getTableSchema().getPrimaryKey().copy());
+            builder.primaryKey(inputCatalogTable.getTableSchema().getPrimaryKey().copy());
         }
 
         List<ConstraintKey> outputConstraintKeys =
@@ -144,7 +144,7 @@ public class SQLTransform extends AbstractCatalogSupportTransform {
                         .map(ConstraintKey::copy)
                         .collect(Collectors.toList());
 
-        builder = builder.constraintKey(outputConstraintKeys);
+        builder.constraintKey(outputConstraintKeys);
 
         String[] fieldNames = outRowType.getFieldNames();
         SeaTunnelDataType<?>[] fieldTypes = outRowType.getFieldTypes();

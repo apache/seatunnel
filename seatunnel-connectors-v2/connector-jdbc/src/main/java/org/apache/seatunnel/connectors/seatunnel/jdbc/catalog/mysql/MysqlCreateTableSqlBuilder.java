@@ -213,14 +213,18 @@ public class MysqlCreateTableSqlBuilder {
         } else {
             // Column type
             final String name =
-                    mysqlDataTypeConvertor.toConnectorType(column.getDataType(), null).getName();
+                    mysqlDataTypeConvertor
+                            .toConnectorType(column.getName(), column.getDataType(), null)
+                            .getName();
             if (columnLength == 0
                     && StringUtils.equalsIgnoreCase(name, MysqlType.VARCHAR.getName())) {
                 columnSqls.add(MysqlType.LONGTEXT.getName());
                 return;
             }
             columnSqls.add(
-                    mysqlDataTypeConvertor.toConnectorType(column.getDataType(), null).getName());
+                    mysqlDataTypeConvertor
+                            .toConnectorType(column.getName(), column.getDataType(), null)
+                            .getName());
 
             String fieSql = "";
             List<String> list = new ArrayList<>();

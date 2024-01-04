@@ -93,9 +93,7 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
         sourceReceivedQPS = metricsContext.meter(SOURCE_RECEIVED_QPS);
         sourceReceivedBytes = metricsContext.counter(SOURCE_RECEIVED_BYTES);
         sourceReceivedBytesPerSeconds = metricsContext.meter(SOURCE_RECEIVED_BYTES_PER_SECONDS);
-        if (flowControlStrategy != null) {
-            flowControlGate = FlowControlGate.create(flowControlStrategy);
-        }
+        flowControlGate = FlowControlGate.create(flowControlStrategy);
     }
 
     @Override
@@ -116,9 +114,7 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
                 }
                 sourceReceivedBytes.inc(size);
                 sourceReceivedBytesPerSeconds.markEvent(size);
-                if (flowControlGate != null) {
-                    flowControlGate.audit((SeaTunnelRow) row);
-                }
+                flowControlGate.audit((SeaTunnelRow) row);
             }
             sendRecordToNext(new Record<>(row));
             emptyThisPollNext = false;
@@ -192,10 +188,12 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
         return checkpointLock;
     }
 
+    @Override
     public boolean isEmptyThisPollNext() {
         return emptyThisPollNext;
     }
 
+    @Override
     public void resetEmptyThisPollNext() {
         this.emptyThisPollNext = true;
     }

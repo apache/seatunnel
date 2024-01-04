@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.kudu.source;
 
 import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -27,6 +28,8 @@ import lombok.Data;
 public class KuduSourceSplit implements SourceSplit {
 
     private static final long serialVersionUID = -1L;
+
+    private final TablePath tablePath;
     public final Integer splitId;
 
     private final byte[] token;

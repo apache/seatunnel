@@ -157,7 +157,9 @@ public class PostgresCreateTableSqlBuilder {
                     return "text";
                 }
             default:
-                String type = postgresDataTypeConvertor.toConnectorType(column.getDataType(), null);
+                String type =
+                        postgresDataTypeConvertor.toConnectorType(
+                                column.getName(), column.getDataType(), null);
                 if (type.equals(PG_NUMERIC)) {
                     DecimalType decimalType = (DecimalType) column.getDataType();
                     return "numeric("

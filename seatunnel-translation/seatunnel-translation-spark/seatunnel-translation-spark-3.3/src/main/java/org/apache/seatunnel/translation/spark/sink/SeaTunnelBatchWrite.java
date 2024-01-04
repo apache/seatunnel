@@ -19,6 +19,7 @@ package org.apache.seatunnel.translation.spark.sink;
 
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.translation.spark.sink.write.SeaTunnelSparkDataWriterFactory;
 import org.apache.seatunnel.translation.spark.sink.write.SeaTunnelSparkWriterCommitMessage;
@@ -44,16 +45,20 @@ public class SeaTunnelBatchWrite<StateT, CommitInfoT, AggregatedCommitInfoT>
 
     private final SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT> aggregatedCommitter;
 
+    private final CatalogTable catalogTable;
+
     public SeaTunnelBatchWrite(
-            SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink)
+            SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
+            CatalogTable catalogTable)
             throws IOException {
         this.sink = sink;
+        this.catalogTable = catalogTable;
         this.aggregatedCommitter = sink.createAggregatedCommitter().orElse(null);
     }
 
     @Override
     public DataWriterFactory createBatchWriterFactory(PhysicalWriteInfo info) {
-        return new SeaTunnelSparkDataWriterFactory<>(sink);
+        return new SeaTunnelSparkDataWriterFactory<>(sink, catalogTable);
     }
 
     @Override

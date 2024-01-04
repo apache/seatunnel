@@ -27,6 +27,7 @@ import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
 import org.apache.seatunnel.engine.common.exception.JobException;
 import org.apache.seatunnel.engine.common.exception.JobNotFoundException;
+import org.apache.seatunnel.engine.common.exception.SavePointFailedException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
@@ -41,7 +42,6 @@ import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
-import org.apache.seatunnel.engine.server.master.ConnectorPackageService;
 import org.apache.seatunnel.engine.server.master.JobHistoryService;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.metrics.JobMetricsUtil;
@@ -49,6 +49,7 @@ import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
+import org.apache.seatunnel.engine.server.service.jar.ConnectorPackageService;
 import org.apache.seatunnel.engine.server.task.operation.GetMetricsOperation;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
@@ -448,13 +449,21 @@ public class CoordinatorService {
     public PassiveCompletableFuture<Void> savePoint(long jobId) {
         CompletableFuture<Void> voidCompletableFuture = new CompletableFuture<>();
         if (!runningJobMasterMap.containsKey(jobId)) {
-            Throwable throwable =
-                    new Throwable("The jobId: " + jobId + "of savePoint does not exist");
-            logger.warning(throwable);
-            voidCompletableFuture.completeExceptionally(throwable);
+            SavePointFailedException exception =
+                    new SavePointFailedException(
+                            "The job with id '" + jobId + "' not running, save point failed");
+            logger.warning(exception);
+            voidCompletableFuture.completeExceptionally(exception);
         } else {
-            JobMaster jobMaster = runningJobMasterMap.get(jobId);
-            voidCompletableFuture = jobMaster.savePoint();
+            voidCompletableFuture =
+                    new PassiveCompletableFuture<>(
+                            CompletableFuture.supplyAsync(
+                                    () -> {
+                                        JobMaster runningJobMaster = runningJobMasterMap.get(jobId);
+                                        runningJobMaster.savePoint().join();
+                                        return null;
+                                    },
+                                    executorService));
         }
         return new PassiveCompletableFuture<>(voidCompletableFuture);
     }

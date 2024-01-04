@@ -24,16 +24,15 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.transform.common.MultipleFieldOutputTransform;
 import org.apache.seatunnel.transform.common.SeaTunnelRowAccessor;
+import org.apache.seatunnel.transform.exception.TransformCommonError;
 
 import lombok.NonNull;
 
 import java.util.Arrays;
-import java.util.List;
-import java.util.stream.Collectors;
 
 public class SplitTransform extends MultipleFieldOutputTransform {
-    private SplitTransformConfig splitTransformConfig;
-    private int splitFieldIndex;
+    private final SplitTransformConfig splitTransformConfig;
+    private final int splitFieldIndex;
 
     public SplitTransform(
             @NonNull SplitTransformConfig splitTransformConfig,
@@ -41,12 +40,11 @@ public class SplitTransform extends MultipleFieldOutputTransform {
         super(catalogTable);
         this.splitTransformConfig = splitTransformConfig;
         SeaTunnelRowType seaTunnelRowType = catalogTable.getTableSchema().toPhysicalRowDataType();
-        splitFieldIndex = seaTunnelRowType.indexOf(splitTransformConfig.getSplitField());
-        if (splitFieldIndex == -1) {
-            throw new IllegalArgumentException(
-                    "Cannot find ["
-                            + splitTransformConfig.getSplitField()
-                            + "] field in input row type");
+        try {
+            splitFieldIndex = seaTunnelRowType.indexOf(splitTransformConfig.getSplitField());
+        } catch (IllegalArgumentException e) {
+            throw TransformCommonError.cannotFindInputFieldError(
+                    getPluginName(), splitTransformConfig.getSplitField());
         }
         this.outputCatalogTable = getProducedCatalogTable();
     }
@@ -79,14 +77,11 @@ public class SplitTransform extends MultipleFieldOutputTransform {
 
     @Override
     protected Column[] getOutputColumns() {
-        List<PhysicalColumn> collect =
-                Arrays.stream(splitTransformConfig.getOutputFields())
-                        .map(
-                                fieldName -> {
-                                    return PhysicalColumn.of(
-                                            fieldName, BasicType.STRING_TYPE, 200, true, "", "");
-                                })
-                        .collect(Collectors.toList());
-        return collect.toArray(new Column[0]);
+        return Arrays.stream(splitTransformConfig.getOutputFields())
+                .map(
+                        fieldName ->
+                                PhysicalColumn.of(
+                                        fieldName, BasicType.STRING_TYPE, 200, true, "", ""))
+                .toArray(Column[]::new);
     }
 }

@@ -72,6 +72,16 @@
             <scope>test</scope>
         </dependency>
         <dependency>
+            <groupId>com.oracle.database.xml</groupId>
+            <artifactId>xdb6</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.oracle.database.xml</groupId>
+            <artifactId>xmlparserv2</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>com.ibm.db2.jcc</groupId>
             <artifactId>db2jcc</artifactId>
             <scope>test</scope>

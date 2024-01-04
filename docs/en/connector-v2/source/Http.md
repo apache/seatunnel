@@ -53,7 +53,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | pageing.total_page_size     | Int     | No       | -       | This parameter is used to control the total number of pages                                                                          |
 | pageing.batch_size          | Int     | No       | -       | The batch size returned per request is used to determine whether to continue when the total number of pages is unknown               |
 | content_json                | String  | No       | -       | This parameter can get some json data.If you only need the data in the 'book' section, configure `content_field = "$.store.book.*"`. |
-| format                      | String  | No       | json    | The format of upstream data, now only support `json` `text`, default `json`.                                                         |
+| format                      | String  | No       | text    | The format of upstream data, now only support `json` `text`, default `text`.                                                         |
 | method                      | String  | No       | get     | Http request method, only supports GET, POST method.                                                                                 |
 | headers                     | Map     | No       | -       | Http headers.                                                                                                                        |
 | params                      | Map     | No       | -       | Http params,the program will automatically add http header application/x-www-form-urlencoded.                                        |
@@ -69,7 +69,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 
 ```hocon
 env {
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "BATCH"
 }
 

@@ -44,7 +44,7 @@ public abstract class FlinkAbstractPluginExecuteProcessor<T>
     protected static final String ENGINE_TYPE = "seatunnel";
     protected static final String PLUGIN_NAME_KEY = "plugin_name";
     protected static final String SOURCE_TABLE_NAME = "source_table_name";
-    protected static HashMap<String, Boolean> isAppendMap = new HashMap<>();
+    protected static HashMap<String, Boolean> IS_APPEND_STREAM_MAP = new HashMap<>();
 
     protected static final BiConsumer<ClassLoader, URL> ADD_URL_TO_CLASSLOADER =
             (classLoader, url) -> {
@@ -64,12 +64,17 @@ public abstract class FlinkAbstractPluginExecuteProcessor<T>
     protected final List<? extends Config> pluginConfigs;
     protected JobContext jobContext;
     protected final List<T> plugins;
+    protected final Config envConfig;
 
     protected FlinkAbstractPluginExecuteProcessor(
-            List<URL> jarPaths, List<? extends Config> pluginConfigs, JobContext jobContext) {
+            List<URL> jarPaths,
+            Config envConfig,
+            List<? extends Config> pluginConfigs,
+            JobContext jobContext) {
         this.pluginConfigs = pluginConfigs;
         this.jobContext = jobContext;
         this.plugins = initializePlugins(jarPaths, pluginConfigs);
+        this.envConfig = envConfig;
     }
 
     @Override
@@ -98,7 +103,7 @@ public abstract class FlinkAbstractPluginExecuteProcessor<T>
                             TableUtil.tableToDataStream(
                                     tableEnvironment,
                                     table,
-                                    isAppendMap.getOrDefault(tableName, true)),
+                                    IS_APPEND_STREAM_MAP.getOrDefault(tableName, true)),
                             dataStreamTableInfo.getCatalogTable(),
                             tableName));
         }
@@ -114,7 +119,7 @@ public abstract class FlinkAbstractPluginExecuteProcessor<T>
                         pluginConfig,
                         dataStream,
                         resultTable,
-                        isAppendMap.getOrDefault(sourceTable, true));
+                        IS_APPEND_STREAM_MAP.getOrDefault(sourceTable, true));
                 registerAppendStream(pluginConfig);
                 return;
             }
@@ -122,14 +127,14 @@ public abstract class FlinkAbstractPluginExecuteProcessor<T>
                     pluginConfig,
                     dataStream,
                     resultTable,
-                    isAppendMap.getOrDefault(resultTable, true));
+                    IS_APPEND_STREAM_MAP.getOrDefault(resultTable, true));
         }
     }
 
     protected void registerAppendStream(Config pluginConfig) {
         if (pluginConfig.hasPath(RESULT_TABLE_NAME.key())) {
             String tableName = pluginConfig.getString(RESULT_TABLE_NAME.key());
-            isAppendMap.put(tableName, false);
+            IS_APPEND_STREAM_MAP.put(tableName, false);
         }
     }
 

@@ -12,6 +12,7 @@
 ### Transformer
 - [Spark] Support transform-v2 for spark (#3409)
 - [ALL]Add FieldMapper Transform #3781
+- [All]Add JsonPath Transform #5633
 ### Connectors
 - [Elasticsearch] Support https protocol & compatible with opensearch
 - [Hbase] Add hbase sink connector #4049
@@ -19,7 +20,7 @@
 ### Formats
 - [Canal]Support read canal format message #3950
 - [Debezium]Support debezium canal format message #3981
- 
+
 ### Connector-V2
 
 - [Json-format] [Canal-Json] Fix json deserialize NPE (#4195)
@@ -77,6 +78,7 @@
 - [Zeta] Fix cpu load problem (#4828)
 - [zeta] Fix the deadlock issue with JDBC driver loading (#4878)
 - [zeta] dynamically replace the value of the variable at runtime (#4950)
+- [Zeta] Add from_unixtime function (#5462)
 - [zeta] Fix CDC task restore throw NPE (#5507)
 
 ### E2E
@@ -99,6 +101,12 @@
 - [Core] [Starter] Add check of sink and source config to avoid null pointer exception. (#4734)
 - [Core] [Flink] Remove useless stage type related codes. (#5650)
 
+### Formats
+
+- [Json] Remove assert key word. (#5919)
+- [Formats] Replace CommonErrorCodeDeprecated.JSON_OPERATION_FAILED. (#5948)
+- [Formats] Refactor exception catch for `ignoreParseErrors`. (#6065)
+
 ### Connector-V2
 
 - [Connector-V2] [CDC] Improve startup.mode/stop.mode options (#4360)
@@ -117,6 +125,8 @@
 - [Connector-v2] [Jdbc] Populate primary key when jdbc sink is created using CatalogTable (#4755)
 - [Connector-v2] [Neo4j] Supports neo4j sink batch write mode (#4835)
 - [Transform-V2] Optimize SQL Transform package and Fix Spark type conversion bug of transform (#4490)
+- [Connector-V2] [Common] Remove assert key word (#5915)
+- [Connector-V2] Replace CommonErrorCodeDeprecated.JSON_OPERATION_FAILED. (#5978)
 
 ### CI
 
@@ -143,6 +153,7 @@
 - [Zeta] Improve Zeta operation max count and ignore NPE (#4787)
 - [Zeta] Remove serialize(deserialize) cost when use shuffle action (#4722)
 - [zeta] Checkpoint exception status messages exclude state data (#5547)
+- [Zeta] Remove assert key words (#5947)
 
 ## Feature
 
@@ -205,3 +216,5 @@
 - [Docs] Add Value types in Java to Schema features (#5087)
 - [Docs] Replace username by user in the options of FtpFile (#5421)
 - [Docs] Add how to configure logging related parameters of SeaTunnel-E2E Test (#5589)
+- [Docs] Remove redundant double quotation mark from an example code (#5845)
+- [Docs] Add Hive JDBC reference value (#5882)

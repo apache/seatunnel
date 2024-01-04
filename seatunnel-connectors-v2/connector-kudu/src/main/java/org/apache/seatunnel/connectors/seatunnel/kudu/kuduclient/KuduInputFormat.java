@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSourceTableConfig;
 import org.apache.seatunnel.connectors.seatunnel.kudu.exception.KuduConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.kudu.exception.KuduConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.kudu.source.KuduSourceSplit;
@@ -51,15 +52,12 @@ import static org.apache.seatunnel.api.table.type.SqlType.TIMESTAMP;
 public class KuduInputFormat implements Serializable {
 
     private final KuduSourceConfig kuduSourceConfig;
-    private final SeaTunnelRowType rowTypeInfo;
 
     /** Declare the global variable KuduClient and use it to manipulate the Kudu table */
     public KuduClient kuduClient;
 
-    public KuduInputFormat(
-            @NonNull KuduSourceConfig kuduSourceConfig, SeaTunnelRowType rowTypeInfo) {
+    public KuduInputFormat(@NonNull KuduSourceConfig kuduSourceConfig) {
         this.kuduSourceConfig = kuduSourceConfig;
-        this.rowTypeInfo = rowTypeInfo;
     }
 
     public void openInputFormat() {
@@ -68,7 +66,7 @@ public class KuduInputFormat implements Serializable {
         }
     }
 
-    public SeaTunnelRow toInternal(RowResult rs) throws SQLException {
+    public SeaTunnelRow toInternal(RowResult rs, SeaTunnelRowType rowTypeInfo) throws SQLException {
         List<Object> fields = new ArrayList<>();
         SeaTunnelDataType<?>[] seaTunnelDataTypes = rowTypeInfo.getFieldTypes();
         for (int i = 0; i < seaTunnelDataTypes.length; i++) {
@@ -96,12 +94,17 @@ public class KuduInputFormat implements Serializable {
         }
     }
 
-    public Set<KuduSourceSplit> createInputSplits() throws IOException {
+    public Set<KuduSourceSplit> createInputSplits(KuduSourceTableConfig kuduSourceTableConfig)
+            throws IOException {
         List<KuduScanToken> scanTokens =
-                KuduUtil.getKuduScanToken(kuduSourceConfig, rowTypeInfo.getFieldNames());
+                KuduUtil.getKuduScanToken(kuduClient, kuduSourceConfig, kuduSourceTableConfig);
         Set<KuduSourceSplit> allSplit = new HashSet<>(scanTokens.size());
         for (int i = 0; i < scanTokens.size(); i++) {
-            allSplit.add(new KuduSourceSplit(i, scanTokens.get(i).serialize()));
+            allSplit.add(
+                    new KuduSourceSplit(
+                            kuduSourceTableConfig.getTablePath(),
+                            i,
+                            scanTokens.get(i).serialize()));
         }
         return allSplit;
     }

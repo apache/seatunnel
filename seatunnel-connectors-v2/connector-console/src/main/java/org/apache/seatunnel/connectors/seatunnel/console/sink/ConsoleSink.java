@@ -20,7 +20,6 @@ package org.apache.seatunnel.connectors.seatunnel.console.sink;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSink;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
@@ -39,11 +38,6 @@ public class ConsoleSink extends AbstractSimpleSink<SeaTunnelRow, Void>
         this.seaTunnelRowType = seaTunnelRowType;
         this.isPrintData = options.get(LOG_PRINT_DATA);
         this.delayMs = options.get(LOG_PRINT_DELAY);
-    }
-
-    @Override
-    public SeaTunnelDataType<SeaTunnelRow> getConsumedType() {
-        return this.seaTunnelRowType;
     }
 
     @Override

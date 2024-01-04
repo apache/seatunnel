@@ -33,6 +33,7 @@ import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 
 import com.hazelcast.internal.serialization.Data;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.Collections;
 import java.util.concurrent.TimeUnit;
@@ -48,6 +49,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 @DisabledOnOs(OS.WINDOWS)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@Slf4j
 class JobMetricsTest extends AbstractSeaTunnelServerTest {
 
     @Test
@@ -112,7 +114,7 @@ class JobMetricsTest extends AbstractSeaTunnelServerTest {
 
         Thread.sleep(10000);
 
-        System.out.println(coordinatorService.getJobMetrics(jobId3).toJsonString());
+        log.info(coordinatorService.getJobMetrics(jobId3).toJsonString());
 
         // start savePoint
         coordinatorService.savePoint(jobId3);
@@ -122,7 +124,7 @@ class JobMetricsTest extends AbstractSeaTunnelServerTest {
                 .untilAsserted(
                         () ->
                                 Assertions.assertEquals(
-                                        JobStatus.FINISHED,
+                                        JobStatus.SAVEPOINT_DONE,
                                         server.getCoordinatorService().getJobStatus(jobId3)));
 
         // restore job
@@ -137,7 +139,7 @@ class JobMetricsTest extends AbstractSeaTunnelServerTest {
         Thread.sleep(20000);
         // check metrics
         JobMetrics jobMetrics = coordinatorService.getJobMetrics(jobId3);
-        System.out.println(jobMetrics.toJsonString());
+        log.info(jobMetrics.toJsonString());
         assertTrue(40 < (Long) jobMetrics.get(SINK_WRITE_COUNT).get(0).value());
         assertTrue(40 < (Long) jobMetrics.get(SINK_WRITE_COUNT).get(1).value());
         assertTrue(40 < (Long) jobMetrics.get(SOURCE_RECEIVED_COUNT).get(0).value());

@@ -39,6 +39,7 @@ import org.apache.kudu.client.PartialRow;
 import org.apache.kudu.client.RowResult;
 import org.apache.kudu.client.RowResultIterator;
 
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
@@ -274,6 +275,7 @@ public class KuduIT extends TestSuiteBase implements TestResource {
     }
 
     @Override
+    @AfterAll
     public void tearDown() throws Exception {
         if (kuduClient != null) {
             kuduClient.close();

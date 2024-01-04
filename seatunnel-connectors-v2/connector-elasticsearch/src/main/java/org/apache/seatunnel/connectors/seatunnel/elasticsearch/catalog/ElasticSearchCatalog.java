@@ -92,6 +92,11 @@ public class ElasticSearchCatalog implements Catalog {
     }
 
     @Override
+    public String name() {
+        return catalogName;
+    }
+
+    @Override
     public String getDefaultDatabase() throws CatalogException {
         return defaultDatabase;
     }
@@ -142,18 +147,20 @@ public class ElasticSearchCatalog implements Catalog {
         TableSchema.Builder builder = TableSchema.builder();
         Map<String, String> fieldTypeMapping =
                 esRestClient.getFieldTypeMapping(tablePath.getTableName(), Collections.emptyList());
-        fieldTypeMapping.forEach(
-                (fieldName, fieldType) -> {
+        buildColumnsWithErrorCheck(
+                tablePath,
+                builder,
+                fieldTypeMapping.entrySet().iterator(),
+                nameAndType -> {
                     // todo: we need to add a new type TEXT or add length in STRING type
-                    PhysicalColumn physicalColumn =
-                            PhysicalColumn.of(
-                                    fieldName,
-                                    elasticSearchDataTypeConvertor.toSeaTunnelType(fieldType),
-                                    null,
-                                    true,
-                                    null,
-                                    null);
-                    builder.column(physicalColumn);
+                    return PhysicalColumn.of(
+                            nameAndType.getKey(),
+                            elasticSearchDataTypeConvertor.toSeaTunnelType(
+                                    nameAndType.getKey(), nameAndType.getValue()),
+                            null,
+                            true,
+                            null,
+                            null);
                 });
 
         return CatalogTable.of(

@@ -49,7 +49,7 @@ public class SeaTunnelContainer extends AbstractTestContainer {
     private static final String JDK_DOCKER_IMAGE = "openjdk:8";
     private static final String CLIENT_SHELL = "seatunnel.sh";
     private static final String SERVER_SHELL = "seatunnel-cluster.sh";
-    private GenericContainer<?> server;
+    protected GenericContainer<?> server;
 
     @Override
     public void startUp() throws Exception {
@@ -132,6 +132,16 @@ public class SeaTunnelContainer extends AbstractTestContainer {
     }
 
     @Override
+    protected String getSavePointCommand() {
+        return "-s";
+    }
+
+    @Override
+    protected String getRestoreCommand() {
+        return "-r";
+    }
+
+    @Override
     public void executeExtraCommands(ContainerExtendedFactory extendedFactory)
             throws IOException, InterruptedException {
         extendedFactory.extend(server);
@@ -142,6 +152,18 @@ public class SeaTunnelContainer extends AbstractTestContainer {
             throws IOException, InterruptedException {
         log.info("test in container: {}", identifier());
         return executeJob(server, confFile);
+    }
+
+    @Override
+    public Container.ExecResult savepointJob(String jobId)
+            throws IOException, InterruptedException {
+        return savepointJob(server, jobId);
+    }
+
+    @Override
+    public Container.ExecResult restoreJob(String confFile, String jobId)
+            throws IOException, InterruptedException {
+        return restoreJob(server, confFile, jobId);
     }
 
     @Override

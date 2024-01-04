@@ -55,7 +55,8 @@ public class StarRocksSinkFactory implements TableSinkFactory {
                         StarRocksSinkOptions.STARROCKS_CONFIG,
                         StarRocksSinkOptions.ENABLE_UPSERT_DELETE,
                         StarRocksSinkOptions.SAVE_MODE,
-                        StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE)
+                        StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE,
+                        StarRocksSinkOptions.HTTP_SOCKET_TIMEOUT_MS)
                 .build();
     }
 

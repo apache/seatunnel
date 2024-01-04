@@ -20,17 +20,14 @@ package org.apache.seatunnel.transform.exception;
 import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
+import java.util.Map;
+
 public class TransformException extends SeaTunnelRuntimeException {
     public TransformException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage) {
         super(seaTunnelErrorCode, errorMessage);
     }
 
-    public TransformException(
-            SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
-        super(seaTunnelErrorCode, errorMessage, cause);
-    }
-
-    public TransformException(SeaTunnelErrorCode seaTunnelErrorCode, Throwable cause) {
-        super(seaTunnelErrorCode, cause);
+    TransformException(SeaTunnelErrorCode seaTunnelErrorCode, Map<String, String> params) {
+        super(seaTunnelErrorCode, params);
     }
 }

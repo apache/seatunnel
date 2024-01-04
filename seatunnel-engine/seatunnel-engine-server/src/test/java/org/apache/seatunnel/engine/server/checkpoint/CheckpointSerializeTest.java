@@ -28,11 +28,14 @@ import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.List;
 
+@Slf4j
 public class CheckpointSerializeTest {
 
     @Test
@@ -66,7 +69,7 @@ public class CheckpointSerializeTest {
                 DefaultSerializer<FakeSourceSplit> defaultSerializer =
                         new DefaultSerializer<FakeSourceSplit>();
                 FakeSourceSplit split = defaultSerializer.deserialize(bytes);
-                System.out.println(split.getSplitId());
+                log.info(String.valueOf(split.getSplitId()));
             }
         }
 
@@ -84,7 +87,7 @@ public class CheckpointSerializeTest {
                 DefaultSerializer<FileSinkState> defaultSerializer =
                         new DefaultSerializer<FileSinkState>();
                 FileSinkState fileSinkState = defaultSerializer.deserialize(bytes);
-                System.out.println(fileSinkState.getTransactionDir());
+                log.info(fileSinkState.getTransactionDir());
             }
         }
     }

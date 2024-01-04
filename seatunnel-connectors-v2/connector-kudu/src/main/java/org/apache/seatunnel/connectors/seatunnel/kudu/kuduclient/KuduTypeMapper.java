@@ -22,7 +22,7 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.kudu.exception.KuduConnectorException;
 
 import org.apache.kudu.ColumnSchema;
@@ -32,15 +32,13 @@ import org.apache.kudu.Type;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.sql.SQLException;
 import java.util.List;
 
 public class KuduTypeMapper {
 
     private static final Logger log = LoggerFactory.getLogger(KuduTypeMapper.class);
 
-    public static SeaTunnelDataType<?> mapping(List<ColumnSchema> columnSchemaList, int colIndex)
-            throws SQLException {
+    public static SeaTunnelDataType<?> mapping(List<ColumnSchema> columnSchemaList, int colIndex) {
         Type kuduType = columnSchemaList.get(colIndex).getType();
         switch (kuduType) {
             case BOOL:
@@ -70,7 +68,7 @@ public class KuduTypeMapper {
                 return PrimitiveByteArrayType.INSTANCE;
             default:
                 throw new KuduConnectorException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                         String.format("Doesn't support KUDU type '%s' .", kuduType));
         }
     }

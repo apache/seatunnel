@@ -108,7 +108,7 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 
 ```hocon
 env {
-  execution.parallelism = 2
+  parallelism = 2
   job.mode = "BATCH"
 }
 

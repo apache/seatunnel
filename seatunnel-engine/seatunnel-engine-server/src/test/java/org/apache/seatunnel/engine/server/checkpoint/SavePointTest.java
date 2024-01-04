@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.checkpoint;
 
 import org.apache.seatunnel.common.utils.FileUtils;
+import org.apache.seatunnel.engine.common.exception.SavePointFailedException;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
@@ -34,6 +35,7 @@ import org.junit.jupiter.api.condition.OS;
 import com.hazelcast.internal.serialization.Data;
 
 import java.util.Collections;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
 
 import static org.awaitility.Awaitility.await;
@@ -47,6 +49,18 @@ public class SavePointTest extends AbstractSeaTunnelServerTest {
     @Test
     public void testSavePoint() throws InterruptedException {
         savePointAndRestore(false);
+    }
+
+    @Test
+    public void testSavePointWithNotExistedJob() {
+        CompletionException exception =
+                Assertions.assertThrows(
+                        CompletionException.class,
+                        () -> server.getCoordinatorService().savePoint(1L).join());
+        Assertions.assertTrue(exception.getCause() instanceof SavePointFailedException);
+        Assertions.assertEquals(
+                "The job with id '1' not running, save point failed",
+                exception.getCause().getMessage());
     }
 
     @Test
@@ -75,6 +89,12 @@ public class SavePointTest extends AbstractSeaTunnelServerTest {
 
         // 3 start savePoint
         server.getCoordinatorService().savePoint(JOB_ID);
+        await().atMost(10000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            JobStatus status = server.getCoordinatorService().getJobStatus(JOB_ID);
+                            Assertions.assertEquals(JobStatus.DOING_SAVEPOINT, status);
+                        });
 
         // 4 Wait for savePoint to complete
         await().atMost(120000, TimeUnit.MILLISECONDS)
@@ -82,7 +102,7 @@ public class SavePointTest extends AbstractSeaTunnelServerTest {
                         () -> {
                             Assertions.assertEquals(
                                     server.getCoordinatorService().getJobStatus(JOB_ID),
-                                    JobStatus.FINISHED);
+                                    JobStatus.SAVEPOINT_DONE);
                         });
 
         Thread.sleep(1000);

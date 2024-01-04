@@ -17,13 +17,24 @@
 
 package org.apache.seatunnel.connectors.seatunnel.feishu.sink;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.http.sink.HttpSinkFactory;
 
 import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
 public class FeishuSinkFactory extends HttpSinkFactory {
+
+    @Override
+    public TableSink createSink(TableSinkFactoryContext context) {
+        CatalogTable catalogTable = context.getCatalogTable();
+        return () ->
+                new FeishuSink(context.getOptions().toConfig(), catalogTable.getSeaTunnelRowType());
+    }
+
     @Override
     public String factoryIdentifier() {
         return "Feishu";

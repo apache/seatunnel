@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 
 import org.junit.jupiter.api.Assertions;
@@ -93,13 +94,19 @@ public class ConnectorSpecificationCheckTest {
                                                         factoryName.replace("Factory", "")));
                 Optional<Method> prepare = ReflectionUtils.getDeclaredMethod(sinkClass, "prepare");
                 Optional<Method> setTypeInfo =
-                        ReflectionUtils.getDeclaredMethod(sinkClass, "setTypeInfo");
+                        ReflectionUtils.getDeclaredMethod(
+                                sinkClass, "setTypeInfo", SeaTunnelRowType.class);
+                Optional<Method> getConsumedType =
+                        ReflectionUtils.getDeclaredMethod(sinkClass, "getConsumedType");
                 Assertions.assertFalse(
                         prepare.isPresent(),
                         "Please remove `prepare` method in " + sinkClass.getSimpleName());
                 Assertions.assertFalse(
                         setTypeInfo.isPresent(),
                         "Please remove `setTypeInfo` method in " + sinkClass.getSimpleName());
+                Assertions.assertFalse(
+                        getConsumedType.isPresent(),
+                        "Please remove `getConsumedType` method in " + sinkClass.getSimpleName());
             }
         }
     }

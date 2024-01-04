@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.sink.DefaultSinkWriterContext;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import org.apache.spark.sql.catalyst.InternalRow;
@@ -32,9 +33,12 @@ import java.io.IOException;
 public class SparkDataWriterFactory<CommitInfoT, StateT> implements DataWriterFactory<InternalRow> {
 
     private final SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, ?> sink;
+    private final CatalogTable catalogTable;
 
-    SparkDataWriterFactory(SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, ?> sink) {
+    SparkDataWriterFactory(
+            SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, ?> sink, CatalogTable catalogTable) {
         this.sink = sink;
+        this.catalogTable = catalogTable;
     }
 
     @Override
@@ -53,6 +57,7 @@ public class SparkDataWriterFactory<CommitInfoT, StateT> implements DataWriterFa
         } catch (IOException e) {
             throw new RuntimeException("Failed to create SinkCommitter.", e);
         }
-        return new SparkDataWriter<>(writer, committer, sink.getConsumedType(), epochId);
+        return new SparkDataWriter<>(
+                writer, committer, catalogTable.getSeaTunnelRowType(), epochId);
     }
 }

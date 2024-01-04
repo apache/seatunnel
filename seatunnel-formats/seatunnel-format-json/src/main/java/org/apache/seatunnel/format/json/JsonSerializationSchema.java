@@ -24,8 +24,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode
 import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
+import org.apache.seatunnel.common.exception.CommonError;
 
 import lombok.Getter;
 
@@ -33,6 +32,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public class JsonSerializationSchema implements SerializationSchema {
 
+    public static final String FORMAT = "Common";
     /** RowType to generate the runtime converter. */
     private final SeaTunnelRowType rowType;
 
@@ -58,11 +58,8 @@ public class JsonSerializationSchema implements SerializationSchema {
         try {
             runtimeConverter.convert(mapper, node, row);
             return mapper.writeValueAsBytes(node);
-        } catch (Throwable e) {
-            throw new SeaTunnelJsonFormatException(
-                    CommonErrorCode.JSON_OPERATION_FAILED,
-                    String.format("Failed to deserialize JSON '%s'.", row),
-                    e);
+        } catch (Throwable t) {
+            throw CommonError.jsonOperationError(FORMAT, row.toString(), t);
         }
     }
 }

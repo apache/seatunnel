@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.kudu.serialize;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.kudu.exception.KuduConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.kudu.exception.KuduConnectorException;
@@ -66,7 +66,7 @@ public class KuduRowSerializer implements SeaTunnelRowSerializer {
                 break;
             default:
                 throw new KuduConnectorException(
-                        CommonErrorCode.UNSUPPORTED_OPERATION,
+                        CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                         "Unsupported write row kind: " + row.getRowKind());
         }
         transform(operation, row);
@@ -106,7 +106,7 @@ public class KuduRowSerializer implements SeaTunnelRowSerializer {
                         break;
                     default:
                         throw new KuduConnectorException(
-                                CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                                CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                                 "Unsupported column type: " + type.getSqlType());
                 }
             } catch (ClassCastException e) {

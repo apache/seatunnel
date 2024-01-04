@@ -24,6 +24,8 @@ import java.util.Map;
 
 public class HttpConfig {
     public static final String BASIC = "Basic";
+    public static final String CONNECTOR_IDENTITY = "Http";
+
     public static final int DEFAULT_RETRY_BACKOFF_MULTIPLIER_MS = 100;
     public static final int DEFAULT_RETRY_BACKOFF_MAX_MS = 10000;
     public static final boolean DEFAULT_ENABLE_MULTI_LINES = false;
@@ -65,7 +67,7 @@ public class HttpConfig {
     public static final Option<ResponseFormat> FORMAT =
             Options.key("format")
                     .enumType(ResponseFormat.class)
-                    .defaultValue(ResponseFormat.JSON)
+                    .defaultValue(ResponseFormat.TEXT)
                     .withDescription("Http response format");
     public static final Option<Integer> POLL_INTERVAL_MILLS =
             Options.key("poll_interval_millis")
@@ -111,7 +113,8 @@ public class HttpConfig {
                             "SeaTunnel enableMultiLines.This parameter can support http splitting response text by line.");
 
     public enum ResponseFormat {
-        JSON("json");
+        JSON("json"),
+        TEXT("text");
 
         private String format;
 
