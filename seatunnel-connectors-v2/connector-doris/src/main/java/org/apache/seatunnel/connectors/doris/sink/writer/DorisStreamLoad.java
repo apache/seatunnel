@@ -78,7 +78,8 @@ public class DorisStreamLoad implements Serializable {
     private Future<CloseableHttpResponse> pendingLoadFuture;
     private final CloseableHttpClient httpClient;
     private final ExecutorService executorService;
-    private boolean loadBatchFirstRecord;
+    private volatile boolean loadBatchFirstRecord;
+    private String label;
     private long recordCount = 0;
 
     public DorisStreamLoad(
@@ -191,6 +192,7 @@ public class DorisStreamLoad implements Serializable {
     public void writeRecord(byte[] record) throws IOException {
         if (loadBatchFirstRecord) {
             loadBatchFirstRecord = false;
+            startStreamLoad();
         } else {
             recordStream.write(lineDelimiter);
         }
@@ -216,19 +218,26 @@ public class DorisStreamLoad implements Serializable {
     public RespContent stopLoad() throws IOException {
         recordStream.endInput();
         log.info("stream load stopped.");
-        checkState(pendingLoadFuture != null);
-        try {
-            return handlePreCommitResponse(pendingLoadFuture.get());
-        } catch (Exception e) {
-            throw new DorisConnectorException(DorisConnectorErrorCode.STREAM_LOAD_FAILED, e);
+        if (pendingLoadFuture != null) {
+            try {
+                return handlePreCommitResponse(pendingLoadFuture.get());
+            } catch (Exception e) {
+                throw new DorisConnectorException(DorisConnectorErrorCode.STREAM_LOAD_FAILED, e);
+            }
+        } else {
+            return null;
         }
     }
 
     public void startLoad(String label) throws IOException {
         loadBatchFirstRecord = true;
         recordCount = 0;
-        HttpPutBuilder putBuilder = new HttpPutBuilder();
         recordStream.startInput();
+        this.label = label;
+    }
+
+    private void startStreamLoad() {
+        HttpPutBuilder putBuilder = new HttpPutBuilder();
         log.info("stream load started for {}", label);
         try {
             InputStreamEntity entity = new InputStreamEntity(recordStream);

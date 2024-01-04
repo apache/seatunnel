@@ -37,7 +37,6 @@ import org.apache.seatunnel.connectors.doris.util.UnsupportedTypeConverterUtils;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -155,7 +154,7 @@ public class DorisSinkWriter
     @Override
     public Optional<DorisCommitInfo> prepareCommit() throws IOException {
         RespContent respContent = flush();
-        if (!dorisConfig.getEnable2PC()) {
+        if (!dorisConfig.getEnable2PC() || respContent == null) {
             return Optional.empty();
         }
         long txnId = respContent.getTxnId();
@@ -164,12 +163,12 @@ public class DorisSinkWriter
                 new DorisCommitInfo(dorisStreamLoad.getHostPort(), dorisStreamLoad.getDb(), txnId));
     }
 
-    @NonNull private RespContent flush() throws IOException {
+    private RespContent flush() throws IOException {
         // disable exception checker before stop load.
         loading = false;
         checkState(dorisStreamLoad != null);
         RespContent respContent = dorisStreamLoad.stopLoad();
-        if (!DORIS_SUCCESS_STATUS.contains(respContent.getStatus())) {
+        if (respContent != null && !DORIS_SUCCESS_STATUS.contains(respContent.getStatus())) {
             String errMsg =
                     String.format(
                             "stream load error: %s, see more in %s",
