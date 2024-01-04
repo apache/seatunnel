@@ -334,4 +334,29 @@ public class DorisCatalog implements Catalog {
         options.put(DorisOptions.PASSWORD.key(), password);
         return options;
     }
+
+    public void truncateTable(TablePath tablePath, boolean ignoreIfNotExists)
+            throws TableNotExistException, CatalogException {
+        try {
+            if (ignoreIfNotExists) {
+                conn.createStatement()
+                        .execute(String.format("TRUNCATE TABLE  %s", tablePath.getFullName()));
+            }
+        } catch (Exception e) {
+            throw new CatalogException(
+                    String.format("Failed TRUNCATE TABLE in catalog %s", tablePath.getFullName()),
+                    e);
+        }
+    }
+
+    public boolean isExistsData(TablePath tablePath) {
+        String tableName = tablePath.getFullName();
+        String sql = String.format("select * from %s limit 1;", tableName);
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
+            ResultSet resultSet = ps.executeQuery();
+            return resultSet.next();
+        } catch (SQLException e) {
+            throw new CatalogException(String.format("Failed executeSql error %s", sql), e);
+        }
+    }
 }

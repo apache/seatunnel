@@ -62,27 +62,42 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
             long start = System.currentTimeMillis();
 
             Column splitColumn = getSplitColumn(jdbc, dialect, tableId);
-            final List<ChunkRange> chunks;
-            try {
-                chunks = splitTableIntoChunks(jdbc, tableId, splitColumn);
-            } catch (SQLException e) {
-                throw new RuntimeException("Failed to split chunks for table " + tableId, e);
-            }
-
-            // convert chunks into splits
             List<SnapshotSplit> splits = new ArrayList<>();
-            SeaTunnelRowType splitType = getSplitType(splitColumn);
-            for (int i = 0; i < chunks.size(); i++) {
-                ChunkRange chunk = chunks.get(i);
-                SnapshotSplit split =
-                        createSnapshotSplit(
-                                jdbc,
-                                tableId,
-                                i,
-                                splitType,
-                                chunk.getChunkStart(),
-                                chunk.getChunkEnd());
-                splits.add(split);
+            if (splitColumn == null) {
+                if (sourceConfig.isExactlyOnce()) {
+                    throw new UnsupportedOperationException(
+                            String.format(
+                                    "Exactly once is enabled, but not found primary key or unique key for table %s",
+                                    tableId));
+                }
+                SnapshotSplit singleSplit = createSnapshotSplit(jdbc, tableId, 0, null, null, null);
+                splits.add(singleSplit);
+                log.warn(
+                        "No evenly split column found for table {}, use single split {}",
+                        tableId,
+                        singleSplit);
+            } else {
+                final List<ChunkRange> chunks;
+                try {
+                    chunks = splitTableIntoChunks(jdbc, tableId, splitColumn);
+                } catch (SQLException e) {
+                    throw new RuntimeException("Failed to split chunks for table " + tableId, e);
+                }
+
+                // convert chunks into splits
+                SeaTunnelRowType splitType = getSplitType(splitColumn);
+                for (int i = 0; i < chunks.size(); i++) {
+                    ChunkRange chunk = chunks.get(i);
+                    SnapshotSplit split =
+                            createSnapshotSplit(
+                                    jdbc,
+                                    tableId,
+                                    i,
+                                    splitType,
+                                    chunk.getChunkStart(),
+                                    chunk.getChunkEnd());
+                    splits.add(split);
+                }
             }
 
             long end = System.currentTimeMillis();
@@ -371,6 +386,8 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
                     }
                 }
             }
+        } else {
+            log.warn("No primary key found for table {}", tableId);
         }
 
         List<ConstraintKey> uniqueKeys = dialect.getUniqueKeys(jdbc, tableId);
@@ -389,16 +406,15 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
                     }
                 }
             }
+        } else {
+            log.warn("No unique key found for table {}", tableId);
         }
         if (splitColumn != null) {
             return splitColumn;
         }
 
-        throw new UnsupportedOperationException(
-                String.format(
-                        "Incremental snapshot for tables requires primary key/unique key,"
-                                + " but table %s doesn't have primary key.",
-                        tableId));
+        log.warn("No evenly split column found for table {}", tableId);
+        return null;
     }
 
     protected String splitId(TableId tableId, int chunkId) {

@@ -25,7 +25,6 @@ import org.apache.paimon.operation.Lock;
 import org.apache.paimon.table.Table;
 import org.apache.paimon.table.sink.BatchTableCommit;
 import org.apache.paimon.table.sink.CommitMessage;
-import org.apache.paimon.table.sink.InnerTableCommit;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -54,8 +53,7 @@ public class PaimonAggregatedCommitter
     public List<PaimonAggregatedCommitInfo> commit(
             List<PaimonAggregatedCommitInfo> aggregatedCommitInfo) throws IOException {
         try (BatchTableCommit tableCommit =
-                ((InnerTableCommit) table.newBatchWriteBuilder().newCommit())
-                        .withLock(localFactory.create())) {
+                table.newBatchWriteBuilder().withOverwrite().newCommit()) {
             List<CommitMessage> fileCommittables =
                     aggregatedCommitInfo.stream()
                             .map(PaimonAggregatedCommitInfo::getCommittables)

@@ -362,6 +362,123 @@ sink {
 }
 ```
 
+### Multiple Table
+
+For extract source metadata from upstream, you can use `${database_name}`, `${table_name}` and `${schema_name}` in the path.
+
+```bash
+
+env {
+  parallelism = 1
+  spark.app.name = "SeaTunnel"
+  spark.executor.instances = 2
+  spark.executor.cores = 1
+  spark.executor.memory = "1g"
+  spark.master = local
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    tables_configs = [
+       {
+        schema = {
+          table = "fake1"
+          fields {
+            c_map = "map<string, string>"
+            c_array = "array<int>"
+            c_string = string
+            c_boolean = boolean
+            c_tinyint = tinyint
+            c_smallint = smallint
+            c_int = int
+            c_bigint = bigint
+            c_float = float
+            c_double = double
+            c_bytes = bytes
+            c_date = date
+            c_decimal = "decimal(38, 18)"
+            c_timestamp = timestamp
+            c_row = {
+              c_map = "map<string, string>"
+              c_array = "array<int>"
+              c_string = string
+              c_boolean = boolean
+              c_tinyint = tinyint
+              c_smallint = smallint
+              c_int = int
+              c_bigint = bigint
+              c_float = float
+              c_double = double
+              c_bytes = bytes
+              c_date = date
+              c_decimal = "decimal(38, 18)"
+              c_timestamp = timestamp
+            }
+          }
+        }
+       },
+       {
+       schema = {
+         table = "fake2"
+         fields {
+           c_map = "map<string, string>"
+           c_array = "array<int>"
+           c_string = string
+           c_boolean = boolean
+           c_tinyint = tinyint
+           c_smallint = smallint
+           c_int = int
+           c_bigint = bigint
+           c_float = float
+           c_double = double
+           c_bytes = bytes
+           c_date = date
+           c_decimal = "decimal(38, 18)"
+           c_timestamp = timestamp
+           c_row = {
+             c_map = "map<string, string>"
+             c_array = "array<int>"
+             c_string = string
+             c_boolean = boolean
+             c_tinyint = tinyint
+             c_smallint = smallint
+             c_int = int
+             c_bigint = bigint
+             c_float = float
+             c_double = double
+             c_bytes = bytes
+             c_date = date
+             c_decimal = "decimal(38, 18)"
+             c_timestamp = timestamp
+           }
+         }
+       }
+      }
+    ]
+  }
+}
+
+sink {
+  OssFile {
+    bucket = "oss://whale-ops"
+    access_key = "xxxxxxxxxxxxxxxxxxx"
+    access_secret = "xxxxxxxxxxxxxxxxxxx"
+    endpoint = "https://oss-accelerate.aliyuncs.com"
+    path = "/tmp/fake_empty/text/${table_name}"
+    row_delimiter = "\n"
+    partition_dir_expression = "${k0}=${v0}"
+    is_partition_field_write_in_file = true
+    file_name_expression = "${transactionId}_${now}"
+    file_format_type = "text"
+    filename_time_format = "yyyy.MM.dd"
+    is_enable_transaction = true
+    compress_codec = "lzo"
+  }
+}
+
+```
+
 ## Changelog
 
 ### 2.2.0-beta 2022-09-26

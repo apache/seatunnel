@@ -23,7 +23,6 @@ public enum CommonErrorCode implements SeaTunnelErrorCode {
             "COMMON-01", "File operation failed, such as (read,list,write,move,copy,sync) etc..."),
     JSON_OPERATION_FAILED(
             "COMMON-02", "<identifier> JSON convert/parse '<payload>' operation failed."),
-
     UNSUPPORTED_DATA_TYPE(
             "COMMON-07", "'<identifier>' unsupported data type '<dataType>' of '<field>'"),
     KERBEROS_AUTHORIZED_FAILED("COMMON-14", "Kerberos authorized failed"),
@@ -44,7 +43,13 @@ public enum CommonErrorCode implements SeaTunnelErrorCode {
             "'<catalogName>' table '<tableName>' unsupported get catalog table with field data types '<fieldWithDataTypes>'"),
     GET_CATALOG_TABLES_WITH_UNSUPPORTED_TYPE_ERROR(
             "COMMON-21",
-            "'<catalogName>' tables unsupported get catalog table，the corresponding field types in the following tables are not supported: '<tableUnsupportedTypes>'");
+            "'<catalogName>' tables unsupported get catalog table，the corresponding field types in the following tables are not supported: '<tableUnsupportedTypes>'"),
+    FILE_NOT_EXISTED(
+            "COMMON-22",
+            "<identifier> <operation> file '<fileName>' failed, because it not existed."),
+    WRITE_SEATUNNEL_ROW_ERROR(
+            "COMMON-23",
+            "<connector> write SeaTunnelRow failed, the SeaTunnelRow value is '<seaTunnelRow>'.");
 
     private final String code;
     private final String description;

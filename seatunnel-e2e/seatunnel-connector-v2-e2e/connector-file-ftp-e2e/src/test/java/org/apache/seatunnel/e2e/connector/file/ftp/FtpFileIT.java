@@ -104,6 +104,9 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
                 "/home/vsftpd/seatunnel/tmp/seatunnel/read/excel_filter/name=tyrantlucifer/hobby=coding/e2e_filter.xlsx",
                 ftpContainer);
 
+        ContainerUtil.copyFileIntoContainers(
+                "/excel/e2e.xlsx", "/home/vsftpd/seatunnel/e2e.xlsx", ftpContainer);
+
         ftpContainer.execInContainer("sh", "-c", "chmod -R 777 /home/vsftpd/seatunnel/");
         ftpContainer.execInContainer("sh", "-c", "chown -R ftp:ftp /home/vsftpd/seatunnel/");
     }
@@ -136,6 +139,8 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
         helper.execute("/parquet/fake_to_ftp_file_parquet.conf");
         // test write ftp orc file
         helper.execute("/orc/fake_to_ftp_file_orc.conf");
+        // test write ftp root path excel file
+        helper.execute("/excel/fake_source_to_ftp_root_path_excel.conf");
     }
 
     @AfterAll

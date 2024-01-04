@@ -38,6 +38,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 | password                         | string  | yes      | -                                          |                                                                                                                   |
 | path                             | string  | yes      | -                                          |                                                                                                                   |
 | tmp_path                         | string  | yes      | /tmp/seatunnel                             | The result file will write to a tmp path first and then use `mv` to submit tmp dir to target dir. Need a FTP dir. |
+| connection_mode                  | string  | no       | active_local                               | The target ftp connection mode                                                                                    |
 | custom_filename                  | boolean | no       | false                                      | Whether you need custom the filename                                                                              |
 | file_name_expression             | string  | no       | "${transactionId}"                         | Only used when custom_filename is true                                                                            |
 | filename_time_format             | string  | no       | "yyyy.MM.dd"                               | Only used when custom_filename is true                                                                            |
@@ -75,6 +76,12 @@ The target ftp password is required
 ### path [string]
 
 The target dir path is required.
+
+### connection_mode [string]
+
+The target ftp connection mode , default is active mode, supported as the following modes:
+
+`active_local` `passive_local`
 
 ### custom_filename [boolean]
 
