@@ -105,6 +105,7 @@
 
 - [Json] Remove assert key word. (#5919)
 - [Formats] Replace CommonErrorCodeDeprecated.JSON_OPERATION_FAILED. (#5948)
+- [Formats] Refactor exception catch for `ignoreParseErrors`. (#6065)
 
 ### Connector-V2
 
@@ -184,6 +185,7 @@
 - [Transform-V2] Add Catalog support for FilterRowKindTransform (#4420)
 - [Transform-V2] Add support CatalogTable for FilterFieldTransform (#4422)
 - [Transform-V2] Add catalog support for SQL Transform plugin (#4819)
+- [Connector-V2] [Assert] Support check the precision and scale of Decimal type (#6110)
 
 ### Zeta(ST-Engine)
 
