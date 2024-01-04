@@ -17,17 +17,18 @@
 
 package org.apache.seatunnel.connectors.doris.config;
 
-import org.apache.seatunnel.shade.com.google.common.collect.ImmutableMap;
-
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.sink.DataSaveMode;
+import org.apache.seatunnel.api.sink.SchemaSaveMode;
 
 import java.util.Map;
 
+import static org.apache.seatunnel.api.sink.SinkCommonOptions.MULTI_TABLE_SINK_REPLICA;
+
 public interface DorisOptions {
 
-    int DORIS_TABLET_SIZE_MIN = 1;
     int DORIS_TABLET_SIZE_DEFAULT = Integer.MAX_VALUE;
     int DORIS_REQUEST_CONNECT_TIMEOUT_MS_DEFAULT = 30 * 1000;
     int DORIS_REQUEST_READ_TIMEOUT_MS_DEFAULT = 30 * 1000;
@@ -36,31 +37,10 @@ public interface DorisOptions {
     Boolean DORIS_DESERIALIZE_ARROW_ASYNC_DEFAULT = false;
     int DORIS_DESERIALIZE_QUEUE_SIZE_DEFAULT = 64;
     int DORIS_BATCH_SIZE_DEFAULT = 1024;
-    long DORIS_EXEC_MEM_LIMIT_DEFAULT = 2147483648L;
     int DEFAULT_SINK_CHECK_INTERVAL = 10000;
     int DEFAULT_SINK_MAX_RETRIES = 3;
     int DEFAULT_SINK_BUFFER_SIZE = 256 * 1024;
     int DEFAULT_SINK_BUFFER_COUNT = 3;
-
-    Map<String, String> DEFAULT_CREATE_PROPERTIES =
-            ImmutableMap.of(
-                    "replication_allocation", "tag.location.default: 3",
-                    "storage_format", "V2",
-                    "disable_auto_compaction", "false");
-
-    String DEFAULT_CREATE_TEMPLATE =
-            "CREATE TABLE ${table_identifier}\n"
-                    + "(\n"
-                    + "${column_definition}\n"
-                    + ")\n"
-                    + "ENGINE = ${engine_type}\n"
-                    + "UNIQUE KEY (${key_columns})\n"
-                    + "COMMENT ${table_comment}\n"
-                    + "${partition_info}\n"
-                    + "DISTRIBUTED BY HASH (${distribution_columns}) BUCKETS ${distribution_bucket}\n"
-                    + "PROPERTIES (\n"
-                    + "${properties}\n"
-                    + ")\n";
 
     // common option
     Option<String> FENODES =
@@ -75,11 +55,13 @@ public interface DorisOptions {
                     .defaultValue(9030)
                     .withDescription("doris query port");
 
+    @Deprecated
     Option<String> TABLE_IDENTIFIER =
             Options.key("table.identifier")
                     .stringType()
                     .noDefaultValue()
                     .withDescription("the doris table name.");
+
     Option<String> USERNAME =
             Options.key("username")
                     .stringType()
@@ -90,6 +72,17 @@ public interface DorisOptions {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("the doris password.");
+
+    Option<String> TABLE =
+            Options.key("table")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("the doris table name.");
+    Option<String> DATABASE =
+            Options.key("database")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("the doris database name.");
     Option<Integer> DORIS_BATCH_SIZE =
             Options.key("doris.batch.size")
                     .intType()
@@ -197,6 +190,28 @@ public interface DorisOptions {
                     .defaultValue("information_schema")
                     .withDescription("");
 
+    Option<SchemaSaveMode> SCHEMA_SAVE_MODE =
+            Options.key("schema_save_mode")
+                    .enumType(SchemaSaveMode.class)
+                    .defaultValue(SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST)
+                    .withDescription("schema_save_mode");
+
+    Option<DataSaveMode> DATA_SAVE_MODE =
+            Options.key("data_save_mode")
+                    .enumType(DataSaveMode.class)
+                    .defaultValue(DataSaveMode.APPEND_DATA)
+                    .withDescription("data_save_mode");
+
+    Option<String> CUSTOM_SQL =
+            Options.key("custom_sql").stringType().noDefaultValue().withDescription("custom_sql");
+
+    Option<Boolean> NEEDS_UNSUPPORTED_TYPE_CASTING =
+            Options.key("needs_unsupported_type_casting")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Whether to enable the unsupported type casting, such as Decimal64 to Double");
+
     // create table
     Option<String> SAVE_MODE_CREATE_TEMPLATE =
             Options.key("save_mode_create_template")
@@ -205,17 +220,38 @@ public interface DorisOptions {
                             "CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}` (\n"
                                     + "${rowtype_fields}\n"
                                     + ") ENGINE=OLAP\n"
-                                    + "UNIQUE KEY (${rowtype_primary_key})\n"
-                                    + "DISTRIBUTED BY HASH (${rowtype_primary_key})\n"
+                                    + " UNIQUE KEY (${rowtype_primary_key})\n"
+                                    + "DISTRIBUTED BY HASH (${rowtype_primary_key})\n "
                                     + "PROPERTIES (\n"
-                                    + "    \"replication_num\" = \"1\" \n"
+                                    + "\"replication_allocation\" = \"tag.location.default: 1\",\n"
+                                    + "\"in_memory\" = \"false\",\n"
+                                    + "\"storage_format\" = \"V2\",\n"
+                                    + "\"disable_auto_compaction\" = \"false\"\n"
                                     + ")")
                     .withDescription("Create table statement template, used to create Doris table");
 
     OptionRule.Builder SINK_RULE =
             OptionRule.builder()
-                    .required(FENODES, USERNAME, PASSWORD, TABLE_IDENTIFIER)
-                    .optional(DORIS_BATCH_SIZE);
+                    .required(
+                            FENODES,
+                            USERNAME,
+                            PASSWORD,
+                            SINK_LABEL_PREFIX,
+                            DORIS_SINK_CONFIG_PREFIX,
+                            DATA_SAVE_MODE,
+                            SCHEMA_SAVE_MODE)
+                    .optional(
+                            DATABASE,
+                            TABLE,
+                            TABLE_IDENTIFIER,
+                            QUERY_PORT,
+                            DORIS_BATCH_SIZE,
+                            SINK_ENABLE_2PC,
+                            SINK_ENABLE_DELETE,
+                            MULTI_TABLE_SINK_REPLICA,
+                            SAVE_MODE_CREATE_TEMPLATE,
+                            NEEDS_UNSUPPORTED_TYPE_CASTING)
+                    .conditional(DATA_SAVE_MODE, DataSaveMode.CUSTOM_PROCESSING, CUSTOM_SQL);
 
     OptionRule.Builder CATALOG_RULE =
             OptionRule.builder().required(FENODES, QUERY_PORT, USERNAME, PASSWORD);
