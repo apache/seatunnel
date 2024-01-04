@@ -265,7 +265,8 @@ public class OracleCatalog extends AbstractJdbcCatalog {
                 tablePath.getSchemaName(), tablePath.getTableName());
     }
 
-    public String getExistDataSql(TablePath tablePath) {
+    @Override
+    protected String getExistDataSql(TablePath tablePath) {
         return String.format(
                 "select * from \"%s\".\"%s\" WHERE rownum = 1",
                 tablePath.getSchemaName(), tablePath.getTableName());
