@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.ftp.sink;
 
+import org.apache.seatunnel.api.sink.SaveModeHandler;
+import org.apache.seatunnel.api.sink.SupportSaveMode;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.FileSaveModeHandler;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
@@ -33,8 +36,10 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.BaseFileSink;
 
 import com.google.auto.service.AutoService;
 
+import java.util.Optional;
+
 @AutoService(SeaTunnelSink.class)
-public class FtpFileSink extends BaseFileSink {
+public class FtpFileSink extends BaseFileSink implements SupportSaveMode {
     @Override
     public String getPluginName() {
         return FileSystemType.FTP.getFileSystemPluginName();
@@ -58,5 +63,12 @@ public class FtpFileSink extends BaseFileSink {
         }
         super.prepare(pluginConfig);
         hadoopConf = FtpConf.buildWithConfig(pluginConfig);
+    }
+
+    @Override
+    public Optional<SaveModeHandler> getSaveModeHandler() {
+        return Optional.of(new FileSaveModeHandler(hadoopConf, fileSinkConfig.getPath(),
+                schemaSaveMode,
+                dataSaveMode));
     }
 }
