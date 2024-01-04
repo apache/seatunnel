@@ -17,14 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.ftp.sink;
 
-import org.apache.seatunnel.api.sink.SaveModeHandler;
-import org.apache.seatunnel.api.sink.SupportSaveMode;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.FileSaveModeHandler;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.sink.SupportSaveMode;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
@@ -33,6 +32,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorExc
 import org.apache.seatunnel.connectors.seatunnel.file.ftp.config.FtpConf;
 import org.apache.seatunnel.connectors.seatunnel.file.ftp.config.FtpConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.BaseFileSink;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.FileSaveModeHandler;
 
 import com.google.auto.service.AutoService;
 
@@ -67,8 +67,8 @@ public class FtpFileSink extends BaseFileSink implements SupportSaveMode {
 
     @Override
     public Optional<SaveModeHandler> getSaveModeHandler() {
-        return Optional.of(new FileSaveModeHandler(hadoopConf, fileSinkConfig.getPath(),
-                schemaSaveMode,
-                dataSaveMode));
+        return Optional.of(
+                new FileSaveModeHandler(
+                        hadoopConf, fileSinkConfig.getPath(), schemaSaveMode, dataSaveMode));
     }
 }
