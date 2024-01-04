@@ -76,7 +76,6 @@ public class DorisSinkWriter
     private transient Thread executorThread;
     private transient volatile Exception loadException = null;
     private List<BackendV2.BackendRowV2> backends;
-    private long pos;
 
     public DorisSinkWriter(
             SinkWriter.Context context,
@@ -255,12 +254,10 @@ public class DorisSinkWriter
 
     @VisibleForTesting
     public String getAvailableBackend() {
-        long tmp = pos + backends.size();
-        while (pos < tmp) {
-            BackendV2.BackendRowV2 backend = backends.get((int) (pos % backends.size()));
+        Collections.shuffle(backends);
+        for (BackendV2.BackendRowV2 backend : backends) {
             String res = backend.toBackendString();
             if (tryHttpConnection(res)) {
-                pos++;
                 return res;
             }
         }
@@ -279,7 +276,6 @@ public class DorisSinkWriter
             return true;
         } catch (Exception ex) {
             log.warn("Failed to connect to backend:{}", backend, ex);
-            pos++;
             return false;
         }
     }
