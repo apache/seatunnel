@@ -117,7 +117,12 @@ If write to `csv`, `text` file type, All column will be string.
 | max_rows_in_memory               | int     | no       | -                                                     | Only used when file_format is excel.                                                                                                                                  |
 | sheet_name                       | string  | no       | Sheet${Random number}                                 | Only used when file_format is excel.                                                                                                                                  |
 | hadoop_s3_properties             | map     | no       |                                                       | If you need to add a other option, you could add it here and refer to this [link](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html)       |
-|                                  |
+| schema_save_mode                 | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST                          | Before turning on the synchronous task, do different treatment of the target path                                                                                     |
+| data_save_mode                   | Enum    | no       | APPEND_DATA                                           | Before opening the synchronous task, the data file in the target path is differently processed                                                                        |
+
+### path [string]
+
+Store the path of the data file to support variable replacement. For example: path=/test/${database_name}/${schema_name}/${table_name}
 
 ### hadoop_s3_properties [map]
 
@@ -240,6 +245,22 @@ When File Format is Excel,The maximum number of data items that can be cached in
 ### sheet_name [string]
 
 Writer the sheet of the workbook
+
+### schema_save_mode[Enum]
+
+Before turning on the synchronous task, do different treatment of the target path.  
+Option introduction：  
+`RECREATE_SCHEMA` ：Will create when the path does not exist, delete and rebuild when the path is saved        
+`CREATE_SCHEMA_WHEN_NOT_EXIST` ：Will Created when the path does not exist, skipped when the path is saved        
+`ERROR_WHEN_SCHEMA_NOT_EXIST` ：Error will be reported when the path does not exist
+
+### data_save_mode[Enum]
+
+Before opening the synchronous task, the data file in the target path is differently processed.
+Option introduction：  
+`DROP_DATA`： Preserve path structure and delete data  
+`APPEND_DATA`：Preserve path structure, preserve data   
+`ERROR_WHEN_DATA_EXISTS`：When there is data, an error is reported
 
 ## Example
 
@@ -383,6 +404,8 @@ For orc file format simple config with `org.apache.hadoop.fs.s3a.SimpleAWSCreden
     access_key = "xxxxxxxxxxxxxxxxx"
     secret_key = "xxxxxxxxxxxxxxxxx"
     file_format_type = "orc"
+    schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+    data_save_mode="APPEND_DATA"
   }
 
 ```
