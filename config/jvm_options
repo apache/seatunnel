@@ -25,3 +25,8 @@
 
 # Metaspace
 -XX:MaxMetaspaceSize=2g
+
+# G1GC
+-XX:+UseG1GC
+-XX:MaxGCPauseMillis=200
+-XX:+PrintGCDateStamps
