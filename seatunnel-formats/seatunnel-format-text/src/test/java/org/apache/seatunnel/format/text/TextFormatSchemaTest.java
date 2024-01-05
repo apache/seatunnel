@@ -145,4 +145,33 @@ public class TextFormatSchemaTest {
         Assertions.assertEquals(seaTunnelRow.getField(2), "tyrantlucifer");
         Assertions.assertEquals(data, content);
     }
+
+    @Test
+    public void testHiveCollectionTypeParse() throws IOException {
+        TextDeserializationSchema deserializationSchema =
+                TextDeserializationSchema.builder()
+                        .seaTunnelRowType(seaTunnelRowType)
+                        .delimiter("\u0001")
+                        .build();
+        TextSerializationSchema serializationSchema =
+                TextSerializationSchema.builder()
+                        .seaTunnelRowType(seaTunnelRowType)
+                        .delimiter("#")
+                        .enableHiveCollectionType(true)
+                        .collectionDelimiter(",")
+                        .mapKeysDelimiter(":")
+                        .build();
+        SeaTunnelRow seaTunnelRow = deserializationSchema.deserialize(content.getBytes());
+        String data = new String(serializationSchema.serialize(seaTunnelRow));
+        Assertions.assertEquals(((Map<?, ?>) (seaTunnelRow.getField(1))).get("tyrantlucifer"), 18);
+        Assertions.assertEquals(((Map<?, ?>) (seaTunnelRow.getField(1))).get("Kris"), 21);
+        Assertions.assertArrayEquals(
+                (byte[]) seaTunnelRow.getField(12), "tyrantlucifer".getBytes());
+        Assertions.assertEquals(seaTunnelRow.getField(2), "tyrantlucifer");
+
+        String[] result = data.split("#");
+        Assertions.assertEquals(result[0], "1,2,3,4,5,6");
+        Assertions.assertEquals(result[1], "tyrantlucifer:18,Kris:21,nullValueKey:null,null:1231");
+        Assertions.assertEquals(result[16], "1,2,3,4,5,6,tyrantlucifer:18,Kris:21");
+    }
 }

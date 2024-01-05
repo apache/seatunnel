@@ -39,6 +39,8 @@ public class BaseSinkConfig {
     public static final String DEFAULT_TMP_PATH = "/tmp/seatunnel";
     public static final String DEFAULT_FILE_NAME_EXPRESSION = "${transactionId}";
     public static final int DEFAULT_BATCH_SIZE = 1000000;
+    public static final String DEFAULT_COLLECTION_DELIMITER_HIVE = ",";
+    public static final String DEFAULT_MAP_KEYS_DELIMITER_HIVE = ":";
 
     public static final Option<CompressFormat> COMPRESS_CODEC =
             Options.key("compress_codec")
@@ -251,4 +253,25 @@ public class BaseSinkConfig {
                     .booleanType()
                     .defaultValue(false)
                     .withDescription("false:dont write header,true:write header");
+
+    public static final Option<Boolean> ENABLE_HIVE_COLLECTION_TYPE =
+            Options.key("enable_hive_collection_type")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "If the sink is hive, and hive's field types include array, map, and struct collection types, you can turn on this option. This will fully adapt to hive's collection types array, map, and struct, making it easy to directly query the fields in the collection in hive. Information, not enabled by default");
+
+    public static final Option<String> COLLECTION_DELIMITER_HIVE =
+            Options.key("collection_delimiter_hive")
+                    .stringType()
+                    .defaultValue(DEFAULT_COLLECTION_DELIMITER_HIVE)
+                    .withDescription(
+                            "Hive specifies the separator between array and structural elements, which defaults ','");
+
+    public static final Option<String> MAP_KEYS_DELIMITER_HIVE =
+            Options.key("map_keys_delimiter_hive")
+                    .stringType()
+                    .defaultValue(DEFAULT_MAP_KEYS_DELIMITER_HIVE)
+                    .withDescription(
+                            "HIVE sets the separator between the key and value of MAP, with the ':'");
 }

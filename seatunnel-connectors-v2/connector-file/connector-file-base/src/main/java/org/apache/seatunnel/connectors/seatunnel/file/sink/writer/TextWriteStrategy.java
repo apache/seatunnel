@@ -51,6 +51,9 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
     private final FileFormat fileFormat;
     private final Boolean enableHeaderWriter;
     private SerializationSchema serializationSchema;
+    private final Boolean enableHiveCollectionType;
+    private final String collectionDelimiter;
+    private final String mapKeysDelimiter;
 
     public TextWriteStrategy(FileSinkConfig fileSinkConfig) {
         super(fileSinkConfig);
@@ -63,6 +66,9 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
         this.timeFormat = fileSinkConfig.getTimeFormat();
         this.fileFormat = fileSinkConfig.getFileFormat();
         this.enableHeaderWriter = fileSinkConfig.getEnableHeaderWriter();
+        this.enableHiveCollectionType = fileSinkConfig.getEnableHiveCollectionType();
+        this.collectionDelimiter = fileSinkConfig.getCollectionDelimiter();
+        this.mapKeysDelimiter = fileSinkConfig.getMapKeysDelimiter();
     }
 
     @Override
@@ -76,6 +82,9 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
                         .dateFormatter(dateFormat)
                         .dateTimeFormatter(dateTimeFormat)
                         .timeFormatter(timeFormat)
+                        .enableHiveCollectionType(enableHiveCollectionType)
+                        .collectionDelimiter(collectionDelimiter)
+                        .mapKeysDelimiter(mapKeysDelimiter)
                         .build();
     }
 

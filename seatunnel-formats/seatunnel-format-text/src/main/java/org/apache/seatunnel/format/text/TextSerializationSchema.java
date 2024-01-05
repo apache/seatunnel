@@ -38,6 +38,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public class TextSerializationSchema implements SerializationSchema {
@@ -46,18 +47,28 @@ public class TextSerializationSchema implements SerializationSchema {
     private final DateUtils.Formatter dateFormatter;
     private final DateTimeUtils.Formatter dateTimeFormatter;
     private final TimeUtils.Formatter timeFormatter;
+    private final Boolean enableHiveCollectionType;
+    private final String collectionDelimiter;
+    private final String mapKeysDelimiter;
+    public static final String REGEX = "^\"|\"$|^\'|\'$";
 
     private TextSerializationSchema(
             @NonNull SeaTunnelRowType seaTunnelRowType,
             String[] separators,
             DateUtils.Formatter dateFormatter,
             DateTimeUtils.Formatter dateTimeFormatter,
-            TimeUtils.Formatter timeFormatter) {
+            TimeUtils.Formatter timeFormatter,
+            Boolean enableHiveCollectionType,
+            String collectionDelimiter,
+            String mapKeysDelimiter) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.separators = separators;
         this.dateFormatter = dateFormatter;
         this.dateTimeFormatter = dateTimeFormatter;
         this.timeFormatter = timeFormatter;
+        this.enableHiveCollectionType = enableHiveCollectionType;
+        this.collectionDelimiter = collectionDelimiter;
+        this.mapKeysDelimiter = mapKeysDelimiter;
     }
 
     public static Builder builder() {
@@ -71,6 +82,9 @@ public class TextSerializationSchema implements SerializationSchema {
         private DateTimeUtils.Formatter dateTimeFormatter =
                 DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS;
         private TimeUtils.Formatter timeFormatter = TimeUtils.Formatter.HH_MM_SS;
+        private Boolean enableHiveCollectionType;
+        private String collectionDelimiter;
+        private String mapKeysDelimiter;
 
         private Builder() {}
 
@@ -104,9 +118,31 @@ public class TextSerializationSchema implements SerializationSchema {
             return this;
         }
 
+        public Builder enableHiveCollectionType(Boolean enableHiveCollectionType) {
+            this.enableHiveCollectionType = enableHiveCollectionType;
+            return this;
+        }
+
+        public Builder collectionDelimiter(String collectionDelimiter) {
+            this.collectionDelimiter = collectionDelimiter;
+            return this;
+        }
+
+        public Builder mapKeysDelimiter(String mapKeysDelimiter) {
+            this.mapKeysDelimiter = mapKeysDelimiter;
+            return this;
+        }
+
         public TextSerializationSchema build() {
             return new TextSerializationSchema(
-                    seaTunnelRowType, separators, dateFormatter, dateTimeFormatter, timeFormatter);
+                    seaTunnelRowType,
+                    separators,
+                    dateFormatter,
+                    dateTimeFormatter,
+                    timeFormatter,
+                    enableHiveCollectionType,
+                    collectionDelimiter,
+                    mapKeysDelimiter);
         }
     }
 
@@ -150,11 +186,43 @@ public class TextSerializationSchema implements SerializationSchema {
             case BYTES:
                 return new String((byte[]) field);
             case ARRAY:
+                if (enableHiveCollectionType) {
+                    Object[] array = (Object[]) field;
+                    StringBuilder elementBuilder = new StringBuilder();
+                    for (Object element : array) {
+                        String trimmed = element.toString().trim().replaceAll(REGEX, "");
+                        elementBuilder.append(trimmed).append(collectionDelimiter);
+                    }
+                    elementBuilder.deleteCharAt(elementBuilder.length() - 1);
+                    return elementBuilder.toString();
+                }
                 BasicType<?> elementType = ((ArrayType<?, ?>) fieldType).getElementType();
                 return Arrays.stream((Object[]) field)
                         .map(f -> convert(f, elementType, level + 1))
                         .collect(Collectors.joining(separators[level + 1]));
             case MAP:
+                if (enableHiveCollectionType) {
+                    Map map = (Map) field;
+                    Set<Map.Entry> set = map.entrySet();
+                    StringBuilder stringBuilder = new StringBuilder();
+                    for (Map.Entry entry : set) {
+                        String key =
+                                entry.getKey() == null
+                                        ? null
+                                        : entry.getKey().toString().trim().replaceAll(REGEX, "");
+                        String value =
+                                entry.getValue() == null
+                                        ? null
+                                        : entry.getValue().toString().trim().replaceAll(REGEX, "");
+                        stringBuilder
+                                .append(key)
+                                .append(mapKeysDelimiter)
+                                .append(value)
+                                .append(collectionDelimiter);
+                    }
+                    stringBuilder.deleteCharAt(stringBuilder.length() - 1);
+                    return stringBuilder.toString();
+                }
                 SeaTunnelDataType<?> keyType = ((MapType<?, ?>) fieldType).getKeyType();
                 SeaTunnelDataType<?> valueType = ((MapType<?, ?>) fieldType).getValueType();
                 return ((Map<Object, Object>) field)
@@ -170,6 +238,18 @@ public class TextSerializationSchema implements SerializationSchema {
                                                                 level + 1)))
                                 .collect(Collectors.joining(separators[level + 1]));
             case ROW:
+                if (enableHiveCollectionType) {
+                    Object[] fields = ((SeaTunnelRow) field).getFields();
+                    String[] strings = new String[fields.length];
+                    for (int i = 0; i < fields.length; i++) {
+                        strings[i] =
+                                convert(
+                                        fields[i],
+                                        ((SeaTunnelRowType) fieldType).getFieldType(i),
+                                        level + 1);
+                    }
+                    return String.join(collectionDelimiter, strings);
+                }
                 Object[] fields = ((SeaTunnelRow) field).getFields();
                 String[] strings = new String[fields.length];
                 for (int i = 0; i < fields.length; i++) {

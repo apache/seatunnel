@@ -47,6 +47,10 @@ public class BaseFileSinkConfig implements DelimiterConfig, Serializable {
     protected DateTimeUtils.Formatter datetimeFormat = DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS;
     protected TimeUtils.Formatter timeFormat = TimeUtils.Formatter.HH_MM_SS;
     protected Boolean enableHeaderWriter = false;
+    protected Boolean enableHiveCollectionType =
+            BaseSinkConfig.ENABLE_HIVE_COLLECTION_TYPE.defaultValue();
+    protected String collectionDelimiter = BaseSinkConfig.COLLECTION_DELIMITER_HIVE.defaultValue();
+    protected String mapKeysDelimiter = BaseSinkConfig.MAP_KEYS_DELIMITER_HIVE.defaultValue();
 
     public BaseFileSinkConfig(@NonNull Config config) {
         if (config.hasPath(BaseSinkConfig.COMPRESS_CODEC.key())) {
