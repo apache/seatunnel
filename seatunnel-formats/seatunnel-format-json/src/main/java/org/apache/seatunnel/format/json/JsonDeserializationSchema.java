@@ -18,6 +18,7 @@
 
 package org.apache.seatunnel.format.json;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.json.JsonReadFeature;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.DeserializationFeature;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
@@ -136,11 +137,11 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
         }
         try {
             return (SeaTunnelRow) runtimeConverter.convert(jsonNode);
-        } catch (Throwable t) {
+        } catch (RuntimeException e) {
             if (ignoreParseErrors) {
                 return null;
             }
-            throw CommonError.jsonOperationError(FORMAT, jsonNode.toString(), t);
+            throw CommonError.jsonOperationError(FORMAT, jsonNode.toString(), e);
         }
     }
 
@@ -155,22 +156,22 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
     private JsonNode convertBytes(byte[] message) {
         try {
             return objectMapper.readTree(message);
-        } catch (Throwable t) {
+        } catch (IOException | RuntimeException e) {
             if (ignoreParseErrors) {
                 return NullNode.getInstance();
             }
-            throw CommonError.jsonOperationError(FORMAT, new String(message), t);
+            throw CommonError.jsonOperationError(FORMAT, new String(message), e);
         }
     }
 
     private JsonNode convert(String message) {
         try {
             return objectMapper.readTree(message);
-        } catch (Throwable t) {
+        } catch (JsonProcessingException | RuntimeException e) {
             if (ignoreParseErrors) {
                 return NullNode.getInstance();
             }
-            throw CommonError.jsonOperationError(FORMAT, new String(message), t);
+            throw CommonError.jsonOperationError(FORMAT, new String(message), e);
         }
     }
 

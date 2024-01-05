@@ -135,9 +135,9 @@ The following example demonstrates how to create a data synchronization job that
 ```hocon
 env {
   # You can set engine configuration here
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "STREAMING"
-  execution.checkpoint.interval = 5000
+  checkpoint.interval = 5000
 }
 
 source {
@@ -173,9 +173,9 @@ The following example demonstrates how to create a data synchronization job that
 ```hocon
 env {
   # You can set engine configuration here
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "STREAMING"
-  execution.checkpoint.interval = 5000
+  checkpoint.interval = 5000
 }
 
 source {
@@ -211,9 +211,9 @@ The following example demonstrates how to create a data synchronization job that
 ```hocon
 env {
   # You can set engine configuration here
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "STREAMING"
-  execution.checkpoint.interval = 5000
+  checkpoint.interval = 5000
 }
 
 source {
@@ -251,9 +251,9 @@ The following example demonstrates how to create a data synchronization job that
 ```hocon
 env {
   # You can set engine configuration here
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "STREAMING"
-  execution.checkpoint.interval = 5000
+  checkpoint.interval = 5000
 }
 
 source {

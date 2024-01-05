@@ -37,8 +37,7 @@
 
 ```hocon
 env {
-  # You can set flink configuration here
-  execution.parallelism = 1
+  parallelism = 1
 }
 Socket {
   host = "localhost"

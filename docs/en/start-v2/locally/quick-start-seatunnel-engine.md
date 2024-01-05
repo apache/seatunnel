@@ -16,7 +16,7 @@ The following is an example of the configuration file, which is the same as the 
 
 ```hocon
 env {
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "BATCH"
 }
 

@@ -62,7 +62,8 @@ public class FlinkSourceReader<SplitT extends SourceSplit>
             SeaTunnelRowType seaTunnelRowType) {
         this.sourceReader = sourceReader;
         this.context = context;
-        this.flinkRowCollector = new FlinkRowCollector(seaTunnelRowType, envConfig);
+        this.flinkRowCollector =
+                new FlinkRowCollector(seaTunnelRowType, envConfig, context.getMetricsContext());
     }
 
     @Override

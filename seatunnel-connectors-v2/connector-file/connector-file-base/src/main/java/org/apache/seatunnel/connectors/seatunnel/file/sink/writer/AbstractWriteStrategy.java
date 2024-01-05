@@ -286,7 +286,7 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
             hadoopFileSystemProxy.deleteFile(getTransactionDir(transactionId));
         } catch (IOException e) {
             throw new FileConnectorException(
-                    CommonErrorCodeDeprecated.FILE_OPERATION_FAILED,
+                    CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED,
                     "Abort transaction "
                             + transactionId
                             + " error, delete transaction directory failed",

@@ -447,7 +447,7 @@ public class ExecutionPlanGenerator {
                 new PipelineGenerator(executionVertices, new ArrayList<>(executionEdges));
         List<Pipeline> pipelines = pipelineGenerator.generatePipelines();
 
-        long actionCount = 0;
+        Set<String> duplicatedActionNames = new HashSet<>();
         Set<String> actionNames = new HashSet<>();
         for (Pipeline pipeline : pipelines) {
             Integer pipelineId = pipeline.getId();
@@ -455,12 +455,15 @@ public class ExecutionPlanGenerator {
                 Action action = vertex.getAction();
                 String actionName = String.format("pipeline-%s [%s]", pipelineId, action.getName());
                 action.setName(actionName);
+                if (actionNames.contains(actionName)) {
+                    duplicatedActionNames.add(actionName);
+                }
                 actionNames.add(actionName);
-                actionCount++;
             }
         }
         checkArgument(
-                actionNames.size() == actionCount, "Action name is duplicated: " + actionNames);
+                duplicatedActionNames.isEmpty(),
+                "Action name is duplicated: " + duplicatedActionNames);
 
         return pipelines;
     }

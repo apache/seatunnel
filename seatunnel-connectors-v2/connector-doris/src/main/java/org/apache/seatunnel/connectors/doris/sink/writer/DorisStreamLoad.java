@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.doris.sink.writer;
 
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.connectors.doris.config.DorisConfig;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorErrorCode;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorException;
@@ -32,7 +33,6 @@ import org.apache.http.util.EntityUtils;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import lombok.extern.slf4j.Slf4j;
 
@@ -79,16 +79,17 @@ public class DorisStreamLoad implements Serializable {
     private final CloseableHttpClient httpClient;
     private final ExecutorService executorService;
     private boolean loadBatchFirstRecord;
+    private long recordCount = 0;
 
     public DorisStreamLoad(
             String hostPort,
+            TablePath tablePath,
             DorisConfig dorisConfig,
             LabelGenerator labelGenerator,
             CloseableHttpClient httpClient) {
         this.hostPort = hostPort;
-        String[] tableInfo = dorisConfig.getTableIdentifier().split("\\.");
-        this.db = tableInfo[0];
-        this.table = tableInfo[1];
+        this.db = tablePath.getDatabaseName();
+        this.table = tablePath.getTableName();
         this.user = dorisConfig.getUsername();
         this.passwd = dorisConfig.getPassword();
         this.labelGenerator = labelGenerator;
@@ -194,11 +195,11 @@ public class DorisStreamLoad implements Serializable {
             recordStream.write(lineDelimiter);
         }
         recordStream.write(record);
+        recordCount++;
     }
 
-    @VisibleForTesting
-    public RecordStream getRecordStream() {
-        return recordStream;
+    public long getRecordCount() {
+        return recordCount;
     }
 
     public RespContent handlePreCommitResponse(CloseableHttpResponse response) throws Exception {
@@ -225,6 +226,7 @@ public class DorisStreamLoad implements Serializable {
 
     public void startLoad(String label) throws IOException {
         loadBatchFirstRecord = true;
+        recordCount = 0;
         HttpPutBuilder putBuilder = new HttpPutBuilder();
         recordStream.startInput();
         log.info("stream load started for {}", label);

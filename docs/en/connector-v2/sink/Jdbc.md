@@ -26,30 +26,33 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 
 ## Options
 
-|                   name                    |  type   | required | default value |
-|-------------------------------------------|---------|----------|---------------|
-| url                                       | String  | Yes      | -             |
-| driver                                    | String  | Yes      | -             |
-| user                                      | String  | No       | -             |
-| password                                  | String  | No       | -             |
-| query                                     | String  | No       | -             |
-| compatible_mode                           | String  | No       | -             |
-| database                                  | String  | No       | -             |
-| table                                     | String  | No       | -             |
-| primary_keys                              | Array   | No       | -             |
-| support_upsert_by_query_primary_key_exist | Boolean | No       | false         |
-| connection_check_timeout_sec              | Int     | No       | 30            |
-| max_retries                               | Int     | No       | 0             |
-| batch_size                                | Int     | No       | 1000          |
-| is_exactly_once                           | Boolean | No       | false         |
-| generate_sink_sql                         | Boolean | No       | false         |
-| xa_data_source_class_name                 | String  | No       | -             |
-| max_commit_attempts                       | Int     | No       | 3             |
-| transaction_timeout_sec                   | Int     | No       | -1            |
-| auto_commit                               | Boolean | No       | true          |
-| field_ide                                 | String  | No       | -             |
-| properties                                | Map     | No       | -             |
-| common-options                            |         | no       | -             |
+|                   name                    |  type   | required |        default value         |
+|-------------------------------------------|---------|----------|------------------------------|
+| url                                       | String  | Yes      | -                            |
+| driver                                    | String  | Yes      | -                            |
+| user                                      | String  | No       | -                            |
+| password                                  | String  | No       | -                            |
+| query                                     | String  | No       | -                            |
+| compatible_mode                           | String  | No       | -                            |
+| database                                  | String  | No       | -                            |
+| table                                     | String  | No       | -                            |
+| primary_keys                              | Array   | No       | -                            |
+| support_upsert_by_query_primary_key_exist | Boolean | No       | false                        |
+| connection_check_timeout_sec              | Int     | No       | 30                           |
+| max_retries                               | Int     | No       | 0                            |
+| batch_size                                | Int     | No       | 1000                         |
+| is_exactly_once                           | Boolean | No       | false                        |
+| generate_sink_sql                         | Boolean | No       | false                        |
+| xa_data_source_class_name                 | String  | No       | -                            |
+| max_commit_attempts                       | Int     | No       | 3                            |
+| transaction_timeout_sec                   | Int     | No       | -1                           |
+| auto_commit                               | Boolean | No       | true                         |
+| field_ide                                 | String  | No       | -                            |
+| properties                                | Map     | No       | -                            |
+| common-options                            |         | no       | -                            |
+| schema_save_mode                          | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST |
+| data_save_mode                            | Enum    | no       | APPEND_DATA                  |
+| custom_sql                                | String  | no       | -                            |
 
 ### driver [string]
 
@@ -88,6 +91,20 @@ This option is mutually exclusive with `query` and has a higher priority.
 Use `database` and this `table-name` auto-generate sql and receive upstream input datas write to database.
 
 This option is mutually exclusive with `query` and has a higher priority.
+
+The table parameter can fill in the name of an unwilling table, which will eventually be used as the table name of the creation table, and supports variables (`${table_name}`, `${schema_name}`). Replacement rules: `${schema_name}` will replace the SCHEMA name passed to the target side, and `${table_name}` will replace the name of the table passed to the table at the target side.
+
+mysql sink for example:
+1. test_${schema_name}_${table_name}_test
+2. sink_sinktable
+3. ss_${table_name}
+
+pgsql (Oracle Sqlserver ...) Sink for example:
+1. ${schema_name}.${table_name} _test
+2. dbo.tt_${table_name} _sink
+3. public.sink_table
+
+Tip: If the target database has the concept of SCHEMA, the table parameter must be written as `xxx.xxx`
 
 ### primary_keys [array]
 
@@ -151,6 +168,27 @@ Additional connection configuration parameters,when properties and URL have the 
 ### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
+
+### schema_save_mode[Enum]
+
+Before the synchronous task is turned on, different treatment schemes are selected for the existing surface structure of the target side.  
+Option introduction：  
+`RECREATE_SCHEMA` ：Will create when the table does not exist, delete and rebuild when the table is saved        
+`CREATE_SCHEMA_WHEN_NOT_EXIST` ：Will Created when the table does not exist, skipped when the table is saved        
+`ERROR_WHEN_SCHEMA_NOT_EXIST` ：Error will be reported when the table does not exist
+
+### data_save_mode[Enum]
+
+Before the synchronous task is turned on, different processing schemes are selected for data existing data on the target side.  
+Option introduction：  
+`DROP_DATA`： Preserve database structure and delete data  
+`APPEND_DATA`：Preserve database structure, preserve data  
+`CUSTOM_PROCESSING`：User defined processing  
+`ERROR_WHEN_DATA_EXISTS`：When there is data, an error is reported
+
+### custom_sql[String]
+
+When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.
 
 ## tips
 
@@ -231,6 +269,25 @@ sink {
         database = "sink_database"
         table = "sink_table"
         primary_keys = ["key1", "key2", ...]
+    }
+}
+```
+
+Add saveMode function
+
+```
+sink {
+    jdbc {
+        url = "jdbc:mysql://localhost:3306"
+        driver = "com.mysql.cj.jdbc.Driver"
+        user = "root"
+        password = "123456"
+        
+        database = "sink_database"
+        table = "sink_table"
+        primary_keys = ["key1", "key2", ...]
+        schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+        data_save_mode="APPEND_DATA"
     }
 }
 ```

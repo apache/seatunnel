@@ -35,9 +35,9 @@ import org.apache.avro.generic.GenericRecordBuilder;
 import org.apache.avro.io.DatumWriter;
 
 import java.io.Serializable;
+import java.lang.reflect.Array;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.List;
 
 public class RowToAvroConverter implements Serializable {
 
@@ -111,14 +111,11 @@ public class RowToAvroConverter implements Serializable {
             case BYTES:
                 return ByteBuffer.wrap((byte[]) data);
             case ARRAY:
-                //                BasicType<?> basicType = ((ArrayType<?, ?>)
-                // seaTunnelDataType).getElementType();
-                //                return Util.convertArray((Object[]) data, basicType);
                 BasicType<?> basicType = ((ArrayType<?, ?>) seaTunnelDataType).getElementType();
-                List<Object> records = new ArrayList<>(((Object[]) data).length);
-                for (Object object : (Object[]) data) {
-                    Object resolvedObject = resolveObject(object, basicType);
-                    records.add(resolvedObject);
+                int length = Array.getLength(data);
+                ArrayList<Object> records = new ArrayList<>(length);
+                for (int i = 0; i < length; i++) {
+                    records.add(resolveObject(Array.get(data, i), basicType));
                 }
                 return records;
             case ROW:

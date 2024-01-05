@@ -126,10 +126,10 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
             } else {
                 throw new IllegalStateException(format("Unknown operation type '%s'.", op));
             }
-        } catch (Throwable t) {
+        } catch (RuntimeException e) {
             // a big try catch to protect the processing.
             if (!ignoreParseErrors) {
-                throw CommonError.jsonOperationError(FORMAT, new String(message), t);
+                throw CommonError.jsonOperationError(FORMAT, new String(message), e);
             }
         }
     }

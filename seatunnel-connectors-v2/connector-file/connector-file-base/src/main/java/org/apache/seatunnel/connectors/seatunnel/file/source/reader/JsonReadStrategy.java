@@ -22,8 +22,9 @@ import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.CompressFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
@@ -42,13 +43,14 @@ import java.util.Map;
 @Slf4j
 public class JsonReadStrategy extends AbstractReadStrategy {
     private DeserializationSchema<SeaTunnelRow> deserializationSchema;
-    private CompressFormat compressFormat = BaseSourceConfig.COMPRESS_CODEC.defaultValue();
+    private CompressFormat compressFormat = BaseSourceConfigOptions.COMPRESS_CODEC.defaultValue();
 
     @Override
     public void init(HadoopConf conf) {
         super.init(conf);
-        if (pluginConfig.hasPath(BaseSourceConfig.COMPRESS_CODEC.key())) {
-            String compressCodec = pluginConfig.getString(BaseSourceConfig.COMPRESS_CODEC.key());
+        if (pluginConfig.hasPath(BaseSourceConfigOptions.COMPRESS_CODEC.key())) {
+            String compressCodec =
+                    pluginConfig.getString(BaseSourceConfigOptions.COMPRESS_CODEC.key());
             compressFormat = CompressFormat.valueOf(compressCodec.toUpperCase());
         }
     }
@@ -103,12 +105,8 @@ public class JsonReadStrategy extends AbstractReadStrategy {
                                     seaTunnelRow.setTableId(tableId);
                                     output.collect(seaTunnelRow);
                                 } catch (IOException e) {
-                                    String errorMsg =
-                                            String.format(
-                                                    "Read data from this file [%s] failed", path);
-                                    throw new FileConnectorException(
-                                            CommonErrorCodeDeprecated.FILE_OPERATION_FAILED,
-                                            errorMsg);
+                                    throw CommonError.fileOperationFailed(
+                                            "JsonFile", "read", path, e);
                                 }
                             });
         }
