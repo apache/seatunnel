@@ -35,6 +35,7 @@ import org.apache.avro.io.DatumReader;
 
 import java.io.Serializable;
 import java.lang.reflect.Array;
+import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -91,11 +92,12 @@ public class AvroToRowConverter implements Serializable {
             case FLOAT:
             case DOUBLE:
             case NULL:
-            case BYTES:
             case DATE:
             case DECIMAL:
             case TIMESTAMP:
                 return val;
+            case BYTES:
+                return ((ByteBuffer) val).array();
             case SMALLINT:
                 return ((Integer) val).shortValue();
             case TINYINT:

@@ -68,7 +68,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.nio.ByteBuffer;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -385,7 +384,24 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                         });
         Assertions.assertEquals(90, kafkaSTRow.size());
         kafkaSTRow.forEach(
-                row -> Assertions.assertEquals("fake_source_avro", row.getField(2).toString()));
+                row -> {
+                    Assertions.assertInstanceOf(Map.class, row.getField(0));
+                    Assertions.assertInstanceOf(Integer[].class, row.getField(1));
+                    Assertions.assertInstanceOf(String.class, row.getField(2));
+                    Assertions.assertEquals("fake_source_avro", row.getField(2).toString());
+                    Assertions.assertInstanceOf(Boolean.class, row.getField(3));
+                    Assertions.assertInstanceOf(Byte.class, row.getField(4));
+                    Assertions.assertInstanceOf(Short.class, row.getField(5));
+                    Assertions.assertInstanceOf(Integer.class, row.getField(6));
+                    Assertions.assertInstanceOf(Long.class, row.getField(7));
+                    Assertions.assertInstanceOf(Float.class, row.getField(8));
+                    Assertions.assertInstanceOf(Double.class, row.getField(9));
+                    Assertions.assertInstanceOf(byte[].class, row.getField(10));
+                    Assertions.assertInstanceOf(LocalDate.class, row.getField(11));
+                    Assertions.assertInstanceOf(BigDecimal.class, row.getField(12));
+                    Assertions.assertInstanceOf(LocalDateTime.class, row.getField(13));
+                    Assertions.assertInstanceOf(SeaTunnelRow.class, row.getField(14));
+                });
     }
 
     @TestTemplate
@@ -435,8 +451,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                     Assertions.assertEquals(Float.parseFloat("1.1"), row.getField(9));
                     Assertions.assertEquals(Double.parseDouble("1.1"), row.getField(10));
                     Assertions.assertEquals(BigDecimal.valueOf(11, 1), row.getField(11));
-                    Assertions.assertArrayEquals(
-                            "test".getBytes(), ((ByteBuffer) row.getField(12)).array());
+                    Assertions.assertArrayEquals("test".getBytes(), (byte[]) row.getField(12));
                     Assertions.assertEquals(LocalDate.of(2024, 1, 1), row.getField(13));
                     Assertions.assertEquals(
                             LocalDateTime.of(2024, 1, 1, 12, 59, 23), row.getField(14));
