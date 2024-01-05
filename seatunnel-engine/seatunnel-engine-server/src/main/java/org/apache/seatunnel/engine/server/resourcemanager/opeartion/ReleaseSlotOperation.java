@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.resourcemanager.opeartion;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.serializable.ResourceDataSerializerHook;
+import org.apache.seatunnel.engine.server.service.slot.WrongTargetSlotException;
 
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
@@ -43,7 +44,10 @@ public class ReleaseSlotOperation extends Operation implements IdentifiedDataSer
     @Override
     public void run() throws Exception {
         SeaTunnelServer server = getService();
-        server.getSlotService().releaseSlot(jobID, slotProfile);
+        try {
+            server.getSlotService().releaseSlot(jobID, slotProfile);
+        } catch (WrongTargetSlotException ignore) {
+        }
     }
 
     @Override
