@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingExcep
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.connectors.seatunnel.google.sheets.exception.GoogleSheetsError;
@@ -53,7 +54,7 @@ public class GoogleSheetsDeserializer implements SeaTunnelRowDeserializer {
 
         try {
             String rowStr = objectMapper.writeValueAsString(map);
-            return deserializationSchema.deserialize(rowStr.getBytes());
+            return deserializationSchema.deserialize(rowStr.getBytes(), TablePath.of(""));
         } catch (JsonProcessingException e) {
             throw CommonError.jsonOperationError("GoogleSheets", map.toString(), e);
         } catch (IOException e) {

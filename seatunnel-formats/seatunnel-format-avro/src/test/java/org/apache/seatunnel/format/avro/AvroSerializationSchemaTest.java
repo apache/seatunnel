@@ -153,8 +153,7 @@ class AvroSerializationSchemaTest {
             LocalTimeType.LOCAL_DATE_TIME_TYPE,
             new SeaTunnelRowType(subField, subFieldTypes)
         };
-        SeaTunnelRowType rowType = new SeaTunnelRowType(fieldNames, fieldTypes);
-        return rowType;
+        return new SeaTunnelRowType(fieldNames, fieldTypes);
     }
 
     @Test
@@ -164,7 +163,7 @@ class AvroSerializationSchemaTest {
         AvroSerializationSchema serializationSchema = new AvroSerializationSchema(rowType);
         byte[] bytes = serializationSchema.serialize(seaTunnelRow);
         AvroDeserializationSchema deserializationSchema = new AvroDeserializationSchema(rowType);
-        SeaTunnelRow deserialize = deserializationSchema.deserialize(bytes);
+        SeaTunnelRow deserialize = deserializationSchema.deserialize(bytes, TablePath.of(""));
         String[] strArray1 = (String[]) seaTunnelRow.getField(1);
         String[] strArray2 = (String[]) deserialize.getField(1);
         Assertions.assertArrayEquals(strArray1, strArray2);
