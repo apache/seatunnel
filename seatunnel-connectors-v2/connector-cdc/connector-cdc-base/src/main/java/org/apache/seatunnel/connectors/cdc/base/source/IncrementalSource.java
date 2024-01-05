@@ -311,6 +311,24 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                     checkpointSnapshotState.getAssignedSplits().remove(splitId);
                     checkpointSnapshotState.getSplitCompletedOffsets().remove(splitId);
                 });
+
+        if ((!checkpointSnapshotState.getRemainingTables().isEmpty()
+                        || !checkpointSnapshotState.getRemainingSplits().isEmpty())
+                && checkpointSnapshotState.isAssignerCompleted()) {
+            // If there are still unprocessed tables or splits, and the assigner has completed, the
+            // assigner status needs to be reset
+            return new HybridPendingSplitsState(
+                    new SnapshotPhaseState(
+                            checkpointSnapshotState.getAlreadyProcessedTables(),
+                            checkpointSnapshotState.getRemainingSplits(),
+                            checkpointSnapshotState.getAssignedSplits(),
+                            checkpointSnapshotState.getSplitCompletedOffsets(),
+                            false,
+                            checkpointSnapshotState.getRemainingTables(),
+                            checkpointSnapshotState.isTableIdCaseSensitive(),
+                            checkpointSnapshotState.isRemainingTablesCheckpointed()),
+                    checkpointState.getIncrementalPhaseState());
+        }
         return checkpointState;
     }
 }
