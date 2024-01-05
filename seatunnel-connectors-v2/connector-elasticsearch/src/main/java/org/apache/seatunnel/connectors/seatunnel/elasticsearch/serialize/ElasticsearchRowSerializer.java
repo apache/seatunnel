@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.ElasticsearchClusterInfo;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.IndexInfo;
@@ -82,65 +83,82 @@ public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
     private String serializeUpsert(SeaTunnelRow row) {
         String key = keyExtractor.apply(row);
         Map<String, Object> document = toDocumentMap(row);
+        String documentStr;
 
         try {
-            if (key != null) {
-                Map<String, String> upsertMetadata = createMetadata(row, key);
-                /**
-                 * format example: { "update" : {"_index" : "${your_index}", "_id" :
-                 * "${your_document_id}"} }\n { "doc" : ${your_document_json}, "doc_as_upsert" :
-                 * true }
-                 */
-                return new StringBuilder()
-                        .append("{ \"update\" :")
-                        .append(objectMapper.writeValueAsString(upsertMetadata))
-                        .append("}")
-                        .append("\n")
-                        .append("{ \"doc\" :")
-                        .append(objectMapper.writeValueAsString(document))
-                        .append(", \"doc_as_upsert\" : true }")
-                        .toString();
-            } else {
-                Map<String, String> indexMetadata = createMetadata(row);
-                /**
-                 * format example: { "index" : {"_index" : "${your_index}", "_id" :
-                 * "${your_document_id}"} }\n ${your_document_json}
-                 */
-                return new StringBuilder()
-                        .append("{ \"index\" :")
-                        .append(objectMapper.writeValueAsString(indexMetadata))
-                        .append("}")
-                        .append("\n")
-                        .append(objectMapper.writeValueAsString(document))
-                        .toString();
-            }
+            documentStr = objectMapper.writeValueAsString(document);
         } catch (JsonProcessingException e) {
-            throw new ElasticsearchConnectorException(
-                    CommonErrorCodeDeprecated.JSON_OPERATION_FAILED,
-                    "Object json deserialization exception.",
-                    e);
+            throw CommonError.jsonOperationError(
+                    "Elasticsearch", "document:" + document.toString(), e);
         }
+
+        if (key != null) {
+            Map<String, String> upsertMetadata = createMetadata(row, key);
+            String upsertMetadataStr;
+            try {
+                upsertMetadataStr = objectMapper.writeValueAsString(upsertMetadata);
+            } catch (JsonProcessingException e) {
+                throw CommonError.jsonOperationError(
+                        "Elasticsearch", "upsertMetadata:" + upsertMetadata.toString(), e);
+            }
+
+            /**
+             * format example: { "update" : {"_index" : "${your_index}", "_id" :
+             * "${your_document_id}"} }\n { "doc" : ${your_document_json}, "doc_as_upsert" : true }
+             */
+            return new StringBuilder()
+                    .append("{ \"update\" :")
+                    .append(upsertMetadataStr)
+                    .append(" }")
+                    .append("\n")
+                    .append("{ \"doc\" :")
+                    .append(documentStr)
+                    .append(", \"doc_as_upsert\" : true }")
+                    .toString();
+        }
+
+        Map<String, String> indexMetadata = createMetadata(row);
+        String indexMetadataStr;
+        try {
+            indexMetadataStr = objectMapper.writeValueAsString(indexMetadata);
+        } catch (JsonProcessingException e) {
+            throw CommonError.jsonOperationError(
+                    "Elasticsearch", "indexMetadata:" + indexMetadata.toString(), e);
+        }
+
+        /**
+         * format example: { "index" : {"_index" : "${your_index}", "_id" : "${your_document_id}"}
+         * }\n ${your_document_json}
+         */
+        return new StringBuilder()
+                .append("{ \"index\" :")
+                .append(indexMetadataStr)
+                .append(" }")
+                .append("\n")
+                .append(documentStr)
+                .toString();
     }
 
     private String serializeDelete(SeaTunnelRow row) {
         String key = keyExtractor.apply(row);
         Map<String, String> deleteMetadata = createMetadata(row, key);
+        String deleteMetadataStr;
         try {
-            /**
-             * format example: { "delete" : {"_index" : "${your_index}", "_id" :
-             * "${your_document_id}"} }
-             */
-            return new StringBuilder()
-                    .append("{ \"delete\" :")
-                    .append(objectMapper.writeValueAsString(deleteMetadata))
-                    .append("}")
-                    .toString();
+            deleteMetadataStr = objectMapper.writeValueAsString(deleteMetadata);
         } catch (JsonProcessingException e) {
-            throw new ElasticsearchConnectorException(
-                    CommonErrorCodeDeprecated.JSON_OPERATION_FAILED,
-                    "Object json deserialization exception.",
-                    e);
+            throw CommonError.jsonOperationError(
+                    "Elasticsearch", "deleteMetadata:" + deleteMetadata.toString(), e);
         }
+
+        /**
+         * format example: { "delete" : {"_index" : "${your_index}", "_id" : "${your_document_id}"}
+         * }
+         */
+        return new StringBuilder()
+                .append("{ \"delete\" :")
+                .append(deleteMetadataStr)
+                .append(" }")
+                .toString();
     }
 
     private Map<String, Object> toDocumentMap(SeaTunnelRow row) {

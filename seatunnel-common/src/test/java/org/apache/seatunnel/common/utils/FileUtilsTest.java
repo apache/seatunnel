@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.common.utils;
 
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -26,6 +28,7 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
@@ -68,6 +71,45 @@ public class FileUtilsTest {
 
         Long lines = FileUtils.getFileLineNumberFromDir(rootPath);
         Assertions.assertEquals(100 * 4, lines);
+    }
+
+    @Test
+    void throwExpectedException() {
+        String root = System.getProperty("java.io.tmpdir");
+        Path path = Paths.get(root, "not", "existed", "path");
+        SeaTunnelRuntimeException exception =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () -> FileUtils.writeStringToFile(path.toString(), ""));
+        Assertions.assertEquals(
+                "ErrorCode:[COMMON-22], ErrorDescription:[SeaTunnel write file '"
+                        + path
+                        + "' failed, because it not existed.]",
+                exception.getMessage());
+
+        SeaTunnelRuntimeException exception2 =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class, () -> FileUtils.readFileToStr(path));
+        Assertions.assertEquals(
+                "ErrorCode:[COMMON-01], ErrorDescription:[SeaTunnel read file '"
+                        + path
+                        + "' failed.]",
+                exception2.getMessage());
+        Assertions.assertInstanceOf(NoSuchFileException.class, exception2.getCause());
+        Assertions.assertEquals(path.toString(), exception2.getCause().getMessage());
+
+        Path path2 = Paths.get(root, "not", "existed", "path2");
+        SeaTunnelRuntimeException exception3 =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () -> FileUtils.getFileLineNumber(path2.toString()));
+        Assertions.assertEquals(
+                "ErrorCode:[COMMON-01], ErrorDescription:[SeaTunnel read file '"
+                        + path2
+                        + "' failed.]",
+                exception3.getMessage());
+        Assertions.assertInstanceOf(NoSuchFileException.class, exception3.getCause());
+        Assertions.assertEquals(path2.toString(), exception3.getCause().getMessage());
     }
 
     public void writeTestDataToFile(@NonNull String filePath) throws IOException {

@@ -78,6 +78,10 @@ public class LocalFileIT extends TestSuiteBase {
                         "/excel/e2e.xlsx",
                         "/seatunnel/read/excel/name=tyrantlucifer/hobby=coding/e2e.xlsx",
                         container);
+                ContainerUtil.copyFileIntoContainers(
+                        "/excel/e2e.xls",
+                        "/seatunnel/read/excel/name=tyrantlucifer/hobby=coding/e2e.xls",
+                        container);
 
                 ContainerUtil.copyFileIntoContainers(
                         "/orc/e2e.orc",

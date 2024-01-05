@@ -214,7 +214,7 @@ parallel:
 
 ```
 env {
-  execution.parallelism = 10
+  parallelism = 10
   job.mode = "BATCH"
 }
 source {

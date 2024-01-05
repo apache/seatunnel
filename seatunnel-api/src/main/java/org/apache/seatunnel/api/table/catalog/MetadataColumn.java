@@ -70,4 +70,16 @@ public class MetadataColumn extends Column {
         return MetadataColumn.of(
                 name, dataType, columnLength, metadataKey, nullable, defaultValue, comment);
     }
+
+    @Override
+    public Column rename(String newColumnName) {
+        return MetadataColumn.of(
+                newColumnName,
+                dataType,
+                columnLength,
+                metadataKey,
+                nullable,
+                defaultValue,
+                comment);
+    }
 }

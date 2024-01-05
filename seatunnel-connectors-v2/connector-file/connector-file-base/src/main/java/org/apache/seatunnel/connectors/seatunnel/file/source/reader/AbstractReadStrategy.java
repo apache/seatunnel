@@ -97,7 +97,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                 fileNames.addAll(getFileNamesByPath(fileStatus.getPath().toString()));
                 continue;
             }
-            if (fileStatus.isFile() && filterFileByPattern(fileStatus)) {
+            if (fileStatus.isFile() && filterFileByPattern(fileStatus) && fileStatus.getLen() > 0) {
                 // filter '_SUCCESS' file
                 if (!fileStatus.getPath().getName().equals("_SUCCESS")
                         && !fileStatus.getPath().getName().startsWith(".")) {

@@ -33,8 +33,6 @@ import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetJobStatusCode
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelSubmitJobCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelWaitForJobCompleteCodec;
 
-import org.apache.commons.lang3.StringUtils;
-
 import com.hazelcast.client.impl.protocol.ClientMessage;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
@@ -117,10 +115,6 @@ public class ClientJobProxy implements Job {
             throw new RuntimeException(e);
         }
         LOGGER.info(String.format("Job (%s) end with state %s", jobId, jobResult.getStatus()));
-        if (StringUtils.isNotEmpty(jobResult.getError())
-                || jobResult.getStatus().equals(JobStatus.FAILED)) {
-            throw new SeaTunnelEngineException(jobResult.getError());
-        }
         return jobResult;
     }
 

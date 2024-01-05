@@ -33,10 +33,13 @@ import org.apache.seatunnel.core.starter.execution.PluginExecuteProcessor;
 import org.apache.seatunnel.core.starter.execution.RuntimeEnvironment;
 import org.apache.seatunnel.core.starter.execution.TaskExecution;
 import org.apache.seatunnel.core.starter.flink.FlinkStarter;
+import org.apache.seatunnel.translation.flink.metric.FlinkJobMetricsSummary;
 
+import org.apache.flink.api.common.JobExecutionResult;
 import org.apache.flink.api.common.RuntimeExecutionMode;
 
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.net.MalformedURLException;
@@ -51,8 +54,10 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /** Used to execute a SeaTunnelTask. */
-@Slf4j
 public class FlinkExecution implements TaskExecution {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(FlinkExecution.class);
+
     private final FlinkRuntimeEnvironment flinkRuntimeEnvironment;
     private final PluginExecuteProcessor<DataStreamTableInfo, FlinkRuntimeEnvironment>
             sourcePluginExecuteProcessor;
@@ -109,20 +114,32 @@ public class FlinkExecution implements TaskExecution {
         dataStreams = sourcePluginExecuteProcessor.execute(dataStreams);
         dataStreams = transformPluginExecuteProcessor.execute(dataStreams);
         sinkPluginExecuteProcessor.execute(dataStreams);
-        log.info(
+        LOGGER.info(
                 "Flink Execution Plan: {}",
                 flinkRuntimeEnvironment.getStreamExecutionEnvironment().getExecutionPlan());
-        log.info("Flink job name: {}", flinkRuntimeEnvironment.getJobName());
+        LOGGER.info("Flink job name: {}", flinkRuntimeEnvironment.getJobName());
         if (!flinkRuntimeEnvironment.isStreaming()) {
             flinkRuntimeEnvironment
                     .getStreamExecutionEnvironment()
                     .setRuntimeMode(RuntimeExecutionMode.BATCH);
-            log.info("Flink job Mode: {}", JobMode.BATCH);
+            LOGGER.info("Flink job Mode: {}", JobMode.BATCH);
         }
         try {
-            flinkRuntimeEnvironment
-                    .getStreamExecutionEnvironment()
-                    .execute(flinkRuntimeEnvironment.getJobName());
+            final long jobStartTime = System.currentTimeMillis();
+            JobExecutionResult jobResult =
+                    flinkRuntimeEnvironment
+                            .getStreamExecutionEnvironment()
+                            .execute(flinkRuntimeEnvironment.getJobName());
+            final long jobEndTime = System.currentTimeMillis();
+
+            final FlinkJobMetricsSummary jobMetricsSummary =
+                    FlinkJobMetricsSummary.builder()
+                            .jobExecutionResult(jobResult)
+                            .jobStartTime(jobStartTime)
+                            .jobEndTime(jobEndTime)
+                            .build();
+
+            LOGGER.info("Job finished, execution result: \n{}", jobMetricsSummary);
         } catch (Exception e) {
             throw new TaskExecuteException("Execute Flink job error", e);
         }
@@ -170,9 +187,9 @@ public class FlinkExecution implements TaskExecution {
         for (URL jarUrl : jars) {
             if (new File(jarUrl.getFile()).exists()) {
                 validJars.add(jarUrl);
-                log.info("Inject jar to config: {}", jarUrl);
+                LOGGER.info("Inject jar to config: {}", jarUrl);
             } else {
-                log.warn("Remove invalid jar when inject jars into config: {}", jarUrl);
+                LOGGER.warn("Remove invalid jar when inject jars into config: {}", jarUrl);
             }
         }
 

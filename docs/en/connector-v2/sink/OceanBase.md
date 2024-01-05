@@ -102,8 +102,7 @@ Write data through jdbc. Support Batch mode and Streaming mode, support concurre
 ```
 # Defining the runtime environment
 env {
-  # You can set flink configuration here
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "BATCH"
 }
 
