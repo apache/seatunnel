@@ -192,6 +192,7 @@ public class DorisStreamLoad implements Serializable {
     public void writeRecord(byte[] record) throws IOException {
         if (loadBatchFirstRecord) {
             loadBatchFirstRecord = false;
+            recordStream.startInput();
             startStreamLoad();
         } else {
             recordStream.write(lineDelimiter);
@@ -216,13 +217,15 @@ public class DorisStreamLoad implements Serializable {
     }
 
     public RespContent stopLoad() throws IOException {
-        recordStream.endInput();
-        log.info("stream load stopped.");
         if (pendingLoadFuture != null) {
+            log.info("stream load stopped.");
+            recordStream.endInput();
             try {
                 return handlePreCommitResponse(pendingLoadFuture.get());
             } catch (Exception e) {
                 throw new DorisConnectorException(DorisConnectorErrorCode.STREAM_LOAD_FAILED, e);
+            } finally {
+                pendingLoadFuture = null;
             }
         } else {
             return null;
@@ -232,7 +235,6 @@ public class DorisStreamLoad implements Serializable {
     public void startLoad(String label) throws IOException {
         loadBatchFirstRecord = true;
         recordCount = 0;
-        recordStream.startInput();
         this.label = label;
     }
 
