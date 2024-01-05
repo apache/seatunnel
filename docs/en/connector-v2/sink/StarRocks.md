@@ -56,15 +56,10 @@ This option is mutually exclusive with `query` and has a higher priority.
 
 The table parameter can fill in the name of an unwilling table, which will eventually be used as the table name of the creation table, and supports variables (`${table_name}`, `${schema_name}`). Replacement rules: `${schema_name}` will replace the SCHEMA name passed to the target side, and `${table_name}` will replace the name of the table passed to the table at the target side.
 
-mysql sink for example:
+for example:
 1. test_${schema_name}_${table_name}_test
 2. sink_sinktable
 3. ss_${table_name}
-
-pgsql (Oracle Sqlserver ...) Sink for example:
-1. ${schema_name}.${table_name} _test
-2. dbo.tt_${table_name} _sink
-3. public.sink_table
 
 ### schema_save_mode[Enum]
 

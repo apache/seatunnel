@@ -345,8 +345,8 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     public void testCatalog(TestContainer container) throws IOException, InterruptedException {
-        TablePath tablePathStarRocks_source = TablePath.of("test", "e2e_table_source");
-        TablePath tablePathStarRocks_Sink = TablePath.of("test", "e2e_table_source_2");
+        TablePath tablePathStarRocksSource = TablePath.of("test", "e2e_table_source");
+        TablePath tablePathStarRocksSink = TablePath.of("test", "e2e_table_source_2");
         StarRocksCatalog starRocksCatalog =
                 new StarRocksCatalog(
                         "StarRocks",
@@ -355,17 +355,17 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                         String.format(URL, starRocksServer.getHost()),
                         "CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}_2` (\n ${rowtype_fields}\n ) ENGINE=OLAP\n DISTRIBUTED BY HASH (BIGINT_COL) PROPERTIES (\n   \"replication_num\" = \"1\" \n )");
         starRocksCatalog.open();
-        CatalogTable catalogTable = starRocksCatalog.getTable(tablePathStarRocks_source);
+        CatalogTable catalogTable = starRocksCatalog.getTable(tablePathStarRocksSource);
         // sink tableExists ?
-        starRocksCatalog.dropTable(tablePathStarRocks_Sink, true);
-        boolean tableExistsBefore = starRocksCatalog.tableExists(tablePathStarRocks_Sink);
+        starRocksCatalog.dropTable(tablePathStarRocksSink, true);
+        boolean tableExistsBefore = starRocksCatalog.tableExists(tablePathStarRocksSink);
         Assertions.assertFalse(tableExistsBefore);
         // create table
-        starRocksCatalog.createTable(tablePathStarRocks_Sink, catalogTable, true);
-        boolean tableExistsAfter = starRocksCatalog.tableExists(tablePathStarRocks_Sink);
+        starRocksCatalog.createTable(tablePathStarRocksSink, catalogTable, true);
+        boolean tableExistsAfter = starRocksCatalog.tableExists(tablePathStarRocksSink);
         Assertions.assertTrue(tableExistsAfter);
         // isExistsData ?
-        boolean existsDataBefore = starRocksCatalog.isExistsData(tablePathStarRocks_Sink);
+        boolean existsDataBefore = starRocksCatalog.isExistsData(tablePathStarRocksSink);
         Assertions.assertFalse(existsDataBefore);
         // insert one data
         String customSql =
@@ -391,15 +391,15 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                         + ")values(\n"
                         + "\t 999,12345,1,1,false,1.1,9.9,2.5,3,'A','ADC','ASEDF','2022-08-13 17:35:59','2022-08-13'\n"
                         + ")";
-        starRocksCatalog.executeSql(tablePathStarRocks_Sink, customSql);
-        boolean existsDataAfter = starRocksCatalog.isExistsData(tablePathStarRocks_Sink);
+        starRocksCatalog.executeSql(tablePathStarRocksSink, customSql);
+        boolean existsDataAfter = starRocksCatalog.isExistsData(tablePathStarRocksSink);
         Assertions.assertTrue(existsDataAfter);
         // truncateTable
-        starRocksCatalog.truncateTable(tablePathStarRocks_Sink, true);
-        Assertions.assertFalse(starRocksCatalog.isExistsData(tablePathStarRocks_Sink));
+        starRocksCatalog.truncateTable(tablePathStarRocksSink, true);
+        Assertions.assertFalse(starRocksCatalog.isExistsData(tablePathStarRocksSink));
         // drop table
-        starRocksCatalog.dropTable(tablePathStarRocks_Sink, true);
-        Assertions.assertFalse(starRocksCatalog.tableExists(tablePathStarRocks_Sink));
+        starRocksCatalog.dropTable(tablePathStarRocksSink, true);
+        Assertions.assertFalse(starRocksCatalog.tableExists(tablePathStarRocksSink));
         starRocksCatalog.close();
     }
 }
