@@ -250,8 +250,8 @@ Writer the sheet of the workbook
 
 Before turning on the synchronous task, do different treatment of the target path.  
 Option introduction：  
-`RECREATE_SCHEMA` ：Will create when the path does not exist, delete and rebuild when the path is saved        
-`CREATE_SCHEMA_WHEN_NOT_EXIST` ：Will Created when the path does not exist, skipped when the path is saved        
+`RECREATE_SCHEMA` ：Will be created when the path does not exist. If the path already exists, delete the path and recreate it.         
+`CREATE_SCHEMA_WHEN_NOT_EXIST` ：Will Created when the path does not exist, use the path when the path is existed.        
 `ERROR_WHEN_SCHEMA_NOT_EXIST` ：Error will be reported when the path does not exist
 
 ### data_save_mode[Enum]
