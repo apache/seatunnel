@@ -18,6 +18,7 @@
 package org.apache.seatunnel.core.starter.spark.multitable;
 
 import org.apache.seatunnel.common.config.DeployMode;
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.core.starter.SeaTunnel;
 import org.apache.seatunnel.core.starter.exception.CommandException;
 import org.apache.seatunnel.core.starter.spark.args.SparkCommandArgs;
@@ -27,6 +28,8 @@ import org.apache.seatunnel.e2e.sink.inmemory.InMemorySinkWriter;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.FileNotFoundException;
 import java.net.URISyntaxException;
 import java.net.URL;
@@ -35,6 +38,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
+@Slf4j
 public class MultiTableSinkTest {
 
     @Test
@@ -47,7 +51,12 @@ public class MultiTableSinkTest {
         sparkCommandArgs.setCheckConfig(false);
         sparkCommandArgs.setVariables(null);
         sparkCommandArgs.setDeployMode(DeployMode.CLIENT);
-        SeaTunnel.run(sparkCommandArgs.buildCommand());
+        try {
+            SeaTunnel.run(sparkCommandArgs.buildCommand());
+        } catch (ExceptionInInitializerError e) {
+            log.error(ExceptionUtils.getMessage(e));
+            throw e;
+        }
         List<String> writerEvents = InMemorySinkWriter.getEvents();
         Assertions.assertEquals(1, InMemorySinkWriter.getResourceManagers().size());
         List<String> resourceManagersEvents =

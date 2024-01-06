@@ -58,16 +58,16 @@ public class SeaTunnelSparkDataWriter<CommitInfoT, StateT> implements DataWriter
         this.sinkCommitter = sinkCommitter;
         this.rowConverter = new InternalRowConverter(dataType);
         this.epochId = epochId == 0 ? 1 : epochId;
+        initResourceManger();
     }
 
     @Override
     public void write(InternalRow record) throws IOException {
-        tryInitResourceManger();
         sinkWriter.write(rowConverter.reconvert(record));
     }
 
-    private void tryInitResourceManger() {
-        if (resourceManager == null && sinkWriter instanceof SupportResourceShare) {
+    private void initResourceManger() {
+        if (sinkWriter instanceof SupportResourceShare) {
             resourceManager =
                     ((SupportResourceShare) sinkWriter).initMultiTableResourceManager(1, 1);
             ((SupportResourceShare) sinkWriter).setMultiTableResourceManager(resourceManager, 0);
