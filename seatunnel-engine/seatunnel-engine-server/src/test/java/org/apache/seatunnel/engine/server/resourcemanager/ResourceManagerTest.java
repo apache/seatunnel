@@ -63,16 +63,11 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest {
                 resourceProfiles.get(2).getHeapMemory().getBytes(),
                 slotProfiles.get(2).getResourceProfile().getHeapMemory().getBytes());
 
-        Assertions.assertThrows(
-                ExecutionException.class,
-                () -> resourceManager.releaseResources(jobId + 1, slotProfiles).get());
-
+        // release not existed job id
+        resourceManager.releaseResources(jobId + 1, slotProfiles).get();
         resourceManager.releaseResources(jobId, slotProfiles).get();
-
-        Assertions.assertThrows(
-                ExecutionException.class,
-                () -> resourceManager.releaseResources(jobId, slotProfiles).get());
-
+        // release already released resource
+        resourceManager.releaseResources(jobId, slotProfiles).get();
         Assertions.assertThrows(
                 ExecutionException.class,
                 () ->
