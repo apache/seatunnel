@@ -20,6 +20,7 @@ package org.apache.seatunnel.e2e.connector.kafka;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -377,7 +378,8 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                         "test_avro_topic_fake_source",
                         value -> {
                             try {
-                                return avroDeserializationSchema.deserialize(value);
+                                return avroDeserializationSchema.deserialize(
+                                        value, TablePath.of(""));
                             } catch (IOException e) {
                                 throw new RuntimeException(e);
                             }
@@ -427,7 +429,8 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                         "test_avro_topic",
                         value -> {
                             try {
-                                return avroDeserializationSchema.deserialize(value);
+                                return avroDeserializationSchema.deserialize(
+                                        value, TablePath.of(""));
                             } catch (IOException e) {
                                 throw new RuntimeException(e);
                             }
