@@ -168,6 +168,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
 
     private void handleLog(HttpGetCommand command) throws IOException {
 
+        // `seatunnel.logs.path` and `seatunnel.logs.file_name` are defined in the log4j.properties file.
         String logPath = System.getProperty("seatunnel.logs.path");
         String logName = System.getProperty("seatunnel.logs.file_name") + ".log";
         Path path = Paths.get(logPath, logName);
