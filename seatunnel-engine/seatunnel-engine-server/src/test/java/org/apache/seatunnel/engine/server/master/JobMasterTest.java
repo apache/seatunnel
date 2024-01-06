@@ -107,16 +107,7 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
     @Test
     public void testHandleCheckpointTimeout() throws Exception {
         long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
-        JobMaster jobMaster = newJobInstance(jobId);
-
-        // waiting for job status turn to running
-        await().atMost(120000, TimeUnit.MILLISECONDS)
-                .untilAsserted(
-                        () -> Assertions.assertEquals(JobStatus.RUNNING, jobMaster.getJobStatus()));
-
-        // Because handleCheckpointTimeout is an async method, so we need sleep 5s to waiting job
-        // status become running again
-        Thread.sleep(5000);
+        JobMaster jobMaster = newJobInstanceWithRunningState(jobId);
 
         jobMaster.neverNeedRestore();
         // call checkpoint timeout
@@ -215,16 +206,7 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
     @Test
     public void testCommitFailedWillRestore() throws Exception {
         long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
-        JobMaster jobMaster = newJobInstance(jobId);
-
-        // waiting for job status turn to running
-        await().atMost(120000, TimeUnit.MILLISECONDS)
-                .untilAsserted(
-                        () -> Assertions.assertEquals(JobStatus.RUNNING, jobMaster.getJobStatus()));
-
-        // Because handleCheckpointTimeout is an async method, so we need sleep 5s to waiting job
-        // status become running again
-        Thread.sleep(5000);
+        JobMaster jobMaster = newJobInstanceWithRunningState(jobId);
 
         // call checkpoint timeout
         jobMaster
@@ -237,7 +219,7 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
         Assertions.assertTrue(jobMaster.isNeedRestore());
     }
 
-    private JobMaster newJobInstance(long jobId) {
+    private JobMaster newJobInstanceWithRunningState(long jobId) throws InterruptedException {
         LogicalDag testLogicalDag =
                 TestUtils.createTestLogicalPlan(
                         "stream_fakesource_to_file.conf", "test_clear_coordinator_service", jobId);
@@ -257,6 +239,16 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
                 server.getCoordinatorService().submitJob(jobId, data);
         voidPassiveCompletableFuture.join();
 
-        return server.getCoordinatorService().getJobMaster(jobId);
+        JobMaster jobMaster = server.getCoordinatorService().getJobMaster(jobId);
+
+        // waiting for job status turn to running
+        await().atMost(120000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> Assertions.assertEquals(JobStatus.RUNNING, jobMaster.getJobStatus()));
+
+        // Because handleCheckpointTimeout is an async method, so we need sleep 5s to waiting job
+        // status become running again
+        Thread.sleep(5000);
+        return jobMaster;
     }
 }
