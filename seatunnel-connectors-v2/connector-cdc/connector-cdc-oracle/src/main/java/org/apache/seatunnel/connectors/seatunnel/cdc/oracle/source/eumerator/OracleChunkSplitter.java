@@ -110,14 +110,15 @@ public class OracleChunkSplitter extends AbstractJdbcSourceChunkSplitter {
             JdbcConnection jdbc, JdbcDataSourceDialect dialect, TableId tableId)
             throws SQLException {
         try {
-            return super.getSplitColumn(jdbc, dialect, tableId);
-        } catch (SQLException | UnsupportedOperationException e) {
+            Column splitColumn = super.getSplitColumn(jdbc, dialect, tableId);
+            if (splitColumn != null) {
+                return splitColumn;
+            }
+        } catch (SQLException e) {
             log.info(
-                    "Failed to obtain the split key policy, the split key is changed to the default one");
-            return Column.editor()
-                    .jdbcType(Types.VARCHAR)
-                    .name(ROWID.class.getSimpleName())
-                    .create();
+                    "Failed to obtain the split key policy, the split key is changed to the default one",
+                    e);
         }
+        return Column.editor().jdbcType(Types.VARCHAR).name(ROWID.class.getSimpleName()).create();
     }
 }
