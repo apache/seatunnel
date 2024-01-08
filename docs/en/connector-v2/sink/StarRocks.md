@@ -259,6 +259,28 @@ sink {
 }
 ```
 
+### Use save_mode function
+
+```
+sink {
+  StarRocks {
+    nodeUrls = ["e2e_starRocksdb:8030"]
+    username = root
+    password = ""
+    database = "test"
+    table = "test_${schema_name}_${table_name}"
+    schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+    data_save_mode="APPEND_DATA"
+    batch_max_rows = 10
+    starrocks.config = {
+      format = "CSV"
+      column_separator = "\\x01"
+      row_delimiter = "\\x02"
+    }
+  }
+}
+```
+
 ## Changelog
 
 ### next version

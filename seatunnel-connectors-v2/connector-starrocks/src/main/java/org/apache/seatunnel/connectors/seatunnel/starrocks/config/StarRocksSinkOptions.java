@@ -133,14 +133,15 @@ public interface StarRocksSinkOptions {
             Options.key("schema_save_mode")
                     .enumType(SchemaSaveMode.class)
                     .defaultValue(SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST)
-                    .withDescription("schema_save_mode");
+                    .withDescription(
+                            "different treatment schemes are selected for the existing surface structure of the target side");
 
     Option<DataSaveMode> DATA_SAVE_MODE =
             Options.key("data_save_mode")
                     .enumType(DataSaveMode.class)
                     .defaultValue(DataSaveMode.APPEND_DATA)
                     .withDescription(
-                            "Table structure and data processing methods that already exist on the target end");
+                            "different processing schemes are selected for data existing data on the target side");
 
     Option<Integer> HTTP_SOCKET_TIMEOUT_MS =
             Options.key("http_socket_timeout_ms")
@@ -149,5 +150,8 @@ public interface StarRocksSinkOptions {
                     .withDescription("Set http socket timeout, default is 3 minutes.");
 
     Option<String> CUSTOM_SQL =
-            Options.key("custom_sql").stringType().noDefaultValue().withDescription("custom_sql");
+            Options.key("custom_sql")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("when schema_save_mode selects CUSTOM_PROCESSING custom SQL");
 }
