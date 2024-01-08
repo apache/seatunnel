@@ -18,7 +18,6 @@
 package org.apache.seatunnel.core.starter.spark.multitable;
 
 import org.apache.seatunnel.common.config.DeployMode;
-import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.core.starter.SeaTunnel;
 import org.apache.seatunnel.core.starter.exception.CommandException;
 import org.apache.seatunnel.core.starter.spark.args.SparkCommandArgs;
@@ -58,12 +57,7 @@ public class MultiTableSinkTest {
         sparkCommandArgs.setCheckConfig(false);
         sparkCommandArgs.setVariables(null);
         sparkCommandArgs.setDeployMode(DeployMode.CLIENT);
-        try {
-            SeaTunnel.run(sparkCommandArgs.buildCommand());
-        } catch (ExceptionInInitializerError e) {
-            log.error(ExceptionUtils.getMessage(e));
-            throw e;
-        }
+        SeaTunnel.run(sparkCommandArgs.buildCommand());
         List<String> writerEvents = InMemorySinkWriter.getEvents();
         Assertions.assertEquals(1, InMemorySinkWriter.getResourceManagers().size());
         List<String> resourceManagersEvents =

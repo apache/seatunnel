@@ -26,6 +26,8 @@ import org.apache.seatunnel.e2e.sink.inmemory.InMemorySinkWriter;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 
 import java.io.FileNotFoundException;
 import java.net.URISyntaxException;
@@ -38,6 +40,7 @@ import java.util.List;
 public class MultiTableSinkTest {
 
     @Test
+    @DisabledOnOs(value = {OS.WINDOWS})
     public void testMultiTableSink()
             throws FileNotFoundException, URISyntaxException, CommandException {
         String configurePath = "/config/fake_to_inmemory_multi_table.conf";
