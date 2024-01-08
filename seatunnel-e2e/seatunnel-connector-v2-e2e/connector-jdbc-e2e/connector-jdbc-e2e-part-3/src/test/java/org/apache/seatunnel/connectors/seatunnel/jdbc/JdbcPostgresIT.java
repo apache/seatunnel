@@ -450,7 +450,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
         String schema = "public";
         String databaseName = POSTGRESQL_CONTAINER.getDatabaseName();
         TablePath tablePathPG = TablePath.of(databaseName, "public", "pg_e2e_source_table");
-        TablePath tablePathPG_Sink = TablePath.of(databaseName, "public", "pg_ide_sink_table_2");
+        TablePath tablePathPgSink = TablePath.of(databaseName, "public", "pg_ide_sink_table_2");
         PostgresCatalog postgresCatalog =
                 new PostgresCatalog(
                         DatabaseIdentifier.POSTGRESQL,
