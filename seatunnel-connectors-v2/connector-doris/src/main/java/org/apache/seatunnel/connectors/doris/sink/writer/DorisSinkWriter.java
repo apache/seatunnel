@@ -35,7 +35,6 @@ import org.apache.seatunnel.connectors.doris.sink.committer.DorisCommitInfo;
 import org.apache.seatunnel.connectors.doris.util.HttpUtil;
 import org.apache.seatunnel.connectors.doris.util.UnsupportedTypeConverterUtils;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import lombok.extern.slf4j.Slf4j;
 
@@ -251,8 +250,7 @@ public class DorisSinkWriter
         }
     }
 
-    @VisibleForTesting
-    public String getAvailableBackend() {
+    private String getAvailableBackend() {
         Collections.shuffle(backends);
         for (BackendV2.BackendRowV2 backend : backends) {
             String res = backend.toBackendString();
