@@ -251,12 +251,7 @@ public class StarRocksCatalog implements Catalog {
 
     public void executeSql(TablePath tablePath, String sql) {
         try (Connection connection = DriverManager.getConnection(defaultUrl, username, pwd)) {
-            try (PreparedStatement ps = connection.prepareStatement(sql)) {
-                // Will there exist concurrent drop for one table?
-                ps.execute();
-            } catch (SQLException e) {
-                throw new CatalogException(String.format("Failed executeSql error %s", sql), e);
-            }
+            connection.createStatement().execute(sql);
         } catch (Exception e) {
             throw new CatalogException(String.format("Failed EXECUTE SQL in catalog %s", sql), e);
         }
@@ -265,8 +260,7 @@ public class StarRocksCatalog implements Catalog {
     public boolean isExistsData(TablePath tablePath) {
         try (Connection connection = DriverManager.getConnection(defaultUrl, username, pwd)) {
             String sql = String.format("select * from %s limit 1", tablePath.getFullName());
-            PreparedStatement ps = connection.prepareStatement(sql);
-            ResultSet resultSet = ps.executeQuery();
+            ResultSet resultSet = connection.createStatement().executeQuery(sql);
             if (resultSet == null) {
                 return false;
             }
