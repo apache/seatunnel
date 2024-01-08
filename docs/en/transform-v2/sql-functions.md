@@ -915,3 +915,25 @@ Returns NULL if 'a' is equal to 'b', otherwise 'a'.
 Example:
 
 NULLIF(A, B)
+
+### CASE WHEN
+
+```
+ select case when c_string in ('c_string') then 1 else 0 end                                                      as c_string_1,
+       case when c_string not in ('c_string') then 1 else 0 end                                                  as c_string_0,
+       case when c_tinyint = 117 and TO_CHAR(c_boolean) = 'true' then 1 else 0 end                               as c_tinyint_boolean_1,
+       case
+           when c_tinyint != 117 and TO_CHAR(c_boolean) = 'true' then 1
+           else 0 end                                                                                            as c_tinyint_boolean_0,
+       case when c_tinyint != 117 or TO_CHAR(c_boolean) = 'true' then 1 else 0 end                               as c_tinyint_boolean_or_1,
+       case
+           when c_int > 1 and c_bigint > 1 and c_float > 1 and c_double > 1 and c_decimal > 1 then 1
+           else 0 end                                                                                            as c_number_1
+from fake
+```
+
+It is used to determine whether the condition is valid and return different values according to different judgments
+
+Example:
+
+case when c_string in ('c_string') then 1 else 0 end
