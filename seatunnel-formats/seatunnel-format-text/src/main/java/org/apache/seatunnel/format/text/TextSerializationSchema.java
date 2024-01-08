@@ -82,7 +82,7 @@ public class TextSerializationSchema implements SerializationSchema {
         private DateTimeUtils.Formatter dateTimeFormatter =
                 DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS;
         private TimeUtils.Formatter timeFormatter = TimeUtils.Formatter.HH_MM_SS;
-        private Boolean enableHiveCollectionType;
+        private Boolean enableHiveCollectionType = false;
         private String collectionDelimiter;
         private String mapKeysDelimiter;
 
