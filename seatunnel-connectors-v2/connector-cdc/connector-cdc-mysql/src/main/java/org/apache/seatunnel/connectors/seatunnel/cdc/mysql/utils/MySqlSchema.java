@@ -17,13 +17,17 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.connectors.cdc.base.utils.CatalogTableUtils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfig;
 
 import io.debezium.connector.mysql.MySqlConnectorConfig;
 import io.debezium.connector.mysql.MySqlDatabaseSchema;
 import io.debezium.connector.mysql.MySqlOffsetContext;
 import io.debezium.jdbc.JdbcConnection;
+import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
+import io.debezium.relational.history.TableChanges;
 import io.debezium.relational.history.TableChanges.TableChange;
 import io.debezium.schema.SchemaChangeEvent;
 
@@ -41,13 +45,18 @@ public class MySqlSchema {
     private final MySqlConnectorConfig connectorConfig;
     private final MySqlDatabaseSchema databaseSchema;
     private final Map<TableId, TableChange> schemasByTableId;
+    private final Map<TableId, CatalogTable> tableMap;
 
-    public MySqlSchema(MySqlSourceConfig sourceConfig, boolean isTableIdCaseSensitive) {
+    public MySqlSchema(
+            MySqlSourceConfig sourceConfig,
+            boolean isTableIdCaseSensitive,
+            Map<TableId, CatalogTable> tableMap) {
         this.connectorConfig = sourceConfig.getDbzConnectorConfig();
         this.databaseSchema =
                 MySqlConnectionUtils.createMySqlDatabaseSchema(
                         connectorConfig, isTableIdCaseSensitive);
         this.schemasByTableId = new HashMap<>();
+        this.tableMap = tableMap;
     }
 
     /**
@@ -81,7 +90,13 @@ public class MySqlSchema {
                             for (SchemaChangeEvent schemaChangeEvent : schemaChangeEvents) {
                                 for (TableChange tableChange :
                                         schemaChangeEvent.getTableChanges()) {
-                                    tableChangeMap.put(tableId, tableChange);
+                                    Table table =
+                                            CatalogTableUtils.mergeCatalogTableConfig(
+                                                    tableChange.getTable(), tableMap.get(tableId));
+                                    TableChange newTableChange =
+                                            new TableChange(
+                                                    TableChanges.TableChangeType.CREATE, table);
+                                    tableChangeMap.put(tableId, newTableChange);
                                 }
                             }
                         }

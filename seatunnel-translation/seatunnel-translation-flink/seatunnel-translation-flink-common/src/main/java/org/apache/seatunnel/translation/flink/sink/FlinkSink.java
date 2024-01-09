@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.translation.flink.sink;
 
-import org.apache.seatunnel.api.sink.DefaultSinkWriterContext;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -63,18 +62,22 @@ public class FlinkSink<InputT, CommT, WriterStateT, GlobalCommT>
             Sink.InitContext context, List<FlinkWriterState<WriterStateT>> states)
             throws IOException {
         org.apache.seatunnel.api.sink.SinkWriter.Context stContext =
-                new DefaultSinkWriterContext(context.getSubtaskId());
+                new FlinkSinkWriterContext(context);
 
         if (states == null || states.isEmpty()) {
             return new FlinkSinkWriter<>(
-                    sink.createWriter(stContext), 1, catalogTable.getSeaTunnelRowType());
+                    sink.createWriter(stContext),
+                    1,
+                    catalogTable.getSeaTunnelRowType(),
+                    stContext.getMetricsContext());
         } else {
             List<WriterStateT> restoredState =
                     states.stream().map(FlinkWriterState::getState).collect(Collectors.toList());
             return new FlinkSinkWriter<>(
                     sink.restoreWriter(stContext, restoredState),
                     states.get(0).getCheckpointId() + 1,
-                    catalogTable.getSeaTunnelRowType());
+                    catalogTable.getSeaTunnelRowType(),
+                    stContext.getMetricsContext());
         }
     }
 

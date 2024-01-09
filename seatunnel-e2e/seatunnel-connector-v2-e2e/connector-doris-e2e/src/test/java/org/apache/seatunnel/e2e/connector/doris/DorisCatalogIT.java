@@ -18,103 +18,65 @@
 package org.apache.seatunnel.e2e.connector.doris;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.sink.SupportSaveMode;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.connectors.doris.catalog.DorisCatalog;
 import org.apache.seatunnel.connectors.doris.catalog.DorisCatalogFactory;
 import org.apache.seatunnel.connectors.doris.config.DorisOptions;
-import org.apache.seatunnel.e2e.common.TestResource;
-import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.connectors.doris.sink.DorisSinkFactory;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.output.Slf4jLogConsumer;
-import org.testcontainers.lifecycle.Startables;
-import org.testcontainers.utility.DockerLoggerFactory;
 
-import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.LockSupport;
-import java.util.stream.Stream;
-
-import static org.awaitility.Awaitility.given;
+import java.util.stream.Collectors;
 
 @Slf4j
-public class DorisCatalogIT extends TestSuiteBase implements TestResource {
+public class DorisCatalogIT extends AbstractDorisIT {
 
-    // use image adamlee489/doris:1.2.7.1_arm when running this test on mac
-    private static final String DOCKER_IMAGE = "adamlee489/doris:1.2.7.1_x86";
-    private static final String HOST = "doris_catalog_e2e";
-    private static final int DOCKER_QUERY_PORT = 9030;
-    private static final int DOCKER_HTTP_PORT = 8030;
-    private static final int QUERY_PORT = 19030;
-    private static final int HTTP_PORT = 18030;
-    private static final String URL = "jdbc:mysql://%s:" + QUERY_PORT;
-    private static final String USERNAME = "root";
-    private static final String PASSWORD = "";
     private static final String DATABASE = "test";
     private static final String SINK_TABLE = "doris_catalog_e2e";
-    private static final String SET_SQL =
-            "ADMIN SET FRONTEND CONFIG (\"enable_batch_delete_by_default\" = \"true\")";
-    private static final String SHOW_BE = "SHOW BACKENDS";
+    private static final TablePath tablePath = TablePath.of(DATABASE, SINK_TABLE);
+    private static final CatalogTable catalogTable;
 
-    private GenericContainer<?> container;
-    private Connection jdbcConnection;
+    static {
+        TableSchema.Builder builder = TableSchema.builder();
+        builder.column(PhysicalColumn.of("k1", BasicType.INT_TYPE, 10, false, 0, "k1"));
+        builder.column(PhysicalColumn.of("k2", BasicType.STRING_TYPE, 64, false, "", "k2"));
+        builder.column(PhysicalColumn.of("v1", BasicType.DOUBLE_TYPE, 10, true, null, "v1"));
+        builder.column(PhysicalColumn.of("v2", new DecimalType(10, 2), 0, false, 0.1, "v2"));
+        builder.primaryKey(PrimaryKey.of("pk", Arrays.asList("k1", "k2")));
+        catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("doris", tablePath),
+                        builder.build(),
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        "test");
+    }
+
     private DorisCatalogFactory factory;
     private DorisCatalog catalog;
 
     @BeforeAll
-    @Override
-    public void startUp() throws Exception {
-
-        container =
-                new GenericContainer<>(DOCKER_IMAGE)
-                        .withNetwork(NETWORK)
-                        .withNetworkAliases(HOST)
-                        .withEnv("FE_SERVERS", "fe1:127.0.0.1:9010")
-                        .withEnv("FE_ID", "1")
-                        .withEnv("CURRENT_BE_IP", "127.0.0.1")
-                        .withEnv("CURRENT_BE_PORT", "9050")
-                        .withCommand("ulimit -n 65536")
-                        .withCreateContainerCmdModifier(
-                                cmd -> cmd.getHostConfig().withMemorySwap(0L))
-                        .withPrivilegedMode(true)
-                        .withLogConsumer(
-                                new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DOCKER_IMAGE)));
-        container.setPortBindings(
-                Lists.newArrayList(
-                        String.format("%s:%s", QUERY_PORT, DOCKER_QUERY_PORT),
-                        String.format("%s:%s", HTTP_PORT, DOCKER_HTTP_PORT)));
-
-        Startables.deepStart(Stream.of(container)).join();
-        log.info("doris container started");
-        given().ignoreExceptions()
-                .await()
-                .atMost(10000, TimeUnit.SECONDS)
-                .untilAsserted(this::initializeJdbcConnection);
+    public void init() {
         initCatalogFactory();
         initCatalog();
     }
@@ -136,7 +98,6 @@ public class DorisCatalogIT extends TestSuiteBase implements TestResource {
         map.put(DorisOptions.QUERY_PORT.key(), QUERY_PORT);
         map.put(DorisOptions.USERNAME.key(), USERNAME);
         map.put(DorisOptions.PASSWORD.key(), PASSWORD);
-        map.put(DorisOptions.DEFAULT_DATABASE.key(), PASSWORD);
 
         catalog = (DorisCatalog) factory.createCatalog(catalogName, ReadonlyConfig.fromMap(map));
 
@@ -160,26 +121,10 @@ public class DorisCatalogIT extends TestSuiteBase implements TestResource {
             return;
         }
 
-        TablePath tablePath = TablePath.of(DATABASE, SINK_TABLE);
-
-        TableSchema.Builder builder = TableSchema.builder();
-        builder.column(PhysicalColumn.of("k1", BasicType.INT_TYPE, 10, false, 0, "k1"));
-        builder.column(PhysicalColumn.of("k2", BasicType.STRING_TYPE, 64, false, "", "k2"));
-        builder.column(PhysicalColumn.of("v1", BasicType.DOUBLE_TYPE, 10, true, null, "v1"));
-        builder.column(PhysicalColumn.of("v2", new DecimalType(10, 2), 0, false, 0.1, "v2"));
-        builder.primaryKey(PrimaryKey.of("pk", Arrays.asList("k1", "k2")));
-        CatalogTable catalogTable =
-                CatalogTable.of(
-                        TableIdentifier.of("doris", DATABASE, SINK_TABLE),
-                        builder.build(),
-                        Collections.emptyMap(),
-                        Collections.emptyList(),
-                        "test");
-
         boolean dbCreated = false;
 
         List<String> databases = catalog.listDatabases();
-        Assertions.assertEquals(databases.size(), 1);
+        Assertions.assertFalse(databases.isEmpty());
 
         if (!catalog.databaseExists(tablePath.getDatabaseName())) {
             catalog.createDatabase(tablePath, false);
@@ -191,7 +136,7 @@ public class DorisCatalogIT extends TestSuiteBase implements TestResource {
         Assertions.assertTrue(catalog.tableExists(tablePath));
 
         List<String> tables = catalog.listTables(tablePath.getDatabaseName());
-        Assertions.assertEquals(tables.size(), 1);
+        Assertions.assertFalse(tables.isEmpty());
 
         catalog.dropTable(tablePath, false);
         Assertions.assertFalse(catalog.tableExists(tablePath));
@@ -202,43 +147,117 @@ public class DorisCatalogIT extends TestSuiteBase implements TestResource {
         }
     }
 
+    @Test
+    void testSaveMode() {
+        CatalogTable upstreamTable =
+                CatalogTable.of(
+                        TableIdentifier.of("doris", TablePath.of("test.test")), catalogTable);
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(
+                        new HashMap<String, Object>() {
+                            {
+                                put(
+                                        DorisOptions.FENODES.key(),
+                                        container.getHost() + ":" + HTTP_PORT);
+                                put(DorisOptions.USERNAME.key(), USERNAME);
+                                put(DorisOptions.PASSWORD.key(), PASSWORD);
+                            }
+                        });
+        assertCreateTable(upstreamTable, config, "test.test");
+
+        ReadonlyConfig config2 =
+                ReadonlyConfig.fromMap(
+                        new HashMap<String, Object>() {
+                            {
+                                put(
+                                        DorisOptions.FENODES.key(),
+                                        container.getHost() + ":" + HTTP_PORT);
+                                put(DorisOptions.DATABASE.key(), "test2");
+                                put(DorisOptions.TABLE.key(), "test2");
+                                put(DorisOptions.USERNAME.key(), USERNAME);
+                                put(DorisOptions.PASSWORD.key(), PASSWORD);
+                            }
+                        });
+        assertCreateTable(upstreamTable, config2, "test2.test2");
+
+        ReadonlyConfig config3 =
+                ReadonlyConfig.fromMap(
+                        new HashMap<String, Object>() {
+                            {
+                                put(
+                                        DorisOptions.FENODES.key(),
+                                        container.getHost() + ":" + HTTP_PORT);
+                                put(DorisOptions.TABLE_IDENTIFIER.key(), "test3.test3");
+                                put(DorisOptions.USERNAME.key(), USERNAME);
+                                put(DorisOptions.PASSWORD.key(), PASSWORD);
+                            }
+                        });
+        assertCreateTable(upstreamTable, config3, "test3.test3");
+
+        ReadonlyConfig config4 =
+                ReadonlyConfig.fromMap(
+                        new HashMap<String, Object>() {
+                            {
+                                put(
+                                        DorisOptions.FENODES.key(),
+                                        container.getHost() + ":" + HTTP_PORT);
+                                put(DorisOptions.DATABASE.key(), "test5");
+                                put(DorisOptions.TABLE.key(), "${table_name}");
+                                put(DorisOptions.USERNAME.key(), USERNAME);
+                                put(DorisOptions.PASSWORD.key(), PASSWORD);
+                            }
+                        });
+        assertCreateTable(upstreamTable, config4, "test5.test");
+
+        ReadonlyConfig config5 =
+                ReadonlyConfig.fromMap(
+                        new HashMap<String, Object>() {
+                            {
+                                put(
+                                        DorisOptions.FENODES.key(),
+                                        container.getHost() + ":" + HTTP_PORT);
+                                put(DorisOptions.DATABASE.key(), "test4");
+                                put(DorisOptions.TABLE.key(), "test4");
+                                put(DorisOptions.USERNAME.key(), USERNAME);
+                                put(DorisOptions.PASSWORD.key(), PASSWORD);
+                                put(DorisOptions.NEEDS_UNSUPPORTED_TYPE_CASTING.key(), true);
+                            }
+                        });
+        upstreamTable
+                .getTableSchema()
+                .getColumns()
+                .add(PhysicalColumn.of("v3", new DecimalType(66, 22), 66, false, null, "v3"));
+        CatalogTable newTable = assertCreateTable(upstreamTable, config5, "test4.test4");
+        Assertions.assertEquals(
+                BasicType.DOUBLE_TYPE, newTable.getTableSchema().getColumns().get(4).getDataType());
+    }
+
+    private CatalogTable assertCreateTable(
+            CatalogTable upstreamTable, ReadonlyConfig config, String fullName) {
+        DorisSinkFactory dorisSinkFactory = new DorisSinkFactory();
+        TableSinkFactoryContext context =
+                new TableSinkFactoryContext(
+                        upstreamTable, config, Thread.currentThread().getContextClassLoader());
+        SupportSaveMode sink = (SupportSaveMode) dorisSinkFactory.createSink(context).createSink();
+        sink.getSaveModeHandler().get().handleSaveMode();
+        CatalogTable createdTable = catalog.getTable(TablePath.of(fullName));
+        Assertions.assertEquals(
+                upstreamTable.getTableSchema().getColumns().size(),
+                createdTable.getTableSchema().getColumns().size());
+        Assertions.assertIterableEquals(
+                upstreamTable.getTableSchema().getColumns().stream()
+                        .map(Column::getName)
+                        .collect(Collectors.toList()),
+                createdTable.getTableSchema().getColumns().stream()
+                        .map(Column::getName)
+                        .collect(Collectors.toList()));
+        return createdTable;
+    }
+
     @AfterAll
-    @Override
-    public void tearDown() throws Exception {
-        if (container != null) {
-            container.close();
-        }
-        if (jdbcConnection != null) {
-            jdbcConnection.close();
-        }
+    public void close() {
         if (catalog != null) {
             catalog.close();
         }
-    }
-
-    private void initializeJdbcConnection() throws SQLException {
-        Properties props = new Properties();
-        props.put("user", USERNAME);
-        props.put("password", PASSWORD);
-
-        jdbcConnection =
-                DriverManager.getConnection(String.format(URL, container.getHost()), props);
-        try (Statement statement = jdbcConnection.createStatement()) {
-            statement.execute(SET_SQL);
-            ResultSet resultSet;
-            do {
-                resultSet = statement.executeQuery(SHOW_BE);
-            } while (!isBeReady(resultSet, Duration.ofSeconds(1L)));
-        }
-    }
-
-    private boolean isBeReady(ResultSet rs, Duration duration) throws SQLException {
-        if (rs.next()) {
-            String isAlive = rs.getString(10).trim();
-            String totalCap = rs.getString(16).trim();
-            LockSupport.parkNanos(duration.toNanos());
-            return "true".equalsIgnoreCase(isAlive) && !"0.000".equalsIgnoreCase(totalCap);
-        }
-        return false;
     }
 }

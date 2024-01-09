@@ -21,6 +21,8 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.env.EnvCommonOptions;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.core.starter.utils.ConfigShadeUtils;
 import org.apache.seatunnel.engine.common.Constant;
@@ -31,6 +33,8 @@ import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.log.Log4j2HttpPostCommandProcessor;
 import org.apache.seatunnel.engine.server.utils.RestUtil;
+
+import org.apache.commons.lang.StringUtils;
 
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
@@ -121,8 +125,14 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
         Map<String, String> requestParams = new HashMap<>();
         RestUtil.buildRequestParams(requestParams, uri);
         Config config = RestUtil.buildConfig(requestHandle(httpPostCommand), false);
+        ReadonlyConfig envOptions = ReadonlyConfig.fromConfig(config.getConfig("env"));
+        String jobName = envOptions.get(EnvCommonOptions.JOB_NAME);
+
         JobConfig jobConfig = new JobConfig();
-        jobConfig.setName(requestParams.get(RestConstant.JOB_NAME));
+        jobConfig.setName(
+                StringUtils.isEmpty(requestParams.get(RestConstant.JOB_NAME))
+                        ? jobName
+                        : requestParams.get(RestConstant.JOB_NAME));
 
         boolean startWithSavePoint =
                 Boolean.parseBoolean(requestParams.get(RestConstant.IS_START_WITH_SAVE_POINT));
@@ -149,7 +159,7 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
                 httpPostCommand,
                 new JsonObject()
                         .add(RestConstant.JOB_ID, jobId)
-                        .add(RestConstant.JOB_NAME, requestParams.get(RestConstant.JOB_NAME)));
+                        .add(RestConstant.JOB_NAME, jobConfig.getName()));
     }
 
     private void handleStopJob(HttpPostCommand httpPostCommand, String uri) {

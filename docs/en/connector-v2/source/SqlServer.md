@@ -85,8 +85,7 @@ Read external data source data through JDBC.
 ```
 # Defining the runtime environment
 env {
-  # You can set flink configuration here
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "BATCH"
 }
 source{
@@ -115,8 +114,7 @@ sink {
 
 ```
 env {
-  # You can set flink configuration here
-  execution.parallelism = 10
+  parallelism = 10
   job.mode = "BATCH"
 }
 
@@ -153,7 +151,7 @@ sink {
 ```
 env {
   # You can set engine configuration here
-  execution.parallelism = 10
+  parallelism = 10
 }
 
 source {

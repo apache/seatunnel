@@ -18,6 +18,8 @@
 package org.apache.seatunnel.connectors.doris.sink.writer;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.doris.config.DorisConfig;
@@ -31,9 +33,11 @@ import org.apache.seatunnel.connectors.doris.serialize.SeaTunnelRowSerializer;
 import org.apache.seatunnel.connectors.doris.sink.LoadStatus;
 import org.apache.seatunnel.connectors.doris.sink.committer.DorisCommitInfo;
 import org.apache.seatunnel.connectors.doris.util.HttpUtil;
+import org.apache.seatunnel.connectors.doris.util.UnsupportedTypeConverterUtils;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -52,7 +56,9 @@ import java.util.concurrent.TimeUnit;
 import static com.google.common.base.Preconditions.checkState;
 
 @Slf4j
-public class DorisSinkWriter implements SinkWriter<SeaTunnelRow, DorisCommitInfo, DorisSinkState> {
+public class DorisSinkWriter
+        implements SinkWriter<SeaTunnelRow, DorisCommitInfo, DorisSinkState>,
+                SupportMultiTableSinkWriter<Void> {
     private static final int INITIAL_DELAY = 200;
     private static final int CONNECT_TIMEOUT = 1000;
     private static final List<String> DORIS_SUCCESS_STATUS =
@@ -64,8 +70,8 @@ public class DorisSinkWriter implements SinkWriter<SeaTunnelRow, DorisCommitInfo
     private final String labelPrefix;
     private final LabelGenerator labelGenerator;
     private final int intervalTime;
-    private final DorisSinkState dorisSinkState;
     private final DorisSerializer serializer;
+    private final CatalogTable catalogTable;
     private final transient ScheduledExecutorService scheduledExecutorService;
     private transient Thread executorThread;
     private transient volatile Exception loadException = null;
@@ -75,32 +81,44 @@ public class DorisSinkWriter implements SinkWriter<SeaTunnelRow, DorisCommitInfo
     public DorisSinkWriter(
             SinkWriter.Context context,
             List<DorisSinkState> state,
-            SeaTunnelRowType seaTunnelRowType,
+            CatalogTable catalogTable,
             DorisConfig dorisConfig,
-            String jobId) {
+            String jobId)
+            throws IOException {
         this.dorisConfig = dorisConfig;
-        this.lastCheckpointId = state.size() != 0 ? state.get(0).getCheckpointId() : 0;
+        this.catalogTable = catalogTable;
+        this.lastCheckpointId = !state.isEmpty() ? state.get(0).getCheckpointId() : 0;
         log.info("restore checkpointId {}", lastCheckpointId);
         log.info("labelPrefix " + dorisConfig.getLabelPrefix());
-        this.dorisSinkState = new DorisSinkState(dorisConfig.getLabelPrefix(), lastCheckpointId);
         this.labelPrefix =
-                dorisConfig.getLabelPrefix() + "_" + jobId + "_" + context.getIndexOfSubtask();
+                dorisConfig.getLabelPrefix()
+                        + "_"
+                        + catalogTable.getTablePath().getFullName().replaceAll("\\.", "_")
+                        + "_"
+                        + jobId
+                        + "_"
+                        + context.getIndexOfSubtask();
         this.labelGenerator = new LabelGenerator(labelPrefix, dorisConfig.getEnable2PC());
         this.scheduledExecutorService =
                 new ScheduledThreadPoolExecutor(
                         1, new ThreadFactoryBuilder().setNameFormat("stream-load-check").build());
-        this.serializer = createSerializer(dorisConfig, seaTunnelRowType);
+        this.serializer = createSerializer(dorisConfig, catalogTable.getSeaTunnelRowType());
         this.intervalTime = dorisConfig.getCheckInterval();
         this.loading = false;
+        this.initializeLoad();
     }
 
-    public void initializeLoad(List<DorisSinkState> state) throws IOException {
+    private void initializeLoad() throws IOException {
         this.backends = RestService.getBackendsV2(dorisConfig, log);
         String backend = getAvailableBackend();
         try {
             this.dorisStreamLoad =
                     new DorisStreamLoad(
-                            backend, dorisConfig, labelGenerator, new HttpUtil().getHttpClient());
+                            backend,
+                            catalogTable.getTablePath(),
+                            dorisConfig,
+                            labelGenerator,
+                            new HttpUtil().getHttpClient());
             if (dorisConfig.getEnable2PC()) {
                 dorisStreamLoad.abortPreCommit(labelPrefix, lastCheckpointId + 1);
             }
@@ -119,15 +137,35 @@ public class DorisSinkWriter implements SinkWriter<SeaTunnelRow, DorisCommitInfo
     @Override
     public void write(SeaTunnelRow element) throws IOException {
         checkLoadException();
-        byte[] serialize = serializer.serialize(element);
+        byte[] serialize =
+                serializer.serialize(
+                        dorisConfig.isNeedsUnsupportedTypeCasting()
+                                ? UnsupportedTypeConverterUtils.convertRow(element)
+                                : element);
         if (Objects.isNull(serialize)) {
             return;
         }
         dorisStreamLoad.writeRecord(serialize);
+        if (!dorisConfig.getEnable2PC()
+                && dorisStreamLoad.getRecordCount() >= dorisConfig.getBatchSize()) {
+            flush();
+            startLoad(labelGenerator.generateLabel(lastCheckpointId));
+        }
     }
 
     @Override
     public Optional<DorisCommitInfo> prepareCommit() throws IOException {
+        RespContent respContent = flush();
+        if (!dorisConfig.getEnable2PC()) {
+            return Optional.empty();
+        }
+        long txnId = respContent.getTxnId();
+
+        return Optional.of(
+                new DorisCommitInfo(dorisStreamLoad.getHostPort(), dorisStreamLoad.getDb(), txnId));
+    }
+
+    @NonNull private RespContent flush() throws IOException {
         // disable exception checker before stop load.
         loading = false;
         checkState(dorisStreamLoad != null);
@@ -139,23 +177,21 @@ public class DorisSinkWriter implements SinkWriter<SeaTunnelRow, DorisCommitInfo
                             respContent.getMessage(), respContent.getErrorURL());
             throw new DorisConnectorException(DorisConnectorErrorCode.STREAM_LOAD_FAILED, errMsg);
         }
-        if (!dorisConfig.getEnable2PC()) {
-            return Optional.empty();
-        }
-        long txnId = respContent.getTxnId();
-
-        return Optional.of(
-                new DorisCommitInfo(dorisStreamLoad.getHostPort(), dorisStreamLoad.getDb(), txnId));
+        return respContent;
     }
 
     @Override
     public List<DorisSinkState> snapshotState(long checkpointId) throws IOException {
         checkState(dorisStreamLoad != null);
-        this.dorisStreamLoad.setHostPort(getAvailableBackend());
-        this.dorisStreamLoad.startLoad(labelGenerator.generateLabel(checkpointId + 1));
-        this.loading = true;
+        startLoad(labelGenerator.generateLabel(checkpointId + 1));
         this.lastCheckpointId = checkpointId;
         return Collections.singletonList(new DorisSinkState(labelPrefix, lastCheckpointId));
+    }
+
+    private void startLoad(String label) throws IOException {
+        this.dorisStreamLoad.setHostPort(getAvailableBackend());
+        this.dorisStreamLoad.startLoad(label);
+        this.loading = true;
     }
 
     @Override
@@ -204,23 +240,11 @@ public class DorisSinkWriter implements SinkWriter<SeaTunnelRow, DorisCommitInfo
         }
     }
 
-    @VisibleForTesting
-    public boolean isLoading() {
-        return this.loading;
-    }
-
-    @VisibleForTesting
-    public void setDorisStreamLoad(DorisStreamLoad streamLoad) {
-        this.dorisStreamLoad = streamLoad;
-    }
-
-    @VisibleForTesting
-    public void setBackends(List<BackendV2.BackendRowV2> backends) {
-        this.backends = backends;
-    }
-
     @Override
     public void close() throws IOException {
+        if (!dorisConfig.getEnable2PC()) {
+            flush();
+        }
         if (scheduledExecutorService != null) {
             scheduledExecutorService.shutdownNow();
         }

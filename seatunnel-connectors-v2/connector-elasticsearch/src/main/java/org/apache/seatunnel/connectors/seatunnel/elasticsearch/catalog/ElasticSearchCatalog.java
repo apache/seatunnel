@@ -39,6 +39,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.collect.Lists;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -52,6 +53,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
  *
  * <p>In ElasticSearch, we use the index as the database and table.
  */
+@Slf4j
 public class ElasticSearchCatalog implements Catalog {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ElasticSearchCatalog.class);
@@ -108,11 +110,12 @@ public class ElasticSearchCatalog implements Catalog {
             List<IndexDocsCount> indexDocsCount = esRestClient.getIndexDocsCount(databaseName);
             return true;
         } catch (Exception e) {
-            throw new CatalogException(
+            log.error(
                     String.format(
                             "Failed to check if catalog %s database %s exists",
                             catalogName, databaseName),
                     e);
+            return false;
         }
     }
 
@@ -177,13 +180,6 @@ public class ElasticSearchCatalog implements Catalog {
             throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
         // Create the index
         checkNotNull(tablePath, "tablePath cannot be null");
-        if (tableExists(tablePath)) {
-            if (ignoreIfExists) {
-                return;
-            } else {
-                throw new TableAlreadyExistException(catalogName, tablePath, null);
-            }
-        }
         esRestClient.createIndex(tablePath.getTableName());
     }
 
@@ -215,6 +211,19 @@ public class ElasticSearchCatalog implements Catalog {
     public void dropDatabase(TablePath tablePath, boolean ignoreIfNotExists)
             throws DatabaseNotExistException, CatalogException {
         dropTable(tablePath, ignoreIfNotExists);
+    }
+
+    @Override
+    public void truncateTable(TablePath tablePath, boolean ignoreIfNotExists) {
+        dropTable(tablePath, ignoreIfNotExists);
+        createTable(tablePath, null, ignoreIfNotExists);
+    }
+
+    @Override
+    public boolean isExistsData(TablePath tablePath) {
+        final List<IndexDocsCount> indexDocsCount =
+                esRestClient.getIndexDocsCount(tablePath.getTableName());
+        return indexDocsCount.get(0).getDocsCount() > 0;
     }
 
     private Map<String, String> buildTableOptions(TablePath tablePath) {

@@ -305,4 +305,21 @@ public class PhysicalColumn extends Column {
                 bitLen,
                 longColumnLength);
     }
+
+    @Override
+    public Column rename(String newColumnName) {
+        return PhysicalColumn.of(
+                newColumnName,
+                dataType,
+                columnLength,
+                nullable,
+                defaultValue,
+                comment,
+                sourceType,
+                isUnsigned,
+                isZeroFill,
+                bitLen,
+                options,
+                longColumnLength);
+    }
 }
