@@ -47,6 +47,7 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 | max_commit_attempts                       | Int     | No       | 3             |
 | transaction_timeout_sec                   | Int     | No       | -1            |
 | auto_commit                               | Boolean | No       | true          |
+| enable_upsert                             | Boolean | No       | true          |
 | common-options                            |         | no       | -             |
 
 ### driver [string]
@@ -135,6 +136,10 @@ exactly-once semantics
 ### auto_commit [boolean]
 
 Automatic transaction commit is enabled by default
+
+### enable_upsert [boolean]
+
+Enable upsert by primary_keys exist, If the task only has `insert`, setting this parameter to `false` can speed up data import
 
 ### common options
 
