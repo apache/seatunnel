@@ -23,6 +23,7 @@ import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
@@ -32,7 +33,11 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
+import java.sql.Connection;
+import java.sql.Driver;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -41,6 +46,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.Properties;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -51,6 +57,7 @@ public class DorisIT extends AbstractDorisIT {
 
     private static final String sourceDB = "e2e_source";
     private static final String sinkDB = "e2e_sink";
+    private Connection conn;
 
     private static final String INIT_DATA_SQL =
             "insert into "
@@ -111,10 +118,10 @@ public class DorisIT extends AbstractDorisIT {
                             .map(x -> x.trim())
                             .collect(Collectors.toList());
             Statement sourceStatement =
-                    jdbcConnection.createStatement(
+                    conn.createStatement(
                             ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_READ_ONLY);
             Statement sinkStatement =
-                    jdbcConnection.createStatement(
+                    conn.createStatement(
                             ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_READ_ONLY);
             ResultSet sourceResultSet = sourceStatement.executeQuery(sourceSql);
             ResultSet sinkResultSet = sinkStatement.executeQuery(sinkSql);
@@ -149,7 +156,7 @@ public class DorisIT extends AbstractDorisIT {
     }
 
     private void assertHasData(String db, String table) {
-        try (Statement statement = jdbcConnection.createStatement()) {
+        try (Statement statement = conn.createStatement()) {
             String sql = String.format("select * from %s.%s limit 1", db, table);
             ResultSet source = statement.executeQuery(sql);
             Assertions.assertTrue(source.next());
@@ -159,7 +166,7 @@ public class DorisIT extends AbstractDorisIT {
     }
 
     private void clearSinkTable() {
-        try (Statement statement = jdbcConnection.createStatement()) {
+        try (Statement statement = conn.createStatement()) {
             statement.execute(String.format("TRUNCATE TABLE %s.%s", sinkDB, TABLE));
         } catch (SQLException e) {
             throw new RuntimeException("test doris server image error", e);
@@ -167,16 +174,29 @@ public class DorisIT extends AbstractDorisIT {
     }
 
     private void initializeJdbcTable() {
-        try (Statement statement = jdbcConnection.createStatement()) {
-            // create test databases
-            statement.execute(createDatabase(sourceDB));
-            statement.execute(createDatabase(sinkDB));
-            log.info("create source and sink database succeed");
-            // create source and sink table
-            statement.execute(createTableForTest(sourceDB));
-            statement.execute(createTableForTest(sinkDB));
-        } catch (SQLException e) {
-            throw new RuntimeException("Initializing table failed!", e);
+        try {
+            URLClassLoader urlClassLoader =
+                    new URLClassLoader(
+                            new URL[] {new URL(DRIVER_JAR)}, DorisIT.class.getClassLoader());
+            Thread.currentThread().setContextClassLoader(urlClassLoader);
+            Driver driver = (Driver) urlClassLoader.loadClass(DRIVER_CLASS).newInstance();
+            Properties props = new Properties();
+            props.put("user", USERNAME);
+            props.put("password", PASSWORD);
+            conn = driver.connect(String.format(URL, container.getHost()), props);
+            try (Statement statement = conn.createStatement()) {
+                // create test databases
+                statement.execute(createDatabase(sourceDB));
+                statement.execute(createDatabase(sinkDB));
+                log.info("create source and sink database succeed");
+                // create source and sink table
+                statement.execute(createTableForTest(sourceDB));
+                statement.execute(createTableForTest(sinkDB));
+            } catch (SQLException e) {
+                throw new RuntimeException("Initializing table failed!", e);
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Initializing jdbc failed!", e);
         }
     }
 
@@ -215,9 +235,8 @@ public class DorisIT extends AbstractDorisIT {
     private void batchInsertData() {
         List<SeaTunnelRow> rows = genDorisTestData(100L);
         try {
-            jdbcConnection.setAutoCommit(false);
-            try (PreparedStatement preparedStatement =
-                    jdbcConnection.prepareStatement(INIT_DATA_SQL)) {
+            conn.setAutoCommit(false);
+            try (PreparedStatement preparedStatement = conn.prepareStatement(INIT_DATA_SQL)) {
                 for (int i = 0; i < rows.size(); i++) {
                     for (int index = 0; index < rows.get(i).getFields().length; index++) {
                         preparedStatement.setObject(index + 1, rows.get(i).getFields()[index]);
@@ -226,7 +245,7 @@ public class DorisIT extends AbstractDorisIT {
                 }
                 preparedStatement.executeBatch();
             }
-            jdbcConnection.commit();
+            conn.commit();
         } catch (Exception exception) {
             log.error(ExceptionUtils.getMessage(exception));
             throw new RuntimeException("get connection error", exception);
@@ -260,5 +279,11 @@ public class DorisIT extends AbstractDorisIT {
         }
         log.info("generate test data succeed");
         return datas;
+    }
+    @AfterAll
+    public void close() throws SQLException {
+        if (conn != null){
+            conn.close();
+        }
     }
 }
