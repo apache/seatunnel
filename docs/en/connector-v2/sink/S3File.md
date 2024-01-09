@@ -463,31 +463,17 @@ transform {
 }
 sink {
 S3File {
-    updateFieldType=null
-    autoCreateShow=false
-    autoCreate=false
-    autoTable=false
-    "schema_save_mode"="RECREATE_SCHEMA"
-    "data_save_mode"="KEEP_SCHEMA_DROP_DATA"
-    "custom_filename"="false"
-    "file_name_expression"="${transactionId}"
-    "filename_time_format"="yyyy.MM.dd"
-    "have_partition"="false"
-    "partition_dir_expression"="${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/"
-    "is_partition_field_write_in_file"="false"
-    "is_enable_transaction"="true"
-    "source_table_name"=Table11519548644512
-    path="/linshentest/${table_name}"
-    "file_format_type"=CSV
-    "date_format"=yyyy-MM-dd
-    "sink_columns"=[]
-    "compress_codec"=null
-    "access_key"=xxxxxxxxxxxxxxxx
-    bucket="s3a://ws-package"
-    "secret_key"="xxxxxxxxxxxxxxxxxx"
-    "fs.s3a.endpoint"="s3.xxxxxxxxx-1.amazonaws.com.cn"
-    "fs.s3a.aws.credentials.provider"="org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
-}
+    bucket = "s3a://seatunnel-test"
+    tmp_path = "/tmp/seatunnel"
+    path="/test/${table_name}"
+    fs.s3a.endpoint="s3.cn-north-1.amazonaws.com.cn"
+    fs.s3a.aws.credentials.provider="org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
+    access_key = "xxxxxxxxxxxxxxxxx"
+    secret_key = "xxxxxxxxxxxxxxxxx"
+    file_format_type = "orc"
+    schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+    data_save_mode="APPEND_DATA"
+  }
 }
 ```
 

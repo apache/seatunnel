@@ -107,7 +107,7 @@ public class S3FileSink extends BaseFileSink implements SupportSaveMode {
                 discoverFactory(
                         Thread.currentThread().getContextClassLoader(), CatalogFactory.class, S3);
         if (catalogFactory == null) {
-            return null;
+            return Optional.empty();
         }
         final Catalog catalog = catalogFactory.createCatalog(S3, readonlyConfig);
         SchemaSaveMode schemaSaveMode = readonlyConfig.get(S3ConfigOptions.SCHEMA_SAVE_MODE);
