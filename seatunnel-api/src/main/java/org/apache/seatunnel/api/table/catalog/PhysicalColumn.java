@@ -308,18 +308,19 @@ public class PhysicalColumn extends Column {
 
     @Override
     public Column rename(String newColumnName) {
-        return PhysicalColumn.of(
+        return new PhysicalColumn(
                 newColumnName,
                 dataType,
                 columnLength,
+                scale,
                 nullable,
                 defaultValue,
                 comment,
                 sourceType,
+                options,
                 isUnsigned,
                 isZeroFill,
                 bitLen,
-                options,
                 longColumnLength);
     }
 }
