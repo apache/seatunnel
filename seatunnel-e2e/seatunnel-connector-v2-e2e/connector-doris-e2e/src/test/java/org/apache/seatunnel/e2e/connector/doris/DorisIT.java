@@ -33,7 +33,6 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -98,6 +97,7 @@ public class DorisIT extends AbstractDorisIT {
     @TestTemplate
     public void testDoris(TestContainer container) throws IOException, InterruptedException {
         initializeJdbcTable();
+        batchInsertData();
         Container.ExecResult execResult = container.executeJob("/doris_source_and_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
 
@@ -148,16 +148,6 @@ public class DorisIT extends AbstractDorisIT {
         }
     }
 
-    public static void closeConn(Connection conn) {
-        try {
-            conn.close();
-            System.out.println("conn closed");
-        } catch (Exception e) {
-            System.out.println("close conn failed");
-            e.printStackTrace();
-        }
-    }
-
     private void assertHasData(String db, String table) {
         try (Statement statement = jdbcConnection.createStatement()) {
             String sql = String.format("select * from %s.%s limit 1", db, table);
@@ -186,7 +176,6 @@ public class DorisIT extends AbstractDorisIT {
             statement.execute(createTableForTest(sourceDB));
             statement.execute(createTableForTest(sinkDB));
         } catch (SQLException e) {
-            closeConn(jdbcConnection);
             throw new RuntimeException("Initializing table failed!", e);
         }
     }
