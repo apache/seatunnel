@@ -280,9 +280,10 @@ public class DorisIT extends AbstractDorisIT {
         log.info("generate test data succeed");
         return datas;
     }
+
     @AfterAll
     public void close() throws SQLException {
-        if (conn != null){
+        if (conn != null) {
             conn.close();
         }
     }
