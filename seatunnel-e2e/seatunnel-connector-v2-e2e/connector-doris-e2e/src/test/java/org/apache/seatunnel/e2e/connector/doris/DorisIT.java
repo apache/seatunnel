@@ -19,34 +19,21 @@ package org.apache.seatunnel.e2e.connector.doris;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
-import org.apache.seatunnel.e2e.common.TestResource;
-import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
-import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.output.Slf4jLogConsumer;
-import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.shaded.org.apache.commons.io.IOUtils;
-import org.testcontainers.utility.DockerLoggerFactory;
 
-import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
-import java.sql.Driver;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -55,35 +42,13 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
-import java.util.Properties;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
-import static org.awaitility.Awaitility.given;
 
 @Slf4j
-public class DorisIT extends TestSuiteBase implements TestResource {
-    private static final String DOCKER_IMAGE = "bingquanzhao/doris:e2e";
-    private static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
-    private static final String HOST = "doris_e2e";
-    private static final int DOCKER_PORT = 9030;
-    private static final int PORT = 9036;
-    private static final int be_http_port = 8040;
-    private static final int fe_http_port = 8030;
-    private static final String URL = "jdbc:mysql://%s:" + PORT;
-    private static final String USERNAME = "root";
-    private static final String PASSWORD = "";
+public class DorisIT extends AbstractDorisIT {
     private static final String TABLE = "doris_e2e_table";
     private static final String DRIVER_JAR =
             "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
-
-    private static final String SET_SQL =
-            "ADMIN SET FRONTEND CONFIG (\"enable_batch_delete_by_default\" = \"true\")";
-
-    private Connection jdbcConnection;
-
-    private GenericContainer<?> dorisServer;
 
     private static final String sourceDB = "e2e_source";
     private static final String sinkDB = "e2e_sink";
@@ -130,36 +95,9 @@ public class DorisIT extends TestSuiteBase implements TestResource {
                 Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
             };
 
-    @BeforeAll
-    @Override
-    public void startUp() throws Exception {
-        dorisServer =
-                new GenericContainer<>(DOCKER_IMAGE)
-                        .withNetwork(NETWORK)
-                        .withNetworkAliases(HOST)
-                        .withPrivilegedMode(true)
-                        .withLogConsumer(
-                                new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DOCKER_IMAGE)));
-        dorisServer.setPortBindings(
-                Lists.newArrayList(
-                        String.format("%s:%s", PORT, DOCKER_PORT),
-                        String.format("%s:%s", be_http_port, be_http_port),
-                        String.format("%s:%s", fe_http_port, fe_http_port)));
-        Startables.deepStart(Stream.of(dorisServer)).join();
-        log.info("doris container started");
-        // wait for doris fully start
-        Thread.sleep(60000);
-        given().ignoreExceptions()
-                .await()
-                .atMost(10000, TimeUnit.SECONDS)
-                .untilAsserted(this::initializeJdbcConnection);
-        //        jdbcConnection = getConn(HOST, "9036", USERNAME, PASSWORD, "");
-        initializeJdbcTable();
-        batchInsertData();
-    }
-
     @TestTemplate
     public void testDoris(TestContainer container) throws IOException, InterruptedException {
+        initializeJdbcTable();
         Container.ExecResult execResult = container.executeJob("/doris_source_and_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
 
@@ -210,17 +148,6 @@ public class DorisIT extends TestSuiteBase implements TestResource {
         }
     }
 
-    @AfterAll
-    @Override
-    public void tearDown() throws Exception {
-        if (jdbcConnection != null) {
-            jdbcConnection.close();
-        }
-        if (dorisServer != null) {
-            dorisServer.close();
-        }
-    }
-
     public static void closeConn(Connection conn) {
         try {
             conn.close();
@@ -228,22 +155,6 @@ public class DorisIT extends TestSuiteBase implements TestResource {
         } catch (Exception e) {
             System.out.println("close conn failed");
             e.printStackTrace();
-        }
-    }
-
-    private void initializeJdbcConnection()
-            throws SQLException, ClassNotFoundException, InstantiationException,
-                    IllegalAccessException, MalformedURLException {
-        URLClassLoader urlClassLoader =
-                new URLClassLoader(new URL[] {new URL(DRIVER_JAR)}, DorisIT.class.getClassLoader());
-        Thread.currentThread().setContextClassLoader(urlClassLoader);
-        Driver driver = (Driver) urlClassLoader.loadClass(DRIVER_CLASS).newInstance();
-        Properties props = new Properties();
-        props.put("user", USERNAME);
-        props.put("password", PASSWORD);
-        jdbcConnection = driver.connect(String.format(URL, dorisServer.getHost()), props);
-        try (Statement statement = jdbcConnection.createStatement()) {
-            statement.execute(SET_SQL);
         }
     }
 
