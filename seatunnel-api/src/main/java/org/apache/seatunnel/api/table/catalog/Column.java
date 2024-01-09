@@ -78,7 +78,6 @@ public abstract class Column implements Serializable {
     /** Field type in the database * */
     protected final String sourceType;
 
-    /** your options * */
     protected final Map<String, Object> options;
 
     // TODO Waiting for migration to complete before remove
