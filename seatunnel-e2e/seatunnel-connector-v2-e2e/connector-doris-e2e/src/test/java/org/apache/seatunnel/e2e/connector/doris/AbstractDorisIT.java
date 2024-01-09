@@ -111,8 +111,8 @@ public abstract class AbstractDorisIT extends TestSuiteBase implements TestResou
 
     private boolean isBeReady(ResultSet rs, Duration duration) throws SQLException {
         if (rs.next()) {
-            String isAlive = rs.getString(10).trim();
-            String totalCap = rs.getString(16).trim();
+            String isAlive = rs.getString("Alive").trim();
+            String totalCap = rs.getString("TotalCapacity").trim();
             LockSupport.parkNanos(duration.toNanos());
             return "true".equalsIgnoreCase(isAlive) && !"0.000".equalsIgnoreCase(totalCap);
         }
