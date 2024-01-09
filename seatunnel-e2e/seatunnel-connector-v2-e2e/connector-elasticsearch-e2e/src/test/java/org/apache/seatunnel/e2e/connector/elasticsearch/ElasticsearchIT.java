@@ -20,8 +20,11 @@ package org.apache.seatunnel.e2e.connector.elasticsearch;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.catalog.ElasticSearchCatalog;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsRestClient;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.ScrollResult;
 import org.apache.seatunnel.e2e.common.TestResource;
@@ -49,6 +52,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -254,5 +258,38 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
             esRestClient.close();
         }
         container.close();
+    }
+
+    @TestTemplate
+    public void testCatalog(TestContainer container2) throws IOException, InterruptedException {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("username", "elastic");
+        configMap.put("password", "elasticsearch");
+        configMap.put("hosts", Arrays.asList("https://" + container.getHttpHostAddress()));
+        configMap.put("index", "st_index3");
+        configMap.put("tls_verify_certificate", false);
+        configMap.put("tls_verify_hostname", false);
+        configMap.put("index_type", "st");
+        final ElasticSearchCatalog elasticSearchCatalog =
+                new ElasticSearchCatalog("Elasticsearch", "", ConfigFactory.parseMap(configMap));
+        elasticSearchCatalog.open();
+        TablePath tablePath = TablePath.of("", "st_index3");
+        // index exists
+        final boolean existsBefore = elasticSearchCatalog.tableExists(tablePath);
+        Assertions.assertFalse(existsBefore);
+        // create index
+        elasticSearchCatalog.createTable(tablePath, null, false);
+        final boolean existsAfter = elasticSearchCatalog.tableExists(tablePath);
+        Assertions.assertTrue(existsAfter);
+        // data exists?
+        final boolean existsData = elasticSearchCatalog.isExistsData(tablePath);
+        Assertions.assertFalse(existsData);
+        // truncate
+        elasticSearchCatalog.truncateTable(tablePath, false);
+        Assertions.assertTrue(elasticSearchCatalog.tableExists(tablePath));
+        // drop
+        elasticSearchCatalog.dropTable(tablePath, false);
+        Assertions.assertFalse(elasticSearchCatalog.tableExists(tablePath));
+        elasticSearchCatalog.close();
     }
 }

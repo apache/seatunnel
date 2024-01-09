@@ -114,7 +114,7 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
 
     @Override
     public DataSourceDialect<JdbcSourceConfig> createDataSourceDialect(ReadonlyConfig config) {
-        return new MySqlDialect((MySqlSourceConfigFactory) configFactory);
+        return new MySqlDialect((MySqlSourceConfigFactory) configFactory, catalogTables);
     }
 
     @Override

@@ -280,7 +280,7 @@ public class MultipleTableJobConfigParser {
                         "The Factory has not been implemented and the deprecated Plugin will be used.");
                 return true;
             }
-            log.warn(ExceptionUtils.getMessage(e));
+            log.debug(ExceptionUtils.getMessage(e));
         }
         return false;
     }
