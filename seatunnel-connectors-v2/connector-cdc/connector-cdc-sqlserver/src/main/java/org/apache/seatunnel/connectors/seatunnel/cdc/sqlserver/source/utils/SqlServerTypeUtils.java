@@ -33,6 +33,7 @@ public class SqlServerTypeUtils {
                         .columnType(column.typeName())
                         .dataType(column.typeName())
                         .length((long) column.length())
+                        .precision((long) column.length())
                         .scale(column.scale().orElse(0))
                         .build();
         org.apache.seatunnel.api.table.catalog.Column seaTunnelColumn =

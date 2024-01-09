@@ -56,6 +56,8 @@ public class SqlServerTypeConverter implements TypeConverter<BasicTypeDefine> {
     public static final String SQLSERVER_TEXT = "TEXT";
     public static final String SQLSERVER_NTEXT = "NTEXT";
     public static final String SQLSERVER_XML = "XML";
+    public static final String SQLSERVER_UNIQUEIDENTIFIER = "UNIQUEIDENTIFIER";
+    public static final String SQLSERVER_SQLVARIANT = "SQL_VARIANT";
 
     // ------------------------------time-------------------------
     public static final String SQLSERVER_DATE = "DATE";
@@ -212,6 +214,16 @@ public class SqlServerTypeConverter implements TypeConverter<BasicTypeDefine> {
                 builder.sourceType(SQLSERVER_XML);
                 builder.dataType(BasicType.STRING_TYPE);
                 builder.columnLength(POWER_2_31 - 1);
+                break;
+            case SQLSERVER_UNIQUEIDENTIFIER:
+                builder.sourceType(SQLSERVER_UNIQUEIDENTIFIER);
+                builder.dataType(BasicType.STRING_TYPE);
+                builder.columnLength(typeDefine.getLength());
+                break;
+            case SQLSERVER_SQLVARIANT:
+                builder.sourceType(SQLSERVER_SQLVARIANT);
+                builder.dataType(BasicType.STRING_TYPE);
+                builder.columnLength(typeDefine.getLength());
                 break;
             case SQLSERVER_BINARY:
                 builder.sourceType(
