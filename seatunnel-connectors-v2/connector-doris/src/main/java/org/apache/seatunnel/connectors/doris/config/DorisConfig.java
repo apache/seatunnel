@@ -119,7 +119,7 @@ public class DorisConfig implements Serializable {
         dorisConfig.setReadField(config.get(DORIS_READ_FIELD));
         dorisConfig.setFilterQuery(config.get(DORIS_FILTER_QUERY));
         dorisConfig.setTabletSize(config.get(DORIS_TABLET_SIZE));
-        dorisConfig.setRequestReadTimeoutMs(config.get(DORIS_REQUEST_CONNECT_TIMEOUT_MS));
+        dorisConfig.setRequestConnectTimeoutMs(config.get(DORIS_REQUEST_CONNECT_TIMEOUT_MS));
         dorisConfig.setRequestQueryTimeoutS(config.get(DORIS_REQUEST_QUERY_TIMEOUT_S));
         dorisConfig.setRequestReadTimeoutMs(config.get(DORIS_REQUEST_READ_TIMEOUT_MS));
         dorisConfig.setRequestRetries(config.get(DORIS_REQUEST_RETRIES));

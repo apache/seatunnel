@@ -81,18 +81,9 @@ public class RestService implements Serializable {
 
     private static String send(DorisConfig dorisConfig, HttpRequestBase request, Logger logger)
             throws DorisConnectorException {
-        int connectTimeout =
-                dorisConfig.getRequestConnectTimeoutMs() == null
-                        ? DorisOptions.DORIS_REQUEST_CONNECT_TIMEOUT_MS_DEFAULT
-                        : dorisConfig.getRequestConnectTimeoutMs();
-        int socketTimeout =
-                dorisConfig.getRequestReadTimeoutMs() == null
-                        ? DorisOptions.DORIS_REQUEST_READ_TIMEOUT_MS_DEFAULT
-                        : dorisConfig.getRequestReadTimeoutMs();
-        int retries =
-                dorisConfig.getRequestRetries() == null
-                        ? DorisOptions.DORIS_REQUEST_RETRIES_DEFAULT
-                        : dorisConfig.getRequestRetries();
+        int connectTimeout = dorisConfig.getRequestConnectTimeoutMs();
+        int socketTimeout = dorisConfig.getRequestReadTimeoutMs();
+        int retries = dorisConfig.getRequestRetries();
         logger.trace(
                 "connect timeout set to '{}'. socket timeout set to '{}'. retries set to '{}'.",
                 connectTimeout,
