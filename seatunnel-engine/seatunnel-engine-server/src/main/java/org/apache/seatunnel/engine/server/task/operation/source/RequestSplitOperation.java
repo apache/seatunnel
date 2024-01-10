@@ -56,12 +56,12 @@ public class RequestSplitOperation extends Operation implements IdentifiedDataSe
                                     .getExecutionContext(enumeratorTaskID.getTaskGroupLocation())
                                     .getClassLoader();
                     ClassLoader oldClassLoader = Thread.currentThread().getContextClassLoader();
-                    try{
+                    try {
                         Thread.currentThread().setContextClassLoader(classLoader);
                         SourceSplitEnumeratorTask<?> task =
                                 server.getTaskExecutionService().getTask(enumeratorTaskID);
                         task.requestSplit(taskID.getTaskIndex());
-                    } finally{
+                    } finally {
                         Thread.currentThread().setContextClassLoader(oldClassLoader);
                     }
                     return null;
