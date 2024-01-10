@@ -91,7 +91,7 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                     + "  SMALLINT_COL   SMALLINT,\n"
                     + "  TINYINT_COL    TINYINT,\n"
                     + "  BOOLEAN_COL    BOOLEAN,\n"
-                    + "  DECIMAL_COL    DECIMAL,\n"
+                    + "  DECIMAL_COL    Decimal(12, 1),\n"
                     + "  DOUBLE_COL     DOUBLE,\n"
                     + "  FLOAT_COL      FLOAT,\n"
                     + "  INT_COL        INT,\n"
