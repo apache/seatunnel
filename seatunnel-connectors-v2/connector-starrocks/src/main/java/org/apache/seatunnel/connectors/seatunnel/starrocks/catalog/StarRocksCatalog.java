@@ -216,8 +216,8 @@ public class StarRocksCatalog implements Catalog {
         this.createTable(
                 StarRocksSaveModeUtil.fillingCreateSql(
                         template,
-                        table.getTableId().getDatabaseName(),
-                        table.getTableId().getTableName(),
+                        tablePath.getDatabaseName(),
+                        tablePath.getTableName(),
                         table.getTableSchema()));
     }
 
