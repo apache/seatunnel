@@ -83,7 +83,8 @@ semantics (using XA transaction guarantee).
 | auto_commit                               | Boolean | No       | true    | Automatic transaction commit is enabled by default                                                                                                                                                                                             |
 | field_ide                                 | String  | No       | -       | Identify whether the field needs to be converted when synchronizing from the source to the sink. `ORIGINAL` indicates no conversion is needed;`UPPERCASE` indicates conversion to uppercase;`LOWERCASE` indicates conversion to lowercase.     |
 | properties                                | Map     | No       | -       | Additional connection configuration parameters,when properties and URL have the same parameters, the priority is determined by the <br/>specific implementation of the driver. For example, in MySQL, properties take precedence over the URL. |
-| common-options                            |         | no       | -       | Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details                                                                                                                                            |
+| common-options                            |         | No       | -       | Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details                                                                                                                                            |
+| enable_upsert                             | Boolean | No       | true    | Enable upsert by primary_keys exist, If the task only has `insert`, setting this parameter to `false` can speed up data import                                                                                                                 |
 
 ### Tips
 
