@@ -262,6 +262,7 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
             Assertions.assertEquals(
                     sourceResultSet.getMetaData().getColumnCount(),
                     sinkResultSet.getMetaData().getColumnCount());
+            log.info(container.getServerLogs());
             while (sourceResultSet.next()) {
                 if (sinkResultSet.next()) {
                     for (String column : columnList) {
@@ -301,7 +302,7 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
             // create source table
             statement.execute(DDL_SOURCE);
             // create sink table
-            statement.execute(DDL_SINK);
+            // statement.execute(DDL_SINK);
         } catch (SQLException e) {
             throw new RuntimeException("Initializing table failed!", e);
         }
