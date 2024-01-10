@@ -96,10 +96,10 @@ public class NotifyTaskRestoreOperation extends TaskOperation {
                                 .asyncExecuteFunction(
                                         taskLocation.getTaskGroupLocation(),
                                         () -> {
-                                            Thread.currentThread()
-                                                    .setContextClassLoader(
-                                                            groupContext.getClassLoader());
                                             try {
+                                                Thread.currentThread()
+                                                        .setContextClassLoader(
+                                                                groupContext.getClassLoader());
                                                 log.debug(
                                                         "NotifyTaskRestoreOperation.restoreState "
                                                                 + restoredState);

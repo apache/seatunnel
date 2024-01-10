@@ -80,21 +80,22 @@ public class CheckpointFinishedOperation extends TaskOperation {
         SeaTunnelServer server = getService();
         RetryUtils.retryWithException(
                 () -> {
+                    ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
                     try {
                         TaskGroupContext groupContext =
                                 server.getTaskExecutionService()
                                         .getExecutionContext(taskLocation.getTaskGroupLocation());
                         Task task = groupContext.getTaskGroup().getTask(taskLocation.getTaskID());
-                        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
                         Thread.currentThread().setContextClassLoader(groupContext.getClassLoader());
                         if (successful) {
                             task.notifyCheckpointComplete(checkpointId);
                         } else {
                             task.notifyCheckpointAborted(checkpointId);
                         }
-                        Thread.currentThread().setContextClassLoader(classLoader);
                     } catch (Exception e) {
                         throw new SeaTunnelEngineException(ExceptionUtils.getMessage(e));
+                    } finally {
+                        Thread.currentThread().setContextClassLoader(classLoader);
                     }
                     return null;
                 },
