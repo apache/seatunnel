@@ -211,9 +211,9 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                                 Short.parseShort("1"),
                                 Byte.parseByte("1"),
                                 Boolean.FALSE,
-                                BigDecimal.valueOf(2222243, 1),
+                                BigDecimal.valueOf(12345, 1),
                                 Double.parseDouble("2222243.2222243"),
-                                222225.1f,
+                                Float.parseFloat("22.17"),
                                 Integer.parseInt("1"),
                                 "a",
                                 "VARCHAR_COL",
@@ -357,7 +357,7 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                         "root",
                         PASSWORD,
                         String.format(URL, starRocksServer.getHost()),
-                        "CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}_2` (\n ${rowtype_fields}\n ) ENGINE=OLAP\n DISTRIBUTED BY HASH (BIGINT_COL) PROPERTIES (\n   \"replication_num\" = \"1\" \n )");
+                        "CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}` (\n ${rowtype_fields}\n ) ENGINE=OLAP \n  DUPLICATE KEY(`BIGINT_COL`) \n  DISTRIBUTED BY HASH (BIGINT_COL) BUCKETS 1 \n PROPERTIES (\n   \"replication_num\" = \"1\", \n  \"in_memory\" = \"false\" , \n  \"storage_format\" = \"DEFAULT\"  \n )");
         starRocksCatalog.open();
         CatalogTable catalogTable = starRocksCatalog.getTable(tablePathStarRocksSource);
         // sink tableExists ?
