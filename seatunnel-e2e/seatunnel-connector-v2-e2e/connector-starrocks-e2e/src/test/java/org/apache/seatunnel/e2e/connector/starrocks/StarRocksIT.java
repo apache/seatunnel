@@ -213,7 +213,7 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                                 Boolean.FALSE,
                                 BigDecimal.valueOf(2222243, 1),
                                 Double.parseDouble("2222243.2222243"),
-                                Float.parseFloat("222224.0"),
+                                Float.parseFloat("222224.1"),
                                 Integer.parseInt("1"),
                                 "a",
                                 "VARCHAR_COL",
