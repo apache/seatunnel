@@ -171,18 +171,18 @@ public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
                 // jackson not support jdk8 new time api
                 doc.put(fieldNames[i], value.toString());
             } else {
-                if(value != null){
-                    if(value instanceof String){
+                if (value != null) {
+                    if (value instanceof String) {
                         Object o = convertToObjectOrArray(value.toString());
-                        if(o != null){
+                        if (o != null) {
                             doc.put(fieldNames[i], o);
-                        }else{
+                        } else {
                             doc.put(fieldNames[i], value);
                         }
-                    }else{
+                    }else {
                         doc.put(fieldNames[i], value);
                     }
-                }else {
+                } else {
                     doc.put(fieldNames[i], value);
                 }
             }
