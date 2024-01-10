@@ -27,7 +27,6 @@
     </parent>
 
     <artifactId>seatunnel-dist</artifactId>
-    <packaging>pom</packaging>
     <name>SeaTunnel : Dist</name>
 
     <properties>
