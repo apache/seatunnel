@@ -179,7 +179,7 @@ public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
                         } else {
                             doc.put(fieldNames[i], value);
                         }
-                    }else {
+                    } else {
                         doc.put(fieldNames[i], value);
                     }
                 } else {
