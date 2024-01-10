@@ -162,7 +162,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                     new Object[] {
                         Collections.singletonMap("key", Short.parseShort(String.valueOf(i))),
                         new Byte[] {Byte.parseByte("1"), Byte.parseByte("2"), Byte.parseByte("3")},
-                        "{\"string\":\"string\"}",
+                        "\"{\"string\":\"string\"}\"",
                         Boolean.FALSE,
                         Byte.parseByte("1"),
                         Short.parseShort("1"),
