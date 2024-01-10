@@ -17,20 +17,13 @@
 
 package org.apache.seatunnel.e2e.connector.elasticsearch;
 
-import com.google.common.collect.Lists;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.utils.JsonUtils;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.catalog.ElasticSearchCatalog;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsRestClient;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.ScrollResult;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -42,13 +35,19 @@ import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
+import com.google.common.collect.Lists;
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
-import java.math.BigDecimal;
 import java.time.Duration;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import java.util.*;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -89,7 +88,6 @@ public class FakeToElasticsearchIT extends TestSuiteBase implements TestResource
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty());
-
     }
 
     @TestTemplate
@@ -157,7 +155,6 @@ public class FakeToElasticsearchIT extends TestSuiteBase implements TestResource
         return docs;
     }
 
-
     @AfterEach
     @Override
     public void tearDown() {
@@ -166,5 +163,4 @@ public class FakeToElasticsearchIT extends TestSuiteBase implements TestResource
         }
         container.close();
     }
-
 }
