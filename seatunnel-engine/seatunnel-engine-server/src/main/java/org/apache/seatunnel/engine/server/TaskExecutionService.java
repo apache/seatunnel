@@ -661,8 +661,8 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                         logger.severe("Close task error", e);
                     }
                 }
+                Thread.currentThread().setContextClassLoader(oldClassLoader);
             }
-            Thread.currentThread().setContextClassLoader(oldClassLoader);
         }
     }
 
