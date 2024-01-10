@@ -61,7 +61,7 @@ directly return the data
 | password                         | string | yes      | -          | User password                                                                                       |
 | database                         | string | yes      | -          | The name of Doris database                                                                          |
 | table                            | string | yes      | -          | The name of Doris table                                                                             |
-| schema                           | config | yes      | -          | The schema of the doris that you want to generate                                                   |
+| doris.read.field                 | string | no       | -          | Use the 'doris.read.field' parameter to select the doris table columns to read                      |
 | query-port                       | string | no       | 9030       | Doris QueryPort                                                                                     |
 | doris.filter.query               | string | no       | -          | Data filtering in doris. the format is "field = value",example : doris.filter.query = "F_ID > 2"    |
 | doris.batch.size                 | int    | no       | 1024       | The maximum value that can be obtained by reading Doris BE once.                                    |
