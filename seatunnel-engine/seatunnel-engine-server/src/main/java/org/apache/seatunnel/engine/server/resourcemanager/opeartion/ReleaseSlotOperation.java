@@ -20,14 +20,17 @@ package org.apache.seatunnel.engine.server.resourcemanager.opeartion;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.serializable.ResourceDataSerializerHook;
+import org.apache.seatunnel.engine.server.service.slot.WrongTargetSlotException;
 
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import com.hazelcast.spi.impl.operationservice.Operation;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 
+@Slf4j
 public class ReleaseSlotOperation extends Operation implements IdentifiedDataSerializable {
 
     private long jobID;
@@ -43,7 +46,14 @@ public class ReleaseSlotOperation extends Operation implements IdentifiedDataSer
     @Override
     public void run() throws Exception {
         SeaTunnelServer server = getService();
-        server.getSlotService().releaseSlot(jobID, slotProfile);
+        try {
+            server.getSlotService().releaseSlot(jobID, slotProfile);
+        } catch (WrongTargetSlotException ignore) {
+            log.warn(
+                    "wrong target release operation with job {} and slot profile {}",
+                    jobID,
+                    slotProfile);
+        }
     }
 
     @Override
