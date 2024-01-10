@@ -109,35 +109,6 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                     + "\"storage_format\" = \"DEFAULT\""
                     + ")";
 
-    private static final String DDL_SINK =
-            "create table "
-                    + DATABASE
-                    + "."
-                    + SINK_TABLE
-                    + " (\n"
-                    + "  BIGINT_COL     BIGINT,\n"
-                    + "  LARGEINT_COL   LARGEINT,\n"
-                    + "  SMALLINT_COL   SMALLINT,\n"
-                    + "  TINYINT_COL    TINYINT,\n"
-                    + "  BOOLEAN_COL    BOOLEAN,\n"
-                    + "  DECIMAL_COL    DECIMAL,\n"
-                    + "  DOUBLE_COL     DOUBLE,\n"
-                    + "  FLOAT_COL      FLOAT,\n"
-                    + "  INT_COL        INT,\n"
-                    + "  CHAR_COL       CHAR,\n"
-                    + "  VARCHAR_11_COL VARCHAR(11),\n"
-                    + "  STRING_COL     STRING,\n"
-                    + "  DATETIME_COL   DATETIME,\n"
-                    + "  DATE_COL       DATE\n"
-                    + ")ENGINE=OLAP\n"
-                    + "DUPLICATE KEY(`BIGINT_COL`)\n"
-                    + "DISTRIBUTED BY HASH(`BIGINT_COL`) BUCKETS 1\n"
-                    + "PROPERTIES (\n"
-                    + "\"replication_num\" = \"1\",\n"
-                    + "\"in_memory\" = \"false\","
-                    + "\"storage_format\" = \"DEFAULT\""
-                    + ")";
-
     private static final String INIT_DATA_SQL =
             "insert into "
                     + DATABASE
