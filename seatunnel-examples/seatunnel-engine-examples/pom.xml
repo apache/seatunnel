@@ -38,6 +38,12 @@
             <version>${project.version}</version>
         </dependency>
 
+        <dependency>
+            <groupId>org.apache.hadoop</groupId>
+            <artifactId>hadoop-client</artifactId>
+            <version>${hadoop3.version}</version>
+        </dependency>
+
         <!--   seatunnel-transforms-v2   -->
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
