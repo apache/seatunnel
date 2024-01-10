@@ -22,22 +22,36 @@ import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.doris.catalog.DorisCatalog;
 import org.apache.seatunnel.connectors.doris.catalog.DorisCatalogFactory;
 import org.apache.seatunnel.connectors.doris.config.DorisOptions;
+import org.apache.seatunnel.connectors.doris.exception.DorisConnectorErrorCode;
+import org.apache.seatunnel.connectors.doris.exception.DorisConnectorException;
+
+import org.apache.commons.lang3.StringUtils;
 
 import com.google.auto.service.AutoService;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
+@Slf4j
 @AutoService(Factory.class)
 public class DorisSourceFactory implements TableSourceFactory {
     @Override
@@ -65,23 +79,104 @@ public class DorisSourceFactory implements TableSourceFactory {
         ReadonlyConfig options = context.getOptions();
         CatalogTable table;
         SeaTunnelRowType seaTunnelRowType;
-        if (options.getOptional(TableSchemaOptions.SCHEMA).isPresent()) {
-            table = CatalogTableUtil.buildWithConfig(options);
-            seaTunnelRowType = table.getSeaTunnelRowType();
-        } else {
-            DorisCatalogFactory dorisCatalogFactory = new DorisCatalogFactory();
-            DorisCatalog catalog =
-                    (DorisCatalog) dorisCatalogFactory.createCatalog("doris", options);
-            catalog.open();
-            String tableIdentifier =
-                    options.get(DorisOptions.DATABASE) + "." + options.get(DorisOptions.TABLE);
-            TablePath tablePath = TablePath.of(tableIdentifier);
-            table = catalog.getTable(tablePath);
-            seaTunnelRowType = table.getSeaTunnelRowType();
+        DorisCatalogFactory dorisCatalogFactory = new DorisCatalogFactory();
+        DorisCatalog catalog = (DorisCatalog) dorisCatalogFactory.createCatalog("doris", options);
+        catalog.open();
+        String tableIdentifier =
+                options.get(DorisOptions.DATABASE) + "." + options.get(DorisOptions.TABLE);
+        TablePath tablePath = TablePath.of(tableIdentifier);
+        table = catalog.getTable(tablePath);
+        try {
+            String read_fields = options.get(DorisOptions.DORIS_READ_FIELD);
+            if (StringUtils.isNotBlank(read_fields)) {
+                List<String> readFiledList =
+                        Arrays.stream(read_fields.split(","))
+                                .map(String::trim)
+                                .collect(Collectors.toList());
+                List<Column> tableColumns = table.getTableSchema().getColumns();
+                Map<String, Column> tableColumnsMap =
+                        tableColumns.stream()
+                                .collect(Collectors.toMap(Column::getName, column -> column));
+                List<String> matchingFieldNames =
+                        getMatchingFieldNames(readFiledList, tableColumnsMap);
+                List<SeaTunnelDataType<?>> fieldDataTypes =
+                        getFieldDataTypes(matchingFieldNames, tableColumnsMap);
+                seaTunnelRowType =
+                        new SeaTunnelRowType(
+                                matchingFieldNames.toArray(new String[] {}),
+                                fieldDataTypes.toArray(new SeaTunnelDataType[] {}));
+
+                table =
+                        reconstructCatalogTable(
+                                matchingFieldNames, tableColumnsMap, table, tablePath);
+            } else {
+                seaTunnelRowType = table.getSeaTunnelRowType();
+            }
+        } catch (Exception e) {
+            log.error("create source error");
+            throw e;
         }
+        //        }
+        CatalogTable finalTable = table;
         return () ->
                 (SeaTunnelSource<T, SplitT, StateT>)
-                        new DorisSource(options, table, seaTunnelRowType);
+                        new DorisSource(options, finalTable, seaTunnelRowType);
+    }
+
+    private static CatalogTable reconstructCatalogTable(
+            List<String> matchingFieldNames,
+            Map<String, Column> tableColumnsMap,
+            CatalogTable table,
+            TablePath tablePath) {
+        // reconstruct CatalogTable
+        TableSchema.Builder builder = TableSchema.builder();
+        for (String field : matchingFieldNames) {
+            Column column = tableColumnsMap.get(field);
+            builder.column(column);
+        }
+        table =
+                CatalogTable.of(
+                        TableIdentifier.of(
+                                "Doris", tablePath.getDatabaseName(), tablePath.getTableName()),
+                        builder.build(),
+                        table.getOptions(),
+                        Collections.emptyList(),
+                        StringUtils.EMPTY);
+        return table;
+    }
+
+    public static List<String> getMatchingFieldNames(
+            List<String> readFieldList, Map<String, Column> tableColumnsMap) {
+        List<String> matchingFieldNames =
+                readFieldList.stream()
+                        .filter(tableColumnsMap::containsKey)
+                        .collect(Collectors.toList());
+
+        if (matchingFieldNames.size() != readFieldList.size()) {
+            List<String> nonMatchingFields =
+                    readFieldList.stream()
+                            .filter(field -> !matchingFieldNames.contains(field))
+                            .collect(Collectors.toList());
+            throw new DorisConnectorException(
+                    DorisConnectorErrorCode.SCHEMA_FAILED,
+                    "The following fields are not present in the table columns: "
+                            + nonMatchingFields);
+        }
+
+        return matchingFieldNames;
+    }
+
+    public static List<SeaTunnelDataType<?>> getFieldDataTypes(
+            List<String> matchingFieldNames, Map<String, Column> tableColumnsMap) {
+        List<SeaTunnelDataType<?>> dataTypes = new ArrayList<>();
+        for (String fieldName : matchingFieldNames) {
+            Column column = tableColumnsMap.get(fieldName);
+            if (column != null) {
+                SeaTunnelDataType<?> dataType = column.getDataType();
+                dataTypes.add(dataType);
+            }
+        }
+        return dataTypes;
     }
 
     @Override

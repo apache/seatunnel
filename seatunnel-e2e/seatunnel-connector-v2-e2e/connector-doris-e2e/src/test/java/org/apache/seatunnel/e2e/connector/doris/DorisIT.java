@@ -167,6 +167,7 @@ public class DorisIT extends AbstractDorisIT {
 
     private void clearSinkTable() {
         try (Statement statement = conn.createStatement()) {
+            statement.execute(String.format("TRUNCATE TABLE %s.%s", sourceDB, TABLE));
             statement.execute(String.format("TRUNCATE TABLE %s.%s", sinkDB, TABLE));
         } catch (SQLException e) {
             throw new RuntimeException("test doris server image error", e);

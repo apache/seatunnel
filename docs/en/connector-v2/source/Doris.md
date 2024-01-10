@@ -63,7 +63,7 @@ directly return the data
 | table                            | string | yes      | -          | The name of Doris table                                                                             |
 | schema                           | config | yes      | -          | The schema of the doris that you want to generate                                                   |
 | query-port                       | string | no       | 9030       | Doris QueryPort                                                                                     |
-| doris.filter.query               | string | no       | -          | Data filtering in doris. the format is "field = value".                                             |
+| doris.filter.query               | string | no       | -          | Data filtering in doris. the format is "field = value",example : doris.filter.query = "F_ID > 2"    |
 | doris.batch.size                 | int    | no       | 1024       | The maximum value that can be obtained by reading Doris BE once.                                    |
 | doris.request.query.timeout.s    | int    | no       | 3600       | Timeout period of Doris scan data, expressed in seconds.                                            |
 | doris.exec.mem.limit             | long   | no       | 2147483648 | Maximum memory that can be used by a single be scan request. The default memory is 2G (2147483648). |
@@ -91,25 +91,34 @@ source{
       password = ""
       database = "e2e_source"
       table = "doris_e2e_table"
-      schema {
-            fields {
-            F_ID = "BIGINT"
-            F_INT = "INT"
-            F_BIGINT = "BIGINT"
-            F_TINYINT = "TINYINT"
-            F_SMALLINT = "SMALLINT"
-            F_DECIMAL = "DECIMAL(18,6)"
-            F_BOOLEAN = "BOOLEAN"
-            F_DOUBLE = "DOUBLE"
-            F_FLOAT = "FLOAT"
-            F_CHAR = "String"
-            F_VARCHAR_11 = "String"
-            F_STRING = "String"
-            F_DATETIME_P = "Timestamp"
-            F_DATETIME = "Timestamp"
-            F_DATE = "DATE"
-            }
-      }
+  }
+}
+
+transform {
+    # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
+    # please go to https://seatunnel.apache.org/docs/transform/sql
+}
+
+sink {
+    Console {}
+}
+```
+
+Use the 'doris.read.field' parameter to select the doris table columns to read
+
+```
+env {
+  execution.parallelism = 2
+  job.mode = "BATCH"
+}
+source{
+  Doris {
+      fenodes = "doris_e2e:8030"
+      username = root
+      password = ""
+      database = "e2e_source"
+      table = "doris_e2e_table"
+      doris.read.field = "F_ID,F_INT,F_BIGINT,F_TINYINT,F_SMALLINT"
   }
 }
 
@@ -137,25 +146,6 @@ source{
       password = ""
       database = "e2e_source"
       table = "doris_e2e_table"
-      schema {
-            fields {
-            F_ID = "BIGINT"
-            F_INT = "INT"
-            F_BIGINT = "BIGINT"
-            F_TINYINT = "TINYINT"
-            F_SMALLINT = "SMALLINT"
-            F_DECIMAL = "DECIMAL(18,6)"
-            F_BOOLEAN = "BOOLEAN"
-            F_DOUBLE = "DOUBLE"
-            F_FLOAT = "FLOAT"
-            F_CHAR = "String"
-            F_VARCHAR_11 = "String"
-            F_STRING = "String"
-            F_DATETIME_P = "Timestamp"
-            F_DATETIME = "Timestamp"
-            F_DATE = "DATE"
-            }
-      }
       doris.filter.query = "F_ID > 2"
   }
 }
