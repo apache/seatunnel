@@ -420,17 +420,6 @@ env {
 source {
 MySQL-CDC {
     
-    autoCreateShow=true
-    autoCreate=false
-    autoTable=false
-    autoCreateShow=true
-    autoCreate=false
-    autoTable=false
-    format=DEFAULT
-    "snapshot.split.size"=8096
-    "snapshot.fetch.size"=1024
-    "incremental.parallelism"=1
-    "connect.timeout.ms"=30000
     "connect.max-retries"=3
     "connection.pool.size"=6
     "chunk-key.even-distribution.factor.lower-bound"=0.05
