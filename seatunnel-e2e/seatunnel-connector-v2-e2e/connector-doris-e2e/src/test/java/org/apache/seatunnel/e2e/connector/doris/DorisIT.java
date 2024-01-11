@@ -113,7 +113,7 @@ public class DorisIT extends AbstractDorisIT {
 
             String sourceSql =
                     String.format(
-                            "select * from %s.%s order by F_ID > where F_ID > 50", sourceDB, TABLE);
+                            "select * from %s.%s where F_ID > 50 order by F_ID ", sourceDB, TABLE);
             String sinkSql = String.format("select * from %s.%s order by F_ID", sinkDB, TABLE);
             List<String> columnList =
                     Arrays.stream(COLUMN_STRING.split(","))
