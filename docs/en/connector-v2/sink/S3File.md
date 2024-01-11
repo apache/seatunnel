@@ -423,6 +423,9 @@ MySQL-CDC {
     autoCreateShow=true
     autoCreate=false
     autoTable=false
+    autoCreateShow=true
+    autoCreate=false
+    autoTable=false
     format=DEFAULT
     "snapshot.split.size"=8096
     "snapshot.fetch.size"=1024
