@@ -24,7 +24,6 @@ import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.doris.config.DorisConfig;
 import org.apache.seatunnel.connectors.doris.source.reader.DorisSourceReader;
 import org.apache.seatunnel.connectors.doris.source.split.DorisSourceSplit;
@@ -43,14 +42,11 @@ public class DorisSource
 
     private static final long serialVersionUID = 6139826339248788618L;
     private final DorisConfig config;
-    private final SeaTunnelRowType seaTunnelRowType;
     private final CatalogTable catalogTable;
 
-    public DorisSource(
-            ReadonlyConfig config, CatalogTable catalogTable, SeaTunnelRowType seaTunnelRowType) {
+    public DorisSource(ReadonlyConfig config, CatalogTable catalogTable) {
         this.config = DorisConfig.of(config);
         this.catalogTable = catalogTable;
-        this.seaTunnelRowType = seaTunnelRowType;
     }
 
     @Override
@@ -71,13 +67,14 @@ public class DorisSource
     @Override
     public SourceReader<SeaTunnelRow, DorisSourceSplit> createReader(
             SourceReader.Context readerContext) {
-        return new DorisSourceReader(readerContext, config, seaTunnelRowType);
+        return new DorisSourceReader(readerContext, config, catalogTable.getSeaTunnelRowType());
     }
 
     @Override
     public SourceSplitEnumerator<DorisSourceSplit, DorisSourceState> createEnumerator(
             SourceSplitEnumerator.Context<DorisSourceSplit> enumeratorContext) {
-        return new DorisSourceSplitEnumerator(enumeratorContext, config, seaTunnelRowType);
+        return new DorisSourceSplitEnumerator(
+                enumeratorContext, config, catalogTable.getSeaTunnelRowType());
     }
 
     @Override
@@ -85,6 +82,6 @@ public class DorisSource
             SourceSplitEnumerator.Context<DorisSourceSplit> enumeratorContext,
             DorisSourceState checkpointState) {
         return new DorisSourceSplitEnumerator(
-                enumeratorContext, config, seaTunnelRowType, checkpointState);
+                enumeratorContext, config, catalogTable.getSeaTunnelRowType(), checkpointState);
     }
 }

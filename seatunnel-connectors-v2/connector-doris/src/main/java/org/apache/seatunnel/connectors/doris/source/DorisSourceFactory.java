@@ -30,8 +30,6 @@ import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.doris.catalog.DorisCatalog;
 import org.apache.seatunnel.connectors.doris.catalog.DorisCatalogFactory;
 import org.apache.seatunnel.connectors.doris.config.DorisOptions;
@@ -44,7 +42,6 @@ import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -78,7 +75,6 @@ public class DorisSourceFactory implements TableSourceFactory {
             TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
         ReadonlyConfig options = context.getOptions();
         CatalogTable table;
-        SeaTunnelRowType seaTunnelRowType;
         DorisCatalogFactory dorisCatalogFactory = new DorisCatalogFactory();
         DorisCatalog catalog = (DorisCatalog) dorisCatalogFactory.createCatalog("doris", options);
         catalog.open();
@@ -99,28 +95,17 @@ public class DorisSourceFactory implements TableSourceFactory {
                                 .collect(Collectors.toMap(Column::getName, column -> column));
                 List<String> matchingFieldNames =
                         getMatchingFieldNames(readFiledList, tableColumnsMap);
-                List<SeaTunnelDataType<?>> fieldDataTypes =
-                        getFieldDataTypes(matchingFieldNames, tableColumnsMap);
-                seaTunnelRowType =
-                        new SeaTunnelRowType(
-                                matchingFieldNames.toArray(new String[] {}),
-                                fieldDataTypes.toArray(new SeaTunnelDataType[] {}));
 
                 table =
                         reconstructCatalogTable(
                                 matchingFieldNames, tableColumnsMap, table, tablePath);
-            } else {
-                seaTunnelRowType = table.getSeaTunnelRowType();
             }
         } catch (Exception e) {
             log.error("create source error");
             throw e;
         }
-        //        }
         CatalogTable finalTable = table;
-        return () ->
-                (SeaTunnelSource<T, SplitT, StateT>)
-                        new DorisSource(options, finalTable, seaTunnelRowType);
+        return () -> (SeaTunnelSource<T, SplitT, StateT>) new DorisSource(options, finalTable);
     }
 
     private static CatalogTable reconstructCatalogTable(
@@ -164,19 +149,6 @@ public class DorisSourceFactory implements TableSourceFactory {
         }
 
         return matchingFieldNames;
-    }
-
-    public static List<SeaTunnelDataType<?>> getFieldDataTypes(
-            List<String> matchingFieldNames, Map<String, Column> tableColumnsMap) {
-        List<SeaTunnelDataType<?>> dataTypes = new ArrayList<>();
-        for (String fieldName : matchingFieldNames) {
-            Column column = tableColumnsMap.get(fieldName);
-            if (column != null) {
-                SeaTunnelDataType<?> dataType = column.getDataType();
-                dataTypes.add(dataType);
-            }
-        }
-        return dataTypes;
     }
 
     @Override

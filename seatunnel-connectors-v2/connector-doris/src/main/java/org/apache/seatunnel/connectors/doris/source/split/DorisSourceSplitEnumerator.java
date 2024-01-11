@@ -36,7 +36,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 
 @Slf4j
 public class DorisSourceSplitEnumerator
@@ -104,7 +103,14 @@ public class DorisSourceSplitEnumerator
         if (!splits.isEmpty()) {
             synchronized (stateLock) {
                 addPendingSplit(splits);
-                assignSplit(Collections.singletonList(subtaskId));
+                if (context.registeredReaders().contains(subtaskId)) {
+                    assignSplit(Collections.singletonList(subtaskId));
+                } else {
+                    log.warn(
+                            "Reader {} is not registered. Pending splits {} are not assigned.",
+                            subtaskId,
+                            splits);
+                }
             }
         }
     }
@@ -155,7 +161,7 @@ public class DorisSourceSplitEnumerator
         int readerCount = context.currentParallelism();
         for (DorisSourceSplit split : splits) {
             int ownerReader = getSplitOwner(split.splitId(), readerCount);
-            log.info("Assigning {} to {} reader.", split.splitId(), ownerReader);
+            log.info("Assigning split {} to reader {} .", split.splitId(), ownerReader);
             pendingSplit.computeIfAbsent(ownerReader, f -> new ArrayList<>()).add(split);
         }
     }
@@ -167,24 +173,9 @@ public class DorisSourceSplitEnumerator
     private void assignSplit(Collection<Integer> readers) {
         for (Integer reader : readers) {
             final List<DorisSourceSplit> assignmentForReader = pendingSplit.remove(reader);
-
             if (assignmentForReader != null && !assignmentForReader.isEmpty()) {
-
-                String splitsInfo =
-                        assignmentForReader.stream()
-                                .map(DorisSourceSplit::getSplitId)
-                                .collect(Collectors.joining(","));
-                log.info("Assign splits {} to reader {}", splitsInfo, reader);
-                try {
-                    context.assignSplit(reader, assignmentForReader);
-                } catch (Exception e) {
-                    log.error(
-                            "Failed to assign splits {} to reader {}",
-                            assignmentForReader,
-                            reader,
-                            e);
-                    pendingSplit.put(reader, assignmentForReader);
-                }
+                log.debug("Assign splits {} to reader {}", assignmentForReader, reader);
+                context.assignSplit(reader, assignmentForReader);
             }
         }
     }

@@ -31,6 +31,7 @@ import java.util.Objects;
 @Setter
 public class DorisSourceSplit implements SourceSplit {
 
+    private static final long serialVersionUID = 8626697814676246066L;
     private final PartitionDefinition partitionDefinition;
 
     private final String splitId;

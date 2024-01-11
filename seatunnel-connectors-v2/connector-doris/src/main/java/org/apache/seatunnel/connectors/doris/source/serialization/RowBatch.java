@@ -97,7 +97,7 @@ public class RowBatch {
             this.root = arrowStreamReader.getVectorSchemaRoot();
             while (arrowStreamReader.loadNextBatch()) {
                 fieldVectors = root.getFieldVectors();
-                // 适配 unique 模型隐藏列
+                // Adapt unique model hidden columns
                 for (int i = 0; i < fieldVectors.size(); i++) {
                     String fieldName = fieldVectors.get(i).getField().getName();
                     if (fieldName.equals("__DORIS_DELETE_SIGN__")) {

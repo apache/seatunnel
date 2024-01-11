@@ -111,7 +111,9 @@ public class DorisIT extends AbstractDorisIT {
         try {
             assertHasData(sourceDB, TABLE);
 
-            String sourceSql = String.format("select * from %s.%s order by F_ID", sourceDB, TABLE);
+            String sourceSql =
+                    String.format(
+                            "select * from %s.%s order by F_ID > where F_ID > 50", sourceDB, TABLE);
             String sinkSql = String.format("select * from %s.%s order by F_ID", sinkDB, TABLE);
             List<String> columnList =
                     Arrays.stream(COLUMN_STRING.split(","))

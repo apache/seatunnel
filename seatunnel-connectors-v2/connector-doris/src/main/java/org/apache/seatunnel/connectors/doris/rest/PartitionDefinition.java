@@ -25,6 +25,7 @@ import java.util.Set;
 
 /** Doris partition info. */
 public class PartitionDefinition implements Serializable, Comparable<PartitionDefinition> {
+    private static final long serialVersionUID = -5635841038043335135L;
     private final String database;
     private final String table;
 
