@@ -422,10 +422,6 @@ MySQL-CDC {
     
     "connect.max-retries"=3
     "connection.pool.size"=6
-    "chunk-key.even-distribution.factor.lower-bound"=0.05
-    "chunk-key.even-distribution.factor.upper-bound"=100
-    "sample-sharding.threshold"=1000
-    "inverse-sampling.rate"=1000
     "startup.mode"=INITIAL
     "exactly_once"="true"
     "stop.mode"=NEVER
