@@ -653,7 +653,6 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 logger.warning("Exception in " + t, e);
                 taskGroupExecutionTracker.exception(e);
             } finally {
-                taskGroupExecutionTracker.taskDone(t);
                 if (result == null || !result.isDone()) {
                     try {
                         tracker.task.close();
@@ -661,6 +660,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                         logger.severe("Close task error", e);
                     }
                 }
+                taskGroupExecutionTracker.taskDone(t);
                 Thread.currentThread().setContextClassLoader(oldClassLoader);
             }
         }
