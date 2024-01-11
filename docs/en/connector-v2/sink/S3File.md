@@ -419,7 +419,7 @@ env {
 }
 source {
 MySQL-CDC {
-    updateFieldType=null
+    
     autoCreateShow=true
     autoCreate=false
     autoTable=false
