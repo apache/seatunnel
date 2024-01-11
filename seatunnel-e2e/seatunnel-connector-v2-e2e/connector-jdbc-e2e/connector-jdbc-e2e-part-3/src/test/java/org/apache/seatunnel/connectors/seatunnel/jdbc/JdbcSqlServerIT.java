@@ -72,6 +72,7 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
             Lists.newArrayList("/jdbc_sqlserver_source_to_sink.conf");
     private static final String CREATE_SQL =
             "CREATE TABLE %s (\n"
+                    + "\tINT_IDENTITY_TEST int identity,\n"
                     + "\tBIGINT_TEST bigint NOT NULL,\n"
                     + "\tBINARY_TEST binary(255) NULL,\n"
                     + "\tBIT_TEST bit NULL,\n"
