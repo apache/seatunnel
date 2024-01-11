@@ -18,14 +18,10 @@
 package org.apache.seatunnel.connectors.seatunnel.file.ftp.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.ftp.source.config.MultipleTableFTPFileSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.source.BaseMultipleTableFileSource;
 
-import com.google.auto.service.AutoService;
-
-@AutoService(SeaTunnelSource.class)
 public class FtpFileSource extends BaseMultipleTableFileSource {
     public FtpFileSource(ReadonlyConfig readonlyConfig) {
         super(new MultipleTableFTPFileSourceConfig(readonlyConfig));
