@@ -237,4 +237,14 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
         Connection defaultConnection = getConnection(defaultUrl);
         return CatalogUtils.getCatalogTable(defaultConnection, sqlQuery, new SqlserverTypeMapper());
     }
+
+    @Override
+    public String getExistDataSql(TablePath tablePath) {
+        return String.format("select TOP 1 * from %s ;", tablePath.getFullNameWithQuoted("[", "]"));
+    }
+
+    @Override
+    protected String getTruncateTableSql(TablePath tablePath) throws CatalogException {
+        return String.format("TRUNCATE TABLE  %s", tablePath.getFullNameWithQuoted("[", "]"));
+    }
 }

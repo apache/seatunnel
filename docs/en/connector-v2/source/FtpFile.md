@@ -44,6 +44,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | password                  | string  | yes      | -                   |
 | path                      | string  | yes      | -                   |
 | file_format_type          | string  | yes      | -                   |
+| connection_mode           | string  | no       | active_local        |
 | delimiter/field_delimiter | string  | no       | \001                |
 | read_columns              | list    | no       | -                   |
 | parse_partition_from_path | boolean | no       | true                |
@@ -153,6 +154,12 @@ connector will generate data as the following:
 |     name      | age | gender |
 |---------------|-----|--------|
 | tyrantlucifer | 26  | male   |
+
+### connection_mode [string]
+
+The target ftp connection mode , default is active mode, supported as the following modes:
+
+`active_local` `passive_local`
 
 ### delimiter/field_delimiter [string]
 

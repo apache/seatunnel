@@ -83,6 +83,8 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
     private static final String SOURCE_TABLE = "column_type_test.dbo.full_types";
     private static final String SOURCE_TABLE_NO_PRIMARY_KEY =
             "column_type_test.dbo.full_types_no_primary_key";
+    private static final String SOURCE_TABLE_CUSTOM_PRIMARY_KEY =
+            "column_type_test.dbo.full_types_custom_primary_key";
     private static final String SINK_TABLE = "column_type_test.dbo.full_types_sink";
     private static final String SELECT_SOURCE_SQL =
             "select\n"
@@ -261,6 +263,44 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                         () -> {
                             Assertions.assertIterableEquals(
                                     querySql(SELECT_SOURCE_SQL, SOURCE_TABLE_NO_PRIMARY_KEY),
+                                    querySql(SELECT_SINK_SQL, SINK_TABLE));
+                        });
+    }
+
+    @TestTemplate
+    public void testCDCWithCustomPrimaryKey(TestContainer container) {
+        initializeSqlServerTable("column_type_test");
+
+        CompletableFuture<Void> executeJobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                container.executeJob(
+                                        "/sqlservercdc_to_sqlserver_with_custom_primary_key.conf");
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                            return null;
+                        });
+
+        // snapshot stage
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertIterableEquals(
+                                    querySql(SELECT_SOURCE_SQL, SOURCE_TABLE_CUSTOM_PRIMARY_KEY),
+                                    querySql(SELECT_SINK_SQL, SINK_TABLE));
+                        });
+
+        // insert update delete
+        updateSourceTable(SOURCE_TABLE_CUSTOM_PRIMARY_KEY);
+
+        // stream stage
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertIterableEquals(
+                                    querySql(SELECT_SOURCE_SQL, SOURCE_TABLE_CUSTOM_PRIMARY_KEY),
                                     querySql(SELECT_SINK_SQL, SINK_TABLE));
                         });
     }
