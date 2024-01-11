@@ -709,6 +709,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             thisTaskFuture = futureBlockingQueue.take();
             futureBlockingQueue = null;
             myThread = currentThread();
+            ClassLoader oldClassLoader = myThread.getContextClassLoader();
             while (keep.get() && isRunning) {
                 TaskTracker taskTracker =
                         null != exclusiveTaskTracker.get()
@@ -767,6 +768,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                     timer.timerStop();
                     taskGroupExecutionTracker.currRunningTaskFuture.remove(
                             taskTracker.task.getTaskID());
+                    myThread.setContextClassLoader(oldClassLoader);
                 }
                 // task call finished
                 if (null != call) {
