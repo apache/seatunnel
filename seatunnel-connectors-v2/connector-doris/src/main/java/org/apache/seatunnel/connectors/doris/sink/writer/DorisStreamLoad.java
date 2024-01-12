@@ -78,7 +78,8 @@ public class DorisStreamLoad implements Serializable {
     private Future<CloseableHttpResponse> pendingLoadFuture;
     private final CloseableHttpClient httpClient;
     private final ExecutorService executorService;
-    private boolean loadBatchFirstRecord;
+    private volatile boolean loadBatchFirstRecord;
+    private String label;
     private long recordCount = 0;
 
     public DorisStreamLoad(
@@ -191,6 +192,8 @@ public class DorisStreamLoad implements Serializable {
     public void writeRecord(byte[] record) throws IOException {
         if (loadBatchFirstRecord) {
             loadBatchFirstRecord = false;
+            recordStream.startInput();
+            startStreamLoad();
         } else {
             recordStream.write(lineDelimiter);
         }
@@ -214,21 +217,29 @@ public class DorisStreamLoad implements Serializable {
     }
 
     public RespContent stopLoad() throws IOException {
-        recordStream.endInput();
-        log.info("stream load stopped.");
-        checkState(pendingLoadFuture != null);
-        try {
-            return handlePreCommitResponse(pendingLoadFuture.get());
-        } catch (Exception e) {
-            throw new DorisConnectorException(DorisConnectorErrorCode.STREAM_LOAD_FAILED, e);
+        if (pendingLoadFuture != null) {
+            log.info("stream load stopped.");
+            recordStream.endInput();
+            try {
+                return handlePreCommitResponse(pendingLoadFuture.get());
+            } catch (Exception e) {
+                throw new DorisConnectorException(DorisConnectorErrorCode.STREAM_LOAD_FAILED, e);
+            } finally {
+                pendingLoadFuture = null;
+            }
+        } else {
+            return null;
         }
     }
 
     public void startLoad(String label) throws IOException {
         loadBatchFirstRecord = true;
         recordCount = 0;
+        this.label = label;
+    }
+
+    private void startStreamLoad() {
         HttpPutBuilder putBuilder = new HttpPutBuilder();
-        recordStream.startInput();
         log.info("stream load started for {}", label);
         try {
             InputStreamEntity entity = new InputStreamEntity(recordStream);
