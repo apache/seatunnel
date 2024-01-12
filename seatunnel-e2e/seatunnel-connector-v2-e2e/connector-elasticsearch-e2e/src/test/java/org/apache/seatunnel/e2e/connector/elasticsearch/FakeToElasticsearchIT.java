@@ -97,9 +97,12 @@ public class FakeToElasticsearchIT extends TestSuiteBase implements TestResource
                 container.executeJob("/elasticsearch/fake_to_elasticsearch.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
         List<String> sinkData = readSinkData();
+        Assertions.assertEquals(1, sinkData.size());
         // old es value: c_json_string : "{\"key\":\"value\"}"
         // new es value: c_json_string : {"key":"value"}
-        System.out.println(sinkData.toString());
+        Map map = JsonUtils.parseObject(sinkData.get(0), Map.class);
+        Assertions.assertTrue(map.get("c_string") instanceof String);
+        Assertions.assertFalse(map.get("c_json_string") instanceof String);
     }
 
     private List<String> readSinkData() throws InterruptedException {
@@ -109,6 +112,7 @@ public class FakeToElasticsearchIT extends TestSuiteBase implements TestResource
                 Lists.newArrayList(
                         "c_map",
                         "c_array",
+                        "c_string",
                         "c_json_string",
                         "c_boolean",
                         "c_tinyint",
