@@ -461,14 +461,14 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
         postgresCatalog.open();
         CatalogTable catalogTable = postgresCatalog.getTable(tablePathPG);
         // sink tableExists ?
-        boolean tableExistsBefore = postgresCatalog.tableExists(tablePathPG_Sink);
+        boolean tableExistsBefore = postgresCatalog.tableExists(tablePathPgSink);
         Assertions.assertFalse(tableExistsBefore);
         // create table
-        postgresCatalog.createTable(tablePathPG_Sink, catalogTable, true);
-        boolean tableExistsAfter = postgresCatalog.tableExists(tablePathPG_Sink);
+        postgresCatalog.createTable(tablePathPgSink, catalogTable, true);
+        boolean tableExistsAfter = postgresCatalog.tableExists(tablePathPgSink);
         Assertions.assertTrue(tableExistsAfter);
         // isExistsData ?
-        boolean existsDataBefore = postgresCatalog.isExistsData(tablePathPG_Sink);
+        boolean existsDataBefore = postgresCatalog.isExistsData(tablePathPgSink);
         Assertions.assertFalse(existsDataBefore);
         // insert one data
         String customSql =
@@ -559,15 +559,15 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                         + "    '{\"key\":\"test\"}',\n"
                         + "    '<XX:NewSize>test</XX:NewSize>'\n"
                         + "  )";
-        postgresCatalog.executeSql(tablePathPG_Sink, customSql);
-        boolean existsDataAfter = postgresCatalog.isExistsData(tablePathPG_Sink);
+        postgresCatalog.executeSql(tablePathPgSink, customSql);
+        boolean existsDataAfter = postgresCatalog.isExistsData(tablePathPgSink);
         Assertions.assertTrue(existsDataAfter);
         // truncateTable
-        postgresCatalog.truncateTable(tablePathPG_Sink, true);
-        Assertions.assertFalse(postgresCatalog.isExistsData(tablePathPG_Sink));
+        postgresCatalog.truncateTable(tablePathPgSink, true);
+        Assertions.assertFalse(postgresCatalog.isExistsData(tablePathPgSink));
         // drop table
-        postgresCatalog.dropTable(tablePathPG_Sink, true);
-        Assertions.assertFalse(postgresCatalog.tableExists(tablePathPG_Sink));
+        postgresCatalog.dropTable(tablePathPgSink, true);
+        Assertions.assertFalse(postgresCatalog.tableExists(tablePathPgSink));
         postgresCatalog.close();
     }
 }
