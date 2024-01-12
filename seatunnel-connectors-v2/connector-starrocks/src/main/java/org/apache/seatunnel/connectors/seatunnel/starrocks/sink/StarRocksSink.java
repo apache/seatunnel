@@ -17,10 +17,14 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.sink;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.DataSaveMode;
+import org.apache.seatunnel.api.sink.DefaultSaveModeHandler;
 import org.apache.seatunnel.api.sink.SaveModeHandler;
+import org.apache.seatunnel.api.sink.SchemaSaveMode;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportSaveMode;
+import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -38,41 +42,22 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void>
 
     private SeaTunnelRowType seaTunnelRowType;
     private final SinkConfig sinkConfig;
-    private final DataSaveMode dataSaveMode;
-
+    private DataSaveMode dataSaveMode;
+    private SchemaSaveMode schemaSaveMode;
     private final CatalogTable catalogTable;
 
-    public StarRocksSink(SinkConfig sinkConfig, CatalogTable catalogTable) {
+    public StarRocksSink(
+            SinkConfig sinkConfig, CatalogTable catalogTable, ReadonlyConfig readonlyConfig) {
         this.sinkConfig = sinkConfig;
         this.seaTunnelRowType = catalogTable.getTableSchema().toPhysicalRowDataType();
         this.catalogTable = catalogTable;
         this.dataSaveMode = sinkConfig.getDataSaveMode();
+        this.schemaSaveMode = sinkConfig.getSchemaSaveMode();
     }
 
     @Override
     public String getPluginName() {
         return StarRocksCatalogFactory.IDENTIFIER;
-    }
-
-    private void autoCreateTable(String template) {
-        StarRocksCatalog starRocksCatalog =
-                new StarRocksCatalog(
-                        "StarRocks",
-                        sinkConfig.getUsername(),
-                        sinkConfig.getPassword(),
-                        sinkConfig.getJdbcUrl());
-        if (!starRocksCatalog.databaseExists(sinkConfig.getDatabase())) {
-            starRocksCatalog.createDatabase(TablePath.of(sinkConfig.getDatabase(), ""), true);
-        }
-        if (!starRocksCatalog.tableExists(
-                TablePath.of(sinkConfig.getDatabase(), sinkConfig.getTable()))) {
-            starRocksCatalog.createTable(
-                    StarRocksSaveModeUtil.fillingCreateSql(
-                            template,
-                            sinkConfig.getDatabase(),
-                            sinkConfig.getTable(),
-                            catalogTable.getTableSchema()));
-        }
     }
 
     @Override
@@ -82,18 +67,26 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void>
 
     @Override
     public Optional<SaveModeHandler> getSaveModeHandler() {
-        return Optional.empty();
+        TablePath tablePath =
+                TablePath.of(
+                        catalogTable.getTableId().getDatabaseName(),
+                        catalogTable.getTableId().getSchemaName(),
+                        catalogTable.getTableId().getTableName());
+        Catalog catalog =
+                new StarRocksCatalog(
+                        "StarRocks",
+                        sinkConfig.getUsername(),
+                        sinkConfig.getPassword(),
+                        sinkConfig.getJdbcUrl(),
+                        sinkConfig.getSaveModeCreateTemplate());
+        catalog.open();
+        return Optional.of(
+                new DefaultSaveModeHandler(
+                        schemaSaveMode,
+                        dataSaveMode,
+                        catalog,
+                        tablePath,
+                        catalogTable,
+                        sinkConfig.getCustomSql()));
     }
-
-    /*@Override
-    public DataSaveMode getUserConfigSaveMode() {
-        return dataSaveMode;
-    }
-
-    @Override
-    public void handleSaveMode(DataSaveMode saveMode) {
-        if (catalogTable != null) {
-            autoCreateTable(sinkConfig.getSaveModeCreateTemplate());
-        }
-    }*/
 }
