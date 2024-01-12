@@ -196,7 +196,7 @@ public class SqlServerSnapshotSplitReadTask extends AbstractSnapshotChangeEventS
                                 snapshotSplit.getSplitEnd() == null,
                                 snapshotSplit.getSplitStart(),
                                 snapshotSplit.getSplitEnd(),
-                                snapshotSplit.getSplitKeyType().getTotalFields(),
+                                snapshotSplit.getSplitKeyType(),
                                 connectorConfig.getSnapshotFetchSize());
                 ResultSet rs = selectStatement.executeQuery()) {
 

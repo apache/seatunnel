@@ -49,7 +49,7 @@ public class SeaTunnelContainer extends AbstractTestContainer {
     private static final String JDK_DOCKER_IMAGE = "openjdk:8";
     private static final String CLIENT_SHELL = "seatunnel.sh";
     private static final String SERVER_SHELL = "seatunnel-cluster.sh";
-    private GenericContainer<?> server;
+    protected GenericContainer<?> server;
 
     @Override
     public void startUp() throws Exception {

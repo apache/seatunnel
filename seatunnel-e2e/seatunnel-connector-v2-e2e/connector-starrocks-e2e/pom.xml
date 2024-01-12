@@ -25,6 +25,9 @@
     <artifactId>connector-starrocks-e2e</artifactId>
     <name>SeaTunnel : E2E : Connector V2 : StarRocks</name>
 
+    <properties>
+        <mysql.version>8.0.27</mysql.version>
+    </properties>
     <dependencies>
         <!-- SeaTunnel connectors -->
         <dependency>
@@ -37,6 +40,12 @@
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-fake</artifactId>
             <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>mysql</groupId>
+            <artifactId>mysql-connector-java</artifactId>
+            <version>${mysql.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

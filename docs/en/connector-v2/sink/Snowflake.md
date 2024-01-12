@@ -81,40 +81,39 @@ Write data through jdbc. Support Batch mode and Streaming mode, support concurre
 ```
 # Defining the runtime environment
 env {
-# You can set flink configuration here
-execution.parallelism = 1
-job.mode = "BATCH"
+    parallelism = 1
+    job.mode = "BATCH"
 }
 source {
-# This is a example source plugin **only for test and demonstrate the feature source plugin**
-FakeSource {
-parallelism = 1
-result_table_name = "fake"
-row.num = 16
-schema = {
-fields {
-name = "string"
-age = "int"
-}
-}
-}
-# If you would like to get more information about how to configure seatunnel and see full list of source plugins,
-# please go to https://seatunnel.apache.org/docs/category/source-v2
+    # This is a example source plugin **only for test and demonstrate the feature source plugin**
+    FakeSource {
+        parallelism = 1
+        result_table_name = "fake"
+        row.num = 16
+        schema = {
+            fields {
+                name = "string"
+                age = "int"
+            }
+        }
+    }
+    # If you would like to get more information about how to configure seatunnel and see full list of source plugins,
+    # please go to https://seatunnel.apache.org/docs/category/source-v2
 }
 transform {
-# If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-# please go to https://seatunnel.apache.org/docs/category/transform-v2
+    # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
+    # please go to https://seatunnel.apache.org/docs/category/transform-v2
 }
 sink {
-jdbc {
-url = "jdbc:snowflake://<account_name>.snowflakecomputing.com"
-driver = "net.snowflake.client.jdbc.SnowflakeDriver"
-user = "root"
-password = "123456"
-query = "insert into test_table(name,age) values(?,?)"
-}
-# If you would like to get more information about how to configure seatunnel and see full list of sink plugins,
-# please go to https://seatunnel.apache.org/docs/category/sink-v2
+    jdbc {
+        url = "jdbc:snowflake://<account_name>.snowflakecomputing.com"
+        driver = "net.snowflake.client.jdbc.SnowflakeDriver"
+        user = "root"
+        password = "123456"
+        query = "insert into test_table(name,age) values(?,?)"
+    }
+    # If you would like to get more information about how to configure seatunnel and see full list of sink plugins,
+    # please go to https://seatunnel.apache.org/docs/category/sink-v2
 }
 ```
 

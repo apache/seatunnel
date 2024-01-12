@@ -179,8 +179,14 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
     private void handleFinishedJobsInfo(HttpGetCommand command, String uri) {
 
         uri = StringUtil.stripTrailingSlash(uri);
+
         int indexEnd = uri.indexOf('/', URI_MAPS.length());
-        String state = uri.substring(indexEnd + 1);
+        String state;
+        if (indexEnd == -1) {
+            state = "";
+        } else {
+            state = uri.substring(indexEnd + 1);
+        }
 
         IMap<Long, JobState> finishedJob =
                 this.textCommandService

@@ -44,6 +44,7 @@ import org.apache.seatunnel.engine.server.task.operation.TaskOperation;
 import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
@@ -188,7 +189,8 @@ public class CheckpointManager {
         getCheckpointCoordinator(taskLocation).reportCheckpointErrorFromTask(errorMsg);
     }
 
-    private CheckpointCoordinator getCheckpointCoordinator(int pipelineId) {
+    @VisibleForTesting
+    public CheckpointCoordinator getCheckpointCoordinator(int pipelineId) {
         CheckpointCoordinator coordinator = coordinatorMap.get(pipelineId);
         if (coordinator == null) {
             throw new RuntimeException(
