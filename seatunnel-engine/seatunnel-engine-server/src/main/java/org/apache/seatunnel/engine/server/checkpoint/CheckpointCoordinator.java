@@ -827,6 +827,20 @@ public class CheckpointCoordinator {
                 && !latestCompletedCheckpoint.isRestored();
     }
 
+    public boolean isNoErrorCompleted() {
+        if (latestCompletedCheckpoint == null) {
+            return false;
+        }
+        return latestCompletedCheckpoint.getCheckpointType().isFinalCheckpoint()
+                && (runningJobStateIMap
+                                .get(checkpointStateImapKey)
+                                .equals(CheckpointCoordinatorStatus.FINISHED)
+                        || runningJobStateIMap
+                                .get(checkpointStateImapKey)
+                                .equals(CheckpointCoordinatorStatus.SUSPEND))
+                && !latestCompletedCheckpoint.isRestored();
+    }
+
     public boolean isEndOfSavePoint() {
         if (latestCompletedCheckpoint == null) {
             return false;

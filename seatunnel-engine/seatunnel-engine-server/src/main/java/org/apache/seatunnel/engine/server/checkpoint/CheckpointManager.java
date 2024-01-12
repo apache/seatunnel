@@ -251,7 +251,7 @@ public class CheckpointManager {
      * the pipeline has been completed;
      */
     public boolean isCompletedPipeline(int pipelineId) {
-        return getCheckpointCoordinator(pipelineId).isCompleted();
+        return getCheckpointCoordinator(pipelineId).isNoErrorCompleted();
     }
 
     /**
