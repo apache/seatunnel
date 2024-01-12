@@ -58,7 +58,7 @@ semantics (using XA transaction guarantee).
 
 ## Sink Options
 
-| Name                                      |  Type   | Required | Default                      |                                                                                                                  Description                                                                                                                   |
+|                   Name                    |  Type   | Required |           Default            |                                                                                                                  Description                                                                                                                   |
 |-------------------------------------------|---------|----------|------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | url                                       | String  | Yes      | -                            | The URL of the JDBC connection. Refer to a case: jdbc:mysql://localhost:3306:3306/test                                                                                                                                                         |
 | driver                                    | String  | Yes      | -                            | The jdbc class name used to connect to the remote data source,<br/> if you use MySQL the value is `com.mysql.cj.jdbc.Driver`.                                                                                                                  |

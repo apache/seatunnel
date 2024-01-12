@@ -76,7 +76,6 @@
 | common-options                            |         | no       | -       | Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details                                                                                                                                          |
 | enable_upsert                             | Boolean | No       | true    | Enable upsert by primary_keys exist, If the task only has `insert`, setting this parameter to `false` can speed up data import                                                                                                               |
 
-
 ### Tips
 
 > If partition_column is not set, it will run in single concurrency, and if partition_column is set, it will be executed
