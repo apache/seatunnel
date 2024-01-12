@@ -131,7 +131,7 @@ public class JdbcHiveIT extends AbstractJdbcIT {
                                 + "        TRUE,"
                                 + "        '2023-09-04',"
                                 + "        '2023-09-04 10:30:00',"
-                                + "        42.12,"
+                                + "        42.10,"
                                 + "        42.12)");
             }
         } catch (Exception exception) {

@@ -24,8 +24,6 @@ package org.apache.seatunnel.common.exception;
  */
 @Deprecated
 public enum CommonErrorCodeDeprecated implements SeaTunnelErrorCode {
-    FILE_OPERATION_FAILED(
-            "COMMON-01", "File operation failed, such as (read,list,write,move,copy,sync) etc..."),
     REFLECT_CLASS_OPERATION_FAILED("COMMON-03", "Reflect class operation failed"),
     SERIALIZE_OPERATION_FAILED("COMMON-04", "Serialize class operation failed"),
     UNSUPPORTED_OPERATION("COMMON-05", "Unsupported operation"),

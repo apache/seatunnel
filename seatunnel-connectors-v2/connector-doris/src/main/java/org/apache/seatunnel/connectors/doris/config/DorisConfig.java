@@ -41,6 +41,7 @@ import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DORIS_RE
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DORIS_SINK_CONFIG_PREFIX;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DORIS_TABLET_SIZE;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.FENODES;
+import static org.apache.seatunnel.connectors.doris.config.DorisOptions.NEEDS_UNSUPPORTED_TYPE_CASTING;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.PASSWORD;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.QUERY_PORT;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.SAVE_MODE_CREATE_TEMPLATE;
@@ -51,7 +52,6 @@ import static org.apache.seatunnel.connectors.doris.config.DorisOptions.SINK_ENA
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.SINK_ENABLE_DELETE;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.SINK_LABEL_PREFIX;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.SINK_MAX_RETRIES;
-import static org.apache.seatunnel.connectors.doris.config.DorisOptions.TABLE_IDENTIFIER;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.USERNAME;
 
 @Setter
@@ -64,7 +64,6 @@ public class DorisConfig implements Serializable {
     private String username;
     private String password;
     private Integer queryPort;
-    private String tableIdentifier;
     private int batchSize;
 
     // source option
@@ -89,6 +88,7 @@ public class DorisConfig implements Serializable {
     private Integer bufferSize;
     private Integer bufferCount;
     private Properties streamLoadProps;
+    private boolean needsUnsupportedTypeCasting;
 
     // create table option
     private String createTableTemplate;
@@ -105,7 +105,6 @@ public class DorisConfig implements Serializable {
         dorisConfig.setFrontends(config.get(FENODES));
         dorisConfig.setUsername(config.get(USERNAME));
         dorisConfig.setPassword(config.get(PASSWORD));
-        dorisConfig.setTableIdentifier(config.get(TABLE_IDENTIFIER));
         dorisConfig.setQueryPort(config.get(QUERY_PORT));
         dorisConfig.setStreamLoadProps(parseStreamLoadProperties(config));
 
@@ -129,6 +128,7 @@ public class DorisConfig implements Serializable {
         dorisConfig.setBufferSize(config.get(SINK_BUFFER_SIZE));
         dorisConfig.setBufferCount(config.get(SINK_BUFFER_COUNT));
         dorisConfig.setEnableDelete(config.get(SINK_ENABLE_DELETE));
+        dorisConfig.setNeedsUnsupportedTypeCasting(config.get(NEEDS_UNSUPPORTED_TYPE_CASTING));
 
         // create table option
         dorisConfig.setCreateTableTemplate(config.get(SAVE_MODE_CREATE_TEMPLATE));

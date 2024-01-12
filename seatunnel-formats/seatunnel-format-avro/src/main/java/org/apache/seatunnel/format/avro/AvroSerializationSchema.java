@@ -52,7 +52,6 @@ public class AvroSerializationSchema implements SerializationSchema {
     public byte[] serialize(SeaTunnelRow element) {
         GenericRecord record = converter.convertRowToGenericRecord(element);
         try {
-            out.reset();
             writer.write(record, encoder);
             encoder.flush();
             return out.toByteArray();
@@ -60,6 +59,8 @@ public class AvroSerializationSchema implements SerializationSchema {
             throw new SeaTunnelAvroFormatException(
                     AvroFormatErrorCode.SERIALIZATION_ERROR,
                     "Serialization error on record : " + element);
+        } finally {
+            out.reset();
         }
     }
 }

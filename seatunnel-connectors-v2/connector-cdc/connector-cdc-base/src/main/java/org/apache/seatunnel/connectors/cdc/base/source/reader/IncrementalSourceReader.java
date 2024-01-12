@@ -45,6 +45,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -66,6 +67,8 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
 
     private final C sourceConfig;
     private final DebeziumDeserializationSchema<T> debeziumDeserializationSchema;
+
+    private final AtomicBoolean needSendSplitRequest = new AtomicBoolean(false);
 
     public IncrementalSourceReader(
             BlockingQueue<RecordsWithSplitIds<SourceRecords>> elementsQueue,
@@ -95,6 +98,10 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
             }
             running = true;
         }
+        if (needSendSplitRequest.get()) {
+            context.sendSplitRequest();
+            needSendSplitRequest.compareAndSet(true, false);
+        }
         super.pollNext(output);
     }
 
@@ -105,11 +112,19 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
     public void addSplits(List<SourceSplitBase> splits) {
         // restore for finishedUnackedSplits
         List<SourceSplitBase> unfinishedSplits = new ArrayList<>();
+        log.info(
+                "subtask {} add splits: {}",
+                subtaskId,
+                splits.stream().map(SourceSplitBase::splitId).collect(Collectors.joining(",")));
         for (SourceSplitBase split : splits) {
             if (split.isSnapshotSplit()) {
                 SnapshotSplit snapshotSplit = split.asSnapshotSplit();
                 if (snapshotSplit.isSnapshotReadFinished()) {
                     finishedUnackedSplits.put(snapshotSplit.splitId(), snapshotSplit);
+                    log.info(
+                            "subtask {} add finished split: {}",
+                            subtaskId,
+                            snapshotSplit.splitId());
                 } else {
                     unfinishedSplits.add(split);
                 }
@@ -122,6 +137,12 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
         // add all un-finished splits (including incremental split) to SourceReaderBase
         if (!unfinishedSplits.isEmpty()) {
             super.addSplits(unfinishedSplits);
+        } else {
+            // If the split received is 'isSnapshotReadFinished', we will not run this split, hence
+            // we need to send the split request.
+            // We cannot directly execute context.sendSplitRequest() here, as it is a synchronous
+            // call and can lead to a deadlock.
+            needSendSplitRequest.set(true);
         }
     }
 

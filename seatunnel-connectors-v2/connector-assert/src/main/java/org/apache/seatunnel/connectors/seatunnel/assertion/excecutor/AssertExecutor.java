@@ -17,9 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.assertion.excecutor;
 
+import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.connectors.seatunnel.assertion.exception.AssertConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.assertion.exception.AssertConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.assertion.rule.AssertFieldRule;
@@ -163,6 +165,21 @@ public class AssertExecutor {
     }
 
     private Boolean checkType(Object value, SeaTunnelDataType<?> fieldType) {
+        if (fieldType.getSqlType() == SqlType.DECIMAL) {
+            return checkDecimalType(value, fieldType);
+        }
         return value.getClass().equals(fieldType.getTypeClass());
+    }
+
+    private static Boolean checkDecimalType(Object value, SeaTunnelDataType<?> fieldType) {
+        if (!value.getClass().equals(fieldType.getTypeClass())) {
+            return false;
+        }
+        DecimalType fieldDecimalType = (DecimalType) fieldType;
+        BigDecimal valueObj = (BigDecimal) value;
+        if (valueObj.scale() != fieldDecimalType.getScale()) {
+            return false;
+        }
+        return valueObj.precision() <= fieldDecimalType.getPrecision();
     }
 }

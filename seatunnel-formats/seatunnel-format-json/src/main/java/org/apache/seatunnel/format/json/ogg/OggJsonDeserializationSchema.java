@@ -176,9 +176,9 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
             } else {
                 throw new IllegalStateException(format("Unknown operation type '%s'.", op));
             }
-        } catch (Throwable t) {
+        } catch (RuntimeException e) {
             if (!ignoreParseErrors) {
-                throw CommonError.jsonOperationError(FORMAT, jsonNode.toString(), t);
+                throw CommonError.jsonOperationError(FORMAT, jsonNode.toString(), e);
             }
         }
     }
@@ -192,9 +192,9 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
         ObjectNode jsonNode;
         try {
             jsonNode = convertBytes(message);
-        } catch (Throwable cause) {
+        } catch (RuntimeException e) {
             if (!ignoreParseErrors) {
-                throw cause;
+                throw e;
             } else {
                 return;
             }

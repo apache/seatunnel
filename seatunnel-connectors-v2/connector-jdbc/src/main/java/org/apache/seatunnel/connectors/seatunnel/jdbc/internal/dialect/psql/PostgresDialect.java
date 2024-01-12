@@ -65,6 +65,11 @@ public class PostgresDialect implements JdbcDialect {
     }
 
     @Override
+    public String hashModForField(String fieldName, int mod) {
+        return "(ABS(HASHTEXT(" + quoteIdentifier(fieldName) + ")) % " + mod + ")";
+    }
+
+    @Override
     public Optional<String> getUpsertStatement(
             String database, String tableName, String[] fieldNames, String[] uniqueKeyFields) {
         String uniqueColumns =
