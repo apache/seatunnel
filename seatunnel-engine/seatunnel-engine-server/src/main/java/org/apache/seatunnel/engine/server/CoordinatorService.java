@@ -532,6 +532,8 @@ public class CoordinatorService {
         }
         JobMetrics jobMetrics = JobMetricsUtil.toJobMetrics(runningJobMaster.getCurrJobMetrics());
         JobMetrics jobMetricsImap = jobHistoryService.getJobMetrics(jobId);
+        boolean a = jobMetricsImap != null;
+        logger.warning("===============jobMetricsImap is null" + a);
         return jobMetricsImap != null ? jobMetricsImap.merge(jobMetrics) : jobMetrics;
     }
 

@@ -286,6 +286,7 @@ public class SubPlan {
                         jobMaster.removeMetricsContext(getPipelineLocation(), pipelineStatus);
                         notifyCheckpointManagerPipelineEnd(pipelineStatus);
                         jobMaster.releasePipelineResource(this);
+                        log.warn("-----------------------subPlanDone--------------------");
                         return null;
                     },
                     new RetryUtils.RetryMaterial(
@@ -560,7 +561,9 @@ public class SubPlan {
         log.warn(
                 String.format(
                         "%s checkpoint have error, cancel the pipeline", getPipelineFullName()));
-        this.cancelPipeline();
+        if (!getPipelineState().isEndState()) {
+            updatePipelineState(PipelineStatus.CANCELING);
+        }
     }
 
     public void startSubPlanStateProcess() {

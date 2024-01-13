@@ -98,6 +98,13 @@ class JobMetricsTest extends AbstractSeaTunnelServerTest {
     }
 
     @Test
+    public void testFor() throws InterruptedException {
+        for (int i = 0; i < 100; i++) {
+            testMetricsOnJobRestart();
+        }
+    }
+
+    @Test
     public void testMetricsOnJobRestart() throws InterruptedException {
 
         long jobId3 = System.currentTimeMillis() + 323475L;
@@ -114,7 +121,7 @@ class JobMetricsTest extends AbstractSeaTunnelServerTest {
 
         Thread.sleep(10000);
 
-        log.info(coordinatorService.getJobMetrics(jobId3).toJsonString());
+        log.warn(coordinatorService.getJobMetrics(jobId3).toJsonString());
 
         // start savePoint
         coordinatorService.savePoint(jobId3);
@@ -126,6 +133,10 @@ class JobMetricsTest extends AbstractSeaTunnelServerTest {
                                 Assertions.assertEquals(
                                         JobStatus.SAVEPOINT_DONE,
                                         server.getCoordinatorService().getJobStatus(jobId3)));
+
+        log.warn(
+                "================after save point======="
+                        + coordinatorService.getJobMetrics(jobId3).toJsonString());
 
         // restore job
         startJob(jobId3, "stream_fake_to_console.conf", true);
@@ -140,8 +151,22 @@ class JobMetricsTest extends AbstractSeaTunnelServerTest {
         await().atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
+                            Thread.sleep(2000);
                             JobMetrics jobMetrics = coordinatorService.getJobMetrics(jobId3);
-                            log.info(jobMetrics.toJsonString());
+                            log.error(
+                                    "============================================="
+                                            + jobMetrics
+                                                    .get(SINK_WRITE_COUNT)
+                                                    .get(0)
+                                                    .value()
+                                                    .toString());
+                            log.error(
+                                    "============================================="
+                                            + jobMetrics
+                                                    .get(SINK_WRITE_COUNT)
+                                                    .get(1)
+                                                    .value()
+                                                    .toString());
                             assertTrue(40 < (Long) jobMetrics.get(SINK_WRITE_COUNT).get(0).value());
                             assertTrue(40 < (Long) jobMetrics.get(SINK_WRITE_COUNT).get(1).value());
                             assertTrue(
