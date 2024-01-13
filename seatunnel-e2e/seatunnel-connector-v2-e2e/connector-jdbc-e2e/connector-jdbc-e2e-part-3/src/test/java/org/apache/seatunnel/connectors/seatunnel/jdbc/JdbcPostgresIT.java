@@ -443,4 +443,131 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
             POSTGRESQL_CONTAINER.stop();
         }
     }
+
+    @TestTemplate
+    public void testCatalogForSaveMode(TestContainer container)
+            throws IOException, InterruptedException {
+        String schema = "public";
+        String databaseName = POSTGRESQL_CONTAINER.getDatabaseName();
+        TablePath tablePathPG = TablePath.of(databaseName, "public", "pg_e2e_source_table");
+        TablePath tablePathPgSink = TablePath.of(databaseName, "public", "pg_ide_sink_table_2");
+        PostgresCatalog postgresCatalog =
+                new PostgresCatalog(
+                        DatabaseIdentifier.POSTGRESQL,
+                        POSTGRESQL_CONTAINER.getUsername(),
+                        POSTGRESQL_CONTAINER.getPassword(),
+                        JdbcUrlUtil.getUrlInfo(POSTGRESQL_CONTAINER.getJdbcUrl()),
+                        schema);
+        postgresCatalog.open();
+        CatalogTable catalogTable = postgresCatalog.getTable(tablePathPG);
+        // sink tableExists ?
+        boolean tableExistsBefore = postgresCatalog.tableExists(tablePathPgSink);
+        Assertions.assertFalse(tableExistsBefore);
+        // create table
+        postgresCatalog.createTable(tablePathPgSink, catalogTable, true);
+        boolean tableExistsAfter = postgresCatalog.tableExists(tablePathPgSink);
+        Assertions.assertTrue(tableExistsAfter);
+        // isExistsData ?
+        boolean existsDataBefore = postgresCatalog.isExistsData(tablePathPgSink);
+        Assertions.assertFalse(existsDataBefore);
+        // insert one data
+        String customSql =
+                "INSERT INTO\n"
+                        + "  pg_ide_sink_table_2 (gid,\n"
+                        + "    text_col,\n"
+                        + "    varchar_col,\n"
+                        + "    char_col,\n"
+                        + "    boolean_col,\n"
+                        + "    smallint_col,\n"
+                        + "    integer_col,\n"
+                        + "    bigint_col,\n"
+                        + "    decimal_col,\n"
+                        + "    numeric_col,\n"
+                        + "    real_col,\n"
+                        + "    double_precision_col,\n"
+                        + "    smallserial_col,\n"
+                        + "    serial_col,\n"
+                        + "    bigserial_col,\n"
+                        + "    date_col,\n"
+                        + "    timestamp_col,\n"
+                        + "    bpchar_col,\n"
+                        + "    age,\n"
+                        + "    name,\n"
+                        + "    point,\n"
+                        + "    linestring,\n"
+                        + "    polygon_colums,\n"
+                        + "    multipoint,\n"
+                        + "    multilinestring,\n"
+                        + "    multipolygon,\n"
+                        + "    geometrycollection,\n"
+                        + "    geog,\n"
+                        + "    json_col,\n"
+                        + "    jsonb_col, \n"
+                        + "    xml_col \n"
+                        + "  )\n"
+                        + "VALUES\n"
+                        + "  (\n"
+                        + "    '"
+                        + 999
+                        + "',\n"
+                        + "    'Hello World',\n"
+                        + "    'Test',\n"
+                        + "    'Testing',\n"
+                        + "    true,\n"
+                        + "    10,\n"
+                        + "    100,\n"
+                        + "    1000,\n"
+                        + "    10.55,\n"
+                        + "    8.8888,\n"
+                        + "    3.14,\n"
+                        + "    3.14159265,\n"
+                        + "    1,\n"
+                        + "    100,\n"
+                        + "    10000,\n"
+                        + "    '2023-05-07',\n"
+                        + "    '2023-05-07 14:30:00',\n"
+                        + "    'Testing',\n"
+                        + "    21,\n"
+                        + "    'Leblanc',\n"
+                        + "    ST_GeomFromText('POINT(-122.3452 47.5925)', 4326),\n"
+                        + "    ST_GeomFromText(\n"
+                        + "      'LINESTRING(-122.3451 47.5924, -122.3449 47.5923)',\n"
+                        + "      4326\n"
+                        + "    ),\n"
+                        + "    ST_GeomFromText(\n"
+                        + "      'POLYGON((-122.3453 47.5922, -122.3453 47.5926, -122.3448 47.5926, -122.3448 47.5922, -122.3453 47.5922))',\n"
+                        + "      4326\n"
+                        + "    ),\n"
+                        + "    ST_GeomFromText(\n"
+                        + "      'MULTIPOINT(-122.3459 47.5927, -122.3445 47.5918)',\n"
+                        + "      4326\n"
+                        + "    ),\n"
+                        + "    ST_GeomFromText(\n"
+                        + "      'MULTILINESTRING((-122.3463 47.5920, -122.3461 47.5919),(-122.3459 47.5924, -122.3457 47.5923))',\n"
+                        + "      4326\n"
+                        + "    ),\n"
+                        + "    ST_GeomFromText(\n"
+                        + "      'MULTIPOLYGON(((-122.3458 47.5925, -122.3458 47.5928, -122.3454 47.5928, -122.3454 47.5925, -122.3458 47.5925)),((-122.3453 47.5921, -122.3453 47.5924, -122.3448 47.5924, -122.3448 47.5921, -122.3453 47.5921)))',\n"
+                        + "      4326\n"
+                        + "    ),\n"
+                        + "    ST_GeomFromText(\n"
+                        + "      'GEOMETRYCOLLECTION(POINT(-122.3462 47.5921), LINESTRING(-122.3460 47.5924, -122.3457 47.5924))',\n"
+                        + "      4326\n"
+                        + "    ),\n"
+                        + "    ST_GeographyFromText('POINT(-122.3452 47.5925)'),\n"
+                        + "    '{\"key\":\"test\"}',\n"
+                        + "    '{\"key\":\"test\"}',\n"
+                        + "    '<XX:NewSize>test</XX:NewSize>'\n"
+                        + "  )";
+        postgresCatalog.executeSql(tablePathPgSink, customSql);
+        boolean existsDataAfter = postgresCatalog.isExistsData(tablePathPgSink);
+        Assertions.assertTrue(existsDataAfter);
+        // truncateTable
+        postgresCatalog.truncateTable(tablePathPgSink, true);
+        Assertions.assertFalse(postgresCatalog.isExistsData(tablePathPgSink));
+        // drop table
+        postgresCatalog.dropTable(tablePathPgSink, true);
+        Assertions.assertFalse(postgresCatalog.tableExists(tablePathPgSink));
+        postgresCatalog.close();
+    }
 }
