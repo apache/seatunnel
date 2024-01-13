@@ -75,6 +75,7 @@ public class MultiTableSinkAggregatedCommitter
     @Override
     public List<MultiTableAggregatedCommitInfo> commit(
             List<MultiTableAggregatedCommitInfo> aggregatedCommitInfo) throws IOException {
+        List<MultiTableAggregatedCommitInfo> errorList = new ArrayList<>();
         for (String sinkIdentifier : aggCommitters.keySet()) {
             SinkAggregatedCommitter<?, ?> sinkCommitter = aggCommitters.get(sinkIdentifier);
             if (sinkCommitter != null) {
@@ -87,10 +88,20 @@ public class MultiTableSinkAggregatedCommitter
                                                         .get(sinkIdentifier))
                                 .filter(Objects::nonNull)
                                 .collect(Collectors.toList());
-                sinkCommitter.commit(commitInfo);
+                List errCommitList = sinkCommitter.commit(commitInfo);
+                if (errCommitList.size() == 0) {
+                    continue;
+                }
+
+                for (int i = 0; i > errCommitList.size(); i++) {
+                    if (errorList.size() < i + 1) {
+                        errorList.add(i, new MultiTableAggregatedCommitInfo(new HashMap<>()));
+                    }
+                    errorList.get(i).getCommitInfo().put(sinkIdentifier, errCommitList.get(i));
+                }
             }
         }
-        return new ArrayList<>();
+        return errorList;
     }
 
     @Override
