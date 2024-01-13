@@ -193,7 +193,7 @@ When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL
 
 ### enable_upsert [boolean]
 
-Enable upsert by primary_keys exist, If the task only has `insert`, setting this parameter to `false` can speed up data import
+Enable upsert by primary_keys exist, If the task has no key duplicate data, setting this parameter to `false` can speed up data import
 
 ## tips
 
