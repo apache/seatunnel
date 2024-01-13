@@ -79,7 +79,7 @@ public class S3FileSink extends BaseFileSink implements SupportSaveMode {
                             getPluginName(), PluginType.SINK, result.getMsg()));
         }
         hadoopConf = S3Conf.buildWithReadOnlyConfig(readonlyConfig);
-        this.setTypeInfo(catalogTable.getTableSchema().toPhysicalRowDataType());
+        this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
     }
 
     @Override
