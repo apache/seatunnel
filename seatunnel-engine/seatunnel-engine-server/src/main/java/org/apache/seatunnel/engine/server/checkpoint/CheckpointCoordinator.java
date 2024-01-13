@@ -831,13 +831,11 @@ public class CheckpointCoordinator {
         if (latestCompletedCheckpoint == null) {
             return false;
         }
+        CheckpointCoordinatorStatus status =
+                (CheckpointCoordinatorStatus) runningJobStateIMap.get(checkpointStateImapKey);
         return latestCompletedCheckpoint.getCheckpointType().isFinalCheckpoint()
-                && (runningJobStateIMap
-                                .get(checkpointStateImapKey)
-                                .equals(CheckpointCoordinatorStatus.FINISHED)
-                        || runningJobStateIMap
-                                .get(checkpointStateImapKey)
-                                .equals(CheckpointCoordinatorStatus.SUSPEND))
+                && (status.equals(CheckpointCoordinatorStatus.FINISHED)
+                        || status.equals(CheckpointCoordinatorStatus.SUSPEND))
                 && !latestCompletedCheckpoint.isRestored();
     }
 
