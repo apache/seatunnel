@@ -93,7 +93,7 @@ public class MultiTableSinkAggregatedCommitter
                     continue;
                 }
 
-                for (int i = 0; i > errCommitList.size(); i++) {
+                for (int i = 0; i < errCommitList.size(); i++) {
                     if (errorList.size() < i + 1) {
                         errorList.add(i, new MultiTableAggregatedCommitInfo(new HashMap<>()));
                     }
