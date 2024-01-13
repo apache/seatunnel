@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRocksOptions;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRocksSinkOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -36,7 +37,8 @@ public class StarRocksCatalogFactory implements CatalogFactory {
                 catalogName,
                 options.get(StarRocksOptions.USERNAME),
                 options.get(StarRocksOptions.PASSWORD),
-                options.get(StarRocksOptions.BASE_URL));
+                options.get(StarRocksOptions.BASE_URL),
+                options.get(StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE));
     }
 
     @Override
