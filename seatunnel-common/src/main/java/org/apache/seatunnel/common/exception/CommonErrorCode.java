@@ -24,7 +24,6 @@ public enum CommonErrorCode implements SeaTunnelErrorCode {
             "COMMON-02", "<identifier> JSON convert/parse '<payload>' operation failed."),
     UNSUPPORTED_DATA_TYPE(
             "COMMON-07", "'<identifier>' unsupported data type '<dataType>' of '<field>'"),
-    KERBEROS_AUTHORIZED_FAILED("COMMON-14", "Kerberos authorized failed"),
     CONVERT_TO_SEATUNNEL_TYPE_ERROR(
             "COMMON-16",
             "'<connector>' <type> unsupported convert type '<dataType>' of '<field>' to SeaTunnel data type."),
