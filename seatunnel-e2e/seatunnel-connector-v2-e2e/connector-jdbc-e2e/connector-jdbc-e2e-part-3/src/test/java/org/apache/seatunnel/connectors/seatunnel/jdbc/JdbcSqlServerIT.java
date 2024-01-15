@@ -351,7 +351,8 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
         Assertions.assertFalse(existsDataBefore);
         // insert one data
         sqlServerCatalog.executeSql(
-                tablePathSqlserver_Sink, "insert into sink_lw(INT_IDENTITY_TEST, BIGINT_TEST) values(1, 12)");
+                tablePathSqlserver_Sink,
+                "insert into sink_lw(INT_IDENTITY_TEST, BIGINT_TEST) values(1, 12)");
         boolean existsDataAfter = sqlServerCatalog.isExistsData(tablePathSqlserver_Sink);
         Assertions.assertTrue(existsDataAfter);
         // truncateTable
