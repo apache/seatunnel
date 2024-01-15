@@ -81,7 +81,7 @@ directly return the data
 
 ```
 env {
-  execution.parallelism = 2
+  parallelism = 2
   job.mode = "BATCH"
 }
 source{
@@ -108,7 +108,7 @@ Use the 'doris.read.field' parameter to select the doris table columns to read
 
 ```
 env {
-  execution.parallelism = 2
+  parallelism = 2
   job.mode = "BATCH"
 }
 source{
@@ -136,7 +136,7 @@ Use 'doris.filter.query' to filter the data, and the parameter values are passed
 
 ```
 env {
-  execution.parallelism = 2
+  parallelism = 2
   job.mode = "BATCH"
 }
 source{
