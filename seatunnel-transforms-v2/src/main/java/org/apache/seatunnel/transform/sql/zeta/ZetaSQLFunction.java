@@ -227,9 +227,9 @@ public class ZetaSQLFunction {
             Parenthesis parenthesis = (Parenthesis) expression;
             return computeForValue(parenthesis.getExpression(), inputFields);
         }
-//        if (zetaSQLFilter.isConditionExpr(expression)) {
-//            return zetaSQLFilter.executeFilter(expression, inputFields);
-//        }
+        //        if (zetaSQLFilter.isConditionExpr(expression)) {
+        //            return zetaSQLFilter.executeFilter(expression, inputFields);
+        //        }
         if (expression instanceof CaseExpression) {
             CaseExpression caseExpression = (CaseExpression) expression;
             final Object value = executeCaseExpr(caseExpression, inputFields);
@@ -255,9 +255,12 @@ public class ZetaSQLFunction {
         Object switchValue = switchExpr == null ? null : computeForValue(switchExpr, inputFields);
         for (WhenClause whenClause : caseExpression.getWhenClauses()) {
             Expression whenExpression = whenClause.getWhenExpression();
-            final Object when = zetaSQLFilter.isConditionExpr(whenExpression)?zetaSQLFilter.executeFilter(whenExpression, inputFields):computeForValue(whenExpression, inputFields);
+            final Object when =
+                    zetaSQLFilter.isConditionExpr(whenExpression)
+                            ? zetaSQLFilter.executeFilter(whenExpression, inputFields)
+                            : computeForValue(whenExpression, inputFields);
             // match: case [column] when column1 compare other, add by javalover123
-            if (  when instanceof Boolean && (boolean) when) {
+            if (when instanceof Boolean && (boolean) when) {
                 return computeForValue(whenClause.getThenExpression(), inputFields);
             } else if (zetaSQLFilter.equalsToExpr(Pair.of(switchValue, when))) {
                 return computeForValue(whenClause.getThenExpression(), inputFields);
