@@ -73,7 +73,9 @@ public class SqlServerTypeConverter implements TypeConverter<BasicTypeDefine> {
     public static final String SQLSERVER_VARBINARY = "VARBINARY";
     public static final String SQLSERVER_IMAGE = "IMAGE";
 
-    public static final int DEFAULT_PRECISION = 38;
+    public static final int MAX_PRECISION = 38;
+    public static final int DEFAULT_PRECISION = MAX_PRECISION;
+    public static final int MAX_SCALE = MAX_PRECISION - 1;
     public static final int DEFAULT_SCALE = 18;
     public static final int MAX_CHAR_LENGTH = 8000;
     public static final int MAX_BINARY_LENGTH = 8000;
@@ -333,6 +335,52 @@ public class SqlServerTypeConverter implements TypeConverter<BasicTypeDefine> {
                 if (precision <= 0) {
                     precision = DEFAULT_PRECISION;
                     scale = DEFAULT_SCALE;
+                    log.warn(
+                            "The decimal column {} type decimal({},{}) is out of range, "
+                                    + "which is precision less than 0, "
+                                    + "it will be converted to decimal({},{})",
+                            column.getName(),
+                            decimalType.getPrecision(),
+                            decimalType.getScale(),
+                            precision,
+                            scale);
+                } else if (precision > MAX_PRECISION) {
+                    scale = (int) Math.max(0, scale - (precision - MAX_PRECISION));
+                    precision = MAX_PRECISION;
+                    log.warn(
+                            "The decimal column {} type decimal({},{}) is out of range, "
+                                    + "which exceeds the maximum precision of {}, "
+                                    + "it will be converted to decimal({},{})",
+                            column.getName(),
+                            decimalType.getPrecision(),
+                            decimalType.getScale(),
+                            MAX_PRECISION,
+                            precision,
+                            scale);
+                }
+                if (scale < 0) {
+                    scale = 0;
+                    log.warn(
+                            "The decimal column {} type decimal({},{}) is out of range, "
+                                    + "which is scale less than 0, "
+                                    + "it will be converted to decimal({},{})",
+                            column.getName(),
+                            decimalType.getPrecision(),
+                            decimalType.getScale(),
+                            precision,
+                            scale);
+                } else if (scale > MAX_SCALE) {
+                    scale = MAX_SCALE;
+                    log.warn(
+                            "The decimal column {} type decimal({},{}) is out of range, "
+                                    + "which exceeds the maximum scale of {}, "
+                                    + "it will be converted to decimal({},{})",
+                            column.getName(),
+                            decimalType.getPrecision(),
+                            decimalType.getScale(),
+                            MAX_SCALE,
+                            precision,
+                            scale);
                 }
                 builder.columnType(String.format("%s(%s,%s)", SQLSERVER_DECIMAL, precision, scale));
                 builder.dataType(SQLSERVER_DECIMAL);
@@ -379,12 +427,13 @@ public class SqlServerTypeConverter implements TypeConverter<BasicTypeDefine> {
                     if (timeScale > MAX_TIME_SCALE) {
                         timeScale = MAX_TIME_SCALE;
                         log.warn(
-                                "The scale of time column {} is {}, which exceeds the maximum scale of {}, "
-                                        + "the scale will be set to {}",
+                                "The time column {} type time({}) is out of range, "
+                                        + "which exceeds the maximum scale of {}, "
+                                        + "it will be converted to time({})",
                                 column.getName(),
                                 column.getScale(),
-                                MAX_TIME_SCALE,
-                                MAX_TIME_SCALE);
+                                MAX_SCALE,
+                                timeScale);
                     }
                     builder.columnType(String.format("%s(%s)", SQLSERVER_TIME, timeScale));
                     builder.scale(timeScale);
@@ -399,12 +448,13 @@ public class SqlServerTypeConverter implements TypeConverter<BasicTypeDefine> {
                     if (timestampScale > MAX_TIMESTAMP_SCALE) {
                         timestampScale = MAX_TIMESTAMP_SCALE;
                         log.warn(
-                                "The scale of timestamp column {} is {}, which exceeds the maximum scale of {}, "
-                                        + "the scale will be set to {}",
+                                "The timestamp column {} type timestamp({}) is out of range, "
+                                        + "which exceeds the maximum scale of {}, "
+                                        + "it will be converted to timestamp({})",
                                 column.getName(),
                                 column.getScale(),
                                 MAX_TIMESTAMP_SCALE,
-                                MAX_TIMESTAMP_SCALE);
+                                timestampScale);
                     }
                     builder.columnType(
                             String.format("%s(%s)", SQLSERVER_DATETIME2, timestampScale));
