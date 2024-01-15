@@ -227,9 +227,6 @@ public class ZetaSQLFunction {
             Parenthesis parenthesis = (Parenthesis) expression;
             return computeForValue(parenthesis.getExpression(), inputFields);
         }
-        //        if (zetaSQLFilter.isConditionExpr(expression)) {
-        //            return zetaSQLFilter.executeFilter(expression, inputFields);
-        //        }
         if (expression instanceof CaseExpression) {
             CaseExpression caseExpression = (CaseExpression) expression;
             final Object value = executeCaseExpr(caseExpression, inputFields);
