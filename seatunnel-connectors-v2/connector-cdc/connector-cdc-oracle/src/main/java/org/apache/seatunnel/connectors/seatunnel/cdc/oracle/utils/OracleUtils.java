@@ -56,6 +56,8 @@ import java.util.Optional;
 @Slf4j
 public class OracleUtils {
 
+    private static final int DEFAULT_FETCH_SIZE = 1024;
+
     private OracleUtils() {}
 
     public static Object[] queryMinMax(JdbcConnection jdbc, TableId tableId, String columnName)
@@ -162,7 +164,7 @@ public class OracleUtils {
                             .createStatement(
                                     ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 
-            stmt.setFetchSize(Integer.MIN_VALUE);
+            stmt.setFetchSize(DEFAULT_FETCH_SIZE);
             rs = stmt.executeQuery(sampleQuery);
 
             int count = 0;
