@@ -109,7 +109,7 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
 
     private static final String SINK_CREATE_SQL =
             "CREATE TABLE %s (\n"
-                    + "\tINT_IDENTITY_TEST int,\n"
+                    + "\tINT_IDENTITY_TEST int NULL,\n"
                     + "\tBIGINT_TEST bigint NOT NULL,\n"
                     + "\tBINARY_TEST binary(255) NULL,\n"
                     + "\tBIT_TEST bit NULL,\n"
