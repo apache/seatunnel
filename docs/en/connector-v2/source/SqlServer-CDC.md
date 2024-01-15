@@ -60,6 +60,7 @@ Please download and put SqlServer driver in `${SEATUNNEL_HOME}/lib/` dir. For ex
 | password                                       | String   | Yes      | -       | Password to use when connecting to the database server.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | database-names                                 | List     | Yes      | -       | Database name of the database to monitor.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | table-names                                    | List     | Yes      | -       | Table name is a combination of schema name and table name (databaseName.schemaName.tableName).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| table-names-config                             | List     | No       | -       | Table config list. for example: [{"table": "db1.schema1.table1","primaryKeys":["key1"]}]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | base-url                                       | String   | Yes      | -       | URL has to be with database, like "jdbc:sqlserver://localhost:1433;databaseName=test".                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | startup.mode                                   | Enum     | No       | INITIAL | Optional startup mode for SqlServer CDC consumer, valid enumerations are "initial", "earliest", "latest" and "specific".                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | startup.timestamp                              | Long     | No       | -       | Start from the specified epoch timestamp (in milliseconds).<br/> **Note, This option is required when** the **"startup.mode" option used `'timestamp'`.**                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
@@ -183,6 +184,37 @@ transform {
 sink {
   console {
     source_table_name = "customers"
+  }
+```
+
+### Support custom primary key for table
+
+```
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  SqlServer-CDC {
+    base-url = "jdbc:sqlserver://localhost:1433;databaseName=column_type_test"
+    username = "sa"
+    password = "Y.sa123456"
+    database-names = ["column_type_test"]
+    
+    table-names = ["column_type_test.dbo.simple_types", "column_type_test.dbo.full_types"]
+    table-names-config = [
+      {
+        table = "column_type_test.dbo.full_types"
+        primaryKeys = ["id"]
+      }
+    ]
+  }
+}
+
+sink {
+  console {
   }
 ```
 

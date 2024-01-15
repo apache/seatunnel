@@ -15,27 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.doris.rest.models;
+package org.apache.seatunnel.connectors.cdc.base.config;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
+import lombok.Data;
 
-@Getter
-@Setter
-@ToString
-@Deprecated
-@JsonIgnoreProperties(ignoreUnknown = true)
-public class BackendRow {
+import java.io.Serializable;
+import java.util.List;
 
-    @JsonProperty(value = "HttpPort")
-    private String httpPort;
-
-    @JsonProperty(value = "IP")
-    private String ip;
-
-    @JsonProperty(value = "Alive")
-    private Boolean alive;
+@Data
+public class JdbcSourceTableConfig implements Serializable {
+    private String table;
+    private List<String> primaryKeys;
 }

@@ -39,11 +39,17 @@ import org.testcontainers.utility.DockerLoggerFactory;
 import com.google.common.collect.Lists;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.sql.SQLException;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 public class JdbcSqlServerIT extends AbstractJdbcIT {
 
@@ -66,9 +72,39 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
             Lists.newArrayList("/jdbc_sqlserver_source_to_sink.conf");
     private static final String CREATE_SQL =
             "CREATE TABLE %s (\n"
-                    + "  [age] bigint  NOT NULL,\n"
-                    + "  [name] varchar(255) COLLATE Chinese_PRC_CI_AS  NULL\n"
-                    + ")";
+                    + "\tBIGINT_TEST bigint NOT NULL,\n"
+                    + "\tBINARY_TEST binary(255) NULL,\n"
+                    + "\tBIT_TEST bit NULL,\n"
+                    + "\tCHAR_TEST char(255) COLLATE Chinese_PRC_CS_AS NULL,\n"
+                    + "\tDATE_TEST date NULL,\n"
+                    + "\tDATETIME_TEST datetime NULL,\n"
+                    + "\tDATETIME2_TEST datetime2 NULL,\n"
+                    + "\tDATETIMEOFFSET_TEST datetimeoffset NULL,\n"
+                    + "\tDECIMAL_TEST decimal(18,2) NULL,\n"
+                    + "\tFLOAT_TEST float NULL,\n"
+                    + "\tIMAGE_TEST image NULL,\n"
+                    + "\tINT_TEST int NULL,\n"
+                    + "\tMONEY_TEST money NULL,\n"
+                    + "\tNCHAR_TEST nchar(1) COLLATE Chinese_PRC_CS_AS NULL,\n"
+                    + "\tNTEXT_TEST ntext COLLATE Chinese_PRC_CS_AS NULL,\n"
+                    + "\tNUMERIC_TEST numeric(18,2) NULL,\n"
+                    + "\tNVARCHAR_TEST nvarchar(16) COLLATE Chinese_PRC_CS_AS NULL,\n"
+                    + "\tNVARCHAR_MAX_TEST nvarchar(MAX) COLLATE Chinese_PRC_CS_AS NULL,\n"
+                    + "\tREAL_TEST real NULL,\n"
+                    + "\tSMALLDATETIME_TEST smalldatetime NULL,\n"
+                    + "\tSMALLINT_TEST smallint NULL,\n"
+                    + "\tSMALLMONEY_TEST smallmoney NULL,\n"
+                    + "\tSQL_VARIANT_TEST sql_variant NULL,\n"
+                    + "\tTEXT_TEST text COLLATE Chinese_PRC_CS_AS NULL,\n"
+                    + "\tTIME_TEST time NULL,\n"
+                    + "\tTINYINT_TEST tinyint NULL,\n"
+                    + "\tUNIQUEIDENTIFIER_TEST uniqueidentifier NULL,\n"
+                    + "\tVARBINARY_TEST varbinary(255) NULL,\n"
+                    + "\tVARBINARY_MAX_TEST varbinary(MAX) NULL,\n"
+                    + "\tVARCHAR_TEST varchar(16) COLLATE Chinese_PRC_CS_AS NULL,\n"
+                    + "\tVARCHAR_MAX_TEST varchar(MAX) COLLATE Chinese_PRC_CS_AS DEFAULT NULL NULL,\n"
+                    + "\tXML_TEST xml NULL\n"
+                    + ");";
 
     private String username;
 
@@ -121,7 +157,38 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
     Pair<String[], List<SeaTunnelRow>> initTestData() {
         String[] fieldNames =
                 new String[] {
-                    "age", "name",
+                    "BIGINT_TEST",
+                    "BINARY_TEST",
+                    "BIT_TEST",
+                    "CHAR_TEST",
+                    "DATE_TEST",
+                    "DATETIME_TEST",
+                    "DATETIME2_TEST",
+                    "DATETIMEOFFSET_TEST",
+                    "DECIMAL_TEST",
+                    "FLOAT_TEST",
+                    "IMAGE_TEST",
+                    "INT_TEST",
+                    "MONEY_TEST",
+                    "NCHAR_TEST",
+                    "NTEXT_TEST",
+                    "NUMERIC_TEST",
+                    "NVARCHAR_TEST",
+                    "NVARCHAR_MAX_TEST",
+                    "REAL_TEST",
+                    "SMALLDATETIME_TEST",
+                    "SMALLINT_TEST",
+                    "SMALLMONEY_TEST",
+                    "SQL_VARIANT_TEST",
+                    "TEXT_TEST",
+                    "TIME_TEST",
+                    "TINYINT_TEST",
+                    "UNIQUEIDENTIFIER_TEST",
+                    "VARBINARY_TEST",
+                    "VARBINARY_MAX_TEST",
+                    "VARCHAR_TEST",
+                    "VARCHAR_MAX_TEST",
+                    "XML_TEST",
                 };
 
         List<SeaTunnelRow> rows = new ArrayList<>();
@@ -129,7 +196,38 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
             SeaTunnelRow row =
                     new SeaTunnelRow(
                             new Object[] {
-                                i, "f_" + i,
+                                (long) i, // BIGINT_TEST
+                                new byte[255], // BINARY_TEST
+                                i % 2 == 0, // BIT_TEST
+                                "CharValue" + i, // CHAR_TEST
+                                LocalDate.now(), // DATE_TEST
+                                LocalDateTime.now(), // DATETIME_TEST
+                                LocalDateTime.now(), // DATETIME2_TEST
+                                OffsetDateTime.now(), // DATETIMEOFFSET_TEST
+                                new BigDecimal("123.45"), // DECIMAL_TEST
+                                3.14f, // FLOAT_TEST
+                                new byte[255], // IMAGE_TEST
+                                42, // INT_TEST
+                                new BigDecimal("567.89"), // MONEY_TEST
+                                "N", // NCHAR_TEST
+                                "NTextValue" + i, // NTEXT_TEST
+                                new BigDecimal("987.65"), // NUMERIC_TEST
+                                "NVarCharValue" + i, // NVARCHAR_TEST
+                                "NVarCharMaxValue" + i, // NVARCHAR_MAX_TEST
+                                2.71f, // REAL_TEST
+                                LocalDateTime.now(), // SMALLDATETIME_TEST
+                                (short) 123, // SMALLINT_TEST
+                                new BigDecimal("456.78"), // SMALLMONEY_TEST
+                                "SQL Variant Value" + i, // SQL_VARIANT_TEST
+                                "TextValue" + i, // TEXT_TEST
+                                LocalTime.now(), // TIME_TEST
+                                (short) 5, // TINYINT_TEST
+                                UUID.randomUUID(), // UNIQUEIDENTIFIER_TEST
+                                new byte[255], // VARBINARY_TEST
+                                new byte[8000], // VARBINARY_MAX_TEST
+                                "VarCharValue" + i, // VARCHAR_TEST
+                                "VarCharMaxValue" + i, // VARCHAR_MAX_TEST
+                                "<xml>Test" + i + "</xml>", // XML_TEST
                             });
             rows.add(row);
         }
@@ -214,7 +312,7 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
         Assertions.assertFalse(existsDataBefore);
         // insert one data
         sqlServerCatalog.executeSql(
-                tablePathSqlserver_Sink, "insert into sink_lw(age, name) values(12,'laowang')");
+                tablePathSqlserver_Sink, "insert into sink_lw(BIGINT_TEST) values(12)");
         boolean existsDataAfter = sqlServerCatalog.isExistsData(tablePathSqlserver_Sink);
         Assertions.assertTrue(existsDataAfter);
         // truncateTable
