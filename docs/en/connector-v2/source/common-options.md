@@ -7,6 +7,10 @@
 | result_table_name | String | No       | -       | When `result_table_name` is not specified, the data processed by this plugin will not be registered as a data set `(dataStream/dataset)` that can be directly accessed by other plugins, or called a temporary table `(table)` <br/>When `result_table_name` is specified, the data processed by this plugin will be registered as a data set `(dataStream/dataset)` that can be directly accessed by other plugins, or called a temporary table `(table)` . The data set `(dataStream/dataset)` registered here can be directly accessed by other plugins by specifying `source_table_name` . |
 | parallelism       | Int    | No       | -       | When `parallelism` is not specified, the `parallelism` in env is used by default. <br/>When parallelism is specified, it will override the parallelism in env.                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 
+# Important note
+When the job configuration `result_table_name` you must set the `source_table_name` parameter
+
+
 ## Task Example
 
 ### Simple:
