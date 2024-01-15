@@ -121,7 +121,7 @@ public class S3FileCatalog implements Catalog {
     @Override
     public boolean isExistsData(TablePath tablePath) {
         final List<LocatedFileStatus> locatedFileStatuses =
-                hadoopFileSystemProxy.fileList(readonlyConfig.get(S3ConfigOptions.FILE_PATH));
+                hadoopFileSystemProxy.listFile(readonlyConfig.get(S3ConfigOptions.FILE_PATH));
         return CollectionUtils.isNotEmpty(locatedFileStatuses);
     }
 }

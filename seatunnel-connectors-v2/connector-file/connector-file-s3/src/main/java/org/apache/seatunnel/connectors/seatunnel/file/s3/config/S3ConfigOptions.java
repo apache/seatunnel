@@ -59,7 +59,8 @@ public class S3ConfigOptions extends BaseSourceConfigOptions {
             Options.key("schema_save_mode")
                     .enumType(SchemaSaveMode.class)
                     .defaultValue(SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST)
-                    .withDescription("schema_save_mode");
+                    .withDescription(
+                            "Before the synchronization task begins, process the existing path");
 
     public static final Option<DataSaveMode> DATA_SAVE_MODE =
             Options.key("data_save_mode")
@@ -67,7 +68,8 @@ public class S3ConfigOptions extends BaseSourceConfigOptions {
                             DataSaveMode.class,
                             Arrays.asList(DROP_DATA, APPEND_DATA, ERROR_WHEN_DATA_EXISTS))
                     .defaultValue(APPEND_DATA)
-                    .withDescription("data_save_mode");
+                    .withDescription(
+                            "Before the synchronization task begins, different processing of data files that already exist in the directory");
 
     /**
      * The current key for that config option. if you need to add a new option, you can add it here
