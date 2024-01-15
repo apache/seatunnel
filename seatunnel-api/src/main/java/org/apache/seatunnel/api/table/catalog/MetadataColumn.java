@@ -27,6 +27,7 @@ import lombok.ToString;
 @EqualsAndHashCode(callSuper = true)
 @ToString(callSuper = true)
 public class MetadataColumn extends Column {
+    private static final long serialVersionUID = -1L;
 
     private final String metadataKey;
 
