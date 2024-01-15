@@ -43,7 +43,8 @@ import static org.awaitility.Awaitility.await;
 @DisabledOnOs(OS.WINDOWS)
 public class SavePointTest extends AbstractSeaTunnelServerTest {
     public static String OUT_PATH = "/tmp/hive/warehouse/test3";
-    public static String CONF_PATH = "stream_fakesource_to_file_savepoint.conf";
+    public static String STREAM_CONF_PATH = "stream_fakesource_to_file_savepoint.conf";
+    public static String BATCH_CONF_PATH = "batch_fakesource_to_file.conf";
     public static long JOB_ID = 823342L;
 
     @Test
@@ -64,6 +65,19 @@ public class SavePointTest extends AbstractSeaTunnelServerTest {
     }
 
     @Test
+    public void testRestoreWithNoSavepointFile() {
+        long jobId = System.currentTimeMillis();
+        startJob(jobId, BATCH_CONF_PATH, true);
+        await().atMost(120000, TimeUnit.MILLISECONDS)
+            .untilAsserted(
+                () -> {
+                    Assertions.assertEquals(
+                        server.getCoordinatorService().getJobStatus(jobId),
+                        JobStatus.FINISHED);
+                });
+    }
+
+    @Test
     @Disabled()
     public void testSavePointOnServerRestart() throws InterruptedException {
         savePointAndRestore(true);
@@ -74,7 +88,7 @@ public class SavePointTest extends AbstractSeaTunnelServerTest {
         FileUtils.createNewDir(OUT_PATH);
 
         // 1 Start a streaming mode job
-        startJob(JOB_ID, CONF_PATH, false);
+        startJob(JOB_ID, STREAM_CONF_PATH, false);
 
         // 2 Wait for the job to running and start outputting data
         await().atMost(120000, TimeUnit.MILLISECONDS)
@@ -115,7 +129,7 @@ public class SavePointTest extends AbstractSeaTunnelServerTest {
         Thread.sleep(1000);
 
         // 5 Resume from savePoint
-        startJob(JOB_ID, CONF_PATH, true);
+        startJob(JOB_ID, STREAM_CONF_PATH, true);
 
         await().atMost(120000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
