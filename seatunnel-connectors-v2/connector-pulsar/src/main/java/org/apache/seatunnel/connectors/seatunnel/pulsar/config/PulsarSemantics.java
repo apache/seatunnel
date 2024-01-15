@@ -15,27 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.doris.rest.models;
+package org.apache.seatunnel.connectors.seatunnel.pulsar.config;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
+public enum PulsarSemantics {
 
-@Getter
-@Setter
-@ToString
-@Deprecated
-@JsonIgnoreProperties(ignoreUnknown = true)
-public class BackendRow {
+    /**
+     * At this semantics, we will directly send the message to pulsar, the data may duplicat/lost if
+     * job restart/retry or network error.
+     */
+    NON,
 
-    @JsonProperty(value = "HttpPort")
-    private String httpPort;
+    /** At this semantics, we will send at least one */
+    AT_LEAST_ONCE,
 
-    @JsonProperty(value = "IP")
-    private String ip;
-
-    @JsonProperty(value = "Alive")
-    private Boolean alive;
+    /**
+     * AT this semantics, we will use 2pc to guarantee the message is sent to pulsar exactly once.
+     */
+    EXACTLY_ONCE;
 }
