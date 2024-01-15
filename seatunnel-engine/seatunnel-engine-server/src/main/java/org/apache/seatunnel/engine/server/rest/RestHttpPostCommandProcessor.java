@@ -40,9 +40,6 @@ import org.apache.seatunnel.engine.server.utils.RestUtil;
 
 import org.apache.commons.lang.StringUtils;
 
-import com.hazelcast.core.Hazelcast;
-import com.hazelcast.core.HazelcastInstance;
-import com.hazelcast.instance.impl.HazelcastInstanceProxy;
 import com.hazelcast.internal.ascii.TextCommandService;
 import com.hazelcast.internal.ascii.rest.HttpCommandProcessor;
 import com.hazelcast.internal.ascii.rest.HttpPostCommand;
@@ -106,22 +103,9 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
         SeaTunnelServer seaTunnelServer =
                 (SeaTunnelServer) extensionServices.get(Constant.SEATUNNEL_SERVICE_NAME);
         if (!seaTunnelServer.isMasterNode()) {
-            for (HazelcastInstance hazelcastInstance : Hazelcast.getAllHazelcastInstances()) {
-                seaTunnelServer =
-                        (SeaTunnelServer)
-                                ((HazelcastInstanceProxy) hazelcastInstance)
-                                        .getOriginal()
-                                        .node
-                                        .getNodeExtension()
-                                        .createExtensionServices()
-                                        .get(Constant.SEATUNNEL_SERVICE_NAME);
-
-                if (seaTunnelServer.isMasterNode()) {
-                    return seaTunnelServer;
-                }
-            }
+            return null;
         }
-        return null;
+        return seaTunnelServer;
     }
 
     private void handleSubmitJob(HttpPostCommand httpPostCommand, String uri)
