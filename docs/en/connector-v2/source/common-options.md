@@ -8,8 +8,8 @@
 | parallelism       | Int    | No       | -       | When `parallelism` is not specified, the `parallelism` in env is used by default. <br/>When parallelism is specified, it will override the parallelism in env.                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 
 # Important note
-When the job configuration `result_table_name` you must set the `source_table_name` parameter
 
+When the job configuration `result_table_name` you must set the `source_table_name` parameter
 
 ## Task Example
 
