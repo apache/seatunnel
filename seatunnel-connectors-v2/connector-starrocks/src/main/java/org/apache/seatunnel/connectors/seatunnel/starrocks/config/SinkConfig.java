@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.starrocks.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.DataSaveMode;
+import org.apache.seatunnel.api.sink.SchemaSaveMode;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -58,7 +59,9 @@ public class SinkConfig implements Serializable {
 
     private String saveModeCreateTemplate;
 
+    private SchemaSaveMode schemaSaveMode;
     private DataSaveMode dataSaveMode;
+    private String customSql;
 
     private int httpSocketTimeout;
 
@@ -91,7 +94,9 @@ public class SinkConfig implements Serializable {
         config.getOptional(StarRocksSinkOptions.COLUMN_SEPARATOR)
                 .ifPresent(sinkConfig::setColumnSeparator);
         sinkConfig.setLoadFormat(config.get(StarRocksSinkOptions.LOAD_FORMAT));
-        sinkConfig.setDataSaveMode(config.get(StarRocksSinkOptions.SAVE_MODE));
+        sinkConfig.setSchemaSaveMode(config.get(StarRocksSinkOptions.SCHEMA_SAVE_MODE));
+        sinkConfig.setDataSaveMode(config.get(StarRocksSinkOptions.DATA_SAVE_MODE));
+        sinkConfig.setCustomSql(config.get(StarRocksSinkOptions.CUSTOM_SQL));
         sinkConfig.setHttpSocketTimeout(config.get(StarRocksSinkOptions.HTTP_SOCKET_TIMEOUT_MS));
         return sinkConfig;
     }

@@ -15,26 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.doris.rest.models;
+package org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonProperty;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-import java.util.List;
-
-/** Be response model */
-@Deprecated
-@JsonIgnoreProperties(ignoreUnknown = true)
-public class Backend {
-
-    @JsonProperty(value = "rows")
-    private List<BackendRow> rows;
-
-    public List<BackendRow> getRows() {
-        return rows;
-    }
-
-    public void setRows(List<BackendRow> rows) {
-        this.rows = rows;
+class OracleIncrementalSourceFactoryTest {
+    @Test
+    public void testOptionRule() {
+        Assertions.assertNotNull((new OracleIncrementalSourceFactory()).optionRule());
     }
 }

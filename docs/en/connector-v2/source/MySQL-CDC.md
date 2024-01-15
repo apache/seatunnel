@@ -153,6 +153,7 @@ When an initial consistent snapshot is made for large databases, your establishe
 | password                                       | String   | Yes      | -       | Password to use when connecting to the database server.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | database-names                                 | List     | No       | -       | Database name of the database to monitor.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | table-names                                    | List     | Yes      | -       | Table name of the database to monitor. The table name needs to include the database name, for example: `database_name.table_name`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| table-names-config                             | List     | No       | -       | Table config list. for example: [{"table": "db1.schema1.table1","primaryKeys":["key1"]}]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | startup.mode                                   | Enum     | No       | INITIAL | Optional startup mode for MySQL CDC consumer, valid enumerations are `initial`, `earliest`, `latest` and `specific`. <br/> `initial`: Synchronize historical data at startup, and then synchronize incremental data.<br/> `earliest`: Startup from the earliest offset possible.<br/> `latest`: Startup from the latest offset.<br/> `specific`: Startup from user-supplied specific offsets.                                                                                                                                                                                                                        |
 | startup.specific-offset.file                   | String   | No       | -       | Start from the specified binlog file name. **Note, This option is required when the `startup.mode` option used `specific`.**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | startup.specific-offset.pos                    | Long     | No       | -       | Start from the specified binlog file position. **Note, This option is required when the `startup.mode` option used `specific`.**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
@@ -190,9 +191,6 @@ env {
 
 source {
   MySQL-CDC {
-    catalog = {
-      factory = MySQL
-    }
     base-url = "jdbc:mysql://localhost:3306/testdb"
     username = "root"
     password = "root@123"
@@ -211,6 +209,37 @@ sink {
 ### Support debezium-compatible format send to kafka
 
 > Must be used with kafka connector sink, see [compatible debezium format](../formats/cdc-compatible-debezium-json.md) for details
+
+### Support custom primary key for table
+
+```
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 10000
+}
+
+source {
+  MySQL-CDC {
+    base-url = "jdbc:mysql://localhost:3306/testdb"
+    username = "root"
+    password = "root@123"
+    
+    table-names = ["testdb.table1", "testdb.table2"]
+    table-names-config = [
+      {
+        table = "testdb.table2"
+        primaryKeys = ["id"]
+      }
+    ]
+  }
+}
+
+sink {
+  Console {
+  }
+}
+```
 
 ## Changelog
 
