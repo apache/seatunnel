@@ -194,6 +194,19 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
         return "CREATE DATABASE \"" + databaseName + "\"";
     }
 
+    public String getExistDataSql(TablePath tablePath) {
+        String schemaName = tablePath.getSchemaName();
+        String tableName = tablePath.getTableName();
+        return String.format("select * from \"%s\".\"%s\" limit 1", schemaName, tableName);
+    }
+
+    @Override
+    protected String getTruncateTableSql(TablePath tablePath) {
+        String schemaName = tablePath.getSchemaName();
+        String tableName = tablePath.getTableName();
+        return "TRUNCATE TABLE  \"" + schemaName + "\".\"" + tableName + "\"";
+    }
+
     @Override
     protected String getDropDatabaseSql(String databaseName) {
         return "DROP DATABASE \"" + databaseName + "\"";

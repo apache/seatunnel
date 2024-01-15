@@ -45,6 +45,7 @@ import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.Getter;
@@ -260,7 +261,8 @@ public class CheckpointCoordinator {
                         });
     }
 
-    private void handleCoordinatorError(String message, Throwable e, CheckpointCloseReason reason) {
+    @VisibleForTesting
+    public void handleCoordinatorError(String message, Throwable e, CheckpointCloseReason reason) {
         LOG.error(message, e);
         handleCoordinatorError(reason, e);
     }
@@ -277,8 +279,7 @@ public class CheckpointCoordinator {
         checkpointCoordinatorFuture.complete(
                 new CheckpointCoordinatorState(
                         CheckpointCoordinatorStatus.FAILED, errorByPhysicalVertex.get()));
-        checkpointManager.handleCheckpointError(
-                pipelineId, reason.equals(CheckpointCloseReason.CHECKPOINT_NOTIFY_COMPLETE_FAILED));
+        checkpointManager.handleCheckpointError(pipelineId, false);
     }
 
     private void restoreTaskState(TaskLocation taskLocation) {
