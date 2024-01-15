@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.transform.sql.zeta;
 
+import net.sf.jsqlparser.expression.operators.relational.EqualsTo;
+import net.sf.jsqlparser.expression.operators.relational.NotEqualsTo;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
@@ -128,7 +130,8 @@ public class ZetaSQLType {
                 || expression instanceof InExpression
                 || expression instanceof LikeExpression
                 || expression instanceof AndExpression
-                || expression instanceof OrExpression) {
+                || expression instanceof OrExpression
+                || expression instanceof NotEqualsTo) {
             return BasicType.BOOLEAN_TYPE;
         }
 
