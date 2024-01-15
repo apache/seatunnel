@@ -19,7 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.file.s3.sink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.DataSaveMode;
@@ -38,7 +37,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3Conf;
 import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3ConfigOptions;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.BaseFileSink;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.BaseMultipleTableFileSink;
 
 import com.google.auto.service.AutoService;
 
@@ -47,7 +46,7 @@ import java.util.Optional;
 import static org.apache.seatunnel.api.table.factory.FactoryUtil.discoverFactory;
 
 @AutoService(SeaTunnelSink.class)
-public class S3FileSink extends BaseFileSink implements SupportSaveMode {
+public class S3FileSink extends BaseMultipleTableFileSink implements SupportSaveMode {
 
     private CatalogTable catalogTable;
     private ReadonlyConfig readonlyConfig;
@@ -59,13 +58,11 @@ public class S3FileSink extends BaseFileSink implements SupportSaveMode {
         return FileSystemType.S3.getFileSystemPluginName();
     }
 
-    public S3FileSink() {}
-
     public S3FileSink(CatalogTable catalogTable, ReadonlyConfig readonlyConfig) {
+        super(S3Conf.buildWithConfig(readonlyConfig.toConfig()), readonlyConfig, catalogTable);
         this.catalogTable = catalogTable;
         this.readonlyConfig = readonlyConfig;
         Config pluginConfig = readonlyConfig.toConfig();
-        super.prepare(pluginConfig);
         CheckResult result =
                 CheckConfigUtil.checkAllExists(
                         pluginConfig,
@@ -78,26 +75,6 @@ public class S3FileSink extends BaseFileSink implements SupportSaveMode {
                             "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SINK, result.getMsg()));
         }
-        hadoopConf = S3Conf.buildWithReadOnlyConfig(readonlyConfig);
-        this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
-    }
-
-    @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
-        super.prepare(pluginConfig);
-        CheckResult result =
-                CheckConfigUtil.checkAllExists(
-                        pluginConfig,
-                        S3ConfigOptions.FILE_PATH.key(),
-                        S3ConfigOptions.S3_BUCKET.key());
-        if (!result.isSuccess()) {
-            throw new FileConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SINK, result.getMsg()));
-        }
-        hadoopConf = S3Conf.buildWithConfig(pluginConfig);
     }
 
     @Override
