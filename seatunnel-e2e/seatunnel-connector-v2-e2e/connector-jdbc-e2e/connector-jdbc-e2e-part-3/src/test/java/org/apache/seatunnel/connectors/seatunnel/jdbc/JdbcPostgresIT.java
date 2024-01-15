@@ -444,9 +444,8 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
         }
     }
 
-    @TestTemplate
-    public void testCatalogForSaveMode(TestContainer container)
-            throws IOException, InterruptedException {
+    @Test
+    public void testCatalogForSaveMode() {
         String schema = "public";
         String databaseName = POSTGRESQL_CONTAINER.getDatabaseName();
         TablePath tablePathPG = TablePath.of(databaseName, "public", "pg_e2e_source_table");
