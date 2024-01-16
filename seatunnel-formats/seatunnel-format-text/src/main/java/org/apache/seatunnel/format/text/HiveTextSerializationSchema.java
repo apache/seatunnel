@@ -117,19 +117,6 @@ public class HiveTextSerializationSchema extends TextSerializationSchema {
     }
 
     @Override
-    public byte[] serialize(SeaTunnelRow element) {
-        if (element.getFields().length != seaTunnelRowType.getTotalFields()) {
-            throw new IndexOutOfBoundsException(
-                    "The data does not match the configured schema information, please check");
-        }
-        Object[] fields = element.getFields();
-        String[] strings = new String[fields.length];
-        for (int i = 0; i < fields.length; i++) {
-            strings[i] = convert(fields[i], seaTunnelRowType.getFieldType(i), 0);
-        }
-        return String.join(separators[0], strings).getBytes();
-    }
-
     public String convert(Object field, SeaTunnelDataType<?> fieldType, int level) {
         switch (fieldType.getSqlType()) {
             case ARRAY:
