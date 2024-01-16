@@ -62,6 +62,8 @@ public class RestApiIT {
 
     private static HazelcastInstanceImpl node2;
 
+    private static SeaTunnelClient engineClient;
+
     private static final String jobName = "test测试";
     private static final String paramJobName = "param_test测试";
 
@@ -80,7 +82,7 @@ public class RestApiIT {
 
         ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
         clientConfig.setClusterName(testClusterName);
-        SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
+        engineClient = new SeaTunnelClient(clientConfig);
         ClientJobExecutionEnvironment jobExecutionEnv =
                 engineClient.createExecutionContext(filePath, jobConfig, seaTunnelConfig);
 
@@ -456,6 +458,10 @@ public class RestApiIT {
 
     @AfterEach
     void afterClass() {
+        if (engineClient != null) {
+            engineClient.close();
+        }
+
         if (node1 != null) {
             node1.shutdown();
         }
