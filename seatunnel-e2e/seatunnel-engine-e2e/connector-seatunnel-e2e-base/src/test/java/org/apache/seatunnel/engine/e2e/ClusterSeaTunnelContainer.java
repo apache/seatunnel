@@ -131,7 +131,12 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
                                         + server.getFirstMappedPort()
                                         + "/hazelcast/rest/cluster");
         response.then().statusCode(200);
-        Assertions.assertEquals(2, response.jsonPath().getList("members").size());
+        Awaitility.await()
+                .atMost(2, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        2, response.jsonPath().getList("members").size()));
     }
 
     @Override
