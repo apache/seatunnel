@@ -61,8 +61,8 @@ public class DamengCatalog extends AbstractJdbcCatalog {
                     + "ON COLUMNS.OWNER = COMMENTS.SCHEMA_NAME "
                     + "AND COLUMNS.TABLE_NAME = COMMENTS.TABLE_NAME "
                     + "AND COLUMNS.COLUMN_NAME = COMMENTS.COLUMN_NAME "
-                    + "WHERE COLUMNS.OWNER = ? "
-                    + "AND COLUMNS.TABLE_NAME = ? "
+                    + "WHERE COLUMNS.OWNER = '%s' "
+                    + "AND COLUMNS.TABLE_NAME = '%s' "
                     + "ORDER BY COLUMNS.COLUMN_ID ASC";
 
     public DamengCatalog(

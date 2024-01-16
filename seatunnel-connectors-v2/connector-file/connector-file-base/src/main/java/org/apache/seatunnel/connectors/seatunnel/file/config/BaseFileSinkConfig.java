@@ -28,6 +28,7 @@ import org.apache.commons.lang3.StringUtils;
 import lombok.Data;
 import lombok.NonNull;
 
+import java.io.File;
 import java.io.Serializable;
 import java.util.Locale;
 
@@ -72,6 +73,10 @@ public class BaseFileSinkConfig implements DelimiterConfig, Serializable {
             this.path = config.getString(BaseSinkConfig.FILE_PATH.key());
         }
         checkNotNull(path);
+
+        if (path.equals(File.separator)) {
+            this.path = "";
+        }
 
         if (config.hasPath(BaseSinkConfig.FILE_NAME_EXPRESSION.key())
                 && !StringUtils.isBlank(

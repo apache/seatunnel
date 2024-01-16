@@ -38,28 +38,28 @@ Read external data source data through JDBC.
 
 ## Data Type Mapping
 
-|                                  PostgreSQL Data type                                   |                                                              SeaTunnel Data type                                                               |
-|-----------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------|
-| BOOL<br/>                                                                               | BOOLEAN                                                                                                                                        |
-| _BOOL<br/>                                                                              | ARRAY&LT;BOOLEAN&GT;                                                                                                                           |
-| BYTEA<br/>                                                                              | BYTES                                                                                                                                          |
-| _BYTEA<br/>                                                                             | ARRAY&LT;TINYINT&GT;                                                                                                                           |
-| INT2<br/>SMALLSERIAL<br/>INT4<br/>SERIAL<br/>                                           | INT                                                                                                                                            |
-| _INT2<br/>_INT4<br/>                                                                    | ARRAY&LT;INT&GT;                                                                                                                               |
-| INT8<br/>BIGSERIAL<br/>                                                                 | BIGINT                                                                                                                                         |
-| _INT8<br/>                                                                              | ARRAY&LT;BIGINT&GT;                                                                                                                            |
-| FLOAT4<br/>                                                                             | FLOAT                                                                                                                                          |
-| _FLOAT4<br/>                                                                            | ARRAY&LT;FLOAT&GT;                                                                                                                             |
-| FLOAT8<br/>                                                                             | DOUBLE                                                                                                                                         |
-| _FLOAT8<br/>                                                                            | ARRAY&LT;DOUBLE&GT;                                                                                                                            |
-| NUMERIC(Get the designated column's specified column size>0)                            | DECIMAL(Get the designated column's specified column size,Gets the number of digits in the specified column to the right of the decimal point) |
-| NUMERIC(Get the designated column's specified column size<0)                            | DECIMAL(38, 18)                                                                                                                                |
-| BPCHAR<br/>CHARACTER<br/>VARCHAR<br/>TEXT<br/>GEOMETRY<br/>GEOGRAPHY<br/>JSON<br/>JSONB | STRING                                                                                                                                         |
-| _BPCHAR<br/>_CHARACTER<br/>_VARCHAR<br/>_TEXT                                           | ARRAY&LT;STRING&GT;                                                                                                                            |
-| TIMESTAMP<br/>                                                                          | TIMESTAMP                                                                                                                                      |
-| TIME<br/>                                                                               | TIME                                                                                                                                           |
-| DATE<br/>                                                                               | DATE                                                                                                                                           |
-| OTHER DATA TYPES                                                                        | NOT SUPPORTED YET                                                                                                                              |
+|                                       PostgreSQL Data type                                       |                                                              SeaTunnel Data type                                                               |
+|--------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------|
+| BOOL<br/>                                                                                        | BOOLEAN                                                                                                                                        |
+| _BOOL<br/>                                                                                       | ARRAY&LT;BOOLEAN&GT;                                                                                                                           |
+| BYTEA<br/>                                                                                       | BYTES                                                                                                                                          |
+| _BYTEA<br/>                                                                                      | ARRAY&LT;TINYINT&GT;                                                                                                                           |
+| INT2<br/>SMALLSERIAL<br/>INT4<br/>SERIAL<br/>                                                    | INT                                                                                                                                            |
+| _INT2<br/>_INT4<br/>                                                                             | ARRAY&LT;INT&GT;                                                                                                                               |
+| INT8<br/>BIGSERIAL<br/>                                                                          | BIGINT                                                                                                                                         |
+| _INT8<br/>                                                                                       | ARRAY&LT;BIGINT&GT;                                                                                                                            |
+| FLOAT4<br/>                                                                                      | FLOAT                                                                                                                                          |
+| _FLOAT4<br/>                                                                                     | ARRAY&LT;FLOAT&GT;                                                                                                                             |
+| FLOAT8<br/>                                                                                      | DOUBLE                                                                                                                                         |
+| _FLOAT8<br/>                                                                                     | ARRAY&LT;DOUBLE&GT;                                                                                                                            |
+| NUMERIC(Get the designated column's specified column size>0)                                     | DECIMAL(Get the designated column's specified column size,Gets the number of digits in the specified column to the right of the decimal point) |
+| NUMERIC(Get the designated column's specified column size<0)                                     | DECIMAL(38, 18)                                                                                                                                |
+| BPCHAR<br/>CHARACTER<br/>VARCHAR<br/>TEXT<br/>GEOMETRY<br/>GEOGRAPHY<br/>JSON<br/>JSONB<br/>UUID | STRING                                                                                                                                         |
+| _BPCHAR<br/>_CHARACTER<br/>_VARCHAR<br/>_TEXT                                                    | ARRAY&LT;STRING&GT;                                                                                                                            |
+| TIMESTAMP<br/>                                                                                   | TIMESTAMP                                                                                                                                      |
+| TIME<br/>                                                                                        | TIME                                                                                                                                           |
+| DATE<br/>                                                                                        | DATE                                                                                                                                           |
+| OTHER DATA TYPES                                                                                 | NOT SUPPORTED YET                                                                                                                              |
 
 ## Options
 
@@ -92,8 +92,7 @@ Read external data source data through JDBC.
 ```
 # Defining the runtime environment
 env {
-  # You can set flink configuration here
-  execution.parallelism = 2
+  parallelism = 2
   job.mode = "BATCH"
 }
 
@@ -122,7 +121,7 @@ sink {
 
 ```
 env {
-  execution.parallelism = 10
+  parallelism = 10
   job.mode = "BATCH"
 }
 source{

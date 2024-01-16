@@ -70,7 +70,7 @@ Assuming the messages have been synchronized to Kafka topic products_binlog, the
 
 ```bash
 env {
-    execution.parallelism = 1
+    parallelism = 1
     job.mode = "BATCH"
 }
 

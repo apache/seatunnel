@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.elasticsearch.sink;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SinkConfig;
 
 import com.google.auto.service.AutoService;
 
@@ -49,7 +50,7 @@ public class ElasticsearchSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(HOSTS, INDEX)
+                .required(HOSTS, INDEX, SinkConfig.SCHEMA_SAVE_MODE, SinkConfig.DATA_SAVE_MODE)
                 .optional(
                         INDEX_TYPE,
                         PRIMARY_KEYS,

@@ -54,7 +54,7 @@ public class AbstractPluginDiscoveryTest {
 
         Map<PluginIdentifier, String> sinkPlugins =
                 AbstractPluginDiscovery.getAllSupportedPlugins(PluginType.SINK);
-        Assertions.assertEquals(30, sinkPlugins.size());
+        Assertions.assertEquals(31, sinkPlugins.size());
     }
 
     @AfterEach

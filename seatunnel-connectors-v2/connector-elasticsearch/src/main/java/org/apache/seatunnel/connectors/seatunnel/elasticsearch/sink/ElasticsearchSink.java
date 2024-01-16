@@ -20,26 +20,40 @@ package org.apache.seatunnel.connectors.seatunnel.elasticsearch.sink;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.sink.DataSaveMode;
+import org.apache.seatunnel.api.sink.DefaultSaveModeHandler;
+import org.apache.seatunnel.api.sink.SaveModeHandler;
+import org.apache.seatunnel.api.sink.SchemaSaveMode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportSaveMode;
+import org.apache.seatunnel.api.table.catalog.Catalog;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.state.ElasticsearchAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.state.ElasticsearchCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.state.ElasticsearchSinkState;
 
 import com.google.auto.service.AutoService;
 
+import java.util.Optional;
+
+import static org.apache.seatunnel.api.table.factory.FactoryUtil.discoverFactory;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SinkConfig.MAX_BATCH_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SinkConfig.MAX_RETRY_COUNT;
 
 @AutoService(SeaTunnelSink.class)
 public class ElasticsearchSink
         implements SeaTunnelSink<
-                SeaTunnelRow,
-                ElasticsearchSinkState,
-                ElasticsearchCommitInfo,
-                ElasticsearchAggregatedCommitInfo> {
+                        SeaTunnelRow,
+                        ElasticsearchSinkState,
+                        ElasticsearchCommitInfo,
+                        ElasticsearchAggregatedCommitInfo>,
+                SupportSaveMode {
 
     private Config pluginConfig;
     private SeaTunnelRowType seaTunnelRowType;
@@ -74,5 +88,28 @@ public class ElasticsearchSink
             SinkWriter.Context context) {
         return new ElasticsearchSinkWriter(
                 context, seaTunnelRowType, pluginConfig, maxBatchSize, maxRetryCount);
+    }
+
+    @Override
+    public Optional<SaveModeHandler> getSaveModeHandler() {
+        CatalogFactory catalogFactory =
+                discoverFactory(
+                        Thread.currentThread().getContextClassLoader(),
+                        CatalogFactory.class,
+                        getPluginName());
+        if (catalogFactory == null) {
+            return Optional.empty();
+        }
+        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(pluginConfig);
+        Catalog catalog =
+                catalogFactory.createCatalog(catalogFactory.factoryIdentifier(), readonlyConfig);
+        SchemaSaveMode schemaSaveMode = readonlyConfig.get(SinkConfig.SCHEMA_SAVE_MODE);
+        DataSaveMode dataSaveMode = readonlyConfig.get(SinkConfig.DATA_SAVE_MODE);
+
+        TablePath tablePath = TablePath.of("", readonlyConfig.get(SinkConfig.INDEX));
+        catalog.open();
+        return Optional.of(
+                new DefaultSaveModeHandler(
+                        schemaSaveMode, dataSaveMode, catalog, tablePath, null, null));
     }
 }

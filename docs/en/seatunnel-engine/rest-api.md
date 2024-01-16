@@ -118,7 +118,7 @@ network:
 ### Return all finished Jobs Info.
 
 <details>
- <summary><code>GET</code> <code><b>/hazelcast/rest/maps/finished-jobs-info/:state</b></code> <code>(Return all finished Jobs Info.)</code></summary>
+ <summary><code>GET</code> <code><b>/hazelcast/rest/maps/finished-jobs/:state</b></code> <code>(Return all finished Jobs Info.)</code></summary>
 
 #### Parameters
 
@@ -307,7 +307,7 @@ For more information about customize encryption, please refer to the documentati
 ```json
 {
     "env": {
-        "execution.parallelism": 1,
+        "parallelism": 1,
         "shade.identifier":"base64"
     },
     "source": [
@@ -347,7 +347,7 @@ For more information about customize encryption, please refer to the documentati
 ```json
 {
     "env": {
-        "execution.parallelism": 1,
+        "parallelism": 1,
         "shade.identifier": "base64"
     },
     "source": [

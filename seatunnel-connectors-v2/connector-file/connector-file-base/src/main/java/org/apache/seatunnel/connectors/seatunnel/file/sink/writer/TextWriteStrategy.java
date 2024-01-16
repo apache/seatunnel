@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
@@ -122,10 +123,7 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
                                             .mapToInt(Integer::intValue)
                                             .toArray())));
         } catch (IOException e) {
-            throw new FileConnectorException(
-                    CommonErrorCodeDeprecated.FILE_OPERATION_FAILED,
-                    String.format("Write data to file [%s] failed", filePath),
-                    e);
+            throw CommonError.fileOperationFailed("TextFile", "write", filePath, e);
         }
     }
 
@@ -181,10 +179,7 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
                 beingWrittenOutputStream.put(filePath, fsDataOutputStream);
                 isFirstWrite.put(filePath, true);
             } catch (IOException e) {
-                throw new FileConnectorException(
-                        CommonErrorCodeDeprecated.FILE_OPERATION_FAILED,
-                        String.format("Open file output stream [%s] failed", filePath),
-                        e);
+                throw CommonError.fileOperationFailed("TextFile", "open", filePath, e);
             }
         }
         return fsDataOutputStream;

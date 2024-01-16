@@ -105,6 +105,7 @@
 
 - [Json] Remove assert key word. (#5919)
 - [Formats] Replace CommonErrorCodeDeprecated.JSON_OPERATION_FAILED. (#5948)
+- [Formats] Refactor exception catch for `ignoreParseErrors`. (#6065)
 
 ### Connector-V2
 
@@ -125,6 +126,7 @@
 - [Connector-v2] [Neo4j] Supports neo4j sink batch write mode (#4835)
 - [Transform-V2] Optimize SQL Transform package and Fix Spark type conversion bug of transform (#4490)
 - [Connector-V2] [Common] Remove assert key word (#5915)
+- [Connector-V2] Replace CommonErrorCodeDeprecated.JSON_OPERATION_FAILED. (#5978)
 
 ### CI
 
@@ -183,6 +185,7 @@
 - [Transform-V2] Add Catalog support for FilterRowKindTransform (#4420)
 - [Transform-V2] Add support CatalogTable for FilterFieldTransform (#4422)
 - [Transform-V2] Add catalog support for SQL Transform plugin (#4819)
+- [Connector-V2] [Assert] Support check the precision and scale of Decimal type (#6110)
 
 ### Zeta(ST-Engine)
 
