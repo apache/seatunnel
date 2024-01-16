@@ -130,8 +130,23 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
         executeExtraCommands(server);
         executeExtraCommands(secondServer);
 
-        // check cluster
+        ContainerUtil.copyConnectorJarToContainer(
+                server,
+                confFile,
+                getConnectorModulePath(),
+                getConnectorNamePrefix(),
+                getConnectorType(),
+                SEATUNNEL_HOME);
 
+        ContainerUtil.copyConnectorJarToContainer(
+                secondServer,
+                confFile,
+                getConnectorModulePath(),
+                getConnectorNamePrefix(),
+                getConnectorType(),
+                SEATUNNEL_HOME);
+
+        // check cluster
         Awaitility.await()
                 .atMost(2, TimeUnit.MINUTES)
                 .untilAsserted(
@@ -165,14 +180,6 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
         Arrays.asList(server, secondServer)
                 .forEach(
                         container -> {
-                            ContainerUtil.copyConnectorJarToContainer(
-                                    container,
-                                    confFile,
-                                    getConnectorModulePath(),
-                                    getConnectorNamePrefix(),
-                                    getConnectorType(),
-                                    SEATUNNEL_HOME);
-
                             Response response =
                                     i.get() == 0
                                             ? submitJob(container, "BATCH", jobName, paramJobName)
@@ -274,13 +281,6 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
         Arrays.asList(server, secondServer)
                 .forEach(
                         container -> {
-                            ContainerUtil.copyConnectorJarToContainer(
-                                    container,
-                                    confFile,
-                                    getConnectorModulePath(),
-                                    getConnectorNamePrefix(),
-                                    getConnectorType(),
-                                    SEATUNNEL_HOME);
                             Response response =
                                     submitJob("BATCH", container, true, jobName, paramJobName);
                             response.then()
@@ -298,14 +298,6 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
         Arrays.asList(server, secondServer)
                 .forEach(
                         container -> {
-                            ContainerUtil.copyConnectorJarToContainer(
-                                    container,
-                                    confFile,
-                                    getConnectorModulePath(),
-                                    getConnectorNamePrefix(),
-                                    getConnectorType(),
-                                    SEATUNNEL_HOME);
-
                             String jobId =
                                     submitJob(container, "STREAMING", jobName, paramJobName)
                                             .getBody()
