@@ -30,6 +30,8 @@ import java.util.Map;
 @ToString(callSuper = true)
 public class PhysicalColumn extends Column {
 
+    private static final long serialVersionUID = 1L;
+
     protected PhysicalColumn(
             String name,
             SeaTunnelDataType<?> dataType,

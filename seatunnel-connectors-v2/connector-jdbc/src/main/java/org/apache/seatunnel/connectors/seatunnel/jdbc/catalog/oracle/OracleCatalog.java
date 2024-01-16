@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
@@ -34,8 +35,10 @@ import org.apache.commons.lang3.StringUtils;
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -274,5 +277,20 @@ public class OracleCatalog extends AbstractJdbcCatalog {
         return String.format(
                 "select * from \"%s\".\"%s\" WHERE rownum = 1",
                 tablePath.getSchemaName(), tablePath.getTableName());
+    }
+
+    @Override
+    protected List<ConstraintKey> getConstraintKeys(DatabaseMetaData metaData, TablePath tablePath)
+            throws SQLException {
+        try {
+            return getConstraintKeys(
+                    metaData,
+                    tablePath.getDatabaseName(),
+                    tablePath.getSchemaName(),
+                    tablePath.getTableName());
+        } catch (SQLException e) {
+            log.info("Obtain constraint failure", e);
+            return new ArrayList<>();
+        }
     }
 }
