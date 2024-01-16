@@ -153,11 +153,11 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
                         () -> {
                             Response response =
                                     given().get(
-                                            http
-                                                    + server.getHost()
-                                                    + colon
-                                                    + server.getFirstMappedPort()
-                                                    + "/hazelcast/rest/cluster");
+                                                    http
+                                                            + server.getHost()
+                                                            + colon
+                                                            + server.getFirstMappedPort()
+                                                            + "/hazelcast/rest/cluster");
                             response.then().statusCode(200);
                             Assertions.assertEquals(
                                     2, response.jsonPath().getList("members").size());
@@ -202,9 +202,9 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
                                                                         + container.getHost()
                                                                         + colon
                                                                         + container
-                                                                        .getFirstMappedPort()
+                                                                                .getFirstMappedPort()
                                                                         + RestConstant
-                                                                        .FINISHED_JOBS_INFO
+                                                                                .FINISHED_JOBS_INFO
                                                                         + "/FINISHED")
                                                         .then()
                                                         .statusCode(200)
@@ -240,9 +240,9 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
                                                                         + container.getHost()
                                                                         + colon
                                                                         + container
-                                                                        .getFirstMappedPort()
+                                                                                .getFirstMappedPort()
                                                                         + RestConstant
-                                                                        .FINISHED_JOBS_INFO)
+                                                                                .FINISHED_JOBS_INFO)
                                                         .then()
                                                         .statusCode(200)
                                                         .body(
@@ -313,9 +313,9 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
                                                                             + container.getHost()
                                                                             + colon
                                                                             + container
-                                                                            .getFirstMappedPort()
+                                                                                    .getFirstMappedPort()
                                                                             + RestConstant
-                                                                            .RUNNING_JOB_URL
+                                                                                    .RUNNING_JOB_URL
                                                                             + "/"
                                                                             + jobId)
                                                             .then()
@@ -349,9 +349,9 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
                                                                             + container.getHost()
                                                                             + colon
                                                                             + container
-                                                                            .getFirstMappedPort()
+                                                                                    .getFirstMappedPort()
                                                                             + RestConstant
-                                                                            .FINISHED_JOBS_INFO
+                                                                                    .FINISHED_JOBS_INFO
                                                                             + "/SAVEPOINT_DONE")
                                                             .then()
                                                             .statusCode(200)
@@ -372,9 +372,9 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
                                                                             + container.getHost()
                                                                             + colon
                                                                             + container
-                                                                            .getFirstMappedPort()
+                                                                                    .getFirstMappedPort()
                                                                             + RestConstant
-                                                                            .RUNNING_JOB_URL
+                                                                                    .RUNNING_JOB_URL
                                                                             + "/"
                                                                             + jobId2)
                                                             .then()
@@ -407,9 +407,9 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
                                                                             + container.getHost()
                                                                             + colon
                                                                             + container
-                                                                            .getFirstMappedPort()
+                                                                                    .getFirstMappedPort()
                                                                             + RestConstant
-                                                                            .FINISHED_JOBS_INFO
+                                                                                    .FINISHED_JOBS_INFO
                                                                             + "/CANCELED")
                                                             .then()
                                                             .statusCode(200)
@@ -474,10 +474,10 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
                         .post(
                                 parameters == null
                                         ? http
-                                        + container.getHost()
-                                        + colon
-                                        + container.getFirstMappedPort()
-                                        + RestConstant.SUBMIT_JOB_URL
+                                                + container.getHost()
+                                                + colon
+                                                + container.getFirstMappedPort()
+                                                + RestConstant.SUBMIT_JOB_URL
                                         : http
                                                 + container.getHost()
                                                 + colon
