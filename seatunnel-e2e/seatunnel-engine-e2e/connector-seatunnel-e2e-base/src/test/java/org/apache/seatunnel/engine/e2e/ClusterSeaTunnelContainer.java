@@ -21,7 +21,10 @@ import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 import org.apache.seatunnel.engine.server.rest.RestConstant;
 
 import org.awaitility.Awaitility;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -58,6 +61,8 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
 
     private static final String colon = ":";
 
+    private static final String confFile = "/fakesource_to_console.conf";
+
     @Override
     @BeforeEach
     public void startUp() throws Exception {
@@ -90,6 +95,7 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
                         PROJECT_ROOT_PATH
                                 + "/seatunnel-shade/seatunnel-hadoop3-3.1.4-uber/target/seatunnel-hadoop3-3.1.4-uber.jar"),
                 hadoopJar.toString());
+
         server.start();
 
         secondServer =
@@ -117,6 +123,7 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
                         PROJECT_ROOT_PATH
                                 + "/seatunnel-shade/seatunnel-hadoop3-3.1.4-uber/target/seatunnel-hadoop3-3.1.4-uber.jar"),
                 hadoopJar.toString());
+
         secondServer.start();
 
         // execute extra commands
@@ -158,6 +165,14 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
         Arrays.asList(server, secondServer)
                 .forEach(
                         container -> {
+                            ContainerUtil.copyConnectorJarToContainer(
+                                    container,
+                                    confFile,
+                                    getConnectorModulePath(),
+                                    getConnectorNamePrefix(),
+                                    getConnectorType(),
+                                    SEATUNNEL_HOME);
+
                             Response response =
                                     i.get() == 0
                                             ? submitJob(container, "BATCH", jobName, paramJobName)
@@ -259,6 +274,13 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
         Arrays.asList(server, secondServer)
                 .forEach(
                         container -> {
+                            ContainerUtil.copyConnectorJarToContainer(
+                                    container,
+                                    confFile,
+                                    getConnectorModulePath(),
+                                    getConnectorNamePrefix(),
+                                    getConnectorType(),
+                                    SEATUNNEL_HOME);
                             Response response =
                                     submitJob("BATCH", container, true, jobName, paramJobName);
                             response.then()
@@ -276,6 +298,14 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
         Arrays.asList(server, secondServer)
                 .forEach(
                         container -> {
+                            ContainerUtil.copyConnectorJarToContainer(
+                                    container,
+                                    confFile,
+                                    getConnectorModulePath(),
+                                    getConnectorNamePrefix(),
+                                    getConnectorType(),
+                                    SEATUNNEL_HOME);
+
                             String jobId =
                                     submitJob(container, "STREAMING", jobName, paramJobName)
                                             .getBody()
