@@ -17,7 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.postgres.utils;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
+import org.apache.seatunnel.connectors.cdc.base.utils.CatalogTableUtils;
 
 import io.debezium.connector.postgresql.PostgresConnectorConfig;
 import io.debezium.connector.postgresql.connection.PostgresConnection;
@@ -36,10 +38,13 @@ public class PostgresSchema {
 
     private final PostgresConnectorConfig connectorConfig;
     private final Map<TableId, TableChanges.TableChange> schemasByTableId;
+    private final Map<TableId, CatalogTable> tableMap;
 
-    public PostgresSchema(final PostgresConnectorConfig connectorConfig) {
+    public PostgresSchema(
+            final PostgresConnectorConfig connectorConfig, Map<TableId, CatalogTable> tableMap) {
         this.schemasByTableId = new ConcurrentHashMap<>();
         this.connectorConfig = connectorConfig;
+        this.tableMap = tableMap;
     }
 
     public TableChanges.TableChange getTableSchema(JdbcConnection jdbc, TableId tableId) {
@@ -54,6 +59,7 @@ public class PostgresSchema {
 
     private TableChanges.TableChange readTableSchema(JdbcConnection jdbc, TableId tableId) {
 
+        CatalogTable catalogTable = tableMap.get(tableId);
         // Because the catalog is null in the postgresConnection.readSchema method
         tableId = new TableId(null, tableId.schema(), tableId.table());
 
@@ -68,7 +74,9 @@ public class PostgresSchema {
                     connectorConfig.getTableFilters().dataCollectionFilter(),
                     null,
                     false);
-            Table table = tables.forTable(tableId);
+            Table table =
+                    CatalogTableUtils.mergeCatalogTableConfig(
+                            tables.forTable(tableId), catalogTable);
             TableChanges.TableChange tableChange =
                     new TableChanges.TableChange(TableChanges.TableChangeType.CREATE, table);
             tableChangeMap.put(tableId, tableChange);

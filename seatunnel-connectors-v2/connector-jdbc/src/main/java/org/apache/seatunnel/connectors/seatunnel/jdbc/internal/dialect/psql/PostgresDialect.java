@@ -39,6 +39,7 @@ import java.util.stream.Collectors;
 
 public class PostgresDialect implements JdbcDialect {
 
+    private static final long serialVersionUID = -5834746193472465218L;
     public static final int DEFAULT_POSTGRES_FETCH_SIZE = 128;
 
     public String fieldIde = FieldIdeEnum.ORIGINAL.getValue();

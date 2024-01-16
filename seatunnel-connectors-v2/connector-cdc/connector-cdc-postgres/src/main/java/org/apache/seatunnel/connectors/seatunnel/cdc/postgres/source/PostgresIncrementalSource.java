@@ -21,10 +21,7 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SupportParallelism;
-import org.apache.seatunnel.api.table.catalog.Catalog;
-import org.apache.seatunnel.api.table.catalog.CatalogOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
@@ -38,14 +35,10 @@ import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.apache.seatunnel.connectors.cdc.base.source.IncrementalSource;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
 import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationSchema;
-import org.apache.seatunnel.connectors.cdc.debezium.DeserializeFormat;
-import org.apache.seatunnel.connectors.cdc.debezium.row.DebeziumJsonDeserializeSchema;
 import org.apache.seatunnel.connectors.cdc.debezium.row.SeaTunnelRowDebeziumDeserializeSchema;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.offset.LsnOffsetFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresCatalogFactory;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 import org.apache.kafka.connect.data.Struct;
 
@@ -109,28 +102,7 @@ public class PostgresIncrementalSource<T> extends IncrementalSource<T, JdbcSourc
     @Override
     public DebeziumDeserializationSchema<T> createDebeziumDeserializationSchema(
             ReadonlyConfig config) {
-        if (DeserializeFormat.COMPATIBLE_DEBEZIUM_JSON.equals(
-                config.get(JdbcSourceOptions.FORMAT))) {
-            return (DebeziumDeserializationSchema<T>)
-                    new DebeziumJsonDeserializeSchema(
-                            config.get(JdbcSourceOptions.DEBEZIUM_PROPERTIES));
-        }
-
-        SeaTunnelDataType<SeaTunnelRow> physicalRowType;
-        if (dataType == null) {
-            // TODO: support metadata keys
-            try (Catalog catalog =
-                    new PostgresCatalogFactory()
-                            .createCatalog(DatabaseIdentifier.POSTGRESQL, config)) {
-                catalog.open();
-                CatalogTable table =
-                        catalog.getTable(
-                                TablePath.of(config.get(CatalogOptions.TABLE_NAMES).get(0)));
-                physicalRowType = table.getTableSchema().toPhysicalRowDataType();
-            }
-        } else {
-            physicalRowType = dataType;
-        }
+        SeaTunnelDataType<SeaTunnelRow> physicalRowType = dataType;
         String zoneId = config.get(JdbcSourceOptions.SERVER_TIME_ZONE);
         return (DebeziumDeserializationSchema<T>)
                 SeaTunnelRowDebeziumDeserializeSchema.builder()
@@ -142,7 +114,7 @@ public class PostgresIncrementalSource<T> extends IncrementalSource<T, JdbcSourc
 
     @Override
     public DataSourceDialect<JdbcSourceConfig> createDataSourceDialect(ReadonlyConfig config) {
-        return new PostgresDialect((PostgresSourceConfigFactory) configFactory);
+        return new PostgresDialect((PostgresSourceConfigFactory) configFactory, catalogTables);
     }
 
     @Override
@@ -153,7 +125,8 @@ public class PostgresIncrementalSource<T> extends IncrementalSource<T, JdbcSourc
 
     private Map<TableId, Struct> tableChanges() {
         JdbcSourceConfig jdbcSourceConfig = configFactory.create(0);
-        PostgresDialect dialect = new PostgresDialect((PostgresSourceConfigFactory) configFactory);
+        PostgresDialect dialect =
+                new PostgresDialect((PostgresSourceConfigFactory) configFactory, catalogTables);
         List<TableId> discoverTables = dialect.discoverDataCollections(jdbcSourceConfig);
         ConnectTableChangeSerializer connectTableChangeSerializer =
                 new ConnectTableChangeSerializer();

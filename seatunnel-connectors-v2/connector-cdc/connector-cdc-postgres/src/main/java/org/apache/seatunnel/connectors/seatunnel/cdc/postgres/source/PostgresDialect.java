@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.ConstraintKey;
+import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
@@ -26,6 +29,7 @@ import org.apache.seatunnel.connectors.cdc.base.source.reader.external.FetchTask
 import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
+import org.apache.seatunnel.connectors.cdc.base.utils.CatalogTableUtils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.enumerator.PostgresChunkSplitter;
@@ -46,6 +50,8 @@ import io.debezium.relational.history.TableChanges;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 import static org.apache.seatunnel.connectors.seatunnel.cdc.postgres.utils.PostgresConnectionUtils.newPostgresValueConverterBuilder;
 
@@ -57,8 +63,12 @@ public class PostgresDialect implements JdbcDataSourceDialect {
     private transient PostgresSchema postgresSchema;
     private PostgresWalFetchTask postgresWalFetchTask;
 
-    public PostgresDialect(PostgresSourceConfigFactory configFactory) {
+    private final Map<TableId, CatalogTable> tableMap;
+
+    public PostgresDialect(
+            PostgresSourceConfigFactory configFactory, List<CatalogTable> catalogTables) {
         this.sourceConfig = configFactory.create(0);
+        this.tableMap = CatalogTableUtils.convertTables(catalogTables);
     }
 
     @Override
@@ -103,7 +113,7 @@ public class PostgresDialect implements JdbcDataSourceDialect {
     @Override
     public TableChanges.TableChange queryTableSchema(JdbcConnection jdbc, TableId tableId) {
         if (postgresSchema == null) {
-            postgresSchema = new PostgresSchema(sourceConfig.getDbzConnectorConfig());
+            postgresSchema = new PostgresSchema(sourceConfig.getDbzConnectorConfig(), tableMap);
         }
         return postgresSchema.getTableSchema(jdbc, tableId);
     }
@@ -152,5 +162,15 @@ public class PostgresDialect implements JdbcDataSourceDialect {
         if (postgresWalFetchTask != null) {
             postgresWalFetchTask.commitCurrentOffset();
         }
+    }
+
+    @Override
+    public Optional<PrimaryKey> getPrimaryKey(JdbcConnection jdbcConnection, TableId tableId) {
+        return Optional.ofNullable(tableMap.get(tableId).getTableSchema().getPrimaryKey());
+    }
+
+    @Override
+    public List<ConstraintKey> getConstraintKeys(JdbcConnection jdbcConnection, TableId tableId) {
+        return tableMap.get(tableId).getTableSchema().getConstraintKeys();
     }
 }

@@ -85,6 +85,8 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
     private static final String SINK_TABLE_1 = "sink_postgres_cdc_table_1";
     private static final String SINK_TABLE_2 = "sink_postgres_cdc_table_2";
 
+    private static final String SOURCE_TABLE_NO_PRIMARY_KEY = "full_types_no_primary_key";
+
     private static final String SOURCE_SQL_TEMPLATE = "select * from %s.%s order by id";
 
     // use newer version of postgresql image to support pgoutput plugin
@@ -270,96 +272,202 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
             disabledReason = "Currently SPARK and FLINK do not support multi table")
     public void testMultiTableWithRestore(TestContainer container)
             throws IOException, InterruptedException {
-        CompletableFuture.supplyAsync(
-                () -> {
-                    try {
-                        return container.executeJob(
-                                "/pgcdc_to_pg_with_multi_table_mode_one_table.conf");
-                    } catch (Exception e) {
-                        log.error("Commit task exception :" + e.getMessage());
-                        throw new RuntimeException(e);
-                    }
-                });
+        try {
+            CompletableFuture.supplyAsync(
+                    () -> {
+                        try {
+                            return container.executeJob(
+                                    "/pgcdc_to_pg_with_multi_table_mode_one_table.conf");
+                        } catch (Exception e) {
+                            log.error("Commit task exception :" + e.getMessage());
+                            throw new RuntimeException(e);
+                        }
+                    });
 
-        // insert update delete
-        upsertDeleteSourceTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_1);
+            // insert update delete
+            upsertDeleteSourceTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_1);
 
-        // stream stage
-        await().atMost(60000, TimeUnit.MILLISECONDS)
-                .untilAsserted(
-                        () ->
-                                Assertions.assertAll(
-                                        () ->
-                                                Assertions.assertIterableEquals(
-                                                        query(
-                                                                getQuerySQL(
-                                                                        POSTGRESQL_SCHEMA,
-                                                                        SOURCE_TABLE_1)),
-                                                        query(
-                                                                getQuerySQL(
-                                                                        POSTGRESQL_SCHEMA,
-                                                                        SINK_TABLE_1)))));
+            // stream stage
+            await().atMost(60000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertAll(
+                                            () ->
+                                                    Assertions.assertIterableEquals(
+                                                            query(
+                                                                    getQuerySQL(
+                                                                            POSTGRESQL_SCHEMA,
+                                                                            SOURCE_TABLE_1)),
+                                                            query(
+                                                                    getQuerySQL(
+                                                                            POSTGRESQL_SCHEMA,
+                                                                            SINK_TABLE_1)))));
 
-        Pattern jobIdPattern =
-                Pattern.compile(
-                        ".*Init JobMaster for Job SeaTunnel_Job \\(([0-9]*)\\).*", Pattern.DOTALL);
-        Matcher matcher = jobIdPattern.matcher(container.getServerLogs());
-        String jobId;
-        if (matcher.matches()) {
-            jobId = matcher.group(1);
-        } else {
-            throw new RuntimeException("Can not find jobId");
+            Pattern jobIdPattern =
+                    Pattern.compile(
+                            ".*Init JobMaster for Job SeaTunnel_Job \\(([0-9]*)\\).*",
+                            Pattern.DOTALL);
+            Matcher matcher = jobIdPattern.matcher(container.getServerLogs());
+            String jobId;
+            if (matcher.matches()) {
+                jobId = matcher.group(1);
+            } else {
+                throw new RuntimeException("Can not find jobId");
+            }
+
+            Assertions.assertEquals(0, container.savepointJob(jobId).getExitCode());
+
+            // Restore job with add a new table
+            CompletableFuture.supplyAsync(
+                    () -> {
+                        try {
+                            container.restoreJob(
+                                    "/pgcdc_to_pg_with_multi_table_mode_two_table.conf", jobId);
+                        } catch (Exception e) {
+                            log.error("Commit task exception :" + e.getMessage());
+                            throw new RuntimeException(e);
+                        }
+                        return null;
+                    });
+
+            upsertDeleteSourceTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_2);
+
+            // stream stage
+            await().atMost(60000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertAll(
+                                            () ->
+                                                    Assertions.assertIterableEquals(
+                                                            query(
+                                                                    getQuerySQL(
+                                                                            POSTGRESQL_SCHEMA,
+                                                                            SOURCE_TABLE_1)),
+                                                            query(
+                                                                    getQuerySQL(
+                                                                            POSTGRESQL_SCHEMA,
+                                                                            SINK_TABLE_1))),
+                                            () ->
+                                                    Assertions.assertIterableEquals(
+                                                            query(
+                                                                    getQuerySQL(
+                                                                            POSTGRESQL_SCHEMA,
+                                                                            SOURCE_TABLE_2)),
+                                                            query(
+                                                                    getQuerySQL(
+                                                                            POSTGRESQL_SCHEMA,
+                                                                            SINK_TABLE_2)))));
+
+            log.info("****************** container logs start ******************");
+            String containerLogs = container.getServerLogs();
+            log.info(containerLogs);
+            // pg cdc logs contain ERROR
+            // Assertions.assertFalse(containerLogs.contains("ERROR"));
+            log.info("****************** container logs end ******************");
+        } finally {
+            // Clear related content to ensure that multiple operations are not affected
+            clearTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_1);
+            clearTable(POSTGRESQL_SCHEMA, SINK_TABLE_1);
+            clearTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_2);
+            clearTable(POSTGRESQL_SCHEMA, SINK_TABLE_2);
         }
+    }
 
-        Assertions.assertEquals(0, container.savepointJob(jobId).getExitCode());
+    @TestTemplate
+    public void testPostgresCdcCheckDataWithNoPrimaryKey(TestContainer container) throws Exception {
 
-        // Restore job with add a new table
-        CompletableFuture.supplyAsync(
-                () -> {
-                    try {
-                        container.restoreJob(
-                                "/pgcdc_to_pg_with_multi_table_mode_two_table.conf", jobId);
-                    } catch (Exception e) {
-                        log.error("Commit task exception :" + e.getMessage());
-                        throw new RuntimeException(e);
-                    }
-                    return null;
-                });
+        try {
+            CompletableFuture.supplyAsync(
+                    () -> {
+                        try {
+                            container.executeJob(
+                                    "/postgrescdc_to_postgres_with_no_primary_key.conf");
+                        } catch (Exception e) {
+                            log.error("Commit task exception :" + e.getMessage());
+                            throw new RuntimeException(e);
+                        }
+                        return null;
+                    });
 
-        upsertDeleteSourceTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_2);
+            // snapshot stage
+            await().atMost(60000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertIterableEquals(
+                                        query(
+                                                getQuerySQL(
+                                                        POSTGRESQL_SCHEMA,
+                                                        SOURCE_TABLE_NO_PRIMARY_KEY)),
+                                        query(getQuerySQL(POSTGRESQL_SCHEMA, SINK_TABLE_1)));
+                            });
 
-        // stream stage
-        await().atMost(60000, TimeUnit.MILLISECONDS)
-                .untilAsserted(
-                        () ->
-                                Assertions.assertAll(
-                                        () ->
-                                                Assertions.assertIterableEquals(
-                                                        query(
-                                                                getQuerySQL(
-                                                                        POSTGRESQL_SCHEMA,
-                                                                        SOURCE_TABLE_1)),
-                                                        query(
-                                                                getQuerySQL(
-                                                                        POSTGRESQL_SCHEMA,
-                                                                        SINK_TABLE_1))),
-                                        () ->
-                                                Assertions.assertIterableEquals(
-                                                        query(
-                                                                getQuerySQL(
-                                                                        POSTGRESQL_SCHEMA,
-                                                                        SOURCE_TABLE_2)),
-                                                        query(
-                                                                getQuerySQL(
-                                                                        POSTGRESQL_SCHEMA,
-                                                                        SINK_TABLE_2)))));
+            // insert update delete
+            upsertDeleteSourceTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_NO_PRIMARY_KEY);
 
-        log.info("****************** container logs start ******************");
-        String containerLogs = container.getServerLogs();
-        log.info(containerLogs);
-        // pg cdc logs contain ERROR
-        // Assertions.assertFalse(containerLogs.contains("ERROR"));
-        log.info("****************** container logs end ******************");
+            // stream stage
+            await().atMost(60000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertIterableEquals(
+                                        query(
+                                                getQuerySQL(
+                                                        POSTGRESQL_SCHEMA,
+                                                        SOURCE_TABLE_NO_PRIMARY_KEY)),
+                                        query(getQuerySQL(POSTGRESQL_SCHEMA, SINK_TABLE_1)));
+                            });
+        } finally {
+            clearTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_NO_PRIMARY_KEY);
+            clearTable(POSTGRESQL_SCHEMA, SINK_TABLE_1);
+        }
+    }
+
+    @TestTemplate
+    public void testPostgresCdcCheckDataWithCustomPrimaryKey(TestContainer container)
+            throws Exception {
+
+        try {
+            CompletableFuture.supplyAsync(
+                    () -> {
+                        try {
+                            container.executeJob(
+                                    "/postgrescdc_to_postgres_with_custom_primary_key.conf");
+                        } catch (Exception e) {
+                            log.error("Commit task exception :" + e.getMessage());
+                            throw new RuntimeException(e);
+                        }
+                        return null;
+                    });
+
+            // snapshot stage
+            await().atMost(60000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertIterableEquals(
+                                        query(
+                                                getQuerySQL(
+                                                        POSTGRESQL_SCHEMA,
+                                                        SOURCE_TABLE_NO_PRIMARY_KEY)),
+                                        query(getQuerySQL(POSTGRESQL_SCHEMA, SINK_TABLE_1)));
+                            });
+
+            // insert update delete
+            upsertDeleteSourceTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_NO_PRIMARY_KEY);
+
+            // stream stage
+            await().atMost(60000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertIterableEquals(
+                                        query(
+                                                getQuerySQL(
+                                                        POSTGRESQL_SCHEMA,
+                                                        SOURCE_TABLE_NO_PRIMARY_KEY)),
+                                        query(getQuerySQL(POSTGRESQL_SCHEMA, SINK_TABLE_1)));
+                            });
+        } finally {
+            clearTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_NO_PRIMARY_KEY);
+            clearTable(POSTGRESQL_SCHEMA, SINK_TABLE_1);
+        }
     }
 
     private Connection getJdbcConnection() throws SQLException {
