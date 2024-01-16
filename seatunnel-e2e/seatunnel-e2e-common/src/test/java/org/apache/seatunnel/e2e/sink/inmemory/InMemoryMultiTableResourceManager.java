@@ -15,15 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.sink;
+package org.apache.seatunnel.e2e.sink.inmemory;
 
-public interface SupportResourceShare<T> {
+import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 
-    default MultiTableResourceManager<T> initMultiTableResourceManager(
-            int tableSize, int queueSize) {
-        return null;
+import java.util.ArrayList;
+import java.util.List;
+
+public class InMemoryMultiTableResourceManager
+        implements MultiTableResourceManager<InMemoryConnection> {
+
+    private final List<String> event;
+
+    public InMemoryMultiTableResourceManager() {
+        event = new ArrayList<>();
     }
 
-    default void setMultiTableResourceManager(
-            MultiTableResourceManager<T> multiTableResourceManager, int queueIndex) {}
+    public List<String> getEvent() {
+        return event;
+    }
+
+    @Override
+    public void close() {
+        event.add("InMemoryMultiTableResourceManager::close");
+    }
 }

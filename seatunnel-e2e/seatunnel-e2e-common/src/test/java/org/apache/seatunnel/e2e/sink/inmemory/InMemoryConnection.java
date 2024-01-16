@@ -15,15 +15,6 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.sink;
+package org.apache.seatunnel.e2e.sink.inmemory;
 
-public interface SupportResourceShare<T> {
-
-    default MultiTableResourceManager<T> initMultiTableResourceManager(
-            int tableSize, int queueSize) {
-        return null;
-    }
-
-    default void setMultiTableResourceManager(
-            MultiTableResourceManager<T> multiTableResourceManager, int queueIndex) {}
-}
+public class InMemoryConnection {}
