@@ -160,6 +160,9 @@ public class HttpIT extends TestSuiteBase implements TestResource {
 
         Container.ExecResult execResult18 = container.executeJob("/httpnoschema_to_http.conf");
         Assertions.assertEquals(0, execResult18.getExitCode());
+
+        Container.ExecResult execResult19 = container.executeJob("/http_time_out_assert.conf");
+        Assertions.assertEquals(0, execResult19.getExitCode());
     }
 
     public String getMockServerConfig() {
