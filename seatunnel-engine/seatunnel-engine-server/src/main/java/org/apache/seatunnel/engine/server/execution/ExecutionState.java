@@ -48,8 +48,6 @@ import java.io.Serializable;
 public enum ExecutionState implements Serializable {
     CREATED,
 
-    SCHEDULED,
-
     DEPLOYING,
 
     RUNNING,
@@ -66,9 +64,9 @@ public enum ExecutionState implements Serializable {
 
     CANCELED,
 
-    FAILED,
+    FAILING,
 
-    RECONCILING,
+    FAILED,
 
     /** Restoring last possible valid state of the task if it has it. */
     INITIALIZING;

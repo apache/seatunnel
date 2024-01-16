@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor;
 
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 
@@ -39,9 +39,9 @@ public class InsertOrUpdateBatchStatementExecutor
     private final StatementFactory existStmtFactory;
     @NonNull private final StatementFactory insertStmtFactory;
     @NonNull private final StatementFactory updateStmtFactory;
-    private final SeaTunnelRowType keyRowType;
+    private final TableSchema keyTableSchema;
     private final Function<SeaTunnelRow, SeaTunnelRow> keyExtractor;
-    @NonNull private final SeaTunnelRowType valueRowType;
+    @NonNull private final TableSchema valueTableSchema;
     @NonNull private final JdbcRowConverter rowConverter;
     private transient PreparedStatement existStatement;
     private transient PreparedStatement insertStatement;
@@ -52,9 +52,16 @@ public class InsertOrUpdateBatchStatementExecutor
     public InsertOrUpdateBatchStatementExecutor(
             StatementFactory insertStmtFactory,
             StatementFactory updateStmtFactory,
-            SeaTunnelRowType valueRowType,
+            TableSchema valueTableSchema,
             JdbcRowConverter rowConverter) {
-        this(null, insertStmtFactory, updateStmtFactory, null, null, valueRowType, rowConverter);
+        this(
+                null,
+                insertStmtFactory,
+                updateStmtFactory,
+                null,
+                null,
+                valueTableSchema,
+                rowConverter);
     }
 
     @Override
@@ -74,14 +81,14 @@ public class InsertOrUpdateBatchStatementExecutor
                 insertStatement.executeBatch();
                 insertStatement.clearBatch();
             }
-            rowConverter.toExternal(valueRowType, record, updateStatement);
+            rowConverter.toExternal(valueTableSchema, record, updateStatement);
             updateStatement.addBatch();
         } else {
             if (preExistFlag != null && preExistFlag) {
                 updateStatement.executeBatch();
                 updateStatement.clearBatch();
             }
-            rowConverter.toExternal(valueRowType, record, insertStatement);
+            rowConverter.toExternal(valueTableSchema, record, insertStatement);
             insertStatement.addBatch();
         }
 
@@ -131,13 +138,13 @@ public class InsertOrUpdateBatchStatementExecutor
                 return true;
             default:
                 throw new JdbcConnectorException(
-                        CommonErrorCode.UNSUPPORTED_OPERATION,
+                        CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                         "unsupported row kind: " + record.getRowKind());
         }
     }
 
     private boolean exist(SeaTunnelRow pk) throws SQLException {
-        rowConverter.toExternal(keyRowType, pk, existStatement);
+        rowConverter.toExternal(keyTableSchema, pk, existStatement);
         try (ResultSet resultSet = existStatement.executeQuery()) {
             return resultSet.next();
         }

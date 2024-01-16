@@ -126,7 +126,7 @@ public class PaimonSink
 
     @Override
     public SeaTunnelDataType<SeaTunnelRow> getConsumedType() {
-        return seaTunnelRowType;
+        return this.seaTunnelRowType;
     }
 
     @Override

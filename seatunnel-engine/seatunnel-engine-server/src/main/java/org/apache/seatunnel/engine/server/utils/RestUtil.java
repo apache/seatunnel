@@ -21,13 +21,15 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
+import org.apache.seatunnel.engine.server.rest.RestConstant;
 
 import com.hazelcast.internal.util.StringUtil;
 
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
 import java.util.Map;
 
 public class RestUtil {
@@ -40,9 +42,8 @@ public class RestUtil {
     }
 
     public static void buildRequestParams(Map<String, String> requestParams, String uri) {
-        requestParams.put("jobId", null);
-        requestParams.put("jobName", Constants.LOGO);
-        requestParams.put("isStartWithSavePoint", String.valueOf(false));
+        requestParams.put(RestConstant.JOB_ID, null);
+        requestParams.put(RestConstant.IS_START_WITH_SAVE_POINT, String.valueOf(false));
         uri = StringUtil.stripTrailingSlash(uri);
         if (!uri.contains("?")) {
             return;
@@ -51,15 +52,21 @@ public class RestUtil {
         try {
             for (String s : uri.substring(indexEnd + 1).split("&")) {
                 String[] param = s.split("=");
-                requestParams.put(param[0], param[1]);
+                requestParams.put(param[0], URLDecoder.decode(param[1], "UTF-8"));
             }
         } catch (IndexOutOfBoundsException e) {
             throw new IllegalArgumentException("Invalid Params format in Params.");
+        } catch (UnsupportedEncodingException e) {
+            throw new IllegalArgumentException("Unsupported encoding exists in the parameter.");
+        }
+        if (Boolean.parseBoolean(requestParams.get(RestConstant.IS_START_WITH_SAVE_POINT))
+                && requestParams.get(RestConstant.JOB_ID) == null) {
+            throw new IllegalArgumentException("Please provide jobId when start with save point.");
         }
     }
 
-    public static Config buildConfig(JsonNode jsonNode) {
+    public static Config buildConfig(JsonNode jsonNode, boolean isEncrypt) {
         Map<String, Object> objectMap = JsonUtils.toMap(jsonNode);
-        return ConfigBuilder.of(objectMap);
+        return ConfigBuilder.of(objectMap, isEncrypt);
     }
 }

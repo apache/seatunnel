@@ -25,11 +25,15 @@ import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistExcepti
 import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.common.exception.CommonError;
+
+import org.apache.commons.lang3.tuple.Pair;
 
 import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,6 +46,7 @@ public class InMemoryCatalog implements Catalog {
     // database -> tables
     private final Map<String, List<CatalogTable>> catalogTables;
     private static final String DEFAULT_DATABASE = "default";
+    private static final String UNSUPPORTED_DATABASE = "unsupported";
 
     InMemoryCatalog(String catalogName, ReadonlyConfig options) {
         this.name = catalogName;
@@ -53,6 +58,7 @@ public class InMemoryCatalog implements Catalog {
     // Add some default table for testing
     private void addDefaultTable() {
         this.catalogTables.put(DEFAULT_DATABASE, new ArrayList<>());
+        this.catalogTables.put(UNSUPPORTED_DATABASE, new ArrayList<>());
         List<CatalogTable> tables = new ArrayList<>();
         this.catalogTables.put("st", tables);
         TableSchema tableSchema =
@@ -83,7 +89,7 @@ public class InMemoryCatalog implements Catalog {
                         .primaryKey(PrimaryKey.of("id", Lists.newArrayList("id")))
                         .constraintKey(
                                 ConstraintKey.of(
-                                        ConstraintKey.ConstraintType.KEY,
+                                        ConstraintKey.ConstraintType.INDEX_KEY,
                                         "name",
                                         Lists.newArrayList(
                                                 ConstraintKey.ConstraintKeyColumn.of(
@@ -92,20 +98,40 @@ public class InMemoryCatalog implements Catalog {
         CatalogTable catalogTable1 =
                 CatalogTable.of(
                         TableIdentifier.of(name, TablePath.of("st", "public", "table1")),
-                        tableSchema,
+                        TableSchema.builder().build(),
                         new HashMap<>(),
                         new ArrayList<>(),
                         "In Memory Table");
         CatalogTable catalogTable2 =
                 CatalogTable.of(
                         TableIdentifier.of(name, TablePath.of("st", "public", "table2")),
-                        tableSchema,
+                        TableSchema.builder().build(),
                         new HashMap<>(),
                         new ArrayList<>(),
                         "In Memory Table",
                         name);
         tables.add(catalogTable1);
         tables.add(catalogTable2);
+
+        CatalogTable unsupportedTable1 =
+                CatalogTable.of(
+                        TableIdentifier.of(
+                                name, TablePath.of(UNSUPPORTED_DATABASE, "public", "table1")),
+                        tableSchema,
+                        new HashMap<>(),
+                        new ArrayList<>(),
+                        "In Memory Table");
+        CatalogTable unsupportedTable2 =
+                CatalogTable.of(
+                        TableIdentifier.of(
+                                name, TablePath.of(UNSUPPORTED_DATABASE, "public", "table2")),
+                        tableSchema,
+                        new HashMap<>(),
+                        new ArrayList<>(),
+                        "In Memory Table",
+                        name);
+        this.catalogTables.get(UNSUPPORTED_DATABASE).add(unsupportedTable1);
+        this.catalogTables.get(UNSUPPORTED_DATABASE).add(unsupportedTable2);
     }
 
     @Override
@@ -123,6 +149,11 @@ public class InMemoryCatalog implements Catalog {
     @Override
     public void close() throws CatalogException {
         log.trace(String.format("InMemoryCatalog %s closing", name));
+    }
+
+    @Override
+    public String name() {
+        return "InMemory";
     }
 
     @Override
@@ -165,6 +196,19 @@ public class InMemoryCatalog implements Catalog {
     public CatalogTable getTable(TablePath tablePath)
             throws CatalogException, TableNotExistException {
         if (catalogTables.containsKey(tablePath.getDatabaseName())) {
+            if (tablePath.getDatabaseName().equals(UNSUPPORTED_DATABASE)) {
+                List<Pair<String, String>> unsupportedFields =
+                        Arrays.asList(
+                                Pair.of("field1", "interval"), Pair.of("field2", "interval2"));
+                buildColumnsWithErrorCheck(
+                        tablePath,
+                        new TableSchema.Builder(),
+                        unsupportedFields.iterator(),
+                        field -> {
+                            throw CommonError.convertToSeaTunnelTypeError(
+                                    name(), field.getValue(), field.getKey());
+                        });
+            }
             List<CatalogTable> tables = catalogTables.get(tablePath.getDatabaseName());
             return tables.stream()
                     .filter(t -> t.getTableId().toTablePath().equals(tablePath))

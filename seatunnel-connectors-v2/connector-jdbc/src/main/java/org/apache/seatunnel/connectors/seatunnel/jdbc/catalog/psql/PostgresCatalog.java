@@ -22,12 +22,19 @@ import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
+import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalog;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresTypeMapper;
+
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.StringUtils;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.HashMap;
@@ -58,7 +65,7 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
                     + "        WHEN t.typname = 'bpchar' THEN 'char' || '(' || (a.atttypmod - 4) || ')'\n"
                     + "        WHEN t.typname = 'numeric' OR t.typname = 'decimal' THEN t.typname || '(' || ((a.atttypmod - 4) >> 16) || ', ' || ((a.atttypmod - 4) & 65535) || ')'\n"
                     + "        WHEN t.typname = 'bit' OR t.typname = 'bit varying' THEN t.typname || '(' || (a.atttypmod - 4) || ')'\n"
-                    + "        ELSE t.typname\n"
+                    + "        ELSE t.typname || '' \n"
                     + "    END AS full_type_name,\n"
                     + "    CASE\n"
                     + "        WHEN t.typname IN ('varchar', 'bpchar', 'bit', 'bit varying') THEN a.atttypmod - 4\n"
@@ -138,7 +145,7 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
             defaultValue = null;
         }
 
-        SeaTunnelDataType<?> type = fromJdbcType(typeName, columnLength, columnScale);
+        SeaTunnelDataType<?> type = fromJdbcType(columnName, typeName, columnLength, columnScale);
         long bitLen = 0;
         switch (typeName) {
             case PG_BYTEA:
@@ -180,8 +187,33 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
     }
 
     @Override
-    protected String getCreateTableSql(TablePath tablePath, CatalogTable table) {
-        return new PostgresCreateTableSqlBuilder(table).build(tablePath);
+    protected void createTableInternal(TablePath tablePath, CatalogTable table)
+            throws CatalogException {
+        PostgresCreateTableSqlBuilder postgresCreateTableSqlBuilder =
+                new PostgresCreateTableSqlBuilder(table);
+        String dbUrl = getUrlFromDatabaseName(tablePath.getDatabaseName());
+        try {
+            String createTableSql = postgresCreateTableSqlBuilder.build(tablePath);
+            executeInternal(dbUrl, createTableSql);
+
+            if (postgresCreateTableSqlBuilder.isHaveConstraintKey) {
+                String alterTableSql =
+                        "ALTER TABLE "
+                                + tablePath.getSchemaAndTableName("\"")
+                                + " REPLICA IDENTITY FULL;";
+                executeInternal(dbUrl, alterTableSql);
+            }
+
+            if (CollectionUtils.isNotEmpty(postgresCreateTableSqlBuilder.getCreateIndexSqls())) {
+                for (String createIndexSql : postgresCreateTableSqlBuilder.getCreateIndexSqls()) {
+                    executeInternal(dbUrl, createIndexSql);
+                }
+            }
+
+        } catch (Exception ex) {
+            throw new CatalogException(
+                    String.format("Failed creating table %s", tablePath.getFullName()), ex);
+        }
     }
 
     @Override
@@ -198,6 +230,19 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
         return "CREATE DATABASE \"" + databaseName + "\"";
     }
 
+    public String getExistDataSql(TablePath tablePath) {
+        String schemaName = tablePath.getSchemaName();
+        String tableName = tablePath.getTableName();
+        return String.format("select * from \"%s\".\"%s\" limit 1", schemaName, tableName);
+    }
+
+    @Override
+    protected String getTruncateTableSql(TablePath tablePath) {
+        String schemaName = tablePath.getSchemaName();
+        String tableName = tablePath.getTableName();
+        return "TRUNCATE TABLE  \"" + schemaName + "\".\"" + tableName + "\"";
+    }
+
     @Override
     protected String getDropDatabaseSql(String databaseName) {
         return "DROP DATABASE \"" + databaseName + "\"";
@@ -209,10 +254,32 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
         super.dropDatabaseInternal(databaseName);
     }
 
-    private SeaTunnelDataType<?> fromJdbcType(String typeName, long precision, long scale) {
+    private SeaTunnelDataType<?> fromJdbcType(
+            String columnName, String typeName, long precision, long scale) {
         Map<String, Object> dataTypeProperties = new HashMap<>();
         dataTypeProperties.put(PostgresDataTypeConvertor.PRECISION, precision);
         dataTypeProperties.put(PostgresDataTypeConvertor.SCALE, scale);
-        return DATA_TYPE_CONVERTOR.toSeaTunnelType(typeName, dataTypeProperties);
+        return DATA_TYPE_CONVERTOR.toSeaTunnelType(columnName, typeName, dataTypeProperties);
+    }
+
+    @Override
+    public boolean tableExists(TablePath tablePath) throws CatalogException {
+        try {
+            if (StringUtils.isNotBlank(tablePath.getDatabaseName())) {
+                return databaseExists(tablePath.getDatabaseName())
+                        && listTables(tablePath.getDatabaseName())
+                                .contains(tablePath.getSchemaAndTableName());
+            }
+
+            return listTables(defaultDatabase).contains(tablePath.getSchemaAndTableName());
+        } catch (DatabaseNotExistException e) {
+            return false;
+        }
+    }
+
+    @Override
+    public CatalogTable getTable(String sqlQuery) throws SQLException {
+        Connection defaultConnection = getConnection(defaultUrl);
+        return CatalogUtils.getCatalogTable(defaultConnection, sqlQuery, new PostgresTypeMapper());
     }
 }

@@ -19,12 +19,10 @@ package org.apache.seatunnel.connectors.seatunnel.starrocks.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.api.configuration.SingleChoiceOption;
 import org.apache.seatunnel.api.sink.DataSaveMode;
-import org.apache.seatunnel.api.sink.SupportDataSaveMode;
+import org.apache.seatunnel.api.sink.SchemaSaveMode;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig.StreamLoadFormat;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -131,12 +129,29 @@ public interface StarRocksSinkOptions {
                     .enumType(StreamLoadFormat.class)
                     .defaultValue(StreamLoadFormat.JSON)
                     .withDescription("");
-
-    SingleChoiceOption<DataSaveMode> SAVE_MODE =
-            Options.key(SupportDataSaveMode.SAVE_MODE_KEY)
-                    .singleChoice(
-                            DataSaveMode.class, Arrays.asList(DataSaveMode.KEEP_SCHEMA_AND_DATA))
-                    .defaultValue(DataSaveMode.KEEP_SCHEMA_AND_DATA)
+    Option<SchemaSaveMode> SCHEMA_SAVE_MODE =
+            Options.key("schema_save_mode")
+                    .enumType(SchemaSaveMode.class)
+                    .defaultValue(SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST)
                     .withDescription(
-                            "Table structure and data processing methods that already exist on the target end");
+                            "different treatment schemes are selected for the existing surface structure of the target side");
+
+    Option<DataSaveMode> DATA_SAVE_MODE =
+            Options.key("data_save_mode")
+                    .enumType(DataSaveMode.class)
+                    .defaultValue(DataSaveMode.APPEND_DATA)
+                    .withDescription(
+                            "different processing schemes are selected for data existing data on the target side");
+
+    Option<Integer> HTTP_SOCKET_TIMEOUT_MS =
+            Options.key("http_socket_timeout_ms")
+                    .intType()
+                    .defaultValue(3 * 60 * 1000)
+                    .withDescription("Set http socket timeout, default is 3 minutes.");
+
+    Option<String> CUSTOM_SQL =
+            Options.key("custom_sql")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("when schema_save_mode selects CUSTOM_PROCESSING custom SQL");
 }

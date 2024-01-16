@@ -32,7 +32,7 @@
     <properties>
         <iceberg.version>0.14.0</iceberg.version>
         <parquet-avro.version>1.12.3</parquet-avro.version>
-        <avro.version>1.10.2</avro.version>
+        <avro.version>1.11.3</avro.version>
         <hive.version>2.3.9</hive.version>
     </properties>
 
@@ -186,7 +186,7 @@
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
-            <version>4.13.2</version>
+            <version>${junit4.version}</version>
             <scope>test</scope>
         </dependency>
 

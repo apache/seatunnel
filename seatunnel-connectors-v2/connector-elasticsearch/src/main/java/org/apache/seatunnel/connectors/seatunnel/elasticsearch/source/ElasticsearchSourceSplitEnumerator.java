@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.elasticsearch.source;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsRestClient;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.IndexDocsCount;
@@ -196,7 +196,7 @@ public class ElasticsearchSourceSplitEnumerator
     @Override
     public void handleSplitRequest(int subtaskId) {
         throw new ElasticsearchConnectorException(
-                CommonErrorCode.UNSUPPORTED_OPERATION,
+                CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                 "Unsupported handleSplitRequest: " + subtaskId);
     }
 

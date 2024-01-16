@@ -18,9 +18,11 @@
 package org.apache.seatunnel.engine.server.task;
 
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
-import org.apache.seatunnel.api.env.EnvCommonOptions;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.core.starter.flowcontrol.FlowControlStrategy;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.server.dag.physical.config.SourceConfig;
@@ -73,13 +75,22 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
                     "SourceSeaTunnelTask only support SourceFlowLifeCycle, but get "
                             + startFlowLifeCycle.getClass().getName());
         } else {
+            SeaTunnelDataType sourceProducedType;
+            try {
+                List<CatalogTable> producedCatalogTables =
+                        sourceFlow.getAction().getSource().getProducedCatalogTables();
+                sourceProducedType = CatalogTableUtil.convertToDataType(producedCatalogTables);
+            } catch (UnsupportedOperationException e) {
+                // TODO remove it when all connector use `getProducedCatalogTables`
+                sourceProducedType = sourceFlow.getAction().getSource().getProducedType();
+            }
             this.collector =
                     new SeaTunnelSourceCollector<>(
                             checkpointLock,
                             outputs,
                             this.getMetricsContext(),
-                            getFlowControlStrategy(),
-                            sourceFlow.getAction().getSource().getProducedType());
+                            FlowControlStrategy.fromMap(envOption),
+                            sourceProducedType);
             ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle).setCollector(collector);
         }
     }
@@ -120,39 +131,5 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
         SourceFlowLifeCycle<T, SplitT> sourceFlow =
                 (SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle;
         sourceFlow.triggerBarrier(barrier);
-    }
-
-    private FlowControlStrategy getFlowControlStrategy() {
-        FlowControlStrategy strategy;
-        if (envOption.containsKey(EnvCommonOptions.READ_LIMIT_BYTES_PER_SECOND.key())
-                && envOption.containsKey(EnvCommonOptions.READ_LIMIT_ROW_PER_SECOND.key())) {
-            strategy =
-                    FlowControlStrategy.of(
-                            Integer.parseInt(
-                                    envOption
-                                            .get(EnvCommonOptions.READ_LIMIT_BYTES_PER_SECOND.key())
-                                            .toString()),
-                            Integer.parseInt(
-                                    envOption
-                                            .get(EnvCommonOptions.READ_LIMIT_ROW_PER_SECOND.key())
-                                            .toString()));
-        } else if (envOption.containsKey(EnvCommonOptions.READ_LIMIT_BYTES_PER_SECOND.key())) {
-            strategy =
-                    FlowControlStrategy.ofBytes(
-                            Integer.parseInt(
-                                    envOption
-                                            .get(EnvCommonOptions.READ_LIMIT_BYTES_PER_SECOND.key())
-                                            .toString()));
-        } else if (envOption.containsKey(EnvCommonOptions.READ_LIMIT_ROW_PER_SECOND.key())) {
-            strategy =
-                    FlowControlStrategy.ofCount(
-                            Integer.parseInt(
-                                    envOption
-                                            .get(EnvCommonOptions.READ_LIMIT_ROW_PER_SECOND.key())
-                                            .toString()));
-        } else {
-            strategy = null;
-        }
-        return strategy;
     }
 }

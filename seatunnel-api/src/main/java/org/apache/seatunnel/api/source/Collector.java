@@ -40,4 +40,10 @@ public interface Collector<T> {
      * @return The object to use as the lock
      */
     Object getCheckpointLock();
+
+    default boolean isEmptyThisPollNext() {
+        return false;
+    }
+
+    default void resetEmptyThisPollNext() {}
 }

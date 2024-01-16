@@ -23,7 +23,7 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorException;
 
 import org.apache.paimon.data.BinaryArray;
@@ -117,7 +117,8 @@ public class RowConverter {
             default:
                 String errorMsg =
                         String.format("Array type not support this genericType [%s]", dataType);
-                throw new PaimonConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, errorMsg);
+                throw new PaimonConnectorException(
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE, errorMsg);
         }
     }
 
@@ -217,7 +218,8 @@ public class RowConverter {
             default:
                 String errorMsg =
                         String.format("Array type not support this genericType [%s]", dataType);
-                throw new PaimonConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, errorMsg);
+                throw new PaimonConnectorException(
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE, errorMsg);
         }
         binaryArrayWriter.complete();
         return binaryArray;
@@ -313,7 +315,7 @@ public class RowConverter {
                     break;
                 default:
                     throw new PaimonConnectorException(
-                            CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                            CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                             "SeaTunnel does not support this type");
             }
         }
@@ -420,7 +422,7 @@ public class RowConverter {
                     break;
                 default:
                     throw new PaimonConnectorException(
-                            CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                            CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                             "Unsupported data type " + seaTunnelRowType.getFieldType(i));
             }
         }

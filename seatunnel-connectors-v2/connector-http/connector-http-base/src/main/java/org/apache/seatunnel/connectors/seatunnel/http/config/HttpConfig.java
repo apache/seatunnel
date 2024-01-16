@@ -24,11 +24,32 @@ import java.util.Map;
 
 public class HttpConfig {
     public static final String BASIC = "Basic";
+    public static final String CONNECTOR_IDENTITY = "Http";
+
     public static final int DEFAULT_RETRY_BACKOFF_MULTIPLIER_MS = 100;
     public static final int DEFAULT_RETRY_BACKOFF_MAX_MS = 10000;
     public static final boolean DEFAULT_ENABLE_MULTI_LINES = false;
     public static final Option<String> URL =
             Options.key("url").stringType().noDefaultValue().withDescription("Http request url");
+    public static final Option<Long> TOTAL_PAGE_SIZE =
+            Options.key("total_page_size")
+                    .longType()
+                    .defaultValue(0L)
+                    .withDescription("total page size");
+    public static final Option<Integer> BATCH_SIZE =
+            Options.key("batch_size")
+                    .intType()
+                    .defaultValue(100)
+                    .withDescription(
+                            "the batch size returned per request is used to determine whether to continue when the total number of pages is unknown");
+    public static final Option<String> PAGE_FIELD =
+            Options.key("page_field")
+                    .stringType()
+                    .defaultValue("page")
+                    .withDescription(
+                            "this parameter is used to specify the page field name in the request parameter");
+    public static final Option<Map<String, String>> PAGEING =
+            Options.key("pageing").mapType().noDefaultValue().withDescription("pageing");
     public static final Option<HttpRequestMethod> METHOD =
             Options.key("method")
                     .enumType(HttpRequestMethod.class)
@@ -46,7 +67,7 @@ public class HttpConfig {
     public static final Option<ResponseFormat> FORMAT =
             Options.key("format")
                     .enumType(ResponseFormat.class)
-                    .defaultValue(ResponseFormat.JSON)
+                    .defaultValue(ResponseFormat.TEXT)
                     .withDescription("Http response format");
     public static final Option<Integer> POLL_INTERVAL_MILLS =
             Options.key("poll_interval_millis")
@@ -92,7 +113,8 @@ public class HttpConfig {
                             "SeaTunnel enableMultiLines.This parameter can support http splitting response text by line.");
 
     public enum ResponseFormat {
-        JSON("json");
+        JSON("json"),
+        TEXT("text");
 
         private String format;
 

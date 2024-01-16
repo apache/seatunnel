@@ -17,7 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file;
 
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
 
@@ -112,10 +113,8 @@ public class RsyncFileTransfer implements FileTransfer {
             }
             start.waitFor();
         } catch (IOException | InterruptedException ex) {
-            throw new ClickhouseConnectorException(
-                    CommonErrorCode.FILE_OPERATION_FAILED,
-                    "Rsync failed to transfer file: " + sourcePath + " to: " + targetPath,
-                    ex);
+            throw CommonError.fileOperationFailed(
+                    "ClickhouseFile", "transfer", sourcePath + " -> " + targetPath, ex);
         }
         // remote exec command to change file owner. Only file owner equal with server's clickhouse
         // user can
@@ -140,7 +139,7 @@ public class RsyncFileTransfer implements FileTransfer {
     public void transferAndChown(List<String> sourcePaths, String targetPath) {
         if (sourcePaths == null) {
             throw new ClickhouseConnectorException(
-                    CommonErrorCode.ILLEGAL_ARGUMENT, "sourcePath is null");
+                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT, "sourcePath is null");
         }
         sourcePaths.forEach(sourcePath -> transferAndChown(sourcePath, targetPath));
     }

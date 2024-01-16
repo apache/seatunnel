@@ -2,81 +2,59 @@
 
 > Socket sink connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
+## Key features
+
+- [ ] [exactly-once](../../concept/connector-v2-features.md)
+
 ## Description
 
 Used to send data to Socket Server. Both support streaming and batch mode.
 
 > For example, if the data from upstream is [`age: 12, name: jared`], the content send to socket server is the following: `{"name":"jared","age":17}`
 
-## Key features
+## Sink Options
 
-- [ ] [exactly-once](../../concept/connector-v2-features.md)
+|      Name      |  Type   | Required | Default |                                               Description                                               |
+|----------------|---------|----------|---------|---------------------------------------------------------------------------------------------------------|
+| host           | String  | Yes      |         | socket server host                                                                                      |
+| port           | Integer | Yes      |         | socket server port                                                                                      |
+| max_retries    | Integer | No       | 3       | The number of retries to send record failed                                                             |
+| common-options |         | No       | -       | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details |
 
-## Options
+## Task Example
 
-|      name      |  type   | required | default value |
-|----------------|---------|----------|---------------|
-| host           | String  | Yes      |               |
-| port           | Integer | yes      |               |
-| max_retries    | Integer | No       | 3             |
-| common-options |         | no       | -             |
-
-### host [string]
-
-socket server host
-
-### port [integer]
-
-socket server port
-
-### max_retries [integer]
-
-The number of retries to send record failed
-
-### common options
-
-Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
-
-## Example
-
-simple:
-
-```hocon
-Socket {
-        host = "localhost"
-        port = 9999
-    }
-```
-
-test:
-
-* Configuring the SeaTunnel config file
+> This is randomly generated data written to the Socket side
 
 ```hocon
 env {
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "STREAMING"
 }
 
 source {
-    FakeSource {
-      result_table_name = "fake"
-      schema = {
-        fields {
-          name = "string"
-          age = "int"
-        }
+  FakeSource {
+    result_table_name = "fake"
+    schema = {
+      fields {
+        name = "string"
+        age = "int"
       }
     }
+  }
 }
 
 sink {
-    Socket {
-        host = "localhost"
-        port = 9999
-    }
+  Socket {
+    host = "localhost"
+    port = 9999
+  }
 }
-
 ```
 
 * Start a port listening

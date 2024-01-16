@@ -38,6 +38,6 @@ public class OracleURLParser {
             String suffix = Optional.ofNullable(matcher.group("suffix")).orElse("");
             return new JdbcUrlUtil.UrlInfo(url, urlWithoutDatabase, host, port, database, suffix);
         }
-        throw new IllegalArgumentException("The jdbc url format is incorrect: " + url);
+        return new JdbcUrlUtil.UrlInfo(url, url, null, null, "temp", null);
     }
 }

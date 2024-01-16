@@ -62,27 +62,42 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
             long start = System.currentTimeMillis();
 
             Column splitColumn = getSplitColumn(jdbc, dialect, tableId);
-            final List<ChunkRange> chunks;
-            try {
-                chunks = splitTableIntoChunks(jdbc, tableId, splitColumn);
-            } catch (SQLException e) {
-                throw new RuntimeException("Failed to split chunks for table " + tableId, e);
-            }
-
-            // convert chunks into splits
             List<SnapshotSplit> splits = new ArrayList<>();
-            SeaTunnelRowType splitType = getSplitType(splitColumn);
-            for (int i = 0; i < chunks.size(); i++) {
-                ChunkRange chunk = chunks.get(i);
-                SnapshotSplit split =
-                        createSnapshotSplit(
-                                jdbc,
-                                tableId,
-                                i,
-                                splitType,
-                                chunk.getChunkStart(),
-                                chunk.getChunkEnd());
-                splits.add(split);
+            if (splitColumn == null) {
+                if (sourceConfig.isExactlyOnce()) {
+                    throw new UnsupportedOperationException(
+                            String.format(
+                                    "Exactly once is enabled, but not found primary key or unique key for table %s",
+                                    tableId));
+                }
+                SnapshotSplit singleSplit = createSnapshotSplit(jdbc, tableId, 0, null, null, null);
+                splits.add(singleSplit);
+                log.warn(
+                        "No evenly split column found for table {}, use single split {}",
+                        tableId,
+                        singleSplit);
+            } else {
+                final List<ChunkRange> chunks;
+                try {
+                    chunks = splitTableIntoChunks(jdbc, tableId, splitColumn);
+                } catch (SQLException e) {
+                    throw new RuntimeException("Failed to split chunks for table " + tableId, e);
+                }
+
+                // convert chunks into splits
+                SeaTunnelRowType splitType = getSplitType(splitColumn);
+                for (int i = 0; i < chunks.size(); i++) {
+                    ChunkRange chunk = chunks.get(i);
+                    SnapshotSplit split =
+                            createSnapshotSplit(
+                                    jdbc,
+                                    tableId,
+                                    i,
+                                    splitType,
+                                    chunk.getChunkStart(),
+                                    chunk.getChunkEnd());
+                    splits.add(split);
+                }
             }
 
             long end = System.currentTimeMillis();
@@ -309,6 +324,7 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
     }
 
     // ------------------------------------------------------------------------------------------
+
     /** Returns the distribution factor of the given table. */
     @SuppressWarnings("MagicNumber")
     protected double calculateDistributionFactor(
@@ -356,6 +372,7 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
             JdbcConnection jdbc, JdbcDataSourceDialect dialect, TableId tableId)
             throws SQLException {
         Optional<PrimaryKey> primaryKey = dialect.getPrimaryKey(jdbc, tableId);
+        Column splitColumn = null;
         if (primaryKey.isPresent()) {
             List<String> pkColumns = primaryKey.get().getColumnNames();
 
@@ -363,9 +380,14 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
             for (String pkColumn : pkColumns) {
                 Column column = table.columnWithName(pkColumn);
                 if (isEvenlySplitColumn(column)) {
-                    return column;
+                    splitColumn = columnComparable(splitColumn, column);
+                    if (sqlTypePriority(splitColumn) == 1) {
+                        return splitColumn;
+                    }
                 }
             }
+        } else {
+            log.warn("No primary key found for table {}", tableId);
         }
 
         List<ConstraintKey> uniqueKeys = dialect.getUniqueKeys(jdbc, tableId);
@@ -377,17 +399,22 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
                 for (ConstraintKey.ConstraintKeyColumn uniqueKeyColumn : uniqueKeyColumns) {
                     Column column = table.columnWithName(uniqueKeyColumn.getColumnName());
                     if (isEvenlySplitColumn(column)) {
-                        return column;
+                        splitColumn = columnComparable(splitColumn, column);
+                        if (sqlTypePriority(splitColumn) == 1) {
+                            return splitColumn;
+                        }
                     }
                 }
             }
+        } else {
+            log.warn("No unique key found for table {}", tableId);
+        }
+        if (splitColumn != null) {
+            return splitColumn;
         }
 
-        throw new UnsupportedOperationException(
-                String.format(
-                        "Incremental snapshot for tables requires primary key/unique key,"
-                                + " but table %s doesn't have primary key.",
-                        tableId));
+        log.warn("No evenly split column found for table {}", tableId);
+        return null;
     }
 
     protected String splitId(TableId tableId, int chunkId) {
@@ -409,5 +436,34 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
             }
             log.info("JdbcSourceChunkSplitter has split {} chunks for table {}", count, tableId);
         }
+    }
+
+    private int sqlTypePriority(Column splitColumn) {
+        switch (fromDbzColumn(splitColumn).getSqlType()) {
+            case TINYINT:
+                return 1;
+            case SMALLINT:
+                return 2;
+            case INT:
+                return 3;
+            case BIGINT:
+                return 4;
+            case DECIMAL:
+                return 5;
+            case STRING:
+                return 6;
+            default:
+                return Integer.MAX_VALUE;
+        }
+    }
+
+    private Column columnComparable(Column then, Column other) {
+        if (then == null) {
+            return other;
+        }
+        if (sqlTypePriority(then) > sqlTypePriority(other)) {
+            return other;
+        }
+        return then;
     }
 }
