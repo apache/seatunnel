@@ -66,7 +66,7 @@ import static org.junit.Assert.assertNotNull;
 @Slf4j
 @DisabledOnContainer(
         value = {},
-        type = {EngineType.SPARK, EngineType.FLINK},
+        type = {EngineType.SPARK},
         disabledReason = "Currently SPARK do not support cdc")
 public class PostgresCDCIT extends TestSuiteBase implements TestResource {
 
