@@ -21,10 +21,7 @@ import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 import org.apache.seatunnel.engine.server.rest.RestConstant;
 
 import org.awaitility.Awaitility;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -57,8 +54,12 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
     private static final String jobName = "test测试";
     private static final String paramJobName = "param_test测试";
 
+    private static final String http = "http://";
+
+    private static final String colon = ":";
+
     @Override
-    @BeforeAll
+    @BeforeEach
     public void startUp() throws Exception {
         Path binPath = Paths.get(SEATUNNEL_HOME, "bin", SERVER_SHELL);
         Path config = Paths.get(SEATUNNEL_HOME, "config");
@@ -123,24 +124,26 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
         executeExtraCommands(secondServer);
 
         // check cluster
-        Response response =
-                given().get(
-                                "http://"
-                                        + server.getHost()
-                                        + ":"
-                                        + server.getFirstMappedPort()
-                                        + "/hazelcast/rest/cluster");
-        response.then().statusCode(200);
+
         Awaitility.await()
                 .atMost(2, TimeUnit.MINUTES)
                 .untilAsserted(
-                        () ->
-                                Assertions.assertEquals(
-                                        2, response.jsonPath().getList("members").size()));
+                        () -> {
+                            Response response =
+                                    given().get(
+                                                    http
+                                                            + server.getHost()
+                                                            + colon
+                                                            + server.getFirstMappedPort()
+                                                            + "/hazelcast/rest/cluster");
+                            response.then().statusCode(200);
+                            Assertions.assertEquals(
+                                    2, response.jsonPath().getList("members").size());
+                        });
     }
 
     @Override
-    @AfterAll
+    @AfterEach
     public void tearDown() throws Exception {
         super.tearDown();
         if (secondServer != null) {
@@ -173,7 +176,9 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
                                     .untilAsserted(
                                             () -> {
                                                 given().get(
-                                                                container.getHost()
+                                                                http
+                                                                        + container.getHost()
+                                                                        + colon
                                                                         + container
                                                                                 .getFirstMappedPort()
                                                                         + RestConstant
@@ -209,7 +214,9 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
 
                                                 // test for without status parameter.
                                                 given().get(
-                                                                container.getHost()
+                                                                http
+                                                                        + container.getHost()
+                                                                        + colon
                                                                         + container
                                                                                 .getFirstMappedPort()
                                                                         + RestConstant
@@ -280,7 +287,9 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
                                     .untilAsserted(
                                             () ->
                                                     given().get(
-                                                                    container.getHost()
+                                                                    http
+                                                                            + container.getHost()
+                                                                            + colon
                                                                             + container
                                                                                     .getFirstMappedPort()
                                                                             + RestConstant
@@ -300,7 +309,9 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
 
                             given().body(parameters)
                                     .post(
-                                            container.getHost()
+                                            http
+                                                    + container.getHost()
+                                                    + colon
                                                     + container.getFirstMappedPort()
                                                     + RestConstant.STOP_JOB_URL)
                                     .then()
@@ -312,7 +323,9 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
                                     .untilAsserted(
                                             () ->
                                                     given().get(
-                                                                    container.getHost()
+                                                                    http
+                                                                            + container.getHost()
+                                                                            + colon
                                                                             + container
                                                                                     .getFirstMappedPort()
                                                                             + RestConstant
@@ -333,7 +346,9 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
                                     .untilAsserted(
                                             () ->
                                                     given().get(
-                                                                    container.getHost()
+                                                                    http
+                                                                            + container.getHost()
+                                                                            + colon
                                                                             + container
                                                                                     .getFirstMappedPort()
                                                                             + RestConstant
@@ -352,7 +367,9 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
 
                             given().body(parameters)
                                     .post(
-                                            container.getHost()
+                                            http
+                                                    + container.getHost()
+                                                    + colon
                                                     + container.getFirstMappedPort()
                                                     + RestConstant.STOP_JOB_URL)
                                     .then()
@@ -364,7 +381,9 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
                                     .untilAsserted(
                                             () ->
                                                     given().get(
-                                                                    container.getHost()
+                                                                    http
+                                                                            + container.getHost()
+                                                                            + colon
                                                                             + container
                                                                                     .getFirstMappedPort()
                                                                             + RestConstant
@@ -377,13 +396,13 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
     }
 
     private Response submitJob(
-            GenericContainer<?> secondServer, String jobMode, String jobName, String paramJobName) {
-        return submitJob(jobMode, secondServer, false, jobName, paramJobName);
+            GenericContainer<?> container, String jobMode, String jobName, String paramJobName) {
+        return submitJob(jobMode, container, false, jobName, paramJobName);
     }
 
     private Response submitJob(
             String jobMode,
-            GenericContainer<?> secondServer,
+            GenericContainer<?> container,
             boolean isStartWithSavePoint,
             String jobName,
             String paramJobName) {
@@ -432,11 +451,15 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
                         .header("Content-Type", "application/json; charset=utf-8")
                         .post(
                                 parameters == null
-                                        ? secondServer.getHost()
-                                                + secondServer.getFirstMappedPort()
+                                        ? http
+                                                + container.getHost()
+                                                + colon
+                                                + container.getFirstMappedPort()
                                                 + RestConstant.SUBMIT_JOB_URL
-                                        : secondServer.getHost()
-                                                + secondServer.getFirstMappedPort()
+                                        : http
+                                                + container.getHost()
+                                                + colon
+                                                + container.getFirstMappedPort()
                                                 + RestConstant.SUBMIT_JOB_URL
                                                 + "?"
                                                 + parameters);
