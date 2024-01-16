@@ -254,13 +254,6 @@ public class BaseSinkConfig {
                     .defaultValue(false)
                     .withDescription("false:dont write header,true:write header");
 
-    public static final Option<Boolean> ENABLE_HIVE_COLLECTION_TYPE =
-            Options.key("enable_hive_collection_type")
-                    .booleanType()
-                    .defaultValue(false)
-                    .withDescription(
-                            "If the sink is hive, and hive's field types include array, map, and struct collection types, you can turn on this option. This will fully adapt to hive's collection types array, map, and struct, making it easy to directly query the fields in the collection in hive. Information, not enabled by default");
-
     public static final Option<String> COLLECTION_DELIMITER_HIVE =
             Options.key("collection_delimiter_hive")
                     .stringType()

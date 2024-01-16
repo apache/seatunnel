@@ -108,8 +108,9 @@ public abstract class BaseFileSink
     }
 
     protected WriteStrategy createWriteStrategy() {
+        String sinkName = getPluginName();
         WriteStrategy writeStrategy =
-                WriteStrategyFactory.of(fileSinkConfig.getFileFormat(), fileSinkConfig);
+                WriteStrategyFactory.of(fileSinkConfig.getFileFormat(), fileSinkConfig, sinkName);
         writeStrategy.setSeaTunnelRowTypeInfo(seaTunnelRowType);
         return writeStrategy;
     }

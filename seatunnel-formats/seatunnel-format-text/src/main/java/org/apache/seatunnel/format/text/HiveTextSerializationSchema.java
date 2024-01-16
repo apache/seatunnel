@@ -17,51 +17,39 @@
 
 package org.apache.seatunnel.format.text;
 
-import org.apache.seatunnel.api.serialization.SerializationSchema;
-import org.apache.seatunnel.api.table.type.ArrayType;
-import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
 import org.apache.seatunnel.format.text.constant.TextFormatConstant;
-import org.apache.seatunnel.format.text.exception.SeaTunnelTextFormatException;
 
 import lombok.NonNull;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.util.Arrays;
 import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.Set;
 
-public class TextSerializationSchema implements SerializationSchema {
-    public final SeaTunnelRowType seaTunnelRowType;
-    public final String[] separators;
-    public final DateUtils.Formatter dateFormatter;
-    public final DateTimeUtils.Formatter dateTimeFormatter;
-    public final TimeUtils.Formatter timeFormatter;
+public class HiveTextSerializationSchema extends TextSerializationSchema {
+    private final String collectionDelimiter;
+    private final String mapKeysDelimiter;
+    public static final String REGEX = "^\"|\"$|^\'|\'$";
 
-    public TextSerializationSchema(
+    public HiveTextSerializationSchema(
             @NonNull SeaTunnelRowType seaTunnelRowType,
             String[] separators,
             DateUtils.Formatter dateFormatter,
             DateTimeUtils.Formatter dateTimeFormatter,
-            TimeUtils.Formatter timeFormatter) {
-        this.seaTunnelRowType = seaTunnelRowType;
-        this.separators = separators;
-        this.dateFormatter = dateFormatter;
-        this.dateTimeFormatter = dateTimeFormatter;
-        this.timeFormatter = timeFormatter;
+            TimeUtils.Formatter timeFormatter,
+            String collectionDelimiter,
+            String mapKeysDelimiter) {
+        super(seaTunnelRowType, separators, dateFormatter, dateTimeFormatter, timeFormatter);
+        this.collectionDelimiter = collectionDelimiter;
+        this.mapKeysDelimiter = mapKeysDelimiter;
     }
 
-    public static Builder builder() {
-        return new Builder();
+    public static HiveTextSerializationSchema.Builder builder1() {
+        return new HiveTextSerializationSchema.Builder();
     }
 
     public static class Builder {
@@ -71,6 +59,8 @@ public class TextSerializationSchema implements SerializationSchema {
         private DateTimeUtils.Formatter dateTimeFormatter =
                 DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS;
         private TimeUtils.Formatter timeFormatter = TimeUtils.Formatter.HH_MM_SS;
+        private String collectionDelimiter;
+        private String mapKeysDelimiter;
 
         private Builder() {}
 
@@ -104,9 +94,25 @@ public class TextSerializationSchema implements SerializationSchema {
             return this;
         }
 
-        public TextSerializationSchema build() {
-            return new TextSerializationSchema(
-                    seaTunnelRowType, separators, dateFormatter, dateTimeFormatter, timeFormatter);
+        public Builder collectionDelimiter(String collectionDelimiter) {
+            this.collectionDelimiter = collectionDelimiter;
+            return this;
+        }
+
+        public Builder mapKeysDelimiter(String mapKeysDelimiter) {
+            this.mapKeysDelimiter = mapKeysDelimiter;
+            return this;
+        }
+
+        public HiveTextSerializationSchema build() {
+            return new HiveTextSerializationSchema(
+                    seaTunnelRowType,
+                    separators,
+                    dateFormatter,
+                    dateTimeFormatter,
+                    timeFormatter,
+                    collectionDelimiter,
+                    mapKeysDelimiter);
         }
     }
 
@@ -125,50 +131,37 @@ public class TextSerializationSchema implements SerializationSchema {
     }
 
     public String convert(Object field, SeaTunnelDataType<?> fieldType, int level) {
-        if (field == null) {
-            return "";
-        }
         switch (fieldType.getSqlType()) {
-            case DOUBLE:
-            case FLOAT:
-            case INT:
-            case STRING:
-            case BOOLEAN:
-            case TINYINT:
-            case SMALLINT:
-            case BIGINT:
-            case DECIMAL:
-                return field.toString();
-            case DATE:
-                return DateUtils.toString((LocalDate) field, dateFormatter);
-            case TIME:
-                return TimeUtils.toString((LocalTime) field, timeFormatter);
-            case TIMESTAMP:
-                return DateTimeUtils.toString((LocalDateTime) field, dateTimeFormatter);
-            case NULL:
-                return "";
-            case BYTES:
-                return new String((byte[]) field);
             case ARRAY:
-                BasicType<?> elementType = ((ArrayType<?, ?>) fieldType).getElementType();
-                return Arrays.stream((Object[]) field)
-                        .map(f -> convert(f, elementType, level + 1))
-                        .collect(Collectors.joining(separators[level + 1]));
+                Object[] array = (Object[]) field;
+                StringBuilder elementBuilder = new StringBuilder();
+                for (Object element : array) {
+                    String trimmed = element.toString().trim().replaceAll(REGEX, "");
+                    elementBuilder.append(trimmed).append(collectionDelimiter);
+                }
+                elementBuilder.deleteCharAt(elementBuilder.length() - 1);
+                return elementBuilder.toString();
             case MAP:
-                SeaTunnelDataType<?> keyType = ((MapType<?, ?>) fieldType).getKeyType();
-                SeaTunnelDataType<?> valueType = ((MapType<?, ?>) fieldType).getValueType();
-                return ((Map<Object, Object>) field)
-                        .entrySet().stream()
-                                .map(
-                                        entry ->
-                                                String.join(
-                                                        separators[level + 2],
-                                                        convert(entry.getKey(), keyType, level + 1),
-                                                        convert(
-                                                                entry.getValue(),
-                                                                valueType,
-                                                                level + 1)))
-                                .collect(Collectors.joining(separators[level + 1]));
+                Map map = (Map) field;
+                Set<Map.Entry> set = map.entrySet();
+                StringBuilder stringBuilder = new StringBuilder();
+                for (Map.Entry entry : set) {
+                    String key =
+                            entry.getKey() == null
+                                    ? null
+                                    : entry.getKey().toString().trim().replaceAll(REGEX, "");
+                    String value =
+                            entry.getValue() == null
+                                    ? null
+                                    : entry.getValue().toString().trim().replaceAll(REGEX, "");
+                    stringBuilder
+                            .append(key)
+                            .append(mapKeysDelimiter)
+                            .append(value)
+                            .append(collectionDelimiter);
+                }
+                stringBuilder.deleteCharAt(stringBuilder.length() - 1);
+                return stringBuilder.toString();
             case ROW:
                 Object[] fields = ((SeaTunnelRow) field).getFields();
                 String[] strings = new String[fields.length];
@@ -179,13 +172,9 @@ public class TextSerializationSchema implements SerializationSchema {
                                     ((SeaTunnelRowType) fieldType).getFieldType(i),
                                     level + 1);
                 }
-                return String.join(separators[level + 1], strings);
+                return String.join(collectionDelimiter, strings);
             default:
-                throw new SeaTunnelTextFormatException(
-                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
-                        String.format(
-                                "SeaTunnel format text not supported for parsing this type [%s]",
-                                fieldType.getSqlType()));
+                return super.convert(field, fieldType, level);
         }
     }
 }

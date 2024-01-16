@@ -30,20 +30,19 @@ By default, we use 2PC commit to ensure `exactly-once`
 
 ## Options
 
-|            name             |  type   | required | default value  |
-|-----------------------------|---------|----------|----------------|
-| table_name                  | string  | yes      | -              |
-| metastore_uri               | string  | yes      | -              |
-| compress_codec              | string  | no       | none           |
-| hdfs_site_path              | string  | no       | -              |
-| hive_site_path              | string  | no       | -              |
-| krb5_path                   | string  | no       | /etc/krb5.conf |
-| kerberos_principal          | string  | no       | -              |
-| kerberos_keytab_path        | string  | no       | -              |
-| enable_hive_collection_type | boolean | no       | false          |
-| collection_delimiter_hive   | string  | no       | ,              |
-| map_keys_delimiter_hive     | string  | no       | :              |
-| common-options              |         | no       | -              |
+|           name            |  type  | required | default value  |
+|---------------------------|--------|----------|----------------|
+| table_name                | string | yes      | -              |
+| metastore_uri             | string | yes      | -              |
+| compress_codec            | string | no       | none           |
+| hdfs_site_path            | string | no       | -              |
+| hive_site_path            | string | no       | -              |
+| krb5_path                 | string | no       | /etc/krb5.conf |
+| kerberos_principal        | string | no       | -              |
+| kerberos_keytab_path      | string | no       | -              |
+| collection_delimiter_hive | string | no       | ,              |
+| map_keys_delimiter_hive   | string | no       | :              |
+| common-options            |        | no       | -              |
 
 ### table_name [string]
 
@@ -72,10 +71,6 @@ The principal of kerberos
 ### kerberos_keytab_path [string]
 
 The keytab path of kerberos
-
-### enable_hive_collection_type [boolean]
-
-If the sink is hive, and hive's field types include array, map, and struct collection types, you can turn on this option. This will fully adapt to hive's collection types array, map, and struct, making it easy to directly query the fields in the collection in hive. Information, not enabled by default.
 
 ### collection_delimiter_hive [string]
 

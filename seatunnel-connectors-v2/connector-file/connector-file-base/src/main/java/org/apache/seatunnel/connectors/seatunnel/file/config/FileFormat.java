@@ -36,9 +36,9 @@ import java.io.Serializable;
 public enum FileFormat implements Serializable {
     CSV("csv") {
         @Override
-        public WriteStrategy getWriteStrategy(FileSinkConfig fileSinkConfig) {
+        public WriteStrategy getWriteStrategy(FileSinkConfig fileSinkConfig, String sinkName) {
             fileSinkConfig.setFieldDelimiter(",");
-            return new TextWriteStrategy(fileSinkConfig);
+            return new TextWriteStrategy(fileSinkConfig, sinkName);
         }
 
         @Override
@@ -48,8 +48,8 @@ public enum FileFormat implements Serializable {
     },
     TEXT("txt") {
         @Override
-        public WriteStrategy getWriteStrategy(FileSinkConfig fileSinkConfig) {
-            return new TextWriteStrategy(fileSinkConfig);
+        public WriteStrategy getWriteStrategy(FileSinkConfig fileSinkConfig, String sinkName) {
+            return new TextWriteStrategy(fileSinkConfig, sinkName);
         }
 
         @Override
@@ -59,7 +59,7 @@ public enum FileFormat implements Serializable {
     },
     PARQUET("parquet") {
         @Override
-        public WriteStrategy getWriteStrategy(FileSinkConfig fileSinkConfig) {
+        public WriteStrategy getWriteStrategy(FileSinkConfig fileSinkConfig, String sinkName) {
             return new ParquetWriteStrategy(fileSinkConfig);
         }
 
@@ -70,7 +70,7 @@ public enum FileFormat implements Serializable {
     },
     ORC("orc") {
         @Override
-        public WriteStrategy getWriteStrategy(FileSinkConfig fileSinkConfig) {
+        public WriteStrategy getWriteStrategy(FileSinkConfig fileSinkConfig, String sinkName) {
             return new OrcWriteStrategy(fileSinkConfig);
         }
 
@@ -81,7 +81,7 @@ public enum FileFormat implements Serializable {
     },
     JSON("json") {
         @Override
-        public WriteStrategy getWriteStrategy(FileSinkConfig fileSinkConfig) {
+        public WriteStrategy getWriteStrategy(FileSinkConfig fileSinkConfig, String sinkName) {
             return new JsonWriteStrategy(fileSinkConfig);
         }
 
@@ -92,7 +92,7 @@ public enum FileFormat implements Serializable {
     },
     EXCEL("xlsx") {
         @Override
-        public WriteStrategy getWriteStrategy(FileSinkConfig fileSinkConfig) {
+        public WriteStrategy getWriteStrategy(FileSinkConfig fileSinkConfig, String sinkName) {
             return new ExcelWriteStrategy(fileSinkConfig);
         }
 
@@ -116,7 +116,7 @@ public enum FileFormat implements Serializable {
         return null;
     }
 
-    public WriteStrategy getWriteStrategy(FileSinkConfig fileSinkConfig) {
+    public WriteStrategy getWriteStrategy(FileSinkConfig fileSinkConfig, String sinkName) {
         return null;
     }
 }

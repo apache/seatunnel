@@ -29,10 +29,11 @@ public class WriteStrategyFactory {
 
     private WriteStrategyFactory() {}
 
-    public static WriteStrategy of(String fileType, FileSinkConfig fileSinkConfig) {
+    public static WriteStrategy of(
+            String fileType, FileSinkConfig fileSinkConfig, String sinkName) {
         try {
             FileFormat fileFormat = FileFormat.valueOf(fileType.toUpperCase());
-            return fileFormat.getWriteStrategy(fileSinkConfig);
+            return fileFormat.getWriteStrategy(fileSinkConfig, sinkName);
         } catch (IllegalArgumentException e) {
             String errorMsg =
                     String.format(
@@ -42,7 +43,8 @@ public class WriteStrategyFactory {
         }
     }
 
-    public static WriteStrategy of(FileFormat fileFormat, FileSinkConfig fileSinkConfig) {
-        return fileFormat.getWriteStrategy(fileSinkConfig);
+    public static WriteStrategy of(
+            FileFormat fileFormat, FileSinkConfig fileSinkConfig, String sinkName) {
+        return fileFormat.getWriteStrategy(fileSinkConfig, sinkName);
     }
 }

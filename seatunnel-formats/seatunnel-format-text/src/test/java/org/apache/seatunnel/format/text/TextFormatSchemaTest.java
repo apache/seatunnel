@@ -153,11 +153,10 @@ public class TextFormatSchemaTest {
                         .seaTunnelRowType(seaTunnelRowType)
                         .delimiter("\u0001")
                         .build();
-        TextSerializationSchema serializationSchema =
-                TextSerializationSchema.builder()
+        HiveTextSerializationSchema serializationSchema =
+                HiveTextSerializationSchema.builder1()
                         .seaTunnelRowType(seaTunnelRowType)
                         .delimiter("#")
-                        .enableHiveCollectionType(true)
                         .collectionDelimiter(",")
                         .mapKeysDelimiter(":")
                         .build();
