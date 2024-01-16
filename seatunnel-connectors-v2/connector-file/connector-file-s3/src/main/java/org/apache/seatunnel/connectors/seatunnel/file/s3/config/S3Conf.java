@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.file.s3.config;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 
@@ -66,6 +67,30 @@ public class S3Conf extends HadoopConf {
         s3Options.put(
                 S3ConfigOptions.FS_S3A_ENDPOINT.key(),
                 config.getString(S3ConfigOptions.FS_S3A_ENDPOINT.key()));
+        hadoopConf.setExtraOptions(s3Options);
+        return hadoopConf;
+    }
+
+    public static HadoopConf buildWithReadOnlyConfig(ReadonlyConfig readonlyConfig) {
+        Config config = readonlyConfig.toConfig();
+        HadoopConf hadoopConf = new S3Conf(readonlyConfig.get(S3ConfigOptions.S3_BUCKET));
+        String bucketName = readonlyConfig.get(S3ConfigOptions.S3_BUCKET);
+        if (bucketName.startsWith(S3A_SCHEMA)) {
+            SCHEMA = S3A_SCHEMA;
+        }
+        HashMap<String, String> s3Options = new HashMap<>();
+        putS3SK(s3Options, config);
+        if (CheckConfigUtil.isValidParam(config, S3ConfigOptions.S3_PROPERTIES.key())) {
+            config.getObject(S3ConfigOptions.S3_PROPERTIES.key())
+                    .forEach((key, value) -> s3Options.put(key, String.valueOf(value.unwrapped())));
+        }
+
+        s3Options.put(
+                S3ConfigOptions.S3A_AWS_CREDENTIALS_PROVIDER.key(),
+                readonlyConfig.get(S3ConfigOptions.S3A_AWS_CREDENTIALS_PROVIDER).getProvider());
+        s3Options.put(
+                S3ConfigOptions.FS_S3A_ENDPOINT.key(),
+                readonlyConfig.get(S3ConfigOptions.FS_S3A_ENDPOINT));
         hadoopConf.setExtraOptions(s3Options);
         return hadoopConf;
     }
