@@ -59,7 +59,8 @@ public abstract class BaseMultipleTableFileSink
         this.fileSinkConfig =
                 new FileSinkConfig(readonlyConfig.toConfig(), catalogTable.getSeaTunnelRowType());
         this.writeStrategy =
-                WriteStrategyFactory.of(fileSinkConfig.getFileFormat(), fileSinkConfig);
+                WriteStrategyFactory.of(
+                        fileSinkConfig.getFileFormat(), fileSinkConfig, getPluginName());
         this.hadoopFileSystemProxy = new HadoopFileSystemProxy(hadoopConf);
         this.writeStrategy.setSeaTunnelRowTypeInfo(catalogTable.getSeaTunnelRowType());
     }
