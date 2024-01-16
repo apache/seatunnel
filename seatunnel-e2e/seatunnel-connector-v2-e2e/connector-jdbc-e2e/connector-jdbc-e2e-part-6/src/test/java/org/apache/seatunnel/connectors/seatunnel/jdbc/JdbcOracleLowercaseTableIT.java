@@ -22,12 +22,11 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleURLParser;
-import org.apache.seatunnel.e2e.common.container.TestContainer;
 
 import org.apache.commons.lang3.tuple.Pair;
 
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.TestTemplate;
+import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.OracleContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -37,7 +36,6 @@ import org.testcontainers.utility.MountableFile;
 
 import com.google.common.collect.Lists;
 
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.Timestamp;
@@ -220,8 +218,8 @@ public class JdbcOracleLowercaseTableIT extends AbstractJdbcIT {
         catalog.open();
     }
 
-    @TestTemplate
-    public void testCatalog(TestContainer container) throws IOException, InterruptedException {
+    @Test
+    public void testCatalog() {
         TablePath tablePathOracle = TablePath.of("XE", "TESTUSER", "E2E_TABLE_SOURCE_LOWER");
         OracleCatalog oracleCatalog =
                 new OracleCatalog(
