@@ -203,13 +203,6 @@ public class JobExecutionIT {
     }
 
     @Test
-    public void testFor() throws Exception {
-        for (int i = 0; i < 100; i++) {
-            testLastCheckpointErrorJob();
-        }
-    }
-
-    @Test
     public void testLastCheckpointErrorJob() throws Exception {
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = TestUtils.getResource("batch_last_checkpoint_error.conf");
