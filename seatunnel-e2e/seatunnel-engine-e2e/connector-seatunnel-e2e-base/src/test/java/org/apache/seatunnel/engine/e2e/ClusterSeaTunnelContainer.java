@@ -417,7 +417,8 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
         return response;
     }
 
-    private GenericContainer<?> createServer(String networkAlias) throws IOException, InterruptedException {
+    private GenericContainer<?> createServer(String networkAlias)
+            throws IOException, InterruptedException {
         GenericContainer<?> server =
                 new GenericContainer<>(getDockerImage())
                         .withNetwork(NETWORK)
