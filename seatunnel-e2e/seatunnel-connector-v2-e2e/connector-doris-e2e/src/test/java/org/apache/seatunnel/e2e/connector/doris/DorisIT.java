@@ -107,7 +107,15 @@ public class DorisIT extends AbstractDorisIT {
         batchInsertData();
         Container.ExecResult execResult = container.executeJob("/doris_source_and_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
+        checkSinkData();
 
+        Container.ExecResult execResult2 =
+                container.executeJob("/doris_source_and_sink_2pc_false.conf");
+        Assertions.assertEquals(0, execResult2.getExitCode());
+        checkSinkData();
+    }
+
+    private void checkSinkData() {
         try {
             assertHasData(sourceDB, TABLE);
 
