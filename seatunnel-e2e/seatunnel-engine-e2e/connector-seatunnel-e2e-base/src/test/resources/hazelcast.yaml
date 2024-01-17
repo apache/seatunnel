@@ -26,12 +26,13 @@ hazelcast:
         DATA:
           enabled: true
     join:
-      tcp-ip:
+#      tcp-ip:
+#        enabled: true
+#        member-list:
+#          - secondServer
+#          - server
+      multicast:
         enabled: true
-        member-list:
-          - secondServer
-          - server
-          - localhost
     port:
       auto-increment: true
       port-count: 100
