@@ -1095,7 +1095,7 @@ jobs:
           MAVEN_OPTS: -Xmx4096m
 
 
-  Oracle-cdc-connector-it:
+  oracle-cdc-connector-it:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true' || contains(needs.changes.outputs.it-modules, 'connector-cdc-oracle-e2e')
     runs-on: ${{ matrix.os }}
