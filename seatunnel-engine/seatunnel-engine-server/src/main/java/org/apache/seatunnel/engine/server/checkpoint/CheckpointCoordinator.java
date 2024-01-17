@@ -541,34 +541,36 @@ public class CheckpointCoordinator {
                         LOG.error(ExceptionUtils.getMessage(e));
                         return;
                     }
-
-                    LOG.debug(
-                            "Start a scheduled task to prevent checkpoint timeouts for barrier "
-                                    + pendingCheckpoint.getInfo());
-
-                    long checkpointTimeout = coordinatorConfig.getCheckpointTimeout();
-                    if (pendingCheckpoint.getCheckpointType().isSchemaChangeAfterCheckpoint()) {
-                        checkpointTimeout = coordinatorConfig.getSchemaChangeCheckpointTimeout();
+                    if (coordinatorConfig.isCheckpointEnable()) {
+                        LOG.debug(
+                                "Start a scheduled task to prevent checkpoint timeouts for barrier "
+                                        + pendingCheckpoint.getInfo());
+                        long checkpointTimeout = coordinatorConfig.getCheckpointTimeout();
+                        if (pendingCheckpoint.getCheckpointType().isSchemaChangeAfterCheckpoint()) {
+                            checkpointTimeout =
+                                    coordinatorConfig.getSchemaChangeCheckpointTimeout();
+                        }
+                        pendingCheckpoint.setCheckpointTimeOutFuture(
+                                scheduler.schedule(
+                                        () -> {
+                                            // If any task is not acked within the checkpoint
+                                            // timeout
+                                            if (pendingCheckpoints.get(
+                                                                    pendingCheckpoint
+                                                                            .getCheckpointId())
+                                                            != null
+                                                    && !pendingCheckpoint.isFullyAcknowledged()) {
+                                                LOG.info(
+                                                        "timeout checkpoint: "
+                                                                + pendingCheckpoint.getInfo());
+                                                handleCoordinatorError(
+                                                        CheckpointCloseReason.CHECKPOINT_EXPIRED,
+                                                        null);
+                                            }
+                                        },
+                                        checkpointTimeout,
+                                        TimeUnit.MILLISECONDS));
                     }
-                    // TODO Need change to polling check until max timeout fails
-                    pendingCheckpoint.setCheckpointTimeOutFuture(
-                            scheduler.schedule(
-                                    () -> {
-                                        // If any task is not acked within the checkpoint
-                                        // timeout
-                                        if (pendingCheckpoints.get(
-                                                                pendingCheckpoint.getCheckpointId())
-                                                        != null
-                                                && !pendingCheckpoint.isFullyAcknowledged()) {
-                                            LOG.info(
-                                                    "timeout checkpoint: "
-                                                            + pendingCheckpoint.getInfo());
-                                            handleCoordinatorError(
-                                                    CheckpointCloseReason.CHECKPOINT_EXPIRED, null);
-                                        }
-                                    },
-                                    checkpointTimeout,
-                                    TimeUnit.MILLISECONDS));
                 });
     }
 
