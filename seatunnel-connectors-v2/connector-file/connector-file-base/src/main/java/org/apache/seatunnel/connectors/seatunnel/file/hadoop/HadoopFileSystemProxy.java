@@ -28,7 +28,9 @@ import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.security.UserGroupInformation;
 
 import lombok.NonNull;
@@ -138,6 +140,23 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
         if (!fileSystem.mkdirs(dfs)) {
             throw CommonError.fileOperationFailed("SeaTunnel", "create", filePath);
         }
+    }
+
+    public List<LocatedFileStatus> listFile(String path) throws IOException {
+        if (fileSystem == null) {
+            initialize();
+        }
+        List<LocatedFileStatus> fileList = new ArrayList<>();
+        if (!fileExist(path)) {
+            return fileList;
+        }
+        Path fileName = new Path(path);
+        RemoteIterator<LocatedFileStatus> locatedFileStatusRemoteIterator =
+                fileSystem.listFiles(fileName, false);
+        while (locatedFileStatusRemoteIterator.hasNext()) {
+            fileList.add(locatedFileStatusRemoteIterator.next());
+        }
+        return fileList;
     }
 
     public List<Path> getAllSubFiles(@NonNull String filePath) throws IOException {

@@ -24,12 +24,11 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerURLParser;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
-import org.apache.seatunnel.e2e.common.container.TestContainer;
 
 import org.apache.commons.lang3.tuple.Pair;
 
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.TestTemplate;
+import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.MSSQLServerContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -294,8 +293,8 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
         catalog.open();
     }
 
-    @TestTemplate
-    public void testCatalog(TestContainer container) throws IOException, InterruptedException {
+    @Test
+    public void testCatalog() {
         TablePath tablePathSqlserver = TablePath.of("master", "dbo", "source");
         TablePath tablePathSqlserver_Sink = TablePath.of("master", "dbo", "sink_lw");
         SqlServerCatalog sqlServerCatalog = (SqlServerCatalog) catalog;

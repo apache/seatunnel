@@ -115,10 +115,10 @@ public class JdbcSink
                 String keyName = tableSchema.getPrimaryKey().getColumnNames().get(0);
                 int index = tableSchema.toPhysicalRowDataType().indexOf(keyName);
                 if (index > -1) {
-                    return new JdbcSinkWriter(context, dialect, jdbcSinkConfig, tableSchema, index);
+                    return new JdbcSinkWriter(dialect, jdbcSinkConfig, tableSchema, index);
                 }
             }
-            sinkWriter = new JdbcSinkWriter(context, dialect, jdbcSinkConfig, tableSchema, null);
+            sinkWriter = new JdbcSinkWriter(dialect, jdbcSinkConfig, tableSchema, null);
         }
         return sinkWriter;
     }

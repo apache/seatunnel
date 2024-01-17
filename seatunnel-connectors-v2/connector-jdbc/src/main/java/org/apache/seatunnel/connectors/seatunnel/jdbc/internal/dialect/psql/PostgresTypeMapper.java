@@ -89,6 +89,7 @@ public class PostgresTypeMapper implements JdbcDialectTypeMapper {
     private static final String PG_JSON = "json";
     private static final String PG_JSONB = "jsonb";
     private static final String PG_XML = "xml";
+    public static final String PG_UUID = "uuid";
 
     @Override
     public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex)
@@ -144,6 +145,7 @@ public class PostgresTypeMapper implements JdbcDialectTypeMapper {
             case PG_JSON:
             case PG_JSONB:
             case PG_XML:
+            case PG_UUID:
                 return BasicType.STRING_TYPE;
             case PG_CHAR_ARRAY:
             case PG_CHARACTER_ARRAY:
