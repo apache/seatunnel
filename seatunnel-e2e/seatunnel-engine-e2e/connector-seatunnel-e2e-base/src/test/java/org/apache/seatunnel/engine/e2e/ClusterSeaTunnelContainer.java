@@ -63,96 +63,17 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
 
     private static final String confFile = "/fakesource_to_console.conf";
 
+    private static final Path binPath = Paths.get(SEATUNNEL_HOME, "bin", SERVER_SHELL);
+    private static final Path config = Paths.get(SEATUNNEL_HOME, "config");
+    private static final Path hadoopJar =
+            Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop3-3.1.4-uber.jar");
+
     @Override
     @BeforeEach
     public void startUp() throws Exception {
-        Path binPath = Paths.get(SEATUNNEL_HOME, "bin", SERVER_SHELL);
-        Path config = Paths.get(SEATUNNEL_HOME, "config");
-        Path hadoopJar = Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop3-3.1.4-uber.jar");
 
-        server =
-                new GenericContainer<>(getDockerImage())
-                        .withNetwork(NETWORK)
-                        .withEnv("TZ", "UTC")
-                        .withCommand(ContainerUtil.adaptPathForWin(binPath.toString()))
-                        .withNetworkAliases("server")
-                        .withExposedPorts()
-                        .withLogConsumer(
-                                new Slf4jLogConsumer(
-                                        DockerLoggerFactory.getLogger(
-                                                "seatunnel-engine:" + JDK_DOCKER_IMAGE)))
-                        .waitingFor(Wait.forListeningPort());
-        copySeaTunnelStarterToContainer(server);
-        server.setExposedPorts(Collections.singletonList(5801));
-        server.withCopyFileToContainer(
-                MountableFile.forHostPath(
-                        PROJECT_ROOT_PATH
-                                + "/seatunnel-e2e/seatunnel-engine-e2e/connector-seatunnel-e2e-base/src/test/resources/"),
-                config.toString());
-        server.withCopyFileToContainer(
-                MountableFile.forHostPath(
-                        PROJECT_ROOT_PATH
-                                + "/seatunnel-e2e/seatunnel-engine-e2e/connector-seatunnel-e2e-base/src/test/resources/cluster/"),
-                config.toString());
-        server.withCopyFileToContainer(
-                MountableFile.forHostPath(
-                        PROJECT_ROOT_PATH
-                                + "/seatunnel-shade/seatunnel-hadoop3-3.1.4-uber/target/seatunnel-hadoop3-3.1.4-uber.jar"),
-                hadoopJar.toString());
-
-        server.start();
-
-        secondServer =
-                new GenericContainer<>(getDockerImage())
-                        .withNetwork(NETWORK)
-                        .withEnv("TZ", "UTC")
-                        .withCommand(ContainerUtil.adaptPathForWin(binPath.toString()))
-                        .withNetworkAliases("secondServer")
-                        .withExposedPorts(5801)
-                        .withLogConsumer(
-                                new Slf4jLogConsumer(
-                                        DockerLoggerFactory.getLogger(
-                                                "seatunnel-engine:" + JDK_DOCKER_IMAGE)))
-                        .waitingFor(Wait.forListeningPort());
-
-        copySeaTunnelStarterToContainer(secondServer);
-        secondServer.withCopyFileToContainer(
-                MountableFile.forHostPath(
-                        PROJECT_ROOT_PATH
-                                + "/seatunnel-e2e/seatunnel-engine-e2e/connector-seatunnel-e2e-base/src/test/resources/"),
-                config.toString());
-        secondServer.withCopyFileToContainer(
-                MountableFile.forHostPath(
-                        PROJECT_ROOT_PATH
-                                + "/seatunnel-e2e/seatunnel-engine-e2e/connector-seatunnel-e2e-base/src/test/resources/cluster/"),
-                config.toString());
-        secondServer.withCopyFileToContainer(
-                MountableFile.forHostPath(
-                        PROJECT_ROOT_PATH
-                                + "/seatunnel-shade/seatunnel-hadoop3-3.1.4-uber/target/seatunnel-hadoop3-3.1.4-uber.jar"),
-                hadoopJar.toString());
-
-        secondServer.start();
-
-        // execute extra commands
-        executeExtraCommands(server);
-        executeExtraCommands(secondServer);
-
-        ContainerUtil.copyConnectorJarToContainer(
-                server,
-                confFile,
-                getConnectorModulePath(),
-                getConnectorNamePrefix(),
-                getConnectorType(),
-                SEATUNNEL_HOME);
-
-        ContainerUtil.copyConnectorJarToContainer(
-                secondServer,
-                confFile,
-                getConnectorModulePath(),
-                getConnectorNamePrefix(),
-                getConnectorType(),
-                SEATUNNEL_HOME);
+        server = createServer();
+        secondServer = createServer();
 
         // check cluster
         Awaitility.await()
@@ -285,7 +206,7 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
     }
 
     @Test
-    public void testStartWithSavePointWithoutJobId() throws IOException, InterruptedException {
+    public void testStartWithSavePointWithoutJobId() {
         Arrays.asList(server, secondServer)
                 .forEach(
                         container -> {
@@ -494,5 +415,49 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
                                                 + "?"
                                                 + parameters);
         return response;
+    }
+
+    private GenericContainer<?> createServer() throws IOException, InterruptedException {
+        GenericContainer<?> server =
+                new GenericContainer<>(getDockerImage())
+                        .withNetwork(NETWORK)
+                        .withEnv("TZ", "UTC")
+                        .withCommand(ContainerUtil.adaptPathForWin(binPath.toString()))
+                        .withNetworkAliases("server")
+                        .withExposedPorts()
+                        .withLogConsumer(
+                                new Slf4jLogConsumer(
+                                        DockerLoggerFactory.getLogger(
+                                                "seatunnel-engine:" + JDK_DOCKER_IMAGE)))
+                        .waitingFor(Wait.forListeningPort());
+        copySeaTunnelStarterToContainer(server);
+        server.setExposedPorts(Collections.singletonList(5801));
+        server.withCopyFileToContainer(
+                MountableFile.forHostPath(
+                        PROJECT_ROOT_PATH
+                                + "/seatunnel-e2e/seatunnel-engine-e2e/connector-seatunnel-e2e-base/src/test/resources/"),
+                config.toString());
+        server.withCopyFileToContainer(
+                MountableFile.forHostPath(
+                        PROJECT_ROOT_PATH
+                                + "/seatunnel-e2e/seatunnel-engine-e2e/connector-seatunnel-e2e-base/src/test/resources/cluster/"),
+                config.toString());
+        server.withCopyFileToContainer(
+                MountableFile.forHostPath(
+                        PROJECT_ROOT_PATH
+                                + "/seatunnel-shade/seatunnel-hadoop3-3.1.4-uber/target/seatunnel-hadoop3-3.1.4-uber.jar"),
+                hadoopJar.toString());
+        server.start();
+        // execute extra commands
+        executeExtraCommands(server);
+        ContainerUtil.copyConnectorJarToContainer(
+                server,
+                confFile,
+                getConnectorModulePath(),
+                getConnectorNamePrefix(),
+                getConnectorType(),
+                SEATUNNEL_HOME);
+
+        return server;
     }
 }
