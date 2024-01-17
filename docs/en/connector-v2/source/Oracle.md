@@ -25,7 +25,7 @@ Read external data source data through JDBC.
 
 ## Supported DataSource Info
 
-| Datasource |                    Supported versions                    |          Driver          |                  Url                   |                               Maven                                |
+| Datasource |                    Supported Versions                    |          Driver          |                  Url                   |                               Maven                                |
 |------------|----------------------------------------------------------|--------------------------|----------------------------------------|--------------------------------------------------------------------|
 | Oracle     | Different dependency version has different driver class. | oracle.jdbc.OracleDriver | jdbc:oracle:thin:@datasource01:1523:xe | https://mvnrepository.com/artifact/com.oracle.database.jdbc/ojdbc8 |
 
@@ -37,7 +37,7 @@ Read external data source data through JDBC.
 
 ## Data Type Mapping
 
-|                                   Oracle Data type                                   | SeaTunnel Data type |
+|                                   Oracle Data Type                                   | SeaTunnel Data Type |
 |--------------------------------------------------------------------------------------|---------------------|
 | INTEGER                                                                              | INT                 |
 | FLOAT                                                                                | DECIMAL(38, 18)     |

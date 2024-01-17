@@ -12,7 +12,7 @@
 > Flink<br/>
 > Seatunnel Zeta<br/>
 
-## Key features
+## Key Features
 
 - [x] [exactly-once](../../concept/connector-v2-features.md)
 - [x] [cdc](../../concept/connector-v2-features.md)
@@ -27,7 +27,7 @@ semantics (using XA transaction guarantee).
 
 ## Supported DataSource Info
 
-| datasource |   supported versions    |                    driver                    |               url               |                                       maven                                       |
+| Datasource |   Supported Versions    |                    Driver                    |               Url               |                                       Maven                                       |
 |------------|-------------------------|----------------------------------------------|---------------------------------|-----------------------------------------------------------------------------------|
 | SQL Server | support version >= 2008 | com.microsoft.sqlserver.jdbc.SQLServerDriver | jdbc:sqlserver://localhost:1433 | [Download](https://mvnrepository.com/artifact/com.microsoft.sqlserver/mssql-jdbc) |
 
@@ -38,7 +38,7 @@ semantics (using XA transaction guarantee).
 
 ## Data Type Mapping
 
-|                       SQLserver Data type                       |                                                                    Seatunnel Data type                                                                    |
+|                       SQLserver Data Type                       |                                                                    SeaTunnel Data Type                                                                    |
 |-----------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------|
 | BIT                                                             | BOOLEAN                                                                                                                                                   |
 | TINYINT<br/>SMALLINT                                            | SHORT                                                                                                                                                     |

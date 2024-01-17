@@ -37,7 +37,7 @@ Please download and put SqlServer driver in `${SEATUNNEL_HOME}/lib/` dir. For ex
 
 ## Data Type Mapping
 
-|                                        SQLserver Data type                                        |                SeaTunnel Data type                 |
+|                                        SQLserver Data Type                                        |                SeaTunnel Data Type                 |
 |---------------------------------------------------------------------------------------------------|----------------------------------------------------|
 | CHAR<br/>VARCHAR<br/>NCHAR<br/>NVARCHAR<br/>STRUCT<br/>CLOB<br/>LONGVARCHAR<br/>LONGNVARCHAR<br/> | STRING                                             |
 | BLOB                                                                                              | BYTES                                              |

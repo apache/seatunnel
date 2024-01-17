@@ -36,7 +36,7 @@
 
 ## Data Type Mapping
 
-|              Kingbase Data type              |                                                                SeaTunnel Data type                                                                |
+|              Kingbase Data Type              |                                                                SeaTunnel Data Type                                                                |
 |----------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------|
 | BOOL                                         | BOOLEAN                                                                                                                                           |
 | INT2                                         | SHORT                                                                                                                                             |

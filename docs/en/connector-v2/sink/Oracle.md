@@ -35,7 +35,7 @@ semantics (using XA transaction guarantee).
 
 ## Data Type Mapping
 
-|                                   Oracle Data type                                   | SeaTunnel Data type |
+|                                   Oracle Data Type                                   | SeaTunnel Data Type |
 |--------------------------------------------------------------------------------------|---------------------|
 | INTEGER                                                                              | INT                 |
 | FLOAT                                                                                | DECIMAL(38, 18)     |
