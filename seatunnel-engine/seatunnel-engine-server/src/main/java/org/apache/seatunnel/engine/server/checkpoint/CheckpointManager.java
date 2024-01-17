@@ -121,12 +121,14 @@ public class CheckpointManager {
                                                                     String.valueOf(jobId),
                                                                     String.valueOf(
                                                                             plan.getPipelineId()));
-                                            long checkpointId = pipelineState.getCheckpointId();
-                                            idCounter.setCount(checkpointId + 1);
-                                            log.info(
-                                                    "pipeline({}) start with savePoint on checkPointId({})",
-                                                    plan.getPipelineId(),
-                                                    checkpointId);
+                                            if (pipelineState != null) {
+                                                long checkpointId = pipelineState.getCheckpointId();
+                                                idCounter.setCount(checkpointId + 1);
+                                                log.info(
+                                                        "pipeline({}) start with savePoint on checkPointId({})",
+                                                        plan.getPipelineId(),
+                                                        checkpointId);
+                                            }
                                         }
                                         return new CheckpointCoordinator(
                                                 this,

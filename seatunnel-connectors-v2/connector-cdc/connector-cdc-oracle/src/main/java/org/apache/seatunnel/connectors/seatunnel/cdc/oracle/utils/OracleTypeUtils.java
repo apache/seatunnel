@@ -22,14 +22,11 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
 import io.debezium.relational.Column;
-import io.debezium.relational.Table;
 import oracle.jdbc.OracleTypes;
 
 import java.sql.Types;
-import java.util.List;
 
 /** Utilities for converting from oracle types to SeaTunnel types. */
 public class OracleTypeUtils {
@@ -77,18 +74,5 @@ public class OracleTypeUtils {
                                 "Don't support Oracle type '%s' yet, jdbcType:'%s'.",
                                 column.typeName(), column.jdbcType()));
         }
-    }
-
-    public static SeaTunnelRowType convertFromTable(Table table) {
-
-        List<Column> columns = table.columns();
-        String[] fieldNames = columns.stream().map(Column::name).toArray(String[]::new);
-
-        SeaTunnelDataType<?>[] fieldTypes =
-                columns.stream()
-                        .map(OracleTypeUtils::convertFromColumn)
-                        .toArray(SeaTunnelDataType[]::new);
-
-        return new SeaTunnelRowType(fieldNames, fieldTypes);
     }
 }
