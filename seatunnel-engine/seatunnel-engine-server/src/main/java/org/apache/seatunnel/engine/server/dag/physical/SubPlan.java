@@ -286,7 +286,6 @@ public class SubPlan {
                         jobMaster.removeMetricsContext(getPipelineLocation(), pipelineStatus);
                         notifyCheckpointManagerPipelineEnd(pipelineStatus);
                         jobMaster.releasePipelineResource(this);
-                        log.warn("-----------------------subPlanDone--------------------");
                         return null;
                     },
                     new RetryUtils.RetryMaterial(

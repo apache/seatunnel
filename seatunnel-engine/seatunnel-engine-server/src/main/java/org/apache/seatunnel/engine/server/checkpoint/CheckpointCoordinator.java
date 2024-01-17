@@ -776,7 +776,7 @@ public class CheckpointCoordinator {
             LOG.error("store checkpoint states failed.", e);
             sneakyThrow(e);
         }
-        LOG.warn(
+        LOG.info(
                 "pending checkpoint({}/{}@{}) notify finished!",
                 completedCheckpoint.getCheckpointId(),
                 completedCheckpoint.getPipelineId(),

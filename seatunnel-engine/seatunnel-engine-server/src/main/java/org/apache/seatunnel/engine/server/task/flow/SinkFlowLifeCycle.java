@@ -113,9 +113,6 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         this.containAggCommitter = containAggCommitter;
         this.metricsContext = metricsContext;
         sinkWriteCount = metricsContext.counter(SINK_WRITE_COUNT);
-        if (sinkWriteCount.getCount() == 0) {
-            System.out.println("ho");
-        }
         sinkWriteQPS = metricsContext.meter(SINK_WRITE_QPS);
         sinkWriteBytes = metricsContext.counter(SINK_WRITE_BYTES);
         sinkWriteBytesPerSeconds = metricsContext.meter(SINK_WRITE_BYTES_PER_SECONDS);
