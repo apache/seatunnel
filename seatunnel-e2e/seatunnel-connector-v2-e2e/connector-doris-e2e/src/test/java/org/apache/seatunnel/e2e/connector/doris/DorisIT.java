@@ -109,6 +109,7 @@ public class DorisIT extends AbstractDorisIT {
         Assertions.assertEquals(0, execResult.getExitCode());
         checkSinkData();
 
+        batchInsertData();
         Container.ExecResult execResult2 =
                 container.executeJob("/doris_source_and_sink_2pc_false.conf");
         Assertions.assertEquals(0, execResult2.getExitCode());
@@ -177,6 +178,7 @@ public class DorisIT extends AbstractDorisIT {
 
     private void clearSinkTable() {
         try (Statement statement = conn.createStatement()) {
+            statement.execute(String.format("TRUNCATE TABLE %s.%s", sourceDB, TABLE));
             statement.execute(String.format("TRUNCATE TABLE %s.%s", sinkDB, TABLE));
         } catch (SQLException e) {
             throw new RuntimeException("test doris server image error", e);
