@@ -72,8 +72,8 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
     @BeforeEach
     public void startUp() throws Exception {
 
-        server = createServer();
-        secondServer = createServer();
+        server = createServer("server");
+        secondServer = createServer("secondServer");
 
         // check cluster
         Awaitility.await()
@@ -417,13 +417,13 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
         return response;
     }
 
-    private GenericContainer<?> createServer() throws IOException, InterruptedException {
+    private GenericContainer<?> createServer(String networkAlias) throws IOException, InterruptedException {
         GenericContainer<?> server =
                 new GenericContainer<>(getDockerImage())
                         .withNetwork(NETWORK)
                         .withEnv("TZ", "UTC")
                         .withCommand(ContainerUtil.adaptPathForWin(binPath.toString()))
-                        .withNetworkAliases("server")
+                        .withNetworkAliases(networkAlias)
                         .withExposedPorts()
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
