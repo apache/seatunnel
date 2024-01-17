@@ -470,18 +470,24 @@ public class CheckpointCoordinator {
                 .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().size()));
     }
 
+    @SneakyThrows
     public PassiveCompletableFuture<CompletedCheckpoint> startSavepoint() {
         LOG.info(String.format("Start save point for Job (%s)", jobId));
         if (!isAllTaskReady) {
-            CompletableFuture savepointFuture = new CompletableFuture();
+            CompletableFuture<CompletedCheckpoint> savepointFuture = new CompletableFuture<>();
             savepointFuture.completeExceptionally(
                     new CheckpointException(
                             CheckpointCloseReason.TASK_NOT_ALL_READY_WHEN_SAVEPOINT));
             return new PassiveCompletableFuture<>(savepointFuture);
         }
-        CompletableFuture<PendingCheckpoint> savepoint =
-                createPendingCheckpoint(Instant.now().toEpochMilli(), SAVEPOINT_TYPE);
-        startTriggerPendingCheckpoint(savepoint);
+        CompletableFuture<PendingCheckpoint> savepoint;
+        synchronized (lock) {
+            while (pendingCounter.get() > 0) {
+                Thread.sleep(500);
+            }
+            savepoint = createPendingCheckpoint(Instant.now().toEpochMilli(), SAVEPOINT_TYPE);
+            startTriggerPendingCheckpoint(savepoint);
+        }
         PendingCheckpoint savepointPendingCheckpoint = savepoint.join();
         LOG.info(
                 String.format(

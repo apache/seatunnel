@@ -401,11 +401,6 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                     String.format(
                                             "Task %s complete with state %s",
                                             r.getTaskGroupLocation(), r.getExecutionState()));
-
-                            // update metrics
-                            updateDoneTaskMetricsContextInImap(
-                                    getExecutionContext(taskGroup.getTaskGroupLocation()));
-
                             notifyTaskStatusToMaster(taskGroup.getTaskGroupLocation(), r);
                         }),
                 executorService);
@@ -574,65 +569,26 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                     });
                 });
         if (localMap.size() > 0) {
-            updateMetrics(metricsImap, localMap);
-        }
-        this.printTaskExecutionRuntimeInfo();
-    }
-
-    private void updateDoneTaskMetricsContextInImap(TaskGroupContext taskGroupContext) {
-        if (!nodeEngine.getNode().getState().equals(NodeState.ACTIVE)) {
-            logger.warning(
-                    String.format(
-                            "The Node is not ready yet, Node state %s,looking forward to the next "
-                                    + "scheduling",
-                            nodeEngine.getNode().getState()));
-            return;
-        }
-        IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap =
-                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_METRICS);
-        HashMap<TaskLocation, SeaTunnelMetricsContext> localMap = new HashMap<>();
-        taskGroupContext
-                .getTaskGroup()
-                .getTasks()
-                .forEach(
-                        task -> {
-                            // MetricsContext only exists in SeaTunnelTask
-                            if (task instanceof SeaTunnelTask) {
-                                SeaTunnelTask seaTunnelTask = (SeaTunnelTask) task;
-                                if (null != seaTunnelTask.getMetricsContext()) {
-                                    localMap.put(
-                                            seaTunnelTask.getTaskLocation(),
-                                            seaTunnelTask.getMetricsContext());
-                                }
-                            }
-                        });
-        if (localMap.size() > 0) {
-            updateMetrics(metricsImap, localMap);
-        }
-        this.printTaskExecutionRuntimeInfo();
-    }
-
-    private void updateMetrics(
-            IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap,
-            HashMap<TaskLocation, SeaTunnelMetricsContext> localMap) {
-        try {
-            if (!metricsImap.tryLock(Constant.IMAP_RUNNING_JOB_METRICS_KEY, 2, TimeUnit.SECONDS)) {
-                logger.info("try lock failed in update metrics");
-                return;
+            try {
+                if (!metricsImap.tryLock(
+                        Constant.IMAP_RUNNING_JOB_METRICS_KEY, 2, TimeUnit.SECONDS)) {
+                    logger.info("try lock failed in update metrics");
+                    return;
+                }
+                HashMap<TaskLocation, SeaTunnelMetricsContext> centralMap =
+                        metricsImap.computeIfAbsent(
+                                Constant.IMAP_RUNNING_JOB_METRICS_KEY, k -> new HashMap<>());
+                centralMap.putAll(localMap);
+                metricsImap.put(Constant.IMAP_RUNNING_JOB_METRICS_KEY, centralMap);
+            } catch (Exception e) {
+                logger.warning(
+                        "The Imap acquisition failed due to the hazelcast node being offline or restarted, and will be retried next time",
+                        e);
+            } finally {
+                metricsImap.unlock(Constant.IMAP_RUNNING_JOB_METRICS_KEY);
             }
-            HashMap<TaskLocation, SeaTunnelMetricsContext> centralMap =
-                    metricsImap.computeIfAbsent(
-                            Constant.IMAP_RUNNING_JOB_METRICS_KEY, k -> new HashMap<>());
-            centralMap.putAll(localMap);
-            metricsImap.put(Constant.IMAP_RUNNING_JOB_METRICS_KEY, centralMap);
-            logger.warning("Update metrics success");
-        } catch (Exception e) {
-            logger.warning(
-                    "The Imap acquisition failed due to the hazelcast node being offline or restarted, and will be retried next time",
-                    e);
-        } finally {
-            metricsImap.unlock(Constant.IMAP_RUNNING_JOB_METRICS_KEY);
         }
+        this.printTaskExecutionRuntimeInfo();
     }
 
     public void printTaskExecutionRuntimeInfo() {
