@@ -35,9 +35,7 @@ import org.apache.seatunnel.connectors.doris.sink.committer.DorisCommitInfo;
 import org.apache.seatunnel.connectors.doris.util.HttpUtil;
 import org.apache.seatunnel.connectors.doris.util.UnsupportedTypeConverterUtils;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -76,7 +74,6 @@ public class DorisSinkWriter
     private transient Thread executorThread;
     private transient volatile Exception loadException = null;
     private List<BackendV2.BackendRowV2> backends;
-    private long pos;
 
     public DorisSinkWriter(
             SinkWriter.Context context,
@@ -156,7 +153,7 @@ public class DorisSinkWriter
     @Override
     public Optional<DorisCommitInfo> prepareCommit() throws IOException {
         RespContent respContent = flush();
-        if (!dorisConfig.getEnable2PC()) {
+        if (!dorisConfig.getEnable2PC() || respContent == null) {
             return Optional.empty();
         }
         long txnId = respContent.getTxnId();
@@ -165,12 +162,12 @@ public class DorisSinkWriter
                 new DorisCommitInfo(dorisStreamLoad.getHostPort(), dorisStreamLoad.getDb(), txnId));
     }
 
-    @NonNull private RespContent flush() throws IOException {
+    private RespContent flush() throws IOException {
         // disable exception checker before stop load.
         loading = false;
         checkState(dorisStreamLoad != null);
         RespContent respContent = dorisStreamLoad.stopLoad();
-        if (!DORIS_SUCCESS_STATUS.contains(respContent.getStatus())) {
+        if (respContent != null && !DORIS_SUCCESS_STATUS.contains(respContent.getStatus())) {
             String errMsg =
                     String.format(
                             "stream load error: %s, see more in %s",
@@ -253,14 +250,11 @@ public class DorisSinkWriter
         }
     }
 
-    @VisibleForTesting
-    public String getAvailableBackend() {
-        long tmp = pos + backends.size();
-        while (pos < tmp) {
-            BackendV2.BackendRowV2 backend = backends.get((int) (pos % backends.size()));
+    private String getAvailableBackend() {
+        Collections.shuffle(backends);
+        for (BackendV2.BackendRowV2 backend : backends) {
             String res = backend.toBackendString();
             if (tryHttpConnection(res)) {
-                pos++;
                 return res;
             }
         }
@@ -279,7 +273,6 @@ public class DorisSinkWriter
             return true;
         } catch (Exception ex) {
             log.warn("Failed to connect to backend:{}", backend, ex);
-            pos++;
             return false;
         }
     }

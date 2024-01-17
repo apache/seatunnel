@@ -45,6 +45,7 @@ import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.Getter;
@@ -260,7 +261,8 @@ public class CheckpointCoordinator {
                         });
     }
 
-    private void handleCoordinatorError(String message, Throwable e, CheckpointCloseReason reason) {
+    @VisibleForTesting
+    public void handleCoordinatorError(String message, Throwable e, CheckpointCloseReason reason) {
         LOG.error(message, e);
         handleCoordinatorError(reason, e);
     }
@@ -277,8 +279,7 @@ public class CheckpointCoordinator {
         checkpointCoordinatorFuture.complete(
                 new CheckpointCoordinatorState(
                         CheckpointCoordinatorStatus.FAILED, errorByPhysicalVertex.get()));
-        checkpointManager.handleCheckpointError(
-                pipelineId, reason.equals(CheckpointCloseReason.CHECKPOINT_NOTIFY_COMPLETE_FAILED));
+        checkpointManager.handleCheckpointError(pipelineId, false);
     }
 
     private void restoreTaskState(TaskLocation taskLocation) {
@@ -469,18 +470,24 @@ public class CheckpointCoordinator {
                 .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().size()));
     }
 
+    @SneakyThrows
     public PassiveCompletableFuture<CompletedCheckpoint> startSavepoint() {
         LOG.info(String.format("Start save point for Job (%s)", jobId));
         if (!isAllTaskReady) {
-            CompletableFuture savepointFuture = new CompletableFuture();
+            CompletableFuture<CompletedCheckpoint> savepointFuture = new CompletableFuture<>();
             savepointFuture.completeExceptionally(
                     new CheckpointException(
                             CheckpointCloseReason.TASK_NOT_ALL_READY_WHEN_SAVEPOINT));
             return new PassiveCompletableFuture<>(savepointFuture);
         }
-        CompletableFuture<PendingCheckpoint> savepoint =
-                createPendingCheckpoint(Instant.now().toEpochMilli(), SAVEPOINT_TYPE);
-        startTriggerPendingCheckpoint(savepoint);
+        CompletableFuture<PendingCheckpoint> savepoint;
+        synchronized (lock) {
+            while (pendingCounter.get() > 0) {
+                Thread.sleep(500);
+            }
+            savepoint = createPendingCheckpoint(Instant.now().toEpochMilli(), SAVEPOINT_TYPE);
+            startTriggerPendingCheckpoint(savepoint);
+        }
         PendingCheckpoint savepointPendingCheckpoint = savepoint.join();
         LOG.info(
                 String.format(
@@ -823,6 +830,18 @@ public class CheckpointCoordinator {
             return false;
         }
         return latestCompletedCheckpoint.getCheckpointType().isFinalCheckpoint()
+                && !latestCompletedCheckpoint.isRestored();
+    }
+
+    public boolean isNoErrorCompleted() {
+        if (latestCompletedCheckpoint == null) {
+            return false;
+        }
+        CheckpointCoordinatorStatus status =
+                (CheckpointCoordinatorStatus) runningJobStateIMap.get(checkpointStateImapKey);
+        return latestCompletedCheckpoint.getCheckpointType().isFinalCheckpoint()
+                && (status.equals(CheckpointCoordinatorStatus.FINISHED)
+                        || status.equals(CheckpointCoordinatorStatus.SUSPEND))
                 && !latestCompletedCheckpoint.isRestored();
     }
 
