@@ -37,7 +37,6 @@ import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationSchem
 import org.apache.seatunnel.connectors.cdc.debezium.DeserializeFormat;
 import org.apache.seatunnel.connectors.cdc.debezium.row.DebeziumJsonDeserializeSchema;
 import org.apache.seatunnel.connectors.cdc.debezium.row.SeaTunnelRowDebeziumDeserializeSchema;
-import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.config.OracleSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.config.OracleSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.offset.RedoLogOffsetFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions;
@@ -45,23 +44,17 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions
 import org.apache.kafka.connect.data.Struct;
 
 import com.google.auto.service.AutoService;
-import io.debezium.connector.oracle.OracleConnection;
 import io.debezium.jdbc.JdbcConnection;
-import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
 import io.debezium.relational.history.ConnectTableChangeSerializer;
 import io.debezium.relational.history.TableChanges;
 import lombok.NoArgsConstructor;
 
-import java.sql.SQLException;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-
-import static org.apache.seatunnel.connectors.seatunnel.cdc.oracle.utils.OracleConnectionUtils.createOracleConnection;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.oracle.utils.OracleTypeUtils.convertFromTable;
 
 @NoArgsConstructor
 @AutoService(SeaTunnelSource.class)
@@ -116,26 +109,7 @@ public class OracleIncrementalSource<T> extends IncrementalSource<T, JdbcSourceC
                             config.get(JdbcSourceOptions.DEBEZIUM_PROPERTIES));
         }
 
-        SeaTunnelDataType<SeaTunnelRow> physicalRowType;
-        if (dataType == null) {
-            OracleSourceConfig oracleSourceConfig =
-                    (OracleSourceConfig) this.configFactory.create(0);
-            TableId tableId =
-                    this.dataSourceDialect.discoverDataCollections(oracleSourceConfig).get(0);
-            Table table;
-            try (OracleConnection oracleConnection =
-                    createOracleConnection(oracleSourceConfig.getDbzConfiguration())) {
-                table =
-                        ((OracleDialect) dataSourceDialect)
-                                .queryTableSchema(oracleConnection, tableId)
-                                .getTable();
-            } catch (SQLException e) {
-                throw new SeaTunnelException(e);
-            }
-            physicalRowType = convertFromTable(table);
-        } else {
-            physicalRowType = dataType;
-        }
+        SeaTunnelDataType<SeaTunnelRow> physicalRowType = dataType;
         String zoneId = config.get(JdbcSourceOptions.SERVER_TIME_ZONE);
         return (DebeziumDeserializationSchema<T>)
                 SeaTunnelRowDebeziumDeserializeSchema.builder()
@@ -147,7 +121,7 @@ public class OracleIncrementalSource<T> extends IncrementalSource<T, JdbcSourceC
 
     @Override
     public DataSourceDialect<JdbcSourceConfig> createDataSourceDialect(ReadonlyConfig config) {
-        return new OracleDialect((OracleSourceConfigFactory) configFactory);
+        return new OracleDialect((OracleSourceConfigFactory) configFactory, catalogTables);
     }
 
     @Override
@@ -158,7 +132,8 @@ public class OracleIncrementalSource<T> extends IncrementalSource<T, JdbcSourceC
 
     private Map<TableId, Struct> tableChanges() {
         JdbcSourceConfig jdbcSourceConfig = configFactory.create(0);
-        OracleDialect dialect = new OracleDialect((OracleSourceConfigFactory) configFactory);
+        OracleDialect dialect =
+                new OracleDialect((OracleSourceConfigFactory) configFactory, catalogTables);
         List<TableId> discoverTables = dialect.discoverDataCollections(jdbcSourceConfig);
         ConnectTableChangeSerializer connectTableChangeSerializer =
                 new ConnectTableChangeSerializer();

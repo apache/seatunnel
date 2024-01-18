@@ -19,13 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.oracle.utils;
 
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleTypeConverter;
 
 import io.debezium.relational.Column;
-import io.debezium.relational.Table;
-
-import java.util.List;
 
 /** Utilities for converting from oracle types to SeaTunnel types. */
 public class OracleTypeUtils {
@@ -43,18 +39,5 @@ public class OracleTypeUtils {
         org.apache.seatunnel.api.table.catalog.Column seaTunnelColumn =
                 OracleTypeConverter.INSTANCE.convert(typeDefine);
         return seaTunnelColumn.getDataType();
-    }
-
-    public static SeaTunnelRowType convertFromTable(Table table) {
-
-        List<Column> columns = table.columns();
-        String[] fieldNames = columns.stream().map(Column::name).toArray(String[]::new);
-
-        SeaTunnelDataType<?>[] fieldTypes =
-                columns.stream()
-                        .map(OracleTypeUtils::convertFromColumn)
-                        .toArray(SeaTunnelDataType[]::new);
-
-        return new SeaTunnelRowType(fieldNames, fieldTypes);
     }
 }

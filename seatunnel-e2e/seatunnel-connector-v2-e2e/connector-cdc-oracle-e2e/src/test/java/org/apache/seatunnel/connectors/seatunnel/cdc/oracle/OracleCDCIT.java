@@ -99,6 +99,7 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
     private static final String DATABASE = "DEBEZIUM";
     private static final String SOURCE_TABLE1 = "FULL_TYPES";
     private static final String SOURCE_TABLE2 = "FULL_TYPES2";
+    private static final String SOURCE_TABLE_NO_PRIMARY_KEY = "FULL_TYPES_NO_PRIMARY_KEY";
 
     private static final String SINK_TABLE1 = "SINK_FULL_TYPES";
     private static final String SINK_TABLE2 = "SINK_FULL_TYPES2";
@@ -171,6 +172,97 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
                         () -> {
                             Assertions.assertIterableEquals(
                                     querySql(getSourceQuerySQL(DATABASE, SOURCE_TABLE1)),
+                                    querySql(getSourceQuerySQL(DATABASE, SINK_TABLE1)));
+                        });
+    }
+
+    @TestTemplate
+    public void testOracleCdcCheckDataWithNoPrimaryKey(TestContainer container) throws Exception {
+
+        clearTable(DATABASE, SOURCE_TABLE_NO_PRIMARY_KEY);
+        clearTable(DATABASE, SINK_TABLE1);
+
+        insertSourceTable(DATABASE, SOURCE_TABLE_NO_PRIMARY_KEY);
+
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.executeJob("/oraclecdc_to_oracle_with_no_primary_key.conf");
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
+
+        // snapshot stage
+        await().atMost(600000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertIterableEquals(
+                                    querySql(
+                                            getSourceQuerySQL(
+                                                    DATABASE, SOURCE_TABLE_NO_PRIMARY_KEY)),
+                                    querySql(getSourceQuerySQL(DATABASE, SINK_TABLE1)));
+                        });
+
+        // insert update delete
+        updateSourceTable(DATABASE, SOURCE_TABLE_NO_PRIMARY_KEY);
+
+        // stream stage
+        await().atMost(600000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertIterableEquals(
+                                    querySql(
+                                            getSourceQuerySQL(
+                                                    DATABASE, SOURCE_TABLE_NO_PRIMARY_KEY)),
+                                    querySql(getSourceQuerySQL(DATABASE, SINK_TABLE1)));
+                        });
+    }
+
+    @TestTemplate
+    public void testOracleCdcCheckDataWithCustomPrimaryKey(TestContainer container)
+            throws Exception {
+
+        clearTable(DATABASE, SOURCE_TABLE_NO_PRIMARY_KEY);
+        clearTable(DATABASE, SINK_TABLE1);
+
+        insertSourceTable(DATABASE, SOURCE_TABLE_NO_PRIMARY_KEY);
+
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.executeJob("/oraclecdc_to_oracle_with_custom_primary_key.conf");
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
+
+        // snapshot stage
+        await().atMost(600000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertIterableEquals(
+                                    querySql(
+                                            getSourceQuerySQL(
+                                                    DATABASE, SOURCE_TABLE_NO_PRIMARY_KEY)),
+                                    querySql(getSourceQuerySQL(DATABASE, SINK_TABLE1)));
+                        });
+
+        // insert update delete
+        updateSourceTable(DATABASE, SOURCE_TABLE_NO_PRIMARY_KEY);
+
+        // stream stage
+        await().atMost(600000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertIterableEquals(
+                                    querySql(
+                                            getSourceQuerySQL(
+                                                    DATABASE, SOURCE_TABLE_NO_PRIMARY_KEY)),
                                     querySql(getSourceQuerySQL(DATABASE, SINK_TABLE1)));
                         });
     }

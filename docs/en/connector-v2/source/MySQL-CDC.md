@@ -55,7 +55,7 @@ mysql> GRANT SELECT, RELOAD, SHOW DATABASES, REPLICATION SLAVE, REPLICATION CLIE
 mysql> FLUSH PRIVILEGES;
 ```
 
-### Enabling the MySQL binlog
+### Enabling the MySQL Binlog
 
 You must enable binary logging for MySQL replication. The binary logs record transaction updates for replication tools to propagate changes.
 
@@ -127,7 +127,7 @@ When an initial consistent snapshot is made for large databases, your establishe
 
 ## Data Type Mapping
 
-|                                        Mysql Data type                                         | SeaTunnel Data type |
+|                                        Mysql Data Type                                         | SeaTunnel Data Type |
 |------------------------------------------------------------------------------------------------|---------------------|
 | BIT(1)<br/>TINYINT(1)                                                                          | BOOLEAN             |
 | TINYINT                                                                                        | TINYINT             |

@@ -35,7 +35,7 @@ semantics (using XA transaction guarantee).
 
 ## Data Type Mapping
 
-|                                   Oracle Data type                                   | SeaTunnel Data type |
+|                                   Oracle Data Type                                   | SeaTunnel Data Type |
 |--------------------------------------------------------------------------------------|---------------------|
 | INTEGER                                                                              | INT                 |
 | FLOAT                                                                                | DECIMAL(38, 18)     |
@@ -74,10 +74,11 @@ semantics (using XA transaction guarantee).
 | transaction_timeout_sec                   | Int     | No       | -1                           | The timeout after the transaction is opened, the default is -1 (never timeout). Note that setting the timeout may affect<br/>exactly-once semantics                                                                                            |
 | auto_commit                               | Boolean | No       | true                         | Automatic transaction commit is enabled by default                                                                                                                                                                                             |
 | properties                                | Map     | No       | -                            | Additional connection configuration parameters,when properties and URL have the same parameters, the priority is determined by the <br/>specific implementation of the driver. For example, in MySQL, properties take precedence over the URL. |
-| common-options                            |         | no       | -                            | Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details                                                                                                                                            |
-| schema_save_mode                          | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | Before the synchronous task is turned on, different treatment schemes are selected for the existing surface structure of the target side.                                                                                                      |
-| data_save_mode                            | Enum    | no       | APPEND_DATA                  | Before the synchronous task is turned on, different processing schemes are selected for data existing data on the target side.                                                                                                                 |
-| custom_sql                                | String  | no       | -                            | When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.                                     |
+| common-options                            |         | No       | -                            | Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details                                                                                                                                            |
+| schema_save_mode                          | Enum    | No       | CREATE_SCHEMA_WHEN_NOT_EXIST | Before the synchronous task is turned on, different treatment schemes are selected for the existing surface structure of the target side.                                                                                                      |
+| data_save_mode                            | Enum    | No       | APPEND_DATA                  | Before the synchronous task is turned on, different processing schemes are selected for data existing data on the target side.                                                                                                                 |
+| custom_sql                                | String  | No       | -                            | When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.                                     |
+| enable_upsert                             | Boolean | No       | true                         | Enable upsert by primary_keys exist, If the task has no key duplicate data, setting this parameter to `false` can speed up data import                                                                                                         |
 
 ### Tips
 

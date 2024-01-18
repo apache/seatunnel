@@ -33,7 +33,7 @@ In order to use this connector, You must ensure your spark/flink cluster already
 
 ## Data Type Mapping
 
-| Hudi Data type | Seatunnel Data type |
+| Hudi Data Type | Seatunnel Data Type |
 |----------------|---------------------|
 | ALL TYPE       | STRING              |
 

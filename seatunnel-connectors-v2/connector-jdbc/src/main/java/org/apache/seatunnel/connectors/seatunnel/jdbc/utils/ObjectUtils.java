@@ -30,6 +30,10 @@ public class ObjectUtils {
             return Math.addExact((Integer) number, augend);
         } else if (number instanceof Long) {
             return Math.addExact((Long) number, augend);
+        } else if (number instanceof Float) {
+            return ((Float) number) + augend;
+        } else if (number instanceof Double) {
+            return ((Double) number) + augend;
         } else if (number instanceof BigInteger) {
             return ((BigInteger) number).add(BigInteger.valueOf(augend));
         } else if (number instanceof BigDecimal) {
@@ -56,6 +60,12 @@ public class ObjectUtils {
         } else if (minuend instanceof Long) {
             return BigDecimal.valueOf((long) minuend)
                     .subtract(BigDecimal.valueOf((long) subtrahend));
+        } else if (minuend instanceof Float) {
+            return BigDecimal.valueOf((float) minuend)
+                    .subtract(BigDecimal.valueOf((float) subtrahend));
+        } else if (minuend instanceof Double) {
+            return BigDecimal.valueOf((double) minuend)
+                    .subtract(BigDecimal.valueOf((double) subtrahend));
         } else if (minuend instanceof BigInteger) {
             return new BigDecimal(
                     ((BigInteger) minuend).subtract((BigInteger) subtrahend).toString());
