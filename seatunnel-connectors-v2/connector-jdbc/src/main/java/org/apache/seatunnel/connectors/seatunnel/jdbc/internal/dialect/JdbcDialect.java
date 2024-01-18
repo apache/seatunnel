@@ -36,7 +36,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -304,7 +303,11 @@ public interface JdbcDialect extends Serializable {
      * @throws SQLException If an SQL error occurs during the sampling operation.
      */
     default Object[] sampleDataFromColumn(
-            Connection connection, JdbcSourceTable table, String columnName, int samplingRate, int fetchSize)
+            Connection connection,
+            JdbcSourceTable table,
+            String columnName,
+            int samplingRate,
+            int fetchSize)
             throws SQLException {
         String sampleQuery;
         if (StringUtils.isNotBlank(table.getQuery())) {
