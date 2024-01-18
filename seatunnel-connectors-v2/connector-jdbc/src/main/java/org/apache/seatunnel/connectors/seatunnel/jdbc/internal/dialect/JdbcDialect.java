@@ -304,7 +304,7 @@ public interface JdbcDialect extends Serializable {
      * @throws SQLException If an SQL error occurs during the sampling operation.
      */
     default Object[] sampleDataFromColumn(
-            Connection connection, JdbcSourceTable table, String columnName, int samplingRate)
+            Connection connection, JdbcSourceTable table, String columnName, int samplingRate, int fetchSize)
             throws SQLException {
         String sampleQuery;
         if (StringUtils.isNotBlank(table.getQuery())) {
@@ -319,10 +319,9 @@ public interface JdbcDialect extends Serializable {
                             quoteIdentifier(columnName), tableIdentifier(table.getTablePath()));
         }
 
-        try (Statement stmt = connection.createStatement()) {
-            stmt.setFetchSize(1024);
+        try (PreparedStatement stmt = creatPreparedStatement(connection, sampleQuery, fetchSize)) {
             log.info(String.format("Split Chunk, approximateRowCntStatement: %s", sampleQuery));
-            try (ResultSet rs = stmt.executeQuery(sampleQuery)) {
+            try (ResultSet rs = stmt.executeQuery()) {
                 int count = 0;
                 List<Object> results = new ArrayList<>();
 

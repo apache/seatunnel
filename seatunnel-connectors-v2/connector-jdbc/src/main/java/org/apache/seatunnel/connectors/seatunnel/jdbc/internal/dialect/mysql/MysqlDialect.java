@@ -126,7 +126,7 @@ public class MysqlDialect implements JdbcDialect {
 
     @Override
     public Object[] sampleDataFromColumn(
-            Connection connection, JdbcSourceTable table, String columnName, int samplingRate)
+            Connection connection, JdbcSourceTable table, String columnName, int samplingRate, int fetchSize)
             throws SQLException {
         String sampleQuery;
         if (StringUtils.isNotBlank(table.getQuery())) {
