@@ -87,10 +87,6 @@ public class SeaTunnelClient implements SeaTunnelClientInstance, AutoCloseable {
                 SeaTunnelPrintMessageCodec::decodeResponse);
     }
 
-    public void shutdown() {
-        hazelcastClient.shutdown();
-    }
-
     /**
      * get job status and the tasks status
      *
