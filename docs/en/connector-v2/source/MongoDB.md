@@ -92,7 +92,7 @@ The following example demonstrates how to create a data synchronization job that
 ```bash
 # Set the basic configuration of the task to be performed
 env {
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "BATCH"
 }
 
@@ -284,7 +284,7 @@ This operation will perform a string mapping on a single MongoDB data entry.
 
 ```bash
 env {
-  execution.parallelism = 10
+  parallelism = 10
   job.mode = "BATCH"
 }
 source {

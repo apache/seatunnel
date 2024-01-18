@@ -36,7 +36,7 @@ Next, I'll show how to quickly use SeaTunnel's own `base64` encryption:
    #
 
    env {
-     execution.parallelism = 1
+     parallelism = 1
      shade.identifier = "base64"
    }
 
@@ -85,7 +85,7 @@ Next, I'll show how to quickly use SeaTunnel's own `base64` encryption:
    2023-02-20 17:50:58,319 INFO  org.apache.seatunnel.core.starter.command.ConfEncryptCommand - Encrypt config: 
    {
        "env" : {
-           "execution.parallelism" : 1,
+           "parallelism" : 1,
            "shade.identifier" : "base64"
        },
        "source" : [

@@ -29,11 +29,14 @@ import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+@Slf4j
 public class ConnectorSpecificationCheckTest {
 
     @Test
@@ -72,6 +75,9 @@ public class ConnectorSpecificationCheckTest {
                         getProducedCatalogTables.isPresent(),
                         "Please implement `getProducedCatalogTables` method in "
                                 + sourceClass.getSimpleName());
+                log.info(
+                        "Check source connector {} successfully",
+                        factory.getClass().getSimpleName());
             }
         }
 
@@ -107,6 +113,8 @@ public class ConnectorSpecificationCheckTest {
                 Assertions.assertFalse(
                         getConsumedType.isPresent(),
                         "Please remove `getConsumedType` method in " + sinkClass.getSimpleName());
+                log.info(
+                        "Check sink connector {} successfully", factory.getClass().getSimpleName());
             }
         }
     }

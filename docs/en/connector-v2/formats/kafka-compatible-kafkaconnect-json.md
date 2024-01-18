@@ -8,7 +8,7 @@ Seatunnel connector kafka supports parsing data extracted through kafka connect 
 
 ```bash
 env {
-    execution.parallelism = 1
+    parallelism = 1
     job.mode = "BATCH"
 }
 

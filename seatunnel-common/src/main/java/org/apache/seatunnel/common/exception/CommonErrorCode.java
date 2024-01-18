@@ -19,8 +19,9 @@ package org.apache.seatunnel.common.exception;
 
 /** SeaTunnel connector error code interface */
 public enum CommonErrorCode implements SeaTunnelErrorCode {
-    JSON_OPERATION_FAILED("COMMON-02", "<format> JSON convert/parse '<payload>' operation failed."),
-
+    FILE_OPERATION_FAILED("COMMON-01", "<identifier> <operation> file '<fileName>' failed."),
+    JSON_OPERATION_FAILED(
+            "COMMON-02", "<identifier> JSON convert/parse '<payload>' operation failed."),
     UNSUPPORTED_DATA_TYPE(
             "COMMON-07", "'<identifier>' unsupported data type '<dataType>' of '<field>'"),
     CONVERT_TO_SEATUNNEL_TYPE_ERROR(
@@ -40,7 +41,13 @@ public enum CommonErrorCode implements SeaTunnelErrorCode {
             "'<catalogName>' table '<tableName>' unsupported get catalog table with field data types '<fieldWithDataTypes>'"),
     GET_CATALOG_TABLES_WITH_UNSUPPORTED_TYPE_ERROR(
             "COMMON-21",
-            "'<catalogName>' tables unsupported get catalog table，the corresponding field types in the following tables are not supported: '<tableUnsupportedTypes>'");
+            "'<catalogName>' tables unsupported get catalog table，the corresponding field types in the following tables are not supported: '<tableUnsupportedTypes>'"),
+    FILE_NOT_EXISTED(
+            "COMMON-22",
+            "<identifier> <operation> file '<fileName>' failed, because it not existed."),
+    WRITE_SEATUNNEL_ROW_ERROR(
+            "COMMON-23",
+            "<connector> write SeaTunnelRow failed, the SeaTunnelRow value is '<seaTunnelRow>'.");
 
     private final String code;
     private final String description;

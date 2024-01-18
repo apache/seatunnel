@@ -29,6 +29,7 @@ public interface Job {
 
     JobStatus getJobStatus();
 
+    @Deprecated
     default JobStatus waitForJobComplete() {
         return waitForJobCompleteV2().getStatus();
     }

@@ -66,7 +66,8 @@ Write data through jdbc. Support Batch mode and Streaming mode, support concurre
 | transaction_timeout_sec                   | Int     | No       | -1            | The timeout after the transaction is opened, the default is -1 (never timeout). Note that setting the timeout may affect<br/>exactly-once semantics                                                                                            |
 | auto_commit                               | Boolean | No       | true          | Automatic transaction commit is enabled by default                                                                                                                                                                                             |
 | properties                                | Map     | No       | -             | Additional connection configuration parameters,when properties and URL have the same parameters, the priority is determined by the <br/>specific implementation of the driver. For example, in MySQL, properties take precedence over the URL. |
-| common-options                            |         | no       | -             | Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details                                                                                                                                            |
+| common-options                            |         | No       | -             | Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details                                                                                                                                            |
+| enable_upsert                             | Boolean | No       | true          | Enable upsert by primary_keys exist, If the task has no key duplicate data, setting this parameter to `false` can speed up data import                                                                                                         |
 
 ## tips
 
@@ -81,40 +82,39 @@ Write data through jdbc. Support Batch mode and Streaming mode, support concurre
 ```
 # Defining the runtime environment
 env {
-# You can set flink configuration here
-execution.parallelism = 1
-job.mode = "BATCH"
+    parallelism = 1
+    job.mode = "BATCH"
 }
 source {
-# This is a example source plugin **only for test and demonstrate the feature source plugin**
-FakeSource {
-parallelism = 1
-result_table_name = "fake"
-row.num = 16
-schema = {
-fields {
-name = "string"
-age = "int"
-}
-}
-}
-# If you would like to get more information about how to configure seatunnel and see full list of source plugins,
-# please go to https://seatunnel.apache.org/docs/category/source-v2
+    # This is a example source plugin **only for test and demonstrate the feature source plugin**
+    FakeSource {
+        parallelism = 1
+        result_table_name = "fake"
+        row.num = 16
+        schema = {
+            fields {
+                name = "string"
+                age = "int"
+            }
+        }
+    }
+    # If you would like to get more information about how to configure seatunnel and see full list of source plugins,
+    # please go to https://seatunnel.apache.org/docs/category/source-v2
 }
 transform {
-# If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-# please go to https://seatunnel.apache.org/docs/category/transform-v2
+    # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
+    # please go to https://seatunnel.apache.org/docs/category/transform-v2
 }
 sink {
-jdbc {
-url = "jdbc:snowflake://<account_name>.snowflakecomputing.com"
-driver = "net.snowflake.client.jdbc.SnowflakeDriver"
-user = "root"
-password = "123456"
-query = "insert into test_table(name,age) values(?,?)"
-}
-# If you would like to get more information about how to configure seatunnel and see full list of sink plugins,
-# please go to https://seatunnel.apache.org/docs/category/sink-v2
+    jdbc {
+        url = "jdbc:snowflake://<account_name>.snowflakecomputing.com"
+        driver = "net.snowflake.client.jdbc.SnowflakeDriver"
+        user = "root"
+        password = "123456"
+        query = "insert into test_table(name,age) values(?,?)"
+    }
+    # If you would like to get more information about how to configure seatunnel and see full list of sink plugins,
+    # please go to https://seatunnel.apache.org/docs/category/sink-v2
 }
 ```
 
