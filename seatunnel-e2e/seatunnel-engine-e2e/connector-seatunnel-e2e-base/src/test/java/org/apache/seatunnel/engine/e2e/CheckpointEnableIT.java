@@ -74,6 +74,12 @@ public class CheckpointEnableIT extends TestSuiteBase {
                 container.executeJob(
                         "/checkpoint-batch-enable-test-resources/sink_file_text_to_assert.conf");
         Assertions.assertEquals(0, enableSinkFileExecResult.getExitCode());
+
+        // checkpoint disable and timeout = 10, but timeout is not supported in disable mode
+        Container.ExecResult disableExecResult2 =
+                container.executeJob(
+                        "/checkpoint-batch-disable-test-resources/batch_fakesource_to_localfile_checkpoint_disable_withtimeout.conf");
+        Assertions.assertEquals(0, disableExecResult2.getExitCode());
     }
 
     @TestTemplate

@@ -222,6 +222,52 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testOracleCdcCheckDataWithCustomPrimaryKey(TestContainer container)
+            throws Exception {
+
+        clearTable(DATABASE, SOURCE_TABLE_NO_PRIMARY_KEY);
+        clearTable(DATABASE, SINK_TABLE1);
+
+        insertSourceTable(DATABASE, SOURCE_TABLE_NO_PRIMARY_KEY);
+
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.executeJob("/oraclecdc_to_oracle_with_custom_primary_key.conf");
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
+
+        // snapshot stage
+        await().atMost(600000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertIterableEquals(
+                                    querySql(
+                                            getSourceQuerySQL(
+                                                    DATABASE, SOURCE_TABLE_NO_PRIMARY_KEY)),
+                                    querySql(getSourceQuerySQL(DATABASE, SINK_TABLE1)));
+                        });
+
+        // insert update delete
+        updateSourceTable(DATABASE, SOURCE_TABLE_NO_PRIMARY_KEY);
+
+        // stream stage
+        await().atMost(600000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertIterableEquals(
+                                    querySql(
+                                            getSourceQuerySQL(
+                                                    DATABASE, SOURCE_TABLE_NO_PRIMARY_KEY)),
+                                    querySql(getSourceQuerySQL(DATABASE, SINK_TABLE1)));
+                        });
+    }
+
+    @TestTemplate
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
