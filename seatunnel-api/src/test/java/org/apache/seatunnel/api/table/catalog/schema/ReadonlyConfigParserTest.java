@@ -34,12 +34,12 @@ import java.util.List;
 
 class ReadonlyConfigParserTest extends BaseConfigParserTest {
 
-    private final String columnConfig = "/conf/catalog/schema_column.conf";
-    private final String fieldConfig = "/conf/catalog/schema_field.conf";
+    private static final String COLUMN_CONFIG = "/conf/catalog/schema_column.conf";
+    private static final String FIELD_CONFIG = "/conf/catalog/schema_field.conf";
 
     @Test
     void parseColumn() throws FileNotFoundException, URISyntaxException {
-        ReadonlyConfig config = getReadonlyConfig(columnConfig);
+        ReadonlyConfig config = getReadonlyConfig(COLUMN_CONFIG);
 
         ReadonlyConfigParser readonlyConfigParser = new ReadonlyConfigParser();
         TableSchema tableSchema = readonlyConfigParser.parse(config);
@@ -50,7 +50,7 @@ class ReadonlyConfigParserTest extends BaseConfigParserTest {
 
     @Test
     void parseField() throws FileNotFoundException, URISyntaxException {
-        ReadonlyConfig config = getReadonlyConfig(fieldConfig);
+        ReadonlyConfig config = getReadonlyConfig(FIELD_CONFIG);
 
         ReadonlyConfigParser readonlyConfigParser = new ReadonlyConfigParser();
         TableSchema tableSchema = readonlyConfigParser.parse(config);
@@ -82,6 +82,7 @@ class ReadonlyConfigParserTest extends BaseConfigParserTest {
         Assertions.assertEquals(19, columns.size());
 
         Assertions.assertEquals("id", columns.get(0).getName());
+        Assertions.assertEquals(0, columns.get(0).getDefaultValue());
 
         Assertions.assertEquals("map", columns.get(1).getName());
         Assertions.assertEquals(
@@ -99,6 +100,13 @@ class ReadonlyConfigParserTest extends BaseConfigParserTest {
 
         Assertions.assertEquals("string", columns.get(4).getName());
         Assertions.assertEquals("string", columns.get(4).getDataType().toString().toLowerCase());
+        Assertions.assertEquals("I'm default value", columns.get(4).getDefaultValue());
+
+        Assertions.assertEquals(false, columns.get(5).getDefaultValue());
+
+        Assertions.assertEquals(1.1, columns.get(10).getDefaultValue());
+
+        Assertions.assertEquals("2020-01-01", columns.get(15).getDefaultValue());
 
         Assertions.assertEquals("row", columns.get(18).getName());
         Assertions.assertEquals(SqlType.ROW, columns.get(18).getDataType().getSqlType());
