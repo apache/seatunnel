@@ -125,7 +125,7 @@ public class MysqlDialect implements JdbcDialect {
 
         // 1. If no query is configured, use TABLE STATUS.
         // 2. If a query is configured but does not contain a WHERE clause and tablePath is
-        // configured, use TABLE STATUS.
+        // configured , use TABLE STATUS.
         // 3. If a query is configured with a WHERE clause, or a query statement is configured but
         // tablePath is not, use COUNT(*).
 
