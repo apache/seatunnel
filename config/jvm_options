@@ -25,3 +25,6 @@
 
 # Metaspace
 -XX:MaxMetaspaceSize=2g
+
+# G1GC
+-XX:+UseG1GC

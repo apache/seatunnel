@@ -201,4 +201,31 @@ public class JobExecutionIT {
             hazelcastInstance.shutdown();
         }
     }
+
+    @Test
+    public void testLastCheckpointErrorJob() throws Exception {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath = TestUtils.getResource("batch_last_checkpoint_error.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setName("batch_last_checkpoint_error");
+
+        ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+        clientConfig.setClusterName(TestUtils.getClusterName("JobExecutionIT"));
+        SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig);
+        ClientJobExecutionEnvironment jobExecutionEnv =
+                engineClient.createExecutionContext(filePath, jobConfig, SEATUNNEL_CONFIG);
+
+        final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+
+        CompletableFuture<JobStatus> objectCompletableFuture =
+                CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
+
+        await().atMost(600000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertTrue(
+                                        objectCompletableFuture.isDone()
+                                                && JobStatus.FAILED.equals(
+                                                        objectCompletableFuture.get())));
+    }
 }

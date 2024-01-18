@@ -96,6 +96,7 @@ public class ClickhouseSourceReader implements SourceReader<SeaTunnelRow, Clickh
                                 });
             }
             this.readerContext.signalNoMoreElement();
+            this.splits.clear();
         }
     }
 

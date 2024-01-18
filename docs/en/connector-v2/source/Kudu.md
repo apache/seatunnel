@@ -28,7 +28,7 @@ The tested kudu version is 1.11.1.
 
 ## Data Type Mapping
 
-|      kudu Data type      | SeaTunnel Data type |
+|      kudu Data Type      | SeaTunnel Data Type |
 |--------------------------|---------------------|
 | BOOL                     | BOOLEAN             |
 | INT8<br/>INT16<br/>INT32 | INT                 |
@@ -69,21 +69,20 @@ The tested kudu version is 1.11.1.
 ```hocon
 # Defining the runtime environment
 env {
-  # You can set flink configuration here
-  execution.parallelism = 2
+  parallelism = 2
   job.mode = "BATCH"
 }
 
 source {
   # This is a example source plugin **only for test and demonstrate the feature source plugin**
-  kudu{
-   kudu_masters = "kudu-master:7051"
-   table_name = "kudu_source_table"
-   result_table_name = "kudu"
-   enable_kerberos = true
-   kerberos_principal = "xx@xx.COM"
-   kerberos_keytab = "xx.keytab"
-}
+  kudu {
+    kudu_masters = "kudu-master:7051"
+    table_name = "kudu_source_table"
+    result_table_name = "kudu"
+    enable_kerberos = true
+    kerberos_principal = "xx@xx.COM"
+    kerberos_keytab = "xx.keytab"
+  }
 }
 
 transform {
@@ -94,14 +93,15 @@ sink {
     source_table_name = "kudu"
   }
 
-   kudu{
+  kudu {
     source_table_name = "kudu"
     kudu_masters = "kudu-master:7051"
     table_name = "kudu_sink_table"
     enable_kerberos = true
     kerberos_principal = "xx@xx.COM"
     kerberos_keytab = "xx.keytab"
- }
+  }
+}
 ```
 
 ### Multiple Table
@@ -109,9 +109,9 @@ sink {
 ```hocon
 env {
   # You can set engine configuration here
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "STREAMING"
-  execution.checkpoint.interval = 5000
+  checkpoint.interval = 5000
 }
 
 source {

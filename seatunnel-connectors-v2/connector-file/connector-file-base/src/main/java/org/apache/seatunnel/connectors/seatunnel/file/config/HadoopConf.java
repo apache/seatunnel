@@ -33,6 +33,10 @@ public class HadoopConf implements Serializable {
     protected Map<String, String> extraOptions = new HashMap<>();
     protected String hdfsNameKey;
     protected String hdfsSitePath;
+
+    protected String remoteUser;
+
+    private String krb5Path;
     protected String kerberosPrincipal;
     protected String kerberosKeytabPath;
 

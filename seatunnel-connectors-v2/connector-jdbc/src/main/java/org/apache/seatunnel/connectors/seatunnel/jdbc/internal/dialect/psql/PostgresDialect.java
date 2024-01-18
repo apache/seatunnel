@@ -28,6 +28,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
 
 import org.apache.commons.lang3.StringUtils;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -37,8 +39,10 @@ import java.util.Arrays;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+@Slf4j
 public class PostgresDialect implements JdbcDialect {
 
+    private static final long serialVersionUID = -5834746193472465218L;
     public static final int DEFAULT_POSTGRES_FETCH_SIZE = 128;
 
     public String fieldIde = FieldIdeEnum.ORIGINAL.getValue();
@@ -62,6 +66,11 @@ public class PostgresDialect implements JdbcDialect {
     @Override
     public JdbcDialectTypeMapper getJdbcDialectTypeMapper() {
         return new PostgresTypeMapper();
+    }
+
+    @Override
+    public String hashModForField(String fieldName, int mod) {
+        return "(ABS(HASHTEXT(" + quoteIdentifier(fieldName) + ")) % " + mod + ")";
     }
 
     @Override
@@ -158,6 +167,7 @@ public class PostgresDialect implements JdbcDialect {
                             "SELECT reltuples FROM pg_class r WHERE relkind = 'r' AND relname = '%s';",
                             table.getTablePath().getTableName());
             try (Statement stmt = connection.createStatement()) {
+                log.info("Split Chunk, approximateRowCntStatement: {}", rowCountQuery);
                 try (ResultSet rs = stmt.executeQuery(rowCountQuery)) {
                     if (!rs.next()) {
                         throw new SQLException(

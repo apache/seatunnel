@@ -36,7 +36,7 @@ Read external data source data through JDBC.
 
 ## Data Type Mapping
 
-|                                                        Vertical Data type                                                         |                                                                 SeaTunnel Data type                                                                 |
+|                                                        Vertical Data Type                                                         |                                                                 SeaTunnel Data Type                                                                 |
 |-----------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
 | BIT                                                                                                                               | BOOLEAN                                                                                                                                             |
 | TINYINT<br/>TINYINT UNSIGNED<br/>SMALLINT<br/>SMALLINT UNSIGNED<br/>MEDIUMINT<br/>MEDIUMINT UNSIGNED<br/>INT<br/>INTEGER<br/>YEAR | INT                                                                                                                                                 |
@@ -85,8 +85,7 @@ Read external data source data through JDBC.
 ```
 # Defining the runtime environment
 env {
-  # You can set flink configuration here
-  execution.parallelism = 2
+  parallelism = 2
   job.mode = "BATCH"
 }
 source{

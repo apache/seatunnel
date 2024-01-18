@@ -17,31 +17,45 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.oss.sink;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
-import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
-import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.factory.BaseMultipleTableFinkSinkFactory;
+import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssConfigOptions;
 
 import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
-public class OssFileSinkFactory implements TableSinkFactory {
+public class OssFileSinkFactory extends BaseMultipleTableFinkSinkFactory {
     @Override
     public String factoryIdentifier() {
         return FileSystemType.OSS.getFileSystemPluginName();
     }
 
     @Override
+    public TableSink createSink(TableSinkFactoryContext context) {
+        ReadonlyConfig readonlyConfig = context.getOptions();
+        CatalogTable catalogTable = context.getCatalogTable();
+
+        ReadonlyConfig finalReadonlyConfig =
+                generateCurrentReadonlyConfig(readonlyConfig, catalogTable);
+        return () -> new OssFileSink(finalReadonlyConfig, catalogTable);
+    }
+
+    @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(OssConfig.FILE_PATH)
-                .required(OssConfig.BUCKET)
-                .required(OssConfig.ACCESS_KEY)
-                .required(OssConfig.ACCESS_SECRET)
-                .required(OssConfig.ENDPOINT)
+                .required(OssConfigOptions.FILE_PATH)
+                .required(OssConfigOptions.BUCKET)
+                .required(OssConfigOptions.ACCESS_KEY)
+                .required(OssConfigOptions.ACCESS_SECRET)
+                .required(OssConfigOptions.ENDPOINT)
                 .optional(BaseSinkConfig.FILE_FORMAT_TYPE)
                 .conditional(
                         BaseSinkConfig.FILE_FORMAT_TYPE,

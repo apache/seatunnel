@@ -41,6 +41,7 @@ import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 import org.apache.seatunnel.common.constants.CollectionConstants;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.core.starter.execution.PluginUtil;
 import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
 import org.apache.seatunnel.engine.common.config.JobConfig;
@@ -275,8 +276,11 @@ public class MultipleTableJobConfigParser {
             if (e instanceof UnsupportedOperationException
                     && "The Factory has not been implemented and the deprecated Plugin will be used."
                             .equals(e.getMessage())) {
+                log.warn(
+                        "The Factory has not been implemented and the deprecated Plugin will be used.");
                 return true;
             }
+            log.debug(ExceptionUtils.getMessage(e));
         }
         return false;
     }
@@ -335,16 +339,18 @@ public class MultipleTableJobConfigParser {
             List<? extends Config> transformConfigs,
             ClassLoader classLoader,
             LinkedHashMap<String, List<Tuple2<CatalogTable, Action>>> tableWithActionMap) {
-        if (CollectionUtils.isEmpty(transformConfigs) || transformConfigs.size() == 0) {
+        if (CollectionUtils.isEmpty(transformConfigs) || transformConfigs.isEmpty()) {
             return;
         }
         Queue<Config> configList = new LinkedList<>(transformConfigs);
+        int index = 0;
         while (!configList.isEmpty()) {
-            parseTransform(configList, classLoader, tableWithActionMap);
+            parseTransform(index++, configList, classLoader, tableWithActionMap);
         }
     }
 
     private void parseTransform(
+            int index,
             Queue<Config> transforms,
             ClassLoader classLoader,
             LinkedHashMap<String, List<Tuple2<CatalogTable, Action>>> tableWithActionMap) {
@@ -418,9 +424,7 @@ public class MultipleTableJobConfigParser {
                         catalogTable, readonlyConfig, classLoader, factoryId);
         transform.setJobContext(jobConfig.getJobContext());
         long id = idGenerator.getNextId();
-        // TODO If you need to support snapshot transform state, you need to use ordered index to
-        // generate unique names.
-        String actionName = JobConfigParser.createTransformActionName(0, factoryId);
+        String actionName = JobConfigParser.createTransformActionName(index, factoryId);
 
         TransformAction transformAction =
                 new TransformAction(

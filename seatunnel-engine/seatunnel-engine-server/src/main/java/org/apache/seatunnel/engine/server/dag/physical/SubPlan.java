@@ -231,6 +231,15 @@ public class SubPlan {
                 errorByPhysicalVertex.compareAndSet(
                         null, checkpointCoordinatorState.getThrowableMsg());
             }
+
+            // Because the pipeline state must update by tasks, If the pipeline can not get enough
+            // slot, the pipeline state will turn to Failing and then cancel all tasks in this
+            // pipeline.
+            // Because the tasks never run, so the tasks will complete with CANCELED. But the actual
+            // status of the pipeline should be FAILED
+            if (getPipelineState().equals(PipelineStatus.FAILING)) {
+                pipelineStatus = PipelineStatus.FAILED;
+            }
         } else {
             pipelineStatus = PipelineStatus.FINISHED;
             CheckpointCoordinatorState checkpointCoordinatorState =
@@ -322,10 +331,11 @@ public class SubPlan {
             // now do the actual state transition
             // we must update runningJobStateTimestampsIMap first and then can update
             // runningJobStateIMap
+            PipelineStatus finalTargetState = targetState;
             RetryUtils.retryWithException(
                     () -> {
-                        updateStateTimestamps(targetState);
-                        runningJobStateIMap.set(pipelineLocation, targetState);
+                        updateStateTimestamps(finalTargetState);
+                        runningJobStateIMap.set(pipelineLocation, finalTargetState);
                         return null;
                     },
                     new RetryUtils.RetryMaterial(
@@ -550,7 +560,9 @@ public class SubPlan {
         log.warn(
                 String.format(
                         "%s checkpoint have error, cancel the pipeline", getPipelineFullName()));
-        this.cancelPipeline();
+        if (!getPipelineState().isEndState()) {
+            updatePipelineState(PipelineStatus.CANCELING);
+        }
     }
 
     public void startSubPlanStateProcess() {
@@ -614,11 +626,13 @@ public class SubPlan {
             case CANCELING:
                 coordinatorVertexList.forEach(
                         task -> {
+                            task.startPhysicalVertex();
                             task.cancel();
                         });
 
                 physicalVertexList.forEach(
                         task -> {
+                            task.startPhysicalVertex();
                             task.cancel();
                         });
                 break;

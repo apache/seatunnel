@@ -21,10 +21,10 @@ import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
-import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3Config;
-import org.apache.seatunnel.connectors.seatunnel.redshift.config.S3RedshiftConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3ConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.redshift.config.S3RedshiftConfigOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -40,19 +40,19 @@ public class S3RedshiftFactory implements TableSinkFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(
-                        S3Config.S3_BUCKET,
-                        S3RedshiftConfig.JDBC_URL,
-                        S3RedshiftConfig.JDBC_USER,
-                        S3RedshiftConfig.JDBC_PASSWORD,
-                        S3RedshiftConfig.EXECUTE_SQL,
-                        BaseSourceConfig.FILE_PATH,
-                        S3Config.S3A_AWS_CREDENTIALS_PROVIDER)
+                        S3ConfigOptions.S3_BUCKET,
+                        S3RedshiftConfigOptions.JDBC_URL,
+                        S3RedshiftConfigOptions.JDBC_USER,
+                        S3RedshiftConfigOptions.JDBC_PASSWORD,
+                        S3RedshiftConfigOptions.EXECUTE_SQL,
+                        BaseSourceConfigOptions.FILE_PATH,
+                        S3ConfigOptions.S3A_AWS_CREDENTIALS_PROVIDER)
                 .conditional(
-                        S3Config.S3A_AWS_CREDENTIALS_PROVIDER,
-                        S3Config.S3aAwsCredentialsProvider.SimpleAWSCredentialsProvider,
-                        S3Config.S3_ACCESS_KEY,
-                        S3Config.S3_SECRET_KEY)
-                .optional(S3Config.S3_PROPERTIES)
+                        S3ConfigOptions.S3A_AWS_CREDENTIALS_PROVIDER,
+                        S3ConfigOptions.S3aAwsCredentialsProvider.SimpleAWSCredentialsProvider,
+                        S3ConfigOptions.S3_ACCESS_KEY,
+                        S3ConfigOptions.S3_SECRET_KEY)
+                .optional(S3ConfigOptions.S3_PROPERTIES)
                 .optional(BaseSinkConfig.FILE_FORMAT_TYPE)
                 .conditional(
                         BaseSinkConfig.FILE_FORMAT_TYPE,

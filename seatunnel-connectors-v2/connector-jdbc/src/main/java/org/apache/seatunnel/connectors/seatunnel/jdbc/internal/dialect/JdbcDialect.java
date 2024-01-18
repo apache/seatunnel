@@ -27,6 +27,9 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
 
 import org.apache.commons.lang3.StringUtils;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.Serializable;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -49,6 +52,8 @@ import static java.lang.String.format;
  * and stateless.
  */
 public interface JdbcDialect extends Serializable {
+
+    Logger log = LoggerFactory.getLogger(JdbcDialect.class.getName());
 
     /**
      * Get the name of jdbc dialect.
@@ -314,10 +319,9 @@ public interface JdbcDialect extends Serializable {
                             quoteIdentifier(columnName), tableIdentifier(table.getTablePath()));
         }
 
-        try (Statement stmt =
-                connection.createStatement(
-                        ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)) {
-            stmt.setFetchSize(Integer.MIN_VALUE);
+        try (Statement stmt = connection.createStatement()) {
+            stmt.setFetchSize(1024);
+            log.info(String.format("Split Chunk, approximateRowCntStatement: %s", sampleQuery));
             try (ResultSet rs = stmt.executeQuery(sampleQuery)) {
                 int count = 0;
                 List<Object> results = new ArrayList<>();

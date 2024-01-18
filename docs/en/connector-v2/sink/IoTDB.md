@@ -35,7 +35,7 @@ There is a conflict of thrift version between IoTDB and Spark.Therefore, you nee
 
 ## Data Type Mapping
 
-| IotDB Data type | SeaTunnel Data type |
+| IotDB Data Type | SeaTunnel Data Type |
 |-----------------|---------------------|
 | BOOLEAN         | BOOLEAN             |
 | INT32           | TINYINT             |
@@ -72,7 +72,7 @@ There is a conflict of thrift version between IoTDB and Spark.Therefore, you nee
 
 ```hocon
 env {
-  execution.parallelism = 2
+  parallelism = 2
   job.mode = "BATCH"
 }
 
@@ -98,9 +98,6 @@ source {
     }
   }
 }
-
-...
-
 ```
 
 Upstream SeaTunnelRow data format is the following:

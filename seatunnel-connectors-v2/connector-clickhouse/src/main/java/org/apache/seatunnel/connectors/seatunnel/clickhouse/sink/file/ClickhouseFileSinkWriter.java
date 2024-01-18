@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.config.Common;
+import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.FileReaderOption;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorErrorCode;
@@ -119,15 +120,14 @@ public class ClickhouseFileSinkWriter
                 rowCache.computeIfAbsent(
                         shard,
                         k -> {
+                            String uuid =
+                                    UUID.randomUUID()
+                                            .toString()
+                                            .substring(0, UUID_LENGTH)
+                                            .replaceAll("-", "_");
+                            String clickhouseLocalFile =
+                                    String.format("%s/%s", readerOption.getFileTempPath(), uuid);
                             try {
-                                String uuid =
-                                        UUID.randomUUID()
-                                                .toString()
-                                                .substring(0, UUID_LENGTH)
-                                                .replaceAll("-", "_");
-                                String clickhouseLocalFile =
-                                        String.format(
-                                                "%s/%s", readerOption.getFileTempPath(), uuid);
                                 FileUtils.forceMkdir(new File(clickhouseLocalFile));
                                 String clickhouseLocalFileTmpFile =
                                         clickhouseLocalFile + CLICKHOUSE_LOCAL_FILE_SUFFIX;
@@ -138,10 +138,8 @@ public class ClickhouseFileSinkWriter
                                         StandardOpenOption.READ,
                                         StandardOpenOption.CREATE_NEW);
                             } catch (IOException e) {
-                                throw new ClickhouseConnectorException(
-                                        CommonErrorCodeDeprecated.FILE_OPERATION_FAILED,
-                                        "can't create new file to save tmp data",
-                                        e);
+                                throw CommonError.fileOperationFailed(
+                                        "ClickhouseFile", "write", clickhouseLocalFile, e);
                             }
                         });
         saveDataToFile(channel, element, shard);
@@ -240,10 +238,8 @@ public class ClickhouseFileSinkWriter
                                 return fileChannel.map(
                                         FileChannel.MapMode.READ_WRITE, 0, bufferSize);
                             } catch (IOException e) {
-                                throw new ClickhouseConnectorException(
-                                        CommonErrorCodeDeprecated.FILE_OPERATION_FAILED,
-                                        "data_local file write failed",
-                                        e);
+                                throw CommonError.fileOperationFailed(
+                                        "ClickhouseFile", "write", "UNKNOWN", e);
                             }
                         });
         byte[] byteData = data.getBytes(StandardCharsets.UTF_8);
@@ -312,9 +308,8 @@ public class ClickhouseFileSinkWriter
             try (FileWriter writer = new FileWriter(ckLocalConfigPath)) {
                 writer.write(String.format(CK_LOCAL_CONFIG_TEMPLATE, clickhouseLocalFile));
             } catch (IOException e) {
-                throw new ClickhouseConnectorException(
-                        CommonErrorCodeDeprecated.FILE_OPERATION_FAILED,
-                        "Error occurs when create ck local config");
+                throw CommonError.fileOperationFailed(
+                        "ClickhouseFile", "write", clickhouseLocalFile, e);
             }
             command.add("--config-file");
             command.add("\"" + ckLocalConfigPath + "\"");

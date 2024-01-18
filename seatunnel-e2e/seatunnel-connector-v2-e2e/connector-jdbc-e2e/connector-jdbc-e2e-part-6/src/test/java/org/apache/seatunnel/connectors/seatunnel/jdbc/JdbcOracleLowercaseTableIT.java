@@ -18,12 +18,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleURLParser;
 
 import org.apache.commons.lang3.tuple.Pair;
 
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.OracleContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -213,5 +216,23 @@ public class JdbcOracleLowercaseTableIT extends AbstractJdbcIT {
                         OracleURLParser.parse(jdbcUrl),
                         SCHEMA);
         catalog.open();
+    }
+
+    @Test
+    public void testCatalog() {
+        TablePath tablePathOracle = TablePath.of("XE", "TESTUSER", "E2E_TABLE_SOURCE_LOWER");
+        OracleCatalog oracleCatalog =
+                new OracleCatalog(
+                        "Oracle",
+                        jdbcCase.getUserName(),
+                        jdbcCase.getPassword(),
+                        OracleURLParser.parse(
+                                jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost())),
+                        SCHEMA);
+        oracleCatalog.open();
+        Assertions.assertTrue(oracleCatalog.tableExists(tablePathOracle));
+        oracleCatalog.truncateTable(tablePathOracle, true);
+        Assertions.assertFalse(oracleCatalog.isExistsData(tablePathOracle));
+        oracleCatalog.close();
     }
 }
