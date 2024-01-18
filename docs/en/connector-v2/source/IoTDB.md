@@ -38,7 +38,7 @@ There is a conflict of thrift version between IoTDB and Spark.Therefore, you nee
 
 ## Data Type Mapping
 
-| IotDB Data type | SeaTunnel Data type |
+| IotDB Data Type | SeaTunnel Data Type |
 |-----------------|---------------------|
 | BOOLEAN         | BOOLEAN             |
 | INT32           | TINYINT             |

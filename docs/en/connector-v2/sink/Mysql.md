@@ -38,7 +38,7 @@ semantics (using XA transaction guarantee).
 
 ## Data Type Mapping
 
-|                                                          Mysql Data type                                                          |                                                                 SeaTunnel Data type                                                                 |
+|                                                          Mysql Data Type                                                          |                                                                 SeaTunnel Data Type                                                                 |
 |-----------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
 | BIT(1)<br/>INT UNSIGNED                                                                                                           | BOOLEAN                                                                                                                                             |
 | TINYINT<br/>TINYINT UNSIGNED<br/>SMALLINT<br/>SMALLINT UNSIGNED<br/>MEDIUMINT<br/>MEDIUMINT UNSIGNED<br/>INT<br/>INTEGER<br/>YEAR | INT                                                                                                                                                 |

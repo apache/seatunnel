@@ -8,7 +8,7 @@
 > Flink<br/>
 > SeaTunnel Zeta<br/>
 
-## Key features
+## Key Features
 
 - [x] [batch](../../concept/connector-v2-features.md)
 - [ ] [stream](../../concept/connector-v2-features.md)

@@ -2,6 +2,12 @@
 
 > Doris sink connector
 
+## Support Doris Version
+
+- exactly-once & cdc supported  `Doris version is >= 1.1.x`
+- Array data type supported  `Doris version is >= 1.2.x`
+- Map data type will be support in `Doris version is 2.x`
+
 ## Support Those Engines
 
 > Spark<br/>
@@ -17,18 +23,6 @@
 
 Used to send data to Doris. Both support streaming and batch mode.
 The internal implementation of Doris sink connector is cached and imported by stream load in batches.
-
-## Supported DataSource Info
-
-:::tip
-
-Version Supported
-
-* exactly-once & cdc supported  `Doris version is >= 1.1.x`
-* Array data type supported  `Doris version is >= 1.2.x`
-* Map data type will be support in `Doris version is 2.x`
-
-:::
 
 ## Sink Options
 
@@ -120,7 +114,7 @@ You can use the following placeholders
 
 ## Data Type Mapping
 
-| Doris Data type |           SeaTunnel Data type           |
+| Doris Data Type |           SeaTunnel Data Type           |
 |-----------------|-----------------------------------------|
 | BOOLEAN         | BOOLEAN                                 |
 | TINYINT         | TINYINT                                 |
