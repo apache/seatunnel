@@ -36,7 +36,7 @@ semantics (using XA transaction guarantee).
 
 ## Data Type Mapping
 
-|                                       PostgreSQL Data type                                       |                                                              SeaTunnel Data type                                                               |
+|                                       PostgreSQL Data Type                                       |                                                              SeaTunnel Data Type                                                               |
 |--------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------|
 | BOOL<br/>                                                                                        | BOOLEAN                                                                                                                                        |
 | _BOOL<br/>                                                                                       | ARRAY&LT;BOOLEAN&GT;                                                                                                                           |

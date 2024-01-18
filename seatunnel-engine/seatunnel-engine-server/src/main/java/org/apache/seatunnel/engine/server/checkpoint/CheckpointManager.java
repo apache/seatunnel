@@ -164,14 +164,6 @@ public class CheckpointManager {
                 .toArray(PassiveCompletableFuture[]::new);
     }
 
-    /**
-     * Called by the JobMaster, actually triggered by the user. <br>
-     * After the savepoint is triggered, it will cause the pipeline to stop automatically.
-     */
-    public PassiveCompletableFuture<CompletedCheckpoint> triggerSavepoint(int pipelineId) {
-        return getCheckpointCoordinator(pipelineId).startSavepoint();
-    }
-
     public void reportedPipelineRunning(int pipelineId, boolean alreadyStarted) {
         log.info(
                 "reported pipeline running stack: "
@@ -253,7 +245,7 @@ public class CheckpointManager {
      * the pipeline has been completed;
      */
     public boolean isCompletedPipeline(int pipelineId) {
-        return getCheckpointCoordinator(pipelineId).isCompleted();
+        return getCheckpointCoordinator(pipelineId).isNoErrorCompleted();
     }
 
     /**

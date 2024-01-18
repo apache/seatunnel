@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
+import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.source.event.CompletedSnapshotSplitsReportEvent;
 import org.apache.seatunnel.connectors.cdc.base.source.event.SnapshotSplitWatermark;
 import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
@@ -68,9 +69,12 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
     private final C sourceConfig;
     private final DebeziumDeserializationSchema<T> debeziumDeserializationSchema;
 
+    private final DataSourceDialect<C> dataSourceDialect;
+
     private final AtomicBoolean needSendSplitRequest = new AtomicBoolean(false);
 
     public IncrementalSourceReader(
+            DataSourceDialect<C> dataSourceDialect,
             BlockingQueue<RecordsWithSplitIds<SourceRecords>> elementsQueue,
             Supplier<IncrementalSourceSplitReader<C>> splitReaderSupplier,
             RecordEmitter<SourceRecords, T, SourceSplitStateBase> recordEmitter,
@@ -84,6 +88,7 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
                 recordEmitter,
                 options,
                 context);
+        this.dataSourceDialect = dataSourceDialect;
         this.sourceConfig = sourceConfig;
         this.finishedUnackedSplits = new HashMap<>();
         this.subtaskId = context.getIndexOfSubtask();
@@ -106,7 +111,9 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
     }
 
     @Override
-    public void notifyCheckpointComplete(long checkpointId) throws Exception {}
+    public void notifyCheckpointComplete(long checkpointId) throws Exception {
+        dataSourceDialect.notifyCheckpointComplete(checkpointId);
+    }
 
     @Override
     public void addSplits(List<SourceSplitBase> splits) {

@@ -36,7 +36,7 @@ Read external data source data through JDBC.
 
 ## Data Type Mapping
 
-|                                                        Vertical Data type                                                         |                                                                 SeaTunnel Data type                                                                 |
+|                                                        Vertical Data Type                                                         |                                                                 SeaTunnel Data Type                                                                 |
 |-----------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
 | BIT                                                                                                                               | BOOLEAN                                                                                                                                             |
 | TINYINT<br/>TINYINT UNSIGNED<br/>SMALLINT<br/>SMALLINT UNSIGNED<br/>MEDIUMINT<br/>MEDIUMINT UNSIGNED<br/>INT<br/>INTEGER<br/>YEAR | INT                                                                                                                                                 |
