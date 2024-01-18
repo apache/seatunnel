@@ -84,6 +84,7 @@ public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
     public static final String PG_JSON = "json";
     public static final String PG_JSONB = "jsonb";
     public static final String PG_XML = "xml";
+    public static final String PG_UUID = "uuid";
     private static final String PG_GEOMETRY = "geometry";
     private static final String PG_GEOGRAPHY = "geography";
     public static final String PG_DATE = "date";
@@ -193,6 +194,7 @@ public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
             case PG_JSON:
             case PG_JSONB:
             case PG_XML:
+            case PG_UUID:
             case PG_GEOMETRY:
             case PG_GEOGRAPHY:
                 builder.dataType(BasicType.STRING_TYPE);
