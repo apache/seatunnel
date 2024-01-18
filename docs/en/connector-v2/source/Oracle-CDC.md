@@ -31,7 +31,17 @@ describes how to set up the Oracle CDC connector to run SQL queries against Orac
 
 ### Install Jdbc Driver
 
-Please download and put oracle driver in `${SEATUNNEL_HOME}/lib/` dir. For example: cp ojdbc8-xxxxxx.jar `$SEATNUNNEL_HOME/lib/`
+#### For Spark/Flink Engine
+
+> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/com.oracle.database.jdbc/ojdbc8) has been placed in directory `${SEATUNNEL_HOME}/plugins/`.
+> 2. To support the i18n character set, copy the `orai18n.jar` to the `$SEATNUNNEL_HOME/plugins/` directory.
+
+#### For SeaTunnel Zeta Engine
+
+> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/com.oracle.database.jdbc/ojdbc8) has been placed in directory `${SEATUNNEL_HOME}/lib/`.
+> 2. To support the i18n character set, copy the `orai18n.jar` to the `$SEATNUNNEL_HOME/lib/` directory.
+
+### Enable Oracle Logminer
 
 > To enable Oracle CDC (Change Data Capture) using Logminer in Seatunnel, which is a built-in tool provided by Oracle, follow the steps below:
 
