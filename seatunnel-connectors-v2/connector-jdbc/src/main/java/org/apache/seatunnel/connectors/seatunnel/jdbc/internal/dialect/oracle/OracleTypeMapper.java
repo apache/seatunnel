@@ -19,12 +19,14 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle;
 
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
+import org.apache.seatunnel.connectors.seatunnel.common.source.TypeDefineUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.util.Arrays;
 
 @Slf4j
 public class OracleTypeMapper implements JdbcDialectTypeMapper {
@@ -39,10 +41,16 @@ public class OracleTypeMapper implements JdbcDialectTypeMapper {
         String columnName = metadata.getColumnLabel(colIndex);
         String nativeType = metadata.getColumnTypeName(colIndex);
         int isNullable = metadata.isNullable(colIndex);
-        int precision = metadata.getPrecision(colIndex);
+        long precision = metadata.getPrecision(colIndex);
         int scale = metadata.getScale(colIndex);
         if ("number".equalsIgnoreCase(nativeType) && scale == -127) {
             nativeType = "float";
+        } else if (Arrays.asList("NVARCHAR2", "NCHAR").contains(nativeType)) {
+            long doubleByteLength = TypeDefineUtils.charToDoubleByteLength(precision);
+            precision = doubleByteLength;
+        } else if (Arrays.asList("CHAR", "VARCHAR", "VARCHAR2").contains(nativeType)) {
+            long octetByteLength = TypeDefineUtils.charTo4ByteLength(precision);
+            precision = octetByteLength;
         }
 
         BasicTypeDefine typeDefine =
@@ -51,8 +59,8 @@ public class OracleTypeMapper implements JdbcDialectTypeMapper {
                         .columnType(nativeType)
                         .dataType(nativeType)
                         .nullable(isNullable == ResultSetMetaData.columnNullable)
-                        .length((long) precision)
-                        .precision((long) precision)
+                        .length(precision)
+                        .precision(precision)
                         .scale(scale)
                         .build();
         return mappingColumn(typeDefine);

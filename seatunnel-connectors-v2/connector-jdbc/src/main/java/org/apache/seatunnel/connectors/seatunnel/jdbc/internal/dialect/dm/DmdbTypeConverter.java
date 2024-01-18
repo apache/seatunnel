@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.connectors.seatunnel.common.source.TypeDefineUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 import com.google.auto.service.AutoService;
@@ -193,13 +194,13 @@ public class DmdbTypeConverter implements TypeConverter<BasicTypeDefine> {
             case DM_CHARACTER:
                 builder.sourceType(String.format("%s(%s)", DM_CHAR, typeDefine.getLength()));
                 builder.dataType(BasicType.STRING_TYPE);
-                builder.columnLength(typeDefine.getLength());
+                builder.columnLength(TypeDefineUtils.charTo4ByteLength(typeDefine.getLength()));
                 break;
             case DM_VARCHAR:
             case DM_VARCHAR2:
                 builder.sourceType(String.format("%s(%s)", DM_VARCHAR2, typeDefine.getLength()));
                 builder.dataType(BasicType.STRING_TYPE);
-                builder.columnLength(typeDefine.getLength());
+                builder.columnLength(TypeDefineUtils.charTo4ByteLength(typeDefine.getLength()));
                 break;
             case DM_TEXT:
                 builder.sourceType(DM_TEXT);
@@ -449,12 +450,13 @@ public class DmdbTypeConverter implements TypeConverter<BasicTypeDefine> {
                     if (timeScale > MAX_TIME_SCALE) {
                         timeScale = MAX_TIME_SCALE;
                         log.warn(
-                                "The scale of time column {} is {}, which exceeds the maximum scale of {}, "
-                                        + "the scale will be set to {}",
+                                "The time column {} type time({}) is out of range, "
+                                        + "which exceeds the maximum scale of {}, "
+                                        + "it will be converted to time({})",
                                 column.getName(),
                                 column.getScale(),
-                                MAX_TIME_SCALE,
-                                MAX_TIME_SCALE);
+                                MAX_SCALE,
+                                timeScale);
                     }
                     builder.columnType(String.format("%s(%s)", DM_TIME, timeScale));
                     builder.scale(timeScale);

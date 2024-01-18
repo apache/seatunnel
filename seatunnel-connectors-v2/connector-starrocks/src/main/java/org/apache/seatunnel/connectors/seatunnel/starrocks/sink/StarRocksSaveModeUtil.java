@@ -86,11 +86,7 @@ public class StarRocksSaveModeUtil {
                 column.getName(),
                 dataTypeToStarrocksType(
                         column.getDataType(),
-                        Math.max(
-                                column.getColumnLength() == null ? 0 : column.getColumnLength(),
-                                column.getLongColumnLength() == null
-                                        ? 0
-                                        : column.getLongColumnLength())),
+                        column.getColumnLength() == null ? 0 : column.getColumnLength()),
                 column.isNullable() ? "NULL" : "NOT NULL");
     }
 

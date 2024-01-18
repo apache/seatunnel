@@ -28,6 +28,7 @@ import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.connectors.seatunnel.common.source.TypeDefineUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 import com.google.auto.service.AutoService;
@@ -178,15 +179,21 @@ public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
                 builder.dataType(BasicType.STRING_TYPE);
                 if (typeDefine.getLength() == null || typeDefine.getLength() <= 0) {
                     builder.columnLength(1L);
+                    builder.sourceType(pgDataType);
                 } else {
                     builder.columnLength(typeDefine.getLength());
+                    builder.sourceType(String.format("%s(%s)", pgDataType, typeDefine.getLength()));
                 }
                 break;
             case PG_VARCHAR:
             case PG_CHARACTER_VARYING:
                 builder.dataType(BasicType.STRING_TYPE);
-                // The length of varchar type is empty, it will be set to null
-                builder.columnLength(typeDefine.getLength());
+                if (typeDefine.getLength() == null || typeDefine.getLength() <= 0) {
+                    builder.sourceType(pgDataType);
+                } else {
+                    builder.sourceType(String.format("%s(%s)", pgDataType, typeDefine.getLength()));
+                    builder.columnLength(TypeDefineUtils.charTo4ByteLength(typeDefine.getLength()));
+                }
                 break;
             case PG_TEXT:
                 builder.dataType(BasicType.STRING_TYPE);
@@ -333,6 +340,7 @@ public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
                             precision,
                             scale);
                 }
+
                 builder.columnType(String.format("%s(%s,%s)", PG_NUMERIC, precision, scale));
                 builder.dataType(PG_NUMERIC);
                 builder.precision(precision);

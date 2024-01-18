@@ -131,6 +131,12 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
         Object defaultValue = resultSet.getObject("default_value");
         boolean isNullable = resultSet.getString("is_nullable").equals("YES");
 
+        // dealingSpecialNumeric
+        if (typeName.equals(PostgresTypeConverter.PG_NUMERIC) && columnLength < 1) {
+            fullTypeName = "numeric(38,10)";
+            columnLength = 38;
+            columnScale = 10;
+        }
         if (defaultValue != null && defaultValue.toString().contains("regclass")) {
             defaultValue = null;
         }

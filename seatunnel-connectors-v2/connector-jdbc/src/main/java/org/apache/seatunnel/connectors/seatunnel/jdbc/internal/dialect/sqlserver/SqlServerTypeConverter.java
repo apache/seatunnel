@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.connectors.seatunnel.common.source.TypeDefineUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 import com.google.auto.service.AutoService;
@@ -58,7 +59,6 @@ public class SqlServerTypeConverter implements TypeConverter<BasicTypeDefine> {
     public static final String SQLSERVER_XML = "XML";
     public static final String SQLSERVER_UNIQUEIDENTIFIER = "UNIQUEIDENTIFIER";
     public static final String SQLSERVER_SQLVARIANT = "SQL_VARIANT";
-
     // ------------------------------time-------------------------
     public static final String SQLSERVER_DATE = "DATE";
     public static final String SQLSERVER_TIME = "TIME";
@@ -178,7 +178,8 @@ public class SqlServerTypeConverter implements TypeConverter<BasicTypeDefine> {
                 builder.sourceType(
                         String.format("%s(%s)", SQLSERVER_NCHAR, typeDefine.getLength()));
                 builder.dataType(BasicType.STRING_TYPE);
-                builder.columnLength(typeDefine.getLength());
+                builder.columnLength(
+                        TypeDefineUtils.doubleByteTo4ByteLength(typeDefine.getLength()));
                 break;
             case SQLSERVER_VARCHAR:
                 if (typeDefine.getLength() == -1) {
@@ -195,10 +196,12 @@ public class SqlServerTypeConverter implements TypeConverter<BasicTypeDefine> {
                 if (typeDefine.getLength() == -1) {
                     builder.sourceType(MAX_NVARCHAR);
                     builder.columnLength(POWER_2_31 - 1);
+                    builder.columnLength(TypeDefineUtils.doubleByteTo4ByteLength(POWER_2_31 - 1));
                 } else {
                     builder.sourceType(
                             String.format("%s(%s)", SQLSERVER_NVARCHAR, typeDefine.getLength()));
-                    builder.columnLength(typeDefine.getLength());
+                    builder.columnLength(
+                            TypeDefineUtils.doubleByteTo4ByteLength(typeDefine.getLength()));
                 }
                 builder.dataType(BasicType.STRING_TYPE);
                 break;

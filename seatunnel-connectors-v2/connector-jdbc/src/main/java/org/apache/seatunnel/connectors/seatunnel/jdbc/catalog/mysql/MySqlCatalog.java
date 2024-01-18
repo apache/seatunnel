@@ -104,13 +104,12 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
         long numberPrecision = resultSet.getInt("NUMERIC_PRECISION");
         // e.g. `decimal(10, 2)` is 2
         int numberScale = resultSet.getInt("NUMERIC_SCALE");
-        // e.g. `varchar(10)` is 10
-        long charLength = resultSet.getLong("CHARACTER_MAXIMUM_LENGTH");
+        // e.g. `varchar(10)` is 40
         long charOctetLength = resultSet.getLong("CHARACTER_OCTET_LENGTH");
         // e.g. `timestamp(3)` is 3
         int timePrecision = resultSet.getInt("DATETIME_PRECISION");
 
-        Preconditions.checkArgument(!(numberPrecision > 0 && charLength > 0));
+        Preconditions.checkArgument(!(numberPrecision > 0 && charOctetLength > 0));
         Preconditions.checkArgument(!(numberScale > 0 && timePrecision > 0));
 
         MysqlType mysqlType = MysqlType.getByName(columnType);
@@ -123,7 +122,7 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
                         .dataType(dataType)
                         .nativeType(mysqlType)
                         .unsigned(unsigned)
-                        .length(Math.max(charLength, numberPrecision))
+                        .length(Math.max(charOctetLength, numberPrecision))
                         .precision(numberPrecision)
                         .scale(Math.max(numberScale, timePrecision))
                         .nullable(isNullable)

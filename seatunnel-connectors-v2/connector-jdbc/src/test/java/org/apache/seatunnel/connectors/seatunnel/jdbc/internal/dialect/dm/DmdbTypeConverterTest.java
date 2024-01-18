@@ -299,7 +299,7 @@ public class DmdbTypeConverterTest {
         Column column = DmdbTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
-        Assertions.assertEquals(2, column.getColumnLength());
+        Assertions.assertEquals(8, column.getColumnLength());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType().toLowerCase());
 
         typeDefine =
@@ -312,7 +312,7 @@ public class DmdbTypeConverterTest {
         column = DmdbTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
-        Assertions.assertEquals(2, column.getColumnLength());
+        Assertions.assertEquals(8, column.getColumnLength());
         Assertions.assertEquals(
                 String.format("char(%s)", typeDefine.getLength()),
                 column.getSourceType().toLowerCase());
@@ -327,7 +327,7 @@ public class DmdbTypeConverterTest {
         column = DmdbTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
-        Assertions.assertEquals(2, column.getColumnLength());
+        Assertions.assertEquals(8, column.getColumnLength());
         Assertions.assertEquals(
                 String.format("varchar2(%s)", typeDefine.getLength()),
                 column.getSourceType().toLowerCase());
@@ -342,7 +342,7 @@ public class DmdbTypeConverterTest {
         column = DmdbTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
-        Assertions.assertEquals(2, column.getColumnLength());
+        Assertions.assertEquals(8, column.getColumnLength());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType().toLowerCase());
     }
 

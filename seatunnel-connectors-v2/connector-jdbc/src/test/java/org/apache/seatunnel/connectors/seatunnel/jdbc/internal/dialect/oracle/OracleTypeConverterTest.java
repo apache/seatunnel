@@ -246,7 +246,7 @@ public class OracleTypeConverterTest {
 
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
-        Assertions.assertEquals(typeDefine.getLength(), column.getColumnLength());
+        Assertions.assertEquals(2, column.getColumnLength());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
 
         typeDefine =
@@ -288,7 +288,7 @@ public class OracleTypeConverterTest {
 
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
-        Assertions.assertEquals(typeDefine.getLength(), column.getColumnLength());
+        Assertions.assertEquals(2, column.getColumnLength());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
 
         typeDefine =

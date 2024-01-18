@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.connectors.seatunnel.common.source.TypeDefineUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 import com.google.auto.service.AutoService;
@@ -156,12 +157,16 @@ public class OracleTypeConverter implements TypeConverter<BasicTypeDefine> {
                 builder.dataType(BasicType.DOUBLE_TYPE);
                 break;
             case ORACLE_CHAR:
-            case ORACLE_NCHAR:
             case ORACLE_VARCHAR:
             case ORACLE_VARCHAR2:
-            case ORACLE_NVARCHAR2:
                 builder.dataType(BasicType.STRING_TYPE);
                 builder.columnLength(typeDefine.getLength());
+                break;
+            case ORACLE_NCHAR:
+            case ORACLE_NVARCHAR2:
+                builder.dataType(BasicType.STRING_TYPE);
+                builder.columnLength(
+                        TypeDefineUtils.doubleByteTo4ByteLength(typeDefine.getLength()));
                 break;
             case ORACLE_ROWID:
                 builder.dataType(BasicType.STRING_TYPE);

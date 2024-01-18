@@ -25,6 +25,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.util.Arrays;
 
 @Slf4j
 public class SqlserverTypeMapper implements JdbcDialectTypeMapper {
@@ -46,6 +47,9 @@ public class SqlserverTypeMapper implements JdbcDialectTypeMapper {
             // float(1-24) char length is 7, float(25-53) char length is 15
             // float(1-24) byte length is 4, float(25-53) char length is 8
             precision = 53;
+        } else if (Arrays.asList("nchar", "nvarchar").contains(nativeType)) {
+            // e.g nvarchar(10) the char length is 10, but byte length is 20
+            precision = precision * 2;
         }
 
         BasicTypeDefine typeDefine =

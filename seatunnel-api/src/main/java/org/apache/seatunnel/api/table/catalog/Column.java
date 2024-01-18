@@ -49,8 +49,8 @@ public abstract class Column implements Serializable {
     /**
      * Designated column's specified column size.
      *
-     * <p>For numeric data, this is the maximum precision. For character data, this is the length in
-     * char. For binary data, this is the length in bytes.
+     * <p>For numeric data, this is the maximum precision. For character/binary data, this is the
+     * length in bytes.
      *
      * <p>Null is returned for data types where the scale is not applicable.
      */

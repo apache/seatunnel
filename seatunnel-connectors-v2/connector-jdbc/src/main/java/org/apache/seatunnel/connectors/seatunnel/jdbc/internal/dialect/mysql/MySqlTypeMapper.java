@@ -21,6 +21,9 @@ import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
+import com.mysql.cj.MysqlType;
+import com.mysql.cj.result.Field;
+
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 
@@ -39,6 +42,21 @@ public class MySqlTypeMapper implements JdbcDialectTypeMapper {
         int isNullable = metadata.isNullable(colIndex);
         int precision = metadata.getPrecision(colIndex);
         int scale = metadata.getScale(colIndex);
+
+        MysqlType mysqlType = MysqlType.getByName(nativeType);
+        if (MysqlType.CHAR.equals(mysqlType)
+                || MysqlType.VARCHAR.equals(mysqlType)
+                || MysqlType.ENUM.equals(mysqlType)) {
+            try {
+                com.mysql.cj.jdbc.result.ResultSetMetaData mysqlResultSetMetaData =
+                        (com.mysql.cj.jdbc.result.ResultSetMetaData) metadata;
+                Field field = mysqlResultSetMetaData.getFields()[colIndex - 1];
+                long octetLength = field.getLength();
+                precision = (int) Math.max(precision, octetLength);
+            } catch (Exception e) {
+                // ignore
+            }
+        }
 
         BasicTypeDefine typeDefine =
                 BasicTypeDefine.builder()
