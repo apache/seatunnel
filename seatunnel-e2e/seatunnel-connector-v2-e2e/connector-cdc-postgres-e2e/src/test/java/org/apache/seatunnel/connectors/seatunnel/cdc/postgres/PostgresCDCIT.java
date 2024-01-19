@@ -82,8 +82,10 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
 
     private static final String SOURCE_TABLE_1 = "postgres_cdc_table_1";
     private static final String SOURCE_TABLE_2 = "postgres_cdc_table_2";
+    private static final String SOURCE_TABLE_3 = "postgres_cdc_table_3";
     private static final String SINK_TABLE_1 = "sink_postgres_cdc_table_1";
     private static final String SINK_TABLE_2 = "sink_postgres_cdc_table_2";
+    private static final String SINK_TABLE_3 = "sink_postgres_cdc_table_3";
 
     private static final String SOURCE_TABLE_NO_PRIMARY_KEY = "full_types_no_primary_key";
 
@@ -374,6 +376,102 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "Currently SPARK and FLINK do not support multi table")
+    public void testAddFiledWithRestore(TestContainer container)
+            throws IOException, InterruptedException {
+        try {
+            CompletableFuture.supplyAsync(
+                    () -> {
+                        try {
+                            return container.executeJob(
+                                    "/postgrescdc_to_postgres_test_add_Filed.conf");
+                        } catch (Exception e) {
+                            log.error("Commit task exception :" + e.getMessage());
+                            throw new RuntimeException(e);
+                        }
+                    });
+
+            // stream stage
+            await().atMost(60000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertAll(
+                                            () ->
+                                                    Assertions.assertIterableEquals(
+                                                            query(
+                                                                    getQuerySQL(
+                                                                            POSTGRESQL_SCHEMA,
+                                                                            SOURCE_TABLE_3)),
+                                                            query(
+                                                                    getQuerySQL(
+                                                                            POSTGRESQL_SCHEMA,
+                                                                            SINK_TABLE_3)))));
+
+            Pattern jobIdPattern =
+                    Pattern.compile(
+                            ".*Init JobMaster for Job SeaTunnel_Job \\(([0-9]*)\\).*",
+                            Pattern.DOTALL);
+            Matcher matcher = jobIdPattern.matcher(container.getServerLogs());
+            String jobId;
+            if (matcher.matches()) {
+                jobId = matcher.group(1);
+            } else {
+                throw new RuntimeException("Can not find jobId");
+            }
+
+            Assertions.assertEquals(0, container.savepointJob(jobId).getExitCode());
+
+            // add filed add insert source table data
+            addFieldsForTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_3);
+            addFieldsForTable(POSTGRESQL_SCHEMA, SINK_TABLE_3);
+            insertSourceTableForAddFields(POSTGRESQL_SCHEMA, SOURCE_TABLE_3);
+
+            // Restore job
+            CompletableFuture.supplyAsync(
+                    () -> {
+                        try {
+                            container.restoreJob(
+                                    "/postgrescdc_to_postgres_test_add_Filed.conf", jobId);
+                        } catch (Exception e) {
+                            log.error("Commit task exception :" + e.getMessage());
+                            throw new RuntimeException(e);
+                        }
+                        return null;
+                    });
+
+            // stream stage
+            await().atMost(60000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertAll(
+                                            () ->
+                                                    Assertions.assertIterableEquals(
+                                                            query(
+                                                                    getQuerySQL(
+                                                                            POSTGRESQL_SCHEMA,
+                                                                            SOURCE_TABLE_3)),
+                                                            query(
+                                                                    getQuerySQL(
+                                                                            POSTGRESQL_SCHEMA,
+                                                                            SINK_TABLE_3)))));
+
+            log.info("****************** container logs start ******************");
+            String containerLogs = container.getServerLogs();
+            log.info(containerLogs);
+            // pg cdc logs contain ERROR
+            // Assertions.assertFalse(containerLogs.contains("ERROR"));
+            log.info("****************** container logs end ******************");
+        } finally {
+            // Clear related content to ensure that multiple operations are not affected
+            clearTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_3);
+            clearTable(POSTGRESQL_SCHEMA, SINK_TABLE_3);
+        }
+    }
+
+    @TestTemplate
     public void testPostgresCdcCheckDataWithNoPrimaryKey(TestContainer container) throws Exception {
 
         try {
@@ -539,6 +637,20 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private void addFieldsForTable(String database, String tableName) {
+
+        executeSql("ALTER TABLE " + database + "." + tableName + " ADD COLUMN f_big BIGINT");
+    }
+
+    private void insertSourceTableForAddFields(String database, String tableName) {
+        executeSql(
+                "INSERT INTO "
+                        + database
+                        + "."
+                        + tableName
+                        + " VALUES (2, '2', 32767, 65535, 2147483647);");
     }
 
     private void upsertDeleteSourceTable(String database, String tableName) {
