@@ -23,7 +23,7 @@
     </parent>
 
     <artifactId>connector-cdc-postgres-e2e</artifactId>
-    <name>SeaTunnel : E2E : Connector V2 : CDC MySql</name>
+    <name>SeaTunnel : E2E : Connector V2 : CDC Postgres</name>
 
     <dependencyManagement>
         <dependencies>
