@@ -39,7 +39,7 @@ If write to `csv`, `text` file type, All column will be string.
 
 ### Orc File Type
 
-| SeaTunnel Data type  |     Orc Data type     |
+| SeaTunnel Data Type  |     Orc Data Type     |
 |----------------------|-----------------------|
 | STRING               | STRING                |
 | BOOLEAN              | BOOLEAN               |
@@ -61,7 +61,7 @@ If write to `csv`, `text` file type, All column will be string.
 
 ### Parquet File Type
 
-| SeaTunnel Data type  |   Parquet Data type   |
+| SeaTunnel Data Type  |   Parquet Data Type   |
 |----------------------|-----------------------|
 | STRING               | STRING                |
 | BOOLEAN              | BOOLEAN               |
@@ -83,7 +83,7 @@ If write to `csv`, `text` file type, All column will be string.
 
 ## Options
 
-|               name               |  type   | required |               default value                |                                                      remarks                                                      |
+|               Name               |  Type   | Required |                  Default                   |                                                    Description                                                    |
 |----------------------------------|---------|----------|--------------------------------------------|-------------------------------------------------------------------------------------------------------------------|
 | path                             | string  | yes      | The oss path to write file in.             |                                                                                                                   |
 | tmp_path                         | string  | no       | /tmp/seatunnel                             | The result file will write to a tmp path first and then use `mv` to submit tmp dir to target dir. Need a OSS dir. |

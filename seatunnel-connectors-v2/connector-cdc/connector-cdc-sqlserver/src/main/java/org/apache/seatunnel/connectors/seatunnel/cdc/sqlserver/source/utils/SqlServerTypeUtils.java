@@ -49,6 +49,7 @@ public class SqlServerTypeUtils {
 
     // ------------------------------number-------------------------
     private static final String SQLSERVER_INTEGER = "INT";
+    private static final String SQLSERVER_INT_IDENTITY = "INT IDENTITY";
     private static final String SQLSERVER_SMALLINT = "SMALLINT";
     private static final String SQLSERVER_TINYINT = "TINYINT";
     private static final String SQLSERVER_BIGINT = "BIGINT";
@@ -91,6 +92,7 @@ public class SqlServerTypeUtils {
             case SQLSERVER_VARBINARY:
                 return PrimitiveByteArrayType.INSTANCE;
             case SQLSERVER_INTEGER:
+            case SQLSERVER_INT_IDENTITY:
                 return BasicType.INT_TYPE;
             case SQLSERVER_SMALLINT:
             case SQLSERVER_TINYINT:

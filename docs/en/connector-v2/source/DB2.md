@@ -36,7 +36,7 @@ Read external data source data through JDBC.
 
 ## Data Type Mapping
 
-|                                            DB2 Data type                                             | SeaTunnel Data type |
+|                                            DB2 Data Type                                             | SeaTunnel Data Type |
 |------------------------------------------------------------------------------------------------------|---------------------|---|
 | BOOLEAN                                                                                              | BOOLEAN             |
 | SMALLINT                                                                                             | SHORT               |

@@ -121,7 +121,7 @@ public class OracleIncrementalSource<T> extends IncrementalSource<T, JdbcSourceC
 
     @Override
     public DataSourceDialect<JdbcSourceConfig> createDataSourceDialect(ReadonlyConfig config) {
-        return new OracleDialect((OracleSourceConfigFactory) configFactory);
+        return new OracleDialect((OracleSourceConfigFactory) configFactory, catalogTables);
     }
 
     @Override
@@ -132,7 +132,8 @@ public class OracleIncrementalSource<T> extends IncrementalSource<T, JdbcSourceC
 
     private Map<TableId, Struct> tableChanges() {
         JdbcSourceConfig jdbcSourceConfig = configFactory.create(0);
-        OracleDialect dialect = new OracleDialect((OracleSourceConfigFactory) configFactory);
+        OracleDialect dialect =
+                new OracleDialect((OracleSourceConfigFactory) configFactory, catalogTables);
         List<TableId> discoverTables = dialect.discoverDataCollections(jdbcSourceConfig);
         ConnectTableChangeSerializer connectTableChangeSerializer =
                 new ConnectTableChangeSerializer();

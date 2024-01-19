@@ -38,6 +38,8 @@ public class HttpParameter implements Serializable {
     protected int retryBackoffMultiplierMillis = HttpConfig.DEFAULT_RETRY_BACKOFF_MULTIPLIER_MS;
     protected int retryBackoffMaxMillis = HttpConfig.DEFAULT_RETRY_BACKOFF_MAX_MS;
     protected boolean enableMultilines;
+    protected int connectTimeoutMs = HttpConfig.DEFAULT_CONNECT_TIMEOUT_MS;
+    protected int socketTimeoutMs = HttpConfig.DEFAULT_SOCKET_TIMEOUT_MS;
 
     public void buildWithConfig(Config pluginConfig) {
         // set url
@@ -84,6 +86,12 @@ public class HttpParameter implements Serializable {
             this.setEnableMultilines(pluginConfig.getBoolean(HttpConfig.ENABLE_MULTI_LINES.key()));
         } else {
             this.setEnableMultilines(HttpConfig.ENABLE_MULTI_LINES.defaultValue());
+        }
+        if (pluginConfig.hasPath(HttpConfig.CONNECT_TIMEOUT_MS.key())) {
+            this.setConnectTimeoutMs(pluginConfig.getInt(HttpConfig.CONNECT_TIMEOUT_MS.key()));
+        }
+        if (pluginConfig.hasPath(HttpConfig.SOCKET_TIMEOUT_MS.key())) {
+            this.setSocketTimeoutMs(pluginConfig.getInt(HttpConfig.SOCKET_TIMEOUT_MS.key()));
         }
     }
 

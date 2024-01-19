@@ -17,7 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.oracle.utils;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
+import org.apache.seatunnel.connectors.cdc.base.utils.CatalogTableUtils;
 
 import io.debezium.connector.oracle.OracleConnection;
 import io.debezium.connector.oracle.OracleConnectorConfig;
@@ -37,10 +39,13 @@ public class OracleSchema {
 
     private final OracleConnectorConfig connectorConfig;
     private final Map<TableId, TableChange> schemasByTableId;
+    private final Map<TableId, CatalogTable> tableMap;
 
-    public OracleSchema(OracleConnectorConfig connectorConfig) {
+    public OracleSchema(
+            OracleConnectorConfig connectorConfig, Map<TableId, CatalogTable> tableMap) {
         this.connectorConfig = connectorConfig;
         this.schemasByTableId = new HashMap<>();
+        this.tableMap = tableMap;
     }
 
     /**
@@ -71,7 +76,9 @@ public class OracleSchema {
                     null,
                     false);
 
-            Table table = tables.forTable(tableId);
+            Table table =
+                    CatalogTableUtils.mergeCatalogTableConfig(
+                            tables.forTable(tableId), tableMap.get(tableId));
             TableChange tableChange = new TableChange(TableChanges.TableChangeType.CREATE, table);
             tableChangeMap.put(tableId, tableChange);
         } catch (SQLException e) {

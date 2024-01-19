@@ -15,7 +15,7 @@ e.g. If you use MySQL, should download and copy `mysql-connector-java-xxx.jar` t
 
 :::
 
-## Key features
+## Key Features
 
 - [x] [exactly-once](../../concept/connector-v2-features.md)
 
@@ -26,7 +26,7 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 
 ## Options
 
-|                   name                    |  type   | required |        default value         |
+|                   Name                    |  Type   | Required |           Default            |
 |-------------------------------------------|---------|----------|------------------------------|
 | url                                       | String  | Yes      | -                            |
 | driver                                    | String  | Yes      | -                            |
