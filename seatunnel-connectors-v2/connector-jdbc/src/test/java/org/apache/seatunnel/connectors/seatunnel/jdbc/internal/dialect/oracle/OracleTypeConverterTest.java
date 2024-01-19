@@ -32,7 +32,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleTypeConverter.BYTES_2GB;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleTypeConverter.BYTES_4GB;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleTypeConverter.RAW_DEFAULT_LENGTH;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleTypeConverter.MAX_RAW_LENGTH;
 
 public class OracleTypeConverterTest {
 
@@ -386,7 +386,7 @@ public class OracleTypeConverterTest {
 
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(PrimitiveByteArrayType.INSTANCE, column.getDataType());
-        Assertions.assertEquals(RAW_DEFAULT_LENGTH, column.getColumnLength());
+        Assertions.assertEquals(MAX_RAW_LENGTH, column.getColumnLength());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
 
         typeDefine =
@@ -607,8 +607,8 @@ public class OracleTypeConverterTest {
 
         BasicTypeDefine typeDefine = OracleTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
-        Assertions.assertEquals(OracleTypeConverter.ORACLE_BLOB, typeDefine.getColumnType());
-        Assertions.assertEquals(OracleTypeConverter.ORACLE_BLOB, typeDefine.getDataType());
+        Assertions.assertEquals(OracleTypeConverter.ORACLE_LONG_RAW, typeDefine.getColumnType());
+        Assertions.assertEquals(OracleTypeConverter.ORACLE_LONG_RAW, typeDefine.getDataType());
 
         column =
                 PhysicalColumn.builder()
@@ -660,8 +660,8 @@ public class OracleTypeConverterTest {
 
         BasicTypeDefine typeDefine = OracleTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
-        Assertions.assertEquals(OracleTypeConverter.ORACLE_CLOB, typeDefine.getColumnType());
-        Assertions.assertEquals(OracleTypeConverter.ORACLE_CLOB, typeDefine.getDataType());
+        Assertions.assertEquals("NVARCHAR2(4000)", typeDefine.getColumnType());
+        Assertions.assertEquals(OracleTypeConverter.ORACLE_NVARCHAR2, typeDefine.getDataType());
 
         column =
                 PhysicalColumn.builder()
@@ -673,9 +673,10 @@ public class OracleTypeConverterTest {
         typeDefine = OracleTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(
-                String.format("%s(%s)", OracleTypeConverter.ORACLE_NCHAR, column.getColumnLength()),
+                String.format(
+                        "%s(%s)", OracleTypeConverter.ORACLE_NVARCHAR2, column.getColumnLength()),
                 typeDefine.getColumnType());
-        Assertions.assertEquals(OracleTypeConverter.ORACLE_NCHAR, typeDefine.getDataType());
+        Assertions.assertEquals(OracleTypeConverter.ORACLE_NVARCHAR2, typeDefine.getDataType());
 
         column =
                 PhysicalColumn.builder()

@@ -793,9 +793,9 @@ public class MySqlTypeConverterTest {
 
         BasicTypeDefine<MysqlType> typeDefine = MySqlTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
-        Assertions.assertEquals(MysqlType.LONGBLOB, typeDefine.getNativeType());
-        Assertions.assertEquals(MySqlTypeConverter.MYSQL_LONGBLOB, typeDefine.getColumnType());
-        Assertions.assertEquals(MySqlTypeConverter.MYSQL_LONGBLOB, typeDefine.getDataType());
+        Assertions.assertEquals(MysqlType.VARBINARY, typeDefine.getNativeType());
+        Assertions.assertEquals("VARBINARY(65532)", typeDefine.getColumnType());
+        Assertions.assertEquals(MySqlTypeConverter.MYSQL_VARBINARY, typeDefine.getDataType());
 
         column =
                 PhysicalColumn.builder()
@@ -822,9 +822,9 @@ public class MySqlTypeConverterTest {
 
         typeDefine = MySqlTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
-        Assertions.assertEquals(MysqlType.BLOB, typeDefine.getNativeType());
-        Assertions.assertEquals(MySqlTypeConverter.MYSQL_BLOB, typeDefine.getColumnType());
-        Assertions.assertEquals(MySqlTypeConverter.MYSQL_BLOB, typeDefine.getDataType());
+        Assertions.assertEquals(MysqlType.MEDIUMBLOB, typeDefine.getNativeType());
+        Assertions.assertEquals(MySqlTypeConverter.MYSQL_MEDIUMBLOB, typeDefine.getColumnType());
+        Assertions.assertEquals(MySqlTypeConverter.MYSQL_MEDIUMBLOB, typeDefine.getDataType());
 
         column =
                 PhysicalColumn.builder()

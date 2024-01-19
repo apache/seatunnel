@@ -77,10 +77,10 @@ public class OracleTypeConverter implements TypeConverter<BasicTypeDefine> {
     public static final int DEFAULT_SCALE = 18;
     public static final int TIMESTAMP_DEFAULT_SCALE = 6;
     public static final int MAX_TIMESTAMP_SCALE = 9;
-    public static final long RAW_DEFAULT_LENGTH = 2000;
-    public static final long ROWID_DEFAULT_LENGTH = 18;
-    public static final long CHAR_DEFAULT_LENGTH = 2000;
-    public static final long VARCHAR_DEFAULT_LENGTH = 4000;
+    public static final long MAX_RAW_LENGTH = 2000;
+    public static final long MAX_ROWID_LENGTH = 18;
+    public static final long MAX_CHAR_LENGTH = 2000;
+    public static final long MAX_VARCHAR_LENGTH = 4000;
 
     public static final long BYTES_2GB = (long) Math.pow(2, 31);
     public static final long BYTES_4GB = (long) Math.pow(2, 32);
@@ -170,7 +170,7 @@ public class OracleTypeConverter implements TypeConverter<BasicTypeDefine> {
                 break;
             case ORACLE_ROWID:
                 builder.dataType(BasicType.STRING_TYPE);
-                builder.columnLength(ROWID_DEFAULT_LENGTH);
+                builder.columnLength(MAX_ROWID_LENGTH);
                 break;
             case ORACLE_XML:
             case ORACLE_SYS_XML:
@@ -196,7 +196,7 @@ public class OracleTypeConverter implements TypeConverter<BasicTypeDefine> {
             case ORACLE_RAW:
                 builder.dataType(PrimitiveByteArrayType.INSTANCE);
                 if (typeDefine.getLength() == null || typeDefine.getLength() == 0) {
-                    builder.columnLength(RAW_DEFAULT_LENGTH);
+                    builder.columnLength(MAX_RAW_LENGTH);
                 } else {
                     builder.columnLength(typeDefine.getLength());
                 }
@@ -316,9 +316,9 @@ public class OracleTypeConverter implements TypeConverter<BasicTypeDefine> {
                 break;
             case BYTES:
                 if (column.getColumnLength() == null || column.getColumnLength() <= 0) {
-                    builder.columnType(ORACLE_BLOB);
-                    builder.dataType(ORACLE_BLOB);
-                } else if (column.getColumnLength() <= RAW_DEFAULT_LENGTH) {
+                    builder.columnType(ORACLE_LONG_RAW);
+                    builder.dataType(ORACLE_LONG_RAW);
+                } else if (column.getColumnLength() <= MAX_RAW_LENGTH) {
                     builder.columnType(
                             String.format("%s(%s)", ORACLE_RAW, column.getColumnLength()));
                     builder.dataType(ORACLE_RAW);
@@ -332,13 +332,10 @@ public class OracleTypeConverter implements TypeConverter<BasicTypeDefine> {
                 break;
             case STRING:
                 if (column.getColumnLength() == null || column.getColumnLength() <= 0) {
-                    builder.columnType(ORACLE_CLOB);
-                    builder.dataType(ORACLE_CLOB);
-                } else if (column.getColumnLength() <= CHAR_DEFAULT_LENGTH) {
                     builder.columnType(
-                            String.format("%s(%s)", ORACLE_NCHAR, column.getColumnLength()));
-                    builder.dataType(ORACLE_NCHAR);
-                } else if (column.getColumnLength() <= VARCHAR_DEFAULT_LENGTH) {
+                            String.format("%s(%s)", ORACLE_NVARCHAR2, MAX_VARCHAR_LENGTH));
+                    builder.dataType(ORACLE_NVARCHAR2);
+                } else if (column.getColumnLength() <= MAX_VARCHAR_LENGTH) {
                     builder.columnType(
                             String.format("%s(%s)", ORACLE_NVARCHAR2, column.getColumnLength()));
                     builder.dataType(ORACLE_NVARCHAR2);
