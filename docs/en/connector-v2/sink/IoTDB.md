@@ -8,16 +8,26 @@
 > Flink<br/>
 > SeaTunnel Zeta<br/>
 
+## Description
+
+Used to write data to IoTDB.
+
+## Using Dependency
+
+### For Spark/Flink Engine
+
+> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/org.apache.iotdb/iotdb-jdbc) has been placed in directory `${SEATUNNEL_HOME}/plugins/`.
+
+### For SeaTunnel Zeta Engine
+
+> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/org.apache.iotdb/iotdb-jdbc) has been placed in directory `${SEATUNNEL_HOME}/lib/`.
+
 ## Key Features
 
 - [x] [exactly-once](../../concept/connector-v2-features.md)
 
 IoTDB supports the `exactly-once` feature through idempotent writing. If two pieces of data have
 the same `key` and `timestamp`, the new data will overwrite the old one.
-
-## Description
-
-Used to write data to IoTDB.
 
 :::tip
 
@@ -31,11 +41,9 @@ There is a conflict of thrift version between IoTDB and Spark.Therefore, you nee
 |------------|--------------------|----------------|
 | IoTDB      | `>= 0.13.0`        | localhost:6667 |
 
-## Database Dependency
-
 ## Data Type Mapping
 
-| IotDB Data type | SeaTunnel Data type |
+| IotDB Data Type | SeaTunnel Data Type |
 |-----------------|---------------------|
 | BOOLEAN         | BOOLEAN             |
 | INT32           | TINYINT             |
@@ -98,9 +106,6 @@ source {
     }
   }
 }
-
-...
-
 ```
 
 Upstream SeaTunnelRow data format is the following:

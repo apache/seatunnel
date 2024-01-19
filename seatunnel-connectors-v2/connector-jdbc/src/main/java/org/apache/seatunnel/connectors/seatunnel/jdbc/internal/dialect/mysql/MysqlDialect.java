@@ -28,6 +28,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
 
 import org.apache.commons.lang3.StringUtils;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -41,6 +43,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+@Slf4j
 public class MysqlDialect implements JdbcDialect {
     public String fieldIde = FieldIdeEnum.ORIGINAL.getValue();
 
@@ -170,8 +173,11 @@ public class MysqlDialect implements JdbcDialect {
                     String.format("USE %s;", quoteDatabaseIdentifier(tablePath.getDatabaseName()));
             String rowCountQuery =
                     String.format("SHOW TABLE STATUS LIKE '%s';", tablePath.getTableName());
+
             try (Statement stmt = connection.createStatement()) {
+                log.info("Split Chunk, approximateRowCntStatement: {}", useDatabaseStatement);
                 stmt.execute(useDatabaseStatement);
+                log.info("Split Chunk, approximateRowCntStatement: {}", rowCountQuery);
                 try (ResultSet rs = stmt.executeQuery(rowCountQuery)) {
                     if (!rs.next() || rs.getMetaData().getColumnCount() < 5) {
                         throw new SQLException(

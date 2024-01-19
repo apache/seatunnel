@@ -2,6 +2,12 @@
 
 > FakeSource connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 The FakeSource is a virtual data source, which randomly generates the number of rows according to the data structure of the user-defined schema,
@@ -371,14 +377,20 @@ rows = [
 
 ### Options `table-names` Case
 
-```agsl
-FakeSource {
-    table-names = ["test.table1", "test.table2"]
+```hocon
+
+source {
+  # This is a example source plugin **only for test and demonstrate the feature source plugin**
+  FakeSource {
+    table-names = ["test.table1", "test.table2", "test.table3"]
+    parallelism = 1
     schema = {
-        table = "database.schema.table"
-        ...
+      fields {
+        name = "string"
+        age = "int"
+      }
     }
-    ...
+  }
 }
 ```
 

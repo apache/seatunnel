@@ -30,7 +30,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 
 ## Data Type Mapping
 
-| SeaTunnel Data type |                                                             Clickhouse Data type                                                              |
+| SeaTunnel Data Type |                                                             Clickhouse Data Type                                                              |
 |---------------------|-----------------------------------------------------------------------------------------------------------------------------------------------|
 | STRING              | String / Int128 / UInt128 / Int256 / UInt256 / Point / Ring / Polygon MultiPolygon                                                            |
 | INT                 | Int8 / UInt8 / Int16 / UInt16 / Int32                                                                                                         |
