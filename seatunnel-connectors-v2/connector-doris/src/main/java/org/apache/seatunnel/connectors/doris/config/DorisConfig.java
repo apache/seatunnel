@@ -29,9 +29,11 @@ import java.io.Serializable;
 import java.util.Map;
 import java.util.Properties;
 
+import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DATABASE;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DORIS_BATCH_SIZE;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DORIS_DESERIALIZE_ARROW_ASYNC;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DORIS_DESERIALIZE_QUEUE_SIZE;
+import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DORIS_EXEC_MEM_LIMIT;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DORIS_FILTER_QUERY;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DORIS_READ_FIELD;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DORIS_REQUEST_CONNECT_TIMEOUT_MS;
@@ -41,6 +43,7 @@ import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DORIS_RE
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DORIS_SINK_CONFIG_PREFIX;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DORIS_TABLET_SIZE;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.FENODES;
+import static org.apache.seatunnel.connectors.doris.config.DorisOptions.NEEDS_UNSUPPORTED_TYPE_CASTING;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.PASSWORD;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.QUERY_PORT;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.SAVE_MODE_CREATE_TEMPLATE;
@@ -51,7 +54,7 @@ import static org.apache.seatunnel.connectors.doris.config.DorisOptions.SINK_ENA
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.SINK_ENABLE_DELETE;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.SINK_LABEL_PREFIX;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.SINK_MAX_RETRIES;
-import static org.apache.seatunnel.connectors.doris.config.DorisOptions.TABLE_IDENTIFIER;
+import static org.apache.seatunnel.connectors.doris.config.DorisOptions.TABLE;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.USERNAME;
 
 @Setter
@@ -61,10 +64,11 @@ public class DorisConfig implements Serializable {
 
     // common option
     private String frontends;
+    private String database;
+    private String table;
     private String username;
     private String password;
     private Integer queryPort;
-    private String tableIdentifier;
     private int batchSize;
 
     // source option
@@ -75,9 +79,9 @@ public class DorisConfig implements Serializable {
     private Integer requestReadTimeoutMs;
     private Integer requestQueryTimeoutS;
     private Integer requestRetries;
-    private boolean deserializeArrowAsync;
+    private Boolean deserializeArrowAsync;
     private int deserializeQueueSize;
-    private int execMemLimit;
+    private Long execMemLimit;
     private boolean useOldApi;
 
     // sink option
@@ -89,6 +93,7 @@ public class DorisConfig implements Serializable {
     private Integer bufferSize;
     private Integer bufferCount;
     private Properties streamLoadProps;
+    private boolean needsUnsupportedTypeCasting;
 
     // create table option
     private String createTableTemplate;
@@ -105,21 +110,23 @@ public class DorisConfig implements Serializable {
         dorisConfig.setFrontends(config.get(FENODES));
         dorisConfig.setUsername(config.get(USERNAME));
         dorisConfig.setPassword(config.get(PASSWORD));
-        dorisConfig.setTableIdentifier(config.get(TABLE_IDENTIFIER));
         dorisConfig.setQueryPort(config.get(QUERY_PORT));
         dorisConfig.setStreamLoadProps(parseStreamLoadProperties(config));
+        dorisConfig.setDatabase(config.get(DATABASE));
+        dorisConfig.setTable(config.get(TABLE));
 
         // source option
         dorisConfig.setReadField(config.get(DORIS_READ_FIELD));
         dorisConfig.setFilterQuery(config.get(DORIS_FILTER_QUERY));
         dorisConfig.setTabletSize(config.get(DORIS_TABLET_SIZE));
-        dorisConfig.setRequestReadTimeoutMs(config.get(DORIS_REQUEST_CONNECT_TIMEOUT_MS));
+        dorisConfig.setRequestConnectTimeoutMs(config.get(DORIS_REQUEST_CONNECT_TIMEOUT_MS));
         dorisConfig.setRequestQueryTimeoutS(config.get(DORIS_REQUEST_QUERY_TIMEOUT_S));
         dorisConfig.setRequestReadTimeoutMs(config.get(DORIS_REQUEST_READ_TIMEOUT_MS));
         dorisConfig.setRequestRetries(config.get(DORIS_REQUEST_RETRIES));
         dorisConfig.setDeserializeArrowAsync(config.get(DORIS_DESERIALIZE_ARROW_ASYNC));
         dorisConfig.setDeserializeQueueSize(config.get(DORIS_DESERIALIZE_QUEUE_SIZE));
         dorisConfig.setBatchSize(config.get(DORIS_BATCH_SIZE));
+        dorisConfig.setExecMemLimit(config.get(DORIS_EXEC_MEM_LIMIT));
 
         // sink option
         dorisConfig.setEnable2PC(config.get(SINK_ENABLE_2PC));
@@ -129,6 +136,7 @@ public class DorisConfig implements Serializable {
         dorisConfig.setBufferSize(config.get(SINK_BUFFER_SIZE));
         dorisConfig.setBufferCount(config.get(SINK_BUFFER_COUNT));
         dorisConfig.setEnableDelete(config.get(SINK_ENABLE_DELETE));
+        dorisConfig.setNeedsUnsupportedTypeCasting(config.get(NEEDS_UNSUPPORTED_TYPE_CASTING));
 
         // create table option
         dorisConfig.setCreateTableTemplate(config.get(SAVE_MODE_CREATE_TEMPLATE));

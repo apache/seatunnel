@@ -2,11 +2,25 @@
 
 > JDBC Vertica Source Connector
 
+## Description
+
+Read external data source data through JDBC.
+
 ## Support Those Engines
 
 > Spark<br/>
 > Flink<br/>
 > SeaTunnel Zeta<br/>
+
+## Using Dependency
+
+### For Spark/Flink Engine
+
+> 1. You need to ensure that the [jdbc driver jar package](https://www.vertica.com/download/vertica/client-drivers/) has been placed in directory `${SEATUNNEL_HOME}/plugins/`.
+
+### For SeaTunnel Zeta Engine
+
+> 1. You need to ensure that the [jdbc driver jar package](https://www.vertica.com/download/vertica/client-drivers/) has been placed in directory `${SEATUNNEL_HOME}/lib/`.
 
 ## Key Features
 
@@ -19,24 +33,15 @@
 
 > supports query SQL and can achieve projection effect.
 
-## Description
-
-Read external data source data through JDBC.
-
 ## Supported DataSource Info
 
 | Datasource |                    Supported versions                    |         Driver          |                  Url                  |                                Maven                                 |
 |------------|----------------------------------------------------------|-------------------------|---------------------------------------|----------------------------------------------------------------------|
 | Vertica    | Different dependency version has different driver class. | com.vertica.jdbc.Driver | jdbc:vertica://localhost:5433/vertica | [Download](https://www.vertica.com/download/vertica/client-drivers/) |
 
-## Database Dependency
-
-> Please download the support list corresponding to 'Maven' and copy it to the '$SEATNUNNEL_HOME/plugins/jdbc/lib/' working directory<br/>
-> For example Vertica datasource: cp vertica-jdbc-xxx.jar $SEATNUNNEL_HOME/plugins/jdbc/lib/
-
 ## Data Type Mapping
 
-|                                                        Vertical Data type                                                         |                                                                 SeaTunnel Data type                                                                 |
+|                                                        Vertical Data Type                                                         |                                                                 SeaTunnel Data Type                                                                 |
 |-----------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
 | BIT                                                                                                                               | BOOLEAN                                                                                                                                             |
 | TINYINT<br/>TINYINT UNSIGNED<br/>SMALLINT<br/>SMALLINT UNSIGNED<br/>MEDIUMINT<br/>MEDIUMINT UNSIGNED<br/>INT<br/>INTEGER<br/>YEAR | INT                                                                                                                                                 |

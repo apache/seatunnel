@@ -27,6 +27,7 @@ import lombok.ToString;
 @EqualsAndHashCode(callSuper = true)
 @ToString(callSuper = true)
 public class MetadataColumn extends Column {
+    private static final long serialVersionUID = 1L;
 
     private final String metadataKey;
 
@@ -69,5 +70,17 @@ public class MetadataColumn extends Column {
     public Column copy() {
         return MetadataColumn.of(
                 name, dataType, columnLength, metadataKey, nullable, defaultValue, comment);
+    }
+
+    @Override
+    public Column rename(String newColumnName) {
+        return MetadataColumn.of(
+                newColumnName,
+                dataType,
+                columnLength,
+                metadataKey,
+                nullable,
+                defaultValue,
+                comment);
     }
 }

@@ -30,6 +30,8 @@ import java.util.Map;
 @ToString(callSuper = true)
 public class PhysicalColumn extends Column {
 
+    private static final long serialVersionUID = 1L;
+
     protected PhysicalColumn(
             String name,
             SeaTunnelDataType<?> dataType,
@@ -132,6 +134,23 @@ public class PhysicalColumn extends Column {
     public Column copy() {
         return PhysicalColumn.of(
                 name,
+                dataType,
+                columnLength,
+                nullable,
+                defaultValue,
+                comment,
+                sourceType,
+                isUnsigned,
+                isZeroFill,
+                bitLen,
+                options,
+                longColumnLength);
+    }
+
+    @Override
+    public Column rename(String newColumnName) {
+        return PhysicalColumn.of(
+                newColumnName,
                 dataType,
                 columnLength,
                 nullable,
