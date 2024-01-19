@@ -24,12 +24,11 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerURLParser;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
-import org.apache.seatunnel.e2e.common.container.TestContainer;
 
 import org.apache.commons.lang3.tuple.Pair;
 
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.TestTemplate;
+import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.MSSQLServerContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -72,6 +71,44 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
             Lists.newArrayList("/jdbc_sqlserver_source_to_sink.conf");
     private static final String CREATE_SQL =
             "CREATE TABLE %s (\n"
+                    + "\tINT_IDENTITY_TEST int identity,\n"
+                    + "\tBIGINT_TEST bigint NOT NULL,\n"
+                    + "\tBINARY_TEST binary(255) NULL,\n"
+                    + "\tBIT_TEST bit NULL,\n"
+                    + "\tCHAR_TEST char(255) COLLATE Chinese_PRC_CS_AS NULL,\n"
+                    + "\tDATE_TEST date NULL,\n"
+                    + "\tDATETIME_TEST datetime NULL,\n"
+                    + "\tDATETIME2_TEST datetime2 NULL,\n"
+                    + "\tDATETIMEOFFSET_TEST datetimeoffset NULL,\n"
+                    + "\tDECIMAL_TEST decimal(18,2) NULL,\n"
+                    + "\tFLOAT_TEST float NULL,\n"
+                    + "\tIMAGE_TEST image NULL,\n"
+                    + "\tINT_TEST int NULL,\n"
+                    + "\tMONEY_TEST money NULL,\n"
+                    + "\tNCHAR_TEST nchar(1) COLLATE Chinese_PRC_CS_AS NULL,\n"
+                    + "\tNTEXT_TEST ntext COLLATE Chinese_PRC_CS_AS NULL,\n"
+                    + "\tNUMERIC_TEST numeric(18,2) NULL,\n"
+                    + "\tNVARCHAR_TEST nvarchar(16) COLLATE Chinese_PRC_CS_AS NULL,\n"
+                    + "\tNVARCHAR_MAX_TEST nvarchar(MAX) COLLATE Chinese_PRC_CS_AS NULL,\n"
+                    + "\tREAL_TEST real NULL,\n"
+                    + "\tSMALLDATETIME_TEST smalldatetime NULL,\n"
+                    + "\tSMALLINT_TEST smallint NULL,\n"
+                    + "\tSMALLMONEY_TEST smallmoney NULL,\n"
+                    + "\tSQL_VARIANT_TEST sql_variant NULL,\n"
+                    + "\tTEXT_TEST text COLLATE Chinese_PRC_CS_AS NULL,\n"
+                    + "\tTIME_TEST time NULL,\n"
+                    + "\tTINYINT_TEST tinyint NULL,\n"
+                    + "\tUNIQUEIDENTIFIER_TEST uniqueidentifier NULL,\n"
+                    + "\tVARBINARY_TEST varbinary(255) NULL,\n"
+                    + "\tVARBINARY_MAX_TEST varbinary(MAX) NULL,\n"
+                    + "\tVARCHAR_TEST varchar(16) COLLATE Chinese_PRC_CS_AS NULL,\n"
+                    + "\tVARCHAR_MAX_TEST varchar(MAX) COLLATE Chinese_PRC_CS_AS DEFAULT NULL NULL,\n"
+                    + "\tXML_TEST xml NULL\n"
+                    + ");";
+
+    private static final String SINK_CREATE_SQL =
+            "CREATE TABLE %s (\n"
+                    + "\tINT_IDENTITY_TEST int NULL,\n"
                     + "\tBIGINT_TEST bigint NOT NULL,\n"
                     + "\tBINARY_TEST binary(255) NULL,\n"
                     + "\tBIT_TEST bit NULL,\n"
@@ -139,6 +176,7 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
                 .catalogSchema(SQLSERVER_SCHEMA)
                 .catalogTable(SQLSERVER_SINK)
                 .createSql(CREATE_SQL)
+                .sinkCreateSql(SINK_CREATE_SQL)
                 .configFile(CONFIG_FILE)
                 .insertSql(insertSql)
                 .testData(testDataSet)
@@ -294,8 +332,8 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
         catalog.open();
     }
 
-    @TestTemplate
-    public void testCatalog(TestContainer container) throws IOException, InterruptedException {
+    @Test
+    public void testCatalog() {
         TablePath tablePathSqlserver = TablePath.of("master", "dbo", "source");
         TablePath tablePathSqlserver_Sink = TablePath.of("master", "dbo", "sink_lw");
         SqlServerCatalog sqlServerCatalog = (SqlServerCatalog) catalog;
@@ -312,7 +350,8 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
         Assertions.assertFalse(existsDataBefore);
         // insert one data
         sqlServerCatalog.executeSql(
-                tablePathSqlserver_Sink, "insert into sink_lw(BIGINT_TEST) values(12)");
+                tablePathSqlserver_Sink,
+                "insert into sink_lw(INT_IDENTITY_TEST, BIGINT_TEST) values(1, 12)");
         boolean existsDataAfter = sqlServerCatalog.isExistsData(tablePathSqlserver_Sink);
         Assertions.assertTrue(existsDataAfter);
         // truncateTable

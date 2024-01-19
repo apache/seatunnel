@@ -165,6 +165,7 @@
 - [Core] [Shade] Add guava shade module (#4358)
 - [Core] [Spark] Support SeaTunnel Time Type (#5188)
 - [Core] [Flink] Support Decimal Type with configurable precision and scale (#5419)
+- [Core] [API] Support hocon style declare row type in generic type (#6187)
 
 ### Connector-V2
 

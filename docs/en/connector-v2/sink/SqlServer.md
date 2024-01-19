@@ -12,7 +12,22 @@
 > Flink<br/>
 > Seatunnel Zeta<br/>
 
-## Key features
+## Description
+
+Write data through jdbc. Support Batch mode and Streaming mode, support concurrent writing, support exactly-once
+semantics (using XA transaction guarantee).
+
+## Using Dependency
+
+### For Spark/Flink Engine
+
+> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/com.microsoft.sqlserver/mssql-jdbc) has been placed in directory `${SEATUNNEL_HOME}/plugins/`.
+
+### For SeaTunnel Zeta Engine
+
+> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/com.microsoft.sqlserver/mssql-jdbc) has been placed in directory `${SEATUNNEL_HOME}/lib/`.
+
+## Key Features
 
 - [x] [exactly-once](../../concept/connector-v2-features.md)
 - [x] [cdc](../../concept/connector-v2-features.md)
@@ -20,14 +35,9 @@
 > Use `Xa transactions` to ensure `exactly-once`. So only support `exactly-once` for the database which is
 > support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 
-## Description
-
-Write data through jdbc. Support Batch mode and Streaming mode, support concurrent writing, support exactly-once
-semantics (using XA transaction guarantee).
-
 ## Supported DataSource Info
 
-| datasource |   supported versions    |                    driver                    |               url               |                                       maven                                       |
+| Datasource |   Supported Versions    |                    Driver                    |               Url               |                                       Maven                                       |
 |------------|-------------------------|----------------------------------------------|---------------------------------|-----------------------------------------------------------------------------------|
 | SQL Server | support version >= 2008 | com.microsoft.sqlserver.jdbc.SQLServerDriver | jdbc:sqlserver://localhost:1433 | [Download](https://mvnrepository.com/artifact/com.microsoft.sqlserver/mssql-jdbc) |
 
@@ -38,7 +48,7 @@ semantics (using XA transaction guarantee).
 
 ## Data Type Mapping
 
-|                       SQLserver Data type                       |                                                                    Seatunnel Data type                                                                    |
+|                       SQLserver Data Type                       |                                                                    SeaTunnel Data Type                                                                    |
 |-----------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------|
 | BIT                                                             | BOOLEAN                                                                                                                                                   |
 | TINYINT<br/>SMALLINT                                            | SHORT                                                                                                                                                     |
@@ -76,6 +86,7 @@ semantics (using XA transaction guarantee).
 | transaction_timeout_sec                   | Int     | No       | -1      | The timeout after the transaction is opened, the default is -1 (never timeout). Note that setting the timeout may affect<br/>exactly-once semantics                                                                                          |
 | auto_commit                               | Boolean | No       | true    | Automatic transaction commit is enabled by default                                                                                                                                                                                           |
 | common-options                            |         | no       | -       | Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details                                                                                                                                          |
+| enable_upsert                             | Boolean | No       | true    | Enable upsert by primary_keys exist, If the task has no key duplicate data, setting this parameter to `false` can speed up data import                                                                                                       |
 
 ## tips
 

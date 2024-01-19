@@ -8,6 +8,21 @@
 > Flink<br/>
 > SeaTunnel Zeta<br/>
 
+## Description
+
+Write data through jdbc. Support Batch mode and Streaming mode, support concurrent writing, support exactly-once
+semantics (using XA transaction guarantee).
+
+## Using Dependency
+
+### For Spark/Flink Engine
+
+> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/org.postgresql/postgresql) has been placed in directory `${SEATUNNEL_HOME}/plugins/`.
+
+### For SeaTunnel Zeta Engine
+
+> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/org.postgresql/postgresql) has been placed in directory `${SEATUNNEL_HOME}/lib/`.
+
 ## Key Features
 
 - [x] [exactly-once](../../concept/connector-v2-features.md)
@@ -15,11 +30,6 @@
 
 > Use `Xa transactions` to ensure `exactly-once`. So only support `exactly-once` for the database which is
 > support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
-
-## Description
-
-Write data through jdbc. Support Batch mode and Streaming mode, support concurrent writing, support exactly-once
-semantics (using XA transaction guarantee).
 
 ## Supported DataSource Info
 
@@ -36,28 +46,28 @@ semantics (using XA transaction guarantee).
 
 ## Data Type Mapping
 
-|                                  PostgreSQL Data type                                   |                                                              SeaTunnel Data type                                                               |
-|-----------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------|
-| BOOL<br/>                                                                               | BOOLEAN                                                                                                                                        |
-| _BOOL<br/>                                                                              | ARRAY&LT;BOOLEAN&GT;                                                                                                                           |
-| BYTEA<br/>                                                                              | BYTES                                                                                                                                          |
-| _BYTEA<br/>                                                                             | ARRAY&LT;TINYINT&GT;                                                                                                                           |
-| INT2<br/>SMALLSERIAL<br/>INT4<br/>SERIAL<br/>                                           | INT                                                                                                                                            |
-| _INT2<br/>_INT4<br/>                                                                    | ARRAY&LT;INT&GT;                                                                                                                               |
-| INT8<br/>BIGSERIAL<br/>                                                                 | BIGINT                                                                                                                                         |
-| _INT8<br/>                                                                              | ARRAY&LT;BIGINT&GT;                                                                                                                            |
-| FLOAT4<br/>                                                                             | FLOAT                                                                                                                                          |
-| _FLOAT4<br/>                                                                            | ARRAY&LT;FLOAT&GT;                                                                                                                             |
-| FLOAT8<br/>                                                                             | DOUBLE                                                                                                                                         |
-| _FLOAT8<br/>                                                                            | ARRAY&LT;DOUBLE&GT;                                                                                                                            |
-| NUMERIC(Get the designated column's specified column size>0)                            | DECIMAL(Get the designated column's specified column size,Gets the number of digits in the specified column to the right of the decimal point) |
-| NUMERIC(Get the designated column's specified column size<0)                            | DECIMAL(38, 18)                                                                                                                                |
-| BPCHAR<br/>CHARACTER<br/>VARCHAR<br/>TEXT<br/>GEOMETRY<br/>GEOGRAPHY<br/>JSON<br/>JSONB | STRING                                                                                                                                         |
-| _BPCHAR<br/>_CHARACTER<br/>_VARCHAR<br/>_TEXT                                           | ARRAY&LT;STRING&GT;                                                                                                                            |
-| TIMESTAMP<br/>                                                                          | TIMESTAMP                                                                                                                                      |
-| TIME<br/>                                                                               | TIME                                                                                                                                           |
-| DATE<br/>                                                                               | DATE                                                                                                                                           |
-| OTHER DATA TYPES                                                                        | NOT SUPPORTED YET                                                                                                                              |
+|                                       PostgreSQL Data Type                                       |                                                              SeaTunnel Data Type                                                               |
+|--------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------|
+| BOOL<br/>                                                                                        | BOOLEAN                                                                                                                                        |
+| _BOOL<br/>                                                                                       | ARRAY&LT;BOOLEAN&GT;                                                                                                                           |
+| BYTEA<br/>                                                                                       | BYTES                                                                                                                                          |
+| _BYTEA<br/>                                                                                      | ARRAY&LT;TINYINT&GT;                                                                                                                           |
+| INT2<br/>SMALLSERIAL<br/>INT4<br/>SERIAL<br/>                                                    | INT                                                                                                                                            |
+| _INT2<br/>_INT4<br/>                                                                             | ARRAY&LT;INT&GT;                                                                                                                               |
+| INT8<br/>BIGSERIAL<br/>                                                                          | BIGINT                                                                                                                                         |
+| _INT8<br/>                                                                                       | ARRAY&LT;BIGINT&GT;                                                                                                                            |
+| FLOAT4<br/>                                                                                      | FLOAT                                                                                                                                          |
+| _FLOAT4<br/>                                                                                     | ARRAY&LT;FLOAT&GT;                                                                                                                             |
+| FLOAT8<br/>                                                                                      | DOUBLE                                                                                                                                         |
+| _FLOAT8<br/>                                                                                     | ARRAY&LT;DOUBLE&GT;                                                                                                                            |
+| NUMERIC(Get the designated column's specified column size>0)                                     | DECIMAL(Get the designated column's specified column size,Gets the number of digits in the specified column to the right of the decimal point) |
+| NUMERIC(Get the designated column's specified column size<0)                                     | DECIMAL(38, 18)                                                                                                                                |
+| BPCHAR<br/>CHARACTER<br/>VARCHAR<br/>TEXT<br/>GEOMETRY<br/>GEOGRAPHY<br/>JSON<br/>JSONB<br/>UUID | STRING                                                                                                                                         |
+| _BPCHAR<br/>_CHARACTER<br/>_VARCHAR<br/>_TEXT                                                    | ARRAY&LT;STRING&GT;                                                                                                                            |
+| TIMESTAMP<br/>                                                                                   | TIMESTAMP                                                                                                                                      |
+| TIME<br/>                                                                                        | TIME                                                                                                                                           |
+| DATE<br/>                                                                                        | DATE                                                                                                                                           |
+| OTHER DATA TYPES                                                                                 | NOT SUPPORTED YET                                                                                                                              |
 
 ## Options
 
@@ -87,6 +97,7 @@ semantics (using XA transaction guarantee).
 | schema_save_mode                          | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | Before the synchronous task is turned on, different treatment schemes are selected for the existing surface structure of the target side.                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | data_save_mode                            | Enum    | no       | APPEND_DATA                  | Before the synchronous task is turned on, different processing schemes are selected for data existing data on the target side.                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | custom_sql                                | String  | no       | -                            | When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.                                                                                                                                                                                                                                                                                                                                                                        |
+| enable_upsert                             | Boolean | No       | true                         | Enable upsert by primary_keys exist, If the task has no key duplicate data, setting this parameter to `false` can speed up data import                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 
 ### table [string]
 

@@ -13,7 +13,7 @@ Seatunnel also supports to encode the INSERT/UPDATE/DELETE messages in Seatunnel
 
 # Format Options
 
-|            option            | default | required |                                                                                                Description                                                                                                 |
+|            Option            | Default | Required |                                                                                                Description                                                                                                 |
 |------------------------------|---------|----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | format                       | (none)  | yes      | Specify what format to use, here should be '-json'.                                                                                                                                                        |
 | ogg_json.ignore-parse-errors | false   | no       | Skip fields and rows with parse errors instead of failing. Fields are set to null in case of errors.                                                                                                       |

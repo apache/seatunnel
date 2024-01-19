@@ -2,7 +2,7 @@
 
 Avro is very popular in streaming data pipeline. Now seatunnel supports Avro format in kafka connector.
 
-# How to use Avro format
+# How To Use
 
 ## Kafka uses example
 

@@ -208,8 +208,12 @@ public class DorisCatalogUtil {
 
         String type = rs.getString(5).toUpperCase();
         int idx = type.indexOf("(");
+        int idx2 = type.indexOf("<");
         if (idx != -1) {
             type = type.substring(0, idx);
+        }
+        if (idx2 != -1) {
+            type = type.substring(0, idx2);
         }
 
         switch (type) {
