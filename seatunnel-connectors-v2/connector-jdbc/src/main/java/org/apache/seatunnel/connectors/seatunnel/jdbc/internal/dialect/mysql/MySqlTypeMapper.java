@@ -43,12 +43,8 @@ public class MySqlTypeMapper implements JdbcDialectTypeMapper {
         int scale = metadata.getScale(colIndex);
 
         if (Arrays.asList("CHAR", "VARCHAR", "ENUM").contains(nativeType)) {
-            try {
-                long octetLength = TypeDefineUtils.charTo4ByteLength((long) precision);
-                precision = (int) Math.max(precision, octetLength);
-            } catch (Exception e) {
-                // ignore
-            }
+            long octetLength = TypeDefineUtils.charTo4ByteLength((long) precision);
+            precision = (int) Math.max(precision, octetLength);
         }
 
         BasicTypeDefine typeDefine =
