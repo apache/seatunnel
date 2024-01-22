@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.tdengine.source;
 
+import com.taosdata.jdbc.TSDBDriver;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -26,7 +27,6 @@ import org.apache.seatunnel.connectors.seatunnel.tdengine.exception.TDengineConn
 
 import org.apache.commons.lang3.StringUtils;
 
-import com.taosdata.jdbc.TSDBDriver;
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
@@ -93,24 +93,15 @@ public class TDengineSourceReader implements SourceReader<SeaTunnelRow, TDengine
 
     @Override
     public void open() {
-        String jdbcUrl =
-                StringUtils.join(
-                        config.getUrl(),
-                        config.getDatabase(),
-                        "?user=",
-                        config.getUsername(),
-                        "&password=",
-                        config.getPassword());
-        Properties connProps = new Properties();
-        // todo: when TSDBDriver.PROPERTY_KEY_BATCH_LOAD set to "true",
-        // there is a exception : Caused by: java.sql.SQLException: can't create connection with
-        // server
-        // under docker network env
-        // @bobo (tdengine)
-        connProps.setProperty(TSDBDriver.PROPERTY_KEY_BATCH_LOAD, "true");
+        String jdbcUrl = config.getUrl();
+
+        Properties properties = new Properties();
+        properties.put(TSDBDriver.PROPERTY_KEY_USER, config.getUsername());
+        properties.put(TSDBDriver.PROPERTY_KEY_PASSWORD, config.getPassword());
+
         try {
             checkDriverExist(jdbcUrl);
-            conn = DriverManager.getConnection(jdbcUrl, connProps);
+            conn = DriverManager.getConnection(jdbcUrl, properties);
         } catch (SQLException e) {
             throw new TDengineConnectorException(
                     CommonErrorCodeDeprecated.READER_OPERATION_FAILED,
