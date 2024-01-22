@@ -8,6 +8,20 @@
 > Flink<br/>
 > SeaTunnel Zeta<br/>
 
+## Description
+
+Read external data source data through JDBC.
+
+## Using Dependency
+
+### For Spark/Flink Engine
+
+> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/com.ibm.db2.jcc/db2jcc) has been placed in directory `${SEATUNNEL_HOME}/plugins/`.
+
+### For SeaTunnel Zeta Engine
+
+> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/com.ibm.db2.jcc/db2jcc) has been placed in directory `${SEATUNNEL_HOME}/lib/`.
+
 ## Key Features
 
 - [x] [batch](../../concept/connector-v2-features.md)
@@ -18,10 +32,6 @@
 - [x] [support user-defined split](../../concept/connector-v2-features.md)
 
 > supports query SQL and can achieve projection effect.
-
-## Description
-
-Read external data source data through JDBC.
 
 ## Supported DataSource Info
 

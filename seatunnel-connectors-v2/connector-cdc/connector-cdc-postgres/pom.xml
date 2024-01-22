@@ -27,8 +27,7 @@
     </parent>
 
     <artifactId>connector-cdc-postgres</artifactId>
-
-    <properties />
+    <name>SeaTunnel : Connectors V2 : CDC : Postgres</name>
 
     <dependencyManagement>
         <dependencies>

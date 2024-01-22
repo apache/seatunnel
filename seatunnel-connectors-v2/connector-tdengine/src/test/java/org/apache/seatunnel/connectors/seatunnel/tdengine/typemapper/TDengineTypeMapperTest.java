@@ -15,15 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.doris.util;
+package org.apache.seatunnel.connectors.seatunnel.tdengine.typemapper;
 
-public abstract class ErrorMessages {
-    public static final String PARSE_NUMBER_FAILED_MESSAGE =
-            "Parse '%s' to number failed. Original string is '%s'.";
-    public static final String CONNECT_FAILED_MESSAGE = "Connect to doris {} failed.";
-    public static final String ILLEGAL_ARGUMENT_MESSAGE =
-            "argument '%s' is illegal, value is '%s'.";
-    public static final String SHOULD_NOT_HAPPEN_MESSAGE = "Should not come here.";
-    public static final String DORIS_INTERNAL_FAIL_MESSAGE =
-            "Doris server '{}' internal failed, status is '{}', error message is '{}'";
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+
+class TDengineTypeMapperTest {
+
+    @Test
+    void mapping() {
+        SeaTunnelDataType<?> type = TDengineTypeMapper.mapping("BOOL");
+        Assertions.assertEquals(BasicType.BOOLEAN_TYPE, type);
+
+        type = TDengineTypeMapper.mapping("CHAR");
+        Assertions.assertEquals(BasicType.STRING_TYPE, type);
+    }
 }
