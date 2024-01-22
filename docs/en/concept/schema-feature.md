@@ -87,7 +87,7 @@ columns = [
 | timestamp | `java.time.LocalDateTime`                          | Stores a unique number that is updated whenever a row is created or modified. timestamp is based on the internal clock and does not correspond to real time. There can only be one timestamp variable per table.                                                                                                                                            |
 | row       | `org.apache.seatunnel.api.table.type.SeaTunnelRow` | Row type,can be nested.                                                                                                                                                                                                                                                                                                                                     |
 | map       | `java.util.Map`                                    | A Map is an object that maps keys to values. The key type includes `int` `string` `boolean` `tinyint` `smallint` `bigint` `float` `double` `decimal` `date` `time` `timestamp` `null` , and the value type includes `int` `string` `boolean` `tinyint` `smallint` `bigint` `float` `double` `decimal` `date` `time` `timestamp` `null` `array` `map` `row`. |
-| array     | `ValueType[]`                                      | A array is a data type that represents a collection of elements. The element type includes `int` `string` `boolean` `tinyint` `smallint` `bigint` `float` `double` `array` `map` `row`.                                                                                                                                                                     |
+| array     | `ValueType[]`                                      | A array is a data type that represents a collection of elements. The element type includes `int` `string` `boolean` `tinyint` `smallint` `bigint` `float` `double`.                                                                                                                                                                                         |
 
 #### How to declare type supported
 
@@ -95,8 +95,8 @@ SeaTunnel provides a simple and direct way to declare basic types. The keyword n
 
 When declaring complex types (such as **decimal**, **array**, **map**, and **row**), pay attention to specific considerations.
 - When declaring a decimal type, precision and scale settings are required, and the type definition follows the format `decimal(precision, scale)`. It's essential to emphasize that the declaration of the decimal type must be enclosed in `"`; you cannot use the type name directly, as with basic types. For example, when declaring a decimal field with precision 10 and scale 2, you specify the field type as `"decimal(10,2)"`.
-- When declaring an array type, you need to specify the element type, and the type definition follows the format `array<T>`, where `T` represents the element type and can be any type supported by SeaTunnel. Similar to the decimal type declaration, it also be enclosed in `"`. For example, when declaring a field with an array of integers, you specify the field type as `"array<int>"`.
-- When declaring a map type, you need to specify the key and value types. The map type definition follows the format `map<K,V>`, where `K` represents the key type and `V` represents the value type. `K` can be any basic type, and `V` can be any type supported by SeaTunnel. Similar to previous type declarations, the map type declaration must be enclosed in double quotes. For example, when declaring a field with map type, where the key type is string and the value type is integer, you can declare the field as `"map<string, int>"`.
+- When declaring an array type, you need to specify the element type, and the type definition follows the format `array<T>`, where `T` represents the element type. The element type includes `int`,`string`,`boolean`,`tinyint`,`smallint`,`bigint`,`float` and `double`. Similar to the decimal type declaration, it also be enclosed in `"`. For example, when declaring a field with an array of integers, you specify the field type as `"array<int>"`.
+- When declaring a map type, you need to specify the key and value types. The map type definition follows the format `map<K,V>`, where `K` represents the key type and `V` represents the value type. `K` can be any basic type and decimal type, and `V` can be any type supported by SeaTunnel. Similar to previous type declarations, the map type declaration must be enclosed in double quotes. For example, when declaring a field with map type, where the key type is string and the value type is integer, you can declare the field as `"map<string, int>"`.
 - When declaring a row type, you need to define a [HOCON](https://github.com/lightbend/config/blob/main/HOCON.md) object to describe the fields and their types. The field types can be any type supported by SeaTunnel. For example, when declaring a row type containing an integer field `a` and a string field `b`, you can declare it as `{a = int, b = string}`. Enclosing the definition in `"` as a string is also acceptable, so `"{a = int, b = string}"` is equivalent to `{a = int, c = string}`. Since HOCON is compatible with JSON, `"{\"a\":\"int\", \"b\":\"string\"}"` is equivalent to `"{a = int, b = string}"`.
 
 Here is an example of complex type declarations:
@@ -105,7 +105,7 @@ Here is an example of complex type declarations:
 schema {
   fields {
     c_decimal = "decimal(10, 2)"
-    c_array = "array<{c_0 = int, c_1 = string}>"
+    c_array = "array<int>"
     c_row = {
         c_int = int
         c_string = string
