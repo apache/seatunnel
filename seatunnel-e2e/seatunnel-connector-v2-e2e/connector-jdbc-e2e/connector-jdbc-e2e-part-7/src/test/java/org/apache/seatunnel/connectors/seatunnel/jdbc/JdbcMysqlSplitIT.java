@@ -74,7 +74,7 @@ import static org.awaitility.Awaitility.given;
 public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
     private static final Logger LOG = LoggerFactory.getLogger(JdbcMysqlSplitIT.class);
 
-    private static final String MYSQL_IMAGE = "mysql:latest";
+    private static final String MYSQL_IMAGE = "mysql:8.0";
     private static final String MYSQL_CONTAINER_HOST = "mysql-e2e";
     private static final String MYSQL_DATABASE = "auto";
     private static final String MYSQL_TABLE = "split_test";
