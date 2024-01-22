@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.tdengine.source;
 
-import com.taosdata.jdbc.TSDBDriver;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -25,8 +24,7 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.tdengine.exception.TDengineConnectorException;
 
-import org.apache.commons.lang3.StringUtils;
-
+import com.taosdata.jdbc.TSDBDriver;
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
