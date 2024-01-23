@@ -30,7 +30,7 @@ Version Supported
 
 ## Sink Options
 
-| Name               | Type   | Required | Default                | Description                                                                                                                                                                                                                                                                                                                                       |
+|        Name        |  Type  | Required |        Default         |                                                                                                                                                                    Description                                                                                                                                                                    |
 |--------------------|--------|----------|------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | load-url           | String | Yes      | -                      | `SelectDB Cloud` warehouse http address, the format is `warehouse_ip:http_port`                                                                                                                                                                                                                                                                   |
 | jdbc-url           | String | Yes      | -                      | `SelectDB Cloud` warehouse jdbc address, the format is `warehouse_ip:mysql_port`                                                                                                                                                                                                                                                                  |
@@ -170,3 +170,4 @@ sink {
   }
 }
 ```
+
