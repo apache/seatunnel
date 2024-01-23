@@ -142,7 +142,7 @@ public class TDengineSourceSplitEnumerator
 
     @Override
     public void addSplitsBack(List<TDengineSourceSplit> splits, int subtaskId) {
-        log.info("Add back splits {} to JdbcSourceSplitEnumerator.", splits);
+        log.info("Add back splits {} to TDengineSourceSplitEnumerator.", splits);
         if (!splits.isEmpty()) {
             addPendingSplit(splits);
             assignSplit(Collections.singletonList(subtaskId));
