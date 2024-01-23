@@ -98,7 +98,7 @@ public class SelectDBSinkWriter
     }
 
     @Override
-    public synchronized Optional<SelectDBCommitInfo> prepareCommit() throws IOException {
+    public synchronized Optional<SelectDBCommitInfo> prepareCommit() {
         checkState(selectDBStageLoad != null);
         log.info("checkpoint arrived, upload buffer to storage");
         try {
@@ -106,6 +106,10 @@ public class SelectDBSinkWriter
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
+        if (!selectdbConfig.isEnable2PC()) {
+            return Optional.empty();
+        }
+
         CopySQLBuilder copySQLBuilder =
                 new CopySQLBuilder(selectdbConfig, selectDBStageLoad.getFileList());
         String copySql = copySQLBuilder.buildCopySQL();
@@ -115,11 +119,12 @@ public class SelectDBSinkWriter
     }
 
     @Override
-    public synchronized List<SelectDBSinkState> snapshotState(long checkpointId)
-            throws IOException {
+    public synchronized List<SelectDBSinkState> snapshotState(long checkpointId) {
         checkState(selectDBStageLoad != null);
-        log.info("clear the file list {}", selectDBStageLoad.getFileList());
-        this.selectDBStageLoad.clearFileList();
+        if (selectdbConfig.isEnable2PC()) {
+            log.info("clear the file list {}", selectDBStageLoad.getFileList());
+            this.selectDBStageLoad.clearFileList();
+        }
         this.selectDBStageLoad.setCurrentCheckpointID(checkpointId + 1);
         return Collections.singletonList(selectdbSinkState);
     }
