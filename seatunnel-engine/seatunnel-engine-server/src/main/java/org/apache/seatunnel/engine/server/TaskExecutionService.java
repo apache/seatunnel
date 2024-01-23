@@ -68,7 +68,6 @@ import lombok.SneakyThrows;
 
 import java.io.IOException;
 import java.net.URL;
-import java.net.URLClassLoader;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -890,15 +889,6 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             Throwable ex = executionException.get();
             if (completionLatch.decrementAndGet() == 0) {
                 // recycle classloader
-                try {
-                    ((URLClassLoader) executionContexts.get(taskGroupLocation).getClassLoader())
-                            .close();
-                } catch (Exception e) {
-                    logger.severe(
-                            String.format(
-                                    "Close classLoader error with Exception: %s",
-                                    ExceptionUtils.getMessage(e)));
-                }
                 executionContexts.get(taskGroupLocation).setClassLoader(null);
                 finishedExecutionContexts.put(
                         taskGroupLocation, executionContexts.remove(taskGroupLocation));
