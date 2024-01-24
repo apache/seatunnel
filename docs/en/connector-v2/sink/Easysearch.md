@@ -13,8 +13,8 @@ A sink plugin which use send data to `INFINI Easysearch`.
 ## Using Dependency
 
 > Depenndency [easysearch-client](https://central.sonatype.com/artifact/com.infinilabs/easysearch-client)
-> 
-## Key features
+>
+  ## Key features
 
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
 - [x] [cdc](../../concept/connector-v2-features.md)
@@ -29,17 +29,17 @@ Engine Supported
 
 ## Data Type Mapping
 
-| Easysearch Data Type                                                             | SeaTunnel Data Type |
-|----------------------------------------------------------------------------------|---------------------|
-| STRING<br/>KEYWORD<br/>TEXT                                                      | STRING              |
-| BOOLEAN                                                                          | BOOLEAN             |
-| BYTE                                                                             | BYTE                |
-| SHORT                                                                            | SHORT               |
-| INTEGER                                                                          | INT                 |
-| LONG                                                                             | LONG                |
-| FLOAT<br/>HALF_FLOAT                                                             | FLOAT               |
-| DOUBLE                                                                           | DOUBLE              |
-| Date                                                                             | LOCAL_DATE_TIME_TYPE|
+|    Easysearch Data Type     | SeaTunnel Data Type  |
+|-----------------------------|----------------------|
+| STRING<br/>KEYWORD<br/>TEXT | STRING               |
+| BOOLEAN                     | BOOLEAN              |
+| BYTE                        | BYTE                 |
+| SHORT                       | SHORT                |
+| INTEGER                     | INT                  |
+| LONG                        | LONG                 |
+| FLOAT<br/>HALF_FLOAT        | FLOAT                |
+| DOUBLE                      | DOUBLE               |
+| Date                        | LOCAL_DATE_TIME_TYPE |
 
 ## Sink Options
 
@@ -191,6 +191,7 @@ sink {
     }
 }
 ```
+
 ## Changelog
 
 ### 2.3.4 2023-11-16

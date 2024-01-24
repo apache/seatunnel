@@ -33,20 +33,19 @@ Engine Supported
 
 :::
 
-
 ## Data Type Mapping
 
-| Easysearch Data Type                                                             | SeaTunnel Data Type |
-|----------------------------------------------------------------------------------|---------------------|
-| STRING<br/>KEYWORD<br/>TEXT                                                      | STRING              |
-| BOOLEAN                                                                          | BOOLEAN             |
-| BYTE                                                                             | BYTE                |
-| SHORT                                                                            | SHORT               |
-| INTEGER                                                                          | INT                 |
-| LONG                                                                             | LONG                |
-| FLOAT<br/>HALF_FLOAT                                                             | FLOAT               |
-| DOUBLE                                                                           | DOUBLE              |
-| Date                                                                             | LOCAL_DATE_TIME_TYPE|
+|    Easysearch Data Type     | SeaTunnel Data Type  |
+|-----------------------------|----------------------|
+| STRING<br/>KEYWORD<br/>TEXT | STRING               |
+| BOOLEAN                     | BOOLEAN              |
+| BYTE                        | BYTE                 |
+| SHORT                       | SHORT                |
+| INTEGER                     | INT                  |
+| LONG                        | LONG                 |
+| FLOAT<br/>HALF_FLOAT        | FLOAT                |
+| DOUBLE                      | DOUBLE               |
+| Date                        | LOCAL_DATE_TIME_TYPE |
 
 ### hosts [array]
 
