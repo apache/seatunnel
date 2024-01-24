@@ -2,9 +2,19 @@
 
 > Easysearch source connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 Used to read data from INFINI Easysearch.
+
+## Using Dependency
+
+> Depenndency [easysearch-client](https://central.sonatype.com/artifact/com.infinilabs/easysearch-client)
 
 ## Key features
 
@@ -15,26 +25,28 @@ Used to read data from INFINI Easysearch.
 - [ ] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
 
-## Options
+:::tip
 
-|          name           |  type   | required |   default value   |
-|-------------------------|---------|----------|-------------------|
-| hosts                   | array   | yes      | -                 |
-| username                | string  | no       | -                 |
-| password                | string  | no       | -                 |
-| index                   | string  | yes      | -                 |
-| source                  | array   | no       | -                 |
-| query                   | json    | no       | {"match_all": {}} |
-| scroll_time             | string  | no       | 1m                |
-| scroll_size             | int     | no       | 100               |
-| schema                  |         | no       | -                 |
-| tls_verify_certificate  | boolean | no       | true              |
-| tls_verify_hostnames    | boolean | no       | true              |
-| tls_keystore_path       | string  | no       | -                 |
-| tls_keystore_password   | string  | no       | -                 |
-| tls_truststore_path     | string  | no       | -                 |
-| tls_truststore_password | string  | no       | -                 |
-| common-options          |         | no       | -                 |
+Engine Supported
+
+* Supported all versions released by [INFINI Easysearch](https://www.infini.com/download/?product=easysearch).
+
+:::
+
+
+## Data Type Mapping
+
+| Easysearch Data Type                                                             | SeaTunnel Data Type |
+|----------------------------------------------------------------------------------|---------------------|
+| STRING<br/>KEYWORD<br/>TEXT                                                      | STRING              |
+| BOOLEAN                                                                          | BOOLEAN             |
+| BYTE                                                                             | BYTE                |
+| SHORT                                                                            | SHORT               |
+| INTEGER                                                                          | INT                 |
+| LONG                                                                             | LONG                |
+| FLOAT<br/>HALF_FLOAT                                                             | FLOAT               |
+| DOUBLE                                                                           | DOUBLE              |
+| Date                                                                             | LOCAL_DATE_TIME_TYPE|
 
 ### hosts [array]
 

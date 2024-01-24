@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.easysearch.serialize.source;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.NullNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.TextNode;
 
@@ -115,7 +116,9 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
                 value = recursiveGet(rowRecord.getDoc(), fieldName);
                 if (value != null) {
                     seaTunnelDataType = rowTypeInfo.getFieldType(i);
-                    if (value instanceof TextNode) {
+                    if (value instanceof NullNode) {
+                        seaTunnelFields[i] = null;
+                    } else if (value instanceof TextNode) {
                         seaTunnelFields[i] =
                                 convertValue(seaTunnelDataType, ((TextNode) value).textValue());
                     } else {

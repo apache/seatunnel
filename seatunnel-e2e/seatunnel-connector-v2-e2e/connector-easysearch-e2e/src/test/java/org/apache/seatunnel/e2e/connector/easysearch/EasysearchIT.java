@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.e2e.connector.easysearch;
 
+import org.apache.seatunnel.e2e.common.container.EngineType;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
@@ -119,7 +121,9 @@ public class EasysearchIT extends TestSuiteBase implements TestResource {
         createIndexDocs();
     }
 
-    /** create a index,and bulk some documents */
+    /**
+     * create a index,and bulk some documents
+     */
     private void createIndexDocs() {
         StringBuilder requestBody = new StringBuilder();
         String indexHeader = "{\"index\":{\"_index\":\"st_index\"}}\n";
@@ -132,6 +136,10 @@ public class EasysearchIT extends TestSuiteBase implements TestResource {
         easysearchClient.bulk(requestBody.toString());
     }
 
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "Test only one engine for first change")
     @TestTemplate
     public void testEasysearch(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult =
@@ -144,43 +152,48 @@ public class EasysearchIT extends TestSuiteBase implements TestResource {
 
     private List<String> generateTestDataSet() throws JsonProcessingException {
         String[] fields =
-                new String[] {
-                    "c_map",
-                    "c_array",
-                    "c_string",
-                    "c_boolean",
-                    "c_tinyint",
-                    "c_smallint",
-                    "c_int",
-                    "c_bigint",
-                    "c_float",
-                    "c_double",
-                    "c_decimal",
-                    "c_bytes",
-                    "c_date",
-                    "c_timestamp"
+                new String[]{
+                        "c_map",
+                        "c_array",
+                        "c_string",
+                        "c_boolean",
+                        "c_tinyint",
+                        "c_smallint",
+                        "c_int",
+                        "c_bigint",
+                        "c_float",
+                        "c_double",
+                        "c_decimal",
+                        "c_bytes",
+                        "c_date",
+                        "c_timestamp"
                 };
-
         List<String> documents = new ArrayList<>();
         ObjectMapper objectMapper = new ObjectMapper();
         for (int i = 0; i < 100; i++) {
             Map<String, Object> doc = new HashMap<>();
+            Object[] crow_values =
+                    new Object[]{
+                            Collections.singletonMap("crow_key", Short.parseShort(String.valueOf(i))),
+                            new Byte[]{Byte.parseByte("1"), Byte.parseByte("2"), Byte.parseByte("3")},
+                            "crow_string"
+                    };
             Object[] values =
-                    new Object[] {
-                        Collections.singletonMap("key", Short.parseShort(String.valueOf(i))),
-                        new Byte[] {Byte.parseByte("1"), Byte.parseByte("2"), Byte.parseByte("3")},
-                        "string",
-                        Boolean.FALSE,
-                        Byte.parseByte("1"),
-                        Short.parseShort("1"),
-                        i,
-                        Long.parseLong("1"),
-                        Float.parseFloat("1.1"),
-                        Double.parseDouble("1.1"),
-                        BigDecimal.valueOf(11, 1),
-                        "test".getBytes(),
-                        LocalDate.now().toString(),
-                        System.currentTimeMillis()
+                    new Object[]{
+                            Collections.singletonMap("key", Short.parseShort(String.valueOf(i))),
+                            new Byte[]{Byte.parseByte("1"), Byte.parseByte("2"), Byte.parseByte("3")},
+                            "string",
+                            Boolean.FALSE,
+                            Byte.parseByte("1"),
+                            Short.parseShort("1"),
+                            i,
+                            Long.parseLong("1"),
+                            Float.parseFloat("1.1"),
+                            Double.parseDouble("1.1"),
+                            BigDecimal.valueOf(11, 1),
+                            "test".getBytes(),
+                            LocalDate.now().toString(),
+                            System.currentTimeMillis()
                     };
             for (int j = 0; j < fields.length; j++) {
                 doc.put(fields[j], values[j]);

@@ -1,0 +1,47 @@
+package org.apache.seatunnel.connectors.seatunnel.easysearch;
+
+import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.easysearch.catalog.EasysearchDataTypeConvertor;
+
+import org.apache.commons.collections4.CollectionUtils;
+
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+
+import com.google.common.collect.Lists;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+public class EasysearchSourceTest {
+
+    @Test
+    public void testPrepareWithEmptySource() throws PrepareFailException {
+        List<String> source = Lists.newArrayList();
+
+        Map<String, String> esFieldType = new HashMap<>();
+        esFieldType.put("field1", "String");
+
+        SeaTunnelRowType rowTypeInfo = null;
+        EasysearchDataTypeConvertor EasySearchDataTypeConvertor = new EasysearchDataTypeConvertor();
+        if (CollectionUtils.isEmpty(source)) {
+            List<String> keys = new ArrayList<>(esFieldType.keySet());
+            SeaTunnelDataType[] fieldTypes = new SeaTunnelDataType[keys.size()];
+            for (int i = 0; i < keys.size(); i++) {
+                String esType = esFieldType.get(keys.get(i));
+                SeaTunnelDataType seaTunnelDataType =
+                        EasySearchDataTypeConvertor.toSeaTunnelType(keys.get(i), esType);
+                fieldTypes[i] = seaTunnelDataType;
+            }
+            rowTypeInfo = new SeaTunnelRowType(keys.toArray(new String[0]), fieldTypes);
+        }
+
+        Assertions.assertNotNull(rowTypeInfo);
+        Assertions.assertEquals(rowTypeInfo.getFieldType(0), BasicType.STRING_TYPE);
+    }
+}

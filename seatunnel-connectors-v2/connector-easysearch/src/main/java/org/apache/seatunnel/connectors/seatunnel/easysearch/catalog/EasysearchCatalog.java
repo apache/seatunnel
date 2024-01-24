@@ -213,7 +213,7 @@ public class EasysearchCatalog implements Catalog {
         Map<String, String> options = new HashMap<>();
         options.put("connector", "easysearch");
         // todo: Right now, we don't use the config in the plugin config, do we need to add
-        // bootstrapt servers here?
+        // bootstrap servers here?
         options.put("config", ConfigUtil.convertToJsonString(tablePath));
         return options;
     }
