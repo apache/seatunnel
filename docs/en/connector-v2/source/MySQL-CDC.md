@@ -7,6 +7,11 @@
 > SeaTunnel Zeta<br/>
 > Flink <br/>
 
+## Description
+
+The MySQL CDC connector allows for reading snapshot data and incremental data from MySQL database. This document
+describes how to set up the MySQL CDC connector to run SQL queries against MySQL databases.
+
 ## Key features
 
 - [ ] [batch](../../concept/connector-v2-features.md)
@@ -16,22 +21,23 @@
 - [x] [parallelism](../../concept/connector-v2-features.md)
 - [x] [support user-defined split](../../concept/connector-v2-features.md)
 
-## Description
-
-The MySQL CDC connector allows for reading snapshot data and incremental data from MySQL database. This document
-describes how to set up the MySQL CDC connector to run SQL queries against MySQL databases.
-
 ## Supported DataSource Info
 
 | Datasource |                                                               Supported versions                                                                |          Driver          |               Url                |                                Maven                                 |
 |------------|-------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------|----------------------------------|----------------------------------------------------------------------|
 | MySQL      | <li> [MySQL](https://dev.mysql.com/doc): 5.6, 5.7, 8.0.x </li><li> [RDS MySQL](https://www.aliyun.com/product/rds/mysql): 5.6, 5.7, 8.0.x </li> | com.mysql.cj.jdbc.Driver | jdbc:mysql://localhost:3306/test | https://mvnrepository.com/artifact/mysql/mysql-connector-java/8.0.28 |
 
-## Database Dependency
+## Using Dependency
 
 ### Install Jdbc Driver
 
-Please download and put mysql driver in `${SEATUNNEL_HOME}/lib/` dir. For example: cp mysql-connector-java-xxx.jar `$SEATNUNNEL_HOME/lib/`
+#### For Flink Engine
+
+> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/mysql/mysql-connector-java) has been placed in directory `${SEATUNNEL_HOME}/plugins/`.
+
+#### For SeaTunnel Zeta Engine
+
+> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/mysql/mysql-connector-java) has been placed in directory `${SEATUNNEL_HOME}/lib/`.
 
 ### Creating MySQL user
 

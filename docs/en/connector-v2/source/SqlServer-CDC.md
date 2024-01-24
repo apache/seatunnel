@@ -31,9 +31,17 @@ describes how to setup the Sql Server CDC connector to run SQL queries against S
 |------------|---------------------------------------------------------------|----------------------------------------------|---------------------------------------------------------------|-----------------------------------------------------------------------|
 | SqlServer  | <li> server:2019 (Or later version for information only)</li> | com.microsoft.sqlserver.jdbc.SQLServerDriver | jdbc:sqlserver://localhost:1433;databaseName=column_type_test | https://mvnrepository.com/artifact/com.microsoft.sqlserver/mssql-jdbc |
 
+## Using Dependency
+
 ### Install Jdbc Driver
 
-Please download and put SqlServer driver in `${SEATUNNEL_HOME}/lib/` dir. For example: cp mssql-jdbc-xxx.jar `$SEATNUNNEL_HOME/lib/`
+#### For Spark/Flink Engine
+
+> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/com.microsoft.sqlserver/mssql-jdbc) has been placed in directory `${SEATUNNEL_HOME}/plugins/`.
+
+#### For SeaTunnel Zeta Engine
+
+> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/com.microsoft.sqlserver/mssql-jdbc) has been placed in directory `${SEATUNNEL_HOME}/lib/`.
 
 ## Data Type Mapping
 

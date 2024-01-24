@@ -274,7 +274,7 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
             disabledReason = "Currently SPARK and FLINK do not support multi table")
-    public void testMysqlCdcMultiTableE2e(TestContainer container)
+    public void testOracleCdcMultiTableE2e(TestContainer container)
             throws IOException, InterruptedException {
 
         clearTable(DATABASE, SOURCE_TABLE1);
