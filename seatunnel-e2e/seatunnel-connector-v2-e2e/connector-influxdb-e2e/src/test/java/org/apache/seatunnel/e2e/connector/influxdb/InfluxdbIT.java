@@ -249,6 +249,7 @@ public class InfluxdbIT extends TestSuiteBase implements TestResource {
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
                 container.executeJob("/fake_to_infuxdb_with_multipletable.conf");
+
         Assertions.assertEquals(0, execResult.getExitCode());
         Assertions.assertAll(
                 () -> {
