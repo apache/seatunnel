@@ -44,12 +44,12 @@ import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -92,14 +92,14 @@ public class TextHeaderIT {
                     try {
                         enableWriteHeader(
                                 t.getFileStyle(), t.getEnableWriteHeader(), t.getHeaderName());
-                    } catch (ExecutionException | InterruptedException e) {
+                    } catch (Exception e) {
                         throw new RuntimeException(e);
                     }
                 });
     }
 
     public void enableWriteHeader(String file_format_type, String headerWrite, String headerContent)
-            throws ExecutionException, InterruptedException {
+            throws Exception {
         String testClusterName = "ClusterFaultToleranceIT_EnableWriteHeaderNode";
         HazelcastInstanceImpl node1 = null;
         SeaTunnelClient engineClient = null;
@@ -161,7 +161,7 @@ public class TextHeaderIT {
             log.info("========================clean test resource====================");
         } finally {
             if (engineClient != null) {
-                engineClient.shutdown();
+                engineClient.close();
             }
             if (node1 != null) {
                 node1.shutdown();
@@ -170,7 +170,7 @@ public class TextHeaderIT {
     }
 
     private ImmutablePair<String, String> createTestResources(
-            @NonNull String headerWrite, @NonNull String formatType) {
+            @NonNull String headerWrite, @NonNull String formatType) throws IOException {
         Map<String, String> valueMap = new HashMap<>();
         valueMap.put(ENABLE_HEADER_WRITE, headerWrite);
         valueMap.put(FILE_FORMAT_TYPE, formatType);

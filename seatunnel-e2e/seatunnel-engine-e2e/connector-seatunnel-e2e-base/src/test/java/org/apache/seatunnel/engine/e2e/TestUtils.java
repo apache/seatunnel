@@ -24,6 +24,7 @@ import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.Map;
 
@@ -54,7 +55,8 @@ public class TestUtils {
     public static void createTestConfigFileFromTemplate(
             @NonNull String templateFile,
             @NonNull Map<String, String> valueMap,
-            @NonNull String targetFilePath) {
+            @NonNull String targetFilePath)
+            throws IOException {
         String templateFilePath = getResource(templateFile);
         String confContent = FileUtils.readFileToStr(Paths.get(templateFilePath));
         String targetConfContent = VariablesSubstitute.substitute(confContent, valueMap);

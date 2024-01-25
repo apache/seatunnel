@@ -66,13 +66,27 @@ public class SeaTunnelDataTypeConvertorUtilTest {
                 "ErrorCode:[COMMON-07], ErrorDescription:['SeaTunnel' unsupported data type 'uuid' of 'test']",
                 exception4.getMessage());
 
-        RuntimeException exception5 =
+        IllegalArgumentException exception5 =
                 Assertions.assertThrows(
-                        RuntimeException.class,
+                        IllegalArgumentException.class,
                         () ->
                                 SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
                                         "test", "{uuid}"));
-        Assertions.assertEquals(
-                "String json deserialization exception.{uuid}", exception5.getMessage());
+        String expectedMsg5 =
+                String.format("HOCON Config parse from %s failed.", "{conf = {uuid}}");
+        Assertions.assertEquals(expectedMsg5, exception5.getMessage());
+
+        String invalidTypeDeclaration = "[e]";
+        IllegalArgumentException exception6 =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                                        "test",
+                                        String.format("{c_0 = %s}", invalidTypeDeclaration)));
+        String expectedMsg6 =
+                String.format(
+                        "Unsupported parse SeaTunnel Type from '%s'.", invalidTypeDeclaration);
+        Assertions.assertEquals(expectedMsg6, exception6.getMessage());
     }
 }

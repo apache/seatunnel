@@ -12,14 +12,14 @@
 > Flink<br/>
 > SeaTunnel Zeta<br/>
 
-## Key features
+## Key Features
 
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
 - [x] [cdc](../../concept/connector-v2-features.md)
 
 ## Data Type Mapping
 
-| SeaTunnel Data type |      kudu Data type      |
+| SeaTunnel Data Type |      Kudu Data Type      |
 |---------------------|--------------------------|
 | BOOLEAN             | BOOL                     |
 | INT                 | INT8<br/>INT16<br/>INT32 |
@@ -61,7 +61,7 @@
 ```hocon
 
 env {
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "BATCH"
 }
     source {
@@ -119,6 +119,78 @@ sink {
     enable_kerberos = true
     kerberos_principal = "xx@xx.COM"
     kerberos_keytab = "xx.keytab"
+ }
+}
+```
+
+### Multiple Table
+
+```hocon
+env {
+  # You can set engine configuration here
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    tables_configs = [
+       {
+        schema = {
+          table = "kudu_sink_1"
+         fields {
+                id = int
+                val_bool = boolean
+                val_int8 = tinyint
+                val_int16 = smallint
+                val_int32 = int
+                val_int64 = bigint
+                val_float = float
+                val_double = double
+                val_decimal = "decimal(16, 1)"
+                val_string = string
+                val_unixtime_micros = timestamp
+      }
+        }
+            rows = [
+              {
+                kind = INSERT
+                fields = [1, true, 1, 2, 3, 4, 4.3,5.3,6.3, "NEW", "2020-02-02T02:02:02"]
+              }
+              ]
+       },
+       {
+       schema = {
+         table = "kudu_sink_2"
+              fields {
+                        id = int
+                        val_bool = boolean
+                        val_int8 = tinyint
+                        val_int16 = smallint
+                        val_int32 = int
+                        val_int64 = bigint
+                        val_float = float
+                        val_double = double
+                        val_decimal = "decimal(16, 1)"
+                        val_string = string
+                        val_unixtime_micros = timestamp
+              }
+       }
+           rows = [
+             {
+               kind = INSERT
+               fields = [1, true, 1, 2, 3, 4, 4.3,5.3,6.3, "NEW", "2020-02-02T02:02:02"]
+             }
+             ]
+      }
+    ]
+  }
+}
+
+
+sink {
+   kudu{
+    kudu_masters = "kudu-master-multiple:7051"
  }
 }
 ```

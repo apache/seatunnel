@@ -269,6 +269,15 @@ public final class SeaTunnelRow implements Serializable {
                 }
                 return rowSize;
             default:
+                if (v instanceof Map) {
+                    int mapSize = 0;
+                    for (Map.Entry<?, ?> entry : ((Map<?, ?>) v).entrySet()) {
+                        mapSize +=
+                                getBytesForValue(entry.getKey())
+                                        + getBytesForValue(entry.getValue());
+                    }
+                    return mapSize;
+                }
                 throw new UnsupportedOperationException("Unsupported type: " + clazz);
         }
     }

@@ -102,6 +102,12 @@
 - [Core] [Starter] Add check of sink and source config to avoid null pointer exception. (#4734)
 - [Core] [Flink] Remove useless stage type related codes. (#5650)
 
+### Formats
+
+- [Json] Remove assert key word. (#5919)
+- [Formats] Replace CommonErrorCodeDeprecated.JSON_OPERATION_FAILED. (#5948)
+- [Formats] Refactor exception catch for `ignoreParseErrors`. (#6065)
+
 ### Connector-V2
 
 - [Connector-V2] [CDC] Improve startup.mode/stop.mode options (#4360)
@@ -121,6 +127,7 @@
 - [Connector-v2] [Neo4j] Supports neo4j sink batch write mode (#4835)
 - [Transform-V2] Optimize SQL Transform package and Fix Spark type conversion bug of transform (#4490)
 - [Connector-V2] [Common] Remove assert key word (#5915)
+- [Connector-V2] Replace CommonErrorCodeDeprecated.JSON_OPERATION_FAILED. (#5978)
 
 ### CI
 
@@ -147,6 +154,7 @@
 - [Zeta] Improve Zeta operation max count and ignore NPE (#4787)
 - [Zeta] Remove serialize(deserialize) cost when use shuffle action (#4722)
 - [zeta] Checkpoint exception status messages exclude state data (#5547)
+- [Zeta] Remove assert key words (#5947)
 
 ## Feature
 
@@ -158,6 +166,7 @@
 - [Core] [Shade] Add guava shade module (#4358)
 - [Core] [Spark] Support SeaTunnel Time Type (#5188)
 - [Core] [Flink] Support Decimal Type with configurable precision and scale (#5419)
+- [Core] [API] Support hocon style declare row type in generic type (#6187)
 
 ### Connector-V2
 
@@ -178,6 +187,7 @@
 - [Transform-V2] Add Catalog support for FilterRowKindTransform (#4420)
 - [Transform-V2] Add support CatalogTable for FilterFieldTransform (#4422)
 - [Transform-V2] Add catalog support for SQL Transform plugin (#4819)
+- [Connector-V2] [Assert] Support check the precision and scale of Decimal type (#6110)
 
 ### Zeta(ST-Engine)
 

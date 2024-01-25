@@ -76,7 +76,7 @@ public class JdbcCatalogUtils {
                 log.info("Loading catalog tables for catalog : {}", jdbcCatalog.getClass());
 
                 jdbcCatalog.open();
-                Map<String, Map<String, String>> unsupportedTable = new HashMap<>();
+                Map<String, Map<String, String>> unsupportedTable = new LinkedHashMap<>();
                 for (JdbcSourceTableConfig tableConfig : tablesConfig) {
                     try {
                         CatalogTable catalogTable =

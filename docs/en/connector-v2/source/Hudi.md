@@ -33,7 +33,7 @@ In order to use this connector, You must ensure your spark/flink cluster already
 
 ## Data Type Mapping
 
-| Hudi Data type | Seatunnel Data type |
+| Hudi Data Type | Seatunnel Data Type |
 |----------------|---------------------|
 | ALL TYPE       | STRING              |
 
@@ -58,8 +58,7 @@ In order to use this connector, You must ensure your spark/flink cluster already
 ```hocon
 # Defining the runtime environment
 env {
-  # You can set flink configuration here
-  execution.parallelism = 2
+  parallelism = 2
   job.mode = "BATCH"
 }
 source{

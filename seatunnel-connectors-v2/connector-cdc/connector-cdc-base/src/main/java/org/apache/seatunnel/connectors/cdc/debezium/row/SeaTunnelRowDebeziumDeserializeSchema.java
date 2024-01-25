@@ -234,6 +234,12 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
 
     @Override
     public void restoreCheckpointProducedType(SeaTunnelDataType<SeaTunnelRow> checkpointDataType) {
+        // If checkpointDataType is null, it indicates that DDL changes are not supported.
+        // Therefore, we need to use the latest table structure to ensure that data from newly added
+        // columns can be parsed correctly.
+        if (schemaChangeResolver == null) {
+            return;
+        }
         if (SqlType.ROW.equals(checkpointDataType.getSqlType())
                 && SqlType.MULTIPLE_ROW.equals(resultTypeInfo.getSqlType())) {
             // TODO: Older versions may have this issue

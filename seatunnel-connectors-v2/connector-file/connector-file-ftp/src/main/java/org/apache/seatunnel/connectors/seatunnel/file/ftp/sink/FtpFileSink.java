@@ -28,7 +28,7 @@ import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.ftp.config.FtpConf;
-import org.apache.seatunnel.connectors.seatunnel.file.ftp.config.FtpConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.ftp.config.FtpConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.BaseFileSink;
 
 import com.google.auto.service.AutoService;
@@ -45,10 +45,10 @@ public class FtpFileSink extends BaseFileSink {
         CheckResult result =
                 CheckConfigUtil.checkAllExists(
                         pluginConfig,
-                        FtpConfig.FTP_HOST.key(),
-                        FtpConfig.FTP_PORT.key(),
-                        FtpConfig.FTP_USERNAME.key(),
-                        FtpConfig.FTP_PASSWORD.key());
+                        FtpConfigOptions.FTP_HOST.key(),
+                        FtpConfigOptions.FTP_PORT.key(),
+                        FtpConfigOptions.FTP_USERNAME.key(),
+                        FtpConfigOptions.FTP_PASSWORD.key());
         if (!result.isSuccess()) {
             throw new FileConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,

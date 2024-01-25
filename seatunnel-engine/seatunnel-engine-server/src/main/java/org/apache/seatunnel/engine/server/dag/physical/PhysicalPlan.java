@@ -45,11 +45,11 @@ public class PhysicalPlan {
 
     private final List<SubPlan> pipelineList;
 
-    private AtomicInteger finishedPipelineNum = new AtomicInteger(0);
+    private final AtomicInteger finishedPipelineNum = new AtomicInteger(0);
 
-    private AtomicInteger canceledPipelineNum = new AtomicInteger(0);
+    private final AtomicInteger canceledPipelineNum = new AtomicInteger(0);
 
-    private AtomicInteger failedPipelineNum = new AtomicInteger(0);
+    private final AtomicInteger failedPipelineNum = new AtomicInteger(0);
 
     private final JobImmutableInformation jobImmutableInformation;
 
@@ -85,7 +85,7 @@ public class PhysicalPlan {
             @NonNull ExecutorService executorService,
             @NonNull JobImmutableInformation jobImmutableInformation,
             long initializationTimestamp,
-            @NonNull IMap runningJobStateIMap,
+            @NonNull IMap<Object, Object> runningJobStateIMap,
             @NonNull IMap runningJobStateTimestampsIMap) {
         this.jobImmutableInformation = jobImmutableInformation;
         this.jobId = jobImmutableInformation.getJobId();
@@ -166,7 +166,11 @@ public class PhysicalPlan {
                                 jobStatus = JobStatus.CANCELED;
                                 updateJobState(jobStatus);
                             } else {
-                                jobStatus = JobStatus.FINISHED;
+                                if (this.getJobStatus() == JobStatus.DOING_SAVEPOINT) {
+                                    jobStatus = JobStatus.SAVEPOINT_DONE;
+                                } else {
+                                    jobStatus = JobStatus.FINISHED;
+                                }
                                 updateJobState(jobStatus);
                             }
                         }
@@ -189,6 +193,17 @@ public class PhysicalPlan {
         }
 
         updateJobState(JobStatus.CANCELING);
+    }
+
+    public void savepointJob() {
+        if (getJobStatus().isEndState()) {
+            log.warn(
+                    String.format(
+                            "%s is in end state %s, can not do savepoint",
+                            jobFullName, getJobStatus()));
+            return;
+        }
+        updateJobState(JobStatus.DOING_SAVEPOINT);
     }
 
     public List<SubPlan> getPipelineList() {
@@ -237,7 +252,7 @@ public class PhysicalPlan {
                     new RetryUtils.RetryMaterial(
                             Constant.OPERATION_RETRY_TIME,
                             true,
-                            exception -> ExceptionUtil.isOperationNeedRetryException(exception),
+                            ExceptionUtil::isOperationNeedRetryException,
                             Constant.OPERATION_RETRY_SLEEP));
             log.info(
                     String.format(
@@ -300,6 +315,7 @@ public class PhysicalPlan {
                 updateJobState(JobStatus.RUNNING);
                 break;
             case RUNNING:
+            case DOING_SAVEPOINT:
                 break;
             case FAILING:
             case CANCELING:
@@ -308,6 +324,7 @@ public class PhysicalPlan {
                 break;
             case FAILED:
             case CANCELED:
+            case SAVEPOINT_DONE:
             case FINISHED:
                 stopJobStateProcess();
                 jobEndFuture.complete(new JobResult(getJobStatus(), errorBySubPlan.get()));
