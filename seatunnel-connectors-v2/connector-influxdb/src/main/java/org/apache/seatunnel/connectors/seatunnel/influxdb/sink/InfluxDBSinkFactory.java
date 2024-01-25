@@ -36,7 +36,6 @@ import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.SinkConf
 import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.SinkConfig.RETRY_BACKOFF_MULTIPLIER_MS;
 
 @AutoService(Factory.class)
-@Slf4j
 public class InfluxDBSinkFactory implements TableSinkFactory {
 
     @Override
