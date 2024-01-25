@@ -47,8 +47,6 @@ import static org.awaitility.Awaitility.given;
 public abstract class AbstractDorisIT extends TestSuiteBase implements TestResource {
 
     protected GenericContainer<?> container;
-
-    // use image adamlee489/doris:2.0.3 when running this test on mac
     private static final String DOCKER_IMAGE = "bingquanzhao/doris:2.0.3";
     protected static final String HOST = "doris_e2e";
     protected static final int QUERY_PORT = 9030;
