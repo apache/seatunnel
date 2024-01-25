@@ -65,7 +65,7 @@ import static org.awaitility.Awaitility.await;
 @Slf4j
 @DisabledOnContainer(
         value = {},
-        type = {EngineType.SPARK, EngineType.FLINK},
+        type = {EngineType.SPARK},
         disabledReason = "Currently SPARK do not support cdc")
 public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
 

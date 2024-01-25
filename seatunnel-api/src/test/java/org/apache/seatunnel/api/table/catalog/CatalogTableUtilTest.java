@@ -139,6 +139,21 @@ public class CatalogTableUtilTest {
     }
 
     @Test
+    public void testDefaultTablePath() throws FileNotFoundException, URISyntaxException {
+        String path = getTestConfigFile("/conf/default_tablepath.conf");
+        Config config = ConfigFactory.parseFile(new File(path));
+        Config source = config.getConfigList("source").get(0);
+        ReadonlyConfig sourceReadonlyConfig = ReadonlyConfig.fromConfig(source);
+        CatalogTable catalogTable = CatalogTableUtil.buildWithConfig(sourceReadonlyConfig);
+        Assertions.assertEquals(
+                TablePath.DEFAULT.getDatabaseName(), catalogTable.getTablePath().getDatabaseName());
+        Assertions.assertEquals(
+                TablePath.DEFAULT.getSchemaName(), catalogTable.getTablePath().getSchemaName());
+        Assertions.assertEquals(
+                TablePath.DEFAULT.getTableName(), catalogTable.getTablePath().getTableName());
+    }
+
+    @Test
     public void testGenericRowSchemaTest() throws FileNotFoundException, URISyntaxException {
         String path = getTestConfigFile("/conf/generic_row.schema.conf");
         Config config = ConfigFactory.parseFile(new File(path));
