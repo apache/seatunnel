@@ -17,11 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.influxdb.sink;
 
-import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.client.InfluxDBClient;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.config.SinkConfig;
@@ -44,8 +44,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Slf4j
-public class InfluxDBSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
-        implements SupportMultiTableSinkWriter {
+public class InfluxDBSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     private final Serializer serializer;
     private InfluxDB influxdb;
@@ -53,10 +52,9 @@ public class InfluxDBSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
     private final List<Point> batchList;
     private volatile Exception flushException;
 
-    public InfluxDBSinkWriter(SinkConfig sinkConfig, SeaTunnelRowType seaTunnelRowType)
+    public InfluxDBSinkWriter(Config pluginConfig, SeaTunnelRowType seaTunnelRowType)
             throws ConnectException {
-        this.sinkConfig = sinkConfig;
-        log.info("sinkConfig is {}", JsonUtils.toJsonString(sinkConfig));
+        this.sinkConfig = SinkConfig.loadConfig(pluginConfig);
         this.serializer =
                 new DefaultSerializer(
                         seaTunnelRowType,
