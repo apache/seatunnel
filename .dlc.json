@@ -23,6 +23,9 @@
     },
     {
       "pattern": "^https://twitter.com/ASFSeaTunnel"
+    },
+    {
+      "pattern": "^https://debezium.io/documentation"
     }
   ],
   "timeout": "10s",
