@@ -38,6 +38,7 @@ import org.testcontainers.containers.Container;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
+import org.testcontainers.images.PullPolicy;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
 
@@ -223,6 +224,7 @@ public class JdbcMysqlMultipleTablesIT extends TestSuiteBase implements TestReso
                         .withNetworkAliases(MYSQL_CONTAINER_HOST)
                         .withExposedPorts(MYSQL_PORT)
                         .waitingFor(Wait.forHealthcheck())
+                        .withImagePullPolicy(PullPolicy.alwaysPull())
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(MYSQL_IMAGE)));
 
