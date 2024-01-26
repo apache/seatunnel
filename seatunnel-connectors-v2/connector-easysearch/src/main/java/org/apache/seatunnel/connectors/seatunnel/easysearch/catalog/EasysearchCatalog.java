@@ -91,6 +91,11 @@ public class EasysearchCatalog implements Catalog {
     }
 
     @Override
+    public String name() {
+        return catalogName;
+    }
+
+    @Override
     public String getDefaultDatabase() throws CatalogException {
         return defaultDatabase;
     }
