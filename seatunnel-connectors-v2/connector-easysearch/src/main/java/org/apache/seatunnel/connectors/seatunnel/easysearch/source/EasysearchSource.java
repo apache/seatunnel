@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.easysearch.source;
 
+import com.google.common.collect.Lists;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
@@ -69,7 +70,11 @@ public class EasysearchSource
             rowTypeInfo = CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
             source = Arrays.asList(rowTypeInfo.getFieldNames());
         } else {
-            source = pluginConfig.getStringList(SourceConfig.SOURCE.key());
+            if (pluginConfig.hasPath(SourceConfig.SOURCE.key())) {
+                source = pluginConfig.getStringList(SourceConfig.SOURCE.key());
+            } else {
+                source = Lists.newArrayList();
+            }
             EasysearchClient ezsClient = EasysearchClient.createInstance(this.pluginConfig);
             Map<String, String> ezsFieldType =
                     ezsClient.getFieldTypeMapping(
