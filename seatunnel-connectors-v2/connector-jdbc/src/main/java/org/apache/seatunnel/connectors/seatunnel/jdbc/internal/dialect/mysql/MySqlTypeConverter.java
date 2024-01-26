@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.connectors.seatunnel.common.source.TypeDefineUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 import com.google.auto.service.AutoService;
@@ -63,8 +64,8 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
     static final String MYSQL_DOUBLE_UNSIGNED = "DOUBLE UNSIGNED";
 
     // -------------------------string----------------------------
-    static final String MYSQL_CHAR = "CHAR";
-    static final String MYSQL_VARCHAR = "VARCHAR";
+    public static final String MYSQL_CHAR = "CHAR";
+    public static final String MYSQL_VARCHAR = "VARCHAR";
     static final String MYSQL_TINYTEXT = "TINYTEXT";
     static final String MYSQL_MEDIUMTEXT = "MEDIUMTEXT";
     static final String MYSQL_TEXT = "TEXT";
@@ -125,7 +126,9 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
                 builder.dataType(BasicType.VOID_TYPE);
                 break;
             case MYSQL_BIT:
-                if (typeDefine.getLength() == 1) {
+                if (typeDefine.getLength() == null || typeDefine.getLength() <= 0) {
+                    builder.dataType(BasicType.BOOLEAN_TYPE);
+                } else if (typeDefine.getLength() == 1) {
                     builder.dataType(BasicType.BOOLEAN_TYPE);
                 } else {
                     builder.dataType(PrimitiveByteArrayType.INSTANCE);
@@ -213,10 +216,21 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
                 builder.scale(decimalUnsignedType.getScale());
                 break;
             case MYSQL_ENUM:
+                builder.dataType(BasicType.STRING_TYPE);
+                if (typeDefine.getLength() == null || typeDefine.getLength() <= 0) {
+                    builder.columnLength(100L);
+                } else {
+                    builder.columnLength(typeDefine.getLength());
+                }
+                break;
             case MYSQL_CHAR:
             case MYSQL_VARCHAR:
+                if (typeDefine.getLength() == null || typeDefine.getLength() <= 0) {
+                    builder.columnLength(TypeDefineUtils.charTo4ByteLength(1L));
+                } else {
+                    builder.columnLength(typeDefine.getLength());
+                }
                 builder.dataType(BasicType.STRING_TYPE);
-                builder.columnLength(typeDefine.getLength());
                 break;
             case MYSQL_TINYTEXT:
                 builder.dataType(BasicType.STRING_TYPE);
@@ -239,8 +253,12 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
                 break;
             case MYSQL_BINARY:
             case MYSQL_VARBINARY:
+                if (typeDefine.getLength() == null || typeDefine.getLength() <= 0) {
+                    builder.columnLength(1L);
+                } else {
+                    builder.columnLength(typeDefine.getLength());
+                }
                 builder.dataType(PrimitiveByteArrayType.INSTANCE);
-                builder.columnLength(typeDefine.getLength());
                 break;
             case MYSQL_TINYBLOB:
                 builder.dataType(PrimitiveByteArrayType.INSTANCE);
@@ -395,7 +413,7 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
                 if (column.getColumnLength() == null || column.getColumnLength() <= 0) {
                     builder.nativeType(MysqlType.VARBINARY);
                     builder.columnType(
-                            String.format("%s(%s)", MYSQL_VARBINARY, MAX_VARBINARY_LENGTH));
+                            String.format("%s(%s)", MYSQL_VARBINARY, MAX_VARBINARY_LENGTH / 2));
                     builder.dataType(MYSQL_VARBINARY);
                 } else if (column.getColumnLength() < MAX_VARBINARY_LENGTH) {
                     builder.nativeType(MysqlType.VARBINARY);

@@ -794,7 +794,7 @@ public class MySqlTypeConverterTest {
         BasicTypeDefine<MysqlType> typeDefine = MySqlTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(MysqlType.VARBINARY, typeDefine.getNativeType());
-        Assertions.assertEquals("VARBINARY(65532)", typeDefine.getColumnType());
+        Assertions.assertEquals("VARBINARY(32766)", typeDefine.getColumnType());
         Assertions.assertEquals(MySqlTypeConverter.MYSQL_VARBINARY, typeDefine.getDataType());
 
         column =

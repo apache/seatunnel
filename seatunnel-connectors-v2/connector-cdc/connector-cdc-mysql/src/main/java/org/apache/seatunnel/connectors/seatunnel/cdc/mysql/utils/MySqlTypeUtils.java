@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils;
 
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.connectors.seatunnel.common.source.TypeDefineUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeConverter;
 
 import io.debezium.relational.Column;
@@ -29,7 +30,12 @@ import lombok.extern.slf4j.Slf4j;
 public class MySqlTypeUtils {
 
     public static SeaTunnelDataType<?> convertFromColumn(Column column) {
-        BasicTypeDefine typeDefine =
+        return convertToSeaTunnelColumn(column).getDataType();
+    }
+
+    public static org.apache.seatunnel.api.table.catalog.Column convertToSeaTunnelColumn(
+            io.debezium.relational.Column column) {
+        BasicTypeDefine.BasicTypeDefineBuilder builder =
                 BasicTypeDefine.builder()
                         .name(column.name())
                         .columnType(column.typeName())
@@ -37,9 +43,19 @@ public class MySqlTypeUtils {
                         .length((long) column.length())
                         .precision((long) column.length())
                         .scale(column.scale().orElse(0))
-                        .build();
-        org.apache.seatunnel.api.table.catalog.Column seaTunnelColumn =
-                MySqlTypeConverter.INSTANCE.convert(typeDefine);
-        return seaTunnelColumn.getDataType();
+                        .defaultValue(column.defaultValue());
+        switch (column.typeName().toUpperCase()) {
+            case MySqlTypeConverter.MYSQL_CHAR:
+            case MySqlTypeConverter.MYSQL_VARCHAR:
+                if (column.length() <= 0) {
+                    builder.length(TypeDefineUtils.charTo4ByteLength(1L));
+                } else {
+                    builder.length(TypeDefineUtils.charTo4ByteLength((long) column.length()));
+                }
+                break;
+            default:
+                break;
+        }
+        return MySqlTypeConverter.INSTANCE.convert(builder.build());
     }
 }
