@@ -33,7 +33,6 @@ import lombok.extern.slf4j.Slf4j;
 import oracle.sql.ROWID;
 
 import java.sql.SQLException;
-import java.sql.Types;
 
 /**
  * The {@code ChunkSplitter} used to split Oracle table into a set of chunks for JDBC data source.
@@ -103,22 +102,5 @@ public class OracleChunkSplitter extends AbstractJdbcSourceChunkSplitter {
         } else {
             return ObjectUtils.compare(obj1, obj2);
         }
-    }
-
-    @Override
-    protected Column getSplitColumn(
-            JdbcConnection jdbc, JdbcDataSourceDialect dialect, TableId tableId)
-            throws SQLException {
-        try {
-            Column splitColumn = super.getSplitColumn(jdbc, dialect, tableId);
-            if (splitColumn != null) {
-                return splitColumn;
-            }
-        } catch (SQLException e) {
-            log.info(
-                    "Failed to obtain the split key policy, the split key is changed to the default one",
-                    e);
-        }
-        return Column.editor().jdbcType(Types.VARCHAR).name(ROWID.class.getSimpleName()).create();
     }
 }
