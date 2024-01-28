@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.PreviewResult;
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.SQLPreviewResult;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
@@ -31,14 +32,20 @@ import org.apache.seatunnel.api.table.catalog.exception.DatabaseAlreadyExistExce
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
 import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistException;
 import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
+import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.doris.config.DorisConfig;
 import org.apache.seatunnel.connectors.doris.config.DorisOptions;
+import org.apache.seatunnel.connectors.doris.datatype.DorisTypeConverter;
 import org.apache.seatunnel.connectors.doris.util.DorisCatalogUtil;
-
-import org.apache.commons.lang3.StringUtils;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.common.base.Preconditions;
+import com.mysql.cj.MysqlType;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -49,7 +56,9 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
@@ -216,51 +225,98 @@ public class DorisCatalog implements Catalog {
         }
         TableSchema.Builder builder = TableSchema.builder();
         try (PreparedStatement ps = conn.prepareStatement(DorisCatalogUtil.TABLE_SCHEMA_QUERY)) {
-
-            List<String> keyList = new ArrayList<>();
             ps.setString(1, tablePath.getDatabaseName());
             ps.setString(2, tablePath.getTableName());
             ResultSet rs = ps.executeQuery();
-            while (rs.next()) {
-                String name = rs.getString(1);
-                int size = rs.getInt(6);
-                boolean nullable = rs.getBoolean(4);
-                String defaultVal = rs.getString(3);
-                String comment = rs.getString(10);
-                builder.column(
-                        PhysicalColumn.of(
-                                name,
-                                DorisCatalogUtil.fromDorisType(rs),
-                                size,
-                                nullable,
-                                defaultVal,
-                                comment));
-                if ("UNI".equalsIgnoreCase(rs.getString(7))) {
-                    keyList.add(name);
+            buildTableSchemaWithErrorCheck(tablePath, rs, builder);
+            return CatalogTable.of(
+                    TableIdentifier.of(
+                            catalogName, tablePath.getDatabaseName(), tablePath.getTableName()),
+                    builder.build(),
+                    connectorOptions(),
+                    Collections.emptyList(),
+                    "",
+                    catalogName);
+        } catch (SeaTunnelRuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new CatalogException(
+                    String.format("Failed getting table %s", tablePath.getFullName()), e);
+        }
+    }
+
+    private void buildTableSchemaWithErrorCheck(
+            TablePath tablePath, ResultSet resultSet, TableSchema.Builder builder)
+            throws SQLException {
+        Map<String, String> unsupported = new LinkedHashMap<>();
+        List<String> keyList = new ArrayList<>();
+        while (resultSet.next()) {
+            try {
+                builder.column(buildColumn(resultSet));
+                if ("UNI".equalsIgnoreCase(resultSet.getString("COLUMN_KEY"))) {
+                    keyList.add(resultSet.getString("COLUMN_NAME"));
+                }
+            } catch (SeaTunnelRuntimeException e) {
+                if (e.getSeaTunnelErrorCode()
+                        .equals(CommonErrorCode.CONVERT_TO_SEATUNNEL_TYPE_ERROR_SIMPLE)) {
+                    unsupported.put(e.getParams().get("field"), e.getParams().get("dataType"));
+                } else {
+                    throw e;
                 }
             }
-            if (!keyList.isEmpty()) {
-                builder.primaryKey(
-                        PrimaryKey.of(
-                                "uk_"
-                                        + tablePath.getDatabaseName()
-                                        + "_"
-                                        + tablePath.getTableName(),
-                                keyList));
-            }
-
-        } catch (SQLException e) {
-            throw new CatalogException(
-                    String.format("get table [%s] failed", tablePath.getFullName()), e);
         }
+        if (!keyList.isEmpty()) {
+            builder.primaryKey(
+                    PrimaryKey.of(
+                            "uk_" + tablePath.getDatabaseName() + "_" + tablePath.getTableName(),
+                            keyList));
+        }
+        if (!unsupported.isEmpty()) {
+            throw CommonError.getCatalogTableWithUnsupportedType(
+                    catalogName, tablePath.getFullName(), unsupported);
+        }
+    }
 
-        return CatalogTable.of(
-                TableIdentifier.of(
-                        catalogName, tablePath.getDatabaseName(), tablePath.getTableName()),
-                builder.build(),
-                connectorOptions(),
-                Collections.emptyList(),
-                StringUtils.EMPTY);
+    private Column buildColumn(ResultSet resultSet) throws SQLException {
+        String columnName = resultSet.getString("COLUMN_NAME");
+        // e.g. tinyint(1) unsigned
+        String columnType = resultSet.getString("COLUMN_TYPE");
+        // e.g. tinyint
+        String dataType = resultSet.getString("DATA_TYPE").toUpperCase();
+        String comment = resultSet.getString("COLUMN_COMMENT");
+        Object defaultValue = resultSet.getObject("COLUMN_DEFAULT");
+        String isNullableStr = resultSet.getString("IS_NULLABLE");
+        boolean isNullable = isNullableStr.equals("YES");
+        // e.g. `decimal(10, 2)` is 10
+        long numberPrecision = resultSet.getInt("NUMERIC_PRECISION");
+        // e.g. `decimal(10, 2)` is 2
+        int numberScale = resultSet.getInt("NUMERIC_SCALE");
+        // e.g. `varchar(10)` is 40
+        long charOctetLength = resultSet.getLong("CHARACTER_OCTET_LENGTH");
+        // e.g. `timestamp(3)` is 3
+        int timePrecision = resultSet.getInt("DATETIME_PRECISION");
+
+        Preconditions.checkArgument(!(numberPrecision > 0 && charOctetLength > 0));
+        Preconditions.checkArgument(!(numberScale > 0 && timePrecision > 0));
+
+        MysqlType mysqlType = MysqlType.getByName(columnType);
+        boolean unsigned = columnType.toLowerCase(Locale.ROOT).contains("unsigned");
+
+        BasicTypeDefine<MysqlType> typeDefine =
+                BasicTypeDefine.<MysqlType>builder()
+                        .name(columnName)
+                        .columnType(columnType)
+                        .dataType(dataType)
+                        .nativeType(mysqlType)
+                        .unsigned(unsigned)
+                        .length(Math.max(charOctetLength, numberPrecision))
+                        .precision(numberPrecision)
+                        .scale(Math.max(numberScale, timePrecision))
+                        .nullable(isNullable)
+                        .defaultValue(defaultValue)
+                        .comment(comment)
+                        .build();
+        return DorisTypeConverter.INSTANCE.convert(typeDefine);
     }
 
     @Override
