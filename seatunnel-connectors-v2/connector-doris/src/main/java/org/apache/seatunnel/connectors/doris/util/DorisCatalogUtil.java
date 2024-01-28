@@ -66,8 +66,7 @@ public class DorisCatalogUtil {
                     + "ORDER BY TABLE_NAME";
 
     public static final String TABLE_SCHEMA_QUERY =
-            "SELECT COLUMN_NAME,ORDINAL_POSITION,COLUMN_DEFAULT,IS_NULLABLE,COLUMN_TYPE,COLUMN_SIZE,"
-                    + "COLUMN_KEY,NUMERIC_PRECISION,NUMERIC_SCALE,COLUMN_COMMENT "
+            "SELECT * "
                     + "FROM information_schema.columns "
                     + "WHERE TABLE_CATALOG = 'internal' AND TABLE_SCHEMA = ? AND TABLE_NAME = ? "
                     + "ORDER BY ORDINAL_POSITION";

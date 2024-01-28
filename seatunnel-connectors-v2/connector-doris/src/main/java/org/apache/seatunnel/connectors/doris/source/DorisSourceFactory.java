@@ -34,6 +34,7 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.doris.catalog.DorisCatalog;
 import org.apache.seatunnel.connectors.doris.catalog.DorisCatalogFactory;
+import org.apache.seatunnel.connectors.doris.config.DorisConfig;
 import org.apache.seatunnel.connectors.doris.config.DorisOptions;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorErrorCode;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorException;
@@ -55,7 +56,7 @@ import java.util.stream.Collectors;
 public class DorisSourceFactory implements TableSourceFactory {
     @Override
     public String factoryIdentifier() {
-        return "Doris";
+        return DorisConfig.IDENTIFIER;
     }
 
     @Override
