@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.hive.utils;
+package org.apache.seatunnel.connectors.seatunnel.hive.catalog;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -114,6 +114,10 @@ public class HiveMetaStoreProxy {
             }
         }
         return INSTANCE;
+    }
+
+    protected HiveMetaStoreClient getHiveMetaStoreClient() {
+        return hiveMetaStoreClient;
     }
 
     public Table getTable(@NonNull String dbName, @NonNull String tableName) {
