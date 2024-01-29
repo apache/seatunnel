@@ -1014,6 +1014,21 @@
                 <docker.push.skip>false</docker.push.skip>
             </properties>
         </profile>
+        <profile>
+            <id>docker-full</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+            </activation>
+            <modules>
+                <module>seatunnel-dist</module>
+            </modules>
+            <properties>
+                <docker.build.skip>false</docker.build.skip>
+                <docker.verify.skip>false</docker.verify.skip>
+                <docker.push.skip>false</docker.push.skip>
+                <docker.tag>${project.version}-full</docker.tag>
+            </properties>
+        </profile>
         <!-- The ci need build without seatunnel-dist modules, so we need add a no_dist profile -->
         <profile>
             <id>ci</id>

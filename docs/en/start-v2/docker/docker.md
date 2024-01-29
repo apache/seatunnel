@@ -9,6 +9,10 @@ sidebar_position: 3
 
 ### Download
 
+SeaTunnel has 2 docker images.
+one is light version `apache/seatunnel`, only include fake, console connector. if you need another connector you need re-build or mount the lib in runtime.
+another is the full connector version `apache/seatunnel-full`, include all connectors. but the image size is bigger.
+
 ```shell
 docker pull apache/seatunnel
 ```
@@ -24,7 +28,7 @@ docker run --rm -it apache/seatunnel bash ./bin/seatunnel.sh -e local -c config/
 
 ```
 
-### Install the connectors you needed
+### Install the connectors you needed (If you downloaded the full connector image, you can skip this step)
 
 We only provide the fake source and console sink connector in this image, if you need other connectors, you can follow the below steps to install the connector.
 
