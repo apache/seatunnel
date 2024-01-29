@@ -223,6 +223,7 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                                 || s.contains("Keep-Alive-SocketCleaner")
                                 || s.contains("process reaper")
                                 || s.startsWith("Timer-")
+                                || s.contains("InterruptTimer")
                                 || s.contains("Java2D Disposer")
                                 || s.contains(
                                         "org.apache.hadoop.fs.FileSystem$Statistics$StatisticsDataReferenceCleaner")
@@ -288,10 +289,14 @@ public class SeaTunnelContainer extends AbstractTestContainer {
 
     /** The thread should be recycled but not, we should fix it in the future. */
     private boolean isIssueWeAlreadyKnow(String threadName) {
-        if ( // Clickhouse connector
+        if ( // ClickHouse com.clickhouse.client.ClickHouseClientBuilder
         threadName.startsWith("ClickHouseClientWorker")
-                // InfluxDB connector
-                || threadName.startsWith("Okio Watchdog")) {
+                // InfluxDB okio.AsyncTimeout$Watchdog
+                || threadName.startsWith("Okio Watchdog")
+                // InfluxDB okhttp3.internal.concurrent.TaskRunner.RealBackend
+                || threadName.startsWith("OkHttp TaskRunner")
+                // IOTDB org.apache.iotdb.session.Session
+                || threadName.startsWith("SessionExecutor")) {
             return true;
         }
         return false;
