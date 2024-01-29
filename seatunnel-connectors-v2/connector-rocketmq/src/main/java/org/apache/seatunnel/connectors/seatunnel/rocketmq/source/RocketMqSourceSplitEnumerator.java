@@ -149,7 +149,10 @@ public class RocketMqSourceSplitEnumerator
                             ConsumeFromWhere.CONSUME_FROM_LAST_OFFSET);
             splits.forEach(
                     split -> {
-                        split.setStartOffset(split.getEndOffset() + 1);
+                        split.setStartOffset(
+                                Math.min(
+                                        split.getEndOffset() + 1,
+                                        listOffsets.get(split.getMessageQueue())));
                         split.setEndOffset(listOffsets.get(split.getMessageQueue()));
                     });
             return splits.stream()
