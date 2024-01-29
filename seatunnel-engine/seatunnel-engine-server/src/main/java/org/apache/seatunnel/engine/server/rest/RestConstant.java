@@ -44,6 +44,11 @@ public class RestConstant {
     public static final String ERROR_MSG = "errorMsg";
 
     public static final String METRICS = "metrics";
+
+    public static final String LOG_PATH = "seatunnel.logs.path";
+
+    public static final String LOG_FILE_NAME = "seatunnel.logs.file_name";
+
     public static final String RUNNING_JOBS_URL = "/hazelcast/rest/maps/running-jobs";
     public static final String RUNNING_JOB_URL = "/hazelcast/rest/maps/running-job";
 
@@ -55,4 +60,6 @@ public class RestConstant {
             "/hazelcast/rest/maps/system-monitoring-information";
 
     public static final String STOP_JOB_URL = "/hazelcast/rest/maps/stop-job";
+
+    public static final String GET_LOG = "/hazelcast/rest/maps/log";
 }

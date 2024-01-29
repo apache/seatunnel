@@ -54,6 +54,10 @@ import com.hazelcast.jet.impl.execution.init.CustomClassLoadedObject;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -65,6 +69,7 @@ import java.util.concurrent.ExecutionException;
 
 import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_500;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.FINISHED_JOBS_INFO;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.GET_LOG;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_JOBS_URL;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_JOB_URL;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.SYSTEM_MONITORING_INFORMATION;
@@ -104,6 +109,8 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                 handleJobInfoById(httpGetCommand, uri);
             } else if (uri.startsWith(SYSTEM_MONITORING_INFORMATION)) {
                 getSystemMonitoringInformation(httpGetCommand);
+            } else if (uri.startsWith(GET_LOG)) {
+                handleLog(httpGetCommand);
             } else {
                 original.handle(httpGetCommand);
             }
@@ -156,6 +163,21 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                                 })
                         .collect(JsonArray::new, JsonArray::add, JsonArray::add);
         this.prepareResponse(command, jsonValues);
+    }
+
+    private void handleLog(HttpGetCommand command) throws IOException {
+
+        // `seatunnel.logs.path` and `seatunnel.logs.file_name` are defined in the log4j.properties
+        // file.
+        String logPath = System.getProperty("seatunnel.logs.path");
+        String logName = System.getProperty("seatunnel.logs.file_name") + ".log";
+        Path path = Paths.get(logPath, logName);
+        if (!Files.exists(path)) {
+            this.prepareResponse(command, new JsonObject());
+            return;
+        }
+        byte[] logBytes = Files.readAllBytes(path);
+        this.prepareResponse(command, new String(logBytes));
     }
 
     private void handleRunningJobsInfo(HttpGetCommand command) {
