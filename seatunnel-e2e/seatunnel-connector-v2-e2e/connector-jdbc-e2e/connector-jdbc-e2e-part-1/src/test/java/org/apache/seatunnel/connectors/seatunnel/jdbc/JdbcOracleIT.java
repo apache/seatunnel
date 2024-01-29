@@ -122,27 +122,33 @@ public class JdbcOracleIT extends AbstractJdbcIT {
 
     @Test
     public void testTableColumnMetadataLength() {
-        CatalogTable tableCatalog = catalog.getTable(TablePath.of("XE", "TESTUSER", "E2E_TABLE_SOURCE"));
-        tableCatalog.getTableSchema().getColumns().forEach(column -> {
-            if (column.getName().equals("NVARCHAR2_10_COL")) {
-                Assertions.assertEquals(column.getLongColumnLength(), 10L);
-            }
-            if (column.getName().equals("NCHAR_10_COL")) {
-                Assertions.assertEquals(column.getLongColumnLength(), 10L);
-            }
-            if (column.getName().equals("VARCHAR_10_COL")) {
-                Assertions.assertEquals(column.getLongColumnLength(), 10L);
-            }
-            if (column.getName().equals("CHAR_10_COL")) {
-                Assertions.assertEquals(column.getLongColumnLength(), 10L);
-            }
-            if (column.getName().equals("NUMBER_3_SF_2_DP")) {
-                Assertions.assertInstanceOf(DecimalType.class, column.getDataType());
-                DecimalType decimalType = (DecimalType) column.getDataType();
-                Assertions.assertEquals(decimalType.getPrecision(), 3L);
-                Assertions.assertEquals(decimalType.getScale(), 2L);
-            }
-        });
+        CatalogTable tableCatalog =
+                catalog.getTable(TablePath.of("XE", "TESTUSER", "E2E_TABLE_SOURCE"));
+        tableCatalog
+                .getTableSchema()
+                .getColumns()
+                .forEach(
+                        column -> {
+                            if (column.getName().equals("NVARCHAR2_10_COL")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 10L);
+                            }
+                            if (column.getName().equals("NCHAR_10_COL")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 10L);
+                            }
+                            if (column.getName().equals("VARCHAR_10_COL")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 10L);
+                            }
+                            if (column.getName().equals("CHAR_10_COL")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 10L);
+                            }
+                            if (column.getName().equals("NUMBER_3_SF_2_DP")) {
+                                Assertions.assertInstanceOf(
+                                        DecimalType.class, column.getDataType());
+                                DecimalType decimalType = (DecimalType) column.getDataType();
+                                Assertions.assertEquals(decimalType.getPrecision(), 3L);
+                                Assertions.assertEquals(decimalType.getScale(), 2L);
+                            }
+                        });
     }
 
     @Override

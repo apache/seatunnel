@@ -300,11 +300,65 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
         catalog.createTable(catalogTablePath, catalogTable, false);
         Assertions.assertTrue(catalog.tableExists(catalogTablePath));
 
-        catalogTable.getTableSchema().getColumns().forEach(column -> {
-            if (column.getName().equals("bit_col")) {
-                Assertions.assertEquals(column.getLongColumnLength(), 1L);
-            }
-        });
+        catalogTable
+                .getTableSchema()
+                .getColumns()
+                .forEach(
+                        column -> {
+                            if (column.getName().equals("gid")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 32L);
+                            }
+                            if (column.getName().equals("varchar_col")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 255L);
+                            }
+                            if (column.getName().equals("char_col")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 10L);
+                            }
+                            if (column.getName().equals("smallint_col")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 16L);
+                            }
+                            if (column.getName().equals("integer_col")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 32L);
+                            }
+                            if (column.getName().equals("bigint_col")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 64L);
+                            }
+                            if (column.getName().equals("decimal_col")) {
+                                Assertions.assertInstanceOf(
+                                        DecimalType.class, column.getDataType());
+                                DecimalType decimalType = (DecimalType) column.getDataType();
+                                Assertions.assertEquals(decimalType.getPrecision(), 10L);
+                                Assertions.assertEquals(decimalType.getScale(), 2L);
+                            }
+                            if (column.getName().equals("numeric_col")) {
+                                Assertions.assertInstanceOf(
+                                        DecimalType.class, column.getDataType());
+                                DecimalType decimalType = (DecimalType) column.getDataType();
+                                Assertions.assertEquals(decimalType.getPrecision(), 8L);
+                                Assertions.assertEquals(decimalType.getScale(), 4L);
+                            }
+                            if (column.getName().equals("real_col")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 24L);
+                            }
+                            if (column.getName().equals("double_precision_col")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 53L);
+                            }
+                            if (column.getName().equals("smallserial_col")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 16L);
+                            }
+                            if (column.getName().equals("serial_col")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 32L);
+                            }
+                            if (column.getName().equals("bigserial_col")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 64L);
+                            }
+                            if (column.getName().equals("bpchar_col")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 10L);
+                            }
+                            if (column.getName().equals("bit_col")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 1L);
+                            }
+                        });
 
         catalog.dropTable(catalogTablePath, false);
         Assertions.assertFalse(catalog.tableExists(catalogTablePath));
@@ -481,59 +535,65 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
         // sink tableExists ?
         boolean tableExistsBefore = postgresCatalog.tableExists(tablePathPgSink);
         Assertions.assertFalse(tableExistsBefore);
-        catalogTable.getTableSchema().getColumns().forEach(column -> {
-            if (column.getName().equals("gid")) {
-                Assertions.assertEquals(column.getLongColumnLength(), 32L);
-            }
-            if (column.getName().equals("varchar_col")) {
-                Assertions.assertEquals(column.getLongColumnLength(), 255L);
-            }
-            if (column.getName().equals("char_col")) {
-                Assertions.assertEquals(column.getLongColumnLength(), 10L);
-            }
-            if (column.getName().equals("smallint_col")) {
-                Assertions.assertEquals(column.getLongColumnLength(), 16L);
-            }
-            if (column.getName().equals("integer_col")) {
-                Assertions.assertEquals(column.getLongColumnLength(), 32L);
-            }
-            if (column.getName().equals("bigint_col")) {
-                Assertions.assertEquals(column.getLongColumnLength(), 64L);
-            }
-            if (column.getName().equals("decimal_col")) {
-                Assertions.assertInstanceOf(DecimalType.class, column.getDataType());
-                DecimalType decimalType = (DecimalType) column.getDataType();
-                Assertions.assertEquals(decimalType.getPrecision(), 10L);
-                Assertions.assertEquals(decimalType.getScale(), 2L);
-            }
-            if (column.getName().equals("numeric_col")) {
-                Assertions.assertInstanceOf(DecimalType.class, column.getDataType());
-                DecimalType decimalType = (DecimalType) column.getDataType();
-                Assertions.assertEquals(decimalType.getPrecision(), 8L);
-                Assertions.assertEquals(decimalType.getScale(), 4L);
-            }
-            if (column.getName().equals("real_col")) {
-                Assertions.assertEquals(column.getLongColumnLength(), 24L);
-            }
-            if (column.getName().equals("double_precision_col")) {
-                Assertions.assertEquals(column.getLongColumnLength(), 53L);
-            }
-            if (column.getName().equals("smallserial_col")) {
-                Assertions.assertEquals(column.getLongColumnLength(), 16L);
-            }
-            if (column.getName().equals("serial_col")) {
-                Assertions.assertEquals(column.getLongColumnLength(), 32L);
-            }
-            if (column.getName().equals("bigserial_col")) {
-                Assertions.assertEquals(column.getLongColumnLength(), 64L);
-            }
-            if (column.getName().equals("bpchar_col")) {
-                Assertions.assertEquals(column.getLongColumnLength(), 10L);
-            }
-            if (column.getName().equals("bit_col")) {
-                Assertions.assertEquals(column.getLongColumnLength(), 1L);
-            }
-        });
+        catalogTable
+                .getTableSchema()
+                .getColumns()
+                .forEach(
+                        column -> {
+                            if (column.getName().equals("gid")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 32L);
+                            }
+                            if (column.getName().equals("varchar_col")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 255L);
+                            }
+                            if (column.getName().equals("char_col")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 10L);
+                            }
+                            if (column.getName().equals("smallint_col")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 16L);
+                            }
+                            if (column.getName().equals("integer_col")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 32L);
+                            }
+                            if (column.getName().equals("bigint_col")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 64L);
+                            }
+                            if (column.getName().equals("decimal_col")) {
+                                Assertions.assertInstanceOf(
+                                        DecimalType.class, column.getDataType());
+                                DecimalType decimalType = (DecimalType) column.getDataType();
+                                Assertions.assertEquals(decimalType.getPrecision(), 10L);
+                                Assertions.assertEquals(decimalType.getScale(), 2L);
+                            }
+                            if (column.getName().equals("numeric_col")) {
+                                Assertions.assertInstanceOf(
+                                        DecimalType.class, column.getDataType());
+                                DecimalType decimalType = (DecimalType) column.getDataType();
+                                Assertions.assertEquals(decimalType.getPrecision(), 8L);
+                                Assertions.assertEquals(decimalType.getScale(), 4L);
+                            }
+                            if (column.getName().equals("real_col")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 24L);
+                            }
+                            if (column.getName().equals("double_precision_col")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 53L);
+                            }
+                            if (column.getName().equals("smallserial_col")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 16L);
+                            }
+                            if (column.getName().equals("serial_col")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 32L);
+                            }
+                            if (column.getName().equals("bigserial_col")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 64L);
+                            }
+                            if (column.getName().equals("bpchar_col")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 10L);
+                            }
+                            if (column.getName().equals("bit_col")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 1L);
+                            }
+                        });
         // create table
         postgresCatalog.createTable(tablePathPgSink, catalogTable, true);
         boolean tableExistsAfter = postgresCatalog.tableExists(tablePathPgSink);

@@ -355,104 +355,108 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
         boolean existsDataAfter = sqlServerCatalog.isExistsData(tablePathSqlserver_Sink);
         Assertions.assertTrue(existsDataAfter);
         // check NVARCHAR_TEST and NCHAR_TEST column length
-        catalogTable.getTableSchema().getColumns().forEach(column -> {
-            if (column.getName().equals("INT_IDENTITY_TEST")) {
-                Assertions.assertEquals(column.getLongColumnLength(), 4L);
-            }
-            if (column.getName().equals("BIGINT_TEST")) {
-                Assertions.assertEquals(column.getLongColumnLength(), 8L);
-            }
-            if (column.getName().equals("BINARY_TEST")) {
-                Assertions.assertEquals(column.getLongColumnLength(), 255L);
-            }
-            if (column.getName().equals("BIT_TEST")) {
-                Assertions.assertEquals(column.getLongColumnLength(), 1L);
-            }
-            if (column.getName().equals("CHAR_TEST")) {
-                Assertions.assertEquals(column.getLongColumnLength(), 255L);
-            }
-            if (column.getName().equals("DATE_TEST")) {
-                Assertions.assertEquals(column.getLongColumnLength(), 3L);
-            }
-            if (column.getName().equals("DATETIME_TEST")) {
-                Assertions.assertEquals(column.getLongColumnLength(), 8L);
-            }
-            if (column.getName().equals("DATETIME2_TEST")) {
-                Assertions.assertEquals(column.getLongColumnLength(), 8L);
-            }
-            if (column.getName().equals("DATETIMEOFFSET_TEST")) {
-                Assertions.assertEquals(column.getLongColumnLength(), 10L);
-            }
-            if (column.getName().equals("DECIMAL_TEST")) {
-                Assertions.assertEquals(column.getLongColumnLength(), 9L);
-            }
-            if (column.getName().equals("FLOAT_TEST")) {
-                Assertions.assertEquals(column.getLongColumnLength(), 8L);
-            }
-            if (column.getName().equals("IMAGE_TEST")) {
-                Assertions.assertEquals(column.getLongColumnLength(), 2147483647L);
-            }
-            if (column.getName().equals("MONEY_TEST")) {
-                Assertions.assertEquals(column.getLongColumnLength(), 8L);
-            }
-            if (column.getName().equals("NCHAR_TEST")) {
-                Assertions.assertEquals(column.getLongColumnLength(), 1L);
-            }
-            if (column.getName().equals("NTEXT_TEST")) {
-                Assertions.assertEquals(column.getLongColumnLength(), 1073741823L);
-            }
-            if (column.getName().equals("NUMERIC_TEST")) {
-                Assertions.assertEquals(column.getLongColumnLength(), 9L);
-            }
-            if (column.getName().equals("NVARCHAR_TEST")) {
-                Assertions.assertEquals(column.getLongColumnLength(), 16L);
-            }
-            if (column.getName().equals("NVARCHAR_MAX_TEST")) {
-                Assertions.assertEquals(column.getLongColumnLength(), -1L);
-            }
-            if (column.getName().equals("REAL_TEST")) {
-                Assertions.assertEquals(column.getLongColumnLength(), 4L);
-            }
-            if (column.getName().equals("SMALLDATETIME_TEST")) {
-                Assertions.assertEquals(column.getLongColumnLength(), 4L);
-            }
-            if (column.getName().equals("SMALLINT_TEST")) {
-                Assertions.assertEquals(column.getLongColumnLength(), 2L);
-            }
-            if (column.getName().equals("SMALLMONEY_TEST")) {
-                Assertions.assertEquals(column.getLongColumnLength(), 4L);
-            }
-            if (column.getName().equals("SQL_VARIANT_TEST")) {
-                Assertions.assertEquals(column.getLongColumnLength(), 8016L);
-            }
-            if (column.getName().equals("TEXT_TEST")) {
-                Assertions.assertEquals(column.getLongColumnLength(), 2147483647L);
-            }
-            if (column.getName().equals("TIME_TEST")) {
-                Assertions.assertEquals(column.getLongColumnLength(), 5L);
-            }
-            if (column.getName().equals("TINYINT_TEST")) {
-                Assertions.assertEquals(column.getLongColumnLength(), 1L);
-            }
-            if (column.getName().equals("UNIQUEIDENTIFIER_TEST")) {
-                Assertions.assertEquals(column.getLongColumnLength(), 16L);
-            }
-            if (column.getName().equals("VARBINARY_TEST")) {
-                Assertions.assertEquals(column.getLongColumnLength(), 255L);
-            }
-            if (column.getName().equals("VARBINARY_MAX_TEST")) {
-                Assertions.assertEquals(column.getLongColumnLength(), -1L);
-            }
-            if (column.getName().equals("VARCHAR_TEST")) {
-                Assertions.assertEquals(column.getLongColumnLength(), 16L);
-            }
-            if (column.getName().equals("VARCHAR_MAX_TEST")) {
-                Assertions.assertEquals(column.getLongColumnLength(), -1L);
-            }
-            if (column.getName().equals("XML_TEST")) {
-                Assertions.assertEquals(column.getLongColumnLength(), -1L);
-            }
-        });
+        catalogTable
+                .getTableSchema()
+                .getColumns()
+                .forEach(
+                        column -> {
+                            if (column.getName().equals("INT_IDENTITY_TEST")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 4L);
+                            }
+                            if (column.getName().equals("BIGINT_TEST")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 8L);
+                            }
+                            if (column.getName().equals("BINARY_TEST")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 255L);
+                            }
+                            if (column.getName().equals("BIT_TEST")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 1L);
+                            }
+                            if (column.getName().equals("CHAR_TEST")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 255L);
+                            }
+                            if (column.getName().equals("DATE_TEST")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 3L);
+                            }
+                            if (column.getName().equals("DATETIME_TEST")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 8L);
+                            }
+                            if (column.getName().equals("DATETIME2_TEST")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 8L);
+                            }
+                            if (column.getName().equals("DATETIMEOFFSET_TEST")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 10L);
+                            }
+                            if (column.getName().equals("DECIMAL_TEST")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 9L);
+                            }
+                            if (column.getName().equals("FLOAT_TEST")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 8L);
+                            }
+                            if (column.getName().equals("IMAGE_TEST")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 2147483647L);
+                            }
+                            if (column.getName().equals("MONEY_TEST")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 8L);
+                            }
+                            if (column.getName().equals("NCHAR_TEST")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 1L);
+                            }
+                            if (column.getName().equals("NTEXT_TEST")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 1073741823L);
+                            }
+                            if (column.getName().equals("NUMERIC_TEST")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 9L);
+                            }
+                            if (column.getName().equals("NVARCHAR_TEST")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 16L);
+                            }
+                            if (column.getName().equals("NVARCHAR_MAX_TEST")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), -1L);
+                            }
+                            if (column.getName().equals("REAL_TEST")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 4L);
+                            }
+                            if (column.getName().equals("SMALLDATETIME_TEST")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 4L);
+                            }
+                            if (column.getName().equals("SMALLINT_TEST")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 2L);
+                            }
+                            if (column.getName().equals("SMALLMONEY_TEST")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 4L);
+                            }
+                            if (column.getName().equals("SQL_VARIANT_TEST")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 8016L);
+                            }
+                            if (column.getName().equals("TEXT_TEST")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 2147483647L);
+                            }
+                            if (column.getName().equals("TIME_TEST")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 5L);
+                            }
+                            if (column.getName().equals("TINYINT_TEST")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 1L);
+                            }
+                            if (column.getName().equals("UNIQUEIDENTIFIER_TEST")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 16L);
+                            }
+                            if (column.getName().equals("VARBINARY_TEST")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 255L);
+                            }
+                            if (column.getName().equals("VARBINARY_MAX_TEST")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), -1L);
+                            }
+                            if (column.getName().equals("VARCHAR_TEST")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 16L);
+                            }
+                            if (column.getName().equals("VARCHAR_MAX_TEST")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), -1L);
+                            }
+                            if (column.getName().equals("XML_TEST")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), -1L);
+                            }
+                        });
         // truncateTable
         sqlServerCatalog.truncateTable(tablePathSqlserver_Sink, true);
         Assertions.assertFalse(sqlServerCatalog.isExistsData(tablePathSqlserver_Sink));

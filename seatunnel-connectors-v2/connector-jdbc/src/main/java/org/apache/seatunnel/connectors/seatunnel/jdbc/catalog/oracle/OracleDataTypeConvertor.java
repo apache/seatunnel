@@ -111,7 +111,7 @@ public class OracleDataTypeConvertor implements DataTypeConvertor<String> {
                         return BasicType.LONG_TYPE;
                     }
                 }
-                if (precision > 0 && precision <= 38  && scale >= -84 && scale <= 127) {
+                if (precision > 0 && precision <= 38 && scale >= -84 && scale <= 127) {
                     return new DecimalType(precision, scale);
                 } else {
                     return new DecimalType(38, 18);
