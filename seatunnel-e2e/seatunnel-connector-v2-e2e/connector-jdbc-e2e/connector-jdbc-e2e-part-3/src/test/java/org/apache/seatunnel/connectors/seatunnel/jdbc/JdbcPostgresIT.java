@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
@@ -106,7 +107,8 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "  geog geography(POINT, 4326),\n"
                     + "  json_col json NOT NULL,\n"
                     + "  jsonb_col jsonb NOT NULL,\n"
-                    + "  xml_col xml NOT NULL\n"
+                    + "  xml_col xml NOT NULL,\n"
+                    + "  bit_col bit(1) NOT NULL\n"
                     + ")";
     private static final String PG_SINK_DDL =
             "CREATE TABLE IF NOT EXISTS pg_e2e_sink_table (\n"
@@ -141,7 +143,8 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "    geog varchar(2000) NULL,\n"
                     + "    json_col json NOT NULL \n,"
                     + "    jsonb_col jsonb NOT NULL,\n"
-                    + "    xml_col xml NOT NULL\n"
+                    + "    xml_col xml NOT NULL,\n"
+                    + "    bit_col bit(1) NOT NULL\n"
                     + "  )";
     private static final String SOURCE_SQL =
             "select \n"
@@ -176,7 +179,8 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "geog,\n"
                     + "json_col,\n"
                     + "jsonb_col,\n"
-                    + " cast(xml_col as varchar) \n"
+                    + " cast(xml_col as varchar),\n"
+                    + "bit_col\n"
                     + "from pg_e2e_source_table";
     private static final String SINK_SQL =
             "select\n"
@@ -211,7 +215,8 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "  cast(geog as geography) as geog,\n"
                     + "   json_col,\n"
                     + "   jsonb_col,\n"
-                    + "  cast(xml_col as varchar) \n"
+                    + "  cast(xml_col as varchar),\n"
+                    + "  bit_col\n"
                     + "from\n"
                     + "  pg_e2e_sink_table";
 
@@ -295,6 +300,12 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
         catalog.createTable(catalogTablePath, catalogTable, false);
         Assertions.assertTrue(catalog.tableExists(catalogTablePath));
 
+        catalogTable.getTableSchema().getColumns().forEach(column -> {
+            if (column.getName().equals("bit_col")) {
+                Assertions.assertEquals(column.getLongColumnLength(), 1L);
+            }
+        });
+
         catalog.dropTable(catalogTablePath, false);
         Assertions.assertFalse(catalog.tableExists(catalogTablePath));
 
@@ -343,7 +354,8 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                                 + "    geog,\n"
                                 + "    json_col,\n"
                                 + "    jsonb_col, \n"
-                                + "    xml_col \n"
+                                + "    xml_col, \n"
+                                + "    bit_col \n"
                                 + "  )\n"
                                 + "VALUES\n"
                                 + "  (\n"
@@ -398,7 +410,8 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                                 + "    ST_GeographyFromText('POINT(-122.3452 47.5925)'),\n"
                                 + "    '{\"key\":\"test\"}',\n"
                                 + "    '{\"key\":\"test\"}',\n"
-                                + "    '<XX:NewSize>test</XX:NewSize>'\n"
+                                + "    '<XX:NewSize>test</XX:NewSize>',\n"
+                                + "    '1' \n"
                                 + "  )");
             }
 
@@ -468,6 +481,59 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
         // sink tableExists ?
         boolean tableExistsBefore = postgresCatalog.tableExists(tablePathPgSink);
         Assertions.assertFalse(tableExistsBefore);
+        catalogTable.getTableSchema().getColumns().forEach(column -> {
+            if (column.getName().equals("gid")) {
+                Assertions.assertEquals(column.getLongColumnLength(), 32L);
+            }
+            if (column.getName().equals("varchar_col")) {
+                Assertions.assertEquals(column.getLongColumnLength(), 255L);
+            }
+            if (column.getName().equals("char_col")) {
+                Assertions.assertEquals(column.getLongColumnLength(), 10L);
+            }
+            if (column.getName().equals("smallint_col")) {
+                Assertions.assertEquals(column.getLongColumnLength(), 16L);
+            }
+            if (column.getName().equals("integer_col")) {
+                Assertions.assertEquals(column.getLongColumnLength(), 32L);
+            }
+            if (column.getName().equals("bigint_col")) {
+                Assertions.assertEquals(column.getLongColumnLength(), 64L);
+            }
+            if (column.getName().equals("decimal_col")) {
+                Assertions.assertInstanceOf(DecimalType.class, column.getDataType());
+                DecimalType decimalType = (DecimalType) column.getDataType();
+                Assertions.assertEquals(decimalType.getPrecision(), 10L);
+                Assertions.assertEquals(decimalType.getScale(), 2L);
+            }
+            if (column.getName().equals("numeric_col")) {
+                Assertions.assertInstanceOf(DecimalType.class, column.getDataType());
+                DecimalType decimalType = (DecimalType) column.getDataType();
+                Assertions.assertEquals(decimalType.getPrecision(), 8L);
+                Assertions.assertEquals(decimalType.getScale(), 4L);
+            }
+            if (column.getName().equals("real_col")) {
+                Assertions.assertEquals(column.getLongColumnLength(), 24L);
+            }
+            if (column.getName().equals("double_precision_col")) {
+                Assertions.assertEquals(column.getLongColumnLength(), 53L);
+            }
+            if (column.getName().equals("smallserial_col")) {
+                Assertions.assertEquals(column.getLongColumnLength(), 16L);
+            }
+            if (column.getName().equals("serial_col")) {
+                Assertions.assertEquals(column.getLongColumnLength(), 32L);
+            }
+            if (column.getName().equals("bigserial_col")) {
+                Assertions.assertEquals(column.getLongColumnLength(), 64L);
+            }
+            if (column.getName().equals("bpchar_col")) {
+                Assertions.assertEquals(column.getLongColumnLength(), 10L);
+            }
+            if (column.getName().equals("bit_col")) {
+                Assertions.assertEquals(column.getLongColumnLength(), 1L);
+            }
+        });
         // create table
         postgresCatalog.createTable(tablePathPgSink, catalogTable, true);
         boolean tableExistsAfter = postgresCatalog.tableExists(tablePathPgSink);
@@ -508,7 +574,8 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                         + "    geog,\n"
                         + "    json_col,\n"
                         + "    jsonb_col, \n"
-                        + "    xml_col \n"
+                        + "    xml_col, \n"
+                        + "    bit_col \n"
                         + "  )\n"
                         + "VALUES\n"
                         + "  (\n"
@@ -562,7 +629,8 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                         + "    ST_GeographyFromText('POINT(-122.3452 47.5925)'),\n"
                         + "    '{\"key\":\"test\"}',\n"
                         + "    '{\"key\":\"test\"}',\n"
-                        + "    '<XX:NewSize>test</XX:NewSize>'\n"
+                        + "    '<XX:NewSize>test</XX:NewSize>',\n"
+                        + "    '1'\n"
                         + "  )";
         postgresCatalog.executeSql(tablePathPgSink, customSql);
         boolean existsDataAfter = postgresCatalog.isExistsData(tablePathPgSink);

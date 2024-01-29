@@ -99,7 +99,7 @@ public class OracleDataTypeConvertor implements DataTypeConvertor<String> {
                 int scale = MapUtils.getInteger(dataTypeProperties, SCALE, DEFAULT_SCALE);
                 if (scale == 0) {
                     if (precision == 0) {
-                        return new DecimalType(38, 18);
+                        return new DecimalType(38, 0);
                     }
                     if (precision == 1) {
                         return BasicType.BOOLEAN_TYPE;
@@ -111,7 +111,11 @@ public class OracleDataTypeConvertor implements DataTypeConvertor<String> {
                         return BasicType.LONG_TYPE;
                     }
                 }
-                return new DecimalType(38, 18);
+                if (precision > 0 && precision <= 38  && scale >= -84 && scale <= 127) {
+                    return new DecimalType(precision, scale);
+                } else {
+                    return new DecimalType(38, 18);
+                }
             case ORACLE_BINARY_DOUBLE:
                 return BasicType.DOUBLE_TYPE;
             case ORACLE_BINARY_FLOAT:
