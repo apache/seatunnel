@@ -89,6 +89,7 @@ public class InfluxDBSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         if (influxdb != null) {
             influxdb.close();
             influxdb = null;
+            // TODO we should remove shutdown logic when supported closed part task
             ((TaskRunner.RealBackend) TaskRunner.INSTANCE.getBackend()).shutdown();
         }
     }

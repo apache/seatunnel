@@ -75,6 +75,7 @@ public abstract class AbstractSplitEnumerator
     public void close() throws IOException {
         icebergTableLoader.close();
         isOpen = false;
+        // TODO we should remove shutdown logic when supported closed part task
         ThreadPools.getWorkerPool().shutdownNow();
     }
 

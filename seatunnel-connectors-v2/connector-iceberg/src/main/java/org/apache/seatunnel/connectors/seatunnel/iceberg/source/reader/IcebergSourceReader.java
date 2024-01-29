@@ -96,6 +96,7 @@ public class IcebergSourceReader implements SourceReader<SeaTunnelRow, IcebergFi
             icebergFileScanTaskSplitReader.close();
         }
         icebergTableLoader.close();
+        // TODO we should remove shutdown logic when supported closed part task
         ThreadPools.getWorkerPool().shutdownNow();
     }
 
