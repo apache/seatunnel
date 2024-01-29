@@ -215,7 +215,7 @@ public class CatalogTableUtil implements Serializable {
         } else {
             Optional<String> resultTableNameOptional =
                     readonlyConfig.getOptional(CommonOptions.RESULT_TABLE_NAME);
-            tablePath = resultTableNameOptional.map(TablePath::of).orElse(TablePath.EMPTY);
+            tablePath = resultTableNameOptional.map(TablePath::of).orElse(TablePath.DEFAULT);
         }
 
         return CatalogTable.of(
