@@ -99,22 +99,24 @@ public class Common {
      * related files in plugins dir.
      */
     public static Path appRootDir() {
+        String path = "";
+        try {
+            path =
+                    Common.class
+                            .getProtectionDomain()
+                            .getCodeSource()
+                            .getLocation()
+                            .toURI()
+                            .getPath();
+            path = new File(path).getPath();
+
+        } catch (URISyntaxException e) {
+            throw new RuntimeException(e);
+        }
         if (DeployMode.CLIENT == MODE || DeployMode.RUN == MODE || STARTER) {
-            try {
-                String path =
-                        Common.class
-                                .getProtectionDomain()
-                                .getCodeSource()
-                                .getLocation()
-                                .toURI()
-                                .getPath();
-                path = new File(path).getPath();
-                return Paths.get(path).getParent().getParent();
-            } catch (URISyntaxException e) {
-                throw new RuntimeException(e);
-            }
+            return Paths.get(path).getParent().getParent();
         } else if (DeployMode.CLUSTER == MODE || DeployMode.RUN_APPLICATION == MODE) {
-            return Paths.get("");
+            return Paths.get(path).getParent().getParent();
         } else {
             throw new IllegalStateException("deploy mode not support : " + MODE);
         }
