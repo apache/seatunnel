@@ -125,7 +125,7 @@
         <docker-maven-plugin.version>0.38.0</docker-maven-plugin.version>
         <maven-dependency-plugin.version>3.1.1</maven-dependency-plugin.version>
         <p3c-pmd.version>1.3.0</p3c-pmd.version>
-        <maven-scm-provider-jgit.version>1.9.5</maven-scm-provider-jgit.version>
+        <maven-scm-provider-jgit.version>2.0.0</maven-scm-provider-jgit.version>
         <testcontainer.version>1.17.6</testcontainer.version>
         <spotless.version>2.29.0</spotless.version>
         <jsqlparser.version>4.5</jsqlparser.version>
