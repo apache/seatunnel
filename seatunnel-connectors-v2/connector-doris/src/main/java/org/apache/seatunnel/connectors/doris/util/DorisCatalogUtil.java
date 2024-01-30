@@ -22,7 +22,8 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
-import org.apache.seatunnel.connectors.doris.datatype.DorisTypeConverter;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
+import org.apache.seatunnel.api.table.converter.TypeConverter;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -62,6 +63,9 @@ public class DorisCatalogUtil {
                     + "WHERE TABLE_CATALOG = 'internal' AND TABLE_SCHEMA = ? AND TABLE_NAME = ? "
                     + "ORDER BY ORDINAL_POSITION";
 
+    public static final String QUERY_DORIS_VERSION_QUERY =
+            "show variables like \"version_comment\";";
+
     public static String randomFrontEndHost(String[] frontEndNodes) {
         if (frontEndNodes.length == 1) {
             return frontEndNodes[0].split(":")[0];
@@ -94,10 +98,14 @@ public class DorisCatalogUtil {
     /**
      * @param createTableTemplate create table template
      * @param catalogTable catalog table
+     * @param typeConverter
      * @return create table stmt
      */
     public static String getCreateTableStatement(
-            String createTableTemplate, TablePath tablePath, CatalogTable catalogTable) {
+            String createTableTemplate,
+            TablePath tablePath,
+            CatalogTable catalogTable,
+            TypeConverter<BasicTypeDefine> typeConverter) {
 
         String template = createTableTemplate;
         TableSchema tableSchema = catalogTable.getTableSchema();
@@ -138,12 +146,12 @@ public class DorisCatalogUtil {
                         SaveModePlaceHolder.ROWTYPE_UNIQUE_KEY.getReplacePlaceHolder(), uniqueKey);
         Map<String, CreateTableParser.ColumnInfo> columnInTemplate =
                 CreateTableParser.getColumnList(template);
-        template = mergeColumnInTemplate(columnInTemplate, tableSchema, template);
+        template = mergeColumnInTemplate(columnInTemplate, tableSchema, template, typeConverter);
 
         String rowTypeFields =
                 tableSchema.getColumns().stream()
                         .filter(column -> !columnInTemplate.containsKey(column.getName()))
-                        .map(DorisCatalogUtil::columnToDorisType)
+                        .map(x -> DorisCatalogUtil.columnToDorisType(x, typeConverter))
                         .collect(Collectors.joining(",\n"));
         return template.replaceAll(
                         SaveModePlaceHolder.DATABASE.getReplacePlaceHolder(),
@@ -158,7 +166,8 @@ public class DorisCatalogUtil {
     private static String mergeColumnInTemplate(
             Map<String, CreateTableParser.ColumnInfo> columnInTemplate,
             TableSchema tableSchema,
-            String template) {
+            String template,
+            TypeConverter<BasicTypeDefine> typeConverter) {
         int offset = 0;
         Map<String, Column> columnMap =
                 tableSchema.getColumns().stream()
@@ -174,7 +183,7 @@ public class DorisCatalogUtil {
             if (StringUtils.isEmpty(columnInfo.getInfo())) {
                 if (columnMap.containsKey(col)) {
                     Column column = columnMap.get(col);
-                    String newCol = columnToDorisType(column);
+                    String newCol = columnToDorisType(column, typeConverter);
                     String prefix = template.substring(0, columnInfo.getStartIndex() + offset);
                     String suffix = template.substring(offset + columnInfo.getEndIndex());
                     if (prefix.endsWith("`")) {
@@ -195,12 +204,13 @@ public class DorisCatalogUtil {
         return template;
     }
 
-    private static String columnToDorisType(Column column) {
+    private static String columnToDorisType(
+            Column column, TypeConverter<BasicTypeDefine> typeConverter) {
         checkNotNull(column, "The column is required.");
         return String.format(
                 "`%s` %s %s ",
                 column.getName(),
-                DorisTypeConverter.INSTANCE.reconvert(column).getColumnType(),
+                typeConverter.reconvert(column).getColumnType(),
                 column.isNullable() ? "NULL" : "NOT NULL");
     }
 }

@@ -70,6 +70,8 @@ public class DorisSourceFactory implements TableSourceFactory {
                         DorisOptions.TABLE)
                 .optional(DorisOptions.DORIS_FILTER_QUERY)
                 .optional(DorisOptions.DORIS_READ_FIELD)
+                .optional(DorisOptions.QUERY_PORT)
+                .optional(DorisOptions.DORIS_BATCH_SIZE)
                 .build();
     }
 
