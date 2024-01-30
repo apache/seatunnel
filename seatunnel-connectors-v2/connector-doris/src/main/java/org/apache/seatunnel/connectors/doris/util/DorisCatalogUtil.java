@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.connectors.doris.datatype.DorisTypeConverter;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.converter.TypeConverter;
 
@@ -210,7 +211,7 @@ public class DorisCatalogUtil {
         return String.format(
                 "`%s` %s %s ",
                 column.getName(),
-                typeConverter.reconvert(column).getColumnType(),
+                DorisTypeConverter.INSTANCE.reconvert(column).getColumnType(),
                 column.isNullable() ? "NULL" : "NOT NULL");
     }
 }
