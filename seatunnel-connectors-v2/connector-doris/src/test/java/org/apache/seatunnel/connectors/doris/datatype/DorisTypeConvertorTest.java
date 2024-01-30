@@ -32,6 +32,8 @@ import org.junit.jupiter.api.Test;
 
 import com.mysql.cj.MysqlType;
 
+import java.util.Locale;
+
 public class DorisTypeConvertorTest {
 
     @Test
@@ -264,7 +266,8 @@ public class DorisTypeConvertorTest {
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
         Assertions.assertEquals(2, column.getColumnLength());
-        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
+        Assertions.assertEquals(
+                typeDefine.getColumnType(), column.getSourceType().toLowerCase(Locale.ROOT));
 
         typeDefine =
                 BasicTypeDefine.builder()
@@ -277,7 +280,8 @@ public class DorisTypeConvertorTest {
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
         Assertions.assertEquals(2, column.getColumnLength());
-        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
+        Assertions.assertEquals(
+                typeDefine.getColumnType(), column.getSourceType().toLowerCase(Locale.ROOT));
     }
 
     @Test
@@ -589,8 +593,8 @@ public class DorisTypeConvertorTest {
 
         typeDefine = DorisTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
-        Assertions.assertEquals(DorisTypeConverter.DORIS_JSON, typeDefine.getColumnType());
-        Assertions.assertEquals(DorisTypeConverter.DORIS_JSON, typeDefine.getDataType());
+        Assertions.assertEquals(DorisTypeConverter.DORIS_JSONB, typeDefine.getColumnType());
+        Assertions.assertEquals(DorisTypeConverter.DORIS_JSONB, typeDefine.getDataType());
 
         column =
                 PhysicalColumn.builder()

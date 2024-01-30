@@ -114,8 +114,8 @@ public class DorisCreateTableTest {
         Assertions.assertEquals(
                 result,
                 "CREATE TABLE IF NOT EXISTS `test1`.`test2` (                                                                                                                                                   \n"
-                        + "`id` BIGINT(1) NULL ,`age` INT(1) NULL   ,       \n"
-                        + "`name` STRING NULL ,`score` INT(1) NULL  , \n"
+                        + "`id` BIGINT NULL ,`age` INT NULL   ,       \n"
+                        + "`name` STRING NULL ,`score` INT NULL  , \n"
                         + "`create_time` DATETIME NOT NULL ,  \n"
                         + "`gender` TINYINT NULL   \n"
                         + ") ENGINE=OLAP  \n"
@@ -222,9 +222,9 @@ public class DorisCreateTableTest {
         String expected =
                 "CREATE TABLE IF NOT EXISTS `tpch`.`lineitem` (\n"
                         + "`L_COMMITDATE` DATEV2 NOT NULL ,\n"
-                        + "`L_ORDERKEY` INT(1) NOT NULL ,`L_LINENUMBER` INT(1) NOT NULL ,\n"
+                        + "`L_ORDERKEY` INT NOT NULL ,`L_LINENUMBER` INT NOT NULL ,\n"
                         + "L_SUPPKEY BIGINT NOT NULL,\n"
-                        + "`L_PARTKEY` INT(1) NOT NULL ,\n"
+                        + "`L_PARTKEY` INT NOT NULL ,\n"
                         + "`L_QUANTITY` DECIMALV3(15,2) NOT NULL ,\n"
                         + "`L_EXTENDEDPRICE` DECIMALV3(15,2) NOT NULL ,\n"
                         + "`L_DISCOUNT` DECIMALV3(15,2) NOT NULL ,\n"
@@ -287,7 +287,7 @@ public class DorisCreateTableTest {
         Assertions.assertEquals(
                 result,
                 "CREATE TABLE IF NOT EXISTS `test1`.`test2` (                                                                                                                                                   \n"
-                        + "`id` BIGINT(1) NULL ,`age` INT(1) NULL   ,       \n"
+                        + "`id` BIGINT NULL ,`age` INT NULL   ,       \n"
                         + "`create_time` DATETIME NOT NULL ,  \n"
                         + "`name` STRING NULL ,\n"
                         + "`comment` VARCHAR(500) NULL ,\n"
