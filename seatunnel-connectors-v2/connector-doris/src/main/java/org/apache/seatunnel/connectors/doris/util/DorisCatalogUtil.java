@@ -22,19 +22,10 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
-import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
-import org.apache.seatunnel.api.table.type.ArrayType;
-import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.DecimalType;
-import org.apache.seatunnel.api.table.type.LocalTimeType;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.connectors.doris.config.DorisOptions;
-import org.apache.seatunnel.connectors.seatunnel.common.sql.template.SqlTemplate;
+import org.apache.seatunnel.connectors.doris.datatype.DorisTypeConverter;
 
 import org.apache.commons.lang3.StringUtils;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
@@ -209,115 +200,7 @@ public class DorisCatalogUtil {
         return String.format(
                 "`%s` %s %s ",
                 column.getName(),
-                fromSeaTunnelType(
-                        column.getDataType(),
-                        column.getColumnLength() == null ? 0 : column.getColumnLength()),
+                DorisTypeConverter.INSTANCE.reconvert(column).getColumnType(),
                 column.isNullable() ? "NULL" : "NOT NULL");
-    }
-
-    public static SeaTunnelDataType<?> fromDorisType(ResultSet rs) throws SQLException {
-
-        String type = rs.getString(5).toUpperCase();
-        int idx = type.indexOf("(");
-        int idx2 = type.indexOf("<");
-        if (idx != -1) {
-            type = type.substring(0, idx);
-        }
-        if (idx2 != -1) {
-            type = type.substring(0, idx2);
-        }
-
-        switch (type) {
-            case "NULL_TYPE":
-                return BasicType.VOID_TYPE;
-            case "BOOLEAN":
-                return BasicType.BOOLEAN_TYPE;
-            case "TINYINT":
-            case "SMALLINT":
-                return BasicType.SHORT_TYPE;
-            case "INT":
-                return BasicType.INT_TYPE;
-            case "BIGINT":
-                return BasicType.LONG_TYPE;
-            case "FLOAT":
-                return BasicType.FLOAT_TYPE;
-            case "DOUBLE":
-                return BasicType.DOUBLE_TYPE;
-            case "DATE":
-            case "DATEV2":
-                return LocalTimeType.LOCAL_DATE_TYPE;
-            case "DATETIME":
-            case "DATETIMEV2":
-            case "DATETIMEV3":
-                return LocalTimeType.LOCAL_DATE_TIME_TYPE;
-            case "DECIMAL":
-            case "DECIMALV2":
-            case "DECIMALV3":
-                int precision = rs.getInt(8);
-                int scale = rs.getInt(9);
-                return new DecimalType(precision, scale);
-            case "TIME":
-                return LocalTimeType.LOCAL_TIME_TYPE;
-            case "CHAR":
-            case "LARGEINT":
-            case "VARCHAR":
-            case "JSONB":
-            case "STRING":
-            case "ARRAY":
-            case "MAP":
-            case "STRUCT":
-                return BasicType.STRING_TYPE;
-            default:
-                throw new CatalogException(String.format("Unsupported doris type: %s", type));
-        }
-    }
-
-    private static String fromSeaTunnelType(SeaTunnelDataType<?> dataType, Long columnLength) {
-
-        switch (dataType.getSqlType()) {
-            case STRING:
-                if (columnLength != null && columnLength <= 65533 && columnLength > 0) {
-                    return String.format("VARCHAR(%d)", columnLength);
-                }
-                return "STRING";
-            case BYTES:
-                return "STRING";
-            case NULL:
-                return "NULL_TYPE";
-            case BOOLEAN:
-                return "BOOLEAN";
-            case SMALLINT:
-                return String.format("SMALLINT(%d)", columnLength + 1);
-            case INT:
-                return String.format("INT(%d)", columnLength + 1);
-            case BIGINT:
-                return String.format("BIGINT(%d)", columnLength + 1);
-            case FLOAT:
-                return "FLOAT";
-            case DOUBLE:
-                return "DOUBLE";
-            case DECIMAL:
-                DecimalType decimalType = (DecimalType) dataType;
-                return String.format(
-                        "DECIMALV3(%d,%d)", decimalType.getPrecision(), decimalType.getScale());
-            case TIME:
-                return "VARCHAR(8)";
-            case DATE:
-                return "DATEV2";
-            case TIMESTAMP:
-                return "DATETIME";
-            case ARRAY:
-                return "ARRAY<"
-                        + fromSeaTunnelType(
-                                ((ArrayType<?, ?>) dataType).getElementType(), Long.MAX_VALUE)
-                        + ">";
-            case MAP:
-            case ROW:
-                return "JSONB";
-            case TINYINT:
-                return "TINYINT";
-            default:
-                throw new CatalogException(String.format("Unsupported doris type: %s", dataType));
-        }
     }
 }
