@@ -167,7 +167,7 @@ public class DorisTypeConverter implements TypeConverter<BasicTypeDefine> {
                     builder.columnLength(typeDefine.getLength());
                 }
                 builder.dataType(BasicType.STRING_TYPE);
-                builder.sourceType(dorisColumnType);
+                builder.sourceType(typeDefine.getColumnType().toUpperCase(Locale.ROOT));
                 break;
             case DORIS_LARGEINT:
                 builder.dataType(BasicType.STRING_TYPE);
