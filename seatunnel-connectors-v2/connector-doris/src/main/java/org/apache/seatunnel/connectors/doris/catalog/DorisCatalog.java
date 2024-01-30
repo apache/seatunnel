@@ -58,7 +58,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 
@@ -291,24 +290,18 @@ public class DorisCatalog implements Catalog {
         long numberPrecision = resultSet.getInt("NUMERIC_PRECISION");
         // e.g. `decimal(10, 2)` is 2
         int numberScale = resultSet.getInt("NUMERIC_SCALE");
-        // e.g. `varchar(10)` is 40
-        long charOctetLength = resultSet.getLong("CHARACTER_OCTET_LENGTH");
+        long charOctetLength = resultSet.getLong("CHARACTER_MAXIMUM_LENGTH");
         // e.g. `timestamp(3)` is 3
         int timePrecision = resultSet.getInt("DATETIME_PRECISION");
 
         Preconditions.checkArgument(!(numberPrecision > 0 && charOctetLength > 0));
         Preconditions.checkArgument(!(numberScale > 0 && timePrecision > 0));
 
-        MysqlType mysqlType = MysqlType.getByName(columnType);
-        boolean unsigned = columnType.toLowerCase(Locale.ROOT).contains("unsigned");
-
         BasicTypeDefine<MysqlType> typeDefine =
                 BasicTypeDefine.<MysqlType>builder()
                         .name(columnName)
                         .columnType(columnType)
                         .dataType(dataType)
-                        .nativeType(mysqlType)
-                        .unsigned(unsigned)
                         .length(Math.max(charOctetLength, numberPrecision))
                         .precision(numberPrecision)
                         .scale(Math.max(numberScale, timePrecision))
