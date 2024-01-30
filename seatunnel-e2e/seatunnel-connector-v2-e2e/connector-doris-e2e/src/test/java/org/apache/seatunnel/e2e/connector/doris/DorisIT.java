@@ -56,6 +56,7 @@ import java.util.stream.Collectors;
 public class DorisIT extends AbstractDorisIT {
     private static final String TABLE = "doris_e2e_table";
     private static final String ALL_TYPE_TABLE = "doris_all_type_table";
+    private static final String FAKESOURCE_ALL_TYPE_TABLE = "doris_all_type_table";
     private static final String DRIVER_JAR =
             "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
 
@@ -158,6 +159,11 @@ public class DorisIT extends AbstractDorisIT {
                 container.executeJob("/doris_source_to_doris_sink_type_convertor.conf");
         Assertions.assertEquals(0, execResult3.getExitCode());
         checkAllTypeSinkData();
+
+        Container.ExecResult execResult4 =
+                container.executeJob("/fake_source_to_doris_type_convertor.conf");
+        Assertions.assertEquals(0, execResult4.getExitCode());
+        checkFakeSourceAllTypeSinkData();
     }
 
     private void checkAllTypeSinkData() {
@@ -221,6 +227,108 @@ public class DorisIT extends AbstractDorisIT {
             sourceResultSet.last();
             sinkResultSet.last();
             Assertions.assertEquals(sourceResultSet.getRow(), sinkResultSet.getRow());
+        } catch (Exception e) {
+            throw new RuntimeException("Doris connection error", e);
+        }
+    }
+
+    private void checkFakeSourceAllTypeSinkData() {
+        try {
+            Map<String, String> fakeTypeMap = new HashMap<>();
+            checkColumnTypeMap.put("c_bigint", "bigint(20)");
+            checkColumnTypeMap.put("c_array", "unknown");
+            checkColumnTypeMap.put("c_string", "string");
+            checkColumnTypeMap.put("c_boolean", "tinyint(1)");
+            checkColumnTypeMap.put("c_tinyint", "tinyint(4)");
+            checkColumnTypeMap.put("c_smallint", "smallint(6)");
+            checkColumnTypeMap.put("c_int", "int(11)");
+            checkColumnTypeMap.put("c_float", "float");
+            checkColumnTypeMap.put("c_double", "double");
+            checkColumnTypeMap.put("c_bytes", "string");
+            checkColumnTypeMap.put("c_date", "datev2");
+            checkColumnTypeMap.put("c_decimal", "decimalv3(20, 18)");
+            checkColumnTypeMap.put("c_timestamp", "datetimev2(0)");
+            checkColumnTypeMap.put("c_map", "json");
+            try (PreparedStatement ps =
+                    conn.prepareStatement(DorisCatalogUtil.TABLE_SCHEMA_QUERY)) {
+                ps.setString(1, sinkDB);
+                ps.setString(2, ALL_TYPE_TABLE);
+                ResultSet resultSet = ps.executeQuery();
+                while (resultSet.next()) {
+                    String columnName = resultSet.getString("COLUMN_NAME");
+                    String columnType = resultSet.getString("COLUMN_TYPE");
+                    Assertions.assertTrue(fakeTypeMap.get(columnName).equalsIgnoreCase(columnType));
+
+                    if ("F_ID".equalsIgnoreCase(columnName)) {
+                        Assertions.assertTrue(
+                                "UNI".equalsIgnoreCase(resultSet.getString("COLUMN_KEY")));
+                    }
+                }
+            }
+
+            List<Map<String, Object>> fakeSourceTestData = new ArrayList<>();
+            Map<String, String> cMapData = new HashMap<>();
+            cMapData.put("1", "v");
+            Map<String, Object> row1 = new HashMap<>();
+            row1.put("c_bigint", 1L);
+            row1.put("c_array", new int[] {1, 2, 3});
+            row1.put("c_string", "1");
+            row1.put("c_boolean", true);
+            row1.put("c_tinyint", 1);
+            row1.put("c_smallint", 1);
+            row1.put("c_int", 1);
+            row1.put("c_float", 1.0);
+            row1.put("c_double", 1.0);
+            row1.put("c_bytes", "bWlJWmo=");
+            row1.put("c_date", "2023-04-22");
+            row1.put("c_decimal", 10.91);
+            row1.put("c_timestamp", "2023-04-22T23:20:58");
+            row1.put("c_map", cMapData);
+
+            Map<String, Object> row2 = new HashMap<>();
+            row2.put("c_bigint", 1L);
+            row2.put("c_array", new int[] {1, 2, 3});
+            row2.put("c_string", "1");
+            row2.put("c_boolean", true);
+            row2.put("c_tinyint", 1);
+            row2.put("c_smallint", 1);
+            row2.put("c_int", 1);
+            row2.put("c_float", 1.0);
+            row2.put("c_double", 1.0);
+            row2.put("c_bytes", "bWlJWmo=");
+            row2.put("c_date", "2023-04-22");
+            row2.put("c_decimal", 10.91);
+            row2.put("c_timestamp", "2023-04-22T23:20:58");
+            row2.put("c_map", cMapData);
+
+            fakeSourceTestData.add(row1);
+            fakeSourceTestData.add(row2);
+
+            String sinkSql =
+                    String.format("select * from %s.%s order by c_bigint", sinkDB, ALL_TYPE_TABLE);
+            List<String> columnList =
+                    Arrays.stream(COLUMN_STRING.split(","))
+                            .map(x -> x.trim())
+                            .collect(Collectors.toList());
+            Statement sinkStatement =
+                    conn.createStatement(
+                            ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_READ_ONLY);
+
+            ResultSet sinkResultSet = sinkStatement.executeQuery(sinkSql);
+            Assertions.assertEquals(
+                    fakeSourceTestData.size(), sinkResultSet.getMetaData().getColumnCount());
+            for (Map<String, Object> row : fakeSourceTestData) {
+                if (sinkResultSet.next()) {
+                    for (String column : columnList) {
+                        Object source = row.get(column);
+                        Object sink = sinkResultSet.getObject(column);
+                        Assertions.assertEquals(source.toString(), sink.toString());
+                    }
+                }
+            }
+
+            // Check the row numbers is equal
+            sinkResultSet.last();
         } catch (Exception e) {
             throw new RuntimeException("Doris connection error", e);
         }
