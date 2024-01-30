@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.e2e.console;
+package org.apache.seatunnel.engine.e2e;
 
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
@@ -26,6 +26,8 @@ import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestTemplate;
+import org.junit.jupiter.api.condition.DisabledOnJre;
+import org.junit.jupiter.api.condition.JRE;
 import org.testcontainers.containers.Container;
 
 import lombok.extern.slf4j.Slf4j;
@@ -42,6 +44,7 @@ import java.util.regex.Pattern;
 import static org.awaitility.Awaitility.await;
 
 @Slf4j
+@DisabledOnJre(value = JRE.JAVA_11, disabledReason = "slf4j jar conflict, we should fix it later")
 public class CheckpointEnableIT extends TestSuiteBase {
 
     @TestTemplate

@@ -289,17 +289,23 @@ public class SeaTunnelContainer extends AbstractTestContainer {
 
     /** The thread should be recycled but not, we should fix it in the future. */
     private boolean isIssueWeAlreadyKnow(String threadName) {
-        if ( // ClickHouse com.clickhouse.client.ClickHouseClientBuilder
-        threadName.startsWith("ClickHouseClientWorker")
+        // ClickHouse com.clickhouse.client.ClickHouseClientBuilder
+        return threadName.startsWith("ClickHouseClientWorker")
                 // InfluxDB okio.AsyncTimeout$Watchdog
                 || threadName.startsWith("Okio Watchdog")
                 // InfluxDB okhttp3.internal.concurrent.TaskRunner.RealBackend
                 || threadName.startsWith("OkHttp TaskRunner")
                 // IOTDB org.apache.iotdb.session.Session
-                || threadName.startsWith("SessionExecutor")) {
-            return true;
-        }
-        return false;
+                || threadName.startsWith("SessionExecutor")
+                // Oracle Driver
+                // oracle.jdbc.driver.BlockSource.ThreadedCachingBlockSource.BlockReleaser
+                || threadName.contains(
+                        "oracle.jdbc.driver.BlockSource.ThreadedCachingBlockSource.BlockReleaser")
+                // RocketMQ
+                // org.apache.rocketmq.logging.inner.LoggingBuilder$AsyncAppender$Dispatcher
+                || threadName.startsWith("AsyncAppender-Dispatcher-Thread")
+                // MongoDB
+                || threadName.startsWith("BufferPoolPruner");
     }
 
     @Override
