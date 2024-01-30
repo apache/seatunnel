@@ -305,7 +305,9 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 // org.apache.rocketmq.logging.inner.LoggingBuilder$AsyncAppender$Dispatcher
                 || threadName.startsWith("AsyncAppender-Dispatcher-Thread")
                 // MongoDB
-                || threadName.startsWith("BufferPoolPruner");
+                || threadName.startsWith("BufferPoolPruner")
+                || threadName.startsWith("MaintenanceTimer")
+                || threadName.startsWith("cluster-");
     }
 
     @Override
