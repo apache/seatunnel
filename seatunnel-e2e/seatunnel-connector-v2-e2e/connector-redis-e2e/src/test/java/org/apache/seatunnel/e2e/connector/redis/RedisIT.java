@@ -212,12 +212,24 @@ public class RedisIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    public void restRedisDbNum(TestContainer container) throws IOException, InterruptedException {
+    public void testRedisDbNum(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/redis-to-redis-by-db-num.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
         jedis.select(2);
         Assertions.assertEquals(100, jedis.llen("db_test"));
         jedis.del("db_test");
+        jedis.select(0);
+    }
+
+    @TestTemplate
+    public void testMultipletableRedisSink(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/fake-to-multipletableredissink.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        jedis.select(3);
+        Assertions.assertEquals(2, jedis.llen("key_multi_list"));
+        jedis.del("key_multi_list");
         jedis.select(0);
     }
 }
