@@ -28,6 +28,7 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.connectors.doris.datatype.DorisTypeConverterV1;
 import org.apache.seatunnel.connectors.doris.util.DorisCatalogUtil;
 
 import org.junit.jupiter.api.Assertions;
@@ -110,7 +111,8 @@ public class DorisCreateTableTest {
                                         .build(),
                                 Collections.emptyMap(),
                                 Collections.emptyList(),
-                                ""));
+                                ""),
+                        DorisTypeConverterV1.INSTANCE);
         Assertions.assertEquals(
                 result,
                 "CREATE TABLE IF NOT EXISTS `test1`.`test2` (                                                                                                                                                   \n"
@@ -218,7 +220,8 @@ public class DorisCreateTableTest {
                                         .build(),
                                 Collections.emptyMap(),
                                 Collections.emptyList(),
-                                ""));
+                                ""),
+                        DorisTypeConverterV1.INSTANCE);
         String expected =
                 "CREATE TABLE IF NOT EXISTS `tpch`.`lineitem` (\n"
                         + "`L_COMMITDATE` DATEV2 NOT NULL ,\n"
@@ -282,7 +285,8 @@ public class DorisCreateTableTest {
                                         .build(),
                                 Collections.emptyMap(),
                                 Collections.emptyList(),
-                                ""));
+                                ""),
+                        DorisTypeConverterV1.INSTANCE);
 
         Assertions.assertEquals(
                 result,

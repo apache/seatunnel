@@ -7,21 +7,16 @@ import org.apache.seatunnel.api.table.converter.TypeConverter;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
-import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.connectors.doris.config.DorisConfig;
 
-import com.google.auto.service.AutoService;
-import com.google.common.base.Preconditions;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Locale;
 
 @Slf4j
-@AutoService(TypeConverter.class)
-public class DorisTypeConverter implements TypeConverter<BasicTypeDefine> {
-
+public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicTypeDefine> {
     public static final String DORIS_NULL = "NULL";
     public static final String DORIS_BOOLEAN = "BOOLEAN";
     public static final String DORIS_TINYINT = "TINYINT";
@@ -34,12 +29,11 @@ public class DorisTypeConverter implements TypeConverter<BasicTypeDefine> {
     public static final String DORIS_DECIMAL = "DECIMAL";
     public static final String DORIS_DECIMALV3 = "DECIMALV3";
     public static final String DORIS_DATE = "DATE";
-    public static final String DORIS_DATEV2 = "DATEV2";
     public static final String DORIS_DATETIME = "DATETIME";
-    public static final String DORIS_DATETIMEV2 = "DATETIMEV2";
     public static final String DORIS_CHAR = "CHAR";
     public static final String DORIS_VARCHAR = "VARCHAR";
     public static final String DORIS_STRING = "STRING";
+
     public static final String DORIS_BOOLEAN_ARRAY = "ARRAY<boolean>";
     public static final String DORIS_TINYINT_ARRAY = "ARRAY<tinyint>";
     public static final String DORIS_SMALLINT_ARRAY = "ARRAY<smallint>";
@@ -61,10 +55,8 @@ public class DorisTypeConverter implements TypeConverter<BasicTypeDefine> {
     public static final String DORIS_VARCHAR_ARRAY = "ARRAY<VARCHAR>";
     public static final String DORIS_VARCHAR_ARRAY_COLUMN_TYPE_TMP = "ARRAY<VARCHAR(%s)>";
 
-    public static final String DORIS_JSONB = "JSONB";
-
-    // for doris version >= 2.0
     public static final String DORIS_JSON = "JSON";
+    public static final String DORIS_JSONB = "JSONB";
 
     public static final Integer DEFAULT_PRECISION = 9;
     public static final Integer MAX_PRECISION = 38;
@@ -80,15 +72,8 @@ public class DorisTypeConverter implements TypeConverter<BasicTypeDefine> {
     public static final long POWER_2_16 = (long) Math.pow(2, 16);
     public static final long MAX_STRING_LENGTH = 2147483643;
 
-    public static final DorisTypeConverter INSTANCE = new DorisTypeConverter();
-
-    @Override
-    public String identifier() {
-        return DorisConfig.IDENTIFIER;
-    }
-
-    @Override
-    public Column convert(BasicTypeDefine typeDefine) {
+    protected PhysicalColumn.PhysicalColumnBuilder getPhysicalColumnBuilder(
+            BasicTypeDefine typeDefine) {
         PhysicalColumn.PhysicalColumnBuilder builder =
                 PhysicalColumn.builder()
                         .name(typeDefine.getName())
@@ -96,7 +81,20 @@ public class DorisTypeConverter implements TypeConverter<BasicTypeDefine> {
                         .nullable(typeDefine.isNullable())
                         .defaultValue(typeDefine.getDefaultValue())
                         .comment(typeDefine.getComment());
+        return builder;
+    }
 
+    protected BasicTypeDefine.BasicTypeDefineBuilder getBasicTypeDefineBuilder(Column column) {
+        BasicTypeDefine.BasicTypeDefineBuilder builder =
+                BasicTypeDefine.builder()
+                        .name(column.getName())
+                        .nullable(column.isNullable())
+                        .comment(column.getComment())
+                        .defaultValue(column.getDefaultValue());
+        return builder;
+    }
+
+    protected String getDorisColumnName(BasicTypeDefine typeDefine) {
         String dorisColumnType = typeDefine.getColumnType().toUpperCase(Locale.ROOT);
         int idx = dorisColumnType.indexOf("(");
         int idx2 = dorisColumnType.indexOf("<");
@@ -106,7 +104,13 @@ public class DorisTypeConverter implements TypeConverter<BasicTypeDefine> {
         if (idx2 != -1) {
             dorisColumnType = dorisColumnType.substring(0, idx2);
         }
+        return dorisColumnType;
+    }
 
+    public void sampleTypeConverter(
+            PhysicalColumn.PhysicalColumnBuilder builder,
+            BasicTypeDefine typeDefine,
+            String dorisColumnType) {
         switch (dorisColumnType) {
             case DORIS_NULL:
                 builder.dataType(BasicType.VOID_TYPE);
@@ -118,7 +122,7 @@ public class DorisTypeConverter implements TypeConverter<BasicTypeDefine> {
                 if (typeDefine.getColumnType().equalsIgnoreCase("tinyint(1)")) {
                     builder.dataType(BasicType.BOOLEAN_TYPE);
                 } else {
-                    builder.dataType(BasicType.SHORT_TYPE);
+                    builder.dataType(BasicType.BYTE_TYPE);
                 }
                 break;
             case DORIS_SMALLINT:
@@ -136,45 +140,18 @@ public class DorisTypeConverter implements TypeConverter<BasicTypeDefine> {
             case DORIS_DOUBLE:
                 builder.dataType(BasicType.DOUBLE_TYPE);
                 break;
-            case DORIS_DATE:
-            case DORIS_DATEV2:
-                builder.dataType(LocalTimeType.LOCAL_DATE_TYPE);
-                break;
-            case DORIS_DATETIME:
-                builder.dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE);
-                break;
-            case DORIS_DATETIMEV2:
-                builder.dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE);
-                builder.scale(typeDefine.getScale());
-                break;
-            case DORIS_DECIMAL:
-            case DORIS_DECIMALV3:
-                Preconditions.checkArgument(typeDefine.getPrecision() > 0);
-                DecimalType decimalType;
-                decimalType =
-                        new DecimalType(
-                                typeDefine.getPrecision().intValue(),
-                                typeDefine.getScale() == null
-                                        ? 0
-                                        : typeDefine.getScale().intValue());
-                builder.dataType(decimalType);
-                builder.columnLength(Long.valueOf(decimalType.getPrecision()));
-                builder.scale(decimalType.getScale());
-                break;
             case DORIS_CHAR:
             case DORIS_VARCHAR:
                 if (typeDefine.getLength() != null && typeDefine.getLength() > 0) {
                     builder.columnLength(typeDefine.getLength());
                 }
                 builder.dataType(BasicType.STRING_TYPE);
-                builder.sourceType(typeDefine.getColumnType().toUpperCase(Locale.ROOT));
                 break;
             case DORIS_LARGEINT:
                 builder.dataType(BasicType.STRING_TYPE);
                 builder.columnLength(MAX_DORIS_LARGEINT_TO_VARCHAR_LENGTH);
                 break;
             case DORIS_STRING:
-            case DORIS_JSONB:
             case DORIS_JSON:
                 builder.dataType(BasicType.STRING_TYPE);
                 builder.columnLength(MAX_STRING_LENGTH);
@@ -183,26 +160,60 @@ public class DorisTypeConverter implements TypeConverter<BasicTypeDefine> {
                 throw CommonError.convertToSeaTunnelTypeError(
                         DorisConfig.IDENTIFIER, dorisColumnType, typeDefine.getName());
         }
-
-        return builder.build();
     }
 
-    @Override
-    public BasicTypeDefine reconvert(Column column) {
-        BasicTypeDefine.BasicTypeDefineBuilder builder =
-                BasicTypeDefine.builder()
-                        .name(column.getName())
-                        .nullable(column.isNullable())
-                        .comment(column.getComment())
-                        .defaultValue(column.getDefaultValue());
+    protected void sampleReconvertString(
+            Column column, BasicTypeDefine.BasicTypeDefineBuilder builder) {
+        // source is doris too.
+        if (column.getSourceType() != null
+                && column.getSourceType().equalsIgnoreCase(DORIS_LARGEINT)) {
+            builder.columnType(DORIS_LARGEINT);
+            builder.dataType(DORIS_LARGEINT);
+            return;
+        }
+
+        if (column.getColumnLength() == null || column.getColumnLength() <= 0) {
+            builder.columnType(DORIS_STRING);
+            builder.dataType(DORIS_STRING);
+            return;
+        }
+
+        if (column.getColumnLength() < POWER_2_8) {
+            if (column.getSourceType() != null
+                    && column.getSourceType().toUpperCase(Locale.ROOT).startsWith(DORIS_VARCHAR)) {
+                builder.columnType(
+                        String.format("%s(%s)", DORIS_VARCHAR, column.getColumnLength()));
+                builder.dataType(DORIS_VARCHAR);
+            } else {
+                builder.columnType(String.format("%s(%s)", DORIS_CHAR, column.getColumnLength()));
+                builder.dataType(DORIS_CHAR);
+            }
+            return;
+        }
+
+        if (column.getColumnLength() < POWER_2_16) {
+            builder.columnType(String.format("%s(%s)", DORIS_VARCHAR, column.getColumnLength()));
+            builder.dataType(DORIS_VARCHAR);
+            return;
+        }
+
+        if (column.getColumnLength() <= MAX_STRING_LENGTH) {
+            builder.columnType(DORIS_STRING);
+            builder.dataType(DORIS_STRING);
+            return;
+        }
+
+        throw CommonError.convertToConnectorTypeError(
+                DorisConfig.IDENTIFIER, column.getDataType().getSqlType().name(), column.getName());
+    }
+
+    protected BasicTypeDefine sampleReconvert(
+            Column column, BasicTypeDefine.BasicTypeDefineBuilder builder) {
 
         switch (column.getDataType().getSqlType()) {
             case NULL:
                 builder.columnType(DORIS_NULL);
                 builder.dataType(DORIS_NULL);
-                break;
-            case STRING:
-                reconvertString(column, builder);
                 break;
             case BYTES:
                 builder.columnType(DORIS_STRING);
@@ -254,19 +265,19 @@ public class DorisTypeConverter implements TypeConverter<BasicTypeDefine> {
                             precision,
                             scale);
                 } else if (precision > MAX_PRECISION) {
-                    scale = (int) Math.max(0, scale - (precision - MAX_PRECISION));
-                    precision = MAX_PRECISION;
                     log.warn(
                             "The decimal column {} type decimal({},{}) is out of range, "
                                     + "which exceeds the maximum precision of {}, "
-                                    + "it will be converted to decimal({},{})",
+                                    + "it will be converted to varchar(200)",
                             column.getName(),
                             decimalType.getPrecision(),
                             decimalType.getScale(),
-                            MAX_PRECISION,
-                            precision,
-                            scale);
+                            MAX_PRECISION);
+                    builder.dataType(DORIS_VARCHAR);
+                    builder.columnType(String.format("%s(%s)", DORIS_VARCHAR, 200));
+                    break;
                 }
+
                 if (scale < 0) {
                     scale = 0;
                     log.warn(
@@ -302,20 +313,6 @@ public class DorisTypeConverter implements TypeConverter<BasicTypeDefine> {
                 builder.columnType(String.format("%s(%s)", DORIS_VARCHAR, 8));
                 builder.dataType(DORIS_VARCHAR);
                 break;
-            case DATE:
-                builder.columnType(DORIS_DATEV2);
-                builder.dataType(DORIS_DATEV2);
-                break;
-            case TIMESTAMP:
-                if (column.getScale() != null && column.getScale() > 0) {
-                    builder.columnType(
-                            String.format("%s(%s)", DORIS_DATETIMEV2, column.getScale()));
-                    builder.scale(column.getScale());
-                } else {
-                    builder.columnType(DORIS_DATETIMEV2);
-                }
-                builder.dataType(DORIS_DATETIMEV2);
-                break;
             case ARRAY:
                 ArrayType arrayType = (ArrayType) column.getDataType();
                 SeaTunnelDataType elementType = arrayType.getElementType();
@@ -323,8 +320,8 @@ public class DorisTypeConverter implements TypeConverter<BasicTypeDefine> {
                 break;
             case MAP:
             case ROW:
-                builder.columnType(DORIS_JSONB);
-                builder.dataType(DORIS_JSONB);
+                builder.columnType(DORIS_JSON);
+                builder.dataType(DORIS_JSON);
                 break;
             default:
                 throw CommonError.convertToConnectorTypeError(
@@ -333,64 +330,6 @@ public class DorisTypeConverter implements TypeConverter<BasicTypeDefine> {
                         column.getName());
         }
         return builder.build();
-    }
-
-    private void reconvertString(Column column, BasicTypeDefine.BasicTypeDefineBuilder builder) {
-        // source is doris too.
-        if (column.getSourceType() != null
-                && column.getSourceType().equalsIgnoreCase(DORIS_LARGEINT)) {
-            builder.columnType(DORIS_LARGEINT);
-            builder.dataType(DORIS_LARGEINT);
-            return;
-        }
-
-        if (column.getSourceType() != null && column.getSourceType().equalsIgnoreCase(DORIS_JSON)) {
-            // Compatible with Doris 1.x and Doris 2.x versions
-            builder.columnType(DORIS_JSONB);
-            builder.dataType(DORIS_JSONB);
-            return;
-        }
-
-        if (column.getSourceType() != null
-                && column.getSourceType().equalsIgnoreCase(DORIS_JSONB)) {
-            builder.columnType(DORIS_JSONB);
-            builder.dataType(DORIS_JSONB);
-            return;
-        }
-
-        if (column.getColumnLength() == null || column.getColumnLength() <= 0) {
-            builder.columnType(DORIS_STRING);
-            builder.dataType(DORIS_STRING);
-            return;
-        }
-
-        if (column.getColumnLength() < POWER_2_8) {
-            if (column.getSourceType() != null
-                    && column.getSourceType().equalsIgnoreCase(DORIS_VARCHAR)) {
-                builder.columnType(
-                        String.format("%s(%s)", DORIS_VARCHAR, column.getColumnLength()));
-                builder.dataType(DORIS_VARCHAR);
-            } else {
-                builder.columnType(String.format("%s(%s)", DORIS_CHAR, column.getColumnLength()));
-                builder.dataType(DORIS_CHAR);
-            }
-            return;
-        }
-
-        if (column.getColumnLength() < POWER_2_16) {
-            builder.columnType(String.format("%s(%s)", DORIS_VARCHAR, column.getColumnLength()));
-            builder.dataType(DORIS_VARCHAR);
-            return;
-        }
-
-        if (column.getColumnLength() <= MAX_STRING_LENGTH) {
-            builder.columnType(DORIS_STRING);
-            builder.dataType(DORIS_STRING);
-            return;
-        }
-
-        throw CommonError.convertToConnectorTypeError(
-                DorisConfig.IDENTIFIER, column.getDataType().getSqlType().name(), column.getName());
     }
 
     private void buildArrayInternal(
