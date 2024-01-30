@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.catalog;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.catalog.Catalog;
@@ -32,8 +30,7 @@ public class ElasticSearchCatalogFactory implements CatalogFactory {
 
     @Override
     public Catalog createCatalog(String catalogName, ReadonlyConfig options) {
-        Config config = options.toConfig();
-        return new ElasticSearchCatalog(catalogName, "", config);
+        return new ElasticSearchCatalog(catalogName, "", options);
     }
 
     @Override
