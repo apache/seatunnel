@@ -28,14 +28,11 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
 import org.apache.commons.lang3.tuple.Pair;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Text;
 import org.apache.orc.OrcFile;
@@ -74,7 +71,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
     private static final long MIN_SIZE = 16 * 1024;
 
     @Override
-    public void read(String path, Collector<SeaTunnelRow> output)
+    public void read(String path, String tableId, Collector<SeaTunnelRow> output)
             throws FileConnectorException, IOException {
         if (Boolean.FALSE.equals(checkFileType(path))) {
             String errorMsg =
@@ -83,11 +80,14 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                             path);
             throw new FileConnectorException(FileConnectorErrorCode.FILE_TYPE_INVALID, errorMsg);
         }
-        Configuration configuration = getConfiguration();
-        Path filePath = new Path(path);
         Map<String, String> partitionsMap = parsePartitionsByPath(path);
-        OrcFile.ReaderOptions readerOptions = OrcFile.readerOptions(configuration);
-        try (Reader reader = OrcFile.createReader(filePath, readerOptions)) {
+        try (Reader reader =
+                hadoopFileSystemProxy.doWithHadoopAuth(
+                        (configuration, userGroupInformation) -> {
+                            OrcFile.ReaderOptions readerOptions =
+                                    OrcFile.readerOptions(configuration);
+                            return OrcFile.createReader(new Path(path), readerOptions);
+                        })) {
             TypeDescription schema = TypeDescription.createStruct();
             for (int i = 0; i < seaTunnelRowType.getTotalFields(); i++) {
                 TypeDescription typeDescription =
@@ -120,6 +120,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                         }
                     }
                     SeaTunnelRow seaTunnelRow = new SeaTunnelRow(fields);
+                    seaTunnelRow.setTableId(tableId);
                     output.collect(seaTunnelRow);
                     num++;
                 }
@@ -128,12 +129,14 @@ public class OrcReadStrategy extends AbstractReadStrategy {
     }
 
     @Override
-    public SeaTunnelRowType getSeaTunnelRowTypeInfo(HadoopConf hadoopConf, String path)
-            throws FileConnectorException {
-        Configuration configuration = getConfiguration(hadoopConf);
-        OrcFile.ReaderOptions readerOptions = OrcFile.readerOptions(configuration);
-        Path dstDir = new Path(path);
-        try (Reader reader = OrcFile.createReader(dstDir, readerOptions)) {
+    public SeaTunnelRowType getSeaTunnelRowTypeInfo(String path) throws FileConnectorException {
+        try (Reader reader =
+                hadoopFileSystemProxy.doWithHadoopAuth(
+                        ((configuration, userGroupInformation) -> {
+                            OrcFile.ReaderOptions readerOptions =
+                                    OrcFile.readerOptions(configuration);
+                            return OrcFile.createReader(new Path(path), readerOptions);
+                        }))) {
             TypeDescription schema = reader.getSchema();
             List<String> fieldNames = schema.getFieldNames();
             if (readColumns.isEmpty()) {
@@ -167,12 +170,9 @@ public class OrcReadStrategy extends AbstractReadStrategy {
     boolean checkFileType(String path) {
         try {
             boolean checkResult;
-            Configuration configuration = getConfiguration();
-            FileSystem fileSystem = FileSystem.get(configuration);
-            Path filePath = new Path(path);
-            FSDataInputStream in = fileSystem.open(filePath);
+            FSDataInputStream in = hadoopFileSystemProxy.getInputStream(path);
             // try to get Postscript in orc file
-            long size = fileSystem.getFileStatus(filePath).getLen();
+            long size = hadoopFileSystemProxy.getFileStatus(path).getLen();
             int readSize = (int) Math.min(size, MIN_SIZE);
             in.seek(size - readSize);
             ByteBuffer buffer = ByteBuffer.allocate(readSize);

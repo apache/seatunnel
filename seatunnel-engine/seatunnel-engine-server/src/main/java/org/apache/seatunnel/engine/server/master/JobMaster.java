@@ -26,6 +26,7 @@ import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
+import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
@@ -85,6 +86,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 
 import static com.hazelcast.jet.impl.util.ExceptionUtil.withTryCatch;
+import static org.apache.seatunnel.common.constants.JobMode.BATCH;
 
 public class JobMaster {
     private static final ILogger LOGGER = Logger.getLogger(JobMaster.class);
@@ -188,8 +190,7 @@ public class JobMaster {
                 nodeEngine.getSerializationService().toObject(jobImmutableInformationData);
         jobCheckpointConfig =
                 createJobCheckpointConfig(
-                        engineConfig.getCheckpointConfig(),
-                        jobImmutableInformation.getJobConfig().getEnvOptions());
+                        engineConfig.getCheckpointConfig(), jobImmutableInformation.getJobConfig());
 
         LOGGER.info(
                 String.format(
@@ -228,7 +229,7 @@ public class JobMaster {
         this.checkpointPlanMap = planTuple.f1();
         Exception initException = null;
         try {
-            this.initCheckPointManager();
+            this.initCheckPointManager(restart);
         } catch (Exception e) {
             initException = e;
         }
@@ -241,11 +242,11 @@ public class JobMaster {
         }
     }
 
-    public void initCheckPointManager() throws CheckpointStorageException {
+    public void initCheckPointManager(boolean restart) throws CheckpointStorageException {
         this.checkpointManager =
                 new CheckpointManager(
                         jobImmutableInformation.getJobId(),
-                        jobImmutableInformation.isStartWithSavePoint(),
+                        jobImmutableInformation.isStartWithSavePoint() || restart,
                         nodeEngine,
                         this,
                         checkpointPlanMap,
@@ -257,7 +258,8 @@ public class JobMaster {
     // TODO replace it after ReadableConfig Support parse yaml format, then use only one config to
     // read engine and env config.
     private CheckpointConfig createJobCheckpointConfig(
-            CheckpointConfig defaultCheckpointConfig, Map<String, Object> jobEnv) {
+            CheckpointConfig defaultCheckpointConfig, JobConfig jobConfig) {
+        Map<String, Object> jobEnv = jobConfig.getEnvOptions();
         CheckpointConfig jobCheckpointConfig = new CheckpointConfig();
         jobCheckpointConfig.setCheckpointTimeout(defaultCheckpointConfig.getCheckpointTimeout());
         jobCheckpointConfig.setCheckpointInterval(defaultCheckpointConfig.getCheckpointInterval());
@@ -274,6 +276,10 @@ public class JobMaster {
             jobCheckpointConfig.setCheckpointInterval(
                     Long.parseLong(
                             jobEnv.get(EnvCommonOptions.CHECKPOINT_INTERVAL.key()).toString()));
+        } else if (jobConfig.getJobContext().getJobMode() == BATCH) {
+            LOGGER.info(
+                    "in batch mode, the 'checkpoint.interval' configuration of env is missing, so checkpoint will be disabled");
+            jobCheckpointConfig.setCheckpointEnable(false);
         }
         if (jobEnv.containsKey(EnvCommonOptions.CHECKPOINT_TIMEOUT.key())) {
             jobCheckpointConfig.setCheckpointTimeout(
@@ -666,6 +672,7 @@ public class JobMaster {
                         "Begin do save point for Job %s (%s) ",
                         jobImmutableInformation.getJobConfig().getName(),
                         jobImmutableInformation.getJobId()));
+        physicalPlan.savepointJob();
         PassiveCompletableFuture<CompletedCheckpoint>[] passiveCompletableFutures =
                 checkpointManager.triggerSavePoints();
         return CompletableFuture.allOf(passiveCompletableFutures);

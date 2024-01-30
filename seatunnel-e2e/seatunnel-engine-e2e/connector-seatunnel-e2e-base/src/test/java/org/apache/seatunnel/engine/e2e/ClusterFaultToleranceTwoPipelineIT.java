@@ -42,10 +42,10 @@ import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
@@ -70,8 +70,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
     public static final String DYNAMIC_TEST_PARALLELISM = "dynamic_test_parallelism";
 
     @Test
-    public void testTwoPipelineBatchJobRunOkIn2Node()
-            throws ExecutionException, InterruptedException {
+    public void testTwoPipelineBatchJobRunOkIn2Node() throws Exception {
         String testCaseName = "testTwoPipelineBatchJobRunOkIn2Node";
         String testClusterName =
                 "ClusterFaultToleranceTwoPipelineIT_testTwoPipelineBatchJobRunOkIn2Node";
@@ -144,7 +143,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
             Assertions.assertEquals(testRowNumber * testParallelism * 2, fileLineNumberFromDir);
         } finally {
             if (engineClient != null) {
-                engineClient.shutdown();
+                engineClient.close();
             }
 
             if (node1 != null) {
@@ -171,7 +170,8 @@ public class ClusterFaultToleranceTwoPipelineIT {
             @NonNull JobMode jobMode,
             long rowNumber,
             int parallelism,
-            @NonNull String templateFileName) {
+            @NonNull String templateFileName)
+            throws IOException {
         checkArgument(rowNumber > 0, "rowNumber must greater than 0");
         checkArgument(parallelism > 0, "parallelism must greater than 0");
         Map<String, String> valueMap = new HashMap<>();
@@ -201,8 +201,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
     }
 
     @Test
-    public void testTwoPipelineStreamJobRunOkIn2Node()
-            throws ExecutionException, InterruptedException {
+    public void testTwoPipelineStreamJobRunOkIn2Node() throws Exception {
         String testCaseName = "testTwoPipelineStreamJobRunOkIn2Node";
         String testClusterName =
                 "ClusterFaultToleranceTwoPipelineIT_testTwoPipelineStreamJobRunOkIn2Node";
@@ -286,7 +285,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
 
         } finally {
             if (engineClient != null) {
-                engineClient.shutdown();
+                engineClient.close();
             }
 
             if (node1 != null) {
@@ -300,8 +299,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
     }
 
     @Test
-    public void testTwoPipelineBatchJobRestoreIn2NodeWorkerDown()
-            throws ExecutionException, InterruptedException {
+    public void testTwoPipelineBatchJobRestoreIn2NodeWorkerDown() throws Exception {
         String testCaseName = "testTwoPipelineBatchJobRestoreIn2NodeWorkerDown";
         String testClusterName =
                 "ClusterFaultToleranceTwoPipelineIT_testTwoPipelineBatchJobRestoreIn2NodeWorkerDown";
@@ -394,7 +392,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
             Assertions.assertEquals(testRowNumber * testParallelism * 2, fileLineNumberFromDir);
         } finally {
             if (engineClient != null) {
-                engineClient.shutdown();
+                engineClient.close();
             }
 
             if (node1 != null) {
@@ -409,15 +407,14 @@ public class ClusterFaultToleranceTwoPipelineIT {
 
     @Test
     @Disabled
-    public void testFor() throws ExecutionException, InterruptedException {
+    public void testFor() throws Exception {
         for (int i = 0; i < 200; i++) {
             testTwoPipelineStreamJobRestoreIn2NodeMasterDown();
         }
     }
 
     @Test
-    public void testTwoPipelineStreamJobRestoreIn2NodeWorkerDown()
-            throws ExecutionException, InterruptedException {
+    public void testTwoPipelineStreamJobRestoreIn2NodeWorkerDown() throws Exception {
         String testCaseName = "testTwoPipelineStreamJobRestoreIn2NodeWorkerDown";
         String testClusterName =
                 "ClusterFaultToleranceTwoPipelineIT_testTwoPipelineStreamJobRestoreIn2NodeWorkerDown";
@@ -531,7 +528,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
 
         } finally {
             if (engineClient != null) {
-                engineClient.shutdown();
+                engineClient.close();
             }
 
             if (node1 != null) {
@@ -545,8 +542,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
     }
 
     @Test
-    public void testTwoPipelineBatchJobRestoreIn2NodeMasterDown()
-            throws ExecutionException, InterruptedException {
+    public void testTwoPipelineBatchJobRestoreIn2NodeMasterDown() throws Exception {
         String testCaseName =
                 "testTwoPipelineBatchJobRestoreIn2NodeMasterDown" + System.currentTimeMillis();
         String testClusterName =
@@ -642,7 +638,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
 
         } finally {
             if (engineClient != null) {
-                engineClient.shutdown();
+                engineClient.close();
             }
 
             if (node1 != null) {
@@ -656,8 +652,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
     }
 
     @Test
-    public void testTwoPipelineStreamJobRestoreIn2NodeMasterDown()
-            throws ExecutionException, InterruptedException {
+    public void testTwoPipelineStreamJobRestoreIn2NodeMasterDown() throws Exception {
         String testCaseName =
                 "testTwoPipelineStreamJobRestoreIn2NodeMasterDown" + System.currentTimeMillis();
         String testClusterName =
@@ -769,7 +764,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
 
         } finally {
             if (engineClient != null) {
-                engineClient.shutdown();
+                engineClient.close();
             }
 
             if (node1 != null) {

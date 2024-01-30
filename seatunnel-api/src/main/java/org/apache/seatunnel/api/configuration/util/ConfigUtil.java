@@ -111,6 +111,8 @@ public class ConfigUtil {
             return (T) convertToFloat(rawValue);
         } else if (Double.class.equals(clazz)) {
             return (T) convertToDouble(rawValue);
+        } else if (Object.class.equals(clazz)) {
+            return (T) rawValue;
         }
         throw new IllegalArgumentException("Unsupported type: " + clazz);
     }

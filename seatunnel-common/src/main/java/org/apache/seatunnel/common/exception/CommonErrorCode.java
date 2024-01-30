@@ -17,8 +17,11 @@
 
 package org.apache.seatunnel.common.exception;
 
-/** SeaTunnel connector error code interface, it only should be invoked by {@link CommonError} */
-enum CommonErrorCode implements SeaTunnelErrorCode {
+/** SeaTunnel connector error code interface */
+public enum CommonErrorCode implements SeaTunnelErrorCode {
+    FILE_OPERATION_FAILED("COMMON-01", "<identifier> <operation> file '<fileName>' failed."),
+    JSON_OPERATION_FAILED(
+            "COMMON-02", "<identifier> JSON convert/parse '<payload>' operation failed."),
     UNSUPPORTED_DATA_TYPE(
             "COMMON-07", "'<identifier>' unsupported data type '<dataType>' of '<field>'"),
     CONVERT_TO_SEATUNNEL_TYPE_ERROR(
@@ -32,7 +35,19 @@ enum CommonErrorCode implements SeaTunnelErrorCode {
             "'<connector>' <type> unsupported convert SeaTunnel data type '<dataType>' of '<field>' to connector data type."),
     CONVERT_TO_CONNECTOR_TYPE_ERROR_SIMPLE(
             "COMMON-19",
-            "'<identifier>' unsupported convert SeaTunnel data type '<dataType>' of '<field>' to connector data type.");
+            "'<identifier>' unsupported convert SeaTunnel data type '<dataType>' of '<field>' to connector data type."),
+    GET_CATALOG_TABLE_WITH_UNSUPPORTED_TYPE_ERROR(
+            "COMMON-20",
+            "'<catalogName>' table '<tableName>' unsupported get catalog table with field data types '<fieldWithDataTypes>'"),
+    GET_CATALOG_TABLES_WITH_UNSUPPORTED_TYPE_ERROR(
+            "COMMON-21",
+            "'<catalogName>' tables unsupported get catalog table，the corresponding field types in the following tables are not supported: '<tableUnsupportedTypes>'"),
+    FILE_NOT_EXISTED(
+            "COMMON-22",
+            "<identifier> <operation> file '<fileName>' failed, because it not existed."),
+    WRITE_SEATUNNEL_ROW_ERROR(
+            "COMMON-23",
+            "<connector> write SeaTunnelRow failed, the SeaTunnelRow value is '<seaTunnelRow>'.");
 
     private final String code;
     private final String description;

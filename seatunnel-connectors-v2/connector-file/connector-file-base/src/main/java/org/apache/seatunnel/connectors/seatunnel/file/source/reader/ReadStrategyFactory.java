@@ -17,8 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
+import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +30,14 @@ import lombok.extern.slf4j.Slf4j;
 public class ReadStrategyFactory {
 
     private ReadStrategyFactory() {}
+
+    public static ReadStrategy of(ReadonlyConfig readonlyConfig, HadoopConf hadoopConf) {
+        ReadStrategy readStrategy =
+                of(readonlyConfig.get(BaseSourceConfigOptions.FILE_FORMAT_TYPE).name());
+        readStrategy.setPluginConfig(readonlyConfig.toConfig());
+        readStrategy.init(hadoopConf);
+        return readStrategy;
+    }
 
     public static ReadStrategy of(String fileType) {
         try {

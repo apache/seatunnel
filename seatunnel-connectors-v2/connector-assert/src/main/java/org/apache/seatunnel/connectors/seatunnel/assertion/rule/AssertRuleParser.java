@@ -28,6 +28,8 @@ import com.google.common.collect.Maps;
 
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.EQUALS_TO;
@@ -38,6 +40,9 @@ import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertCon
 import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.RULE_VALUE;
 
 public class AssertRuleParser {
+
+    private static final Pattern DECIMAL_TYPE_PATTERN =
+            Pattern.compile("^decimal\\(\\s*(\\d+)\\s*,\\s*(\\d+)\\s*\\)$");
 
     public List<AssertFieldRule.AssertRule> parseRowRules(List<? extends Config> rowRuleList) {
 
@@ -91,7 +96,14 @@ public class AssertRuleParser {
     }
 
     private SeaTunnelDataType<?> getFieldType(String fieldTypeStr) {
-        return TYPES.get(fieldTypeStr.toLowerCase());
+        final String normalTypeStr = fieldTypeStr.trim().toLowerCase();
+        Matcher matcher = DECIMAL_TYPE_PATTERN.matcher(normalTypeStr);
+        if (matcher.find()) {
+            int precision = Integer.parseInt(matcher.group(1));
+            int scale = Integer.parseInt(matcher.group(2));
+            return new DecimalType(precision, scale);
+        }
+        return TYPES.get(normalTypeStr);
     }
 
     private static final Map<String, SeaTunnelDataType<?>> TYPES = Maps.newHashMap();
@@ -110,6 +122,5 @@ public class AssertRuleParser {
         TYPES.put("datetime", LocalTimeType.LOCAL_DATE_TIME_TYPE);
         TYPES.put("date", LocalTimeType.LOCAL_DATE_TYPE);
         TYPES.put("time", LocalTimeType.LOCAL_TIME_TYPE);
-        TYPES.put("decimal", new DecimalType(38, 18));
     }
 }

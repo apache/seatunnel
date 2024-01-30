@@ -60,6 +60,7 @@ public class SqlServerDataTypeConvertor implements DataTypeConvertor<SqlServerTy
             case SMALLINT:
                 return BasicType.SHORT_TYPE;
             case INTEGER:
+            case INT_IDENTITY:
                 return BasicType.INT_TYPE;
             case BIGINT:
                 return BasicType.LONG_TYPE;
@@ -81,6 +82,8 @@ public class SqlServerDataTypeConvertor implements DataTypeConvertor<SqlServerTy
             case NVARCHAR:
             case TEXT:
             case XML:
+            case GUID:
+            case SQL_VARIANT:
                 return BasicType.STRING_TYPE;
             case DATE:
                 return LocalTimeType.LOCAL_DATE_TYPE;

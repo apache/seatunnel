@@ -50,14 +50,12 @@ public abstract class AbstractCatalogSupportTransform extends AbstractSeaTunnelT
     private CatalogTable transformCatalogTable() {
         TableIdentifier tableIdentifier = transformTableIdentifier();
         TableSchema tableSchema = transformTableSchema();
-        CatalogTable catalogTable =
-                CatalogTable.of(
-                        tableIdentifier,
-                        tableSchema,
-                        inputCatalogTable.getOptions(),
-                        inputCatalogTable.getPartitionKeys(),
-                        inputCatalogTable.getComment());
-        return catalogTable;
+        return CatalogTable.of(
+                tableIdentifier,
+                tableSchema,
+                inputCatalogTable.getOptions(),
+                inputCatalogTable.getPartitionKeys(),
+                inputCatalogTable.getComment());
     }
 
     protected abstract TableSchema transformTableSchema();

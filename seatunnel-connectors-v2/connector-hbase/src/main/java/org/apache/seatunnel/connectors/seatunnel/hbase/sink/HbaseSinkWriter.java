@@ -179,6 +179,10 @@ public class HbaseSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                 return Bytes.toBytes((Double) field);
             case BOOLEAN:
                 return Bytes.toBytes((Boolean) field);
+            case ARRAY:
+                String arrayAsString = field.toString().replaceAll("\\[|\\]|\\s", "");
+                return arrayAsString.getBytes(
+                        Charset.forName(hbaseParameters.getEnCoding().toString()));
             case STRING:
                 return field.toString()
                         .getBytes(Charset.forName(hbaseParameters.getEnCoding().toString()));

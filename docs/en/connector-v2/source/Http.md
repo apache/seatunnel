@@ -53,7 +53,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | pageing.total_page_size     | Int     | No       | -       | This parameter is used to control the total number of pages                                                                          |
 | pageing.batch_size          | Int     | No       | -       | The batch size returned per request is used to determine whether to continue when the total number of pages is unknown               |
 | content_json                | String  | No       | -       | This parameter can get some json data.If you only need the data in the 'book' section, configure `content_field = "$.store.book.*"`. |
-| format                      | String  | No       | json    | The format of upstream data, now only support `json` `text`, default `json`.                                                         |
+| format                      | String  | No       | text    | The format of upstream data, now only support `json` `text`, default `text`.                                                         |
 | method                      | String  | No       | get     | Http request method, only supports GET, POST method.                                                                                 |
 | headers                     | Map     | No       | -       | Http headers.                                                                                                                        |
 | params                      | Map     | No       | -       | Http params,the program will automatically add http header application/x-www-form-urlencoded.                                        |
@@ -63,13 +63,15 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | retry_backoff_multiplier_ms | Int     | No       | 100     | The retry-backoff times(millis) multiplier if request http failed.                                                                   |
 | retry_backoff_max_ms        | Int     | No       | 10000   | The maximum retry-backoff times(millis) if request http failed                                                                       |
 | enable_multi_lines          | Boolean | No       | false   |                                                                                                                                      |
+| connect_timeout_ms          | Int     | No       | 12000   | Connection timeout setting, default 12s.                                                                                             |
+| socket_timeout_ms           | Int     | No       | 60000   | Socket timeout setting, default 60s.                                                                                                 |
 | common-options              |         | No       | -       | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details                              |
 
 ## How to Create a Http Data Synchronization Jobs
 
 ```hocon
 env {
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "BATCH"
 }
 

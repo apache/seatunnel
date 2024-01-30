@@ -20,9 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
-import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
-import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
@@ -36,14 +34,11 @@ import com.mysql.cj.MysqlType;
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
-import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 
 @Slf4j
 public class MySqlCatalog extends AbstractJdbcCatalog {
@@ -95,26 +90,6 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
     protected TableIdentifier getTableIdentifier(TablePath tablePath) {
         return TableIdentifier.of(
                 catalogName, tablePath.getDatabaseName(), tablePath.getTableName());
-    }
-
-    @Override
-    protected Optional<PrimaryKey> getPrimaryKey(DatabaseMetaData metaData, TablePath tablePath)
-            throws SQLException {
-        return getPrimaryKey(
-                metaData,
-                tablePath.getDatabaseName(),
-                tablePath.getTableName(),
-                tablePath.getTableName());
-    }
-
-    @Override
-    protected List<ConstraintKey> getConstraintKeys(DatabaseMetaData metaData, TablePath tablePath)
-            throws SQLException {
-        return getConstraintKeys(
-                metaData,
-                tablePath.getDatabaseName(),
-                tablePath.getTableName(),
-                tablePath.getTableName());
     }
 
     @Override
@@ -219,9 +194,9 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
                 "TRUNCATE TABLE `%s`.`%s`;", tablePath.getDatabaseName(), tablePath.getTableName());
     }
 
-    public String getCountSql(TablePath tablePath) {
+    public String getExistDataSql(TablePath tablePath) {
         return String.format(
-                "select * from `%s`.`%s` limit 1;",
+                "SELECT * FROM `%s`.`%s` LIMIT 1;",
                 tablePath.getDatabaseName(), tablePath.getTableName());
     }
 }

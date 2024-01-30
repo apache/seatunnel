@@ -382,7 +382,7 @@ public class NumericFunction {
 
     public static Double random(List<Object> args) {
         Random random = new Random();
-        if (args.size() >= 1) {
+        if (!args.isEmpty()) {
             Number v1 = (Number) args.get(0);
             if (v1 != null) {
                 random.setSeed(v1.intValue());

@@ -29,6 +29,8 @@ import org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSinkConfig;
 import com.google.auto.service.AutoService;
 
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.apache.kudu.client.SessionConfiguration.FlushMode.AUTO_FLUSH_BACKGROUND;
 import static org.apache.kudu.client.SessionConfiguration.FlushMode.MANUAL_FLUSH;
@@ -43,7 +45,8 @@ public class KuduSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(KuduSinkConfig.MASTER, KuduSinkConfig.TABLE_NAME)
+                .required(KuduSinkConfig.MASTER)
+                .optional(KuduSinkConfig.TABLE_NAME)
                 .optional(KuduSinkConfig.WORKER_COUNT)
                 .optional(KuduSinkConfig.OPERATION_TIMEOUT)
                 .optional(KuduSinkConfig.ADMIN_OPERATION_TIMEOUT)
@@ -73,6 +76,13 @@ public class KuduSinkFactory implements TableSinkFactory {
     public TableSink createSink(TableSinkFactoryContext context) {
         ReadonlyConfig config = context.getOptions();
         CatalogTable catalogTable = context.getCatalogTable();
+        if (!config.getOptional(KuduSinkConfig.TABLE_NAME).isPresent()) {
+            Map<String, String> map = config.toMap();
+            map.put(
+                    KuduSinkConfig.TABLE_NAME.key(),
+                    catalogTable.getTableId().toTablePath().getFullName());
+            config = ReadonlyConfig.fromMap(new HashMap<>(map));
+        }
         KuduSinkConfig kuduSinkConfig = new KuduSinkConfig(config);
         return () -> new KuduSink(kuduSinkConfig, catalogTable);
     }

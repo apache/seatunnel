@@ -78,7 +78,7 @@ public class ZetaSQLEngine implements SQLEngine {
 
         this.zetaSQLType = new ZetaSQLType(inputRowType, udfList);
         this.zetaSQLFunction = new ZetaSQLFunction(inputRowType, zetaSQLType, udfList);
-        this.zetaSQLFilter = new ZetaSQLFilter(zetaSQLFunction);
+        this.zetaSQLFilter = new ZetaSQLFilter(zetaSQLFunction, zetaSQLType);
 
         parseSQL();
     }
@@ -244,9 +244,6 @@ public class ZetaSQLEngine implements SQLEngine {
         int columnsSize = countColumnsSize(selectItems);
 
         Object[] fields = new Object[columnsSize];
-        for (int i = 0; i < columnsSize; i++) {
-            fields[i] = null;
-        }
 
         int idx = 0;
         for (SelectItem selectItem : selectItems) {

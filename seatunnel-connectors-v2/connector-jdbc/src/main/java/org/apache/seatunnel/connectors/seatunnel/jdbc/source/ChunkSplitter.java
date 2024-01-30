@@ -221,6 +221,7 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
                             jdbcDialect.tableIdentifier(table.getTablePath()));
         }
         try (Statement stmt = getOrEstablishConnection().createStatement()) {
+            log.info("Split table, query min max: {}", sqlQuery);
             try (ResultSet resultSet = stmt.executeQuery(sqlQuery)) {
                 if (resultSet.next()) {
                     Object min = resultSet.getObject(1);
@@ -251,7 +252,7 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
                                 "Partitioned column(%s) don't exist in the table columns",
                                 partitionColumn));
             }
-            if (!isEvenlySplitColumn(column)) {
+            if (!isSupportSplitColumn(column)) {
                 throw new JdbcConnectorException(
                         CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                         String.format("%s is not numeric/string type", partitionColumn));
@@ -266,7 +267,7 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
         if (pk != null) {
             for (String pkField : pk.getColumnNames()) {
                 Column column = columnMap.get(pkField);
-                if (isEvenlySplitColumn(column)) {
+                if (isSupportSplitColumn(column)) {
                     return Optional.of(
                             new SeaTunnelRowType(
                                     new String[] {pkField},
@@ -290,7 +291,7 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
                             uniqueKey.getColumnNames()) {
                         String uniqueKeyColumnName = uniqueKeyColumn.getColumnName();
                         Column column = columnMap.get(uniqueKeyColumnName);
-                        if (isEvenlySplitColumn(column)) {
+                        if (isSupportSplitColumn(column)) {
                             return Optional.of(
                                     new SeaTunnelRowType(
                                             new String[] {uniqueKeyColumnName},
@@ -305,19 +306,19 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
         return Optional.empty();
     }
 
-    protected boolean isEvenlySplitColumn(Column splitColumn) {
-        return isEvenlySplitColumn(splitColumn.getDataType());
-    }
-
-    protected boolean isEvenlySplitColumn(SeaTunnelDataType columnType) {
+    protected boolean isSupportSplitColumn(Column splitColumn) {
+        SeaTunnelDataType<?> dataType = splitColumn.getDataType();
         // currently, we only support these types.
-        switch (columnType.getSqlType()) {
+        switch (dataType.getSqlType()) {
             case TINYINT:
             case SMALLINT:
             case INT:
             case BIGINT:
+            case DOUBLE:
+            case FLOAT:
             case DECIMAL:
             case STRING:
+            case DATE:
                 return true;
             default:
                 return false;

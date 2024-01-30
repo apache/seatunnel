@@ -275,7 +275,7 @@ public class ConfigValidatorTest {
         config.put(SINGLE_CHOICE_TEST.key(), "A");
         Executable executable = () -> validate(config, optionRule);
         assertEquals(
-                "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - These options('single_choice_test') are SingleChoiceOption, the defaultValue(M) must be one of the optionValues.",
+                "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - These options('single_choice_test') are SingleChoiceOption, the defaultValue(M) must be one of the optionValues([A, B, C]).",
                 assertThrows(OptionValidationException.class, executable).getMessage());
     }
 
@@ -290,7 +290,7 @@ public class ConfigValidatorTest {
         config.put(SINGLE_CHOICE_VALUE_TEST.key(), "N");
         executable = () -> validate(config, optionRule);
         assertEquals(
-                "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - These options('single_choice_test') are SingleChoiceOption, the value(N) must be one of the optionValues.",
+                "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - These options('single_choice_test') are SingleChoiceOption, the value(N) must be one of the optionValues([A, B, C]).",
                 assertThrows(OptionValidationException.class, executable).getMessage());
     }
 }

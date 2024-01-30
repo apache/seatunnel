@@ -99,10 +99,12 @@ public class IncrementalSourceRecordEmitter<T>
             // report fetch delay
             Long fetchTimestamp = getFetchTimestamp(element);
             if (fetchTimestamp != null) {
-                recordFetchDelay.set(fetchTimestamp - messageTimestamp);
+                long fetchDelay = fetchTimestamp - messageTimestamp;
+                recordFetchDelay.set(fetchDelay > 0 ? fetchDelay : 0);
             }
             // report emit delay
-            recordEmitDelay.set(now - messageTimestamp);
+            long emitDelay = now - messageTimestamp;
+            recordEmitDelay.set(emitDelay > 0 ? emitDelay : 0);
         }
     }
 
