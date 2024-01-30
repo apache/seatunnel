@@ -108,7 +108,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "  json_col json NOT NULL,\n"
                     + "  jsonb_col jsonb NOT NULL,\n"
                     + "  xml_col xml NOT NULL,\n"
-                    + "  bit_col bit(1) NOT NULL\n"
+                    + "  bit_col bit(1) NULL\n"
                     + ")";
     private static final String PG_SINK_DDL =
             "CREATE TABLE IF NOT EXISTS pg_e2e_sink_table (\n"
@@ -144,7 +144,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "    json_col json NOT NULL \n,"
                     + "    jsonb_col jsonb NOT NULL,\n"
                     + "    xml_col xml NOT NULL,\n"
-                    + "    bit_col bit(1) NOT NULL\n"
+                    + "    bit_col bit(1) NULL\n"
                     + "  )";
     private static final String SOURCE_SQL =
             "select \n"
