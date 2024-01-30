@@ -172,6 +172,10 @@ public class JdbcSink
             if (StringUtils.isBlank(jdbcSinkConfig.getTable())) {
                 return Optional.empty();
             }
+            // use query to write data can not support savemode
+            if (StringUtils.isNotBlank(jdbcSinkConfig.getSimpleSql())) {
+                return Optional.empty();
+            }
             Optional<Catalog> catalogOptional =
                     JdbcCatalogUtils.findCatalog(jdbcSinkConfig.getJdbcConnectionConfig(), dialect);
             if (catalogOptional.isPresent()) {
@@ -185,10 +189,10 @@ public class JdbcSink
                                     : fieldIdeEnumEnum.getValue();
                     TablePath tablePath =
                             TablePath.of(
-                                    jdbcSinkConfig.getDatabase()
-                                            + "."
-                                            + CatalogUtils.quoteTableIdentifier(
-                                                    jdbcSinkConfig.getTable(), fieldIde));
+                                    catalogTable.getTableId().getDatabaseName(),
+                                    catalogTable.getTableId().getSchemaName(),
+                                    CatalogUtils.quoteTableIdentifier(
+                                            catalogTable.getTableId().getTableName(), fieldIde));
                     catalogTable.getOptions().put("fieldIde", fieldIde);
                     return Optional.of(
                             new DefaultSaveModeHandler(
