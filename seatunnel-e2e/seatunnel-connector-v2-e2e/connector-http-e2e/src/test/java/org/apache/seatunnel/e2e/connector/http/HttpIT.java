@@ -19,7 +19,9 @@ package org.apache.seatunnel.e2e.connector.http;
 
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -160,6 +162,27 @@ public class HttpIT extends TestSuiteBase implements TestResource {
 
         Container.ExecResult execResult18 = container.executeJob("/httpnoschema_to_http.conf");
         Assertions.assertEquals(0, execResult18.getExitCode());
+    }
+
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "Currently SPARK/FLINK do not support multiple table read")
+    @TestTemplate
+    public void testMultiTableHttp(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeJob("/fake_to_multitable.conf.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(2, getContentCounts(execResult.getStdout()));
+    }
+
+    private int getContentCounts(String content) {
+        int count = 0;
+        int index = -1;
+        while ((index = content.indexOf("httpMultiTableContentSink", index + 1)) != -1) {
+            count++;
+        }
+        return count;
     }
 
     public String getMockServerConfig() {
