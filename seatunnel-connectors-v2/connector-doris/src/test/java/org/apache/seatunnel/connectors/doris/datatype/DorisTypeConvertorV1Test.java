@@ -377,8 +377,14 @@ public class DorisTypeConvertorV1Test {
                         .dataType(BasicType.STRING_TYPE)
                         .columnLength(4294967295L)
                         .build();
-        BasicTypeDefine reconvert = DorisTypeConverterV1.INSTANCE.reconvert(column);
-        Assertions.assertEquals(AbstractDorisTypeConverter.DORIS_STRING, reconvert.getColumnType());
+        try {
+            DorisTypeConverterV1.INSTANCE.reconvert(column);
+            Assertions.fail();
+        } catch (SeaTunnelRuntimeException e) {
+            // ignore
+        } catch (Throwable e) {
+            Assertions.fail();
+        }
     }
 
     @Test
@@ -720,15 +726,8 @@ public class DorisTypeConvertorV1Test {
 
         BasicTypeDefine<MysqlType> typeDefine = DorisTypeConverterV1.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
-        Assertions.assertEquals(
-                String.format(
-                        "%s(%s)",
-                        DorisTypeConverterV1.DORIS_DATETIMEV2,
-                        AbstractDorisTypeConverter.MAX_DATETIME_SCALE),
-                typeDefine.getColumnType());
+        Assertions.assertEquals(DorisTypeConverterV1.DORIS_DATETIMEV2, typeDefine.getColumnType());
         Assertions.assertEquals(DorisTypeConverterV1.DORIS_DATETIMEV2, typeDefine.getDataType());
-        Assertions.assertEquals(
-                AbstractDorisTypeConverter.MAX_DATETIME_SCALE, typeDefine.getScale());
 
         column =
                 PhysicalColumn.builder()
@@ -744,25 +743,6 @@ public class DorisTypeConvertorV1Test {
                 typeDefine.getColumnType());
         Assertions.assertEquals(DorisTypeConverterV1.DORIS_DATETIMEV2, typeDefine.getDataType());
         Assertions.assertEquals(column.getScale(), typeDefine.getScale());
-
-        column =
-                PhysicalColumn.builder()
-                        .name("test")
-                        .dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE)
-                        .scale(10)
-                        .build();
-
-        typeDefine = DorisTypeConverterV1.INSTANCE.reconvert(column);
-        Assertions.assertEquals(column.getName(), typeDefine.getName());
-        Assertions.assertEquals(
-                String.format(
-                        "%s(%s)",
-                        DorisTypeConverterV1.DORIS_DATETIMEV2,
-                        AbstractDorisTypeConverter.MAX_DATETIME_SCALE),
-                typeDefine.getColumnType());
-        Assertions.assertEquals(DorisTypeConverterV1.DORIS_DATETIMEV2, typeDefine.getDataType());
-        Assertions.assertEquals(
-                AbstractDorisTypeConverter.MAX_DATETIME_SCALE, typeDefine.getScale());
     }
 
     @Test

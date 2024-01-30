@@ -34,6 +34,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.math.BigDecimal;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
@@ -46,7 +47,9 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
@@ -56,7 +59,7 @@ import java.util.stream.Collectors;
 public class DorisIT extends AbstractDorisIT {
     private static final String TABLE = "doris_e2e_table";
     private static final String ALL_TYPE_TABLE = "doris_all_type_table";
-    private static final String FAKESOURCE_ALL_TYPE_TABLE = "doris_all_type_table";
+    private static final String FAKESOURCE_ALL_TYPE_TABLE = "fake_all_type_table";
     private static final String DRIVER_JAR =
             "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
 
@@ -118,9 +121,20 @@ public class DorisIT extends AbstractDorisIT {
                     + "  F_DATE,\n"
                     + "  F_DATE_V2,\n"
                     + "  F_JSON,\n"
-                    + "  F_JSONB\n"
+                    + "  F_JSONB,\n"
+                    + "  F_ARRAY_BOOLEAN,\n"
+                    + "  F_ARRAY_BYTE,\n"
+                    + "  F_ARRAY_SHOT,\n"
+                    + "  F_ARRAY_INT,\n"
+                    + "  F_ARRAY_BIGINT,\n"
+                    + "  F_ARRAY_FLOAT,\n"
+                    + "  F_ARRAY_DOUBLE,\n"
+                    + "  F_ARRAY_STRING_CHAR,\n"
+                    + "  F_ARRAY_STRING_VARCHAR,\n"
+                    + "  F_ARRAY_STRING_LARGEINT,\n"
+                    + "  F_ARRAY_STRING_STRING\n"
                     + ")values(\n"
-                    + "\t?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?\n"
+                    + "\t?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?\n"
                     + ")";
 
     private final String COLUMN_STRING =
@@ -168,7 +182,7 @@ public class DorisIT extends AbstractDorisIT {
 
     private void checkAllTypeSinkData() {
         try {
-            assertHasData(sourceDB, TABLE);
+            assertHasData(sourceDB, ALL_TYPE_TABLE);
 
             try (PreparedStatement ps =
                     conn.prepareStatement(DorisCatalogUtil.TABLE_SCHEMA_QUERY)) {
@@ -178,17 +192,14 @@ public class DorisIT extends AbstractDorisIT {
                 while (resultSet.next()) {
                     String columnName = resultSet.getString("COLUMN_NAME");
                     String columnType = resultSet.getString("COLUMN_TYPE");
-                    Assertions.assertTrue(
-                            checkColumnTypeMap.get(columnName).equalsIgnoreCase(columnType));
-
-                    if ("F_ID".equalsIgnoreCase(columnName)) {
-                        Assertions.assertTrue(
-                                "UNI".equalsIgnoreCase(resultSet.getString("COLUMN_KEY")));
-                    }
+                    Assertions.assertEquals(
+                            checkColumnTypeMap.get(columnName).toUpperCase(Locale.ROOT),
+                            columnType.toUpperCase(Locale.ROOT));
                 }
             }
 
-            String sourceSql = String.format("select * from %s.%s order by F_ID ", sourceDB, TABLE);
+            String sourceSql =
+                    String.format("select * from %s.%s order by F_ID ", sourceDB, ALL_TYPE_TABLE);
             String sinkSql =
                     String.format("select * from %s.%s order by F_ID", sinkDB, ALL_TYPE_TABLE);
             List<String> columnList =
@@ -234,93 +245,97 @@ public class DorisIT extends AbstractDorisIT {
 
     private void checkFakeSourceAllTypeSinkData() {
         try {
-            Map<String, String> fakeTypeMap = new HashMap<>();
-            checkColumnTypeMap.put("c_bigint", "bigint(20)");
-            checkColumnTypeMap.put("c_array", "unknown");
-            checkColumnTypeMap.put("c_string", "string");
-            checkColumnTypeMap.put("c_boolean", "tinyint(1)");
-            checkColumnTypeMap.put("c_tinyint", "tinyint(4)");
-            checkColumnTypeMap.put("c_smallint", "smallint(6)");
-            checkColumnTypeMap.put("c_int", "int(11)");
-            checkColumnTypeMap.put("c_float", "float");
-            checkColumnTypeMap.put("c_double", "double");
-            checkColumnTypeMap.put("c_bytes", "string");
-            checkColumnTypeMap.put("c_date", "datev2");
-            checkColumnTypeMap.put("c_decimal", "decimalv3(20, 18)");
-            checkColumnTypeMap.put("c_timestamp", "datetimev2(0)");
-            checkColumnTypeMap.put("c_map", "json");
+            Map<String, String> fakeTypeMap = new LinkedHashMap<>();
+            fakeTypeMap.put("c_bigint", "bigint(20)");
+            fakeTypeMap.put("c_array", "ARRAY<INT(11)>");
+            fakeTypeMap.put("c_string", "string");
+            fakeTypeMap.put("c_boolean", "tinyint(1)");
+            fakeTypeMap.put("c_tinyint", "tinyint(4)");
+            fakeTypeMap.put("c_smallint", "smallint(6)");
+            fakeTypeMap.put("c_int", "int(11)");
+            fakeTypeMap.put("c_float", "float");
+            fakeTypeMap.put("c_double", "double");
+            fakeTypeMap.put("c_bytes", "string");
+            fakeTypeMap.put("c_date", "date");
+            fakeTypeMap.put("c_decimal", "decimalv3(10, 2)");
+            fakeTypeMap.put("c_timestamp", "datetime");
+            fakeTypeMap.put("c_map", "json");
             try (PreparedStatement ps =
                     conn.prepareStatement(DorisCatalogUtil.TABLE_SCHEMA_QUERY)) {
                 ps.setString(1, sinkDB);
-                ps.setString(2, ALL_TYPE_TABLE);
+                ps.setString(2, FAKESOURCE_ALL_TYPE_TABLE);
                 ResultSet resultSet = ps.executeQuery();
                 while (resultSet.next()) {
                     String columnName = resultSet.getString("COLUMN_NAME");
                     String columnType = resultSet.getString("COLUMN_TYPE");
-                    Assertions.assertTrue(fakeTypeMap.get(columnName).equalsIgnoreCase(columnType));
-
-                    if ("F_ID".equalsIgnoreCase(columnName)) {
-                        Assertions.assertTrue(
-                                "UNI".equalsIgnoreCase(resultSet.getString("COLUMN_KEY")));
-                    }
+                    Assertions.assertEquals(
+                            fakeTypeMap.get(columnName).toUpperCase(Locale.ROOT),
+                            columnType.toUpperCase(Locale.ROOT));
                 }
             }
 
+            BigDecimal bigDecimal = BigDecimal.valueOf(1091, 2);
             List<Map<String, Object>> fakeSourceTestData = new ArrayList<>();
-            Map<String, String> cMapData = new HashMap<>();
-            cMapData.put("1", "v");
             Map<String, Object> row1 = new HashMap<>();
             row1.put("c_bigint", 1L);
-            row1.put("c_array", new int[] {1, 2, 3});
+            row1.put("c_array", "[1, 2, 3]");
             row1.put("c_string", "1");
             row1.put("c_boolean", true);
             row1.put("c_tinyint", 1);
-            row1.put("c_smallint", 1);
+            row1.put("c_smallint", 2);
             row1.put("c_int", 1);
             row1.put("c_float", 1.0);
             row1.put("c_double", 1.0);
-            row1.put("c_bytes", "bWlJWmo=");
+            row1.put("c_bytes", null);
             row1.put("c_date", "2023-04-22");
-            row1.put("c_decimal", 10.91);
+            row1.put("c_decimal", bigDecimal.toString());
             row1.put("c_timestamp", "2023-04-22T23:20:58");
-            row1.put("c_map", cMapData);
+            row1.put("c_map", "{\"1\":\"v\"}");
 
             Map<String, Object> row2 = new HashMap<>();
             row2.put("c_bigint", 1L);
-            row2.put("c_array", new int[] {1, 2, 3});
+            row2.put("c_array", "[1, 2, 3]");
             row2.put("c_string", "1");
             row2.put("c_boolean", true);
             row2.put("c_tinyint", 1);
-            row2.put("c_smallint", 1);
+            row2.put("c_smallint", 2);
             row2.put("c_int", 1);
             row2.put("c_float", 1.0);
             row2.put("c_double", 1.0);
-            row2.put("c_bytes", "bWlJWmo=");
+            row2.put("c_bytes", null);
             row2.put("c_date", "2023-04-22");
-            row2.put("c_decimal", 10.91);
+            row2.put("c_decimal", bigDecimal.toString());
             row2.put("c_timestamp", "2023-04-22T23:20:58");
-            row2.put("c_map", cMapData);
+            row2.put("c_map", "{\"1\":\"v\"}");
 
             fakeSourceTestData.add(row1);
             fakeSourceTestData.add(row2);
 
             String sinkSql =
-                    String.format("select * from %s.%s order by c_bigint", sinkDB, ALL_TYPE_TABLE);
+                    String.format(
+                            "select * from %s.%s order by c_bigint",
+                            sinkDB, FAKESOURCE_ALL_TYPE_TABLE);
             List<String> columnList =
-                    Arrays.stream(COLUMN_STRING.split(","))
-                            .map(x -> x.trim())
-                            .collect(Collectors.toList());
+                    fakeTypeMap.keySet().stream().map(x -> x.trim()).collect(Collectors.toList());
             Statement sinkStatement =
                     conn.createStatement(
                             ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_READ_ONLY);
 
             ResultSet sinkResultSet = sinkStatement.executeQuery(sinkSql);
-            Assertions.assertEquals(
-                    fakeSourceTestData.size(), sinkResultSet.getMetaData().getColumnCount());
             for (Map<String, Object> row : fakeSourceTestData) {
                 if (sinkResultSet.next()) {
                     for (String column : columnList) {
                         Object source = row.get(column);
+                        if (column.equalsIgnoreCase("c_array")) {
+                            String value = sinkResultSet.getString(column);
+                            Assertions.assertEquals(source, value);
+                            continue;
+                        }
+                        if (column.equalsIgnoreCase("c_bytes")) {
+                            Object sink = sinkResultSet.getObject(column);
+                            Assertions.assertEquals(source, sink);
+                            continue;
+                        }
                         Object sink = sinkResultSet.getObject(column);
                         Assertions.assertEquals(source.toString(), sink.toString());
                     }
@@ -486,20 +501,31 @@ public class DorisIT extends AbstractDorisIT {
                         + "F_DATE date,\n"
                         + "F_DATE_V2 datev2,\n"
                         + "F_JSON json,\n"
-                        + "F_JSONB jsonb\n"
+                        + "F_JSONB jsonb,\n"
+                        + "F_ARRAY_BOOLEAN ARRAY<boolean>,\n"
+                        + "F_ARRAY_BYTE ARRAY<tinyint>,\n"
+                        + "F_ARRAY_SHOT ARRAY<smallint>,\n"
+                        + "F_ARRAY_INT ARRAY<int>,\n"
+                        + "F_ARRAY_BIGINT ARRAY<bigint>,\n"
+                        + "F_ARRAY_FLOAT ARRAY<float>,\n"
+                        + "F_ARRAY_DOUBLE ARRAY<double>,\n"
+                        + "F_ARRAY_STRING_CHAR ARRAY<char(10)>,\n"
+                        + "F_ARRAY_STRING_VARCHAR ARRAY<varchar(100)>,\n"
+                        + "F_ARRAY_STRING_LARGEINT ARRAY<largeint>,\n"
+                        + "F_ARRAY_STRING_STRING ARRAY<string>\n"
                         + ")\n"
-                        + "UNIQUE KEY(`F_ID`)\n"
+                        + "Duplicate KEY(`F_ID`)\n"
                         + "DISTRIBUTED BY HASH(`F_ID`) BUCKETS 1\n"
                         + "properties(\n"
                         + "\"replication_allocation\" = \"tag.location.default: 1\""
                         + ");";
         checkColumnTypeMap = new HashMap<>();
-        checkColumnTypeMap.put("F_ID", "bigint");
-        checkColumnTypeMap.put("F_INT", "int");
-        checkColumnTypeMap.put("F_BIGINT", "bigint");
+        checkColumnTypeMap.put("F_ID", "bigint(20)");
+        checkColumnTypeMap.put("F_INT", "int(11)");
+        checkColumnTypeMap.put("F_BIGINT", "bigint(20)");
         checkColumnTypeMap.put("F_TINYINT", "tinyint(4)");
         checkColumnTypeMap.put("F_SMALLINT", "smallint(6)");
-        checkColumnTypeMap.put("F_DECIMAL", "decimal(18,6)");
+        checkColumnTypeMap.put("F_DECIMAL", "decimalv3(18, 6)");
         checkColumnTypeMap.put("F_DECIMAL_V3", "decimalv3(28, 10)");
         checkColumnTypeMap.put("F_LARGEINT", "largeint");
         checkColumnTypeMap.put("F_BOOLEAN", "tinyint(1)");
@@ -508,13 +534,24 @@ public class DorisIT extends AbstractDorisIT {
         checkColumnTypeMap.put("F_CHAR", "char(1)");
         checkColumnTypeMap.put("F_VARCHAR_11", "varchar(11)");
         checkColumnTypeMap.put("F_STRING", "string");
-        checkColumnTypeMap.put("F_DATETIME_P", "datetimev2(6)");
-        checkColumnTypeMap.put("F_DATETIME_V2", "datetimev2(6)");
-        checkColumnTypeMap.put("F_DATETIME", "datetimev2(0)");
-        checkColumnTypeMap.put("F_DATE", "datev2");
-        checkColumnTypeMap.put("F_DATE_V2", "datev2");
+        checkColumnTypeMap.put("F_DATETIME_P", "datetime(6)");
+        checkColumnTypeMap.put("F_DATETIME_V2", "datetime(6)");
+        checkColumnTypeMap.put("F_DATETIME", "datetime");
+        checkColumnTypeMap.put("F_DATE", "date");
+        checkColumnTypeMap.put("F_DATE_V2", "date");
         checkColumnTypeMap.put("F_JSON", "json");
         checkColumnTypeMap.put("F_JSONB", "json");
+        checkColumnTypeMap.put("F_ARRAY_BOOLEAN", "ARRAY<tinyint(1)>");
+        checkColumnTypeMap.put("F_ARRAY_BYTE", "ARRAY<tinyint(4)>");
+        checkColumnTypeMap.put("F_ARRAY_SHOT", "ARRAY<smallint(6)>");
+        checkColumnTypeMap.put("F_ARRAY_INT", "ARRAY<int(11)>");
+        checkColumnTypeMap.put("F_ARRAY_BIGINT", "ARRAY<bigint(20)>");
+        checkColumnTypeMap.put("F_ARRAY_FLOAT", "ARRAY<float>");
+        checkColumnTypeMap.put("F_ARRAY_DOUBLE", "ARRAY<double>");
+        checkColumnTypeMap.put("F_ARRAY_STRING_CHAR", "ARRAY<string>");
+        checkColumnTypeMap.put("F_ARRAY_STRING_VARCHAR", "ARRAY<string>");
+        checkColumnTypeMap.put("F_ARRAY_STRING_LARGEINT", "ARRAY<string>");
+        checkColumnTypeMap.put("F_ARRAY_STRING_STRING", "ARRAY<string>");
 
         return String.format(createTableSql, db, ALL_TYPE_TABLE);
     }
@@ -591,6 +628,13 @@ public class DorisIT extends AbstractDorisIT {
     }
 
     private List<SeaTunnelRow> genDorisAllTypeTestData(Long nums) {
+        HashMap<String, String> stringStringHashMap = new HashMap<>();
+        stringStringHashMap.put("1", "1");
+        stringStringHashMap.put("2", "2");
+
+        HashMap<String, Integer> stringIntHashMap = new HashMap<>();
+        stringIntHashMap.put("1", 1);
+        stringIntHashMap.put("2", 2);
         List<SeaTunnelRow> datas = new ArrayList<>();
         for (int i = 0; i < nums; i++) {
             datas.add(
@@ -616,7 +660,18 @@ public class DorisIT extends AbstractDorisIT {
                                 GenerateTestData.genDateString(),
                                 GenerateTestData.genDateString(),
                                 GenerateTestData.genJsonString(),
-                                GenerateTestData.genJsonString()
+                                GenerateTestData.genJsonString(),
+                                (new boolean[] {true, true, false}).toString(),
+                                (new int[] {1, 2, 3}).toString(),
+                                (new int[] {1, 2, 3}).toString(),
+                                (new int[] {1, 2, 3}).toString(),
+                                (new long[] {1L, 2L, 3L}).toString(),
+                                (new float[] {1.0F, 1.0F, 1.0F}).toString(),
+                                (new double[] {1.0, 1.0, 1.0}).toString(),
+                                (new String[] {"1", "1"}).toString(),
+                                (new String[] {"1", "1"}).toString(),
+                                (new String[] {"1", "1"}).toString(),
+                                (new String[] {"1", "1"}).toString()
                             }));
         }
         log.info("generate test data succeed");
