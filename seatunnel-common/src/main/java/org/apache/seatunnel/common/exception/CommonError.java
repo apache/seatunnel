@@ -38,6 +38,7 @@ import static org.apache.seatunnel.common.exception.CommonErrorCode.GET_CATALOG_
 import static org.apache.seatunnel.common.exception.CommonErrorCode.JSON_OPERATION_FAILED;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.SQL_TEMPLATE_HANDLED_ERROR;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.UNSUPPORTED_DATA_TYPE;
+import static org.apache.seatunnel.common.exception.CommonErrorCode.VERSION_NOT_SUPPORTED;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.UNSUPPORTED_ENCODING;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.VERSION_NOT_SUPPORTED;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.WRITE_SEATUNNEL_ROW_ERROR;
@@ -95,6 +96,13 @@ public class CommonError {
         params.put("dataType", dataType);
         params.put("field", field);
         return new SeaTunnelRuntimeException(UNSUPPORTED_DATA_TYPE, params);
+    }
+
+    public static SeaTunnelRuntimeException unsupportedVersion(String identifier, String version) {
+        Map<String, String> params = new HashMap<>();
+        params.put("identifier", identifier);
+        params.put("version", version);
+        return new SeaTunnelRuntimeException(VERSION_NOT_SUPPORTED, params);
     }
 
     public static SeaTunnelRuntimeException unsupportedEncoding(String encoding) {
