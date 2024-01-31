@@ -22,6 +22,8 @@ import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorE
 import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorException;
 
 import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.clients.producer.internals.TransactionManager;
 import org.apache.kafka.common.errors.ProducerFencedException;
 
@@ -32,6 +34,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.concurrent.Future;
 
 /** A {@link KafkaProducer} that allow resume transaction from transactionId */
 @Slf4j
@@ -55,21 +58,43 @@ public class KafkaInternalProducer<K, V> extends KafkaProducer<K, V> {
 
     @Override
     public void beginTransaction() throws ProducerFencedException {
+        if (log.isDebugEnabled()) {
+            log.debug("KafkaInternalProducer.beginTransaction. " + this.transactionalId);
+        }
         super.beginTransaction();
     }
 
     @Override
     public void commitTransaction() throws ProducerFencedException {
+        if (log.isDebugEnabled()) {
+            log.debug("KafkaInternalProducer.commitTransaction." + this.transactionalId);
+        }
         super.commitTransaction();
     }
 
     @Override
     public void abortTransaction() throws ProducerFencedException {
+        if (log.isDebugEnabled()) {
+            log.debug("KafkaInternalProducer.abortTransaction." + this.transactionalId);
+        }
+
         super.abortTransaction();
     }
 
     public void setTransactionalId(String transactionalId) {
+        if (log.isDebugEnabled()) {
+            log.debug(
+                    "KafkaInternalProducer.abortTransaction. Target transactionalId="
+                            + transactionalId);
+        }
+
         if (!transactionalId.equals(this.transactionalId)) {
+            if (log.isDebugEnabled()) {
+                log.debug(
+                        "KafkaInternalProducer.abortTransaction. Current transactionalId={} not match target transactionalId={}",
+                        this.transactionalId,
+                        transactionalId);
+            }
             Object transactionManager = getTransactionManager();
             synchronized (transactionManager) {
                 ReflectionUtils.setField(transactionManager, "transactionalId", transactionalId);
@@ -80,6 +105,14 @@ public class KafkaInternalProducer<K, V> extends KafkaProducer<K, V> {
                 this.transactionalId = transactionalId;
             }
         }
+    }
+
+    @Override
+    public Future<RecordMetadata> send(ProducerRecord<K, V> record) {
+        if (log.isDebugEnabled()) {
+            log.debug("KafkaInternalProducer.send. " + transactionalId);
+        }
+        return super.send(record);
     }
 
     public short getEpoch() {
@@ -97,7 +130,7 @@ public class KafkaInternalProducer<K, V> extends KafkaProducer<K, V> {
         return (long) ReflectionUtils.getField(producerIdAndEpoch, "producerId").get();
     }
 
-    public void resumeTransaction(long producerId, short epoch) {
+    public void resumeTransaction(long producerId, short epoch, boolean txnStarted) {
 
         log.info(
                 "Attempting to resume transaction {} with producerId {} and epoch {}",
@@ -125,7 +158,7 @@ public class KafkaInternalProducer<K, V> extends KafkaProducer<K, V> {
             transitionTransactionManagerStateTo(transactionManager, "READY");
 
             transitionTransactionManagerStateTo(transactionManager, "IN_TRANSACTION");
-            ReflectionUtils.setField(transactionManager, "transactionStarted", true);
+            ReflectionUtils.setField(transactionManager, "transactionStarted", txnStarted);
         }
     }
 
@@ -158,6 +191,11 @@ public class KafkaInternalProducer<K, V> extends KafkaProducer<K, V> {
                     "Can't get transactionManager in KafkaProducer");
         }
         return transactionManagerOptional.get();
+    }
+
+    public boolean isTxnStarted() {
+        Object transactionManager = getTransactionManager();
+        return (boolean) ReflectionUtils.getField(transactionManager, "transactionStarted").get();
     }
 
     private static void transitionTransactionManagerStateTo(

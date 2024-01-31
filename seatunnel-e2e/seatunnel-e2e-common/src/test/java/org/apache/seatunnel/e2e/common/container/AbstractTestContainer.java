@@ -95,6 +95,12 @@ public abstract class AbstractTestContainer implements TestContainer {
 
     protected Container.ExecResult executeJob(GenericContainer<?> container, String confFile)
             throws IOException, InterruptedException {
+        return executeJob(container, confFile, -1);
+    }
+
+    protected Container.ExecResult executeJob(
+            GenericContainer<?> container, String confFile, float timeoutSeconds)
+            throws IOException, InterruptedException {
         final String confInContainerPath = copyConfigFileToContainer(container, confFile);
         // copy connectors
         copyConnectorJarToContainer(
@@ -105,6 +111,10 @@ public abstract class AbstractTestContainer implements TestContainer {
                 getConnectorType(),
                 SEATUNNEL_HOME);
         final List<String> command = new ArrayList<>();
+        if (timeoutSeconds > 0) {
+            command.add("timeout");
+            command.add("" + timeoutSeconds);
+        }
         String binPath = Paths.get(SEATUNNEL_HOME, "bin", getStartShellName()).toString();
         // base command
         command.add(adaptPathForWin(binPath));

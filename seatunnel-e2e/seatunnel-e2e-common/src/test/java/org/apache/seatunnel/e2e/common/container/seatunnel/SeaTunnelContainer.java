@@ -149,10 +149,10 @@ public class SeaTunnelContainer extends AbstractTestContainer {
     }
 
     @Override
-    public Container.ExecResult executeJob(String confFile)
+    public Container.ExecResult executeJob(String confFile, float timeoutSeconds)
             throws IOException, InterruptedException {
         log.info("test in container: {}", identifier());
-        return executeJob(server, confFile);
+        return executeJob(server, confFile, timeoutSeconds);
     }
 
     @Override

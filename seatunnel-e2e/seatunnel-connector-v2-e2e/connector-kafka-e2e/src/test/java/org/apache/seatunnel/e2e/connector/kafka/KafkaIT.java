@@ -47,6 +47,7 @@ import org.apache.kafka.clients.consumer.OffsetResetStrategy;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.IsolationLevel;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
@@ -78,7 +79,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
 @Slf4j
@@ -86,7 +90,8 @@ import java.util.stream.Stream;
         value = {},
         disabledReason = "Override TestSuiteBase @DisabledOnContainer")
 public class KafkaIT extends TestSuiteBase implements TestResource {
-    private static final String KAFKA_IMAGE_NAME = "confluentinc/cp-kafka:7.0.9";
+
+    private static final String KAFKA_IMAGE_NAME = "confluentinc/cp-kafka:7.3.3";
 
     private static final String KAFKA_HOST = "kafkaCluster";
 
@@ -151,6 +156,15 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         Assertions.assertTrue(objectNode.has("c_map"));
         Assertions.assertTrue(objectNode.has("c_string"));
         Assertions.assertEquals(10, data.size());
+    }
+
+    @TestTemplate
+    public void testSinkKafkaExactlyOnce(TestContainer container)
+            throws IOException, InterruptedException, ExecutionException, TimeoutException {
+        container.executeJob("/kafka/kafkasink_fake_to_kafka_exactly_once.conf", 60);
+        String topicName = "test01";
+        Map<String, String> data = getKafkaConsumerData(topicName, r -> String.valueOf(r.offset()));
+        Assertions.assertEquals(4, data.size());
     }
 
     @TestTemplate
@@ -510,6 +524,9 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 ConsumerConfig.AUTO_OFFSET_RESET_CONFIG,
                 OffsetResetStrategy.EARLIEST.toString().toLowerCase());
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        props.put(
+                ConsumerConfig.ISOLATION_LEVEL_CONFIG,
+                IsolationLevel.READ_COMMITTED.name().toLowerCase());
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         return props;
     }
@@ -594,6 +611,11 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                     });
 
     private Map<String, String> getKafkaConsumerData(String topicName) {
+        return getKafkaConsumerData(topicName, ConsumerRecord::key);
+    }
+
+    private Map<String, String> getKafkaConsumerData(
+            String topicName, Function<ConsumerRecord<String, String>, String> keyProvider) {
         Map<String, String> data = new HashMap<>();
         try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(kafkaConsumerConfig())) {
             consumer.subscribe(Arrays.asList(topicName));
@@ -606,7 +628,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
                 for (ConsumerRecord<String, String> record : records) {
                     if (lastProcessedOffset < record.offset()) {
-                        data.put(record.key(), record.value());
+                        data.put(keyProvider.apply(record), record.value());
                     }
                     lastProcessedOffset = record.offset();
                 }

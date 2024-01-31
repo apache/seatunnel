@@ -29,6 +29,8 @@ import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaAggregatedComm
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSinkState;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -37,6 +39,7 @@ import java.util.Optional;
  * Kafka Sink implementation by using SeaTunnel sink API. This class contains the method to create
  * {@link KafkaSinkWriter} and {@link KafkaSinkCommitter}.
  */
+@Slf4j
 public class KafkaSink
         implements SeaTunnelSink<
                 SeaTunnelRow, KafkaSinkState, KafkaCommitInfo, KafkaAggregatedCommitInfo> {
@@ -52,6 +55,9 @@ public class KafkaSink
     @Override
     public SinkWriter<SeaTunnelRow, KafkaCommitInfo, KafkaSinkState> createWriter(
             SinkWriter.Context context) {
+        if (log.isDebugEnabled()) {
+            log.debug("KafkaSink.createWriter");
+        }
         return new KafkaSinkWriter(
                 context, seaTunnelRowType, pluginConfig, Collections.emptyList());
     }
@@ -59,6 +65,9 @@ public class KafkaSink
     @Override
     public SinkWriter<SeaTunnelRow, KafkaCommitInfo, KafkaSinkState> restoreWriter(
             SinkWriter.Context context, List<KafkaSinkState> states) {
+        if (log.isDebugEnabled()) {
+            log.debug("KafkaSink.restoreWriter");
+        }
         return new KafkaSinkWriter(context, seaTunnelRowType, pluginConfig, states);
     }
 

@@ -147,10 +147,10 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
     }
 
     @Override
-    public Container.ExecResult executeJob(String confFile)
+    public Container.ExecResult executeJob(String confFile, float timeoutSeconds)
             throws IOException, InterruptedException {
         log.info("test in container: {}", identifier());
-        return executeJob(jobManager, confFile);
+        return executeJob(jobManager, confFile, timeoutSeconds);
     }
 
     @Override
