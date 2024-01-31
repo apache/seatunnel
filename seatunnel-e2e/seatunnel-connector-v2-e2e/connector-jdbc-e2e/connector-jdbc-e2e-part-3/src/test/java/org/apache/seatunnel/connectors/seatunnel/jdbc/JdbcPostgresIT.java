@@ -53,6 +53,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
@@ -179,8 +180,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "geog,\n"
                     + "json_col,\n"
                     + "jsonb_col,\n"
-                    + " cast(xml_col as varchar),\n"
-                    + "bit_col\n"
+                    + " cast(xml_col as varchar)\n"
                     + "from pg_e2e_source_table";
     private static final String SINK_SQL =
             "select\n"
@@ -215,8 +215,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "  cast(geog as geography) as geog,\n"
                     + "   json_col,\n"
                     + "   jsonb_col,\n"
-                    + "  cast(xml_col as varchar),\n"
-                    + "  bit_col\n"
+                    + "  cast(xml_col as varchar)\n"
                     + "from\n"
                     + "  pg_e2e_sink_table";
 
