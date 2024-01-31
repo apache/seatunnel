@@ -17,6 +17,11 @@
 
 package org.apache.seatunnel.api.table.catalog;
 
+import org.apache.seatunnel.api.table.type.ArrayType;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.MapType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
 import org.junit.jupiter.api.Assertions;
@@ -66,13 +71,99 @@ public class SeaTunnelDataTypeConvertorUtilTest {
                 "ErrorCode:[COMMON-07], ErrorDescription:['SeaTunnel' unsupported data type 'uuid' of 'test']",
                 exception4.getMessage());
 
-        RuntimeException exception5 =
+        IllegalArgumentException exception5 =
                 Assertions.assertThrows(
-                        RuntimeException.class,
+                        IllegalArgumentException.class,
                         () ->
                                 SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
                                         "test", "{uuid}"));
-        Assertions.assertEquals(
-                "String json deserialization exception.{uuid}", exception5.getMessage());
+        String expectedMsg5 =
+                String.format("HOCON Config parse from %s failed.", "{conf = {uuid}}");
+        Assertions.assertEquals(expectedMsg5, exception5.getMessage());
+
+        String invalidTypeDeclaration = "[e]";
+        IllegalArgumentException exception6 =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                                        "test",
+                                        String.format("{c_0 = %s}", invalidTypeDeclaration)));
+        String expectedMsg6 =
+                String.format(
+                        "Unsupported parse SeaTunnel Type from '%s'.", invalidTypeDeclaration);
+        Assertions.assertEquals(expectedMsg6, exception6.getMessage());
+    }
+
+    @Test
+    public void testCompatibleTypeDeclare() {
+        SeaTunnelDataType<?> longType =
+                SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType("c_long", "long");
+        Assertions.assertEquals(BasicType.LONG_TYPE, longType);
+
+        SeaTunnelDataType<?> shortType =
+                SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType("c_short", "short");
+        Assertions.assertEquals(BasicType.SHORT_TYPE, shortType);
+
+        SeaTunnelDataType<?> byteType =
+                SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType("c_byte", "byte");
+        Assertions.assertEquals(BasicType.BYTE_TYPE, byteType);
+
+        ArrayType<?, ?> longArrayType =
+                (ArrayType<?, ?>)
+                        SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                                "c_long_array", "array<long>");
+        Assertions.assertEquals(ArrayType.LONG_ARRAY_TYPE, longArrayType);
+
+        ArrayType<?, ?> shortArrayType =
+                (ArrayType<?, ?>)
+                        SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                                "c_short_array", "array<short>");
+        Assertions.assertEquals(ArrayType.SHORT_ARRAY_TYPE, shortArrayType);
+
+        ArrayType<?, ?> byteArrayType =
+                (ArrayType<?, ?>)
+                        SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                                "c_byte_array", "array<byte>");
+        Assertions.assertEquals(ArrayType.BYTE_ARRAY_TYPE, byteArrayType);
+
+        MapType<?, ?> longMapType =
+                (MapType<?, ?>)
+                        SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                                "c_long_map", "map<long, long>");
+        Assertions.assertEquals(BasicType.LONG_TYPE, longMapType.getKeyType());
+        Assertions.assertEquals(BasicType.LONG_TYPE, longMapType.getValueType());
+
+        MapType<?, ?> shortMapType =
+                (MapType<?, ?>)
+                        SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                                "c_short_map", "map<short, short>");
+        Assertions.assertEquals(BasicType.SHORT_TYPE, shortMapType.getKeyType());
+        Assertions.assertEquals(BasicType.SHORT_TYPE, shortMapType.getValueType());
+
+        MapType<?, ?> byteMapType =
+                (MapType<?, ?>)
+                        SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                                "c_byte_map", "map<byte, byte>");
+        Assertions.assertEquals(BasicType.BYTE_TYPE, byteMapType.getKeyType());
+        Assertions.assertEquals(BasicType.BYTE_TYPE, byteMapType.getValueType());
+
+        SeaTunnelRowType longRow =
+                (SeaTunnelRowType)
+                        SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                                "c_long_row", "{c = long}");
+        Assertions.assertEquals(BasicType.LONG_TYPE, longRow.getFieldType(0));
+
+        SeaTunnelRowType shortRow =
+                (SeaTunnelRowType)
+                        SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                                "c_short_row", "{c = short}");
+        Assertions.assertEquals(BasicType.SHORT_TYPE, shortRow.getFieldType(0));
+
+        SeaTunnelRowType byteRow =
+                (SeaTunnelRowType)
+                        SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                                "c_byte_row", "{c = byte}");
+        Assertions.assertEquals(BasicType.BYTE_TYPE, byteRow.getFieldType(0));
     }
 }

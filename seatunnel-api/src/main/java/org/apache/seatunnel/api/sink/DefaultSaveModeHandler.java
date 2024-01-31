@@ -136,6 +136,9 @@ public class DefaultSaveModeHandler implements SaveModeHandler {
     }
 
     protected void createTable() {
+        if (!catalog.databaseExists(tablePath.getDatabaseName())) {
+            catalog.createDatabase(TablePath.of(tablePath.getDatabaseName(), ""), true);
+        }
         catalog.createTable(tablePath, catalogTable, true);
     }
 

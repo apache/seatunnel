@@ -17,7 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.utils;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
+import org.apache.seatunnel.connectors.cdc.base.utils.CatalogTableUtils;
 
 import io.debezium.connector.sqlserver.SqlServerConnection;
 import io.debezium.connector.sqlserver.SqlServerConnectorConfig;
@@ -38,10 +40,13 @@ public class SqlServerSchema {
 
     private final SqlServerConnectorConfig connectorConfig;
     private final Map<TableId, TableChange> schemasByTableId;
+    private final Map<TableId, CatalogTable> tableMap;
 
-    public SqlServerSchema(SqlServerConnectorConfig connectorConfig) {
+    public SqlServerSchema(
+            SqlServerConnectorConfig connectorConfig, Map<TableId, CatalogTable> tableMap) {
         this.schemasByTableId = new ConcurrentHashMap<>();
         this.connectorConfig = connectorConfig;
+        this.tableMap = tableMap;
     }
 
     public TableChange getTableSchema(JdbcConnection jdbc, TableId tableId) {
@@ -67,7 +72,9 @@ public class SqlServerSchema {
                     connectorConfig.getTableFilters().dataCollectionFilter(),
                     null,
                     false);
-            Table table = tables.forTable(tableId);
+            Table table =
+                    CatalogTableUtils.mergeCatalogTableConfig(
+                            tables.forTable(tableId), tableMap.get(tableId));
             TableChange tableChange = new TableChange(TableChanges.TableChangeType.CREATE, table);
             tableChangeMap.put(tableId, tableChange);
         } catch (SQLException e) {

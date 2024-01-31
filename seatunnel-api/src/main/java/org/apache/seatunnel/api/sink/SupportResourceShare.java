@@ -17,15 +17,13 @@
 
 package org.apache.seatunnel.api.sink;
 
-import java.util.Optional;
-
 public interface SupportResourceShare<T> {
 
-    default Optional<MultiTableResourceManager<T>> initMultiTableResourceManager(
+    default MultiTableResourceManager<T> initMultiTableResourceManager(
             int tableSize, int queueSize) {
-        return Optional.empty();
+        return null;
     }
 
     default void setMultiTableResourceManager(
-            Optional<MultiTableResourceManager<T>> multiTableResourceManager, int queueIndex) {}
+            MultiTableResourceManager<T> multiTableResourceManager, int queueIndex) {}
 }

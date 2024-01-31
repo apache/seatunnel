@@ -39,7 +39,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 
-public class SeaTunnelClient implements SeaTunnelClientInstance {
+public class SeaTunnelClient implements SeaTunnelClientInstance, AutoCloseable {
     private final SeaTunnelHazelcastClient hazelcastClient;
     @Getter private final JobClient jobClient;
 
@@ -85,10 +85,6 @@ public class SeaTunnelClient implements SeaTunnelClientInstance {
         return hazelcastClient.requestOnMasterAndDecodeResponse(
                 SeaTunnelPrintMessageCodec.encodeRequest(msg),
                 SeaTunnelPrintMessageCodec::decodeResponse);
-    }
-
-    public void shutdown() {
-        hazelcastClient.shutdown();
     }
 
     /**

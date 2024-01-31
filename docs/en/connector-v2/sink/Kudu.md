@@ -12,14 +12,14 @@
 > Flink<br/>
 > SeaTunnel Zeta<br/>
 
-## Key features
+## Key Features
 
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
 - [x] [cdc](../../concept/connector-v2-features.md)
 
 ## Data Type Mapping
 
-| SeaTunnel Data type |      kudu Data type      |
+| SeaTunnel Data Type |      Kudu Data Type      |
 |---------------------|--------------------------|
 | BOOLEAN             | BOOL                     |
 | INT                 | INT8<br/>INT16<br/>INT32 |
@@ -61,7 +61,7 @@
 ```hocon
 
 env {
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "BATCH"
 }
     source {
@@ -128,7 +128,7 @@ sink {
 ```hocon
 env {
   # You can set engine configuration here
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "BATCH"
 }
 

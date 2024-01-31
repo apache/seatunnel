@@ -138,7 +138,7 @@ public class ClusterFaultToleranceIT {
             log.warn("========================clean test resource====================");
         } finally {
             if (engineClient != null) {
-                engineClient.shutdown();
+                engineClient.close();
             }
 
             if (node1 != null) {
@@ -271,7 +271,7 @@ public class ClusterFaultToleranceIT {
 
         } finally {
             if (engineClient != null) {
-                engineClient.shutdown();
+                engineClient.close();
             }
 
             if (node1 != null) {
@@ -370,7 +370,7 @@ public class ClusterFaultToleranceIT {
 
         } finally {
             if (engineClient != null) {
-                engineClient.shutdown();
+                engineClient.close();
             }
 
             if (node1 != null) {
@@ -488,7 +488,7 @@ public class ClusterFaultToleranceIT {
 
         } finally {
             if (engineClient != null) {
-                engineClient.shutdown();
+                engineClient.close();
             }
 
             if (node1 != null) {
@@ -590,7 +590,7 @@ public class ClusterFaultToleranceIT {
 
         } finally {
             if (engineClient != null) {
-                engineClient.shutdown();
+                engineClient.close();
             }
 
             if (node1 != null) {
@@ -709,7 +709,7 @@ public class ClusterFaultToleranceIT {
 
         } finally {
             if (engineClient != null) {
-                engineClient.shutdown();
+                engineClient.close();
             }
 
             if (node1 != null) {
@@ -916,7 +916,7 @@ public class ClusterFaultToleranceIT {
             log.warn(
                     "==========================================Clean test resource ========================================");
             if (engineClient != null) {
-                engineClient.shutdown();
+                engineClient.close();
             }
 
             if (node1 != null) {
@@ -1134,7 +1134,7 @@ public class ClusterFaultToleranceIT {
             log.info(
                     "==========================================Clean test resource ========================================");
             if (engineClient != null) {
-                engineClient.shutdown();
+                engineClient.close();
             }
 
             if (node1 != null) {

@@ -55,7 +55,7 @@ import java.util.stream.Collectors;
 @Slf4j
 public class JdbcMysqlSaveModeHandlerIT extends AbstractJdbcIT {
 
-    private static final String MYSQL_IMAGE = "mysql:latest";
+    private static final String MYSQL_IMAGE = "mysql:8.0";
     private static final String MYSQL_CONTAINER_HOST = "mysql-e2e-2";
     private static final String MYSQL_DATABASE = "seatunnel";
     private static final String MYSQL_SOURCE = "source";

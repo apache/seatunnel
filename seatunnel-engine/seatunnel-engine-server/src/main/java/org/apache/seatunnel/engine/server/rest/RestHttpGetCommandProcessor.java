@@ -34,14 +34,13 @@ import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.log.Log4j2HttpGetCommandProcessor;
 import org.apache.seatunnel.engine.server.master.JobHistoryService.JobState;
 import org.apache.seatunnel.engine.server.operation.GetClusterHealthMetricsOperation;
+import org.apache.seatunnel.engine.server.operation.GetJobMetricsOperation;
+import org.apache.seatunnel.engine.server.operation.GetJobStatusOperation;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import com.hazelcast.cluster.Address;
 import com.hazelcast.cluster.Cluster;
 import com.hazelcast.cluster.Member;
-import com.hazelcast.core.Hazelcast;
-import com.hazelcast.core.HazelcastInstance;
-import com.hazelcast.instance.impl.HazelcastInstanceProxy;
 import com.hazelcast.internal.ascii.TextCommandService;
 import com.hazelcast.internal.ascii.rest.HttpCommandProcessor;
 import com.hazelcast.internal.ascii.rest.HttpGetCommand;
@@ -179,8 +178,14 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
     private void handleFinishedJobsInfo(HttpGetCommand command, String uri) {
 
         uri = StringUtil.stripTrailingSlash(uri);
+
         int indexEnd = uri.indexOf('/', URI_MAPS.length());
-        String state = uri.substring(indexEnd + 1);
+        String state;
+        if (indexEnd == -1) {
+            state = "";
+        } else {
+            state = uri.substring(indexEnd + 1);
+        }
 
         IMap<Long, JobState> finishedJob =
                 this.textCommandService
@@ -218,11 +223,24 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                         .map(
                                 jobState -> {
                                     Long jobId = jobState.getJobId();
-                                    String jobMetrics =
-                                            getSeaTunnelServer()
-                                                    .getCoordinatorService()
-                                                    .getJobMetrics(jobId)
-                                                    .toJsonString();
+                                    SeaTunnelServer seaTunnelServer = getSeaTunnelServer();
+                                    String jobMetrics;
+                                    if (seaTunnelServer == null) {
+                                        jobMetrics =
+                                                (String)
+                                                        NodeEngineUtil.sendOperationToMasterNode(
+                                                                        getNode().nodeEngine,
+                                                                        new GetJobMetricsOperation(
+                                                                                jobId))
+                                                                .join();
+                                    } else {
+                                        jobMetrics =
+                                                seaTunnelServer
+                                                        .getCoordinatorService()
+                                                        .getJobMetrics(jobId)
+                                                        .toJsonString();
+                                    }
+
                                     JobDAGInfo jobDAGInfo = finishedJobDAGInfo.get(jobId);
 
                                     return convertToJson(
@@ -287,20 +305,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         SeaTunnelServer seaTunnelServer =
                 (SeaTunnelServer) extensionServices.get(Constant.SEATUNNEL_SERVICE_NAME);
         if (!seaTunnelServer.isMasterNode()) {
-            for (HazelcastInstance hazelcastInstance : Hazelcast.getAllHazelcastInstances()) {
-                SeaTunnelServer seaTunnelServer1 =
-                        (SeaTunnelServer)
-                                ((HazelcastInstanceProxy) hazelcastInstance)
-                                        .getOriginal()
-                                        .node
-                                        .getNodeExtension()
-                                        .createExtensionServices()
-                                        .get(Constant.SEATUNNEL_SERVICE_NAME);
-
-                if (seaTunnelServer1.isMasterNode()) {
-                    return seaTunnelServer1;
-                }
-            }
+            return null;
         }
         return seaTunnelServer;
     }
@@ -328,9 +333,27 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                         classLoader,
                         jobImmutableInformation.getLogicalDag());
 
-        String jobMetrics =
-                getSeaTunnelServer().getCoordinatorService().getJobMetrics(jobId).toJsonString();
-        JobStatus jobStatus = getSeaTunnelServer().getCoordinatorService().getJobStatus(jobId);
+        SeaTunnelServer seaTunnelServer = getSeaTunnelServer();
+        String jobMetrics;
+        JobStatus jobStatus;
+        if (seaTunnelServer == null) {
+            jobMetrics =
+                    (String)
+                            NodeEngineUtil.sendOperationToMasterNode(
+                                            getNode().nodeEngine, new GetJobMetricsOperation(jobId))
+                                    .join();
+            jobStatus =
+                    JobStatus.values()[
+                            (int)
+                                    NodeEngineUtil.sendOperationToMasterNode(
+                                                    getNode().nodeEngine,
+                                                    new GetJobStatusOperation(jobId))
+                                            .join()];
+        } else {
+            jobMetrics =
+                    seaTunnelServer.getCoordinatorService().getJobMetrics(jobId).toJsonString();
+            jobStatus = seaTunnelServer.getCoordinatorService().getJobStatus(jobId);
+        }
 
         jobInfoJson
                 .add(RestConstant.JOB_ID, String.valueOf(jobId))

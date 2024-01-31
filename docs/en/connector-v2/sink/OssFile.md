@@ -39,7 +39,7 @@ If write to `csv`, `text` file type, All column will be string.
 
 ### Orc File Type
 
-| SeaTunnel Data type  |     Orc Data type     |
+| SeaTunnel Data Type  |     Orc Data Type     |
 |----------------------|-----------------------|
 | STRING               | STRING                |
 | BOOLEAN              | BOOLEAN               |
@@ -61,7 +61,7 @@ If write to `csv`, `text` file type, All column will be string.
 
 ### Parquet File Type
 
-| SeaTunnel Data type  |   Parquet Data type   |
+| SeaTunnel Data Type  |   Parquet Data Type   |
 |----------------------|-----------------------|
 | STRING               | STRING                |
 | BOOLEAN              | BOOLEAN               |
@@ -83,7 +83,7 @@ If write to `csv`, `text` file type, All column will be string.
 
 ## Options
 
-|               name               |  type   | required |               default value                |                                                      remarks                                                      |
+|               Name               |  Type   | Required |                  Default                   |                                                    Description                                                    |
 |----------------------------------|---------|----------|--------------------------------------------|-------------------------------------------------------------------------------------------------------------------|
 | path                             | string  | yes      | The oss path to write file in.             |                                                                                                                   |
 | tmp_path                         | string  | no       | /tmp/seatunnel                             | The result file will write to a tmp path first and then use `mv` to submit tmp dir to target dir. Need a OSS dir. |
@@ -249,7 +249,7 @@ For text file format with `have_partition` and `custom_filename` and `sink_colum
 ```bash
 # Set the basic configuration of the task to be performed
 env {
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "BATCH"
 }
 
@@ -294,7 +294,7 @@ For parquet file format with `have_partition` and `sink_columns`
 ```bash
 # Set the basic configuration of the task to be performed
 env {
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "BATCH"
 }
 
@@ -333,7 +333,7 @@ For orc file format simple config
 ```bash
 # Set the basic configuration of the task to be performed
 env {
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "BATCH"
 }
 
@@ -360,6 +360,123 @@ sink {
     file_format_type = "orc"
   }
 }
+```
+
+### Multiple Table
+
+For extract source metadata from upstream, you can use `${database_name}`, `${table_name}` and `${schema_name}` in the path.
+
+```bash
+
+env {
+  parallelism = 1
+  spark.app.name = "SeaTunnel"
+  spark.executor.instances = 2
+  spark.executor.cores = 1
+  spark.executor.memory = "1g"
+  spark.master = local
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    tables_configs = [
+       {
+        schema = {
+          table = "fake1"
+          fields {
+            c_map = "map<string, string>"
+            c_array = "array<int>"
+            c_string = string
+            c_boolean = boolean
+            c_tinyint = tinyint
+            c_smallint = smallint
+            c_int = int
+            c_bigint = bigint
+            c_float = float
+            c_double = double
+            c_bytes = bytes
+            c_date = date
+            c_decimal = "decimal(38, 18)"
+            c_timestamp = timestamp
+            c_row = {
+              c_map = "map<string, string>"
+              c_array = "array<int>"
+              c_string = string
+              c_boolean = boolean
+              c_tinyint = tinyint
+              c_smallint = smallint
+              c_int = int
+              c_bigint = bigint
+              c_float = float
+              c_double = double
+              c_bytes = bytes
+              c_date = date
+              c_decimal = "decimal(38, 18)"
+              c_timestamp = timestamp
+            }
+          }
+        }
+       },
+       {
+       schema = {
+         table = "fake2"
+         fields {
+           c_map = "map<string, string>"
+           c_array = "array<int>"
+           c_string = string
+           c_boolean = boolean
+           c_tinyint = tinyint
+           c_smallint = smallint
+           c_int = int
+           c_bigint = bigint
+           c_float = float
+           c_double = double
+           c_bytes = bytes
+           c_date = date
+           c_decimal = "decimal(38, 18)"
+           c_timestamp = timestamp
+           c_row = {
+             c_map = "map<string, string>"
+             c_array = "array<int>"
+             c_string = string
+             c_boolean = boolean
+             c_tinyint = tinyint
+             c_smallint = smallint
+             c_int = int
+             c_bigint = bigint
+             c_float = float
+             c_double = double
+             c_bytes = bytes
+             c_date = date
+             c_decimal = "decimal(38, 18)"
+             c_timestamp = timestamp
+           }
+         }
+       }
+      }
+    ]
+  }
+}
+
+sink {
+  OssFile {
+    bucket = "oss://whale-ops"
+    access_key = "xxxxxxxxxxxxxxxxxxx"
+    access_secret = "xxxxxxxxxxxxxxxxxxx"
+    endpoint = "https://oss-accelerate.aliyuncs.com"
+    path = "/tmp/fake_empty/text/${table_name}"
+    row_delimiter = "\n"
+    partition_dir_expression = "${k0}=${v0}"
+    is_partition_field_write_in_file = true
+    file_name_expression = "${transactionId}_${now}"
+    file_format_type = "text"
+    filename_time_format = "yyyy.MM.dd"
+    is_enable_transaction = true
+    compress_codec = "lzo"
+  }
+}
+
 ```
 
 ## Changelog

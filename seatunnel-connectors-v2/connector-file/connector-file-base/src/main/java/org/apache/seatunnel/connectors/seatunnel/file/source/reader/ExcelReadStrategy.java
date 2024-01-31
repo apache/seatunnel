@@ -33,6 +33,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOpt
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
 import org.apache.hadoop.fs.FSDataInputStream;
+import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellType;
 import org.apache.poi.ss.usermodel.DataFormatter;
@@ -73,7 +74,16 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
     public void read(String path, String tableId, Collector<SeaTunnelRow> output) {
         Map<String, String> partitionsMap = parsePartitionsByPath(path);
         FSDataInputStream file = hadoopFileSystemProxy.getInputStream(path);
-        Workbook workbook = new XSSFWorkbook(file);
+        Workbook workbook;
+        if (path.endsWith(".xls")) {
+            workbook = new HSSFWorkbook(file);
+        } else if (path.endsWith(".xlsx")) {
+            workbook = new XSSFWorkbook(file);
+        } else {
+            throw new FileConnectorException(
+                    CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                    "Only support read excel file");
+        }
         Sheet sheet =
                 pluginConfig.hasPath(BaseSourceConfigOptions.SHEET_NAME.key())
                         ? workbook.getSheet(
@@ -81,7 +91,6 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                         : workbook.getSheetAt(0);
         cellCount = seaTunnelRowType.getTotalFields();
         cellCount = partitionsMap.isEmpty() ? cellCount : cellCount + partitionsMap.size();
-        SeaTunnelRow seaTunnelRow = new SeaTunnelRow(cellCount);
         SeaTunnelDataType<?>[] fieldTypes = seaTunnelRowType.getFieldTypes();
         int rowCount = sheet.getPhysicalNumberOfRows();
         if (skipHeaderNumber > Integer.MAX_VALUE
@@ -101,6 +110,7 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                                             ? IntStream.range(0, cellCount).toArray()
                                             : indexes;
                             int z = 0;
+                            SeaTunnelRow seaTunnelRow = new SeaTunnelRow(cellCount);
                             for (int j : cellIndexes) {
                                 Cell cell = rowData.getCell(j);
                                 seaTunnelRow.setField(

@@ -17,9 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.hadoop;
 
-import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
-import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
@@ -29,7 +28,9 @@ import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.RemoteIterator;
 import org.apache.hadoop.security.UserGroupInformation;
 
 import lombok.NonNull;
@@ -76,9 +77,7 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
         }
         Path path = new Path(filePath);
         if (!fileSystem.createNewFile(path)) {
-            throw new FileConnectorException(
-                    CommonErrorCodeDeprecated.FILE_OPERATION_FAILED,
-                    "create file " + filePath + " error");
+            throw CommonError.fileOperationFailed("SeaTunnel", "create", filePath);
         }
     }
 
@@ -89,9 +88,7 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
         Path path = new Path(filePath);
         if (fileSystem.exists(path)) {
             if (!fileSystem.delete(path, true)) {
-                throw new FileConnectorException(
-                        CommonErrorCodeDeprecated.FILE_OPERATION_FAILED,
-                        "delete file " + filePath + " error");
+                throw CommonError.fileOperationFailed("SeaTunnel", "delete", filePath);
             }
         }
     }
@@ -130,9 +127,8 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
         if (fileSystem.rename(oldPath, newPath)) {
             log.info("rename file :[" + oldPath + "] to [" + newPath + "] finish");
         } else {
-            throw new FileConnectorException(
-                    CommonErrorCodeDeprecated.FILE_OPERATION_FAILED,
-                    "rename file :[" + oldPath + "] to [" + newPath + "] error");
+            throw CommonError.fileOperationFailed(
+                    "SeaTunnel", "rename", oldFilePath + " -> " + newFilePath);
         }
     }
 
@@ -142,10 +138,25 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
         }
         Path dfs = new Path(filePath);
         if (!fileSystem.mkdirs(dfs)) {
-            throw new FileConnectorException(
-                    CommonErrorCodeDeprecated.FILE_OPERATION_FAILED,
-                    "create dir " + filePath + " error");
+            throw CommonError.fileOperationFailed("SeaTunnel", "create", filePath);
         }
+    }
+
+    public List<LocatedFileStatus> listFile(String path) throws IOException {
+        if (fileSystem == null) {
+            initialize();
+        }
+        List<LocatedFileStatus> fileList = new ArrayList<>();
+        if (!fileExist(path)) {
+            return fileList;
+        }
+        Path fileName = new Path(path);
+        RemoteIterator<LocatedFileStatus> locatedFileStatusRemoteIterator =
+                fileSystem.listFiles(fileName, false);
+        while (locatedFileStatusRemoteIterator.hasNext()) {
+            fileList.add(locatedFileStatusRemoteIterator.next());
+        }
+        return fileList;
     }
 
     public List<Path> getAllSubFiles(@NonNull String filePath) throws IOException {
@@ -249,6 +260,8 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
         configuration.setBoolean(ADD_LIST_ELEMENT_RECORDS, false);
         configuration.setBoolean(WRITE_OLD_LIST_STRUCTURE, true);
         configuration.set(CommonConfigurationKeys.FS_DEFAULT_NAME_KEY, hadoopConf.getHdfsNameKey());
+        configuration.setBoolean(
+                String.format("fs.%s.impl.disable.cache", hadoopConf.getSchema()), true);
         configuration.set(
                 String.format("fs.%s.impl", hadoopConf.getSchema()), hadoopConf.getFsHdfsImpl());
         hadoopConf.setExtraOptionsForConfiguration(configuration);

@@ -41,6 +41,7 @@ import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 import org.apache.seatunnel.common.constants.CollectionConstants;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.core.starter.execution.PluginUtil;
 import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
 import org.apache.seatunnel.engine.common.config.JobConfig;
@@ -275,8 +276,11 @@ public class MultipleTableJobConfigParser {
             if (e instanceof UnsupportedOperationException
                     && "The Factory has not been implemented and the deprecated Plugin will be used."
                             .equals(e.getMessage())) {
+                log.warn(
+                        "The Factory has not been implemented and the deprecated Plugin will be used.");
                 return true;
             }
+            log.debug(ExceptionUtils.getMessage(e));
         }
         return false;
     }

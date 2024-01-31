@@ -227,6 +227,22 @@ public class ReadableConfigTest {
     }
 
     @Test
+    public void testObjectType() {
+        Assertions.assertEquals(
+                "Hello, Apache SeaTunnel",
+                config.get(Options.key("option.string").objectType(Object.class).noDefaultValue()));
+        Assertions.assertEquals(
+                true,
+                config.get(Options.key("option.bool").objectType(Object.class).noDefaultValue()));
+        Assertions.assertEquals(
+                3.3333,
+                config.get(Options.key("option.float").objectType(Object.class).noDefaultValue()));
+        Assertions.assertEquals(
+                21474836470L,
+                config.get(Options.key("option.long").objectType(Object.class).noDefaultValue()));
+    }
+
+    @Test
     public void testComplexTypeOption() {
         List<Map<String, Map<String, List<Map<String, Object>>>>> complexType =
                 config.get(

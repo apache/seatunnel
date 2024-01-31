@@ -17,8 +17,10 @@
 
 package org.apache.seatunnel.translation.spark.sink.write;
 
+import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportResourceShare;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.translation.serialization.RowConverter;
@@ -28,12 +30,15 @@ import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.connector.write.DataWriter;
 import org.apache.spark.sql.connector.write.WriterCommitMessage;
 
+import lombok.extern.slf4j.Slf4j;
+
 import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.util.Collections;
 import java.util.Optional;
 
+@Slf4j
 public class SeaTunnelSparkDataWriter<CommitInfoT, StateT> implements DataWriter<InternalRow> {
 
     private final SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter;
@@ -42,6 +47,7 @@ public class SeaTunnelSparkDataWriter<CommitInfoT, StateT> implements DataWriter
     private final RowConverter<InternalRow> rowConverter;
     private CommitInfoT latestCommitInfoT;
     private long epochId;
+    private volatile MultiTableResourceManager resourceManager;
 
     public SeaTunnelSparkDataWriter(
             SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter,
@@ -52,11 +58,20 @@ public class SeaTunnelSparkDataWriter<CommitInfoT, StateT> implements DataWriter
         this.sinkCommitter = sinkCommitter;
         this.rowConverter = new InternalRowConverter(dataType);
         this.epochId = epochId == 0 ? 1 : epochId;
+        initResourceManger();
     }
 
     @Override
     public void write(InternalRow record) throws IOException {
         sinkWriter.write(rowConverter.reconvert(record));
+    }
+
+    private void initResourceManger() {
+        if (sinkWriter instanceof SupportResourceShare) {
+            resourceManager =
+                    ((SupportResourceShare) sinkWriter).initMultiTableResourceManager(1, 1);
+            ((SupportResourceShare) sinkWriter).setMultiTableResourceManager(resourceManager, 0);
+        }
     }
 
     @Override
@@ -75,6 +90,13 @@ public class SeaTunnelSparkDataWriter<CommitInfoT, StateT> implements DataWriter
                 new SeaTunnelSparkWriterCommitMessage<>(latestCommitInfoT);
         cleanCommitInfo();
         sinkWriter.close();
+        try {
+            if (resourceManager != null) {
+                resourceManager.close();
+            }
+        } catch (Throwable e) {
+            log.error("close resourceManager error", e);
+        }
         return seaTunnelSparkWriterCommitMessage;
     }
 

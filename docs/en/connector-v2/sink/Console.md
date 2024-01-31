@@ -18,7 +18,7 @@ Used to send data to Console. Both support streaming and batch mode.
 
 > For example, if the data from upstream is [`age: 12, name: jared`], the content send to console is the following: `{"name":"jared","age":17}`
 
-## Key features
+## Key Features
 
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
 
@@ -38,7 +38,7 @@ Used to send data to Console. Both support streaming and batch mode.
 
 ```
 env {
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "STREAMING"
 }
 
@@ -67,7 +67,7 @@ sink {
 
 ```
 env {
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "STREAMING"
 }
 
