@@ -171,7 +171,7 @@ public class HttpIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testMultiTableHttp(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/fake_to_multitable.conf.conf");
+        Container.ExecResult execResult = container.executeJob("/fake_to_multitable.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
         Assertions.assertEquals(2, getContentCounts(execResult.getStdout()));
     }
