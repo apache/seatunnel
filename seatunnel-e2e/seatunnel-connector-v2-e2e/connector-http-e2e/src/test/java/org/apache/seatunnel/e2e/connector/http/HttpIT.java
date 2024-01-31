@@ -46,6 +46,8 @@ public class HttpIT extends TestSuiteBase implements TestResource {
 
     private static final String TMP_DIR = "/tmp";
 
+    private static final String successCount = "Total Write Count         :                   2";
+
     private static final String IMAGE = "mockserver/mockserver:5.14.0";
 
     private GenericContainer<?> mockserverContainer;
@@ -173,16 +175,11 @@ public class HttpIT extends TestSuiteBase implements TestResource {
             throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/fake_to_multitable.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-        Assertions.assertEquals(2, getContentCounts(execResult.getStdout()));
+        Assertions.assertTrue(getContentCounts(execResult.getStdout()));
     }
 
-    private int getContentCounts(String content) {
-        int count = 0;
-        int index = -1;
-        while ((index = content.indexOf("httpMultiTableContentSink", index + 1)) != -1) {
-            count++;
-        }
-        return count;
+    private boolean getContentCounts(String content) {
+        return content.indexOf(successCount) != -1;
     }
 
     public String getMockServerConfig() {
