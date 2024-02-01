@@ -21,7 +21,6 @@ import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
@@ -29,15 +28,13 @@ import org.testcontainers.containers.Container;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.net.URL;
-import java.net.URLClassLoader;
-import java.sql.Connection;
-import java.sql.Driver;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+
+import static org.awaitility.Awaitility.given;
 
 @Slf4j
 public class DorisErrorIT extends AbstractDorisIT {
@@ -46,7 +43,6 @@ public class DorisErrorIT extends AbstractDorisIT {
             "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
 
     private static final String sinkDB = "e2e_sink";
-    private Connection conn;
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
@@ -85,12 +81,15 @@ public class DorisErrorIT extends AbstractDorisIT {
                         || container.getServerLogs().contains("stream load error"));
         super.container.start();
         // wait for the container to restart
-        Thread.sleep(10 * 1000);
+        given().ignoreExceptions()
+                .await()
+                .atMost(10000, TimeUnit.SECONDS)
+                .untilAsserted(this::initializeJdbcConnection);
         clearSinkTable();
     }
 
     private void clearSinkTable() {
-        try (Statement statement = conn.createStatement()) {
+        try (Statement statement = jdbcConnection.createStatement()) {
             statement.execute(String.format("TRUNCATE TABLE %s.%s", sinkDB, TABLE));
         } catch (SQLException e) {
             throw new RuntimeException("test doris server image error", e);
@@ -99,16 +98,7 @@ public class DorisErrorIT extends AbstractDorisIT {
 
     private void initializeJdbcTable() {
         try {
-            URLClassLoader urlClassLoader =
-                    new URLClassLoader(
-                            new URL[] {new URL(DRIVER_JAR)}, DorisErrorIT.class.getClassLoader());
-            Thread.currentThread().setContextClassLoader(urlClassLoader);
-            Driver driver = (Driver) urlClassLoader.loadClass(DRIVER_CLASS).newInstance();
-            Properties props = new Properties();
-            props.put("user", USERNAME);
-            props.put("password", PASSWORD);
-            conn = driver.connect(String.format(URL, container.getHost()), props);
-            try (Statement statement = conn.createStatement()) {
+            try (Statement statement = jdbcConnection.createStatement()) {
                 // create test databases
                 statement.execute(createDatabase(sinkDB));
                 log.info("create source and sink database succeed");
@@ -152,12 +142,5 @@ public class DorisErrorIT extends AbstractDorisIT {
                         + "\"replication_allocation\" = \"tag.location.default: 1\""
                         + ");";
         return String.format(createTableSql, db, TABLE);
-    }
-
-    @AfterAll
-    public void close() throws SQLException {
-        if (conn != null) {
-            conn.close();
-        }
     }
 }
