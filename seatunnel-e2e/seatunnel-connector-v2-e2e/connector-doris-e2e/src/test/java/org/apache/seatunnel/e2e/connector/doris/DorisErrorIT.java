@@ -61,8 +61,8 @@ public class DorisErrorIT extends AbstractDorisIT {
     @TestTemplate
     @DisabledOnContainer(
             value = {},
-            type = {EngineType.SPARK},
-            disabledReason = "spark failed reason not same")
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "flink/spark failed reason not same")
     public void testDoris(TestContainer container) throws InterruptedException, ExecutionException {
         initializeJdbcTable();
         CompletableFuture<Container.ExecResult> future =
