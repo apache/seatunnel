@@ -83,8 +83,10 @@ public class DorisErrorIT extends AbstractDorisIT {
                                 .contains(
                                         "stream load finished unexpectedly, interrupt worker thread!")
                         || container.getServerLogs().contains("stream load error"));
-        clearSinkTable();
         super.container.start();
+        // wait for the container to restart
+        Thread.sleep(10 * 1000);
+        clearSinkTable();
     }
 
     private void clearSinkTable() {
