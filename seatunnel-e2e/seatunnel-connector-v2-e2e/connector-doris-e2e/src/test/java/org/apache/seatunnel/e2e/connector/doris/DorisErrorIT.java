@@ -85,15 +85,6 @@ public class DorisErrorIT extends AbstractDorisIT {
                 .await()
                 .atMost(10000, TimeUnit.SECONDS)
                 .untilAsserted(this::initializeJdbcConnection);
-        clearSinkTable();
-    }
-
-    private void clearSinkTable() {
-        try (Statement statement = jdbcConnection.createStatement()) {
-            statement.execute(String.format("TRUNCATE TABLE %s.%s", sinkDB, TABLE));
-        } catch (SQLException e) {
-            throw new RuntimeException("test doris server image error", e);
-        }
     }
 
     private void initializeJdbcTable() {
@@ -101,8 +92,8 @@ public class DorisErrorIT extends AbstractDorisIT {
             try (Statement statement = jdbcConnection.createStatement()) {
                 // create test databases
                 statement.execute(createDatabase(sinkDB));
-                log.info("create source and sink database succeed");
-                // create source and sink table
+                log.info("create sink database succeed");
+                // create sink table
                 statement.execute(createTableForTest(sinkDB));
             } catch (SQLException e) {
                 throw new RuntimeException("Initializing table failed!", e);
