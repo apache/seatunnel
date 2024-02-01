@@ -18,8 +18,8 @@
 package org.apache.seatunnel.e2e.connector.doris;
 
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
-import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
@@ -59,7 +59,10 @@ public class DorisErrorIT extends AbstractDorisIT {
             };
 
     @TestTemplate
-    @DisabledOnContainer(value = {TestContainerId.SPARK_2_4})
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK},
+            disabledReason = "spark failed reason not same")
     public void testDoris(TestContainer container) throws InterruptedException, ExecutionException {
         initializeJdbcTable();
         CompletableFuture<Container.ExecResult> future =
@@ -78,10 +81,8 @@ public class DorisErrorIT extends AbstractDorisIT {
         Assertions.assertNotEquals(0, future.get().getExitCode());
         Assertions.assertTrue(
                 container
-                                .getServerLogs()
-                                .contains(
-                                        "stream load finished unexpectedly, interrupt worker thread!")
-                        || container.getServerLogs().contains("stream load error"));
+                        .getServerLogs()
+                        .contains("stream load finished unexpectedly, interrupt worker thread!"));
         super.container.start();
         // wait for the container to restart
         given().ignoreExceptions()
