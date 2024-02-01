@@ -23,6 +23,8 @@ import org.apache.seatunnel.core.starter.enums.EngineType;
 import org.apache.seatunnel.core.starter.flink.args.FlinkCommandArgs;
 import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
 
+import org.apache.seatunnel.core.starter.utils.SystemUtil;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -44,6 +46,7 @@ public class FlinkStarter implements Starter {
         this.appJar = Common.appStarterDir().resolve(APP_JAR_NAME).toString();
     }
 
+    @SuppressWarnings("checkstyle:RegexpSingleline")
     public static void main(String[] args) {
         FlinkStarter flinkStarter = new FlinkStarter(args);
         System.out.println(String.join(" ", flinkStarter.buildCommands()));
@@ -52,8 +55,33 @@ public class FlinkStarter implements Starter {
     @Override
     public List<String> buildCommands() {
         List<String> command = new ArrayList<>();
+        // Below code is to fix port-specific issue when submitting flink job on windows.
+        String local_os_type="";
+        
+        SystemUtil my_system_util=new SystemUtil();
+        local_os_type=my_system_util.GetOsType();
+        // debug
+        // System.out.println("OS type:"+local_os_type);
+        
+        String cmd_flink="";
+        
+        // Set correct flink command on different platform
+        if (local_os_type.toLowerCase().equals("windows")) {
+            cmd_flink="%FLINK_HOME%/bin/flink.bat";
+        } else if (local_os_type.toLowerCase().equals("linux")) {             
+            cmd_flink="${FLINK_HOME}/bin/flink";
+        } else if (local_os_type.toLowerCase().equals("unknown")) {             
+          cmd_flink="error";
+        }
+        
         // set start command
-        command.add("${FLINK_HOME}/bin/flink");
+        if ( ! (cmd_flink.equals("error"))) {
+           command.add(cmd_flink);
+        } else {
+            System.out.println("Error: Can not determine OS type, abort run !");
+            System.exit(-1);
+        }    
+        
         // set deploy mode, run or run-application
         command.add(flinkCommandArgs.getDeployMode().getDeployMode());
         // set submitted target master
@@ -91,6 +119,8 @@ public class FlinkStarter implements Starter {
                 .filter(Objects::nonNull)
                 .map(String::trim)
                 .forEach(variable -> command.add("-D" + variable));
+        // debug
+        // System.out.println("Whole command string:" + command.toString());
         return command;
     }
 }

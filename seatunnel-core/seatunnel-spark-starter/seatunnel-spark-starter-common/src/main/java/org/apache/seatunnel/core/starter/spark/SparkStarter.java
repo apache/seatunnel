@@ -57,6 +57,8 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import org.apache.seatunnel.core.starter.utils.SystemUtil;
+
 /** A Starter to generate spark-submit command for SeaTunnel job on spark. */
 public class SparkStarter implements Starter {
 
@@ -80,6 +82,7 @@ public class SparkStarter implements Starter {
         this.commandArgs = commandArgs;
     }
 
+    @SuppressWarnings("checkstyle:RegexpSingleline")
     public static void main(String[] args) throws IOException {
         SparkStarter starter = getInstance(args);
         List<String> command = starter.buildCommands();
@@ -169,9 +172,9 @@ public class SparkStarter implements Starter {
                                 Map.Entry::getKey, e -> e.getValue().unwrapped().toString()));
     }
 
-    /** return connector's jars, which located in 'connectors/*'. */
+    /** return connector's jars, which located in 'connectors/spark/*'. */
     private List<Path> getConnectorJarDependencies() {
-        Path pluginRootDir = Common.connectorDir();
+        Path pluginRootDir = Common.connectorJarDir("seatunnel");
         if (!Files.exists(pluginRootDir) || !Files.isDirectory(pluginRootDir)) {
             return Collections.emptyList();
         }
@@ -195,7 +198,32 @@ public class SparkStarter implements Starter {
     /** build final spark-submit commands */
     protected List<String> buildFinal() {
         List<String> commands = new ArrayList<>();
-        commands.add("${SPARK_HOME}/bin/spark-submit");
+        // Below code is to fix port-specific issue when submitting flink job on windows.
+        String local_os_type="";
+        
+        SystemUtil my_system_util=new SystemUtil();
+        local_os_type=my_system_util.GetOsType();
+        // debug
+        System.out.println("OS type:"+local_os_type);
+        
+        String cmd_spark="";
+        
+        // Set correct "spark-submit" command on different platform
+        if (local_os_type.toLowerCase().equals("windows")) {
+            cmd_spark="%SPARK_HOME%/bin/spark-submit.cmd";
+        } else if (local_os_type.toLowerCase().equals("linux")) {             
+            cmd_spark="${SPARK_HOME}/bin/spark-submit";
+        } else if (local_os_type.toLowerCase().equals("unknown")) {             
+          cmd_spark="error";
+        }
+        
+        if ( ! (cmd_spark.equals("error"))) {
+           commands.add(cmd_spark);
+        } else {
+            System.out.println("Error: Can not determine OS type, abort run !");
+            System.exit(-1);
+        }
+        
         appendOption(commands, "--class", SeaTunnelSpark.class.getName());
         appendOption(commands, "--name", this.commandArgs.getJobName());
         appendOption(commands, "--master", this.commandArgs.getMaster());
@@ -217,6 +245,9 @@ public class SparkStarter implements Starter {
         if (this.commandArgs.isCheckConfig()) {
             commands.add("--check");
         }
+        
+        // debug
+        // System.out.println("Whole spark job command string:" + commands.toString());
         return commands;
     }
 
@@ -259,6 +290,7 @@ public class SparkStarter implements Starter {
                 Common.appStarterDir().resolve(EngineType.SPARK3.getStarterJarName()).toString());
     }
 
+    @SuppressWarnings("checkstyle:Indentation")
     private List<PluginIdentifier> getPluginIdentifiers(Config config, PluginType... pluginTypes) {
         return Arrays.stream(pluginTypes)
                 .flatMap(
