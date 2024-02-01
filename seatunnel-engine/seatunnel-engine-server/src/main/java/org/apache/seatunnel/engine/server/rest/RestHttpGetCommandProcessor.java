@@ -67,6 +67,7 @@ import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_500;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.FINISHED_JOBS_INFO;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_JOBS_URL;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_JOB_URL;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_THREADS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.SYSTEM_MONITORING_INFORMATION;
 
 public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCommand> {
@@ -104,6 +105,8 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                 handleJobInfoById(httpGetCommand, uri);
             } else if (uri.startsWith(SYSTEM_MONITORING_INFORMATION)) {
                 getSystemMonitoringInformation(httpGetCommand);
+            } else if (uri.startsWith(RUNNING_THREADS)) {
+                getRunningThread(httpGetCommand);
             } else {
                 original.handle(httpGetCommand);
             }
@@ -274,6 +277,24 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         } else {
             this.prepareResponse(command, new JsonObject());
         }
+    }
+
+    private void getRunningThread(HttpGetCommand command) {
+        this.prepareResponse(
+                command,
+                Thread.getAllStackTraces().keySet().stream()
+                        .sorted(Comparator.comparing(Thread::getName))
+                        .map(
+                                stackTraceElements -> {
+                                    JsonObject jobInfoJson = new JsonObject();
+                                    jobInfoJson.add("threadName", stackTraceElements.getName());
+                                    jobInfoJson.add(
+                                            "classLoader",
+                                            String.valueOf(
+                                                    stackTraceElements.getContextClassLoader()));
+                                    return jobInfoJson;
+                                })
+                        .collect(JsonArray::new, JsonArray::add, JsonArray::add));
     }
 
     private Map<String, Long> getJobMetrics(String jobMetrics) {
