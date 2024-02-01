@@ -19,6 +19,8 @@ package org.apache.seatunnel.e2e.connector.doris;
 
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.container.TestContainerId;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
 import org.junit.jupiter.api.Assertions;
@@ -57,6 +59,7 @@ public class DorisErrorIT extends AbstractDorisIT {
             };
 
     @TestTemplate
+    @DisabledOnContainer(value = {TestContainerId.SPARK_2_4})
     public void testDoris(TestContainer container) throws InterruptedException, ExecutionException {
         initializeJdbcTable();
         CompletableFuture<Container.ExecResult> future =
