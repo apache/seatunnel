@@ -66,6 +66,7 @@ public class FlinkStarter implements Starter {
         String cmd_flink="";
         
         // Set correct flink command on different platform
+        // Note that "flink.bat" can be retrieved from earlier flink release(e.g. flink 1.8
         if (local_os_type.toLowerCase().equals("windows")) {
             cmd_flink="%FLINK_HOME%/bin/flink.bat";
         } else if (local_os_type.toLowerCase().equals("linux")) {             

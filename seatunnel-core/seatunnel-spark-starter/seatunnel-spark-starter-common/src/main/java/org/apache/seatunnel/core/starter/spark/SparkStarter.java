@@ -204,7 +204,7 @@ public class SparkStarter implements Starter {
         SystemUtil my_system_util=new SystemUtil();
         local_os_type=my_system_util.GetOsType();
         // debug
-        System.out.println("OS type:"+local_os_type);
+        // System.out.println("OS type:"+local_os_type);
         
         String cmd_spark="";
         
