@@ -30,8 +30,6 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import com.mysql.cj.MysqlType;
-
 import java.math.BigDecimal;
 import java.util.Locale;
 
@@ -337,7 +335,7 @@ public class DorisTypeConvertorV2Test {
         Column column =
                 PhysicalColumn.of("test", BasicType.VOID_TYPE, (Long) null, true, "null", "null");
 
-        BasicTypeDefine<MysqlType> typeDefine = DorisTypeConverterV2.INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = DorisTypeConverterV2.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(DorisTypeConverterV2.DORIS_NULL, typeDefine.getColumnType());
         Assertions.assertEquals(DorisTypeConverterV2.DORIS_NULL, typeDefine.getDataType());
@@ -351,7 +349,7 @@ public class DorisTypeConvertorV2Test {
         Column column =
                 PhysicalColumn.builder().name("test").dataType(BasicType.BOOLEAN_TYPE).build();
 
-        BasicTypeDefine<MysqlType> typeDefine = DorisTypeConverterV2.INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = DorisTypeConverterV2.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(DorisTypeConverterV2.DORIS_BOOLEAN, typeDefine.getColumnType());
         Assertions.assertEquals(DorisTypeConverterV2.DORIS_BOOLEAN, typeDefine.getDataType());
@@ -362,7 +360,7 @@ public class DorisTypeConvertorV2Test {
     public void testReconvertByte() {
         Column column = PhysicalColumn.builder().name("test").dataType(BasicType.BYTE_TYPE).build();
 
-        BasicTypeDefine<MysqlType> typeDefine = DorisTypeConverterV2.INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = DorisTypeConverterV2.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(DorisTypeConverterV2.DORIS_TINYINT, typeDefine.getColumnType());
         Assertions.assertEquals(DorisTypeConverterV2.DORIS_TINYINT, typeDefine.getDataType());
@@ -373,7 +371,7 @@ public class DorisTypeConvertorV2Test {
         Column column =
                 PhysicalColumn.builder().name("test").dataType(BasicType.SHORT_TYPE).build();
 
-        BasicTypeDefine<MysqlType> typeDefine = DorisTypeConverterV2.INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = DorisTypeConverterV2.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(DorisTypeConverterV2.DORIS_SMALLINT, typeDefine.getColumnType());
         Assertions.assertEquals(DorisTypeConverterV2.DORIS_SMALLINT, typeDefine.getDataType());
@@ -383,7 +381,7 @@ public class DorisTypeConvertorV2Test {
     public void testReconvertInt() {
         Column column = PhysicalColumn.builder().name("test").dataType(BasicType.INT_TYPE).build();
 
-        BasicTypeDefine<MysqlType> typeDefine = DorisTypeConverterV2.INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = DorisTypeConverterV2.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(DorisTypeConverterV2.DORIS_INT, typeDefine.getColumnType());
         Assertions.assertEquals(DorisTypeConverterV2.DORIS_INT, typeDefine.getDataType());
@@ -393,7 +391,7 @@ public class DorisTypeConvertorV2Test {
     public void testReconvertLong() {
         Column column = PhysicalColumn.builder().name("test").dataType(BasicType.LONG_TYPE).build();
 
-        BasicTypeDefine<MysqlType> typeDefine = DorisTypeConverterV2.INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = DorisTypeConverterV2.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(DorisTypeConverterV2.DORIS_BIGINT, typeDefine.getColumnType());
         Assertions.assertEquals(DorisTypeConverterV2.DORIS_BIGINT, typeDefine.getDataType());
@@ -404,7 +402,7 @@ public class DorisTypeConvertorV2Test {
         Column column =
                 PhysicalColumn.builder().name("test").dataType(BasicType.FLOAT_TYPE).build();
 
-        BasicTypeDefine<MysqlType> typeDefine = DorisTypeConverterV2.INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = DorisTypeConverterV2.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(DorisTypeConverterV2.DORIS_FLOAT, typeDefine.getColumnType());
         Assertions.assertEquals(DorisTypeConverterV2.DORIS_FLOAT, typeDefine.getDataType());
@@ -415,7 +413,7 @@ public class DorisTypeConvertorV2Test {
         Column column =
                 PhysicalColumn.builder().name("test").dataType(BasicType.DOUBLE_TYPE).build();
 
-        BasicTypeDefine<MysqlType> typeDefine = DorisTypeConverterV2.INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = DorisTypeConverterV2.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(DorisTypeConverterV2.DORIS_DOUBLE, typeDefine.getColumnType());
         Assertions.assertEquals(DorisTypeConverterV2.DORIS_DOUBLE, typeDefine.getDataType());
@@ -426,7 +424,7 @@ public class DorisTypeConvertorV2Test {
         Column column =
                 PhysicalColumn.builder().name("test").dataType(new DecimalType(0, 0)).build();
 
-        BasicTypeDefine<MysqlType> typeDefine = DorisTypeConverterV2.INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = DorisTypeConverterV2.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(
                 String.format(
@@ -669,10 +667,17 @@ public class DorisTypeConvertorV2Test {
                         .dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE)
                         .build();
 
-        BasicTypeDefine<MysqlType> typeDefine = DorisTypeConverterV2.INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = DorisTypeConverterV2.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
-        Assertions.assertEquals(DorisTypeConverterV2.DORIS_DATETIME, typeDefine.getColumnType());
+        Assertions.assertEquals(
+                String.format(
+                        "%s(%s)",
+                        DorisTypeConverterV1.DORIS_DATETIME,
+                        AbstractDorisTypeConverter.MAX_DATETIME_SCALE),
+                typeDefine.getColumnType());
         Assertions.assertEquals(DorisTypeConverterV2.DORIS_DATETIME, typeDefine.getDataType());
+        Assertions.assertEquals(
+                AbstractDorisTypeConverter.MAX_DATETIME_SCALE, typeDefine.getScale());
 
         column =
                 PhysicalColumn.builder()
@@ -688,6 +693,25 @@ public class DorisTypeConvertorV2Test {
                 typeDefine.getColumnType());
         Assertions.assertEquals(DorisTypeConverterV2.DORIS_DATETIME, typeDefine.getDataType());
         Assertions.assertEquals(column.getScale(), typeDefine.getScale());
+
+        column =
+                PhysicalColumn.builder()
+                        .name("test")
+                        .dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE)
+                        .scale(10)
+                        .build();
+
+        typeDefine = DorisTypeConverterV2.INSTANCE.reconvert(column);
+        Assertions.assertEquals(column.getName(), typeDefine.getName());
+        Assertions.assertEquals(
+                String.format(
+                        "%s(%s)",
+                        DorisTypeConverterV2.DORIS_DATETIME,
+                        AbstractDorisTypeConverter.MAX_DATETIME_SCALE),
+                typeDefine.getColumnType());
+        Assertions.assertEquals(DorisTypeConverterV2.DORIS_DATETIME, typeDefine.getDataType());
+        Assertions.assertEquals(
+                AbstractDorisTypeConverter.MAX_DATETIME_SCALE, typeDefine.getScale());
     }
 
     @Test
@@ -698,7 +722,7 @@ public class DorisTypeConvertorV2Test {
                         .dataType(ArrayType.BOOLEAN_ARRAY_TYPE)
                         .build();
 
-        BasicTypeDefine<MysqlType> typeDefine = DorisTypeConverterV2.INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = DorisTypeConverterV2.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(
                 DorisTypeConverterV2.DORIS_BOOLEAN_ARRAY, typeDefine.getColumnType());
