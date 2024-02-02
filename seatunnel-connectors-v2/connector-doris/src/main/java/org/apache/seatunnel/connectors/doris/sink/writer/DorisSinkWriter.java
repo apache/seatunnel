@@ -116,7 +116,7 @@ public class DorisSinkWriter
         }
         // get main work thread.
         executorThread = Thread.currentThread();
-        dorisStreamLoad.startLoad(labelGenerator.generateLabel(lastCheckpointId + 1));
+        startLoad(labelGenerator.generateLabel(lastCheckpointId + 1));
         // when uploading data in streaming mode, we need to regularly detect whether there are
         // exceptions.
         scheduledExecutorService.scheduleWithFixedDelay(
