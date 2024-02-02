@@ -203,6 +203,16 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
             return;
         }
 
+        if (column.getColumnLength() > MAX_STRING_LENGTH) {
+            log.warn(
+                    String.format(
+                            "The String type in Doris can only store up to 2GB bytes, and the current field [%s] length is [%s] bytes. If it is greater than the maximum length of the String in Doris, it may not be able to write data",
+                            column.getName(), column.getColumnLength()));
+            builder.columnType(DORIS_STRING);
+            builder.dataType(DORIS_STRING);
+            return;
+        }
+
         throw CommonError.convertToConnectorTypeError(
                 DorisConfig.IDENTIFIER, column.getDataType().getSqlType().name(), column.getName());
     }

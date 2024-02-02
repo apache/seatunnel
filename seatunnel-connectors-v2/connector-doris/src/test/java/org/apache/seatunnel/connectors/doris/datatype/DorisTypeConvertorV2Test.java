@@ -328,14 +328,8 @@ public class DorisTypeConvertorV2Test {
                         .dataType(BasicType.STRING_TYPE)
                         .columnLength(4294967295L)
                         .build();
-        try {
-            DorisTypeConverterV2.INSTANCE.reconvert(column);
-            Assertions.fail();
-        } catch (SeaTunnelRuntimeException e) {
-            // ignore
-        } catch (Throwable e) {
-            Assertions.fail();
-        }
+        BasicTypeDefine reconvert = DorisTypeConverterV1.INSTANCE.reconvert(column);
+        Assertions.assertEquals(AbstractDorisTypeConverter.DORIS_STRING, reconvert.getColumnType());
     }
 
     @Test
