@@ -258,7 +258,7 @@ public class DorisIT extends AbstractDorisIT {
             fakeTypeMap.put("c_bytes", "string");
             fakeTypeMap.put("c_date", "date");
             fakeTypeMap.put("c_decimal", "decimalv3(10, 2)");
-            fakeTypeMap.put("c_timestamp", "datetime");
+            fakeTypeMap.put("c_timestamp", "datetime(6)");
             fakeTypeMap.put("c_map", "json");
             try (PreparedStatement ps =
                     conn.prepareStatement(DorisCatalogUtil.TABLE_SCHEMA_QUERY)) {
@@ -536,7 +536,7 @@ public class DorisIT extends AbstractDorisIT {
         checkColumnTypeMap.put("F_STRING", "string");
         checkColumnTypeMap.put("F_DATETIME_P", "datetime(6)");
         checkColumnTypeMap.put("F_DATETIME_V2", "datetime(6)");
-        checkColumnTypeMap.put("F_DATETIME", "datetime");
+        checkColumnTypeMap.put("F_DATETIME", "datetime(6)");
         checkColumnTypeMap.put("F_DATE", "date");
         checkColumnTypeMap.put("F_DATE_V2", "date");
         checkColumnTypeMap.put("F_JSON", "json");
