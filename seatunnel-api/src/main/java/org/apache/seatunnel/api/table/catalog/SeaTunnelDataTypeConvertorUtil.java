@@ -43,7 +43,8 @@ public class SeaTunnelDataTypeConvertorUtil {
             String field, String columnType) {
         SqlType sqlType = null;
         try {
-            sqlType = SqlType.valueOf(columnType.toUpperCase().replace(" ", ""));
+            String compatible = compatibleTypeDeclare(columnType);
+            sqlType = SqlType.valueOf(compatible.toUpperCase().replace(" ", ""));
         } catch (IllegalArgumentException e) {
             // nothing
         }
@@ -81,6 +82,32 @@ public class SeaTunnelDataTypeConvertorUtil {
                 return parseMapType(field, columnType);
             default:
                 throw CommonError.unsupportedDataType("SeaTunnel", columnType, field);
+        }
+    }
+
+    /**
+     * User-facing data type declarations will adhere to the specifications outlined in
+     * schema-feature.md. To maintain backward compatibility, this function will transform type
+     * declarations into standard form, including: <code>long -> bigint</code>, <code>
+     * short -> smallint</code>, and <code>byte -> tinyint</code>.
+     *
+     * <p>In a future version, user-facing data type declarations will strictly follow the
+     * specifications, and this function will be removed.
+     *
+     * @param declare
+     * @return compatible type
+     */
+    @Deprecated
+    private static String compatibleTypeDeclare(String declare) {
+        switch (declare.trim().toUpperCase()) {
+            case "LONG":
+                return "BIGINT";
+            case "SHORT":
+                return "SMALLINT";
+            case "BYTE":
+                return "TINYINT";
+            default:
+                return declare;
         }
     }
 

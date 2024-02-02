@@ -91,7 +91,9 @@ columns = [
 
 #### How to declare type supported
 
-SeaTunnel provides a simple and direct way to declare basic types. The keyword names for basic types can be used directly as type declarations, and SeaTunnel is case-insensitive to type keywords. Basic type keywords include `string`, `boolean`, `tinyint`, `smallint`, `int`, `bigint`, `float`, `double`, `date`, `time`, `timestamp`, and `null`. For example, if you need to declare a field with integer type, you can simply define the field as `int` or `"int"`.
+SeaTunnel provides a simple and direct way to declare basic types. Basic type keywords include `string`, `boolean`, `tinyint`, `smallint`, `int`, `bigint`, `float`, `double`, `date`, `time`, `timestamp`, and `null`. The keyword names for basic types can be used directly as type declarations, and SeaTunnel is case-insensitive to type keywords. For example, if you need to declare a field with integer type, you can simply define the field as `int` or `"int"`.
+
+> The null type declaration must be enclosed in double quotes, like `"null"`. This approach helps avoid confusion with [HOCON](https://github.com/lightbend/config/blob/main/HOCON.md)'s `null` type which represents undefined object.
 
 When declaring complex types (such as **decimal**, **array**, **map**, and **row**), pay attention to specific considerations.
 - When declaring a decimal type, precision and scale settings are required, and the type definition follows the format `decimal(precision, scale)`. It's essential to emphasize that the declaration of the decimal type must be enclosed in `"`; you cannot use the type name directly, as with basic types. For example, when declaring a decimal field with precision 10 and scale 2, you specify the field type as `"decimal(10,2)"`.

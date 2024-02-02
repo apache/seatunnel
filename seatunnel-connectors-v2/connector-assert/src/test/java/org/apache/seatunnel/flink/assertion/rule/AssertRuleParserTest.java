@@ -22,11 +22,14 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.assertion.rule.AssertFieldRule;
 import org.apache.seatunnel.connectors.seatunnel.assertion.rule.AssertRuleParser;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -38,7 +41,7 @@ public class AssertRuleParserTest {
     public void testParseRules() {
         List<? extends Config> ruleConfigList = assembleConfig();
         List<AssertFieldRule> assertFieldRules = parser.parseRules(ruleConfigList);
-        assertEquals(3, assertFieldRules.size());
+        assertEquals(4, assertFieldRules.size());
 
         AssertFieldRule nameRule = assertFieldRules.get(0);
         List<AssertFieldRule.AssertRule> nameValueRules = nameRule.getFieldRules();
@@ -70,7 +73,28 @@ public class AssertRuleParserTest {
         assertEquals(2, decimalValueRules.size());
         assertEquals(
                 AssertFieldRule.AssertRuleType.NOT_NULL, decimalValueRules.get(0).getRuleType());
-        assertEquals("12.12", decimalValueRules.get(1).getEqualTo());
+        assertEquals("12.12", (String) decimalValueRules.get(1).getEqualTo());
+
+        AssertFieldRule rowRule = assertFieldRules.get(3);
+        List<AssertFieldRule.AssertRule> rowValueRules = rowRule.getFieldRules();
+        SeaTunnelRowType expectedRowType =
+                new SeaTunnelRowType(
+                        new String[] {"c_0"},
+                        new SeaTunnelDataType[] {
+                            new SeaTunnelRowType(
+                                    new String[] {"c_0_0"},
+                                    new SeaTunnelDataType[] {BasicType.INT_TYPE})
+                        });
+        assertEquals("c_row", rowRule.getFieldName());
+        assertEquals(expectedRowType, rowRule.getFieldType());
+        assertEquals(2, rowValueRules.size());
+        assertEquals(AssertFieldRule.AssertRuleType.NOT_NULL, rowValueRules.get(0).getRuleType());
+
+        final List<List<?>> cRow = (List<List<?>>) rowValueRules.get(1).getEqualTo();
+        assertEquals(1, cRow.size());
+        assertEquals(ArrayList.class, cRow.get(0).getClass());
+        assertEquals(1, ((List) cRow.get(0)).size());
+        assertEquals(1, ((Integer) ((List) cRow.get(0)).get(0)));
     }
 
     private List<? extends Config> assembleConfig() {
@@ -117,6 +141,17 @@ public class AssertRuleParserTest {
                         + "                },\n"
                         + "                {\n"
                         + "                    equals_to = \"12.12\"\n"
+                        + "                }\n"
+                        + "            ]\n"
+                        + "        },{\n"
+                        + "            field_name = c_row\n"
+                        + "            field_type= {c_0 = {c_0_0=int}}\n"
+                        + "            field_value = [\n"
+                        + "                {\n"
+                        + "                    rule_type = NOT_NULL\n"
+                        + "                },\n"
+                        + "                {\n"
+                        + "                    equals_to = [[1]]\n"
                         + "                }\n"
                         + "            ]\n"
                         + "        }\n"

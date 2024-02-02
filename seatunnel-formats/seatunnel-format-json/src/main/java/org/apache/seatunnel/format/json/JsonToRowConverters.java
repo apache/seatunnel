@@ -28,6 +28,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
 import java.io.IOException;
@@ -351,6 +352,7 @@ public class JsonToRowConverters implements Serializable {
     }
 
     private JsonToRowConverter createMapConverter(MapType<?, ?> type) {
+        JsonToRowConverter keyConverter = createConverter(type.getKeyType());
         JsonToRowConverter valueConverter = createConverter(type.getValueType());
         return new JsonToRowConverter() {
             @Override
@@ -361,8 +363,17 @@ public class JsonToRowConverters implements Serializable {
                                 new Consumer<Map.Entry<String, JsonNode>>() {
                                     @Override
                                     public void accept(Map.Entry<String, JsonNode> entry) {
+                                        JsonNode keyNode;
+                                        try {
+                                            keyNode =
+                                                    JsonUtils.stringToJsonNode(
+                                                            JsonUtils.toJsonString(entry.getKey()));
+                                        } catch (Exception e) {
+                                            throw CommonError.jsonOperationError(
+                                                    FORMAT, entry.getKey(), e);
+                                        }
                                         value.put(
-                                                entry.getKey(),
+                                                keyConverter.convert(keyNode),
                                                 valueConverter.convert(entry.getValue()));
                                     }
                                 });

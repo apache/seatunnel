@@ -17,8 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.source;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsRestClient;
@@ -44,9 +43,9 @@ import java.util.stream.Collectors;
 public class ElasticsearchSourceSplitEnumerator
         implements SourceSplitEnumerator<ElasticsearchSourceSplit, ElasticsearchSourceState> {
 
-    private SourceSplitEnumerator.Context<ElasticsearchSourceSplit> context;
+    private final SourceSplitEnumerator.Context<ElasticsearchSourceSplit> context;
 
-    private Config pluginConfig;
+    private final ReadonlyConfig config;
 
     private EsRestClient esRestClient;
 
@@ -54,24 +53,24 @@ public class ElasticsearchSourceSplitEnumerator
 
     private Map<Integer, List<ElasticsearchSourceSplit>> pendingSplit;
 
-    private List<String> source;
+    private final List<String> source;
 
     private volatile boolean shouldEnumerate;
 
     public ElasticsearchSourceSplitEnumerator(
             SourceSplitEnumerator.Context<ElasticsearchSourceSplit> context,
-            Config pluginConfig,
+            ReadonlyConfig config,
             List<String> source) {
-        this(context, null, pluginConfig, source);
+        this(context, null, config, source);
     }
 
     public ElasticsearchSourceSplitEnumerator(
             SourceSplitEnumerator.Context<ElasticsearchSourceSplit> context,
             ElasticsearchSourceState sourceState,
-            Config pluginConfig,
+            ReadonlyConfig config,
             List<String> source) {
         this.context = context;
-        this.pluginConfig = pluginConfig;
+        this.config = config;
         this.pendingSplit = new HashMap<>();
         this.shouldEnumerate = sourceState == null;
         if (sourceState != null) {
@@ -83,7 +82,7 @@ public class ElasticsearchSourceSplitEnumerator
 
     @Override
     public void open() {
-        esRestClient = EsRestClient.createInstance(pluginConfig);
+        esRestClient = EsRestClient.createInstance(config);
     }
 
     @Override
@@ -141,21 +140,11 @@ public class ElasticsearchSourceSplitEnumerator
 
     private List<ElasticsearchSourceSplit> getElasticsearchSplit() {
         List<ElasticsearchSourceSplit> splits = new ArrayList<>();
-        String scrollTime = SourceConfig.SCROLL_TIME.defaultValue();
-        if (pluginConfig.hasPath(SourceConfig.SCROLL_TIME.key())) {
-            scrollTime = pluginConfig.getString(SourceConfig.SCROLL_TIME.key());
-        }
-        int scrollSize = SourceConfig.SCROLL_SIZE.defaultValue();
-        if (pluginConfig.hasPath(SourceConfig.SCROLL_SIZE.key())) {
-            scrollSize = pluginConfig.getInt(SourceConfig.SCROLL_SIZE.key());
-        }
-        Map query = SourceConfig.QUERY.defaultValue();
-        if (pluginConfig.hasPath(SourceConfig.QUERY.key())) {
-            query = (Map) pluginConfig.getAnyRef(SourceConfig.QUERY.key());
-        }
-
+        String scrollTime = config.get(SourceConfig.SCROLL_TIME);
+        int scrollSize = config.get(SourceConfig.SCROLL_SIZE);
+        Map query = config.get(SourceConfig.QUERY);
         List<IndexDocsCount> indexDocsCounts =
-                esRestClient.getIndexDocsCount(pluginConfig.getString(SourceConfig.INDEX.key()));
+                esRestClient.getIndexDocsCount(config.get(SourceConfig.INDEX));
         indexDocsCounts =
                 indexDocsCounts.stream()
                         .filter(x -> x.getDocsCount() != null && x.getDocsCount() > 0)

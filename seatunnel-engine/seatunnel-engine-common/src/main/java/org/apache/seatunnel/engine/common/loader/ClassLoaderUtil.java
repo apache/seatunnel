@@ -15,28 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto;
+package org.apache.seatunnel.engine.common.loader;
 
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SinkConfig;
+import lombok.extern.slf4j.Slf4j;
 
-import lombok.Data;
+@Slf4j
+public class ClassLoaderUtil {
 
-/** index config by seatunnel */
-@Data
-public class IndexInfo {
-
-    private String index;
-    private String type;
-    private String[] primaryKeys;
-    private String keyDelimiter;
-
-    public IndexInfo(ReadonlyConfig config) {
-        index = config.get(SinkConfig.INDEX);
-        type = config.get(SinkConfig.INDEX_TYPE);
-        if (config.getOptional(SinkConfig.PRIMARY_KEYS).isPresent()) {
-            primaryKeys = config.get(SinkConfig.PRIMARY_KEYS).toArray(new String[0]);
-        }
-        keyDelimiter = config.get(SinkConfig.KEY_DELIMITER);
+    public static void recycleClassLoaderFromThread(ClassLoader classLoader) {
+        log.info("recycle classloader " + classLoader);
+        Thread.getAllStackTraces().keySet().stream()
+                .filter(thread -> thread.getContextClassLoader() == classLoader)
+                .forEach(
+                        thread -> {
+                            log.info("recycle classloader for thread " + thread.getName());
+                            thread.setContextClassLoader(null);
+                        });
     }
 }

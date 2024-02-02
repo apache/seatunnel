@@ -30,6 +30,7 @@ import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
+import org.apache.seatunnel.engine.common.loader.ClassLoaderUtil;
 import org.apache.seatunnel.engine.common.loader.SeaTunnelChildFirstClassLoader;
 import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
@@ -108,8 +109,6 @@ public class JobMaster {
 
     private CompletableFuture<JobResult> jobMasterCompleteFuture;
 
-    private ClassLoader classLoader;
-
     private JobImmutableInformation jobImmutableInformation;
 
     private LogicalDag logicalDag;
@@ -127,8 +126,6 @@ public class JobMaster {
     private final IMap<Object, Object> runningJobStateIMap;
 
     private final IMap<Object, Object> runningJobStateTimestampsIMap;
-
-    private CompletableFuture<Void> scheduleFuture;
 
     // TODO add config to change value
     private boolean isPhysicalDAGIInfo = true;
@@ -204,13 +201,14 @@ public class JobMaster {
                         jobImmutableInformation.getJobId(),
                         jobImmutableInformation.getPluginJarsUrls()));
 
-        classLoader =
+        ClassLoader classLoader =
                 new SeaTunnelChildFirstClassLoader(jobImmutableInformation.getPluginJarsUrls());
         logicalDag =
                 CustomClassLoadedObject.deserializeWithCustomClassLoader(
                         nodeEngine.getSerializationService(),
                         classLoader,
                         jobImmutableInformation.getLogicalDag());
+        ClassLoaderUtil.recycleClassLoaderFromThread(classLoader);
 
         final Tuple2<PhysicalPlan, Map<Integer, CheckpointPlan>> planTuple =
                 PlanUtils.fromLogicalDAG(
@@ -442,10 +440,6 @@ public class JobMaster {
         }
         throw new IllegalArgumentException(
                 "can't find task group address from taskGroupLocation: " + taskGroupLocation);
-    }
-
-    public ClassLoader getClassLoader() {
-        return classLoader;
     }
 
     public void cancelJob() {
