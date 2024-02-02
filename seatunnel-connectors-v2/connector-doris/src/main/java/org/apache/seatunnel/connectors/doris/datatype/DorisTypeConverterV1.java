@@ -95,12 +95,16 @@ public class DorisTypeConverterV1 extends AbstractDorisTypeConverter {
                 builder.dataType(DORIS_DATEV2);
                 break;
             case TIMESTAMP:
-                if (column.getScale() != null && column.getScale() > 0) {
+                if (column.getScale() != null
+                        && column.getScale() > 0
+                        && column.getScale() <= MAX_DATETIME_SCALE) {
                     builder.columnType(
                             String.format("%s(%s)", DORIS_DATETIMEV2, column.getScale()));
                     builder.scale(column.getScale());
                 } else {
-                    builder.columnType(DORIS_DATETIMEV2);
+                    builder.columnType(
+                            String.format("%s(%s)", DORIS_DATETIMEV2, MAX_DATETIME_SCALE));
+                    builder.scale(MAX_DATETIME_SCALE);
                 }
                 builder.dataType(DORIS_DATETIMEV2);
                 break;
