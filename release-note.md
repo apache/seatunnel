@@ -187,6 +187,7 @@
 - [Transform-V2] Add support CatalogTable for FilterFieldTransform (#4422)
 - [Transform-V2] Add catalog support for SQL Transform plugin (#4819)
 - [Connector-V2] [Assert] Support check the precision and scale of Decimal type (#6110)
+- [Connector-V2] [Assert] Support field type assert and field value equality assert for full data types (#6275)
 
 ### Zeta(ST-Engine)
 

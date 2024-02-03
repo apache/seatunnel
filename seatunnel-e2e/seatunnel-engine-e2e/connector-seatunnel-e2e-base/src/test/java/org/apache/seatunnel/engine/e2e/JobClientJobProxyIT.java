@@ -34,6 +34,7 @@ import org.testcontainers.utility.MountableFile;
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.Collections;
 
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
 
@@ -59,6 +60,7 @@ public class JobClientJobProxyIT extends SeaTunnelContainer {
                         .waitingFor(Wait.forListeningPort());
         copySeaTunnelStarterToContainer(server);
         server.setExposedPorts(Arrays.asList(5801));
+        server.setPortBindings(Collections.singletonList("5801:5801"));
         server.withCopyFileToContainer(
                 MountableFile.forHostPath(
                         PROJECT_ROOT_PATH

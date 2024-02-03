@@ -174,7 +174,6 @@ public class CheckpointCoordinator {
                         2,
                         runnable -> {
                             Thread thread = new Thread(runnable);
-                            thread.setDaemon(true);
                             thread.setName(
                                     String.format(
                                             "checkpoint-coordinator-%s/%s", pipelineId, jobId));
@@ -704,7 +703,6 @@ public class CheckpointCoordinator {
                             2,
                             runnable -> {
                                 Thread thread = new Thread(runnable);
-                                thread.setDaemon(true);
                                 thread.setName(
                                         String.format(
                                                 "checkpoint-coordinator-%s/%s", pipelineId, jobId));
