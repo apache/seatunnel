@@ -43,6 +43,7 @@ import java.util.concurrent.TimeUnit;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.lessThan;
+import static org.hamcrest.Matchers.notNullValue;
 
 @Slf4j
 public class RestApiIT {
@@ -124,6 +125,24 @@ public class RestApiIT {
                                     .body("[0].jobName", equalTo("fake_to_file"))
                                     .body("[0].jobStatus", equalTo("RUNNING"));
                         });
+    }
+
+    @Test
+    public void testGetRunningThreads() {
+        Arrays.asList(node2, node1)
+                .forEach(
+                        instance ->
+                                given().get(
+                                                HOST
+                                                        + instance.getCluster()
+                                                                .getLocalMember()
+                                                                .getAddress()
+                                                                .getPort()
+                                                        + RestConstant.RUNNING_THREADS)
+                                        .then()
+                                        .statusCode(200)
+                                        .body("[0].threadName", notNullValue())
+                                        .body("[0].classLoader", notNullValue()));
     }
 
     @Test
