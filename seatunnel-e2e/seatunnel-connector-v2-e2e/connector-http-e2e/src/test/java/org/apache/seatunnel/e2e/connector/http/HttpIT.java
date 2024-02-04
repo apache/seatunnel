@@ -175,11 +175,7 @@ public class HttpIT extends TestSuiteBase implements TestResource {
             throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/fake_to_multitable.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-        Assertions.assertTrue(getContentCounts(execResult.getStdout()));
-    }
-
-    private boolean getContentCounts(String content) {
-        return content.indexOf(successCount) != -1;
+        Assertions.assertTrue(execResult.getStdout().contains(successCount));
     }
 
     public String getMockServerConfig() {
