@@ -241,8 +241,7 @@ public class MongodbSourceOptions extends SourceOptions {
             Options.key(SourceOptions.STARTUP_MODE_KEY)
                     .singleChoice(
                             StartupMode.class,
-                            Arrays.asList(
-                                    StartupMode.INITIAL, StartupMode.EARLIEST, StartupMode.LATEST))
+                            Arrays.asList(StartupMode.INITIAL, StartupMode.TIMESTAMP))
                     .defaultValue(StartupMode.INITIAL)
                     .withDescription(
                             "Optional startup mode for CDC source, valid enumerations are "
