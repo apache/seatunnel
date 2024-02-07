@@ -50,9 +50,15 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
-static
+import static org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig.DATABASE;
+import static org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig.HDFS_SITE_PATH;
+import static org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig.PROJECTION;
+import static org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig.TABLE;
+import static org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig.WAREHOUSE;
+
 /** Paimon connector source class. */
-@AutoService(SeaTunnelSource.class) public class PaimonSource
+@AutoService(SeaTunnelSource.class)
+public class PaimonSource
         implements SeaTunnelSource<SeaTunnelRow, PaimonSourceSplit, PaimonSourceState> {
 
     private static final long serialVersionUID = 1L;
