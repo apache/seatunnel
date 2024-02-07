@@ -38,6 +38,7 @@ public class RowTypeConverterTest {
 
     private SeaTunnelRowType seaTunnelRowType;
 
+    private SeaTunnelRowType seaTunnelProjectionRowType;
     private RowType rowType;
 
     @BeforeEach
@@ -76,6 +77,12 @@ public class RowTypeConverterTest {
                             new MapType<>(BasicType.STRING_TYPE, BasicType.STRING_TYPE),
                             ArrayType.STRING_ARRAY_TYPE
                         });
+
+        seaTunnelProjectionRowType =
+                new SeaTunnelRowType(
+                        new String[] {"c_string", "c_int"},
+                        new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE, BasicType.INT_TYPE});
+
         rowType =
                 DataTypes.ROW(
                         new DataField(0, "c_tinyint", DataTypes.TINYINT()),
@@ -97,8 +104,15 @@ public class RowTypeConverterTest {
 
     @Test
     public void paimonToSeaTunnel() {
-        SeaTunnelRowType convert = RowTypeConverter.convert(rowType);
+        SeaTunnelRowType convert = RowTypeConverter.convert(rowType, null);
         Assertions.assertEquals(convert, seaTunnelRowType);
+    }
+
+    @Test
+    public void paimonToSeaTunnelWithProjection() {
+        int[] projection = {7, 2};
+        SeaTunnelRowType convert = RowTypeConverter.convert(rowType, projection);
+        Assertions.assertEquals(convert, seaTunnelProjectionRowType);
     }
 
     @Test

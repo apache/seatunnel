@@ -46,17 +46,13 @@ import org.apache.paimon.table.Table;
 
 import com.google.auto.service.AutoService;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
-import static org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig.DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig.HDFS_SITE_PATH;
-import static org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig.TABLE;
-import static org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig.WAREHOUSE;
-
+static
 /** Paimon connector source class. */
-@AutoService(SeaTunnelSource.class)
-public class PaimonSource
+@AutoService(SeaTunnelSource.class) public class PaimonSource
         implements SeaTunnelSource<SeaTunnelRow, PaimonSourceSplit, PaimonSourceState> {
 
     private static final long serialVersionUID = 1L;
@@ -68,6 +64,8 @@ public class PaimonSource
     private SeaTunnelRowType seaTunnelRowType;
 
     private Table table;
+
+    private int[] projection = null;
 
     @Override
     public String getPluginName() {
@@ -110,8 +108,12 @@ public class PaimonSource
             throw new PaimonConnectorException(
                     PaimonConnectorErrorCode.GET_TABLE_FAILED, errorMsg, e);
         }
-        // TODO: Support column projection
-        seaTunnelRowType = RowTypeConverter.convert(this.table.rowType());
+        if (pluginConfig.hasPath(PROJECTION.key())) {
+            String projectString = pluginConfig.getString(PROJECTION.key());
+            this.projection =
+                    Arrays.stream(projectString.split(",")).mapToInt(Integer::parseInt).toArray();
+        }
+        seaTunnelRowType = RowTypeConverter.convert(this.table.rowType(), projection);
     }
 
     @Override
@@ -127,7 +129,7 @@ public class PaimonSource
     @Override
     public SourceReader<SeaTunnelRow, PaimonSourceSplit> createReader(
             SourceReader.Context readerContext) throws Exception {
-        return new PaimonSourceReader(readerContext, table, seaTunnelRowType);
+        return new PaimonSourceReader(readerContext, table, seaTunnelRowType, projection);
     }
 
     @Override
