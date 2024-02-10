@@ -25,6 +25,15 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.druid.exception.DruidConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 
+import org.apache.druid.data.input.impl.CsvInputFormat;
+import org.apache.druid.data.input.impl.DimensionSchema;
+import org.apache.druid.data.input.impl.DimensionsSpec;
+import org.apache.druid.data.input.impl.DoubleDimensionSchema;
+import org.apache.druid.data.input.impl.FloatDimensionSchema;
+import org.apache.druid.data.input.impl.InlineInputSource;
+import org.apache.druid.data.input.impl.LongDimensionSchema;
+import org.apache.druid.data.input.impl.StringDimensionSchema;
+import org.apache.druid.data.input.impl.TimestampSpec;
 import org.apache.druid.indexing.common.task.batch.parallel.ParallelIndexIOConfig;
 import org.apache.druid.indexing.common.task.batch.parallel.ParallelIndexIngestionSpec;
 import org.apache.druid.indexing.common.task.batch.parallel.ParallelIndexSupervisorTask;
@@ -167,9 +176,8 @@ public class DruidWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     }
 
     /**
-     * Provide DataSchema from BitSailConfiguration. One necessary information to provide is
-     * DimensionSchema list, which states data type of columns. More details in
-     * https://druid.apache.org/docs/latest/ingestion/ingestion-spec.html
+     * One necessary information to provide is DimensionSchema list, which states data type of
+     * columns. More details in https://druid.apache.org/docs/latest/ingestion/ingestion-spec.html
      */
     private DataSchema provideDruidDataSchema() {
         final List<DimensionSchema> dimensionSchemas = transformToDimensionSchema();

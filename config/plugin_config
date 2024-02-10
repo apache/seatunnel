@@ -67,6 +67,7 @@ connector-openmldb
 connector-pulsar
 connector-rabbitmq
 connector-redis
+connector-druid
 connector-s3-redshift
 connector-sentry
 connector-slack
