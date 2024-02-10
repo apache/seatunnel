@@ -37,8 +37,12 @@ import com.google.auto.service.AutoService;
 
 import java.io.IOException;
 
-static @AutoService(SeaTunnelSink.class) public class DruidSink
-        extends AbstractSimpleSink<SeaTunnelRow, Void> {
+import static org.apache.seatunnel.connectors.druid.config.DruidConfig.BATCH_SIZE;
+import static org.apache.seatunnel.connectors.druid.config.DruidConfig.COORDINATOR_URL;
+import static org.apache.seatunnel.connectors.druid.config.DruidConfig.DATASOURCE;
+
+@AutoService(SeaTunnelSink.class)
+public class DruidSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     private Config pluginConfig;
     private SeaTunnelRowType seaTunnelRowType;
