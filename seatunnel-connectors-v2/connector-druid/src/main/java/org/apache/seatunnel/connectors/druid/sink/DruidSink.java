@@ -38,6 +38,7 @@ import com.google.auto.service.AutoService;
 import java.io.IOException;
 
 import static org.apache.seatunnel.connectors.druid.config.DruidConfig.BATCH_SIZE;
+import static org.apache.seatunnel.connectors.druid.config.DruidConfig.BATCH_SIZE_DEFAULT;
 import static org.apache.seatunnel.connectors.druid.config.DruidConfig.COORDINATOR_URL;
 import static org.apache.seatunnel.connectors.druid.config.DruidConfig.DATASOURCE;
 
@@ -46,6 +47,7 @@ public class DruidSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     private Config pluginConfig;
     private SeaTunnelRowType seaTunnelRowType;
+    private int batchSize = BATCH_SIZE_DEFAULT;
 
     @Override
     public String getPluginName() {
@@ -65,6 +67,9 @@ public class DruidSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
                             getPluginName(), PluginType.SINK, result.getMsg()));
         }
         this.pluginConfig = pluginConfig;
+        if (pluginConfig.hasPath(BATCH_SIZE.key())) {
+            this.batchSize = pluginConfig.getInt(BATCH_SIZE.key());
+        }
     }
 
     @Override
@@ -79,6 +84,6 @@ public class DruidSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
                 seaTunnelRowType,
                 pluginConfig.getString(COORDINATOR_URL.key()),
                 pluginConfig.getString(DATASOURCE.key()),
-                pluginConfig.getInt(BATCH_SIZE.key()));
+                this.batchSize);
     }
 }

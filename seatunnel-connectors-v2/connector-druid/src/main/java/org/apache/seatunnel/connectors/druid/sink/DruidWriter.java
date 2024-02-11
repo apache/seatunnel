@@ -78,9 +78,8 @@ public class DruidWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     private final HttpURLConnection httpURLConnection;
     private final DataSchema dataSchema;
-    // @Getter(AccessLevel.PACKAGE)
+
     private final long processTime;
-    // @Getter(AccessLevel.PACKAGE)
     private final transient StringBuffer data;
 
     private final ObjectMapper mapper;
@@ -148,9 +147,7 @@ public class DruidWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     }
 
     @Override
-    public void close() throws IOException {
-        flush();
-    }
+    public void close() throws IOException {}
 
     private HttpURLConnection provideHttpURLConnection(final String coordinatorURL)
             throws IOException {
@@ -226,7 +223,7 @@ public class DruidWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
      */
     @VisibleForTesting
     ParallelIndexIOConfig provideDruidIOConfig(final StringBuffer data) {
-        final List<String> formatList = Arrays.asList(seaTunnelRowType.getFieldNames());
+        List<String> formatList = Arrays.asList(seaTunnelRowType.getFieldNames());
         formatList.add(TIMESTAMP_SPEC_COLUMN_NAME);
         return new ParallelIndexIOConfig(
                 null,

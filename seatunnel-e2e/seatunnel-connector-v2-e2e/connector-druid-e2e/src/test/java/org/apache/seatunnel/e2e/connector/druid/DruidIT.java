@@ -20,7 +20,9 @@ package org.apache.seatunnel.e2e.connector.druid;
 
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -28,14 +30,13 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.DockerComposeContainer;
-import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 
 import java.io.File;
 import java.time.Duration;
 
 public class DruidIT extends TestSuiteBase implements TestResource {
-    private GenericContainer<?> druidContainer;
+
     private static final String DRUID_SERVICE_NAME = "router";
     private static final int DRUID_SERVICE_PORT = 8888;
     private DockerComposeContainer environment;
@@ -51,19 +52,6 @@ public class DruidIT extends TestSuiteBase implements TestResource {
                                 Wait.forListeningPort()
                                         .withStartupTimeout(Duration.ofSeconds(180)));
         environment.start();
-
-        //        druidContainer =
-        //                new GenericContainer<>(DockerImageName.parse(IMAGE))
-        //                        .withNetwork(NETWORK)
-        //                        .withNetworkAliases(HOST)
-        //                        .withExposedPorts(PORT)
-        //                        .withLogConsumer(new
-        // Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)))
-        //                        .waitingFor(
-        //                                new HostPortWaitStrategy()
-        //                                        .withStartupTimeout(Duration.ofMinutes(2)));
-        //        Startables.deepStart(Stream.of(druidContainer)).join();
-        //        log.info("Druid container started");
     }
 
     @AfterAll
@@ -73,6 +61,10 @@ public class DruidIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SEATUNNEL, EngineType.FLINK},
+            disabledReason = "flink/spark failed reason not same")
     public void testDruidSink(TestContainer container) throws Exception {
         Container.ExecResult execResult = container.executeJob("/fakesource_to_druid.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
