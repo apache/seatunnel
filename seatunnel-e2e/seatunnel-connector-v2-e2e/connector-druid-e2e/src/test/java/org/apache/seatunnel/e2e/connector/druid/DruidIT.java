@@ -20,9 +20,7 @@ package org.apache.seatunnel.e2e.connector.druid;
 
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
-import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
-import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -61,10 +59,6 @@ public class DruidIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    @DisabledOnContainer(
-            value = {},
-            type = {EngineType.SEATUNNEL, EngineType.FLINK},
-            disabledReason = "flink/spark failed reason not same")
     public void testDruidSink(TestContainer container) throws Exception {
         Container.ExecResult execResult = container.executeJob("/fakesource_to_druid.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
