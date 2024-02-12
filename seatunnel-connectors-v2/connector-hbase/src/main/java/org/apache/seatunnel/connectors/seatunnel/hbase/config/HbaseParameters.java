@@ -103,4 +103,43 @@ public class HbaseParameters implements Serializable {
         }
         return builder.build();
     }
+
+    public static HbaseParameters buildWithSinkConfig(Config pluginConfig) {
+        HbaseParametersBuilder builder = HbaseParameters.builder();
+
+        // required parameters
+        builder.zookeeperQuorum(pluginConfig.getString(ZOOKEEPER_QUORUM.key()));
+        builder.table(pluginConfig.getString(TABLE.key()));
+        //        builder.rowkeyColumns(pluginConfig.getStringList(ROWKEY_COLUMNS.key()));
+        //        builder.familyNames(
+        //
+        // TypesafeConfigUtils.configToMap(pluginConfig.getConfig(FAMILY_NAME.key())));
+
+        // optional parameters
+        //        if (pluginConfig.hasPath(ROWKEY_DELIMITER.key())) {
+        //            builder.rowkeyDelimiter(pluginConfig.getString(ROWKEY_DELIMITER.key()));
+        //        }
+        //        if (pluginConfig.hasPath(VERSION_COLUMN.key())) {
+        //            builder.versionColumn(pluginConfig.getString(VERSION_COLUMN.key()));
+        //        }
+        //        if (pluginConfig.hasPath(NULL_MODE.key())) {
+        //            String nullMode = pluginConfig.getString(NULL_MODE.key());
+        //            builder.nullMode(HbaseConfig.NullMode.valueOf(nullMode.toUpperCase()));
+        //        }
+        //        if (pluginConfig.hasPath(WAL_WRITE.key())) {
+        //            builder.walWrite(pluginConfig.getBoolean(WAL_WRITE.key()));
+        //        }
+        //        if (pluginConfig.hasPath(WRITE_BUFFER_SIZE.key())) {
+        //            builder.writeBufferSize(pluginConfig.getInt(WRITE_BUFFER_SIZE.key()));
+        //        }
+        //        if (pluginConfig.hasPath(ENCODING.key())) {
+        //            String encoding = pluginConfig.getString(ENCODING.key());
+        //            builder.enCoding(HbaseConfig.EnCoding.valueOf(encoding.toUpperCase()));
+        //        }
+        if (pluginConfig.hasPath(HBASE_EXTRA_CONFIG.key())) {
+            Config extraConfig = pluginConfig.getConfig(HBASE_EXTRA_CONFIG.key());
+            builder.hbaseExtraConfig(TypesafeConfigUtils.configToMap(extraConfig));
+        }
+        return builder.build();
+    }
 }
