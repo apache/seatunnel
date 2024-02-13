@@ -77,12 +77,11 @@ public class HbaseSource
                             getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
         this.hbaseParameters = HbaseParameters.buildWithSinkConfig(pluginConfig);
-
         String[] fieldNames = {
-            "cf1:age",
-            "cf1:c_tinyint",
-            "cf1:c_smallint",
-            "cf1:c_bigint",
+            "rowkey",
+            "cf1:col1",
+            "cf1:col2",
+            "cf2:col2",
             "cf1:c_float",
             "cf1:c_double",
             "cf1:c_boolean"

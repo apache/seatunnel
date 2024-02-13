@@ -38,13 +38,16 @@ import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.Maps;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedDeque;
@@ -53,6 +56,8 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 public class HbaseSourceReader implements SourceReader<SeaTunnelRow, HbaseSourceSplit> {
     private static final String ROW_KEY = "rowkey";
     private final Deque<HbaseSourceSplit> sourceSplits = new ConcurrentLinkedDeque<>();
+
+    private final transient Map<String, byte[][]> namesMap;
 
     private final Set<String> columnFamilies = new LinkedHashSet<>();
     private final SourceReader.Context context;
@@ -72,6 +77,7 @@ public class HbaseSourceReader implements SourceReader<SeaTunnelRow, HbaseSource
         this.hbaseParameters = hbaseParameters;
         this.context = context;
         this.seaTunnelRowType = seaTunnelRowType;
+        this.namesMap = Maps.newConcurrentMap();
 
         this.columnNames = hbaseParameters.getColumns();
         // Check if input column names are in format: [ columnFamily:column ].
@@ -186,20 +192,20 @@ public class HbaseSourceReader implements SourceReader<SeaTunnelRow, HbaseSource
             byte[] bytes;
             try {
                 // If it is rowkey defined by users, directly use it.
-                // if (this.ROW_KEY.equals(columnName)) {
-                bytes = result.getRow();
-                //                } else {
-                //                    byte[][] arr = this.namesMap.get(columnName);
-                //                    // Deduplicate
-                //                    if (Objects.isNull(arr)) {
-                //                        arr = new byte[2][];
-                //                        String[] arr1 = columnName.split(":");
-                //                        arr[0] = arr1[0].trim().getBytes(StandardCharsets.UTF_8);
-                //                        arr[1] = arr1[1].trim().getBytes(StandardCharsets.UTF_8);
-                //                        this.namesMap.put(columnName, arr);
-                //                    }
-                //                    bytes = result.getValue(arr[0], arr[1]);
-                //                }
+                if (this.ROW_KEY.equals(columnName)) {
+                    bytes = result.getRow();
+                } else {
+                    byte[][] arr = this.namesMap.get(columnName);
+                    // Deduplicate
+                    if (Objects.isNull(arr)) {
+                        arr = new byte[2][];
+                        String[] arr1 = columnName.split(":");
+                        arr[0] = arr1[0].trim().getBytes(StandardCharsets.UTF_8);
+                        arr[1] = arr1[1].trim().getBytes(StandardCharsets.UTF_8);
+                        this.namesMap.put(columnName, arr);
+                    }
+                    bytes = result.getValue(arr[0], arr[1]);
+                }
                 rawRow[i] = bytes;
             } catch (Exception e) {
                 log.error(
