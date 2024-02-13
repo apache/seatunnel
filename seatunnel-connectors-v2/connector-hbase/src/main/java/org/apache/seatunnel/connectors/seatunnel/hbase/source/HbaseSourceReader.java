@@ -26,6 +26,8 @@ import org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseParameters;
 import org.apache.seatunnel.connectors.seatunnel.hbase.format.HBaseDeserializationFormat;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hbase.Cell;
+import org.apache.hadoop.hbase.CellUtil;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Connection;
@@ -33,25 +35,32 @@ import org.apache.hadoop.hbase.client.ConnectionFactory;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.ResultScanner;
 import org.apache.hadoop.hbase.client.Scan;
+import org.apache.hadoop.hbase.util.Bytes;
 
+import com.google.common.base.Preconditions;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedDeque;
 
 @Slf4j
 public class HbaseSourceReader implements SourceReader<SeaTunnelRow, HbaseSourceSplit> {
+    private static final String ROW_KEY = "rowkey";
     private final Deque<HbaseSourceSplit> sourceSplits = new ConcurrentLinkedDeque<>();
+
+    private final Set<String> columnFamilies = new LinkedHashSet<>();
     private final SourceReader.Context context;
     private final SeaTunnelRowType seaTunnelRowType;
     private volatile boolean noMoreSplit = false;
 
     private HbaseParameters hbaseParameters;
-
+    private final List<String> columnNames;
     private final transient Connection connection;
 
     private HBaseDeserializationFormat hbaseDeserializationFormat =
@@ -63,6 +72,17 @@ public class HbaseSourceReader implements SourceReader<SeaTunnelRow, HbaseSource
         this.hbaseParameters = hbaseParameters;
         this.context = context;
         this.seaTunnelRowType = seaTunnelRowType;
+
+        this.columnNames = hbaseParameters.getColumns();
+        // Check if input column names are in format: [ columnFamily:column ].
+        this.columnNames.stream()
+                .peek(
+                        column ->
+                                Preconditions.checkArgument(
+                                        (column.contains(":") && column.split(":").length == 2)
+                                                || this.ROW_KEY.equalsIgnoreCase(column),
+                                        "Invalid column names, it should be [ColumnFamily:Column] format"))
+                .forEach(column -> this.columnFamilies.add(column.split(":")[0]));
 
         Configuration hbaseConfiguration = HBaseConfiguration.create();
         hbaseConfiguration.set("hbase.zookeeper.quorum", hbaseParameters.getZookeeperQuorum());
@@ -111,17 +131,42 @@ public class HbaseSourceReader implements SourceReader<SeaTunnelRow, HbaseSource
                     Scan scan = new Scan();
                     scan.withStartRow(split.getStartRow(), true);
                     scan.withStopRow(split.getEndRow(), true);
-                    // this.columnFamilies.forEach(cf -> scan.addFamily(Bytes.toBytes(cf)));
+                    this.columnFamilies.forEach(cf -> scan.addFamily(Bytes.toBytes(cf)));
                     this.currentScanner =
                             this.connection
                                     .getTable(TableName.valueOf(hbaseParameters.getTable()))
                                     .getScanner(scan);
                 }
-                Result result = this.currentScanner.next();
-                SeaTunnelRow seaTunnelRow =
-                        hbaseDeserializationFormat.deserialize(
-                                convertRawRow(result), seaTunnelRowType);
-                output.collect(seaTunnelRow);
+                for (Result result : currentScanner) {
+                    // 获取行键
+                    byte[] rowKey = result.getRow();
+                    System.out.println("Row Key: " + Bytes.toString(rowKey));
+
+                    // 遍历列族和列
+                    for (Cell cell : result.listCells()) {
+                        byte[] family = CellUtil.cloneFamily(cell);
+                        byte[] qualifier = CellUtil.cloneQualifier(cell);
+                        byte[] value = CellUtil.cloneValue(cell);
+
+                        System.out.println(
+                                "Column Family: "
+                                        + Bytes.toString(family)
+                                        + ", Qualifier: "
+                                        + Bytes.toString(qualifier)
+                                        + ", Value: "
+                                        + Bytes.toString(value));
+                    }
+                    SeaTunnelRow seaTunnelRow =
+                            hbaseDeserializationFormat.deserialize(
+                                    convertRawRow(result), seaTunnelRowType);
+                    output.collect(seaTunnelRow);
+                }
+                //                Result result = this.currentScanner.next();
+                //                System.out.println(result);
+                //                SeaTunnelRow seaTunnelRow =
+                //                        hbaseDeserializationFormat.deserialize(
+                //                                convertRawRow(result), seaTunnelRowType);
+                //                output.collect(seaTunnelRow);
             } else if (noMoreSplit && sourceSplits.isEmpty()) {
                 // signal to the source that we have reached the end of the data.
                 log.info("Closed the bounded Hbase source");

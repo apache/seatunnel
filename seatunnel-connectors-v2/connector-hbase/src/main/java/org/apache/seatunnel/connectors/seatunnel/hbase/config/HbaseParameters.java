@@ -28,6 +28,7 @@ import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
 
+import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.COLUMNS;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.ENCODING;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.FAMILY_NAME;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.HBASE_EXTRA_CONFIG;
@@ -49,6 +50,8 @@ public class HbaseParameters implements Serializable {
     private String table;
 
     private List<String> rowkeyColumns;
+
+    private List<String> columns;
 
     private Map<String, String> familyNames;
 
@@ -110,6 +113,7 @@ public class HbaseParameters implements Serializable {
         // required parameters
         builder.zookeeperQuorum(pluginConfig.getString(ZOOKEEPER_QUORUM.key()));
         builder.table(pluginConfig.getString(TABLE.key()));
+        builder.columns(pluginConfig.getStringList(COLUMNS.key()));
         //        builder.rowkeyColumns(pluginConfig.getStringList(ROWKEY_COLUMNS.key()));
         //        builder.familyNames(
         //

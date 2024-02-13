@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -40,6 +41,8 @@ import org.slf4j.LoggerFactory;
 
 import com.google.auto.service.AutoService;
 
+import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
+import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.COLUMNS;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.TABLE;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.ZOOKEEPER_QUORUM;
 
@@ -64,7 +67,8 @@ public class HbaseSource
     public void prepare(Config pluginConfig) throws PrepareFailException {
         this.pluginConfig = pluginConfig;
         CheckResult result =
-                CheckConfigUtil.checkAllExists(pluginConfig, ZOOKEEPER_QUORUM.key(), TABLE.key());
+                CheckConfigUtil.checkAllExists(
+                        pluginConfig, ZOOKEEPER_QUORUM.key(), TABLE.key(), COLUMNS.key());
         if (!result.isSuccess()) {
             throw new HbaseConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
@@ -73,6 +77,67 @@ public class HbaseSource
                             getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
         this.hbaseParameters = HbaseParameters.buildWithSinkConfig(pluginConfig);
+
+        String[] fieldNames = {
+            "cf1:age",
+            "cf1:c_tinyint",
+            "cf1:c_smallint",
+            "cf1:c_bigint",
+            "cf1:c_float",
+            "cf1:c_double",
+            "cf1:c_boolean"
+        };
+        BasicType<String> stringType = STRING_TYPE;
+        SeaTunnelDataType<?>[] types = {
+            STRING_TYPE,
+            STRING_TYPE,
+            STRING_TYPE,
+            STRING_TYPE,
+            STRING_TYPE,
+            STRING_TYPE,
+            STRING_TYPE
+        };
+        this.seaTunnelRowType = new SeaTunnelRowType(fieldNames, types);
+
+        //        Configuration hbaseConfiguration = HBaseConfiguration.create();
+        //        hbaseConfiguration.set("hbase.zookeeper.quorum",
+        // hbaseParameters.getZookeeperQuorum());
+        //        if (hbaseParameters.getHbaseExtraConfig() != null) {
+        //            hbaseParameters.getHbaseExtraConfig().forEach(hbaseConfiguration::set);
+        //        }
+        //
+        //        Connection connection = null;
+        //        // initialize hbase connection
+        //        try {
+        //            connection = ConnectionFactory.createConnection(hbaseConfiguration);
+        //            TableName tableName = TableName.valueOf("test_table");
+        //
+        //            // 获取Admin实例
+        //            try (Admin admin = connection.getAdmin()) {
+        //                // 检查表是否存在
+        //                if (admin.tableExists(tableName)) {
+        //                    // 获取表的列描述符
+        //                    HTableDescriptor tableDescriptor =
+        // admin.getTableDescriptor(tableName);
+        //
+        //                    // 获取所有列族
+        //                    HColumnDescriptor[] columnDescriptors =
+        // tableDescriptor.getColumnFamilies();
+        //
+        //                    // 输出列族信息
+        //                    for (HColumnDescriptor columnDescriptor : columnDescriptors) {
+        //                        System.out.println("Column Family: " +
+        // columnDescriptor.getNameAsString());
+        //                    }
+        //                }
+        //                // this.seaTunnelRowType =
+        // CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
+        //            } catch (IOException e) {
+        //                throw new RuntimeException(e);
+        //            }
+        //        } catch (IOException e) {
+        //            throw new RuntimeException(e);
+        //        }
     }
 
     @Override

@@ -42,6 +42,12 @@ public class HbaseConfig {
                     .noDefaultValue()
                     .withDescription("Hbase rowkey column");
 
+    public static final Option<List<String>> COLUMNS =
+            Options.key("columns")
+                    .listType()
+                    .noDefaultValue()
+                    .withDescription("query Hbase columns");
+
     public static final Option<String> ROWKEY_DELIMITER =
             Options.key("rowkey_delimiter")
                     .stringType()
