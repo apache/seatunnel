@@ -21,12 +21,14 @@ package org.apache.seatunnel.connectors.seatunnel.hbase.format;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.connectors.seatunnel.hbase.exception.HbaseConnectorException;
+
+import org.apache.hadoop.hbase.util.Bytes;
 
 import java.nio.charset.Charset;
 
 public class HBaseDeserializationFormat {
-
-    private static final Integer BIT_LENGTH = 1;
 
     public SeaTunnelRow deserialize(byte[][] rowCell, SeaTunnelRowType seaTunnelRowType) {
         SeaTunnelRow row = new SeaTunnelRow(seaTunnelRowType.getTotalFields());
@@ -42,17 +44,29 @@ public class HBaseDeserializationFormat {
             return null;
         }
 
-        // Class<?> columnTypeClass = typeInfo.getTypeClass();
         switch (typeInfo.getSqlType()) {
-                //            case STRING:
-                //                return new String(cell, Charset.defaultCharset());
-                //                break;
-            default:
-                //                throw new DruidConnectorException(
-                //                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
-                //                        "Unsupported data type " +
-                // seaTunnelRowType.getFieldType(i));
+            case TINYINT:
+            case SMALLINT:
+            case INT:
+                return Integer.valueOf(Bytes.toString(cell));
+            case BOOLEAN:
+                return Boolean.valueOf(Bytes.toString(cell));
+            case BIGINT:
+                return Long.valueOf(Bytes.toString(cell));
+            case FLOAT:
+            case DECIMAL:
+                return Double.valueOf(Bytes.toString(cell));
+            case BYTES:
+                return cell;
+            case DATE:
+            case TIME:
+            case TIMESTAMP:
+            case STRING:
                 return new String(cell, Charset.defaultCharset());
+            default:
+                throw new HbaseConnectorException(
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
+                        "Unsupported data type " + typeInfo.getSqlType());
         }
     }
 }

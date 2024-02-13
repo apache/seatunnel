@@ -26,8 +26,6 @@ import org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseParameters;
 import org.apache.seatunnel.connectors.seatunnel.hbase.format.HBaseDeserializationFormat;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hbase.Cell;
-import org.apache.hadoop.hbase.CellUtil;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Connection;
@@ -35,7 +33,6 @@ import org.apache.hadoop.hbase.client.ConnectionFactory;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.ResultScanner;
 import org.apache.hadoop.hbase.client.Scan;
-import org.apache.hadoop.hbase.util.Bytes;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Maps;
@@ -137,42 +134,17 @@ public class HbaseSourceReader implements SourceReader<SeaTunnelRow, HbaseSource
                     Scan scan = new Scan();
                     scan.withStartRow(split.getStartRow(), true);
                     scan.withStopRow(split.getEndRow(), true);
-                    this.columnFamilies.forEach(cf -> scan.addFamily(Bytes.toBytes(cf)));
                     this.currentScanner =
                             this.connection
                                     .getTable(TableName.valueOf(hbaseParameters.getTable()))
                                     .getScanner(scan);
                 }
                 for (Result result : currentScanner) {
-                    // 获取行键
-                    byte[] rowKey = result.getRow();
-                    System.out.println("Row Key: " + Bytes.toString(rowKey));
-
-                    // 遍历列族和列
-                    for (Cell cell : result.listCells()) {
-                        byte[] family = CellUtil.cloneFamily(cell);
-                        byte[] qualifier = CellUtil.cloneQualifier(cell);
-                        byte[] value = CellUtil.cloneValue(cell);
-
-                        System.out.println(
-                                "Column Family: "
-                                        + Bytes.toString(family)
-                                        + ", Qualifier: "
-                                        + Bytes.toString(qualifier)
-                                        + ", Value: "
-                                        + Bytes.toString(value));
-                    }
                     SeaTunnelRow seaTunnelRow =
                             hbaseDeserializationFormat.deserialize(
                                     convertRawRow(result), seaTunnelRowType);
                     output.collect(seaTunnelRow);
                 }
-                //                Result result = this.currentScanner.next();
-                //                System.out.println(result);
-                //                SeaTunnelRow seaTunnelRow =
-                //                        hbaseDeserializationFormat.deserialize(
-                //                                convertRawRow(result), seaTunnelRowType);
-                //                output.collect(seaTunnelRow);
             } else if (noMoreSplit && sourceSplits.isEmpty()) {
                 // signal to the source that we have reached the end of the data.
                 log.info("Closed the bounded Hbase source");

@@ -43,7 +43,7 @@ public class HbaseConfig {
                     .withDescription("Hbase rowkey column");
 
     public static final Option<List<String>> COLUMNS =
-            Options.key("columns")
+            Options.key("query_columns")
                     .listType()
                     .noDefaultValue()
                     .withDescription("query Hbase columns");

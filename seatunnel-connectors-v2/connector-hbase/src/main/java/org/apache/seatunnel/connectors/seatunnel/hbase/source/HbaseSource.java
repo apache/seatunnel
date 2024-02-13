@@ -26,7 +26,7 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
-import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -41,7 +41,6 @@ import org.slf4j.LoggerFactory;
 
 import com.google.auto.service.AutoService;
 
-import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.COLUMNS;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.TABLE;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.ZOOKEEPER_QUORUM;
@@ -77,26 +76,17 @@ public class HbaseSource
                             getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
         this.hbaseParameters = HbaseParameters.buildWithSinkConfig(pluginConfig);
-        String[] fieldNames = {
-            "rowkey",
-            "cf1:col1",
-            "cf1:col2",
-            "cf2:col2",
-            "cf1:c_float",
-            "cf1:c_double",
-            "cf1:c_boolean"
-        };
-        BasicType<String> stringType = STRING_TYPE;
-        SeaTunnelDataType<?>[] types = {
-            STRING_TYPE,
-            STRING_TYPE,
-            STRING_TYPE,
-            STRING_TYPE,
-            STRING_TYPE,
-            STRING_TYPE,
-            STRING_TYPE
-        };
-        this.seaTunnelRowType = new SeaTunnelRowType(fieldNames, types);
+        SeaTunnelRowType typeInfo;
+        typeInfo = CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
+        this.seaTunnelRowType = typeInfo;
+
+        //        String[] fieldNames = hbaseParameters.getColumns().toArray(new String[0]);
+        //        SeaTunnelDataType<?>[] types = new SeaTunnelDataType<?>[fieldNames.length];
+        //        Arrays.fill(types, STRING_TYPE);
+        //        SeaTunnelDataType<?>[] types = {
+        //            STRING_TYPE, STRING_TYPE, STRING_TYPE, STRING_TYPE, STRING_TYPE
+        //        };
+        // this.seaTunnelRowType = new SeaTunnelRowType(fieldNames, types);
 
         //        Configuration hbaseConfiguration = HBaseConfiguration.create();
         //        hbaseConfiguration.set("hbase.zookeeper.quorum",
