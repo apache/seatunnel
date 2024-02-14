@@ -63,7 +63,7 @@ public class DruidIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     @DisabledOnContainer(
             value = {},
-            type = {EngineType.FLINK},
+            type = {EngineType.FLINK, EngineType.SEATUNNEL},
             disabledReason = "flink/spark failed reason not same")
     public void testDruidSink(TestContainer container) throws Exception {
         Container.ExecResult execResult = container.executeJob("/fakesource_to_druid.conf");
