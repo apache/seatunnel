@@ -163,7 +163,7 @@ public class HbaseSourceReader implements SourceReader<SeaTunnelRow, HbaseSource
             String columnName = fieldNames[i];
             byte[] bytes;
             try {
-                // If it is rowkey defined by users, directly use it.
+                // handle rowkey column
                 if (this.ROW_KEY.equals(columnName)) {
                     bytes = result.getRow();
                 } else {
@@ -188,7 +188,7 @@ public class HbaseSourceReader implements SourceReader<SeaTunnelRow, HbaseSource
     }
 
     @Override
-    public List<HbaseSourceSplit> snapshotState(long checkpointId) throws Exception {
+    public List<HbaseSourceSplit> snapshotState(long checkpointId) {
         return new ArrayList<>(sourceSplits);
     }
 
@@ -203,5 +203,5 @@ public class HbaseSourceReader implements SourceReader<SeaTunnelRow, HbaseSource
     }
 
     @Override
-    public void notifyCheckpointComplete(long checkpointId) throws Exception {}
+    public void notifyCheckpointComplete(long checkpointId) {}
 }

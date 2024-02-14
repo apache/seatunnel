@@ -42,7 +42,7 @@ public class HbaseConfig {
                     .noDefaultValue()
                     .withDescription("Hbase rowkey column");
 
-    public static final Option<List<String>> COLUMNS =
+    public static final Option<List<String>> QUERY_COLUMNS =
             Options.key("query_columns")
                     .listType()
                     .noDefaultValue()

@@ -41,7 +41,7 @@ import org.slf4j.LoggerFactory;
 
 import com.google.auto.service.AutoService;
 
-import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.COLUMNS;
+import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.QUERY_COLUMNS;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.TABLE;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.ZOOKEEPER_QUORUM;
 
@@ -49,12 +49,9 @@ import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig
 public class HbaseSource
         implements SeaTunnelSource<SeaTunnelRow, HbaseSourceSplit, HbaseSourceState> {
     private static final Logger LOG = LoggerFactory.getLogger(HbaseSource.class);
-
     public static final String PLUGIN_NAME = "Hbase";
     private Config pluginConfig;
-    private String tableName;
     private SeaTunnelRowType seaTunnelRowType;
-
     private HbaseParameters hbaseParameters;
 
     @Override
@@ -67,7 +64,7 @@ public class HbaseSource
         this.pluginConfig = pluginConfig;
         CheckResult result =
                 CheckConfigUtil.checkAllExists(
-                        pluginConfig, ZOOKEEPER_QUORUM.key(), TABLE.key(), COLUMNS.key());
+                        pluginConfig, ZOOKEEPER_QUORUM.key(), TABLE.key(), QUERY_COLUMNS.key());
         if (!result.isSuccess()) {
             throw new HbaseConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
@@ -79,54 +76,6 @@ public class HbaseSource
         SeaTunnelRowType typeInfo;
         typeInfo = CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
         this.seaTunnelRowType = typeInfo;
-
-        //        String[] fieldNames = hbaseParameters.getColumns().toArray(new String[0]);
-        //        SeaTunnelDataType<?>[] types = new SeaTunnelDataType<?>[fieldNames.length];
-        //        Arrays.fill(types, STRING_TYPE);
-        //        SeaTunnelDataType<?>[] types = {
-        //            STRING_TYPE, STRING_TYPE, STRING_TYPE, STRING_TYPE, STRING_TYPE
-        //        };
-        // this.seaTunnelRowType = new SeaTunnelRowType(fieldNames, types);
-
-        //        Configuration hbaseConfiguration = HBaseConfiguration.create();
-        //        hbaseConfiguration.set("hbase.zookeeper.quorum",
-        // hbaseParameters.getZookeeperQuorum());
-        //        if (hbaseParameters.getHbaseExtraConfig() != null) {
-        //            hbaseParameters.getHbaseExtraConfig().forEach(hbaseConfiguration::set);
-        //        }
-        //
-        //        Connection connection = null;
-        //        // initialize hbase connection
-        //        try {
-        //            connection = ConnectionFactory.createConnection(hbaseConfiguration);
-        //            TableName tableName = TableName.valueOf("test_table");
-        //
-        //            // 获取Admin实例
-        //            try (Admin admin = connection.getAdmin()) {
-        //                // 检查表是否存在
-        //                if (admin.tableExists(tableName)) {
-        //                    // 获取表的列描述符
-        //                    HTableDescriptor tableDescriptor =
-        // admin.getTableDescriptor(tableName);
-        //
-        //                    // 获取所有列族
-        //                    HColumnDescriptor[] columnDescriptors =
-        // tableDescriptor.getColumnFamilies();
-        //
-        //                    // 输出列族信息
-        //                    for (HColumnDescriptor columnDescriptor : columnDescriptors) {
-        //                        System.out.println("Column Family: " +
-        // columnDescriptor.getNameAsString());
-        //                    }
-        //                }
-        //                // this.seaTunnelRowType =
-        // CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
-        //            } catch (IOException e) {
-        //                throw new RuntimeException(e);
-        //            }
-        //        } catch (IOException e) {
-        //            throw new RuntimeException(e);
-        //        }
     }
 
     @Override

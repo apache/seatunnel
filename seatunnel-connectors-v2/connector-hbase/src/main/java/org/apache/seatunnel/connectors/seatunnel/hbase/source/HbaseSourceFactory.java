@@ -40,8 +40,7 @@ public class HbaseSourceFactory implements TableSourceFactory {
         return OptionRule.builder()
                 .required(HbaseConfig.ZOOKEEPER_QUORUM)
                 .required(HbaseConfig.TABLE)
-                //                .required(PaimonConfig.TABLE)
-                //                .optional(PaimonConfig.HDFS_SITE_PATH)
+                .required(HbaseConfig.QUERY_COLUMNS)
                 .build();
     }
 

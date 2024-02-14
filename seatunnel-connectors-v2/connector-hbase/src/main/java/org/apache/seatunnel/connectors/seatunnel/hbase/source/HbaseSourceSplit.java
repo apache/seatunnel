@@ -26,9 +26,6 @@ public class HbaseSourceSplit implements SourceSplit {
     private byte[] startRow;
     private byte[] endRow;
 
-    /** Read whole table or not */
-    private boolean readTable;
-
     public HbaseSourceSplit(int splitId) {
         this.splitId = HBASE_SOURCE_SPLIT_PREFIX + splitId;
     }
@@ -39,13 +36,9 @@ public class HbaseSourceSplit implements SourceSplit {
         this.endRow = endRow;
     }
 
-    public String uniqSplitId() {
-        return splitId;
-    }
-
     @Override
     public String toString() {
-        return String.format("{\"split_id\":\"%s\", \"readTable\":%s}", splitId, readTable);
+        return String.format("{\"split_id\":\"%s\"}", splitId);
     }
 
     @Override

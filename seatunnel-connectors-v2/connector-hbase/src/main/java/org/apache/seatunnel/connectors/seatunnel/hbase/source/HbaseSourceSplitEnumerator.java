@@ -63,6 +63,7 @@ public class HbaseSourceSplitEnumerator
         this.context = context;
         this.hbaseParameters = hbaseParameters;
         this.assignedSplit = new HashSet<>();
+        init();
     }
 
     public HbaseSourceSplitEnumerator(
@@ -72,11 +73,10 @@ public class HbaseSourceSplitEnumerator
         this.context = context;
         this.hbaseParameters = hbaseParameters;
         this.assignedSplit = sourceState.getAssignedSplits();
+        init();
     }
 
-    @Override
-    public void open() {
-        this.pendingSplit = new HashSet<>();
+    private void init() {
         // initialize hbase configuration
         hbaseConfiguration.set("hbase.zookeeper.quorum", hbaseParameters.getZookeeperQuorum());
         if (hbaseParameters.getHbaseExtraConfig() != null) {
@@ -88,6 +88,11 @@ public class HbaseSourceSplitEnumerator
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    @Override
+    public void open() {
+        this.pendingSplit = new HashSet<>();
     }
 
     @Override
