@@ -24,12 +24,10 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseParameters;
 import org.apache.seatunnel.connectors.seatunnel.hbase.format.HBaseDeserializationFormat;
+import org.apache.seatunnel.connectors.seatunnel.hbase.utils.HbaseConnectionUtil;
 
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Connection;
-import org.apache.hadoop.hbase.client.ConnectionFactory;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.ResultScanner;
 import org.apache.hadoop.hbase.client.Scan;
@@ -87,17 +85,7 @@ public class HbaseSourceReader implements SourceReader<SeaTunnelRow, HbaseSource
                                         "Invalid column names, it should be [ColumnFamily:Column] format"))
                 .forEach(column -> this.columnFamilies.add(column.split(":")[0]));
 
-        Configuration hbaseConfiguration = HBaseConfiguration.create();
-        hbaseConfiguration.set("hbase.zookeeper.quorum", hbaseParameters.getZookeeperQuorum());
-        if (hbaseParameters.getHbaseExtraConfig() != null) {
-            hbaseParameters.getHbaseExtraConfig().forEach(hbaseConfiguration::set);
-        }
-        // initialize hbase connection
-        try {
-            connection = ConnectionFactory.createConnection(hbaseConfiguration);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        connection = HbaseConnectionUtil.getHbaseConnection(hbaseParameters);
     }
 
     @Override

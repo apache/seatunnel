@@ -22,12 +22,10 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseParameters;
+import org.apache.seatunnel.connectors.seatunnel.hbase.utils.HbaseConnectionUtil;
 
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Connection;
-import org.apache.hadoop.hbase.client.ConnectionFactory;
 import org.apache.hadoop.hbase.client.RegionLocator;
 
 import lombok.extern.slf4j.Slf4j;
@@ -56,14 +54,12 @@ public class HbaseSourceSplitEnumerator
     private HbaseParameters hbaseParameters;
     private Connection connection;
 
-    private final Configuration hbaseConfiguration = HBaseConfiguration.create();
-
     public HbaseSourceSplitEnumerator(
             Context<HbaseSourceSplit> context, HbaseParameters hbaseParameters) {
         this.context = context;
         this.hbaseParameters = hbaseParameters;
         this.assignedSplit = new HashSet<>();
-        init();
+        connection = HbaseConnectionUtil.getHbaseConnection(hbaseParameters);
     }
 
     public HbaseSourceSplitEnumerator(
@@ -73,21 +69,7 @@ public class HbaseSourceSplitEnumerator
         this.context = context;
         this.hbaseParameters = hbaseParameters;
         this.assignedSplit = sourceState.getAssignedSplits();
-        init();
-    }
-
-    private void init() {
-        // initialize hbase configuration
-        hbaseConfiguration.set("hbase.zookeeper.quorum", hbaseParameters.getZookeeperQuorum());
-        if (hbaseParameters.getHbaseExtraConfig() != null) {
-            hbaseParameters.getHbaseExtraConfig().forEach(hbaseConfiguration::set);
-        }
-        // initialize hbase connection
-        try {
-            connection = ConnectionFactory.createConnection(hbaseConfiguration);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        connection = HbaseConnectionUtil.getHbaseConnection(hbaseParameters);
     }
 
     @Override
