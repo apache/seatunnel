@@ -93,7 +93,7 @@ sink {
 
 ## 有 HBase 插件吗？
 
-有一个 hbase 输入插件。 您可以从这里下载：https://github.com/garyelephant/waterdrop-input-hbase。
+有一个 hbase 输入插件。 您可以从这里下载：https://github.com/garyelephant/waterdrop-input-hbase
 
 ## 如何使用SeaTunnel将数据写入Hive？
 
