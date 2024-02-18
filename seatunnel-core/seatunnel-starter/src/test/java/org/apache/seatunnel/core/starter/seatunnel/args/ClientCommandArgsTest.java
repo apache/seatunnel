@@ -40,6 +40,8 @@ public class ClientCommandArgsTest {
         String password = "dsjr42=4wfskahdsd=w1chh";
         String fakeSourceTable = "fake";
         String fakeSinkTable = "sink";
+        String list = "[par1=20230829,par2=20230829]";
+        String blankSpace = "2023-12-26 11:30:00";
         String[] args = {
             "-c",
             "/args/user_defined_params.conf",
@@ -54,7 +56,13 @@ public class ClientCommandArgsTest {
             "-i",
             "password=" + password,
             "-i",
-            "username=" + username
+            "username=" + username,
+            "-i",
+            "blankSpace=" + blankSpace,
+            "-i",
+            "list=" + list,
+            "-i",
+            "sql=" + "\"select a , b from fake_source_table\""
         };
         ClientCommandArgs clientCommandArgs =
                 CommandLineUtils.parse(args, new ClientCommandArgs(), "seatunnel-zeta", true);
@@ -88,6 +96,12 @@ public class ClientCommandArgsTest {
 
             Assertions.assertEquals(sinkConfig.getString("username"), username);
             Assertions.assertEquals(sinkConfig.getString("password"), password);
+            List<String> list1 = sinkConfig.getStringList("list");
+            Assertions.assertEquals(list1.get(0), "par1=20230829");
+            Assertions.assertEquals(list1.get(1), "par2=20230829");
+            String sql = sinkConfig.getString("sql");
+            Assertions.assertEquals(sql, "\"select a , b from fake_source_table\"");
+            Assertions.assertEquals(sinkConfig.getString("blankSpace"), blankSpace);
         }
     }
 }

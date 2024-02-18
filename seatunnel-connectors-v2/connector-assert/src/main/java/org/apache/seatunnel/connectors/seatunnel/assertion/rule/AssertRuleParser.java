@@ -18,15 +18,15 @@
 package org.apache.seatunnel.connectors.seatunnel.assertion.rule;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigObject;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 
-import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.api.table.catalog.SeaTunnelDataTypeConvertorUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
-import com.google.common.collect.Maps;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.EQUALS_TO;
@@ -36,11 +36,15 @@ import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertCon
 import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.RULE_TYPE;
 import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.RULE_VALUE;
 
+@Slf4j
 public class AssertRuleParser {
-
     public List<AssertFieldRule.AssertRule> parseRowRules(List<? extends Config> rowRuleList) {
 
         return assembleFieldValueRules(rowRuleList);
+    }
+
+    public AssertCatalogTableRule parseCatalogTableRule(Config catalogTableRule) {
+        return new AssertCatalogTableRuleParser().parseCatalogTableRule(catalogTableRule);
     }
 
     public List<AssertFieldRule> parseRules(List<? extends Config> ruleConfigList) {
@@ -48,9 +52,43 @@ public class AssertRuleParser {
                 .map(
                         config -> {
                             AssertFieldRule fieldRule = new AssertFieldRule();
+                            String fieldName = config.getString(FIELD_NAME);
                             fieldRule.setFieldName(config.getString(FIELD_NAME));
                             if (config.hasPath(FIELD_TYPE)) {
-                                fieldRule.setFieldType(getFieldType(config.getString(FIELD_TYPE)));
+                                ConfigValue fieldTypeConf = config.getValue(FIELD_TYPE);
+                                switch (fieldTypeConf.valueType()) {
+                                    case STRING:
+                                        {
+                                            String basicTypeStr = config.getString(FIELD_TYPE);
+                                            SeaTunnelDataType<?> fieldType =
+                                                    SeaTunnelDataTypeConvertorUtil
+                                                            .deserializeSeaTunnelDataType(
+                                                                    fieldName, basicTypeStr);
+                                            fieldRule.setFieldType(fieldType);
+                                        }
+                                        ;
+                                        break;
+                                    case OBJECT:
+                                        {
+                                            ConfigObject rowTypeConf = config.getObject(FIELD_TYPE);
+                                            SeaTunnelDataType<?> fieldType =
+                                                    SeaTunnelDataTypeConvertorUtil
+                                                            .deserializeSeaTunnelDataType(
+                                                                    fieldName,
+                                                                    rowTypeConf.render());
+                                            fieldRule.setFieldType(fieldType);
+                                        }
+                                        ;
+                                        break;
+                                    case BOOLEAN:
+                                    case NUMBER:
+                                    case LIST:
+                                    case NULL:
+                                        log.warn(
+                                                String.format(
+                                                        "Assert Field Rule[%s] doesn't support '%s' type value.",
+                                                        FIELD_TYPE, fieldTypeConf.valueType()));
+                                }
                             }
 
                             if (config.hasPath(FIELD_VALUE)) {
@@ -78,32 +116,10 @@ public class AssertRuleParser {
                                 valueRule.setRuleValue(config.getDouble(RULE_VALUE));
                             }
                             if (config.hasPath(EQUALS_TO)) {
-                                valueRule.setEqualTo(config.getString(EQUALS_TO));
+                                valueRule.setEqualTo(config.getValue(EQUALS_TO).unwrapped());
                             }
                             return valueRule;
                         })
                 .collect(Collectors.toList());
-    }
-
-    private SeaTunnelDataType<?> getFieldType(String fieldTypeStr) {
-        return TYPES.get(fieldTypeStr.toLowerCase());
-    }
-
-    private static final Map<String, SeaTunnelDataType<?>> TYPES = Maps.newHashMap();
-
-    static {
-        TYPES.put("string", BasicType.STRING_TYPE);
-        TYPES.put("boolean", BasicType.BOOLEAN_TYPE);
-        TYPES.put("byte", BasicType.BYTE_TYPE);
-        TYPES.put("short", BasicType.SHORT_TYPE);
-        TYPES.put("int", BasicType.INT_TYPE);
-        TYPES.put("long", BasicType.LONG_TYPE);
-        TYPES.put("float", BasicType.FLOAT_TYPE);
-        TYPES.put("double", BasicType.DOUBLE_TYPE);
-        TYPES.put("void", BasicType.VOID_TYPE);
-        TYPES.put("timestamp", LocalTimeType.LOCAL_DATE_TIME_TYPE);
-        TYPES.put("datetime", LocalTimeType.LOCAL_DATE_TIME_TYPE);
-        TYPES.put("date", LocalTimeType.LOCAL_DATE_TYPE);
-        TYPES.put("time", LocalTimeType.LOCAL_TIME_TYPE);
     }
 }

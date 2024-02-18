@@ -18,10 +18,11 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql;
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.AbstractJdbcRowConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 public class MysqlJdbcRowConverter extends AbstractJdbcRowConverter {
     @Override
     public String converterName() {
-        return "MySql";
+        return DatabaseIdentifier.MYSQL;
     }
 }

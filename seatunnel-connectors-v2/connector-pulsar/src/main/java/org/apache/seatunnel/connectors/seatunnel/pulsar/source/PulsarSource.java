@@ -33,7 +33,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarAdminConfig;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarClientConfig;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarConfigUtil;
@@ -53,9 +53,7 @@ import org.apache.seatunnel.connectors.seatunnel.pulsar.source.format.PulsarCana
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.reader.PulsarSourceReader;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.split.PulsarPartitionSplit;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
-import org.apache.seatunnel.format.json.JsonFormatFactory;
 import org.apache.seatunnel.format.json.canal.CanalJsonDeserializationSchema;
-import org.apache.seatunnel.format.json.canal.CanalJsonFormatFactory;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
 import org.apache.pulsar.shade.org.apache.commons.lang3.StringUtils;
@@ -113,7 +111,6 @@ public class PulsarSource
         return PulsarConfigUtil.IDENTIFIER;
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     public void prepare(Config config) throws PrepareFailException {
         CheckResult result =
@@ -308,11 +305,11 @@ public class PulsarSource
             if (config.hasPath(FORMAT.key())) {
                 format = config.getString(FORMAT.key());
             }
-            switch (format) {
-                case JsonFormatFactory.IDENTIFIER:
+            switch (format.toUpperCase()) {
+                case "JSON":
                     deserializationSchema = new JsonDeserializationSchema(false, false, typeInfo);
                     break;
-                case CanalJsonFormatFactory.IDENTIFIER:
+                case "CANAL_JSON":
                     deserializationSchema =
                             new PulsarCanalDecorator(
                                     CanalJsonDeserializationSchema.builder(typeInfo)
@@ -321,7 +318,8 @@ public class PulsarSource
                     break;
                 default:
                     throw new SeaTunnelJsonFormatException(
-                            CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Unsupported format: " + format);
+                            CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
+                            "Unsupported format: " + format);
             }
         } else {
             typeInfo = CatalogTableUtil.buildSimpleTextSchema();

@@ -17,18 +17,21 @@
 
 package org.apache.seatunnel.connectors.seatunnel.wechat.sink;
 
-import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.http.sink.HttpSink;
 import org.apache.seatunnel.connectors.seatunnel.http.sink.HttpSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.wechat.sink.config.WeChatSinkConfig;
 
-import com.google.auto.service.AutoService;
-
-@AutoService(SeaTunnelSink.class)
 public class WeChatSink extends HttpSink {
+
+    public WeChatSink(Config pluginConfig, SeaTunnelRowType rowType) {
+        super(pluginConfig, rowType);
+    }
 
     @Override
     public String getPluginName() {

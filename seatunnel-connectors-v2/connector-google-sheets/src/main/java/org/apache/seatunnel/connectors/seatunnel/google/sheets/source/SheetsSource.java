@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -64,7 +65,7 @@ public class SheetsSource extends AbstractSingleSplitSource<SeaTunnelRow> {
                         SheetsConfig.SHEET_ID.key(),
                         SheetsConfig.SHEET_NAME.key(),
                         SheetsConfig.RANGE.key(),
-                        CatalogTableUtil.SCHEMA.key());
+                        TableSchemaOptions.SCHEMA.key());
         if (!checkResult.isSuccess()) {
             throw new GoogleSheetsConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
@@ -73,7 +74,7 @@ public class SheetsSource extends AbstractSingleSplitSource<SeaTunnelRow> {
                             getPluginName(), PluginType.SOURCE, checkResult.getMsg()));
         }
         this.sheetsParameters = new SheetsParameters().buildWithConfig(pluginConfig);
-        if (pluginConfig.hasPath(CatalogTableUtil.SCHEMA.key())) {
+        if (pluginConfig.hasPath(TableSchemaOptions.SCHEMA.key())) {
             this.seaTunnelRowType =
                     CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
         } else {

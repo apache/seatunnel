@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.transform.sql.zeta.functions;
 
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.transform.exception.TransformException;
 import org.apache.seatunnel.transform.sql.zeta.ZetaSQLFunction;
 
@@ -116,7 +116,7 @@ public class StringFunction {
         int len = arg.length();
         if (len % 4 != 0) {
             throw new TransformException(
-                    CommonErrorCode.UNSUPPORTED_OPERATION,
+                    CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                     String.format("Unsupported arg for function: %s", ZetaSQLFunction.HEXTORAW));
         }
         StringBuilder builder = new StringBuilder(len / 4);
@@ -428,7 +428,7 @@ public class StringFunction {
                         // $FALL-THROUGH$
                     default:
                         throw new TransformException(
-                                CommonErrorCode.UNSUPPORTED_OPERATION,
+                                CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                                 String.format(
                                         "Unsupported regexpMode arg: %s for function: %s",
                                         flags, ZetaSQLFunction.HEXTORAW));

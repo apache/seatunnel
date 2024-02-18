@@ -19,8 +19,15 @@ package org.apache.seatunnel.connectors.seatunnel.elasticsearch.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.sink.DataSaveMode;
+import org.apache.seatunnel.api.sink.SchemaSaveMode;
 
+import java.util.Arrays;
 import java.util.List;
+
+import static org.apache.seatunnel.api.sink.DataSaveMode.APPEND_DATA;
+import static org.apache.seatunnel.api.sink.DataSaveMode.DROP_DATA;
+import static org.apache.seatunnel.api.sink.DataSaveMode.ERROR_WHEN_DATA_EXISTS;
 
 public class SinkConfig {
 
@@ -51,17 +58,29 @@ public class SinkConfig {
                     .withDescription(
                             "Delimiter for composite keys (\"_\" by default), e.g., \"$\" would result in document `_id` \"KEY1$KEY2$KEY3\".");
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public static final Option<Integer> MAX_BATCH_SIZE =
             Options.key("max_batch_size")
                     .intType()
                     .defaultValue(10)
                     .withDescription("batch bulk doc max size");
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public static final Option<Integer> MAX_RETRY_COUNT =
             Options.key("max_retry_count")
                     .intType()
                     .defaultValue(3)
                     .withDescription("one bulk request max try count");
+
+    public static final Option<SchemaSaveMode> SCHEMA_SAVE_MODE =
+            Options.key("schema_save_mode")
+                    .enumType(SchemaSaveMode.class)
+                    .defaultValue(SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST)
+                    .withDescription("schema_save_mode");
+
+    public static final Option<DataSaveMode> DATA_SAVE_MODE =
+            Options.key("data_save_mode")
+                    .singleChoice(
+                            DataSaveMode.class,
+                            Arrays.asList(DROP_DATA, APPEND_DATA, ERROR_WHEN_DATA_EXISTS))
+                    .defaultValue(APPEND_DATA)
+                    .withDescription("data_save_mode");
 }

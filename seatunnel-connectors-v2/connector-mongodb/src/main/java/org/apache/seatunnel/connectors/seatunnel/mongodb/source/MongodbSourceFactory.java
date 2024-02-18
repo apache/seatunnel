@@ -17,11 +17,16 @@
 
 package org.apache.seatunnel.connectors.seatunnel.mongodb.source;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
+import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.source.split.MongoSplit;
@@ -46,7 +51,7 @@ public class MongodbSourceFactory implements TableSourceFactory {
                         MongodbConfig.URI,
                         MongodbConfig.DATABASE,
                         MongodbConfig.COLLECTION,
-                        CatalogTableUtil.SCHEMA)
+                        TableSchemaOptions.SCHEMA)
                 .optional(
                         MongodbConfig.PROJECTION,
                         MongodbConfig.MATCH_QUERY,
@@ -62,5 +67,20 @@ public class MongodbSourceFactory implements TableSourceFactory {
     public Class<? extends SeaTunnelSource<SeaTunnelRow, MongoSplit, ArrayList<MongoSplit>>>
             getSourceClass() {
         return MongodbSource.class;
+    }
+
+    @Override
+    public TableSource<SeaTunnelRow, MongoSplit, ArrayList<MongoSplit>> createSource(
+            TableSourceFactoryContext context) {
+        return () -> {
+            ReadonlyConfig options = context.getOptions();
+            CatalogTable table;
+            if (options.getOptional(TableSchemaOptions.SCHEMA).isPresent()) {
+                table = CatalogTableUtil.buildWithConfig(options);
+            } else {
+                table = CatalogTableUtil.buildSimpleTextTable();
+            }
+            return new MongodbSource(table, options);
+        };
     }
 }

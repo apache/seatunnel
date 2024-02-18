@@ -17,18 +17,25 @@
 
 package org.apache.seatunnel.connectors.seatunnel.fake.config;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
+
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import java.util.List;
+import java.util.Map;
 
-@SuppressWarnings("checkstyle:MagicNumber")
 public class FakeOption {
 
-    public static final Option<List<SeaTunnelRow>> ROWS =
+    public static final Option<List<Map<String, Object>>> TABLES_CONFIGS =
+            Options.key("tables_configs")
+                    .type(new TypeReference<List<Map<String, Object>>>() {})
+                    .noDefaultValue()
+                    .withDescription("The multiple table config list of fake source");
+
+    public static final Option<List<Map<String, Object>>> ROWS =
             Options.key("rows")
-                    .listType(SeaTunnelRow.class)
+                    .type(new TypeReference<List<Map<String, Object>>>() {})
                     .noDefaultValue()
                     .withDescription("The row list of fake data output per degree of parallelism");
     public static final Option<Integer> ROW_NUM =

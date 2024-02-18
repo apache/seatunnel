@@ -16,7 +16,7 @@ The following is an example of the configuration file, which is the same as the 
 
 ```hocon
 env {
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "BATCH"
 }
 
@@ -59,7 +59,7 @@ More information about config please check [config concept](../../concept/config
 You could start the application by the following commands
 
 ```shell
-cd "apache-seatunnel-incubating-${version}"
+cd "apache-seatunnel-${version}"
 ./bin/seatunnel.sh --config ./config/v2.batch.config.template -e local
 
 ```

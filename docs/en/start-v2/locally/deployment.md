@@ -23,8 +23,8 @@ Or you can download it by terminal
 
 ```shell
 export version="2.3.2"
-wget "https://archive.apache.org/dist/seatunnel/${version}/apache-seatunnel-incubating-${version}-bin.tar.gz"
-tar -xzvf "apache-seatunnel-incubating-${version}-bin.tar.gz"
+wget "https://archive.apache.org/dist/seatunnel/${version}/apache-seatunnel-${version}-bin.tar.gz"
+tar -xzvf "apache-seatunnel-${version}-bin.tar.gz"
 ```
 
 <!-- TODO: We should add example module as quick start which is no need for install Spark or Flink -->

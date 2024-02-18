@@ -22,8 +22,8 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
+import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
 import org.slf4j.Logger;
@@ -73,7 +73,6 @@ public class PhoenixTypeMapper implements JdbcDialectTypeMapper {
     private static final String PHOENIX_BINARY = "BINARY";
     private static final String PHOENIX_VARBINARY = "VARBINARY";
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex)
             throws SQLException {
@@ -127,11 +126,8 @@ public class PhoenixTypeMapper implements JdbcDialectTypeMapper {
             case PHOENIX_ARRAY:
             default:
                 final String jdbcColumnName = metadata.getColumnName(colIndex);
-                throw new JdbcConnectorException(
-                        CommonErrorCode.UNSUPPORTED_OPERATION,
-                        String.format(
-                                "Doesn't support PHOENIX type '%s' on column '%s'  yet.",
-                                phoenixType, jdbcColumnName));
+                throw CommonError.convertToSeaTunnelTypeError(
+                        DatabaseIdentifier.PHOENIX, phoenixType, jdbcColumnName);
         }
     }
 }

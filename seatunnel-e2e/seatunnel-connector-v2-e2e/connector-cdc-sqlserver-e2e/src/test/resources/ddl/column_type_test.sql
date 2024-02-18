@@ -47,7 +47,9 @@ CREATE TABLE full_types (
     val_datetime2 datetime2,
     val_datetime datetime,
     val_smalldatetime smalldatetime,
-    val_xml xml
+    val_xml xml,
+    val_datetimeoffset DATETIMEOFFSET(4),
+    val_varbinary  varbinary(100)
     PRIMARY KEY (id)
 );
 INSERT INTO full_types VALUES (0,
@@ -55,20 +57,116 @@ INSERT INTO full_types VALUES (0,
                                1.123, 2, 3.323, 4.323, 5.323, 6.323,
                                1, 22, 333, 4444, 55555,
                                '2018-07-13', '10:23:45', '2018-07-13 11:23:45.34', '2018-07-13 13:23:45.78', '2018-07-13 14:23:45',
-                               '<a>b</a>');
+                               '<a>b</a>',SYSDATETIMEOFFSET(),CAST('test_varbinary' AS varbinary(100)));
 INSERT INTO full_types VALUES (1,
                                'cč1', 'vcč', 'tč', N'cč', N'vcč', N'tč',
                                1.123, 2, 3.323, 4.323, 5.323, 6.323,
                                1, 22, 333, 4444, 55555,
                                '2018-07-13', '10:23:45', '2018-07-13 11:23:45.34', '2018-07-13 13:23:45.78', '2018-07-13 14:23:45',
-                               '<a>b</a>');
+                               '<a>b</a>',SYSDATETIMEOFFSET(),CAST('test_varbinary' AS varbinary(100)));
 INSERT INTO full_types VALUES (2,
                                'cč2', 'vcč', 'tč', N'cč', N'vcč', N'tč',
                                1.123, 2, 3.323, 4.323, 5.323, 6.323,
                                1, 22, 333, 4444, 55555,
                                '2018-07-13', '10:23:45', '2018-07-13 11:23:45.34', '2018-07-13 13:23:45.78', '2018-07-13 14:23:45',
-                               '<a>b</a>');
+                               '<a>b</a>',SYSDATETIMEOFFSET(),CAST('test_varbinary' AS varbinary(100)));
 EXEC sys.sp_cdc_enable_table @source_schema = 'dbo', @source_name = 'full_types', @role_name = NULL, @supports_net_changes = 0;
+
+CREATE TABLE full_types_no_primary_key (
+                            id int NOT NULL,
+                            val_char char(3),
+                            val_varchar varchar(1000),
+                            val_text text,
+                            val_nchar nchar(3),
+                            val_nvarchar nvarchar(1000),
+                            val_ntext ntext,
+                            val_decimal decimal(6,3),
+                            val_numeric numeric,
+                            val_float float,
+                            val_real real,
+                            val_smallmoney smallmoney,
+                            val_money money,
+                            val_bit bit,
+                            val_tinyint tinyint,
+                            val_smallint smallint,
+                            val_int int,
+                            val_bigint bigint,
+                            val_date date,
+                            val_time time,
+                            val_datetime2 datetime2,
+                            val_datetime datetime,
+                            val_smalldatetime smalldatetime,
+                            val_xml xml,
+                            val_datetimeoffset DATETIMEOFFSET(4),
+                            val_varbinary  varbinary(100)
+);
+INSERT INTO full_types_no_primary_key VALUES (0,
+                               'cč0', 'vcč', 'tč', N'cč', N'vcč', N'tč',
+                               1.123, 2, 3.323, 4.323, 5.323, 6.323,
+                               1, 22, 333, 4444, 55555,
+                               '2018-07-13', '10:23:45', '2018-07-13 11:23:45.34', '2018-07-13 13:23:45.78', '2018-07-13 14:23:45',
+                               '<a>b</a>',SYSDATETIMEOFFSET(),CAST('test_varbinary' AS varbinary(100)));
+INSERT INTO full_types_no_primary_key VALUES (1,
+                               'cč1', 'vcč', 'tč', N'cč', N'vcč', N'tč',
+                               1.123, 2, 3.323, 4.323, 5.323, 6.323,
+                               1, 22, 333, 4444, 55555,
+                               '2018-07-13', '10:23:45', '2018-07-13 11:23:45.34', '2018-07-13 13:23:45.78', '2018-07-13 14:23:45',
+                               '<a>b</a>',SYSDATETIMEOFFSET(),CAST('test_varbinary' AS varbinary(100)));
+INSERT INTO full_types_no_primary_key VALUES (2,
+                               'cč2', 'vcč', 'tč', N'cč', N'vcč', N'tč',
+                               1.123, 2, 3.323, 4.323, 5.323, 6.323,
+                               1, 22, 333, 4444, 55555,
+                               '2018-07-13', '10:23:45', '2018-07-13 11:23:45.34', '2018-07-13 13:23:45.78', '2018-07-13 14:23:45',
+                               '<a>b</a>',SYSDATETIMEOFFSET(),CAST('test_varbinary' AS varbinary(100)));
+EXEC sys.sp_cdc_enable_table @source_schema = 'dbo', @source_name = 'full_types_no_primary_key', @role_name = NULL, @supports_net_changes = 0;
+
+CREATE TABLE full_types_custom_primary_key (
+                                           id int NOT NULL,
+                                           val_char char(3),
+                                           val_varchar varchar(1000),
+                                           val_text text,
+                                           val_nchar nchar(3),
+                                           val_nvarchar nvarchar(1000),
+                                           val_ntext ntext,
+                                           val_decimal decimal(6,3),
+                                           val_numeric numeric,
+                                           val_float float,
+                                           val_real real,
+                                           val_smallmoney smallmoney,
+                                           val_money money,
+                                           val_bit bit,
+                                           val_tinyint tinyint,
+                                           val_smallint smallint,
+                                           val_int int,
+                                           val_bigint bigint,
+                                           val_date date,
+                                           val_time time,
+                                           val_datetime2 datetime2,
+                                           val_datetime datetime,
+                                           val_smalldatetime smalldatetime,
+                                           val_xml xml,
+                                           val_datetimeoffset DATETIMEOFFSET(4),
+                                           val_varbinary  varbinary(100)
+);
+INSERT INTO full_types_custom_primary_key VALUES (0,
+                                              'cč0', 'vcč', 'tč', N'cč', N'vcč', N'tč',
+                                              1.123, 2, 3.323, 4.323, 5.323, 6.323,
+                                              1, 22, 333, 4444, 55555,
+                                              '2018-07-13', '10:23:45', '2018-07-13 11:23:45.34', '2018-07-13 13:23:45.78', '2018-07-13 14:23:45',
+                                              '<a>b</a>',SYSDATETIMEOFFSET(),CAST('test_varbinary' AS varbinary(100)));
+INSERT INTO full_types_custom_primary_key VALUES (1,
+                                              'cč1', 'vcč', 'tč', N'cč', N'vcč', N'tč',
+                                              1.123, 2, 3.323, 4.323, 5.323, 6.323,
+                                              1, 22, 333, 4444, 55555,
+                                              '2018-07-13', '10:23:45', '2018-07-13 11:23:45.34', '2018-07-13 13:23:45.78', '2018-07-13 14:23:45',
+                                              '<a>b</a>',SYSDATETIMEOFFSET(),CAST('test_varbinary' AS varbinary(100)));
+INSERT INTO full_types_custom_primary_key VALUES (2,
+                                              'cč2', 'vcč', 'tč', N'cč', N'vcč', N'tč',
+                                              1.123, 2, 3.323, 4.323, 5.323, 6.323,
+                                              1, 22, 333, 4444, 55555,
+                                              '2018-07-13', '10:23:45', '2018-07-13 11:23:45.34', '2018-07-13 13:23:45.78', '2018-07-13 14:23:45',
+                                              '<a>b</a>',SYSDATETIMEOFFSET(),CAST('test_varbinary' AS varbinary(100)));
+EXEC sys.sp_cdc_enable_table @source_schema = 'dbo', @source_name = 'full_types_custom_primary_key', @role_name = NULL, @supports_net_changes = 0;
 
 CREATE TABLE full_types_sink (
                             id int NOT NULL,
@@ -94,6 +192,8 @@ CREATE TABLE full_types_sink (
                             val_datetime2 datetime2,
                             val_datetime datetime,
                             val_smalldatetime smalldatetime,
-                            val_xml xml
-                                PRIMARY KEY (id)
+                            val_xml xml,
+                            val_datetimeoffset DATETIMEOFFSET(4),
+                            val_varbinary  varbinary(100)
+                            PRIMARY KEY (id)
 );

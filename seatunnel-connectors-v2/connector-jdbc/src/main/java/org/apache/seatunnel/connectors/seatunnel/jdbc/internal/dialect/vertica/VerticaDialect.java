@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.vertica;
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
@@ -29,7 +30,7 @@ import java.util.stream.Collectors;
 public class VerticaDialect implements JdbcDialect {
     @Override
     public String dialectName() {
-        return "Vertica";
+        return DatabaseIdentifier.VERTICA;
     }
 
     @Override

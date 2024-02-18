@@ -36,6 +36,7 @@ import com.hazelcast.logging.ILogger;
 import com.hazelcast.map.IMap;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.Getter;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -76,7 +77,7 @@ public class JobHistoryService {
      * finishedJobStateImap key is jobId and value is jobState(json) JobStateData Indicates the
      * status of the job, pipeline, and task
      */
-    private final IMap<Long, JobState> finishedJobStateImap;
+    @Getter private final IMap<Long, JobState> finishedJobStateImap;
 
     private final IMap<Long, JobMetrics> finishedJobMetricsImap;
 
@@ -167,7 +168,6 @@ public class JobHistoryService {
         return objectNode.toString();
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public void storeFinishedJobState(JobMaster jobMaster) {
         JobState jobState = toJobStateMapper(jobMaster, false);
         jobState.setFinishTime(System.currentTimeMillis());
@@ -175,7 +175,6 @@ public class JobHistoryService {
         finishedJobStateImap.put(jobState.jobId, jobState, finishedJobExpireTime, TimeUnit.MINUTES);
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public void storeFinishedPipelineMetrics(long jobId, JobMetrics metrics) {
         finishedJobMetricsImap.computeIfAbsent(jobId, key -> JobMetrics.of(new HashMap<>()));
         JobMetrics newMetrics = finishedJobMetricsImap.get(jobId).merge(metrics);

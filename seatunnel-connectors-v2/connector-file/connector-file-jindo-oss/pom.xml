@@ -30,7 +30,6 @@
     <name>SeaTunnel : Connectors V2 : File : Jindo Oss</name>
 
     <properties>
-        <jindo-sdk.version>4.6.1</jindo-sdk.version>
         <hadoop-common.version>2.9.2</hadoop-common.version>
     </properties>
 
@@ -40,18 +39,6 @@
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-file-base</artifactId>
             <version>${project.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>com.aliyun.jindodata</groupId>
-            <artifactId>jindo-core</artifactId>
-            <version>${jindo-sdk.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>com.aliyun.jindodata</groupId>
-            <artifactId>jindosdk</artifactId>
-            <version>${jindo-sdk.version}</version>
         </dependency>
 
         <dependency>
@@ -68,12 +55,5 @@
         </dependency>
 
     </dependencies>
-
-    <repositories>
-        <repository>
-            <id>jindodata</id>
-            <url>https://jindodata-binary.oss-cn-shanghai.aliyuncs.com/mvn-repo/</url>
-        </repository>
-    </repositories>
 
 </project>

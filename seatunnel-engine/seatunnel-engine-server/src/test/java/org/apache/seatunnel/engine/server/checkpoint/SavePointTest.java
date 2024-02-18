@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.checkpoint;
 
 import org.apache.seatunnel.common.utils.FileUtils;
+import org.apache.seatunnel.engine.common.exception.SavePointFailedException;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
@@ -34,19 +35,45 @@ import org.junit.jupiter.api.condition.OS;
 import com.hazelcast.internal.serialization.Data;
 
 import java.util.Collections;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
 
 import static org.awaitility.Awaitility.await;
 
 @DisabledOnOs(OS.WINDOWS)
-public class SavePointTest extends AbstractSeaTunnelServerTest {
+public class SavePointTest extends AbstractSeaTunnelServerTest<SavePointTest> {
     public static String OUT_PATH = "/tmp/hive/warehouse/test3";
-    public static String CONF_PATH = "stream_fakesource_to_file_savepoint.conf";
+    public static String STREAM_CONF_PATH = "stream_fakesource_to_file_savepoint.conf";
+    public static String BATCH_CONF_PATH = "batch_fakesource_to_file.conf";
     public static long JOB_ID = 823342L;
 
     @Test
     public void testSavePoint() throws InterruptedException {
         savePointAndRestore(false);
+    }
+
+    @Test
+    public void testSavePointWithNotExistedJob() {
+        CompletionException exception =
+                Assertions.assertThrows(
+                        CompletionException.class,
+                        () -> server.getCoordinatorService().savePoint(1L).join());
+        Assertions.assertInstanceOf(SavePointFailedException.class, exception.getCause());
+        Assertions.assertEquals(
+                "The job with id '1' not running, save point failed",
+                exception.getCause().getMessage());
+    }
+
+    @Test
+    public void testRestoreWithNoSavepointFile() {
+        long jobId = System.currentTimeMillis();
+        startJob(jobId, BATCH_CONF_PATH, true);
+        await().atMost(120000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        server.getCoordinatorService().getJobStatus(jobId),
+                                        JobStatus.FINISHED));
     }
 
     @Test
@@ -60,30 +87,35 @@ public class SavePointTest extends AbstractSeaTunnelServerTest {
         FileUtils.createNewDir(OUT_PATH);
 
         // 1 Start a streaming mode job
-        startJob(JOB_ID, CONF_PATH, false);
+        startJob(JOB_ID, STREAM_CONF_PATH, false);
 
         // 2 Wait for the job to running and start outputting data
         await().atMost(120000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
-                        () -> {
-                            Assertions.assertTrue(
-                                    server.getCoordinatorService()
-                                                    .getJobStatus(JOB_ID)
-                                                    .equals(JobStatus.RUNNING)
-                                            && FileUtils.getFileLineNumberFromDir(OUT_PATH) > 10);
-                        });
+                        () ->
+                                Assertions.assertTrue(
+                                        server.getCoordinatorService()
+                                                        .getJobStatus(JOB_ID)
+                                                        .equals(JobStatus.RUNNING)
+                                                && FileUtils.getFileLineNumberFromDir(OUT_PATH)
+                                                        > 10));
 
         // 3 start savePoint
         server.getCoordinatorService().savePoint(JOB_ID);
+        await().atMost(10000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            JobStatus status = server.getCoordinatorService().getJobStatus(JOB_ID);
+                            Assertions.assertEquals(JobStatus.DOING_SAVEPOINT, status);
+                        });
 
         // 4 Wait for savePoint to complete
         await().atMost(120000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
-                        () -> {
-                            Assertions.assertEquals(
-                                    server.getCoordinatorService().getJobStatus(JOB_ID),
-                                    JobStatus.FINISHED);
-                        });
+                        () ->
+                                Assertions.assertEquals(
+                                        server.getCoordinatorService().getJobStatus(JOB_ID),
+                                        JobStatus.SAVEPOINT_DONE));
 
         Thread.sleep(1000);
 
@@ -95,15 +127,14 @@ public class SavePointTest extends AbstractSeaTunnelServerTest {
         Thread.sleep(1000);
 
         // 5 Resume from savePoint
-        startJob(JOB_ID, CONF_PATH, true);
+        startJob(JOB_ID, STREAM_CONF_PATH, true);
 
         await().atMost(120000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
-                        () -> {
-                            Assertions.assertEquals(
-                                    server.getCoordinatorService().getJobStatus(JOB_ID),
-                                    JobStatus.RUNNING);
-                        });
+                        () ->
+                                Assertions.assertEquals(
+                                        server.getCoordinatorService().getJobStatus(JOB_ID),
+                                        JobStatus.RUNNING));
 
         // 6 Run long enough to ensure that the data write is complete
         Thread.sleep(30000);
@@ -112,11 +143,10 @@ public class SavePointTest extends AbstractSeaTunnelServerTest {
 
         await().atMost(120000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
-                        () -> {
-                            Assertions.assertEquals(
-                                    server.getCoordinatorService().getJobStatus(JOB_ID),
-                                    JobStatus.CANCELED);
-                        });
+                        () ->
+                                Assertions.assertEquals(
+                                        server.getCoordinatorService().getJobStatus(JOB_ID),
+                                        JobStatus.CANCELED));
 
         // 7 Check the final data count
         Assertions.assertEquals(100, FileUtils.getFileLineNumberFromDir(OUT_PATH));
@@ -124,22 +154,23 @@ public class SavePointTest extends AbstractSeaTunnelServerTest {
         Thread.sleep(1000);
     }
 
-    private void startJob(Long jobid, String path, boolean isStartWithSavePoint) {
-        LogicalDag testLogicalDag = TestUtils.createTestLogicalPlan(path, jobid.toString(), jobid);
+    private void startJob(Long jobId, String path, boolean isStartWithSavePoint) {
+        LogicalDag testLogicalDag = TestUtils.createTestLogicalPlan(path, jobId.toString(), jobId);
 
         JobImmutableInformation jobImmutableInformation =
                 new JobImmutableInformation(
-                        jobid,
+                        jobId,
                         "Test",
                         isStartWithSavePoint,
                         nodeEngine.getSerializationService().toData(testLogicalDag),
                         testLogicalDag.getJobConfig(),
+                        Collections.emptyList(),
                         Collections.emptyList());
 
         Data data = nodeEngine.getSerializationService().toData(jobImmutableInformation);
 
         PassiveCompletableFuture<Void> voidPassiveCompletableFuture =
-                server.getCoordinatorService().submitJob(jobid, data);
+                server.getCoordinatorService().submitJob(jobId, data);
         voidPassiveCompletableFuture.join();
     }
 }

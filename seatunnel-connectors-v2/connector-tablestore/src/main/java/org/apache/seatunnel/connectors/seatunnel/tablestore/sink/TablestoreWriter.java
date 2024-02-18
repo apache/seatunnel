@@ -25,6 +25,7 @@ import org.apache.seatunnel.connectors.seatunnel.tablestore.serialize.DefaultSea
 import org.apache.seatunnel.connectors.seatunnel.tablestore.serialize.SeaTunnelRowSerializer;
 
 import java.io.IOException;
+import java.util.Optional;
 
 public class TablestoreWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
@@ -45,5 +46,11 @@ public class TablestoreWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     @Override
     public void close() throws IOException {
         tablestoreSinkClient.close();
+    }
+
+    @Override
+    public Optional<Void> prepareCommit() {
+        tablestoreSinkClient.flush();
+        return super.prepareCommit();
     }
 }

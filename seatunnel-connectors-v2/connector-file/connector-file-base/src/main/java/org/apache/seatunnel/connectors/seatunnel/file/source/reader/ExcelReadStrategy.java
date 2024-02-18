@@ -19,23 +19,21 @@ package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
-import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
+import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellType;
 import org.apache.poi.ss.usermodel.DataFormatter;
@@ -73,28 +71,33 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
 
     @SneakyThrows
     @Override
-    public void read(String path, Collector<SeaTunnelRow> output) {
-        Configuration conf = getConfiguration();
-        FileSystem fs = FileSystem.get(conf);
+    public void read(String path, String tableId, Collector<SeaTunnelRow> output) {
         Map<String, String> partitionsMap = parsePartitionsByPath(path);
-        Path filePath = new Path(path);
-        FSDataInputStream file = fs.open(filePath);
-        Workbook workbook = new XSSFWorkbook(file);
+        FSDataInputStream file = hadoopFileSystemProxy.getInputStream(path);
+        Workbook workbook;
+        if (path.endsWith(".xls")) {
+            workbook = new HSSFWorkbook(file);
+        } else if (path.endsWith(".xlsx")) {
+            workbook = new XSSFWorkbook(file);
+        } else {
+            throw new FileConnectorException(
+                    CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                    "Only support read excel file");
+        }
         Sheet sheet =
-                pluginConfig.hasPath(BaseSourceConfig.SHEET_NAME.key())
+                pluginConfig.hasPath(BaseSourceConfigOptions.SHEET_NAME.key())
                         ? workbook.getSheet(
-                                pluginConfig.getString(BaseSourceConfig.SHEET_NAME.key()))
+                                pluginConfig.getString(BaseSourceConfigOptions.SHEET_NAME.key()))
                         : workbook.getSheetAt(0);
         cellCount = seaTunnelRowType.getTotalFields();
         cellCount = partitionsMap.isEmpty() ? cellCount : cellCount + partitionsMap.size();
-        SeaTunnelRow seaTunnelRow = new SeaTunnelRow(cellCount);
         SeaTunnelDataType<?>[] fieldTypes = seaTunnelRowType.getFieldTypes();
         int rowCount = sheet.getPhysicalNumberOfRows();
         if (skipHeaderNumber > Integer.MAX_VALUE
                 || skipHeaderNumber < Integer.MIN_VALUE
                 || skipHeaderNumber > rowCount) {
             throw new FileConnectorException(
-                    CommonErrorCode.UNSUPPORTED_OPERATION,
+                    CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                     "Skip the number of rows exceeds the maximum or minimum limit of Sheet");
         }
         IntStream.range((int) skipHeaderNumber, rowCount)
@@ -107,6 +110,7 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                                             ? IntStream.range(0, cellCount).toArray()
                                             : indexes;
                             int z = 0;
+                            SeaTunnelRow seaTunnelRow = new SeaTunnelRow(cellCount);
                             for (int j : cellIndexes) {
                                 Cell cell = rowData.getCell(j);
                                 seaTunnelRow.setField(
@@ -123,6 +127,7 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                                     seaTunnelRow.setField(index++, value);
                                 }
                             }
+                            seaTunnelRow.setTableId(tableId);
                             output.collect(seaTunnelRow);
                         });
     }
@@ -132,13 +137,13 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
         if (isNullOrEmpty(seaTunnelRowType.getFieldNames())
                 || isNullOrEmpty(seaTunnelRowType.getFieldTypes())) {
             throw new FileConnectorException(
-                    CommonErrorCode.UNSUPPORTED_OPERATION,
+                    CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                     "Schmea information is not set or incorrect schmea settings");
         }
         SeaTunnelRowType userDefinedRowTypeWithPartition =
                 mergePartitionTypes(fileNames.get(0), seaTunnelRowType);
         // column projection
-        if (pluginConfig.hasPath(BaseSourceConfig.READ_COLUMNS.key())) {
+        if (pluginConfig.hasPath(BaseSourceConfigOptions.READ_COLUMNS.key())) {
             // get the read column index from user-defined row type
             indexes = new int[readColumns.size()];
             String[] fields = new String[readColumns.size()];
@@ -157,15 +162,10 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
         }
     }
 
-    Configuration getConfiguration() {
-        return getConfiguration(hadoopConf);
-    }
-
     @Override
-    public SeaTunnelRowType getSeaTunnelRowTypeInfo(HadoopConf hadoopConf, String path)
-            throws FileConnectorException {
+    public SeaTunnelRowType getSeaTunnelRowTypeInfo(String path) throws FileConnectorException {
         throw new FileConnectorException(
-                CommonErrorCode.UNSUPPORTED_OPERATION,
+                CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                 "User must defined schema for json file type");
     }
 
@@ -185,7 +185,7 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                 break;
             default:
                 throw new FileConnectorException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                         String.format("[%s] type not support ", cellType));
         }
         return null;
@@ -233,7 +233,9 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
             case BYTES:
                 return field.toString().getBytes(StandardCharsets.UTF_8);
             case ROW:
-                String delimiter = pluginConfig.getString(BaseSourceConfig.DELIMITER.key());
+                String delimiter =
+                        ReadonlyConfig.fromConfig(pluginConfig)
+                                .get(BaseSourceConfigOptions.FIELD_DELIMITER);
                 String[] context = field.toString().split(delimiter);
                 SeaTunnelRowType ft = (SeaTunnelRowType) fieldType;
                 int length = context.length;
@@ -244,7 +246,7 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                 return seaTunnelRow;
             default:
                 throw new FileConnectorException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                         "User defined schema validation failed");
         }
     }

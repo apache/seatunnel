@@ -23,17 +23,18 @@ import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssConf;
-import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.oss.exception.OssJindoConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.source.BaseFileSource;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategyFactory;
@@ -54,12 +55,12 @@ public class OssFileSource extends BaseFileSource {
         CheckResult result =
                 CheckConfigUtil.checkAllExists(
                         pluginConfig,
-                        OssConfig.FILE_PATH.key(),
-                        OssConfig.FILE_FORMAT_TYPE.key(),
-                        OssConfig.ENDPOINT.key(),
-                        OssConfig.ACCESS_KEY.key(),
-                        OssConfig.ACCESS_SECRET.key(),
-                        OssConfig.BUCKET.key());
+                        OssConfigOptions.FILE_PATH.key(),
+                        OssConfigOptions.FILE_FORMAT_TYPE.key(),
+                        OssConfigOptions.ENDPOINT.key(),
+                        OssConfigOptions.ACCESS_KEY.key(),
+                        OssConfigOptions.ACCESS_SECRET.key(),
+                        OssConfigOptions.BUCKET.key());
         if (!result.isSuccess()) {
             throw new OssJindoConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
@@ -67,13 +68,15 @@ public class OssFileSource extends BaseFileSource {
                             "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
-        readStrategy =
-                ReadStrategyFactory.of(pluginConfig.getString(OssConfig.FILE_FORMAT_TYPE.key()));
-        readStrategy.setPluginConfig(pluginConfig);
-        String path = pluginConfig.getString(OssConfig.FILE_PATH.key());
+        String path = pluginConfig.getString(OssConfigOptions.FILE_PATH.key());
         hadoopConf = OssConf.buildWithConfig(pluginConfig);
+        readStrategy =
+                ReadStrategyFactory.of(
+                        pluginConfig.getString(OssConfigOptions.FILE_FORMAT_TYPE.key()));
+        readStrategy.setPluginConfig(pluginConfig);
+        readStrategy.init(hadoopConf);
         try {
-            filePaths = readStrategy.getFileNamesByPath(hadoopConf, path);
+            filePaths = readStrategy.getFileNamesByPath(path);
         } catch (IOException e) {
             String errorMsg = String.format("Get file list from this path [%s] failed", path);
             throw new FileConnectorException(
@@ -82,9 +85,11 @@ public class OssFileSource extends BaseFileSource {
         // support user-defined schema
         FileFormat fileFormat =
                 FileFormat.valueOf(
-                        pluginConfig.getString(OssConfig.FILE_FORMAT_TYPE.key()).toUpperCase());
+                        pluginConfig
+                                .getString(OssConfigOptions.FILE_FORMAT_TYPE.key())
+                                .toUpperCase());
         // only json text csv type support user-defined schema now
-        if (pluginConfig.hasPath(CatalogTableUtil.SCHEMA.key())) {
+        if (pluginConfig.hasPath(TableSchemaOptions.SCHEMA.key())) {
             switch (fileFormat) {
                 case CSV:
                 case TEXT:
@@ -98,22 +103,27 @@ public class OssFileSource extends BaseFileSource {
                 case ORC:
                 case PARQUET:
                     throw new OssJindoConnectorException(
-                            CommonErrorCode.UNSUPPORTED_OPERATION,
+                            CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                             "SeaTunnel does not support user-defined schema for [parquet, orc] files");
                 default:
                     // never got in there
                     throw new OssJindoConnectorException(
-                            CommonErrorCode.UNSUPPORTED_OPERATION,
+                            CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                             "SeaTunnel does not supported this file format");
             }
         } else {
+            if (filePaths.isEmpty()) {
+                // When the directory is empty, distribute default behavior schema
+                rowType = CatalogTableUtil.buildSimpleTextSchema();
+                return;
+            }
             try {
-                rowType = readStrategy.getSeaTunnelRowTypeInfo(hadoopConf, filePaths.get(0));
+                rowType = readStrategy.getSeaTunnelRowTypeInfo(filePaths.get(0));
             } catch (FileConnectorException e) {
                 String errorMsg =
                         String.format("Get table schema from file [%s] failed", filePaths.get(0));
                 throw new FileConnectorException(
-                        CommonErrorCode.TABLE_SCHEMA_GET_FAILED, errorMsg, e);
+                        CommonErrorCodeDeprecated.TABLE_SCHEMA_GET_FAILED, errorMsg, e);
             }
         }
     }

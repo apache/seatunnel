@@ -30,6 +30,7 @@ import org.apache.seatunnel.connectors.seatunnel.iceberg.source.split.IcebergFil
 
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.io.CloseableIterator;
+import org.apache.iceberg.util.ThreadPools;
 
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
@@ -95,6 +96,8 @@ public class IcebergSourceReader implements SourceReader<SeaTunnelRow, IcebergFi
             icebergFileScanTaskSplitReader.close();
         }
         icebergTableLoader.close();
+        // TODO we should remove shutdown logic when supported closed part task
+        ThreadPools.getWorkerPool().shutdownNow();
     }
 
     @Override

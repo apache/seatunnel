@@ -24,7 +24,6 @@ import org.apache.seatunnel.api.configuration.Options;
 
 import java.util.Map;
 
-@SuppressWarnings("checkstyle:MagicNumber")
 public class ServerConfigOptions {
 
     public static final Option<Integer> BACKUP_COUNT =
@@ -92,18 +91,6 @@ public class ServerConfigOptions {
                     .withDescription(
                             "The timeout (in milliseconds) for a schema change checkpoint.");
 
-    public static final Option<Integer> CHECKPOINT_MAX_CONCURRENT =
-            Options.key("max-concurrent")
-                    .intType()
-                    .defaultValue(1)
-                    .withDescription("The maximum number of concurrent checkpoints.");
-
-    public static final Option<Integer> CHECKPOINT_TOLERABLE_FAILURE =
-            Options.key("tolerable-failure")
-                    .intType()
-                    .defaultValue(0)
-                    .withDescription("The tolerable failure number of a checkpoint.");
-
     public static final Option<String> CHECKPOINT_STORAGE_TYPE =
             Options.key("type")
                     .stringType()
@@ -150,4 +137,63 @@ public class ServerConfigOptions {
                     .intType()
                     .defaultValue(1440)
                     .withDescription("The expire time of history jobs.time unit minute");
+
+    public static final Option<Boolean> ENABLE_CONNECTOR_JAR_STORAGE =
+            Options.key("enable")
+                    .booleanType()
+                    .defaultValue(Boolean.FALSE)
+                    .withDescription(
+                            "Enable the engine server Jar package storage service,"
+                                    + " automatically upload connector Jar packages and dependent third-party Jar packages"
+                                    + " to the server before job execution."
+                                    + " Enabling this configuration does not require the server to hold all connector Jar packages");
+
+    public static final Option<ConnectorJarStorageMode> CONNECTOR_JAR_STORAGE_MODE =
+            Options.key("connector-jar-storage-mode")
+                    .enumType(ConnectorJarStorageMode.class)
+                    .defaultValue(ConnectorJarStorageMode.SHARED)
+                    .withDescription(
+                            "The storage mode of the connector jar package, including SHARED, ISOLATED. Default is SHARED");
+
+    public static final Option<String> CONNECTOR_JAR_STORAGE_PATH =
+            Options.key("connector-jar-storage-path")
+                    .stringType()
+                    .defaultValue("")
+                    .withDescription("The user defined connector jar storage path.");
+
+    public static final Option<Integer> CONNECTOR_JAR_CLEANUP_TASK_INTERVAL =
+            Options.key("connector-jar-cleanup-task-interval")
+                    .intType()
+                    .defaultValue(3600)
+                    .withDescription("The user defined connector jar cleanup task interval.");
+
+    public static final Option<Integer> CONNECTOR_JAR_EXPIRY_TIME =
+            Options.key("connector-jar-expiry-time")
+                    .intType()
+                    .defaultValue(600)
+                    .withDescription("The user defined connector jar expiry time.");
+
+    public static final Option<String> CONNECTOR_JAR_HA_STORAGE_TYPE =
+            Options.key("type")
+                    .stringType()
+                    .defaultValue("localfile")
+                    .withDescription("The connector jar HA storage type.");
+
+    public static final Option<Map<String, String>> CONNECTOR_JAR_HA_STORAGE_PLUGIN_CONFIG =
+            Options.key("plugin-config")
+                    .mapType()
+                    .noDefaultValue()
+                    .withDescription("The connector jar HA storage instance configuration.");
+
+    public static final Option<ConnectorJarHAStorageConfig> CONNECTOR_JAR_HA_STORAGE_CONFIG =
+            Options.key("jar-ha-storage")
+                    .type(new TypeReference<ConnectorJarHAStorageConfig>() {})
+                    .defaultValue(new ConnectorJarHAStorageConfig())
+                    .withDescription("The connector jar ha storage configuration.");
+
+    public static final Option<ConnectorJarStorageConfig> CONNECTOR_JAR_STORAGE_CONFIG =
+            Options.key("jar-storage")
+                    .type(new TypeReference<ConnectorJarStorageConfig>() {})
+                    .defaultValue(new ConnectorJarStorageConfig())
+                    .withDescription("The connector jar storage configuration.");
 }

@@ -27,7 +27,7 @@ import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssConf;
-import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.oss.exception.OssJindoConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.BaseFileSink;
 
@@ -46,11 +46,11 @@ public class OssFileSink extends BaseFileSink {
         CheckResult result =
                 CheckConfigUtil.checkAllExists(
                         pluginConfig,
-                        OssConfig.FILE_PATH.key(),
-                        OssConfig.ENDPOINT.key(),
-                        OssConfig.ACCESS_KEY.key(),
-                        OssConfig.ACCESS_SECRET.key(),
-                        OssConfig.BUCKET.key());
+                        OssConfigOptions.FILE_PATH.key(),
+                        OssConfigOptions.ENDPOINT.key(),
+                        OssConfigOptions.ACCESS_KEY.key(),
+                        OssConfigOptions.ACCESS_SECRET.key(),
+                        OssConfigOptions.BUCKET.key());
         if (!result.isSuccess()) {
             throw new OssJindoConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,

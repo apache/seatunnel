@@ -20,7 +20,7 @@ package org.apache.seatunnel.transform.sql.zeta;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.transform.exception.TransformException;
 import org.apache.seatunnel.transform.sql.SQLEngine;
 
@@ -37,6 +37,8 @@ import net.sf.jsqlparser.statement.select.Select;
 import net.sf.jsqlparser.statement.select.SelectExpressionItem;
 import net.sf.jsqlparser.statement.select.SelectItem;
 
+import javax.annotation.Nullable;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -45,6 +47,7 @@ import java.util.stream.Collectors;
 
 public class ZetaSQLEngine implements SQLEngine {
     private String inputTableName;
+    @Nullable private String catalogTableName;
     private SeaTunnelRowType inputRowType;
 
     private String sql;
@@ -59,8 +62,13 @@ public class ZetaSQLEngine implements SQLEngine {
     public ZetaSQLEngine() {}
 
     @Override
-    public void init(String inputTableName, SeaTunnelRowType inputRowType, String sql) {
+    public void init(
+            String inputTableName,
+            String catalogTableName,
+            SeaTunnelRowType inputRowType,
+            String sql) {
         this.inputTableName = inputTableName;
+        this.catalogTableName = catalogTableName;
         this.inputRowType = inputRowType;
         this.sql = sql;
 
@@ -70,7 +78,7 @@ public class ZetaSQLEngine implements SQLEngine {
 
         this.zetaSQLType = new ZetaSQLType(inputRowType, udfList);
         this.zetaSQLFunction = new ZetaSQLFunction(inputRowType, zetaSQLType, udfList);
-        this.zetaSQLFilter = new ZetaSQLFilter(zetaSQLFunction);
+        this.zetaSQLFilter = new ZetaSQLFilter(zetaSQLFunction, zetaSQLType);
 
         parseSQL();
     }
@@ -83,7 +91,7 @@ public class ZetaSQLEngine implements SQLEngine {
             this.selectBody = (PlainSelect) ((Select) statement).getSelectBody();
         } catch (JSQLParserException e) {
             throw new TransformException(
-                    CommonErrorCode.UNSUPPORTED_OPERATION,
+                    CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                     String.format("SQL parse failed: %s, cause: %s", sql, e.getMessage()));
         }
     }
@@ -109,7 +117,8 @@ public class ZetaSQLEngine implements SQLEngine {
                     throw new IllegalArgumentException("Unsupported table alias name syntax");
                 }
                 String tableName = table.getName();
-                if (!inputTableName.equalsIgnoreCase(tableName)) {
+                if (!inputTableName.equalsIgnoreCase(tableName)
+                        && !tableName.equalsIgnoreCase(catalogTableName)) {
                     throw new IllegalArgumentException(
                             String.format("Table name: %s not found", tableName));
                 }
@@ -140,7 +149,7 @@ public class ZetaSQLEngine implements SQLEngine {
             // }
         } catch (Exception e) {
             throw new TransformException(
-                    CommonErrorCode.UNSUPPORTED_OPERATION,
+                    CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                     String.format("SQL validate failed: %s, cause: %s", sql, e.getMessage()));
         }
     }
@@ -235,9 +244,6 @@ public class ZetaSQLEngine implements SQLEngine {
         int columnsSize = countColumnsSize(selectItems);
 
         Object[] fields = new Object[columnsSize];
-        for (int i = 0; i < columnsSize; i++) {
-            fields[i] = null;
-        }
 
         int idx = 0;
         for (SelectItem selectItem : selectItems) {

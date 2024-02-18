@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.common.source;
 
+import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceReader;
 
@@ -24,6 +25,23 @@ import java.util.Collections;
 import java.util.List;
 
 public abstract class AbstractSingleSplitReader<T> implements SourceReader<T, SingleSplit> {
+
+    protected final Object lock = new Object();
+
+    protected volatile boolean noMoreSplits = false;
+
+    @Override
+    public void pollNext(Collector<T> output) throws Exception {
+        synchronized (lock) {
+            if (noMoreSplits) {
+                return;
+            }
+            internalPollNext(output);
+            noMoreSplits = true;
+        }
+    }
+
+    public void internalPollNext(Collector<T> output) throws Exception {}
 
     @Override
     public final List<SingleSplit> snapshotState(long checkpointId) throws Exception {

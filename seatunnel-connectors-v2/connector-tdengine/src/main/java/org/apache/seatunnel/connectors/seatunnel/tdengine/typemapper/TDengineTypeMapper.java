@@ -22,7 +22,7 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.tdengine.exception.TDengineConnectorException;
 
 import lombok.extern.slf4j.Slf4j;
@@ -34,6 +34,7 @@ public class TDengineTypeMapper {
 
     private static final String TDENGINE_UNKNOWN = "UNKNOWN";
     private static final String TDENGINE_BIT = "BIT";
+    private static final String TDENGINE_BOOL = "BOOL";
 
     // -------------------------number----------------------------
     private static final String TDENGINE_TINYINT = "TINYINT";
@@ -80,9 +81,9 @@ public class TDengineTypeMapper {
     private static final String TDENGINE_VARBINARY = "VARBINARY";
     private static final String TDENGINE_GEOMETRY = "GEOMETRY";
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public static SeaTunnelDataType<?> mapping(String tdengineType) {
         switch (tdengineType) {
+            case TDENGINE_BOOL:
             case TDENGINE_BIT:
                 return BasicType.BOOLEAN_TYPE;
             case TDENGINE_TINYINT:
@@ -145,10 +146,8 @@ public class TDengineTypeMapper {
             case TDENGINE_UNKNOWN:
             default:
                 throw new TDengineConnectorException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                        String.format(
-                                "Doesn't support TDENGINE type '%s' on column '%s'  yet.",
-                                tdengineType));
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
+                        String.format("Doesn't support TDENGINE type '%s' yet.", tdengineType));
         }
     }
 }

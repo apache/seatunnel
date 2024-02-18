@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.transform.sql;
 
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.transform.exception.TransformException;
 import org.apache.seatunnel.transform.sql.zeta.ZetaSQLEngine;
 
@@ -29,7 +29,7 @@ public class SQLEngineFactory {
                 return new ZetaSQLEngine();
         }
         throw new TransformException(
-                CommonErrorCode.UNSUPPORTED_OPERATION,
+                CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                 String.format("Unsupported SQL engine type: %s", engineType));
     }
 

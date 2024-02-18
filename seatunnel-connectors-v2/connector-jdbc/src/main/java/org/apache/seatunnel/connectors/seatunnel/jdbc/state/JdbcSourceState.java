@@ -17,18 +17,19 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.state;
 
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceSplit;
 
 import lombok.AllArgsConstructor;
-import lombok.Getter;
+import lombok.Data;
 
 import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
 
+@Data
 @AllArgsConstructor
-@Getter
 public class JdbcSourceState implements Serializable {
-    private boolean shouldEnumerate;
+    private List<TablePath> pendingTables;
     private Map<Integer, List<JdbcSourceSplit>> pendingSplits;
 }

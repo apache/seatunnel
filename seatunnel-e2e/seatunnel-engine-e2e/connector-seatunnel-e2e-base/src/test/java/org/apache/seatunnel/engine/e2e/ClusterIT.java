@@ -65,19 +65,19 @@ public class ClusterIT {
             engineClient = new SeaTunnelClient(clientConfig);
 
             Map<String, String> clusterHealthMetrics = engineClient.getClusterHealthMetrics();
-            System.out.println(
+            log.info(
                     "=====================================cluster metrics==================================================");
             for (Map.Entry<String, String> entry : clusterHealthMetrics.entrySet()) {
-                System.out.println(entry.getKey());
-                System.out.println(entry.getValue());
-                System.out.println(
+                log.info(entry.getKey());
+                log.info(entry.getValue());
+                log.info(
                         "======================================================================================================");
             }
             Assertions.assertEquals(2, clusterHealthMetrics.size());
 
         } finally {
             if (engineClient != null) {
-                engineClient.shutdown();
+                engineClient.close();
             }
 
             if (node1 != null) {

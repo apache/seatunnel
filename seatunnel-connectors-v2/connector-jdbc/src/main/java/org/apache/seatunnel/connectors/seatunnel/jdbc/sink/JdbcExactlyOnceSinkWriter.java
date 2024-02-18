@@ -19,9 +19,10 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
@@ -50,10 +51,12 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkState;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkState;
 
-public class JdbcExactlyOnceSinkWriter implements SinkWriter<SeaTunnelRow, XidInfo, JdbcSinkState> {
+public class JdbcExactlyOnceSinkWriter
+        implements SinkWriter<SeaTunnelRow, XidInfo, JdbcSinkState>,
+                SupportMultiTableSinkWriter<Void> {
     private static final Logger LOG = LoggerFactory.getLogger(JdbcExactlyOnceSinkWriter.class);
 
     private final SinkWriter.Context sinkcontext;
@@ -81,7 +84,7 @@ public class JdbcExactlyOnceSinkWriter implements SinkWriter<SeaTunnelRow, XidIn
             JobContext context,
             JdbcDialect dialect,
             JdbcSinkConfig jdbcSinkConfig,
-            SeaTunnelRowType rowType,
+            TableSchema tableSchema,
             List<JdbcSinkState> states) {
         checkArgument(
                 jdbcSinkConfig.getJdbcConnectionConfig().getMaxRetries() == 0,
@@ -96,7 +99,7 @@ public class JdbcExactlyOnceSinkWriter implements SinkWriter<SeaTunnelRow, XidIn
         this.xaFacade =
                 XaFacade.fromJdbcConnectionOptions(jdbcSinkConfig.getJdbcConnectionConfig());
         this.outputFormat =
-                new JdbcOutputFormatBuilder(dialect, xaFacade, jdbcSinkConfig, rowType).build();
+                new JdbcOutputFormatBuilder(dialect, xaFacade, jdbcSinkConfig, tableSchema).build();
         this.xaGroupOps = new XaGroupOpsImpl(xaFacade);
     }
 
@@ -115,7 +118,7 @@ public class JdbcExactlyOnceSinkWriter implements SinkWriter<SeaTunnelRow, XidIn
                 beginTx();
             } catch (Exception e) {
                 throw new JdbcConnectorException(
-                        CommonErrorCode.WRITER_OPERATION_FAILED,
+                        CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED,
                         "unable to open JDBC exactly one writer",
                         e);
             }
@@ -174,7 +177,7 @@ public class JdbcExactlyOnceSinkWriter implements SinkWriter<SeaTunnelRow, XidIn
             xaFacade.close();
         } catch (Exception e) {
             throw new JdbcConnectorException(
-                    CommonErrorCode.WRITER_OPERATION_FAILED,
+                    CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED,
                     "unable to close JDBC exactly one writer",
                     e);
         }

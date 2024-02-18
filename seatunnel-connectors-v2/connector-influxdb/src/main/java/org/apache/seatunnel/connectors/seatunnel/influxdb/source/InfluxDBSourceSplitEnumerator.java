@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.influxdb.source;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.config.SourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.exception.InfluxdbConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.state.InfluxDBSourceState;
@@ -26,6 +26,7 @@ import org.apache.seatunnel.connectors.seatunnel.influxdb.state.InfluxDBSourceSt
 import org.apache.commons.lang3.tuple.Pair;
 
 import lombok.extern.slf4j.Slf4j;
+import okhttp3.internal.concurrent.TaskRunner;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -130,7 +131,8 @@ public class InfluxDBSourceSplitEnumerator
         String[] sqls = sql.split(SQL_WHERE.key());
         if (sqls.length > 2) {
             throw new InfluxdbConnectorException(
-                    CommonErrorCode.ILLEGAL_ARGUMENT, "sql should not contain more than one where");
+                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                    "sql should not contain more than one where");
         }
 
         int i = 0;
@@ -219,7 +221,8 @@ public class InfluxDBSourceSplitEnumerator
 
     @Override
     public void close() {
-        // nothing to do
+        // TODO we should remove shutdown logic when supported closed part task
+        ((TaskRunner.RealBackend) TaskRunner.INSTANCE.getBackend()).shutdown();
     }
 
     @Override
@@ -231,7 +234,7 @@ public class InfluxDBSourceSplitEnumerator
     @Override
     public void handleSplitRequest(int subtaskId) {
         throw new InfluxdbConnectorException(
-                CommonErrorCode.UNSUPPORTED_OPERATION,
+                CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                 String.format("Unsupported handleSplitRequest: %d", subtaskId));
     }
 }

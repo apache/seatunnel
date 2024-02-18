@@ -28,6 +28,7 @@ import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SupportColumnProjection;
 import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -53,7 +54,7 @@ import lombok.SneakyThrows;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 
 @AutoService(SeaTunnelSource.class)
 public class IcebergSource
@@ -96,7 +97,7 @@ public class IcebergSource
         List<SeaTunnelDataType<?>> columnDataTypes = new ArrayList<>(tableSchema.columns().size());
         for (Types.NestedField column : tableSchema.columns()) {
             columnNames.add(column.name());
-            columnDataTypes.add(IcebergTypeMapper.mapping(column.type()));
+            columnDataTypes.add(IcebergTypeMapper.mapping(column.name(), column.type()));
         }
         SeaTunnelRowType originalRowType =
                 new SeaTunnelRowType(
@@ -104,7 +105,7 @@ public class IcebergSource
                         columnDataTypes.toArray(new SeaTunnelDataType[0]));
 
         CheckResult checkResult =
-                CheckConfigUtil.checkAllExists(pluginConfig, CatalogTableUtil.SCHEMA.key());
+                CheckConfigUtil.checkAllExists(pluginConfig, TableSchemaOptions.SCHEMA.key());
         if (checkResult.isSuccess()) {
             SeaTunnelRowType projectedRowType =
                     CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();

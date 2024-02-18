@@ -17,10 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.fake.config;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
-
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.fake.exception.FakeConnectorException;
 
 import lombok.AllArgsConstructor;
@@ -30,6 +31,7 @@ import lombok.Getter;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.ARRAY_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.BIGINT_FAKE_MODE;
@@ -146,266 +148,257 @@ public class FakeConfig implements Serializable {
 
     private List<RowData> fakeRows;
 
-    public static FakeConfig buildWithConfig(Config config) {
+    private CatalogTable catalogTable;
+
+    public static FakeConfig buildWithConfig(ReadonlyConfig readonlyConfig) {
         FakeConfigBuilder builder = FakeConfig.builder();
-        if (config.hasPath(ROW_NUM.key())) {
-            builder.rowNum(config.getInt(ROW_NUM.key()));
-        }
-        if (config.hasPath(SPLIT_NUM.key())) {
-            builder.splitNum(config.getInt(SPLIT_NUM.key()));
-        }
-        if (config.hasPath(SPLIT_READ_INTERVAL.key())) {
-            builder.splitReadInterval(config.getInt(SPLIT_READ_INTERVAL.key()));
-        }
-        if (config.hasPath(MAP_SIZE.key())) {
-            builder.mapSize(config.getInt(MAP_SIZE.key()));
-        }
-        if (config.hasPath(ARRAY_SIZE.key())) {
-            builder.arraySize(config.getInt(ARRAY_SIZE.key()));
-        }
-        if (config.hasPath(BYTES_LENGTH.key())) {
-            builder.bytesLength(config.getInt(BYTES_LENGTH.key()));
-        }
-        if (config.hasPath(STRING_LENGTH.key())) {
-            builder.stringLength(config.getInt(STRING_LENGTH.key()));
-        }
-        if (config.hasPath(ROWS.key())) {
-            List<? extends Config> configs = config.getConfigList(ROWS.key());
+        builder.rowNum(readonlyConfig.get(ROW_NUM));
+        builder.splitNum(readonlyConfig.get(SPLIT_NUM));
+        builder.splitReadInterval(readonlyConfig.get(SPLIT_READ_INTERVAL));
+        builder.mapSize(readonlyConfig.get(MAP_SIZE));
+        builder.arraySize(readonlyConfig.get(ARRAY_SIZE));
+        builder.bytesLength(readonlyConfig.get(BYTES_LENGTH));
+        builder.stringLength(readonlyConfig.get(STRING_LENGTH));
+
+        if (readonlyConfig.getOptional(ROWS).isPresent()) {
+            List<Map<String, Object>> configs = readonlyConfig.get(ROWS);
             List<RowData> rows = new ArrayList<>(configs.size());
-            ConfigRenderOptions options = ConfigRenderOptions.concise();
-            for (Config configItem : configs) {
-                String fieldsJson = configItem.getValue(RowData.KEY_FIELDS).render(options);
-                RowData rowData = new RowData(configItem.getString(RowData.KEY_KIND), fieldsJson);
+            for (Map<String, Object> configItem : configs) {
+                String fieldsJson = JsonUtils.toJsonString(configItem.get(RowData.KEY_FIELDS));
+                RowData rowData =
+                        new RowData(configItem.get(RowData.KEY_KIND).toString(), fieldsJson);
                 rows.add(rowData);
             }
             builder.fakeRows(rows);
         }
-        if (config.hasPath(STRING_TEMPLATE.key())) {
-            builder.stringTemplate(config.getStringList(STRING_TEMPLATE.key()));
-        }
-        if (config.hasPath(TINYINT_TEMPLATE.key())) {
-            builder.tinyintTemplate(config.getIntList(TINYINT_TEMPLATE.key()));
-        }
-        if (config.hasPath(SMALLINT_TEMPLATE.key())) {
-            builder.smallintTemplate(config.getIntList(SMALLINT_TEMPLATE.key()));
-        }
-        if (config.hasPath(INT_TEMPLATE.key())) {
-            builder.intTemplate(config.getIntList(INT_TEMPLATE.key()));
-        }
-        if (config.hasPath(BIGINT_TEMPLATE.key())) {
-            builder.bigTemplate(config.getLongList(BIGINT_TEMPLATE.key()));
-        }
-        if (config.hasPath(FLOAT_TEMPLATE.key())) {
-            builder.floatTemplate(config.getDoubleList(FLOAT_TEMPLATE.key()));
-        }
-        if (config.hasPath(DOUBLE_TEMPLATE.key())) {
-            builder.doubleTemplate(config.getDoubleList(DOUBLE_TEMPLATE.key()));
-        }
-        if (config.hasPath(DATE_YEAR_TEMPLATE.key())) {
-            builder.dateYearTemplate(config.getIntList(DATE_YEAR_TEMPLATE.key()));
-        }
-        if (config.hasPath(DATE_MONTH_TEMPLATE.key())) {
-            builder.dateMonthTemplate(config.getIntList(DATE_MONTH_TEMPLATE.key()));
-        }
-        if (config.hasPath(DATE_DAY_TEMPLATE.key())) {
-            builder.dateDayTemplate(config.getIntList(DATE_DAY_TEMPLATE.key()));
-        }
-        if (config.hasPath(TIME_HOUR_TEMPLATE.key())) {
-            builder.timeHourTemplate(config.getIntList(TIME_HOUR_TEMPLATE.key()));
-        }
-        if (config.hasPath(TIME_MINUTE_TEMPLATE.key())) {
-            builder.timeMinuteTemplate(config.getIntList(TIME_MINUTE_TEMPLATE.key()));
-        }
-        if (config.hasPath(TIME_SECOND_TEMPLATE.key())) {
-            builder.timeSecondTemplate(config.getIntList(TIME_SECOND_TEMPLATE.key()));
-        }
-        if (config.hasPath(TINYINT_MIN.key())) {
-            int tinyintMin = config.getInt(TINYINT_MIN.key());
-            if (tinyintMin < TINYINT_MIN.defaultValue()
-                    || tinyintMin > TINYINT_MAX.defaultValue()) {
-                throw new FakeConnectorException(
-                        CommonErrorCode.ILLEGAL_ARGUMENT,
-                        TINYINT_MIN.key()
-                                + " should >= "
-                                + TINYINT_MIN.defaultValue()
-                                + " and <= "
-                                + TINYINT_MAX.defaultValue());
-            }
-            builder.tinyintMin(tinyintMin);
-        }
-        if (config.hasPath(TINYINT_MAX.key())) {
-            int tinyintMax = config.getInt(TINYINT_MAX.key());
-            if (tinyintMax < TINYINT_MIN.defaultValue()
-                    || tinyintMax > TINYINT_MAX.defaultValue()) {
-                throw new FakeConnectorException(
-                        CommonErrorCode.ILLEGAL_ARGUMENT,
-                        TINYINT_MAX.key()
-                                + " should >= "
-                                + TINYINT_MIN.defaultValue()
-                                + " and <= "
-                                + TINYINT_MAX.defaultValue());
-            }
-            builder.tinyintMax(tinyintMax);
-        }
-        if (config.hasPath(SMALLINT_MIN.key())) {
-            int smallintMin = config.getInt(SMALLINT_MIN.key());
-            if (smallintMin < SMALLINT_MIN.defaultValue()
-                    || smallintMin > SMALLINT_MAX.defaultValue()) {
-                throw new FakeConnectorException(
-                        CommonErrorCode.ILLEGAL_ARGUMENT,
-                        SMALLINT_MIN.key()
-                                + " should >= "
-                                + SMALLINT_MIN.defaultValue()
-                                + " and <= "
-                                + SMALLINT_MAX.defaultValue());
-            }
-            builder.smallintMin(smallintMin);
-        }
-        if (config.hasPath(SMALLINT_MAX.key())) {
-            int smallintMax = config.getInt(SMALLINT_MAX.key());
-            if (smallintMax < SMALLINT_MIN.defaultValue()
-                    || smallintMax > SMALLINT_MAX.defaultValue()) {
-                throw new FakeConnectorException(
-                        CommonErrorCode.ILLEGAL_ARGUMENT,
-                        SMALLINT_MAX.key()
-                                + " should >= "
-                                + SMALLINT_MIN.defaultValue()
-                                + " and <= "
-                                + SMALLINT_MAX.defaultValue());
-            }
-            builder.smallintMax(smallintMax);
-        }
-        if (config.hasPath(INT_MIN.key())) {
-            int intMin = config.getInt(INT_MIN.key());
-            if (intMin < INT_MIN.defaultValue() || intMin > INT_MAX.defaultValue()) {
-                throw new FakeConnectorException(
-                        CommonErrorCode.ILLEGAL_ARGUMENT,
-                        INT_MIN.key()
-                                + " should >= "
-                                + INT_MIN.defaultValue()
-                                + " and <= "
-                                + INT_MAX.defaultValue());
-            }
-            builder.intMin(intMin);
-        }
-        if (config.hasPath(INT_MAX.key())) {
-            int intMax = config.getInt(INT_MAX.key());
-            if (intMax < INT_MIN.defaultValue() || intMax > INT_MAX.defaultValue()) {
-                throw new FakeConnectorException(
-                        CommonErrorCode.ILLEGAL_ARGUMENT,
-                        INT_MAX.key()
-                                + " should >= "
-                                + INT_MIN.defaultValue()
-                                + " and <= "
-                                + INT_MAX.defaultValue());
-            }
-            builder.intMax(intMax);
-        }
-        if (config.hasPath(BIGINT_MIN.key())) {
-            long bigintMin = config.getLong(BIGINT_MIN.key());
-            if (bigintMin < BIGINT_MIN.defaultValue() || bigintMin > BIGINT_MAX.defaultValue()) {
-                throw new FakeConnectorException(
-                        CommonErrorCode.ILLEGAL_ARGUMENT,
-                        BIGINT_MIN.key()
-                                + " should >= "
-                                + BIGINT_MIN.defaultValue()
-                                + " and <= "
-                                + BIGINT_MAX.defaultValue());
-            }
-            builder.bigintMin(bigintMin);
-        }
-        if (config.hasPath(BIGINT_MAX.key())) {
-            long bigintMax = config.getLong(BIGINT_MAX.key());
-            if (bigintMax < BIGINT_MIN.defaultValue() || bigintMax > BIGINT_MAX.defaultValue()) {
-                throw new FakeConnectorException(
-                        CommonErrorCode.ILLEGAL_ARGUMENT,
-                        BIGINT_MAX.key()
-                                + " should >= "
-                                + BIGINT_MIN.defaultValue()
-                                + " and <= "
-                                + BIGINT_MAX.defaultValue());
-            }
-            builder.bigintMax(bigintMax);
-        }
-        if (config.hasPath(FLOAT_MIN.key())) {
-            double floatMin = config.getDouble(FLOAT_MIN.key());
-            if (floatMin < FLOAT_MIN.defaultValue() || floatMin > FLOAT_MAX.defaultValue()) {
-                throw new FakeConnectorException(
-                        CommonErrorCode.ILLEGAL_ARGUMENT,
-                        FLOAT_MIN.key()
-                                + " should >= "
-                                + FLOAT_MIN.defaultValue()
-                                + " and <= "
-                                + FLOAT_MAX.defaultValue());
-            }
-            builder.floatMin(floatMin);
-        }
-        if (config.hasPath(FLOAT_MAX.key())) {
-            double floatMax = config.getDouble(FLOAT_MAX.key());
-            if (floatMax < FLOAT_MIN.defaultValue() || floatMax > FLOAT_MAX.defaultValue()) {
-                throw new FakeConnectorException(
-                        CommonErrorCode.ILLEGAL_ARGUMENT,
-                        FLOAT_MAX.key()
-                                + " should >= "
-                                + FLOAT_MIN.defaultValue()
-                                + " and <= "
-                                + FLOAT_MAX.defaultValue());
-            }
-            builder.floatMax(floatMax);
-        }
-        if (config.hasPath(DOUBLE_MIN.key())) {
-            double doubleMin = config.getDouble(DOUBLE_MIN.key());
-            if (doubleMin < DOUBLE_MIN.defaultValue() || doubleMin > DOUBLE_MAX.defaultValue()) {
-                throw new FakeConnectorException(
-                        CommonErrorCode.ILLEGAL_ARGUMENT,
-                        DOUBLE_MIN.key()
-                                + " should >= "
-                                + DOUBLE_MIN.defaultValue()
-                                + " and <= "
-                                + DOUBLE_MAX.defaultValue());
-            }
-            builder.doubleMin(doubleMin);
-        }
-        if (config.hasPath(DOUBLE_MAX.key())) {
-            double doubleMax = config.getDouble(DOUBLE_MAX.key());
-            if (doubleMax < DOUBLE_MIN.defaultValue() || doubleMax > DOUBLE_MAX.defaultValue()) {
-                throw new FakeConnectorException(
-                        CommonErrorCode.ILLEGAL_ARGUMENT,
-                        DOUBLE_MAX.key()
-                                + " should >= "
-                                + DOUBLE_MIN.defaultValue()
-                                + " and <= "
-                                + DOUBLE_MAX.defaultValue());
-            }
-            builder.doubleMax(doubleMax);
-        }
-        if (config.hasPath(STRING_FAKE_MODE.key())) {
-            builder.stringFakeMode(
-                    FakeOption.FakeMode.parse(config.getString(STRING_FAKE_MODE.key())));
-        }
-        if (config.hasPath(TINYINT_FAKE_MODE.key())) {
-            builder.tinyintFakeMode(
-                    FakeOption.FakeMode.parse(config.getString(TINYINT_FAKE_MODE.key())));
-        }
-        if (config.hasPath(SMALLINT_FAKE_MODE.key())) {
-            builder.smallintFakeMode(
-                    FakeOption.FakeMode.parse(config.getString(SMALLINT_FAKE_MODE.key())));
-        }
-        if (config.hasPath(INT_FAKE_MODE.key())) {
-            builder.intFakeMode(FakeOption.FakeMode.parse(config.getString(INT_FAKE_MODE.key())));
-        }
-        if (config.hasPath(BIGINT_FAKE_MODE.key())) {
-            builder.bigintFakeMode(
-                    FakeOption.FakeMode.parse(config.getString(BIGINT_FAKE_MODE.key())));
-        }
-        if (config.hasPath(FLOAT_FAKE_MODE.key())) {
-            builder.floatFakeMode(
-                    FakeOption.FakeMode.parse(config.getString(FLOAT_FAKE_MODE.key())));
-        }
-        if (config.hasPath(DOUBLE_FAKE_MODE.key())) {
-            builder.doubleFakeMode(
-                    FakeOption.FakeMode.parse(config.getString(DOUBLE_FAKE_MODE.key())));
-        }
+        readonlyConfig.getOptional(STRING_TEMPLATE).ifPresent(builder::stringTemplate);
+        readonlyConfig.getOptional(TINYINT_TEMPLATE).ifPresent(builder::tinyintTemplate);
+        readonlyConfig.getOptional(SMALLINT_TEMPLATE).ifPresent(builder::smallintTemplate);
+        readonlyConfig.getOptional(INT_TEMPLATE).ifPresent(builder::intTemplate);
+        readonlyConfig.getOptional(BIGINT_TEMPLATE).ifPresent(builder::bigTemplate);
+        readonlyConfig.getOptional(FLOAT_TEMPLATE).ifPresent(builder::floatTemplate);
+        readonlyConfig.getOptional(DOUBLE_TEMPLATE).ifPresent(builder::doubleTemplate);
+        readonlyConfig.getOptional(DATE_YEAR_TEMPLATE).ifPresent(builder::dateYearTemplate);
+        readonlyConfig.getOptional(DATE_MONTH_TEMPLATE).ifPresent(builder::dateMonthTemplate);
+        readonlyConfig.getOptional(DATE_DAY_TEMPLATE).ifPresent(builder::dateDayTemplate);
+        readonlyConfig.getOptional(TIME_HOUR_TEMPLATE).ifPresent(builder::timeHourTemplate);
+        readonlyConfig.getOptional(TIME_MINUTE_TEMPLATE).ifPresent(builder::timeMinuteTemplate);
+        readonlyConfig.getOptional(TIME_SECOND_TEMPLATE).ifPresent(builder::timeSecondTemplate);
+
+        readonlyConfig
+                .getOptional(TINYINT_MIN)
+                .ifPresent(
+                        tinyintMin -> {
+                            if (tinyintMin < TINYINT_MIN.defaultValue()
+                                    || tinyintMin > TINYINT_MAX.defaultValue()) {
+                                throw new FakeConnectorException(
+                                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                                        TINYINT_MIN.key()
+                                                + " should >= "
+                                                + TINYINT_MIN.defaultValue()
+                                                + " and <= "
+                                                + TINYINT_MAX.defaultValue());
+                            }
+                            builder.tinyintMin(tinyintMin);
+                        });
+
+        readonlyConfig
+                .getOptional(TINYINT_MAX)
+                .ifPresent(
+                        tinyintMax -> {
+                            if (tinyintMax < TINYINT_MIN.defaultValue()
+                                    || tinyintMax > TINYINT_MAX.defaultValue()) {
+                                throw new FakeConnectorException(
+                                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                                        TINYINT_MAX.key()
+                                                + " should >= "
+                                                + TINYINT_MIN.defaultValue()
+                                                + " and <= "
+                                                + TINYINT_MAX.defaultValue());
+                            }
+                            builder.tinyintMax(tinyintMax);
+                        });
+
+        readonlyConfig
+                .getOptional(SMALLINT_MIN)
+                .ifPresent(
+                        smallintMin -> {
+                            if (smallintMin < SMALLINT_MIN.defaultValue()
+                                    || smallintMin > SMALLINT_MAX.defaultValue()) {
+                                throw new FakeConnectorException(
+                                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                                        SMALLINT_MIN.key()
+                                                + " should >= "
+                                                + SMALLINT_MIN.defaultValue()
+                                                + " and <= "
+                                                + SMALLINT_MAX.defaultValue());
+                            }
+                            builder.smallintMin(smallintMin);
+                        });
+
+        readonlyConfig
+                .getOptional(SMALLINT_MAX)
+                .ifPresent(
+                        smallintMax -> {
+                            if (smallintMax < SMALLINT_MIN.defaultValue()
+                                    || smallintMax > SMALLINT_MAX.defaultValue()) {
+                                throw new FakeConnectorException(
+                                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                                        SMALLINT_MAX.key()
+                                                + " should >= "
+                                                + SMALLINT_MIN.defaultValue()
+                                                + " and <= "
+                                                + SMALLINT_MAX.defaultValue());
+                            }
+                            builder.smallintMax(smallintMax);
+                        });
+
+        readonlyConfig
+                .getOptional(INT_MIN)
+                .ifPresent(
+                        intMin -> {
+                            if (intMin < INT_MIN.defaultValue()
+                                    || intMin > INT_MAX.defaultValue()) {
+                                throw new FakeConnectorException(
+                                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                                        INT_MIN.key()
+                                                + " should >= "
+                                                + INT_MIN.defaultValue()
+                                                + " and <= "
+                                                + INT_MAX.defaultValue());
+                            }
+                            builder.intMin(intMin);
+                        });
+
+        readonlyConfig
+                .getOptional(INT_MAX)
+                .ifPresent(
+                        intMax -> {
+                            if (intMax < INT_MIN.defaultValue()
+                                    || intMax > INT_MAX.defaultValue()) {
+                                throw new FakeConnectorException(
+                                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                                        INT_MAX.key()
+                                                + " should >= "
+                                                + INT_MIN.defaultValue()
+                                                + " and <= "
+                                                + INT_MAX.defaultValue());
+                            }
+                            builder.intMax(intMax);
+                        });
+
+        readonlyConfig
+                .getOptional(BIGINT_MIN)
+                .ifPresent(
+                        bigintMin -> {
+                            if (bigintMin < BIGINT_MIN.defaultValue()
+                                    || bigintMin > BIGINT_MAX.defaultValue()) {
+                                throw new FakeConnectorException(
+                                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                                        BIGINT_MIN.key()
+                                                + " should >= "
+                                                + BIGINT_MIN.defaultValue()
+                                                + " and <= "
+                                                + BIGINT_MAX.defaultValue());
+                            }
+                            builder.bigintMin(bigintMin);
+                        });
+
+        readonlyConfig
+                .getOptional(BIGINT_MAX)
+                .ifPresent(
+                        bigintMax -> {
+                            if (bigintMax < BIGINT_MIN.defaultValue()
+                                    || bigintMax > BIGINT_MAX.defaultValue()) {
+                                throw new FakeConnectorException(
+                                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                                        BIGINT_MAX.key()
+                                                + " should >= "
+                                                + BIGINT_MIN.defaultValue()
+                                                + " and <= "
+                                                + BIGINT_MAX.defaultValue());
+                            }
+                            builder.bigintMax(bigintMax);
+                        });
+
+        readonlyConfig
+                .getOptional(FLOAT_MIN)
+                .ifPresent(
+                        floatMin -> {
+                            if (floatMin < FLOAT_MIN.defaultValue()
+                                    || floatMin > FLOAT_MAX.defaultValue()) {
+                                throw new FakeConnectorException(
+                                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                                        FLOAT_MIN.key()
+                                                + " should >= "
+                                                + FLOAT_MIN.defaultValue()
+                                                + " and <= "
+                                                + FLOAT_MAX.defaultValue());
+                            }
+                            builder.floatMin(floatMin);
+                        });
+
+        readonlyConfig
+                .getOptional(FLOAT_MAX)
+                .ifPresent(
+                        floatMax -> {
+                            if (floatMax < FLOAT_MIN.defaultValue()
+                                    || floatMax > FLOAT_MAX.defaultValue()) {
+                                throw new FakeConnectorException(
+                                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                                        FLOAT_MAX.key()
+                                                + " should >= "
+                                                + FLOAT_MIN.defaultValue()
+                                                + " and <= "
+                                                + FLOAT_MAX.defaultValue());
+                            }
+                            builder.floatMax(floatMax);
+                        });
+
+        readonlyConfig
+                .getOptional(DOUBLE_MIN)
+                .ifPresent(
+                        doubleMin -> {
+                            if (doubleMin < DOUBLE_MIN.defaultValue()
+                                    || doubleMin > DOUBLE_MAX.defaultValue()) {
+                                throw new FakeConnectorException(
+                                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                                        DOUBLE_MIN.key()
+                                                + " should >= "
+                                                + DOUBLE_MIN.defaultValue()
+                                                + " and <= "
+                                                + DOUBLE_MAX.defaultValue());
+                            }
+                            builder.doubleMin(doubleMin);
+                        });
+
+        readonlyConfig
+                .getOptional(DOUBLE_MAX)
+                .ifPresent(
+                        doubleMax -> {
+                            if (doubleMax < DOUBLE_MIN.defaultValue()
+                                    || doubleMax > DOUBLE_MAX.defaultValue()) {
+                                throw new FakeConnectorException(
+                                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                                        DOUBLE_MAX.key()
+                                                + " should >= "
+                                                + DOUBLE_MIN.defaultValue()
+                                                + " and <= "
+                                                + DOUBLE_MAX.defaultValue());
+                            }
+                            builder.doubleMax(doubleMax);
+                        });
+
+        readonlyConfig.getOptional(STRING_FAKE_MODE).ifPresent(builder::stringFakeMode);
+        readonlyConfig.getOptional(TINYINT_FAKE_MODE).ifPresent(builder::tinyintFakeMode);
+        readonlyConfig.getOptional(SMALLINT_FAKE_MODE).ifPresent(builder::smallintFakeMode);
+        readonlyConfig.getOptional(INT_FAKE_MODE).ifPresent(builder::intFakeMode);
+        readonlyConfig.getOptional(BIGINT_FAKE_MODE).ifPresent(builder::bigintFakeMode);
+        readonlyConfig.getOptional(FLOAT_FAKE_MODE).ifPresent(builder::floatFakeMode);
+        readonlyConfig.getOptional(DOUBLE_FAKE_MODE).ifPresent(builder::doubleFakeMode);
+
+        builder.catalogTable(CatalogTableUtil.buildWithConfig("FakeSource", readonlyConfig));
+
         return builder.build();
     }
 

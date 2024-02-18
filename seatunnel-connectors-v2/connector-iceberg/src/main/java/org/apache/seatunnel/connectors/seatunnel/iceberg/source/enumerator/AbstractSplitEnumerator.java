@@ -23,6 +23,7 @@ import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.source.split.IcebergFileScanTaskSplit;
 
 import org.apache.iceberg.Table;
+import org.apache.iceberg.util.ThreadPools;
 
 import lombok.Getter;
 import lombok.NonNull;
@@ -74,6 +75,8 @@ public abstract class AbstractSplitEnumerator
     public void close() throws IOException {
         icebergTableLoader.close();
         isOpen = false;
+        // TODO we should remove shutdown logic when supported closed part task
+        ThreadPools.getWorkerPool().shutdownNow();
     }
 
     @Override
@@ -108,7 +111,7 @@ public abstract class AbstractSplitEnumerator
     private void addPendingSplits(Collection<IcebergFileScanTaskSplit> newSplits) {
         int numReaders = context.currentParallelism();
         for (IcebergFileScanTaskSplit newSplit : newSplits) {
-            int ownerReader = newSplit.splitId().hashCode() % numReaders;
+            int ownerReader = (newSplit.splitId().hashCode() & Integer.MAX_VALUE) % numReaders;
             pendingSplits.computeIfAbsent(ownerReader, r -> new ArrayList<>()).add(newSplit);
             log.info("Assigning {} to {} reader.", newSplit, ownerReader);
         }

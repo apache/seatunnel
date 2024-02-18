@@ -22,8 +22,8 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
+import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
 import lombok.extern.slf4j.Slf4j;
@@ -58,6 +58,9 @@ public class SqlserverTypeMapper implements JdbcDialectTypeMapper {
     private static final String SQLSERVER_NCHAR = "NCHAR";
     private static final String SQLSERVER_NVARCHAR = "NVARCHAR";
     private static final String SQLSERVER_TEXT = "TEXT";
+    private static final String SQLSERVER_XML = "XML";
+    private static final String SQLSERVER_UNIQUEIDENTIFIER = "UNIQUEIDENTIFIER";
+    private static final String SQLSERVER_SQLVARIANT = "SQL_VARIANT";
 
     // ------------------------------time-------------------------
     private static final String SQLSERVER_DATE = "DATE";
@@ -73,7 +76,6 @@ public class SqlserverTypeMapper implements JdbcDialectTypeMapper {
     private static final String SQLSERVER_VARBINARY = "VARBINARY";
     private static final String SQLSERVER_IMAGE = "IMAGE";
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex)
             throws SQLException {
@@ -106,6 +108,9 @@ public class SqlserverTypeMapper implements JdbcDialectTypeMapper {
             case SQLSERVER_NTEXT:
             case SQLSERVER_NVARCHAR:
             case SQLSERVER_TEXT:
+            case SQLSERVER_XML:
+            case SQLSERVER_UNIQUEIDENTIFIER:
+            case SQLSERVER_SQLVARIANT:
                 return BasicType.STRING_TYPE;
             case SQLSERVER_DATE:
                 return LocalTimeType.LOCAL_DATE_TYPE;
@@ -125,11 +130,8 @@ public class SqlserverTypeMapper implements JdbcDialectTypeMapper {
             case SQLSERVER_UNKNOWN:
             default:
                 final String jdbcColumnName = metadata.getColumnName(colIndex);
-                throw new JdbcConnectorException(
-                        CommonErrorCode.UNSUPPORTED_OPERATION,
-                        String.format(
-                                "Doesn't support SQLSERVER type '%s' on column '%s'  yet.",
-                                sqlServerType, jdbcColumnName));
+                throw CommonError.convertToSeaTunnelTypeError(
+                        DatabaseIdentifier.SQLSERVER, sqlServerType, jdbcColumnName);
         }
     }
 }
