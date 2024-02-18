@@ -1,20 +1,20 @@
-# FAQs
+# 常见问题解答
 
-## Why should I install a computing engine like Spark or Flink?
+## 为什么要安装Spark或者Flink这样的计算引擎？
 
-SeaTunnel now uses computing engines such as Spark and Flink to complete resource scheduling and node communication, so we can focus on the ease of use of data synchronization and the development of high-performance components. But this is only temporary.
+SeaTunnel现在使用Spark、Flink等计算引擎来完成资源调度和节点通信，因此我们可以专注于数据同步的易用性和高性能组件的开发。 但这只是暂时的。
 
-## I have a question, and I cannot solve it by myself
+## 我有一个问题，我自己无法解决
 
-I have encountered a problem when using SeaTunnel and I cannot solve it by myself. What should I do? First, search in [Issue list](https://github.com/apache/seatunnel/issues) or [mailing list](https://lists.apache.org/list.html?dev@seatunnel.apache.org) to see if someone has already asked the same question and got an answer. If you cannot find an answer to your question, you can contact community members for help in [these ways](https://github.com/apache/seatunnel#contact-us).
+我在使用SeaTunnel时遇到了问题，无法自行解决。 我应该怎么办？ 首先，在[问题列表](https://github.com/apache/seatunnel/issues)或[邮件列表](https://lists.apache.org/list.html?dev@seatunnel.apache.org)中搜索 ）看看是否有人已经问过同样的问题并得到答案。 如果您找不到问题的答案，您可以通过[这些方式](https://github.com/apache/seatunnel#contact-us)联系社区成员寻求帮助。
 
-## How do I declare a variable?
+## 如何声明变量？
 
-Do you want to know how to declare a variable in SeaTunnel's configuration, and then dynamically replace the value of the variable at runtime?
+您想知道如何在 SeaTunnel 的配置中声明一个变量，然后在运行时动态替换该变量的值吗？
 
-Since `v1.2.4`, SeaTunnel supports variable substitution in the configuration. This feature is often used for timing or non-timing offline processing to replace variables such as time and date. The usage is as follows:
+从“v1.2.4”开始，SeaTunnel 支持配置中的变量替换。 该功能常用于定时或非定时离线处理，以替代时间、日期等变量。 用法如下：
 
-Configure the variable name in the configuration. Here is an example of sql transform (actually, anywhere in the configuration file the value in `'key = value'` can use the variable substitution):
+在配置中配置变量名称。 下面是一个sql转换的例子（实际上，配置文件中任何地方“key = value”中的值都可以使用变量替换）：
 
 ```
 ...
@@ -26,7 +26,7 @@ transform {
 ...
 ```
 
-Taking Spark Local mode as an example, the startup command is as follows:
+以Spark Local模式为例，启动命令如下：
 
 ```bash
 ./bin/start-seatunnel-spark.sh \
@@ -37,39 +37,37 @@ Taking Spark Local mode as an example, the startup command is as follows:
 -i date=20190319
 ```
 
-You can use the parameter `-i` or `--variable` followed by `key=value` to specify the value of the variable, where the key needs to be same as the variable name in the configuration.
+您可以使用参数“-i”或“--variable”后跟“key=value”来指定变量的值，其中key需要与配置中的变量名称相同。
 
-## How do I write a configuration item in multi-line text in the configuration file?
+## 如何在配置文件中写入多行文本的配置项？
 
-When a configured text is very long and you want to wrap it, you can use three double quotes to indicate its start and end:
+当配置的文本很长并且想要将其换行时，可以使用三个双引号来指示其开始和结束：
 
 ```
 var = """
  whatever you want
 """
 ```
+## 如何实现多行文本的变量替换？
 
-## How do I implement variable substitution for multi-line text?
-
-It is a little troublesome to do variable substitution in multi-line text, because the variable cannot be included in three double quotation marks:
+在多行文本中进行变量替换有点麻烦，因为变量不能包含在三个双引号中：
 
 ```
 var = """
 your string 1
 """${you_var}""" your string 2"""
 ```
+请参阅：[lightbend/config#456](https://github.com/lightbend/config/issues/456)。
 
-Refer to: [lightbend/config#456](https://github.com/lightbend/config/issues/456).
+## Azkaban、Oozie、DolphinScheduler 是否支持 SeaTunnel？
 
-## Is SeaTunnel supportted in Azkaban, Oozie, DolphinScheduler?
+当然！ 请参阅下面的屏幕截图：
 
-Of course! See the screenshot below:
-
-![workflow.png](images/workflow.png)
+![工作流程.png](图片/工作流程.png)
 
 ![azkaban.png](images/azkaban.png)
 
-## Does SeaTunnel have a case for configuring multiple sources, such as configuring elasticsearch and hdfs in source at the same time?
+## SeaTunnel是否有配置多个源的情况，例如同时在源中配置elasticsearch和hdfs？
 
 ```
 env {
@@ -90,12 +88,11 @@ sink {
 	elasticsearch { ... }
 }
 ```
+## 有 HBase 插件吗？
 
-## Are there any HBase plugins?
+有一个 hbase 输入插件。 您可以从这里下载：https://github.com/garyelephant/waterdrop-input-hbase。
 
-There is an hbase input plugin. You can download it from here: https://github.com/garyelephant/waterdrop-input-hbase .
-
-## How can I use SeaTunnel to write data to Hive?
+## 如何使用SeaTunnel将数据写入Hive？
 
 ```
 env {
@@ -115,14 +112,13 @@ sink {
     }
 }
 ```
+此外，SeaTunnel 在 `1.5.7` 版本之后在 `1.x` 分支中实现了 `Hive` 输出插件； 在“2.x”分支中。 Spark 引擎的 Hive 插件已从版本“2.0.5”开始支持：https://github.com/apache/seatunnel/issues/910。
 
-In addition, SeaTunnel has implemented a `Hive` output plugin after version `1.5.7` in `1.x` branch; in `2.x` branch. The Hive plugin for the Spark engine has been supported from version `2.0.5`: https://github.com/apache/seatunnel/issues/910.
+## SeaTunnel如何编写ClickHouse的多个实例来实现负载均衡？
 
-## How does SeaTunnel write multiple instances of ClickHouse to achieve load balancing?
+1.直接写分布式表（不推荐）
 
-1. Write distributed tables directly (not recommended)
-
-2. Add a proxy or domain name (DNS) in front of multiple instances of ClickHouse:
+2.在ClickHouse的多个实例前面添加代理或域名（DNS）：
 
    ```
    {
@@ -163,36 +159,35 @@ In addition, SeaTunnel has implemented a `Hive` output plugin after version `1.5
        }
    }
    ```
+## SeaTunnel 消费 Kafka 时如何解决 OOM？
 
-## How can I solve OOM when SeaTunnel consumes Kafka?
+大多数情况下，OOM是由于没有对消费进行速率限制而导致的。 解决方法如下：
 
-In most cases, OOM is caused by not having a rate limit for consumption. The solution is as follows:
+对于目前Kafka的Spark消费限制：
 
-For the current limit of Spark consumption of Kafka:
+1. 假设您使用 KafkaStream 消费的 Kafka `Topic 1` 的分区数量 = N。
 
-1. Suppose the number of partitions of Kafka `Topic 1` you consume with KafkaStream = N.
+2. 假设“Topic 1”的消息生产者（Producer）的生产速度为K条消息/秒，则向分区写入消息的速度必须一致。
 
-2. Assuming that the production speed of the message producer (Producer) of `Topic 1` is K messages/second, the speed of write messages to the partition must be uniform.
+3、假设经过测试发现Spark Executor每核每秒的处理能力为M。
 
-3. Suppose that, after testing, it is found that the processing capacity of Spark Executor per core per second is M.
+可以得出以下结论：
 
-The following conclusions can be drawn:
+1、如果想让Spark对`Topic 1`的消耗跟上它的生产速度，那么需要 `spark.executor.cores` * `spark.executor.instances` >= K / M
 
-1. If you want to make Spark's consumption of `Topic 1` keep up with its production speed, then you need `spark.executor.cores` * `spark.executor.instances` >= K / M
+2、当出现数据延迟时，如果希望消耗速度不要太快，导致spark执行器OOM，那么需要配置 `spark.streaming.kafka.maxRatePerPartition` <= (`spark.executor.cores` * `spark.executor.instances`) * M / N
 
-2. When a data delay occurs, if you want the consumption speed not to be too fast, resulting in spark executor OOM, then you need to configure `spark.streaming.kafka.maxRatePerPartition` <= (`spark.executor.cores` * `spark.executor.instances`) * M / N
-
-3. In general, both M and N are determined, and the conclusion can be drawn from 2: The size of `spark.streaming.kafka.maxRatePerPartition` is positively correlated with the size of `spark.executor.cores` * `spark.executor.instances`, and it can be increased while increasing the resource `maxRatePerPartition` to speed up consumption.
+3、一般来说，M和N都确定了，从2可以得出结论：`spark.streaming.kafka.maxRatePerPartition`的大小与`spark.executor.cores` * `spark的大小正相关 .executor.instances`，可以在增加资源`maxRatePerPartition`的同时增加，以加快消耗。
 
 ![kafka](images/kafka.png)
 
-## How can I solve the Error `Exception in thread "main" java.lang.NoSuchFieldError: INSTANCE`?
+## 如何解决错误 `Exception in thread "main" java.lang.NoSuchFieldError: INSTANCE`？
 
-The reason is that the version of httpclient.jar that comes with the CDH version of Spark is lower, and The httpclient version that ClickHouse JDBC is based on is 4.5.2, and the package versions conflict. The solution is to replace the jar package that comes with CDH with the httpclient-4.5.2 version.
+原因是Spark的CDH版本自带的httpclient.jar版本较低，而ClickHouse JDBC基于的httpclient版本是4.5.2，包版本冲突。 解决办法是将CDH自带的jar包替换为httpclient-4.5.2版本。
 
-## The default JDK of my Spark cluster is JDK7. After I install JDK8, how can I specify that SeaTunnel starts with JDK8?
+## 我的Spark集群默认的JDK是JDK7。 安装JDK8后，如何指定SeaTunnel以JDK8启动？
 
-In SeaTunnel's config file, specify the following configuration:
+在 SeaTunnel 的配置文件中，指定以下配置：
 
 ```shell
 spark {
@@ -203,11 +198,11 @@ spark {
 }
 ```
 
-## How do I specify a different JDK version for SeaTunnel on Yarn?
+## 如何为 Yarn 上的 SeaTunnel 指定不同的 JDK 版本？
 
-For example, if you want to set the JDK version to JDK8, there are two cases:
+例如要设置JDK版本为JDK8，有两种情况：
 
-- The Yarn cluster has deployed JDK8, but the default JDK is not JDK8. Add two configurations to the SeaTunnel config file:
+- Yarn集群已部署JDK8，但默认JDK不是JDK8。 在 SeaTunnel 配置文件中添加两个配置：
 
   ```
     env {
@@ -217,16 +212,16 @@ For example, if you want to set the JDK version to JDK8, there are two cases:
    ...
   }
   ```
-- Yarn cluster does not deploy JDK8. At this time, start SeaTunnel attached with JDK8. For detailed operations, see:
-  https://www.cnblogs.com/jasondan/p/spark-specific-jdk-version.html
+- Yarn集群未部署JDK8。 此时，启动附带JDK8的SeaTunnel。 详细操作参见：
+   https://www.cnblogs.com/jasondan/p/spark-specific-jdk-version.html
 
-## What should I do if OOM always appears when running SeaTunnel in Spark local[*] mode?
+## Spark local[*]模式运行SeaTunnel时总是出现OOM怎么办？
 
-If you run in local mode, you need to modify the `start-seatunnel.sh` startup script. After `spark-submit`, add a parameter `--driver-memory 4g` . Under normal circumstances, local mode is not used in the production environment. Therefore, this parameter generally does not need to be set during On Yarn. See: [Application Properties](https://spark.apache.org/docs/latest/configuration.html#application-properties) for details.
+如果以本地模式运行，则需要修改`start-seatunnel.sh`启动脚本。 在 `spark-submit` 之后添加参数 `--driver-memory 4g` 。 一般情况下，生产环境中不使用本地模式。 因此，On Yarn时一般不需要设置该参数。 有关详细信息，请参阅：[应用程序属性](https://spark.apache.org/docs/latest/configuration.html#application-properties)。
 
-## Where can I place self-written plugins or third-party jdbc.jars to be loaded by SeaTunnel?
+## 我可以在哪里放置自己编写的插件或第三方 jdbc.jar 以供 SeaTunnel 加载？
 
-Place the Jar package under the specified structure of the plugins directory:
+将Jar包放置在plugins目录指定结构下：
 
 ```bash
 cd SeaTunnel
@@ -234,17 +229,17 @@ mkdir -p plugins/my_plugins/lib
 cp third-part.jar plugins/my_plugins/lib
 ```
 
-`my_plugins` can be any string.
+`my_plugins` 可以是任何字符串。
 
-## How do I configure logging-related parameters in SeaTunnel-v1(Spark)?
+## 如何在 SeaTunnel-v1(Spark) 中配置日志记录相关参数？
 
-There are three ways to configure logging-related parameters (such as Log Level):
+可以通过三种方式配置日志相关参数（例如日志级别）：
 
-- [Not recommended] Change the default `$SPARK_HOME/conf/log4j.properties`.
-  - This will affect all programs submitted via `$SPARK_HOME/bin/spark-submit`.
-- [Not recommended] Modify logging related parameters directly in the Spark code of SeaTunnel.
-  - This is equivalent to writing dead, and each change needs to be recompiled.
-- [Recommended] Use the following methods to change the logging configuration in the SeaTunnel configuration file (The change only takes effect if SeaTunnel >= 1.5.5 ):
+- [不推荐] 更改默认的`$SPARK_HOME/conf/log4j.properties`。
+   - 这将影响通过 `$SPARK_HOME/bin/spark-submit` 提交的所有程序。
+- [不推荐]直接在SeaTunnel的Spark代码中修改日志相关参数。
+   - 这相当于写死了，每次改变都需要重新编译。
+- [推荐] 使用以下方法更改 SeaTunnel 配置文件中的日志记录配置（更改仅在 SeaTunnel >= 1.5.5 时生效）：
 
   ```
   env {
@@ -262,7 +257,7 @@ There are three ways to configure logging-related parameters (such as Log Level)
   }
   ```
 
-The contents of the log4j configuration file for reference are as follows:
+可供参考的log4j配置文件内容如下：
 
 ```
 $ cat log4j.properties
@@ -283,14 +278,14 @@ log4j.appender.console.layout=org.apache.log4j.PatternLayout
 log4j.appender.console.layout.ConversionPattern=%d{yyyy-MM-dd HH:mm:ss} %-5p %c{1}:%L - %m%n
 ```
 
-## How do I configure logging related parameters in SeaTunnel-v2(Spark, Flink)?
+## 如何在 SeaTunnel-v2(Spark、Flink) 中配置日志记录相关参数？
 
-Currently, they cannot be set directly. you need to modify the SeaTunnel startup script. The relevant parameters are specified in the task submission command. For specific parameters, please refer to the official documents:
+目前，无法直接设置它们。 您需要修改SeaTunnel启动脚本。 相关参数在任务提交命令中指定。 具体参数请参考官方文档：
 
-- Spark official documentation: http://spark.apache.org/docs/latest/configuration.html#configuring-logging
-- Flink official documentation: https://ci.apache.org/projects/flink/flink-docs-stable/monitoring/logging.html
+- Spark官方文档：http://spark.apache.org/docs/latest/configuration.html#configuring-logging
+- Flink 官方文档：https://ci.apache.org/projects/flink/flink-docs-stable/monitoring/logging.html
 
-Reference:
+参考：
 
 https://stackoverflow.com/questions/27781187/how-to-stop-info-messages-displaying-on-spark-console
 
@@ -298,33 +293,33 @@ http://spark.apache.org/docs/latest/configuration.html#configuring-logging
 
 https://medium.com/@iacomini.riccardo/spark-logging-configuration-in-yarn-faf5ba5fdb01
 
-## How do I configure logging related parameters of SeaTunnel-E2E Test?
+## 如何配置SeaTunnel-E2E Test的日志记录相关参数？
 
-The log4j configuration file of `seatunnel-e2e` existed in `seatunnel-e2e/seatunnel-e2e-common/src/test/resources/log4j2.properties`. You can modify logging related parameters directly in the configuration file.
+`seatunnel-e2e` 的 log4j 配置文件位于 `seatunnel-e2e/seatunnel-e2e-common/src/test/resources/log4j2.properties` 中。 您可以直接在配置文件中修改日志记录相关参数。
 
-For example, if you want to output more detailed logs of E2E Test, just downgrade `rootLogger.level` in the configuration file.
+例如，如果您想输出更详细的E2E Test日志，只需将配置文件中的“rootLogger.level”降级即可。
 
-## Error when writing to ClickHouse: ClassCastException
+## 写入 ClickHouse 时出错：ClassCastException
 
-In SeaTunnel, the data type will not be actively converted. After the Input reads the data, the corresponding
-Schema. When writing ClickHouse, the field type needs to be strictly matched, and the mismatch needs to be resolved.
+在SeaTunnel中，不会主动转换数据类型。 Input读取数据后，对应的
+架构。 编写ClickHouse时，需要严格匹配字段类型，不匹配的情况需要解决。
 
-Data conversion can be achieved through the following two plug-ins:
+数据转换可以通过以下两个插件实现：
 
-1. Filter Convert plugin
-2. Filter Sql plugin
+1.过滤器转换插件
+2.过滤Sql插件
 
-Detailed data type conversion reference: [ClickHouse Data Type Check List](https://interestinglab.github.io/seatunnel-docs/#/en/configuration/output-plugins/Clickhouse?id=clickhouse-data-type-check-list)
+详细数据类型转换参考：【ClickHouse数据类型检查列表】(https://interestinglab.github.io/seatunnel-docs/#/en/configuration/output-plugins/Clickhouse?id=clickhouse-data-type-check- 列表）
 
-Refer to issue:[#488](https://github.com/apache/seatunnel/issues/488) [#382](https://github.com/apache/seatunnel/issues/382).
+请参阅问题：[#488](https://github.com/apache/seatunnel/issues/488)[#382](https://github.com/apache/seatunnel/issues/382)。
 
-## How does SeaTunnel access kerberos-authenticated HDFS, YARN, Hive and other resources?
+## SeaTunnel 如何访问经过 kerberos 验证的 HDFS、YARN、Hive 等资源？
 
-Please refer to: [#590](https://github.com/apache/seatunnel/issues/590).
+请参考：[#590](https://github.com/apache/seatunnel/issues/590)。
 
-## How do I troubleshoot NoClassDefFoundError, ClassNotFoundException and other issues?
+## 如何排查 NoClassDefFoundError、ClassNotFoundException 等问题？
 
-There is a high probability that there are multiple different versions of the corresponding Jar package class loaded in the Java classpath, because of the conflict of the load order, not because the Jar is really missing. Modify this SeaTunnel startup command, adding the following parameters to the spark-submit submission section, and debug in detail through the output log.
+有很大概率是Java类路径中加载了多个不同版本的对应Jar包类，是因为加载顺序冲突，而不是因为Jar确实丢失了。 修改这条SeaTunnel启动命令，在spark-submit提交部分添加如下参数，通过输出日志进行详细调试。
 
 ```
 spark-submit --verbose
@@ -334,20 +329,20 @@ spark-submit --verbose
     ...
 ```
 
-## How do I use SeaTunnel to synchronize data across HDFS clusters?
+## 如何使用SeaTunnel跨HDFS集群同步数据？
 
-Just configure hdfs-site.xml properly. Refer to: https://www.cnblogs.com/suanec/p/7828139.html.
+只需正确配置 hdfs-site.xml 即可。 参考：https://www.cnblogs.com/suanec/p/7828139.html。
 
-## I want to learn the source code of SeaTunnel. Where should I start?
+## 我想学习SeaTunnel的源代码。 我应该从哪里开始？
 
-SeaTunnel has a completely abstract and structured code implementation, and many people have chosen SeaTunnel As a way to learn Spark. You can learn the source code from the main program entry: SeaTunnel.java
+SeaTunnel 拥有完全抽象、结构化的代码实现，很多人都选择 SeaTunnel 作为学习 Spark 的方式。 您可以从主程序入口了解源代码：SeaTunnel.java
 
-## When SeaTunnel developers develop their own plugins, do they need to understand the SeaTunnel code? Should these plugins be integrated into the SeaTunnel project?
+## SeaTunnel开发者开发自己的插件时，是否需要了解SeaTunnel代码？ 这些插件是否应该集成到 SeaTunnel 项目中？
 
-The plugin developed by the developer has nothing to do with the SeaTunnel project and does not need to include your plugin code.
+开发者开发的插件与SeaTunnel项目无关，不需要包含您的插件代码。
 
-The plugin can be completely independent from SeaTunnel project, so you can write it using Java, Scala, Maven, sbt, Gradle, or whatever you want. This is also the way we recommend developers to develop plugins.
+该插件可以完全独立于 SeaTunnel 项目，因此您可以使用 Java、Scala、Maven、sbt、Gradle 或任何您想要的方式编写它。 这也是我们推荐开发者开发插件的方式。
 
-## When I import a project, the compiler has the exception "class not found `org.apache.seatunnel.shade.com.typesafe.config.Config`"
+## 当我导入项目时，编译器出现异常“找不到类`org.apache.seatunnel.shade.com.typesafe.config.Config`”
 
-Run `mvn install` first. In the `seatunnel-config/seatunnel-config-base` subproject, the package `com.typesafe.config` has been relocated to `org.apache.seatunnel.shade.com.typesafe.config` and installed to the maven local repository in the subproject `seatunnel-config/seatunnel-config-shade`.
+首先运行“mvn install”。 在 `seatunnel-config/seatunnel-config-base` 子项目中，包 `com.typesafe.config` 已重新定位到 `org.apache.seatunnel.shade.com.typesafe.config` 并安装到 maven 本地存储库 在子项目 `seatunnel-config/seatunnel-config-shade` 中。

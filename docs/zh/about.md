@@ -36,27 +36,27 @@ SeaTunnel专注于数据集成和数据同步，主要旨在解决数据集成�
 
 ![SeaTunnel work flowchart](images/architecture_diagram.png)
 
-The runtime process of SeaTunnel is shown in the figure above.
+SeaTunnel的运行流程如上图所示。
 
-The user configures the job information and selects the execution engine to submit the job.
+用户配置作业信息并选择提交作业的执行引擎。
 
-The Source Connector is responsible for parallel reading the data and sending the data to the downstream Transform or directly to the Sink, and the Sink writes the data to the destination. It is worth noting that Source, Transform and Sink can be easily developed and extended by yourself.
+Source Connector负责并行读取数据并将数据发送到下游Transform或直接发送到Sink，Sink将数据写入目的地。 值得注意的是，Source、Transform 和 Sink 可以很容易地自行开发和扩展。
 
-SeaTunnel is an EL(T) data integration platform. Therefore, in SeaTunnel, Transform can only be used to perform some simple transformations on data, such as converting the data of a column to uppercase or lowercase, changing the column name, or splitting a column into multiple columns.
+SeaTunnel 是一个 EL(T) 数据集成平台。 因此，在SeaTunnel中，Transform只能用于对数据进行一些简单的转换，例如将一列的数据转换为大写或小写，更改列名，或者将一列拆分为多列。
 
-The default engine use by SeaTunnel is [SeaTunnel Engine](seatunnel-engine/about.md). If you choose to use the Flink or Spark engine, SeaTunnel will package the Connector into a Flink or Spark program and submit it to Flink or Spark to run.
+SeaTunnel 使用的默认引擎是 [SeaTunnel Engine](seatunnel-engine/about.md)。 如果您选择使用Flink或Spark引擎，SeaTunnel会将Connector打包成Flink或Spark程序并提交给Flink或Spark运行。
 
-## Connector
+## 连接器
 
-- **Source Connectors** SeaTunnel supports reading data from various relational, graph, NoSQL, document, and memory databases; distributed file systems such as HDFS; and a variety of cloud storage solutions, such as S3 and OSS. We also support data reading of many common SaaS services. You can access the detailed list [here](connector-v2/source). If you want, You can develop your own source connector and easily integrate it into SeaTunnel.
+- **源连接器** SeaTunnel 支持从各种关系、图形、NoSQL、文档和内存数据库读取数据； 分布式文件系统，例如HDFS； 以及各种云存储解决方案，例如S3和OSS。 我们还支持很多常见SaaS服务的数据读取。 您可以在[此处](connector-v2/source)访问详细列表。 如果您愿意，您可以开发自己的源连接器并将其轻松集成到 SeaTunnel 中。
 
-- **Transform Connector** If the schema is different between source and Sink, You can use the Transform Connector to change the schema read from source and make it the same as the Sink schema.
+- **转换连接器** 如果源和接收器之间的架构不同，您可以使用转换连接器更改从源读取的架构，使其与接收器架构相同。
 
-- **Sink Connector** SeaTunnel supports writing data to various relational, graph, NoSQL, document, and memory databases; distributed file systems such as HDFS; and a variety of cloud storage solutions, such as S3 and OSS. We also support writing data to many common SaaS services. You can access the detailed list [here](connector-v2/sink). If you want, you can develop your own Sink connector and easily integrate it into SeaTunnel.
+- **Sink Connector** SeaTunnel 支持将数据写入各种关系型、图形、NoSQL、文档和内存数据库； 分布式文件系统，例如HDFS； 以及各种云存储解决方案，例如S3和OSS。 我们还支持将数据写入许多常见的 SaaS 服务。 您可以在[此处](connector-v2/sink)访问详细列表。 如果您愿意，您可以开发自己的 Sink 连接器并轻松将其集成到 SeaTunnel 中。
 
 ## Who uses SeaTunnel
 
-SeaTunnel has lots of users. You can find more information about them in [users](https://seatunnel.apache.org/user).
+SeaTunnel 拥有大量用户。 您可以在[用户](https://seatunnel.apache.org/user)中找到有关他们的更多信息.
 
 ## Landscapes
 
@@ -64,9 +64,9 @@ SeaTunnel has lots of users. You can find more information about them in [users]
 <br/><br/>
 <img src="https://landscape.cncf.io/images/left-logo.svg" width="150" alt=""/>&nbsp;&nbsp;<img src="https://landscape.cncf.io/images/right-logo.svg" width="200" alt=""/>
 <br/><br/>
-SeaTunnel enriches the <a href="https://landscape.cncf.io/card-mode?category=streaming-messaging&license=apache-license-2-0&grouping=category&selected=sea-tunnal">CNCF CLOUD NATIVE Landscape</a >.
+SeaTunnel 丰富了<a href="https://landscape.cncf.io/card-mode?category=streaming-messaging&license=apache-license-2-0&grouping=category&selected=sea-tunnal">CNCF 云原生景观</a >。
 </p >
 
 ## Learn more
 
-You can see [Quick Start](/docs/category/start-v2) for the next steps.
+您可以参阅[快速入门](/docs/category/start-v2) 了解后续步骤。
