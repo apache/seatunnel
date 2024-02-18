@@ -10,5 +10,6 @@ SeaTunnel 使用连接器分级系统来帮助您了解连接器的期望：
 
 ## Connector V2 Health
 
-|                       Connector Name                        |  Type  | Status | Support Version |
-|-------------------------------------------------------------|--------|--------|-----------------|
+| Connector Name | Type | Status | Support Version |
+|----------------|------|--------|-----------------|
+
