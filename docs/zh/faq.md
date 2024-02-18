@@ -48,6 +48,7 @@ var = """
  whatever you want
 """
 ```
+
 ## 如何实现多行文本的变量替换？
 
 在多行文本中进行变量替换有点麻烦，因为变量不能包含在三个双引号中：
@@ -57,6 +58,7 @@ var = """
 your string 1
 """${you_var}""" your string 2"""
 ```
+
 请参阅：[lightbend/config#456](https://github.com/lightbend/config/issues/456)。
 
 ## Azkaban、Oozie、DolphinScheduler 是否支持 SeaTunnel？
@@ -88,6 +90,7 @@ sink {
 	elasticsearch { ... }
 }
 ```
+
 ## 有 HBase 插件吗？
 
 有一个 hbase 输入插件。 您可以从这里下载：https://github.com/garyelephant/waterdrop-input-hbase。
@@ -112,6 +115,7 @@ sink {
     }
 }
 ```
+
 此外，SeaTunnel 在 `1.5.7` 版本之后在 `1.x` 分支中实现了 `Hive` 输出插件； 在“2.x”分支中。 Spark 引擎的 Hive 插件已从版本“2.0.5”开始支持：https://github.com/apache/seatunnel/issues/910。
 
 ## SeaTunnel如何编写ClickHouse的多个实例来实现负载均衡？
@@ -120,17 +124,18 @@ sink {
 
 2.在ClickHouse的多个实例前面添加代理或域名（DNS）：
 
-   ```
-   {
-       output {
-           clickhouse {
-               host = "ck-proxy.xx.xx:8123"
-               # Local table
-               table = "table_name"
-           }
-       }
-   }
-   ```
+```
+{
+    output {
+        clickhouse {
+            host = "ck-proxy.xx.xx:8123"
+            # Local table
+            table = "table_name"
+        }
+    }
+}
+```
+
 3. Configure multiple instances in the configuration:
 
    ```
@@ -159,6 +164,7 @@ sink {
        }
    }
    ```
+
 ## SeaTunnel 消费 Kafka 时如何解决 OOM？
 
 大多数情况下，OOM是由于没有对消费进行速率限制而导致的。 解决方法如下：
@@ -213,7 +219,7 @@ spark {
   }
   ```
 - Yarn集群未部署JDK8。 此时，启动附带JDK8的SeaTunnel。 详细操作参见：
-   https://www.cnblogs.com/jasondan/p/spark-specific-jdk-version.html
+  https://www.cnblogs.com/jasondan/p/spark-specific-jdk-version.html
 
 ## Spark local[*]模式运行SeaTunnel时总是出现OOM怎么办？
 
@@ -236,9 +242,9 @@ cp third-part.jar plugins/my_plugins/lib
 可以通过三种方式配置日志相关参数（例如日志级别）：
 
 - [不推荐] 更改默认的`$SPARK_HOME/conf/log4j.properties`。
-   - 这将影响通过 `$SPARK_HOME/bin/spark-submit` 提交的所有程序。
+  - 这将影响通过 `$SPARK_HOME/bin/spark-submit` 提交的所有程序。
 - [不推荐]直接在SeaTunnel的Spark代码中修改日志相关参数。
-   - 这相当于写死了，每次改变都需要重新编译。
+  - 这相当于写死了，每次改变都需要重新编译。
 - [推荐] 使用以下方法更改 SeaTunnel 配置文件中的日志记录配置（更改仅在 SeaTunnel >= 1.5.5 时生效）：
 
   ```
