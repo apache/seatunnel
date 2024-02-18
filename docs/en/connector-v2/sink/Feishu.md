@@ -23,7 +23,7 @@ Used to launch Feishu web hooks using data.
 
 ## Data Type Mapping
 
-|     Seatunnel Data type     | Feishu Data type |
+|     Seatunnel Data Type     | Feishu Data Type |
 |-----------------------------|------------------|
 | ROW<br/>MAP                 | Json             |
 | NULL                        | null             |

@@ -8,8 +8,7 @@
 > Flink<br/>
 > SeaTunnel Zeta<br/>
 
-Key Features
-------------
+## Key features
 
 - [x] [exactly-once](../../concept/connector-v2-features.md)
 - [x] [cdc](../../concept/connector-v2-features.md)
@@ -89,7 +88,7 @@ The following example demonstrates how to create a data synchronization job that
 ```bash
 # Set the basic configuration of the task to be performed
 env {
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "BATCH"
   checkpoint.interval  = 1000
 }

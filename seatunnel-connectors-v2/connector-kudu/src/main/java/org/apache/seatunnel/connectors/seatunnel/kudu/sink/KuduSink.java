@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.kudu.sink;
 
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -28,18 +29,16 @@ import org.apache.seatunnel.connectors.seatunnel.kudu.state.KuduAggregatedCommit
 import org.apache.seatunnel.connectors.seatunnel.kudu.state.KuduCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.kudu.state.KuduSinkState;
 
-import com.google.auto.service.AutoService;
-
 import java.io.IOException;
 
 /**
  * Kudu Sink implementation by using SeaTunnel sink API. This class contains the method to create
  * {@link AbstractSimpleSink}.
  */
-@AutoService(SeaTunnelSink.class)
 public class KuduSink
         implements SeaTunnelSink<
-                SeaTunnelRow, KuduSinkState, KuduCommitInfo, KuduAggregatedCommitInfo> {
+                        SeaTunnelRow, KuduSinkState, KuduCommitInfo, KuduAggregatedCommitInfo>,
+                SupportMultiTableSink {
 
     private KuduSinkConfig kuduSinkConfig;
     private SeaTunnelRowType seaTunnelRowType;
@@ -51,7 +50,7 @@ public class KuduSink
 
     @Override
     public String getPluginName() {
-        return "kudu";
+        return "Kudu";
     }
 
     @Override

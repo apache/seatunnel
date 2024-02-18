@@ -28,19 +28,24 @@ import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.commons.lang3.StringUtils;
 
 import org.junit.jupiter.api.Assertions;
+import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.utility.MountableFile;
 
+import groovy.lang.Tuple2;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.ServiceConfigurationError;
 import java.util.ServiceLoader;
 import java.util.Set;
@@ -255,5 +260,65 @@ public final class ContainerUtil {
     public static void copyFileIntoContainers(
             Path path, String targetPath, GenericContainer<?> container) {
         container.copyFileToContainer(MountableFile.forHostPath(path), targetPath);
+    }
+
+    public static List<String> getJVMThreadNames(GenericContainer<?> container)
+            throws IOException, InterruptedException {
+        return getJVMThreads(container).stream().map(Tuple2::getV1).collect(Collectors.toList());
+    }
+
+    public static Map<String, Integer> getJVMLiveObject(GenericContainer<?> container)
+            throws IOException, InterruptedException {
+        Container.ExecResult liveObjects =
+                container.execInContainer("jmap", "-histo:live", getJVMProcessId(container));
+        Assertions.assertEquals(0, liveObjects.getExitCode());
+        String value = liveObjects.getStdout().trim();
+        return Arrays.stream(value.split("\n"))
+                .skip(2)
+                .map(
+                        str ->
+                                Arrays.stream(str.split(" "))
+                                        .filter(StringUtils::isNotEmpty)
+                                        .collect(Collectors.toList()))
+                .filter(list -> list.size() == 4)
+                .collect(
+                        Collectors.toMap(
+                                list -> list.get(3),
+                                list -> Integer.valueOf(list.get(1)),
+                                (a, b) -> a));
+    }
+
+    public static List<Tuple2<String, String>> getJVMThreads(GenericContainer<?> container)
+            throws IOException, InterruptedException {
+        Container.ExecResult threads =
+                container.execInContainer("jstack", getJVMProcessId(container));
+        Assertions.assertEquals(0, threads.getExitCode());
+        // Thread name line example
+        // "hz.main.MetricsRegistry.thread-2" #232 prio=5 os_prio=0 tid=0x0000ffff3c003000 nid=0x5e
+        // waiting on condition [0x0000ffff6cf3a000]
+        return Arrays.stream(threads.getStdout().trim().split("\n\n"))
+                .filter(s -> s.startsWith("\""))
+                .map(
+                        threadStr ->
+                                new Tuple2<>(
+                                        Arrays.stream(threadStr.split("\n"))
+                                                .filter(s -> s.startsWith("\""))
+                                                .map(s -> s.substring(1, s.lastIndexOf("\"")))
+                                                .findFirst()
+                                                .get(),
+                                        threadStr))
+                .collect(Collectors.toList());
+    }
+
+    private static String getJVMProcessId(GenericContainer<?> container)
+            throws IOException, InterruptedException {
+        Container.ExecResult processes = container.execInContainer("jps");
+        Assertions.assertEquals(0, processes.getExitCode());
+        Optional<String> server =
+                Arrays.stream(processes.getStdout().trim().split("\n"))
+                        .filter(s -> s.contains("SeaTunnelServer"))
+                        .findFirst();
+        Assertions.assertTrue(server.isPresent());
+        return server.get().trim().split(" ")[0];
     }
 }

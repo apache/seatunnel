@@ -109,6 +109,7 @@ public class PostgresDataTypeConvertor implements DataTypeConvertor<String> {
     public static final String PG_JSON = "json";
     public static final String PG_JSONB = "jsonb";
     public static final String PG_XML = "xml";
+    public static final String PG_UUID = "uuid";
 
     @Override
     public SeaTunnelDataType<?> toSeaTunnelType(String field, String connectorDataType) {
@@ -153,7 +154,6 @@ public class PostgresDataTypeConvertor implements DataTypeConvertor<String> {
             case PG_NUMERIC:
                 int precision =
                         MapUtils.getInteger(dataTypeProperties, PRECISION, DEFAULT_PRECISION);
-                ;
                 int scale = MapUtils.getInteger(dataTypeProperties, SCALE, DEFAULT_SCALE);
                 return new DecimalType(precision, scale);
             case PG_CHAR:
@@ -166,6 +166,7 @@ public class PostgresDataTypeConvertor implements DataTypeConvertor<String> {
             case PG_JSON:
             case PG_JSONB:
             case PG_XML:
+            case PG_UUID:
                 return BasicType.STRING_TYPE;
             case PG_CHAR_ARRAY:
             case PG_CHARACTER_ARRAY:

@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.fake.config.FakeConfig;
 import org.apache.seatunnel.connectors.seatunnel.fake.exception.FakeConnectorException;
@@ -67,7 +68,7 @@ public class FakeDataGenerator {
             seaTunnelRow.setTableId(tableId);
             return seaTunnelRow;
         } catch (IOException e) {
-            throw new FakeConnectorException(CommonErrorCodeDeprecated.JSON_OPERATION_FAILED, e);
+            throw CommonError.jsonOperationError("Fake", rowData.getFieldsJson(), e);
         }
     }
 

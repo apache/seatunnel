@@ -34,7 +34,7 @@ public class AssertFieldRule implements Serializable {
     public static class AssertRule implements Serializable {
         private AssertRuleType ruleType;
         private Double ruleValue;
-        private String equalTo;
+        private Object equalTo;
     }
 
     /**
@@ -42,6 +42,8 @@ public class AssertFieldRule implements Serializable {
      * break the rule
      */
     public enum AssertRuleType {
+        /** value can be null */
+        NULL,
         /** value can't be null */
         NOT_NULL,
         /** minimum value of the data */

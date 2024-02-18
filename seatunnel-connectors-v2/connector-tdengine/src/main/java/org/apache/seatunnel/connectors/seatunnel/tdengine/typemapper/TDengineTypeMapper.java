@@ -34,6 +34,7 @@ public class TDengineTypeMapper {
 
     private static final String TDENGINE_UNKNOWN = "UNKNOWN";
     private static final String TDENGINE_BIT = "BIT";
+    private static final String TDENGINE_BOOL = "BOOL";
 
     // -------------------------number----------------------------
     private static final String TDENGINE_TINYINT = "TINYINT";
@@ -82,6 +83,7 @@ public class TDengineTypeMapper {
 
     public static SeaTunnelDataType<?> mapping(String tdengineType) {
         switch (tdengineType) {
+            case TDENGINE_BOOL:
             case TDENGINE_BIT:
                 return BasicType.BOOLEAN_TYPE;
             case TDENGINE_TINYINT:
@@ -145,9 +147,7 @@ public class TDengineTypeMapper {
             default:
                 throw new TDengineConnectorException(
                         CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
-                        String.format(
-                                "Doesn't support TDENGINE type '%s' on column '%s'  yet.",
-                                tdengineType));
+                        String.format("Doesn't support TDENGINE type '%s' yet.", tdengineType));
         }
     }
 }
