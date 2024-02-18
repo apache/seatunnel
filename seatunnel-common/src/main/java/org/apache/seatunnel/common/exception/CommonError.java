@@ -103,12 +103,21 @@ public class CommonError {
     }
 
     public static SeaTunnelRuntimeException convertToSeaTunnelTypeError(
-            String identifier, String dataType, String field) {
+            String identifier, String dataType, String field, Throwable cause) {
         Map<String, String> params = new HashMap<>();
         params.put("identifier", identifier);
         params.put("dataType", dataType);
         params.put("field", field);
+        if (cause != null) {
+            return new SeaTunnelRuntimeException(
+                    CONVERT_TO_SEATUNNEL_TYPE_ERROR_SIMPLE, params, cause);
+        }
         return new SeaTunnelRuntimeException(CONVERT_TO_SEATUNNEL_TYPE_ERROR_SIMPLE, params);
+    }
+
+    public static SeaTunnelRuntimeException convertToSeaTunnelTypeError(
+            String identifier, String dataType, String field) {
+        return convertToSeaTunnelTypeError(identifier, dataType, field, null);
     }
 
     public static SeaTunnelRuntimeException convertToConnectorTypeError(

@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.common.exception.CommonError;
 
 import io.debezium.relational.Column;
 
@@ -122,10 +123,8 @@ public class SqlServerTypeUtils {
             case SQLSERVER_BIT:
                 return BasicType.BOOLEAN_TYPE;
             default:
-                throw new UnsupportedOperationException(
-                        String.format(
-                                "Don't support SqlSever type '%s' yet, jdbcType:'%s'.",
-                                column.typeName(), column.jdbcType()));
+                throw CommonError.convertToSeaTunnelTypeError(
+                        "SQLServer-CDC", column.typeName(), column.name());
         }
     }
 }
