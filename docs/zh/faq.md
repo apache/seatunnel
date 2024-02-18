@@ -65,7 +65,7 @@ your string 1
 
 当然！ 请参阅下面的屏幕截图：
 
-![工作流程.png](图片/工作流程.png)
+![工作流程.png](images/workflow.png)
 
 ![azkaban.png](images/azkaban.png)
 
