@@ -55,7 +55,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | headers                     | Map     | No       | -       | Http headers.                                                                                                                        |
 | params                      | Map     | No       | -       | Http params.                                                                                                                         |
 | body                        | String  | No       | -       | Http body.                                                                                                                           |
-| poll_interval_ms            | Int     | No       | -       | Request http api interval(millis) in stream mode.                                                                                    |
+| poll_interval_millis        | Int     | No       | -       | Request http api interval(millis) in stream mode.                                                                                    |
 | retry                       | Int     | No       | -       | The max retry times if request http return to `IOException`.                                                                         |
 | retry_backoff_multiplier_ms | Int     | No       | 100     | The retry-backoff times(millis) multiplier if request http failed.                                                                   |
 | retry_backoff_max_ms        | Int     | No       | 10000   | The maximum retry-backoff times(millis) if request http failed                                                                       |
@@ -66,7 +66,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 
 ```hocon
 env {
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "BATCH"
 }
 

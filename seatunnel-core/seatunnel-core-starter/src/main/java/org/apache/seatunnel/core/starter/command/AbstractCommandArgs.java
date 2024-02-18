@@ -41,7 +41,10 @@ public abstract class AbstractCommandArgs extends CommandArgs {
     /** user-defined parameters */
     @Parameter(
             names = {"-i", "--variable"},
-            description = "Variable substitution, such as -i city=beijing, or -i date=20190318")
+            splitter = ParameterSplitter.class,
+            description =
+                    "Variable substitution, such as -i city=beijing, or -i date=20190318."
+                            + "We use ',' as separator, when inside \"\", ',' are treated as normal characters instead of delimiters.")
     protected List<String> variables = Collections.emptyList();
 
     /** check config flag */

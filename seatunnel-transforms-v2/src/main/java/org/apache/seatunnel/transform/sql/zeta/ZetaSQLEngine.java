@@ -20,7 +20,7 @@ package org.apache.seatunnel.transform.sql.zeta;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.transform.exception.TransformException;
 import org.apache.seatunnel.transform.sql.SQLEngine;
 
@@ -78,7 +78,7 @@ public class ZetaSQLEngine implements SQLEngine {
 
         this.zetaSQLType = new ZetaSQLType(inputRowType, udfList);
         this.zetaSQLFunction = new ZetaSQLFunction(inputRowType, zetaSQLType, udfList);
-        this.zetaSQLFilter = new ZetaSQLFilter(zetaSQLFunction);
+        this.zetaSQLFilter = new ZetaSQLFilter(zetaSQLFunction, zetaSQLType);
 
         parseSQL();
     }
@@ -91,7 +91,7 @@ public class ZetaSQLEngine implements SQLEngine {
             this.selectBody = (PlainSelect) ((Select) statement).getSelectBody();
         } catch (JSQLParserException e) {
             throw new TransformException(
-                    CommonErrorCode.UNSUPPORTED_OPERATION,
+                    CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                     String.format("SQL parse failed: %s, cause: %s", sql, e.getMessage()));
         }
     }
@@ -149,7 +149,7 @@ public class ZetaSQLEngine implements SQLEngine {
             // }
         } catch (Exception e) {
             throw new TransformException(
-                    CommonErrorCode.UNSUPPORTED_OPERATION,
+                    CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                     String.format("SQL validate failed: %s, cause: %s", sql, e.getMessage()));
         }
     }
@@ -244,9 +244,6 @@ public class ZetaSQLEngine implements SQLEngine {
         int columnsSize = countColumnsSize(selectItems);
 
         Object[] fields = new Object[columnsSize];
-        for (int i = 0; i < columnsSize; i++) {
-            fields[i] = null;
-        }
 
         int idx = 0;
         for (SelectItem selectItem : selectItems) {

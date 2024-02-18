@@ -18,19 +18,16 @@
 package org.apache.seatunnel.format.compatible.kafka.connect.json;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.format.json.JsonToRowConverters;
-import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.connect.data.Schema;
@@ -49,7 +46,6 @@ import java.io.UnsupportedEncodingException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Collections;
-import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -61,6 +57,7 @@ public class CompatibleKafkaConnectDeserializationSchema
     private static final String INCLUDE_SCHEMA_METHOD = "convertToJsonWithEnvelope";
     private static final String EXCLUDE_SCHEMA_METHOD = "convertToJsonWithoutEnvelope";
     private static final String KAFKA_CONNECT_SINK_RECORD_PAYLOAD = "payload";
+    public static final String FORMAT = "Kafka.Connect";
     private transient JsonConverter keyConverter;
     private transient JsonConverter valueConverter;
     private transient Method keyConverterMethod;
@@ -74,16 +71,14 @@ public class CompatibleKafkaConnectDeserializationSchema
 
     public CompatibleKafkaConnectDeserializationSchema(
             @NonNull SeaTunnelRowType seaTunnelRowType,
-            @NonNull Config config,
+            boolean keySchemaEnable,
+            boolean valueSchemaEnable,
             boolean failOnMissingField,
             boolean ignoreParseErrors) {
 
-        Map<String, String> configMap = ReadonlyConfig.fromConfig(config).toMap();
         this.seaTunnelRowType = seaTunnelRowType;
-        this.keySchemaEnable =
-                KafkaConnectJsonFormatOptions.getKeyConverterSchemaEnabled(configMap);
-        this.valueSchemaEnable =
-                KafkaConnectJsonFormatOptions.getValueConverterSchemaEnabled(configMap);
+        this.keySchemaEnable = keySchemaEnable;
+        this.valueSchemaEnable = valueSchemaEnable;
 
         // Runtime converter
         this.runtimeConverter =
@@ -131,15 +126,13 @@ public class CompatibleKafkaConnectDeserializationSchema
         if (jsonNode.isNull()) {
             return null;
         }
+
         try {
             org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode jsonData =
                     objectMapper.readTree(jsonNode.toString());
             return (SeaTunnelRow) runtimeConverter.convert(jsonData);
         } catch (Throwable t) {
-            throw new SeaTunnelJsonFormatException(
-                    CommonErrorCode.JSON_OPERATION_FAILED,
-                    String.format("Failed to deserialize JSON '%s'.", jsonNode),
-                    t);
+            throw CommonError.jsonOperationError(FORMAT, jsonNode.toString(), t);
         }
     }
 

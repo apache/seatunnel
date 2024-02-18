@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.starrocks.client;
 
 import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
 
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpStatus;
@@ -44,6 +45,14 @@ import java.util.Map;
 @Slf4j
 public class HttpHelper {
     private static final int DEFAULT_CONNECT_TIMEOUT = 1000000;
+
+    private SinkConfig sinkConfig;
+
+    public HttpHelper() {}
+
+    public HttpHelper(SinkConfig sinkConfig) {
+        this.sinkConfig = sinkConfig;
+    }
 
     public HttpEntity getHttpEntity(CloseableHttpResponse resp) {
         int code = resp.getStatusLine().getStatusCode();
@@ -133,7 +142,11 @@ public class HttpHelper {
                 }
             }
             httpPut.setEntity(new ByteArrayEntity(data));
-            httpPut.setConfig(RequestConfig.custom().setRedirectsEnabled(true).build());
+            httpPut.setConfig(
+                    RequestConfig.custom()
+                            .setSocketTimeout(sinkConfig.getHttpSocketTimeout())
+                            .setRedirectsEnabled(true)
+                            .build());
             try (CloseableHttpResponse resp = httpclient.execute(httpPut)) {
                 int code = resp.getStatusLine().getStatusCode();
                 if (HttpStatus.SC_OK != code) {

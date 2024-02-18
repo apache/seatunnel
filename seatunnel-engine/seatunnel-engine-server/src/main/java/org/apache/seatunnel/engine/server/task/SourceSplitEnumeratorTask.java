@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
+import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
@@ -37,7 +38,6 @@ import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 import com.hazelcast.cluster.Address;
 import com.hazelcast.spi.impl.operationservice.Operation;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
-import lombok.Getter;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
@@ -78,7 +78,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     private SeaTunnelSplitEnumeratorContext<SplitT> enumeratorContext;
 
     private Serializer<Serializable> enumeratorStateSerializer;
-    @Getter private Serializer<SplitT> splitSerializer;
+    private Serializer<SplitT> splitSerializer;
 
     private int maxReaderSize;
     private Set<Long> unfinishedReaders;
@@ -195,6 +195,13 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         }
         restoreComplete.complete(null);
         log.debug("restoreState split enumerator [{}] finished", actionStateList);
+    }
+
+    public Serializer<SplitT> getSplitSerializer() throws ExecutionException, InterruptedException {
+        // Because the splitSerializer is initialized in the init method, it's necessary to wait for
+        // the Enumerator to finish initializing.
+        getEnumerator();
+        return splitSerializer;
     }
 
     public void addSplitsBack(List<SplitT> splits, int subtaskId)
@@ -356,6 +363,11 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     @Override
     public Set<URL> getJarsUrl() {
         return new HashSet<>(source.getJarUrls());
+    }
+
+    @Override
+    public Set<ConnectorJarIdentifier> getConnectorPluginJars() {
+        return new HashSet<>(source.getConnectorJarIdentifiers());
     }
 
     @Override

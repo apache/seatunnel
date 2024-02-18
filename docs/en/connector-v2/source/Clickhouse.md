@@ -34,7 +34,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 
 ## Data Type Mapping
 
-|                                                             Clickhouse Data type                                                              | SeaTunnel Data type |
+|                                                             Clickhouse Data Type                                                              | SeaTunnel Data Type |
 |-----------------------------------------------------------------------------------------------------------------------------------------------|---------------------|
 | String / Int128 / UInt128 / Int256 / UInt256 / Point / Ring / Polygon MultiPolygon                                                            | STRING              |
 | Int8 / UInt8 / Int16 / UInt16 / Int32                                                                                                         | INT                 |
@@ -66,7 +66,7 @@ The following example demonstrates how to create a data synchronization job that
 ```bash
 # Set the basic configuration of the task to be performed
 env {
-  execution.parallelism = 1
+  parallelism = 10
   job.mode = "BATCH"
 }
 

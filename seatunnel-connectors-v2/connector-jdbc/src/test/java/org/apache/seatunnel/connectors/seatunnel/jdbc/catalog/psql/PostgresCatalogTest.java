@@ -25,7 +25,10 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
+import lombok.extern.slf4j.Slf4j;
+
 @Disabled("Please Test it in your local environment")
+@Slf4j
 class PostgresCatalogTest {
 
     @Test
@@ -51,9 +54,9 @@ class PostgresCatalogTest {
 
         CatalogTable table =
                 catalog.getTable(TablePath.of("st_test", "public", "all_types_table_02"));
-        System.out.println("find table: " + table);
+        log.info("find table: " + table);
 
-        catalog.createTableInternal(
-                new TablePath("liulitest", "public", "all_types_table_02"), table);
+        catalog.createTable(
+                new TablePath("liulitest", "public", "all_types_table_02"), table, false);
     }
 }

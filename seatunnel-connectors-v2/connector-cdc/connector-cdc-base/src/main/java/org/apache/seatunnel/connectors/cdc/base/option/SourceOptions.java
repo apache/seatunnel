@@ -105,7 +105,7 @@ public class SourceOptions {
     public static final Option<Boolean> EXACTLY_ONCE =
             Options.key("exactly_once")
                     .booleanType()
-                    .defaultValue(true)
+                    .defaultValue(false)
                     .withDescription("Enable exactly once semantic.");
 
     public static OptionRule.Builder getBaseRule() {

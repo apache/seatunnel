@@ -18,11 +18,12 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.db2;
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.AbstractJdbcRowConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 public class DB2JdbcRowConverter extends AbstractJdbcRowConverter {
 
     @Override
     public String converterName() {
-        return "DB2";
+        return DatabaseIdentifier.DB_2;
     }
 }

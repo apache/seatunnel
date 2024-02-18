@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.maxcompute.sink;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.exception.MaxcomputeConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.maxcompute.util.MaxcomputeTypeMapper;
@@ -69,7 +69,8 @@ public class MaxcomputeWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             this.recordWriter = session.openRecordWriter(BLOCK_0);
             log.info("open record writer success");
         } catch (Exception e) {
-            throw new MaxcomputeConnectorException(CommonErrorCode.WRITER_OPERATION_FAILED, e);
+            throw new MaxcomputeConnectorException(
+                    CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED, e);
         }
     }
 
@@ -86,7 +87,8 @@ public class MaxcomputeWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             try {
                 session.commit(new Long[] {BLOCK_0});
             } catch (Exception e) {
-                throw new MaxcomputeConnectorException(CommonErrorCode.WRITER_OPERATION_FAILED, e);
+                throw new MaxcomputeConnectorException(
+                        CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED, e);
             }
             recordWriter = null;
         }

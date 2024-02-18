@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MysqlCreateTableSqlBuilder;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -75,7 +76,7 @@ public class MysqlCreateTableSqlBuilderTest {
                         .primaryKey(PrimaryKey.of("id", Lists.newArrayList("id")))
                         .constraintKey(
                                 ConstraintKey.of(
-                                        ConstraintKey.ConstraintType.KEY,
+                                        ConstraintKey.ConstraintType.INDEX_KEY,
                                         "name",
                                         Lists.newArrayList(
                                                 ConstraintKey.ConstraintKeyColumn.of(
@@ -90,15 +91,16 @@ public class MysqlCreateTableSqlBuilderTest {
                         "User table");
 
         String createTableSql =
-                MysqlCreateTableSqlBuilder.builder(tablePath, catalogTable).build("mysql");
+                MysqlCreateTableSqlBuilder.builder(tablePath, catalogTable)
+                        .build(DatabaseIdentifier.MYSQL);
         // create table sql is change; The old unit tests are no longer applicable
         String expect =
-                "CREATE TABLE IF NOT EXISTS test_table (\n"
-                        + "\tid null NOT NULL COMMENT 'id', \n"
-                        + "\tname null NOT NULL COMMENT 'name', \n"
-                        + "\tage null NULL COMMENT 'age', \n"
-                        + "\tcreateTime null NULL COMMENT 'createTime', \n"
-                        + "\tlastUpdateTime null NULL COMMENT 'lastUpdateTime', \n"
+                "CREATE TABLE `test_table` (\n"
+                        + "\t`id` null NOT NULL COMMENT 'id', \n"
+                        + "\t`name` null NOT NULL COMMENT 'name', \n"
+                        + "\t`age` null NULL COMMENT 'age', \n"
+                        + "\t`createTime` null NULL COMMENT 'createTime', \n"
+                        + "\t`lastUpdateTime` null NULL COMMENT 'lastUpdateTime', \n"
                         + "\tPRIMARY KEY (`id`)\n"
                         + ") COMMENT = 'User table';";
         CONSOLE.println(expect);

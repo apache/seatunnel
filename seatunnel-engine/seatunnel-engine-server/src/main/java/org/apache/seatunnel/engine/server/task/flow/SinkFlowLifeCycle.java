@@ -21,10 +21,13 @@ import org.apache.seatunnel.api.common.metrics.Counter;
 import org.apache.seatunnel.api.common.metrics.Meter;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.serialization.Serializer;
+import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportResourceShare;
 import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.Record;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
@@ -53,6 +56,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_BYTES;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_BYTES_PER_SECONDS;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_COUNT;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_QPS;
 import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneaky;
@@ -87,7 +92,13 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
 
     private Meter sinkWriteQPS;
 
+    private Counter sinkWriteBytes;
+
+    private Meter sinkWriteBytesPerSeconds;
+
     private final boolean containAggCommitter;
+
+    private MultiTableResourceManager resourceManager;
 
     public SinkFlowLifeCycle(
             SinkAction<T, StateT, CommitInfoT, AggregatedCommitInfoT> sinkAction,
@@ -107,6 +118,8 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         this.metricsContext = metricsContext;
         sinkWriteCount = metricsContext.counter(SINK_WRITE_COUNT);
         sinkWriteQPS = metricsContext.meter(SINK_WRITE_QPS);
+        sinkWriteBytes = metricsContext.counter(SINK_WRITE_BYTES);
+        sinkWriteBytesPerSeconds = metricsContext.meter(SINK_WRITE_BYTES_PER_SECONDS);
     }
 
     @Override
@@ -138,6 +151,13 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
     public void close() throws IOException {
         super.close();
         writer.close();
+        try {
+            if (resourceManager != null) {
+                resourceManager.close();
+            }
+        } catch (Throwable e) {
+            log.error("close resourceManager error", e);
+        }
     }
 
     private void registerCommitter() {
@@ -227,6 +247,11 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                 writer.write((T) record.getData());
                 sinkWriteCount.inc();
                 sinkWriteQPS.markEvent();
+                if (record.getData() instanceof SeaTunnelRow) {
+                    long size = ((SeaTunnelRow) record.getData()).getBytesSize();
+                    sinkWriteBytes.inc(size);
+                    sinkWriteBytesPerSeconds.markEvent(size);
+                }
             }
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -275,6 +300,11 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                     sinkAction
                             .getSink()
                             .restoreWriter(new SinkWriterContext(indexID, metricsContext), states);
+        }
+        if (this.writer instanceof SupportResourceShare) {
+            resourceManager =
+                    ((SupportResourceShare) this.writer).initMultiTableResourceManager(1, 1);
+            ((SupportResourceShare) this.writer).setMultiTableResourceManager(resourceManager, 0);
         }
     }
 }

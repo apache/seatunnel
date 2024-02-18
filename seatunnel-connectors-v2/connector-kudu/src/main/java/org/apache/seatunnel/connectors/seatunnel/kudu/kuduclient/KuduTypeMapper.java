@@ -22,82 +22,53 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.kudu.exception.KuduConnectorException;
 
 import org.apache.kudu.ColumnSchema;
+import org.apache.kudu.ColumnTypeAttributes;
+import org.apache.kudu.Type;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.sql.SQLException;
 import java.util.List;
 
 public class KuduTypeMapper {
 
-    private static final Logger LOG = LoggerFactory.getLogger(KuduTypeMapper.class);
+    private static final Logger log = LoggerFactory.getLogger(KuduTypeMapper.class);
 
-    // ============================data types=====================
-
-    private static final String KUDU_UNKNOWN = "UNKNOWN";
-    private static final String KUDU_BIT = "BOOL";
-
-    // -------------------------number----------------------------
-    private static final String KUDU_TINYINT = "INT8";
-    private static final String KUDU_MEDIUMINT = "INT32";
-    private static final String KUDU_INT = "INT16";
-    private static final String KUDU_BIGINT = "INT64";
-
-    private static final String KUDU_FLOAT = "FLOAT";
-
-    private static final String KUDU_DOUBLE = "DOUBLE";
-    private static final String KUDU_DECIMAL = "DECIMAL32";
-
-    // -------------------------string----------------------------
-
-    private static final String KUDU_VARCHAR = "STRING";
-
-    // ------------------------------time-------------------------
-
-    private static final String KUDU_UNIXTIME_MICROS = "UNIXTIME_MICROS";
-
-    // ------------------------------blob-------------------------
-
-    private static final String KUDU_BINARY = "BINARY";
-    private static final int PRECISION = 20;
-
-    public static SeaTunnelDataType<?> mapping(List<ColumnSchema> columnSchemaList, int colIndex)
-            throws SQLException {
-        String kuduType = columnSchemaList.get(colIndex).getType().getName().toUpperCase();
+    public static SeaTunnelDataType<?> mapping(List<ColumnSchema> columnSchemaList, int colIndex) {
+        Type kuduType = columnSchemaList.get(colIndex).getType();
         switch (kuduType) {
-            case KUDU_BIT:
+            case BOOL:
                 return BasicType.BOOLEAN_TYPE;
-            case KUDU_TINYINT:
-            case KUDU_MEDIUMINT:
-            case KUDU_INT:
+            case INT8:
+                return BasicType.BYTE_TYPE;
+            case INT16:
+                return BasicType.SHORT_TYPE;
+            case INT32:
                 return BasicType.INT_TYPE;
-            case KUDU_BIGINT:
+            case INT64:
                 return BasicType.LONG_TYPE;
-            case KUDU_DECIMAL:
-                return new DecimalType(PRECISION, 0);
-            case KUDU_FLOAT:
+            case DECIMAL:
+                ColumnTypeAttributes typeAttributes =
+                        columnSchemaList.get(colIndex).getTypeAttributes();
+                return new DecimalType(typeAttributes.getPrecision(), typeAttributes.getScale());
+            case FLOAT:
                 return BasicType.FLOAT_TYPE;
-            case KUDU_DOUBLE:
+            case DOUBLE:
                 return BasicType.DOUBLE_TYPE;
 
-            case KUDU_VARCHAR:
+            case STRING:
                 return BasicType.STRING_TYPE;
-            case KUDU_UNIXTIME_MICROS:
+            case UNIXTIME_MICROS:
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
-            case KUDU_BINARY:
+            case BINARY:
                 return PrimitiveByteArrayType.INSTANCE;
-
-                // Doesn't support yet
-
-            case KUDU_UNKNOWN:
             default:
                 throw new KuduConnectorException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                         String.format("Doesn't support KUDU type '%s' .", kuduType));
         }
     }

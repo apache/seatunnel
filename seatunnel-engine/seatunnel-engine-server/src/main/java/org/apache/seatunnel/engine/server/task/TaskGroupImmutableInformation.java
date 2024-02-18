@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.task;
 
+import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 
 import com.hazelcast.internal.nio.IOUtil;
@@ -40,6 +41,18 @@ public class TaskGroupImmutableInformation implements IdentifiedDataSerializable
 
     private Set<URL> jars;
 
+    // Set<URL> pluginJarsUrls is a collection of paths stored on the engine for all connector Jar
+    // packages and third-party Jar packages that the connector relies on.
+    // All storage paths come from the unique identifier obtained after uploading the Jar package
+    // through the client.
+    // Set<ConnectorJarIdentifier> represents the set of the unique identifier of a Jar package
+    // file,
+    // which contains more information about the Jar package file, including the name of the
+    // connector plugin using the current Jar, the type of the current Jar package, and so on.
+    // TODO: Only use Set<ConnectorJarIdentifier>to save more information about the Jar package,
+    // including the storage path of the Jar package on the server.
+    private Set<ConnectorJarIdentifier> connectorJarIdentifiers;
+
     public TaskGroupImmutableInformation() {}
 
     @Override
@@ -56,6 +69,7 @@ public class TaskGroupImmutableInformation implements IdentifiedDataSerializable
     public void writeData(ObjectDataOutput out) throws IOException {
         out.writeLong(executionId);
         out.writeObject(jars);
+        out.writeObject(connectorJarIdentifiers);
         IOUtil.writeData(out, group);
     }
 
@@ -63,6 +77,7 @@ public class TaskGroupImmutableInformation implements IdentifiedDataSerializable
     public void readData(ObjectDataInput in) throws IOException {
         executionId = in.readLong();
         jars = in.readObject();
+        connectorJarIdentifiers = in.readObject();
         group = IOUtil.readData(in);
     }
 }

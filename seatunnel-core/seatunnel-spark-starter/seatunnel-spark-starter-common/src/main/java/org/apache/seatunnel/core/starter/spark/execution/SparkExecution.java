@@ -27,9 +27,6 @@ import org.apache.seatunnel.core.starter.execution.PluginExecuteProcessor;
 import org.apache.seatunnel.core.starter.execution.RuntimeEnvironment;
 import org.apache.seatunnel.core.starter.execution.TaskExecution;
 
-import org.apache.spark.sql.Dataset;
-import org.apache.spark.sql.Row;
-
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
@@ -39,11 +36,11 @@ import java.util.List;
 @Slf4j
 public class SparkExecution implements TaskExecution {
     private final SparkRuntimeEnvironment sparkRuntimeEnvironment;
-    private final PluginExecuteProcessor<Dataset<Row>, SparkRuntimeEnvironment>
+    private final PluginExecuteProcessor<DatasetTableInfo, SparkRuntimeEnvironment>
             sourcePluginExecuteProcessor;
-    private final PluginExecuteProcessor<Dataset<Row>, SparkRuntimeEnvironment>
+    private final PluginExecuteProcessor<DatasetTableInfo, SparkRuntimeEnvironment>
             transformPluginExecuteProcessor;
-    private final PluginExecuteProcessor<Dataset<Row>, SparkRuntimeEnvironment>
+    private final PluginExecuteProcessor<DatasetTableInfo, SparkRuntimeEnvironment>
             sinkPluginExecuteProcessor;
 
     public SparkExecution(Config config) {
@@ -68,7 +65,7 @@ public class SparkExecution implements TaskExecution {
 
     @Override
     public void execute() throws TaskExecuteException {
-        List<Dataset<Row>> datasets = new ArrayList<>();
+        List<DatasetTableInfo> datasets = new ArrayList<>();
         datasets = sourcePluginExecuteProcessor.execute(datasets);
         datasets = transformPluginExecuteProcessor.execute(datasets);
         sinkPluginExecuteProcessor.execute(datasets);

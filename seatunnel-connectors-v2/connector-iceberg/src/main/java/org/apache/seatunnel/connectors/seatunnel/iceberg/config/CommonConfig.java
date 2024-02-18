@@ -26,7 +26,6 @@ import lombok.Getter;
 import lombok.ToString;
 
 import java.io.Serializable;
-import java.util.List;
 
 import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCatalogType.HADOOP;
 import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCatalogType.HIVE;
@@ -79,12 +78,6 @@ public class CommonConfig implements Serializable {
                     .booleanType()
                     .defaultValue(false)
                     .withDescription(" the iceberg case_sensitive");
-
-    public static final Option<List<String>> KEY_FIELDS =
-            Options.key("fields")
-                    .listType()
-                    .noDefaultValue()
-                    .withDescription(" the iceberg table fields");
 
     private String catalogName;
     private IcebergCatalogType catalogType;

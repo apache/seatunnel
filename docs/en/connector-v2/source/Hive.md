@@ -33,18 +33,20 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 
 ## Options
 
-|             name              |  type   | required | default value |
-|-------------------------------|---------|----------|---------------|
-| table_name                    | string  | yes      | -             |
-| metastore_uri                 | string  | yes      | -             |
-| kerberos_principal            | string  | no       | -             |
-| kerberos_keytab_path          | string  | no       | -             |
-| hdfs_site_path                | string  | no       | -             |
-| hive_site_path                | string  | no       | -             |
-| read_partitions               | list    | no       | -             |
-| read_columns                  | list    | no       | -             |
-| abort_drop_partition_metadata | boolean | no       | true          |
-| common-options                |         | no       | -             |
+|             name              |  type   | required | default value  |
+|-------------------------------|---------|----------|----------------|
+| table_name                    | string  | yes      | -              |
+| metastore_uri                 | string  | yes      | -              |
+| krb5_path                     | string  | no       | /etc/krb5.conf |
+| kerberos_principal            | string  | no       | -              |
+| kerberos_keytab_path          | string  | no       | -              |
+| hdfs_site_path                | string  | no       | -              |
+| hive_site_path                | string  | no       | -              |
+| read_partitions               | list    | no       | -              |
+| read_columns                  | list    | no       | -              |
+| abort_drop_partition_metadata | boolean | no       | true           |
+| compress_codec                | string  | no       | none           |
+| common-options                |         | no       | -              |
 
 ### table_name [string]
 
@@ -69,6 +71,10 @@ The target partitions that user want to read from hive table, if user does not s
 **Tips: Every partition in partitions list should have the same directory depth. For example, a hive table has two partitions: par1 and par2, if user sets it like as the following:**
 **read_partitions = [par1=xxx, par1=yyy/par2=zzz], it is illegal**
 
+### krb5_path [string]
+
+The path of `krb5.conf`, used to authentication kerberos
+
 ### kerberos_principal [string]
 
 The principal of kerberos authentication
@@ -84,6 +90,16 @@ The read column list of the data source, user can use it to implement field proj
 ### abort_drop_partition_metadata [list]
 
 Flag to decide whether to drop partition metadata from Hive Metastore during an abort operation. Note: this only affects the metadata in the metastore, the data in the partition will always be deleted(data generated during the synchronization process).
+
+### compress_codec [string]
+
+The compress codec of files and the details that supported as the following shown:
+
+- txt: `lzo` `none`
+- json: `lzo` `none`
+- csv: `lzo` `none`
+- orc/parquet:  
+  automatically recognizes the compression type, no additional settings required.
 
 ### common options
 

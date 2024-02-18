@@ -25,7 +25,7 @@ seatunnel:
       dynamic-slot: true
     checkpoint:
       interval: 300000
-      timeout: 10000
+      timeout: 100000
       storage:
         type: localfile
         max-retained: 3

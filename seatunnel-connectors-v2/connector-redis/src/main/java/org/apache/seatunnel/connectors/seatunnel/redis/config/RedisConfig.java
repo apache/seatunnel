@@ -20,7 +20,11 @@ package org.apache.seatunnel.connectors.seatunnel.redis.config;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
+import java.util.List;
+
 public class RedisConfig {
+
+    public static final String CONNECTOR_IDENTITY = "Redis";
 
     public enum RedisMode {
         SINGLE,
@@ -38,8 +42,8 @@ public class RedisConfig {
                     .noDefaultValue()
                     .withDescription("redis hostname or ip");
 
-    public static final Option<String> PORT =
-            Options.key("port").stringType().noDefaultValue().withDescription("redis port");
+    public static final Option<Integer> PORT =
+            Options.key("port").intType().noDefaultValue().withDescription("redis port");
 
     public static final Option<String> AUTH =
             Options.key("auth")
@@ -47,6 +51,13 @@ public class RedisConfig {
                     .noDefaultValue()
                     .withDescription(
                             "redis authentication password, you need it when you connect to an encrypted cluster");
+
+    public static final Option<Integer> DB_NUM =
+            Options.key("db_num")
+                    .intType()
+                    .defaultValue(0)
+                    .withDescription(
+                            "Redis  database index id, it is connected to db 0 by default");
 
     public static final Option<String> USER =
             Options.key("user")
@@ -68,9 +79,9 @@ public class RedisConfig {
                     .noDefaultValue()
                     .withDescription("The value of key you want to write to redis.");
 
-    public static final Option<String> DATA_TYPE =
+    public static final Option<RedisDataType> DATA_TYPE =
             Options.key("data_type")
-                    .stringType()
+                    .enumType(RedisDataType.class)
                     .noDefaultValue()
                     .withDescription("redis data types, support key hash list set zset.");
 
@@ -88,9 +99,9 @@ public class RedisConfig {
                     .withDescription(
                             "redis mode, support single or cluster, default value is single");
 
-    public static final Option<String> NODES =
+    public static final Option<List<String>> NODES =
             Options.key("nodes")
-                    .stringType()
+                    .listType()
                     .noDefaultValue()
                     .withDescription(
                             "redis nodes information, used in cluster mode, must like as the following format: [host1:port1, host2:port2]");
