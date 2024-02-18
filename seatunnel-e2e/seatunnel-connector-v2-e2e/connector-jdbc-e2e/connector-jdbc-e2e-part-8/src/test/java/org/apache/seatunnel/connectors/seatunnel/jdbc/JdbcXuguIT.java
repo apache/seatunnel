@@ -59,7 +59,7 @@ public class JdbcXuguIT extends AbstractJdbcIT {
     private static final List<String> CONFIG_FILE =
             Lists.newArrayList(
                     "/jdbc_xugu_source_and_sink.conf"
-//                    "/jdbc_xugu_source_and_upset_sink.conf"
+                    //                    "/jdbc_xugu_source_and_upset_sink.conf"
                     );
     private static final String CREATE_SQL =
             "create table if not exists %s"
@@ -124,8 +124,7 @@ public class JdbcXuguIT extends AbstractJdbcIT {
     }
 
     @Override
-    void compareResult(String executeKey) {
-    }
+    void compareResult(String executeKey) {}
 
     @Override
     String driverUrl() {
@@ -135,62 +134,62 @@ public class JdbcXuguIT extends AbstractJdbcIT {
     @Override
     Pair<String[], List<SeaTunnelRow>> initTestData() {
         String[] fieldNames =
-                new String[]{
-                        "XUGU_NUMERIC",
-                        "XUGU_NUMBER",
-                        "XUGU_INTEGER",
-                        "XUGU_INT",
-                        "XUGU_BIGINT",
-                        "XUGU_TINYINT",
-                        "XUGU_SMALLINT",
-                        "XUGU_FLOAT",
-                        "XUGU_DOUBLE",
-                        "XUGU_CHAR",
-                        "XUGU_NCHAR",
-                        "XUGU_VARCHAR",
-                        "XUGU_VARCHAR2",
-                        "XUGU_CLOB",
-                        "XUGU_DATE",
-                        "XUGU_TIME",
-                        "XUGU_TIMESTAMP",
-                        "XUGU_DATETIME",
-                        "XUGU_TIME_WITH_TIME_ZONE",
-                        "XUGU_TIMESTAMP_WITH_TIME_ZONE",
-                        "XUGU_BINARY",
-                        "XUGU_BLOB",
-                        "XUGU_GUID",
-                        "XUGU_BOOLEAN"
+                new String[] {
+                    "XUGU_NUMERIC",
+                    "XUGU_NUMBER",
+                    "XUGU_INTEGER",
+                    "XUGU_INT",
+                    "XUGU_BIGINT",
+                    "XUGU_TINYINT",
+                    "XUGU_SMALLINT",
+                    "XUGU_FLOAT",
+                    "XUGU_DOUBLE",
+                    "XUGU_CHAR",
+                    "XUGU_NCHAR",
+                    "XUGU_VARCHAR",
+                    "XUGU_VARCHAR2",
+                    "XUGU_CLOB",
+                    "XUGU_DATE",
+                    "XUGU_TIME",
+                    "XUGU_TIMESTAMP",
+                    "XUGU_DATETIME",
+                    "XUGU_TIME_WITH_TIME_ZONE",
+                    "XUGU_TIMESTAMP_WITH_TIME_ZONE",
+                    "XUGU_BINARY",
+                    "XUGU_BLOB",
+                    "XUGU_GUID",
+                    "XUGU_BOOLEAN"
                 };
 
         List<SeaTunnelRow> rows = new ArrayList<>();
         for (int i = 0; i < 100; i++) {
             SeaTunnelRow row =
                     new SeaTunnelRow(
-                            new Object[]{
-                                    BigDecimal.valueOf(1.1),
-                                    BigDecimal.valueOf(i, 0),
-                                    i,
-                                    i,
-                                    Long.parseLong("1"),
-                                    i,
-                                    i,
-                                    Float.parseFloat("1.1"),
-                                    Double.parseDouble("1.1"),
-                                    String.format("f1_%s", i),
-                                    String.format("f1_%s", i),
-                                    String.format("f1_%s", i),
-                                    String.format("f1_%s", i),
-                                    String.format("f1_%s", i),
-                                    Date.valueOf(LocalDate.now()),
-                                    Time.valueOf(LocalTime.now()),
-                                    new Timestamp(System.currentTimeMillis()),
-                                    Timestamp.valueOf(LocalDateTime.now()),
-                                    Time.valueOf(LocalTime.now()),
-                                    new Timestamp(System.currentTimeMillis()),
-                                    "f".getBytes(),
-                                    null,
-                                    null,
-                                    "true"
+                            new Object[] {
+                                BigDecimal.valueOf(1.1),
+                                BigDecimal.valueOf(i, 0),
+                                i,
+                                i,
+                                Long.parseLong("1"),
+                                i,
+                                i,
+                                Float.parseFloat("1.1"),
+                                Double.parseDouble("1.1"),
+                                String.format("f1_%s", i),
+                                String.format("f1_%s", i),
+                                String.format("f1_%s", i),
+                                String.format("f1_%s", i),
+                                String.format("f1_%s", i),
+                                Date.valueOf(LocalDate.now()),
+                                Time.valueOf(LocalTime.now()),
+                                new Timestamp(System.currentTimeMillis()),
+                                Timestamp.valueOf(LocalDateTime.now()),
+                                Time.valueOf(LocalTime.now()),
+                                new Timestamp(System.currentTimeMillis()),
+                                "f".getBytes(),
+                                null,
+                                null,
+                                "true"
                             });
             rows.add(row);
         }
@@ -215,7 +214,6 @@ public class JdbcXuguIT extends AbstractJdbcIT {
     public String quoteIdentifier(String field) {
         return "\"" + field + "\"";
     }
-
 
     @Override
     protected void clearTable(String database, String schema, String table) {

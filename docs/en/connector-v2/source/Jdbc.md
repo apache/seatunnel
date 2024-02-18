@@ -229,7 +229,6 @@ there are some reference value for params above.
 | Hive       | org.apache.hive.jdbc.HiveDriver                     | jdbc:hive2://localhost:10000                                           | https://repo1.maven.org/maven2/org/apache/hive/hive-jdbc/3.1.3/hive-jdbc-3.1.3-standalone.jar               |
 | xugu       | com.xugu.cloudjdbc.Driver                           | jdbc:xugu://localhost:5138                                             | https://repo1.maven.org/maven2/com/xugudb/xugu-jdbc/12.1.12/xugu-jdbc-12.1.12.jar                           |
 
-
 ## Example
 
 ### simple
