@@ -48,11 +48,11 @@ SeaTunnel 使用的默认引擎是 [SeaTunnel Engine](seatunnel-engine/about.md)
 
 ## 连接器
 
-- **源连接器** SeaTunnel 支持从各种关系、图形、NoSQL、文档和内存数据库读取数据； 分布式文件系统，例如HDFS； 以及各种云存储解决方案，例如S3和OSS。 我们还支持很多常见SaaS服务的数据读取。 您可以在[此处](connector-v2/source)访问详细列表。 如果您愿意，您可以开发自己的源连接器并将其轻松集成到 SeaTunnel 中。
+- **源连接器** SeaTunnel 支持从各种关系、图形、NoSQL、文档和内存数据库读取数据； 分布式文件系统，例如HDFS； 以及各种云存储解决方案，例如S3和OSS。 我们还支持很多常见SaaS服务的数据读取。 您可以在[此处] 访问详细列表。 如果您愿意，您可以开发自己的源连接器并将其轻松集成到 SeaTunnel 中。
 
 - **转换连接器** 如果源和接收器之间的架构不同，您可以使用转换连接器更改从源读取的架构，使其与接收器架构相同。
 
-- **Sink Connector** SeaTunnel 支持将数据写入各种关系型、图形、NoSQL、文档和内存数据库； 分布式文件系统，例如HDFS； 以及各种云存储解决方案，例如S3和OSS。 我们还支持将数据写入许多常见的 SaaS 服务。 您可以在[此处](connector-v2/sink)访问详细列表。 如果您愿意，您可以开发自己的 Sink 连接器并轻松将其集成到 SeaTunnel 中。
+- **Sink Connector** SeaTunnel 支持将数据写入各种关系型、图形、NoSQL、文档和内存数据库； 分布式文件系统，例如HDFS； 以及各种云存储解决方案，例如S3和OSS。 我们还支持将数据写入许多常见的 SaaS 服务。 您可以在[此处]访问详细列表。 如果您愿意，您可以开发自己的 Sink 连接器并轻松将其集成到 SeaTunnel 中。
 
 ## Who uses SeaTunnel
 
