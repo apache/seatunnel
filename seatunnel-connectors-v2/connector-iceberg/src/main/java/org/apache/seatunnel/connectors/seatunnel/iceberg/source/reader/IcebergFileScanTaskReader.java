@@ -32,7 +32,6 @@ import org.apache.iceberg.data.InternalRecordWrapper;
 import org.apache.iceberg.data.Record;
 import org.apache.iceberg.data.avro.DataReader;
 import org.apache.iceberg.data.orc.GenericOrcReader;
-import org.apache.iceberg.data.parquet.GenericParquetReaders;
 import org.apache.iceberg.expressions.Evaluator;
 import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.expressions.Expressions;
@@ -51,6 +50,8 @@ import lombok.NonNull;
 
 import java.io.Closeable;
 import java.util.Map;
+
+import static org.apache.iceberg.data.parquet.GenericParquetReaders.buildReader;
 
 @Builder
 public class IcebergFileScanTaskReader implements Closeable {
@@ -130,8 +131,7 @@ public class IcebergFileScanTaskReader implements Closeable {
                                 .project(fileProjection)
                                 .createReaderFunc(
                                         fileSchema ->
-                                                GenericParquetReaders.buildReader(
-                                                        fileProjection, fileSchema, partition))
+                                                buildReader(fileProjection, fileSchema, partition))
                                 .split(task.start(), task.length())
                                 .filter(task.residual());
                 if (reuseContainers) {

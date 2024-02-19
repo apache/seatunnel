@@ -17,8 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.catalog;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigUtil;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -60,22 +59,21 @@ public class ElasticSearchCatalog implements Catalog {
 
     private final String catalogName;
     private final String defaultDatabase;
-    private final Config pluginConfig;
+    private final ReadonlyConfig config;
 
     private EsRestClient esRestClient;
 
     // todo: do we need default database?
-    public ElasticSearchCatalog(
-            String catalogName, String defaultDatabase, Config elasticSearchConfig) {
+    public ElasticSearchCatalog(String catalogName, String defaultDatabase, ReadonlyConfig config) {
         this.catalogName = checkNotNull(catalogName, "catalogName cannot be null");
         this.defaultDatabase = defaultDatabase;
-        this.pluginConfig = checkNotNull(elasticSearchConfig, "elasticSearchConfig cannot be null");
+        this.config = checkNotNull(config, "elasticSearchConfig cannot be null");
     }
 
     @Override
     public void open() throws CatalogException {
         try {
-            esRestClient = EsRestClient.createInstance(pluginConfig);
+            esRestClient = EsRestClient.createInstance(config);
             ElasticsearchClusterInfo elasticsearchClusterInfo = esRestClient.getClusterInfo();
             if (LOGGER.isDebugEnabled()) {
                 LOGGER.debug(

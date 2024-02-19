@@ -28,6 +28,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
 
 import org.apache.commons.lang3.StringUtils;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -41,6 +43,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+@Slf4j
 public class MysqlDialect implements JdbcDialect {
     public String fieldIde = FieldIdeEnum.ORIGINAL.getValue();
 
@@ -123,7 +126,11 @@ public class MysqlDialect implements JdbcDialect {
 
     @Override
     public Object[] sampleDataFromColumn(
-            Connection connection, JdbcSourceTable table, String columnName, int samplingRate)
+            Connection connection,
+            JdbcSourceTable table,
+            String columnName,
+            int samplingRate,
+            int fetchSize)
             throws SQLException {
         String sampleQuery;
         if (StringUtils.isNotBlank(table.getQuery())) {
@@ -162,7 +169,18 @@ public class MysqlDialect implements JdbcDialect {
     @Override
     public Long approximateRowCntStatement(Connection connection, JdbcSourceTable table)
             throws SQLException {
-        if (StringUtils.isBlank(table.getQuery())) {
+
+        // 1. If no query is configured, use TABLE STATUS.
+        // 2. If a query is configured but does not contain a WHERE clause and tablePath is
+        // configured , use TABLE STATUS.
+        // 3. If a query is configured with a WHERE clause, or a query statement is configured but
+        // tablePath is not, use COUNT(*).
+
+        boolean useTableStats =
+                StringUtils.isBlank(table.getQuery())
+                        || (!table.getQuery().toLowerCase().contains("where")
+                                && table.getTablePath() != null);
+        if (useTableStats) {
             // The statement used to get approximate row count which is less
             // accurate than COUNT(*), but is more efficient for large table.
             TablePath tablePath = table.getTablePath();
@@ -170,8 +188,11 @@ public class MysqlDialect implements JdbcDialect {
                     String.format("USE %s;", quoteDatabaseIdentifier(tablePath.getDatabaseName()));
             String rowCountQuery =
                     String.format("SHOW TABLE STATUS LIKE '%s';", tablePath.getTableName());
+
             try (Statement stmt = connection.createStatement()) {
+                log.info("Split Chunk, approximateRowCntStatement: {}", useDatabaseStatement);
                 stmt.execute(useDatabaseStatement);
+                log.info("Split Chunk, approximateRowCntStatement: {}", rowCountQuery);
                 try (ResultSet rs = stmt.executeQuery(rowCountQuery)) {
                     if (!rs.next() || rs.getMetaData().getColumnCount() < 5) {
                         throw new SQLException(

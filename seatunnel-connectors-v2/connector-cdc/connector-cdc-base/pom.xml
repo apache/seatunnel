@@ -69,7 +69,17 @@
                         <groupId>org.glassfish.jersey.core</groupId>
                         <artifactId>*</artifactId>
                     </exclusion>
+                    <exclusion>
+                        <!--The lower version is no longer compatible with Apple M1-->
+                        <groupId>com.github.luben</groupId>
+                        <artifactId>zstd-jni</artifactId>
+                    </exclusion>
                 </exclusions>
+            </dependency>
+            <dependency>
+                <groupId>com.github.luben</groupId>
+                <artifactId>zstd-jni</artifactId>
+                <version>1.5.5-5</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -83,6 +93,10 @@
         <dependency>
             <groupId>io.debezium</groupId>
             <artifactId>debezium-embedded</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.github.luben</groupId>
+            <artifactId>zstd-jni</artifactId>
         </dependency>
         <dependency>
             <groupId>com.zaxxer</groupId>

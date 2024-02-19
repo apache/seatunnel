@@ -143,7 +143,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
             Assertions.assertEquals(testRowNumber * testParallelism * 2, fileLineNumberFromDir);
         } finally {
             if (engineClient != null) {
-                engineClient.shutdown();
+                engineClient.close();
             }
 
             if (node1 != null) {
@@ -285,7 +285,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
 
         } finally {
             if (engineClient != null) {
-                engineClient.shutdown();
+                engineClient.close();
             }
 
             if (node1 != null) {
@@ -392,7 +392,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
             Assertions.assertEquals(testRowNumber * testParallelism * 2, fileLineNumberFromDir);
         } finally {
             if (engineClient != null) {
-                engineClient.shutdown();
+                engineClient.close();
             }
 
             if (node1 != null) {
@@ -528,7 +528,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
 
         } finally {
             if (engineClient != null) {
-                engineClient.shutdown();
+                engineClient.close();
             }
 
             if (node1 != null) {
@@ -638,7 +638,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
 
         } finally {
             if (engineClient != null) {
-                engineClient.shutdown();
+                engineClient.close();
             }
 
             if (node1 != null) {
@@ -764,7 +764,7 @@ public class ClusterFaultToleranceTwoPipelineIT {
 
         } finally {
             if (engineClient != null) {
-                engineClient.shutdown();
+                engineClient.close();
             }
 
             if (node1 != null) {

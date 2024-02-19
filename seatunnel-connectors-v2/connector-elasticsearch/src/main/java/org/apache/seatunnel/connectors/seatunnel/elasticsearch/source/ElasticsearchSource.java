@@ -17,73 +17,82 @@
 
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.source;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SupportColumnProjection;
 import org.apache.seatunnel.api.source.SupportParallelism;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.catalog.ElasticSearchDataTypeConvertor;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsRestClient;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SourceConfig;
 
-import com.google.auto.service.AutoService;
-
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-@AutoService(SeaTunnelSource.class)
 public class ElasticsearchSource
         implements SeaTunnelSource<
                         SeaTunnelRow, ElasticsearchSourceSplit, ElasticsearchSourceState>,
                 SupportParallelism,
                 SupportColumnProjection {
 
-    private Config pluginConfig;
+    private final ReadonlyConfig config;
 
-    private SeaTunnelRowType rowTypeInfo;
+    private CatalogTable catalogTable;
 
     private List<String> source;
 
-    @Override
-    public String getPluginName() {
-        return "Elasticsearch";
-    }
-
-    @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
-        this.pluginConfig = pluginConfig;
-        if (pluginConfig.hasPath(TableSchemaOptions.SCHEMA.key())) {
+    public ElasticsearchSource(ReadonlyConfig config) {
+        this.config = config;
+        if (config.getOptional(TableSchemaOptions.SCHEMA).isPresent()) {
             // todo: We need to remove the schema in ES.
-            rowTypeInfo = CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
-            source = Arrays.asList(rowTypeInfo.getFieldNames());
+            catalogTable = CatalogTableUtil.buildWithConfig(config);
+            source = Arrays.asList(catalogTable.getSeaTunnelRowType().getFieldNames());
         } else {
-            source = pluginConfig.getStringList(SourceConfig.SOURCE.key());
-            EsRestClient esRestClient = EsRestClient.createInstance(this.pluginConfig);
+            source = config.get(SourceConfig.SOURCE);
+            EsRestClient esRestClient = EsRestClient.createInstance(config);
             Map<String, String> esFieldType =
-                    esRestClient.getFieldTypeMapping(
-                            pluginConfig.getString(SourceConfig.INDEX.key()), source);
+                    esRestClient.getFieldTypeMapping(config.get(SourceConfig.INDEX), source);
             esRestClient.close();
-            SeaTunnelDataType[] fieldTypes = new SeaTunnelDataType[source.size()];
+            SeaTunnelDataType<?>[] fieldTypes = new SeaTunnelDataType[source.size()];
             ElasticSearchDataTypeConvertor elasticSearchDataTypeConvertor =
                     new ElasticSearchDataTypeConvertor();
             for (int i = 0; i < source.size(); i++) {
                 String esType = esFieldType.get(source.get(i));
-                SeaTunnelDataType seaTunnelDataType =
+                SeaTunnelDataType<?> seaTunnelDataType =
                         elasticSearchDataTypeConvertor.toSeaTunnelType(source.get(i), esType);
                 fieldTypes[i] = seaTunnelDataType;
             }
-            rowTypeInfo = new SeaTunnelRowType(source.toArray(new String[0]), fieldTypes);
+            TableSchema.Builder builder = TableSchema.builder();
+            for (int i = 0; i < source.size(); i++) {
+                builder.column(
+                        PhysicalColumn.of(source.get(i), fieldTypes[i], 0, true, null, null));
+            }
+            catalogTable =
+                    CatalogTable.of(
+                            TableIdentifier.of(
+                                    "elasticsearch", null, config.get(SourceConfig.INDEX)),
+                            builder.build(),
+                            Collections.emptyMap(),
+                            Collections.emptyList(),
+                            "");
         }
+    }
+
+    @Override
+    public String getPluginName() {
+        return "Elasticsearch";
     }
 
     @Override
@@ -92,21 +101,22 @@ public class ElasticsearchSource
     }
 
     @Override
-    public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
-        return this.rowTypeInfo;
+    public List<CatalogTable> getProducedCatalogTables() {
+        return Collections.singletonList(catalogTable);
     }
 
     @Override
     public SourceReader<SeaTunnelRow, ElasticsearchSourceSplit> createReader(
             SourceReader.Context readerContext) {
-        return new ElasticsearchSourceReader(readerContext, pluginConfig, rowTypeInfo);
+        return new ElasticsearchSourceReader(
+                readerContext, config, catalogTable.getSeaTunnelRowType());
     }
 
     @Override
     public SourceSplitEnumerator<ElasticsearchSourceSplit, ElasticsearchSourceState>
             createEnumerator(
                     SourceSplitEnumerator.Context<ElasticsearchSourceSplit> enumeratorContext) {
-        return new ElasticsearchSourceSplitEnumerator(enumeratorContext, pluginConfig, source);
+        return new ElasticsearchSourceSplitEnumerator(enumeratorContext, config, source);
     }
 
     @Override
@@ -115,6 +125,6 @@ public class ElasticsearchSource
                     SourceSplitEnumerator.Context<ElasticsearchSourceSplit> enumeratorContext,
                     ElasticsearchSourceState sourceState) {
         return new ElasticsearchSourceSplitEnumerator(
-                enumeratorContext, sourceState, pluginConfig, source);
+                enumeratorContext, sourceState, config, source);
     }
 }

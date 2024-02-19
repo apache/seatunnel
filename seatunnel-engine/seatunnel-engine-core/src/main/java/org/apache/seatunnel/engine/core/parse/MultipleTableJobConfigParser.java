@@ -164,37 +164,39 @@ public class MultipleTableJobConfigParser {
         if (!commonPluginJars.isEmpty()) {
             connectorJars.addAll(commonPluginJars);
         }
+        ClassLoader parentClassLoader = Thread.currentThread().getContextClassLoader();
         ClassLoader classLoader =
-                new SeaTunnelChildFirstClassLoader(
-                        connectorJars, Thread.currentThread().getContextClassLoader());
-        Thread.currentThread().setContextClassLoader(classLoader);
+                new SeaTunnelChildFirstClassLoader(connectorJars, parentClassLoader);
+        try {
+            Thread.currentThread().setContextClassLoader(classLoader);
+            ConfigParserUtil.checkGraph(sourceConfigs, transformConfigs, sinkConfigs);
+            this.fillJobConfig();
+            LinkedHashMap<String, List<Tuple2<CatalogTable, Action>>> tableWithActionMap =
+                    new LinkedHashMap<>();
 
-        ConfigParserUtil.checkGraph(sourceConfigs, transformConfigs, sinkConfigs);
+            log.info("start generating all sources.");
+            for (int configIndex = 0; configIndex < sourceConfigs.size(); configIndex++) {
+                Config sourceConfig = sourceConfigs.get(configIndex);
+                Tuple2<String, List<Tuple2<CatalogTable, Action>>> tuple2 =
+                        parseSource(configIndex, sourceConfig, classLoader);
+                tableWithActionMap.put(tuple2._1(), tuple2._2());
+            }
 
-        this.fillJobConfig();
+            log.info("start generating all transforms.");
+            parseTransforms(transformConfigs, classLoader, tableWithActionMap);
 
-        LinkedHashMap<String, List<Tuple2<CatalogTable, Action>>> tableWithActionMap =
-                new LinkedHashMap<>();
-
-        log.info("start generating all sources.");
-        for (int configIndex = 0; configIndex < sourceConfigs.size(); configIndex++) {
-            Config sourceConfig = sourceConfigs.get(configIndex);
-            Tuple2<String, List<Tuple2<CatalogTable, Action>>> tuple2 =
-                    parseSource(configIndex, sourceConfig, classLoader);
-            tableWithActionMap.put(tuple2._1(), tuple2._2());
+            log.info("start generating all sinks.");
+            List<Action> sinkActions = new ArrayList<>();
+            for (int configIndex = 0; configIndex < sinkConfigs.size(); configIndex++) {
+                Config sinkConfig = sinkConfigs.get(configIndex);
+                sinkActions.addAll(
+                        parseSink(configIndex, sinkConfig, classLoader, tableWithActionMap));
+            }
+            Set<URL> factoryUrls = getUsedFactoryUrls(sinkActions);
+            return new ImmutablePair<>(sinkActions, factoryUrls);
+        } finally {
+            Thread.currentThread().setContextClassLoader(parentClassLoader);
         }
-
-        log.info("start generating all transforms.");
-        parseTransforms(transformConfigs, classLoader, tableWithActionMap);
-
-        log.info("start generating all sinks.");
-        List<Action> sinkActions = new ArrayList<>();
-        for (int configIndex = 0; configIndex < sinkConfigs.size(); configIndex++) {
-            Config sinkConfig = sinkConfigs.get(configIndex);
-            sinkActions.addAll(parseSink(configIndex, sinkConfig, classLoader, tableWithActionMap));
-        }
-        Set<URL> factoryUrls = getUsedFactoryUrls(sinkActions);
-        return new ImmutablePair<>(sinkActions, factoryUrls);
     }
 
     public Set<URL> getUsedFactoryUrls(List<Action> sinkActions) {

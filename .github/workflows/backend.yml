@@ -307,7 +307,7 @@ jobs:
       - name: run updated modules integration test (part-1)
         if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
         run: |
-          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 7 0`
+          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 8 0`
           if [ ! -z $sub_modules ]; then
             ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $sub_modules -am -Pci
           else
@@ -1093,3 +1093,25 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :connector-doris-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+
+
+  oracle-cdc-connector-it:
+    needs: [ changes, sanity-check ]
+    if: needs.changes.outputs.api == 'true' || contains(needs.changes.outputs.it-modules, 'connector-cdc-oracle-e2e')
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        java: [ '8', '11' ]
+        os: [ 'ubuntu-latest' ]
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v3
+        with:
+          java-version: ${{ matrix.java }}
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: run oracle cdc connector integration test
+        run: |
+          ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :connector-cdc-oracle-e2e -am -Pci

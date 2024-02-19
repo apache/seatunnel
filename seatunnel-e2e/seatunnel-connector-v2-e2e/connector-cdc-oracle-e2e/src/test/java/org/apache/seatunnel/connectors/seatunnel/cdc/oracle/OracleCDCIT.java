@@ -29,7 +29,6 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
-import org.testcontainers.containers.OracleContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
@@ -67,7 +66,7 @@ import static org.junit.Assert.assertNotNull;
                 "Currently SPARK do not support cdc,Flink is prone to time out, temporarily disable")
 public class OracleCDCIT extends TestSuiteBase implements TestResource {
 
-    private static final String ORACLE_IMAGE = "jark/oracle-xe-11g-r2-cdc:0.1";
+    private static final String ORACLE_IMAGE = "goodboy008/oracle-19.3.0-ee:non-cdb";
 
     private static final String HOST = "oracle-host";
 
@@ -76,15 +75,6 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
     static {
         System.setProperty("oracle.jdbc.timezoneAsRegion", "false");
     }
-
-    public static final OracleContainer ORACLE_CONTAINER =
-            new OracleContainer(ORACLE_IMAGE)
-                    .withNetwork(NETWORK)
-                    .withNetworkAliases(HOST)
-                    .withExposedPorts(ORACLE_PORT)
-                    .withLogConsumer(
-                            new Slf4jLogConsumer(
-                                    DockerLoggerFactory.getLogger("oracle-docker-image")));
 
     public static final String CONNECTOR_USER = "dbzuser";
 
@@ -105,6 +95,18 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
     private static final String SINK_TABLE2 = "SINK_FULL_TYPES2";
 
     private static final String SOURCE_SQL_TEMPLATE = "select * from %s.%s ORDER BY ID";
+
+    public static final OracleContainer ORACLE_CONTAINER =
+            new OracleContainer(ORACLE_IMAGE)
+                    .withUsername(CONNECTOR_USER)
+                    .withPassword(CONNECTOR_PWD)
+                    .withDatabaseName("ORCLCDB")
+                    .withNetwork(NETWORK)
+                    .withNetworkAliases(HOST)
+                    .withExposedPorts(ORACLE_PORT)
+                    .withLogConsumer(
+                            new Slf4jLogConsumer(
+                                    DockerLoggerFactory.getLogger("oracle-docker-image")));
 
     private String driverUrl() {
         return "https://repo1.maven.org/maven2/com/oracle/database/jdbc/ojdbc8/12.2.0.1/ojdbc8-12.2.0.1.jar";
@@ -222,11 +224,57 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testOracleCdcCheckDataWithCustomPrimaryKey(TestContainer container)
+            throws Exception {
+
+        clearTable(DATABASE, SOURCE_TABLE_NO_PRIMARY_KEY);
+        clearTable(DATABASE, SINK_TABLE1);
+
+        insertSourceTable(DATABASE, SOURCE_TABLE_NO_PRIMARY_KEY);
+
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.executeJob("/oraclecdc_to_oracle_with_custom_primary_key.conf");
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
+
+        // snapshot stage
+        await().atMost(600000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertIterableEquals(
+                                    querySql(
+                                            getSourceQuerySQL(
+                                                    DATABASE, SOURCE_TABLE_NO_PRIMARY_KEY)),
+                                    querySql(getSourceQuerySQL(DATABASE, SINK_TABLE1)));
+                        });
+
+        // insert update delete
+        updateSourceTable(DATABASE, SOURCE_TABLE_NO_PRIMARY_KEY);
+
+        // stream stage
+        await().atMost(600000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertIterableEquals(
+                                    querySql(
+                                            getSourceQuerySQL(
+                                                    DATABASE, SOURCE_TABLE_NO_PRIMARY_KEY)),
+                                    querySql(getSourceQuerySQL(DATABASE, SINK_TABLE1)));
+                        });
+    }
+
+    @TestTemplate
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
             disabledReason = "Currently SPARK and FLINK do not support multi table")
-    public void testMysqlCdcMultiTableE2e(TestContainer container)
+    public void testOracleCdcMultiTableE2e(TestContainer container)
             throws IOException, InterruptedException {
 
         clearTable(DATABASE, SOURCE_TABLE1);
@@ -502,8 +550,7 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
 
     public static Connection getJdbcConnection(OracleContainer oracleContainer)
             throws SQLException {
-        return DriverManager.getConnection(
-                oracleContainer.getJdbcUrl(), CONNECTOR_USER, CONNECTOR_PWD);
+        return DriverManager.getConnection(oracleContainer.getJdbcUrl(), SCHEMA_USER, SCHEMA_PWD);
     }
 
     public static Connection getJdbcConnection(
