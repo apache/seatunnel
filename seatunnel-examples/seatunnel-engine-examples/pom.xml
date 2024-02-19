@@ -52,11 +52,11 @@
         </dependency>
         <!--   seatunnel-transforms-v2   -->
 
-        <!--        <dependency>-->
-        <!--            <groupId>org.apache.seatunnel</groupId>-->
-        <!--            <artifactId>connector-fake</artifactId>-->
-        <!--            <version>${project.version}</version>-->
-        <!--        </dependency>-->
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>connector-fake</artifactId>
+            <version>${project.version}</version>
+        </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-console</artifactId>
