@@ -75,9 +75,9 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
 
     // ------------------------------time-------------------------
     static final String MYSQL_DATE = "DATE";
-    static final String MYSQL_DATETIME = "DATETIME";
-    static final String MYSQL_TIME = "TIME";
-    static final String MYSQL_TIMESTAMP = "TIMESTAMP";
+    public static final String MYSQL_DATETIME = "DATETIME";
+    public static final String MYSQL_TIME = "TIME";
+    public static final String MYSQL_TIMESTAMP = "TIMESTAMP";
     static final String MYSQL_YEAR = "YEAR";
 
     // ------------------------------blob-------------------------
@@ -482,8 +482,8 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
                 }
                 break;
             case TIMESTAMP:
-                builder.nativeType(MysqlType.TIMESTAMP);
-                builder.dataType(MYSQL_TIMESTAMP);
+                builder.nativeType(MysqlType.DATETIME);
+                builder.dataType(MYSQL_DATETIME);
                 if (column.getScale() != null && column.getScale() > 0) {
                     int timestampScale = column.getScale();
                     if (timestampScale > MAX_TIMESTAMP_SCALE) {
@@ -497,10 +497,10 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
                                 MAX_TIMESTAMP_SCALE,
                                 timestampScale);
                     }
-                    builder.columnType(String.format("%s(%s)", MYSQL_TIMESTAMP, timestampScale));
+                    builder.columnType(String.format("%s(%s)", MYSQL_DATETIME, timestampScale));
                     builder.scale(timestampScale);
                 } else {
-                    builder.columnType(MYSQL_TIMESTAMP);
+                    builder.columnType(MYSQL_DATETIME);
                 }
                 break;
             default:

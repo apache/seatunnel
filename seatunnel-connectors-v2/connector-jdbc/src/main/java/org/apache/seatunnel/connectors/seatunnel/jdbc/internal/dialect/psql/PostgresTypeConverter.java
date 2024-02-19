@@ -198,10 +198,14 @@ public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
             case PG_TEXT:
                 builder.dataType(BasicType.STRING_TYPE);
                 break;
+            case PG_UUID:
+                builder.dataType(BasicType.STRING_TYPE);
+                builder.sourceType(pgDataType);
+                builder.columnLength(128L);
+                break;
             case PG_JSON:
             case PG_JSONB:
             case PG_XML:
-            case PG_UUID:
             case PG_GEOMETRY:
             case PG_GEOGRAPHY:
                 builder.dataType(BasicType.STRING_TYPE);

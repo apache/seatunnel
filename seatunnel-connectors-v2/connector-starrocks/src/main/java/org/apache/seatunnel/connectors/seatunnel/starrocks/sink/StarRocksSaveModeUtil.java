@@ -135,8 +135,7 @@ public class StarRocksSaveModeUtil {
         switch (dataType.getSqlType()) {
             case NULL:
             case TIME:
-                throw new IllegalArgumentException(
-                        "Unsupported SeaTunnel's data type: " + dataType);
+                return "VARCHAR(8)";
             case STRING:
                 if (length > 65533 || length <= 0) {
                     return "STRING";

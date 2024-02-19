@@ -607,8 +607,8 @@ public class OracleTypeConverterTest {
 
         BasicTypeDefine typeDefine = OracleTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
-        Assertions.assertEquals(OracleTypeConverter.ORACLE_LONG_RAW, typeDefine.getColumnType());
-        Assertions.assertEquals(OracleTypeConverter.ORACLE_LONG_RAW, typeDefine.getDataType());
+        Assertions.assertEquals(OracleTypeConverter.ORACLE_BLOB, typeDefine.getColumnType());
+        Assertions.assertEquals(OracleTypeConverter.ORACLE_BLOB, typeDefine.getDataType());
 
         column =
                 PhysicalColumn.builder()
@@ -633,8 +633,8 @@ public class OracleTypeConverterTest {
 
         typeDefine = OracleTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
-        Assertions.assertEquals(OracleTypeConverter.ORACLE_LONG_RAW, typeDefine.getColumnType());
-        Assertions.assertEquals(OracleTypeConverter.ORACLE_LONG_RAW, typeDefine.getDataType());
+        Assertions.assertEquals(OracleTypeConverter.ORACLE_BLOB, typeDefine.getColumnType());
+        Assertions.assertEquals(OracleTypeConverter.ORACLE_BLOB, typeDefine.getDataType());
 
         column =
                 PhysicalColumn.builder()

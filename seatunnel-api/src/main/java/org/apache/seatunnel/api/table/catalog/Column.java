@@ -75,9 +75,13 @@ public abstract class Column implements Serializable {
 
     protected final String comment;
 
-    /** Field type in the database * */
+    /**
+     * Field type in the database For example : varchar is varchar(50),DECIMAL is DECIMAL(20,5) ,
+     * int is int Each database can customize the sourceType according to its own characteristics*
+     */
     protected final String sourceType;
 
+    /** your options * */
     protected final Map<String, Object> options;
 
     // TODO Waiting for migration to complete before remove

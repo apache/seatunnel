@@ -48,9 +48,45 @@ public class MySqlTypeUtils {
             case MySqlTypeConverter.MYSQL_CHAR:
             case MySqlTypeConverter.MYSQL_VARCHAR:
                 if (column.length() <= 0) {
+                    // set default length
+                    builder.columnType(MySqlTypeConverter.MYSQL_VARCHAR);
                     builder.length(TypeDefineUtils.charTo4ByteLength(1L));
                 } else {
+                    // parse length from ddl sql
+                    builder.columnType(
+                            String.format(
+                                    "%s(%s)", MySqlTypeConverter.MYSQL_VARCHAR, column.length()));
                     builder.length(TypeDefineUtils.charTo4ByteLength((long) column.length()));
+                }
+                break;
+            case MySqlTypeConverter.MYSQL_TIME:
+                if (column.length() <= 0) {
+                    builder.columnType(MySqlTypeConverter.MYSQL_TIME);
+                } else {
+                    builder.columnType(
+                            String.format(
+                                    "%s(%s)", MySqlTypeConverter.MYSQL_TIME, column.length()));
+                    builder.scale(column.length());
+                }
+                break;
+            case MySqlTypeConverter.MYSQL_TIMESTAMP:
+                if (column.length() <= 0) {
+                    builder.columnType(MySqlTypeConverter.MYSQL_TIMESTAMP);
+                } else {
+                    builder.columnType(
+                            String.format(
+                                    "%s(%s)", MySqlTypeConverter.MYSQL_TIMESTAMP, column.length()));
+                    builder.scale(column.length());
+                }
+                break;
+            case MySqlTypeConverter.MYSQL_DATETIME:
+                if (column.length() <= 0) {
+                    builder.columnType(MySqlTypeConverter.MYSQL_DATETIME);
+                } else {
+                    builder.columnType(
+                            String.format(
+                                    "%s(%s)", MySqlTypeConverter.MYSQL_DATETIME, column.length()));
+                    builder.scale(column.length());
                 }
                 break;
             default:

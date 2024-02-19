@@ -253,7 +253,7 @@ public class DmdbTypeConverter implements TypeConverter<BasicTypeDefine> {
                 break;
             case DM_BFILE:
                 builder.sourceType(DM_BFILE);
-                builder.dataType(PrimitiveByteArrayType.INSTANCE);
+                builder.dataType(BasicType.STRING_TYPE);
                 builder.columnLength(typeDefine.getLength());
                 break;
             case DM_DATE:

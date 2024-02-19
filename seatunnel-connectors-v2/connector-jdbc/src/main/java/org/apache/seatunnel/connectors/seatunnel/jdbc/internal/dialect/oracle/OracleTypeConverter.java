@@ -316,15 +316,12 @@ public class OracleTypeConverter implements TypeConverter<BasicTypeDefine> {
                 break;
             case BYTES:
                 if (column.getColumnLength() == null || column.getColumnLength() <= 0) {
-                    builder.columnType(ORACLE_LONG_RAW);
-                    builder.dataType(ORACLE_LONG_RAW);
+                    builder.columnType(ORACLE_BLOB);
+                    builder.dataType(ORACLE_BLOB);
                 } else if (column.getColumnLength() <= MAX_RAW_LENGTH) {
                     builder.columnType(
                             String.format("%s(%s)", ORACLE_RAW, column.getColumnLength()));
                     builder.dataType(ORACLE_RAW);
-                } else if (column.getColumnLength() <= BYTES_2GB) {
-                    builder.columnType(ORACLE_LONG_RAW);
-                    builder.dataType(ORACLE_LONG_RAW);
                 } else {
                     builder.columnType(ORACLE_BLOB);
                     builder.dataType(ORACLE_BLOB);

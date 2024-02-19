@@ -42,6 +42,7 @@ public class SqlServerTypeConverter implements TypeConverter<BasicTypeDefine> {
     public static final String SQLSERVER_SMALLINT = "SMALLINT";
     public static final String SQLSERVER_INTEGER = "INTEGER";
     public static final String SQLSERVER_INT = "INT";
+    private static final String SQLSERVER_INT_IDENTITY = "INT IDENTITY";
     public static final String SQLSERVER_BIGINT = "BIGINT";
     public static final String SQLSERVER_DECIMAL = "DECIMAL";
     public static final String SQLSERVER_FLOAT = "FLOAT";
@@ -119,6 +120,7 @@ public class SqlServerTypeConverter implements TypeConverter<BasicTypeDefine> {
                 break;
             case SQLSERVER_INTEGER:
             case SQLSERVER_INT:
+            case SQLSERVER_INT_IDENTITY:
                 builder.sourceType(SQLSERVER_INT);
                 builder.dataType(BasicType.INT_TYPE);
                 break;
@@ -223,7 +225,7 @@ public class SqlServerTypeConverter implements TypeConverter<BasicTypeDefine> {
             case SQLSERVER_UNIQUEIDENTIFIER:
                 builder.sourceType(SQLSERVER_UNIQUEIDENTIFIER);
                 builder.dataType(BasicType.STRING_TYPE);
-                builder.columnLength(typeDefine.getLength());
+                builder.columnLength(typeDefine.getLength() * 4);
                 break;
             case SQLSERVER_SQLVARIANT:
                 builder.sourceType(SQLSERVER_SQLVARIANT);

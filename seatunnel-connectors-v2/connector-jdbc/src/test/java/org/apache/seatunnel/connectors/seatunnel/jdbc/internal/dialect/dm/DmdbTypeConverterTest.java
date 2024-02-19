@@ -486,7 +486,7 @@ public class DmdbTypeConverterTest {
                         .build();
         Column column = DmdbTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(PrimitiveByteArrayType.INSTANCE, column.getDataType());
+        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
         Assertions.assertEquals(2147483647L, column.getColumnLength());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType().toLowerCase());
     }

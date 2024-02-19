@@ -532,8 +532,8 @@ public interface BasicDataConverter<T> extends DataConverter<T> {
         if (value instanceof LocalTime) {
             return (LocalTime) value;
         }
-        if (value instanceof java.util.Date) {
-            return convertLocalTime((java.util.Date) value);
+        if (value instanceof Date) {
+            return convertLocalTime((Date) value);
         }
         if (value instanceof Time) {
             return convertLocalTime(typeDefine, (Time) value);
@@ -605,7 +605,7 @@ public interface BasicDataConverter<T> extends DataConverter<T> {
         return value.toLocalTime();
     }
 
-    default LocalTime convertLocalTime(java.sql.Time value) {
+    default LocalTime convertLocalTime(Time value) {
         return value.toLocalTime();
     }
 

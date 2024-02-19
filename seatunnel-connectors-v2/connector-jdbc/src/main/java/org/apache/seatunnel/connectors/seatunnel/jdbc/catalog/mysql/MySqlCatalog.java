@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
@@ -35,8 +36,11 @@ import com.mysql.cj.MysqlType;
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Locale;
 
 @Slf4j
@@ -87,6 +91,25 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
     protected TableIdentifier getTableIdentifier(TablePath tablePath) {
         return TableIdentifier.of(
                 catalogName, tablePath.getDatabaseName(), tablePath.getTableName());
+    }
+
+    @Override
+    protected List<ConstraintKey> getConstraintKeys(DatabaseMetaData metaData, TablePath tablePath)
+            throws SQLException {
+        List<ConstraintKey> indexList =
+                super.getConstraintKeys(
+                        metaData,
+                        tablePath.getDatabaseName(),
+                        tablePath.getSchemaName(),
+                        tablePath.getTableName());
+        for (Iterator<ConstraintKey> it = indexList.iterator(); it.hasNext(); ) {
+            ConstraintKey index = it.next();
+            if (ConstraintKey.ConstraintType.UNIQUE_KEY.equals(index.getConstraintType())
+                    && "PRIMARY".equals(index.getConstraintName())) {
+                it.remove();
+            }
+        }
+        return indexList;
     }
 
     @Override
