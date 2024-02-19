@@ -28,7 +28,6 @@ import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
-import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileSinkAggregatedCommitter;
@@ -46,9 +45,8 @@ public abstract class BaseMultipleTableFileSink
                 SupportMultiTableSink {
 
     private final HadoopConf hadoopConf;
-    private final HadoopFileSystemProxy hadoopFileSystemProxy;
+    private final CatalogTable catalogTable;
     private final FileSinkConfig fileSinkConfig;
-    private final WriteStrategy writeStrategy;
     private String jobId;
 
     public abstract String getPluginName();
@@ -58,10 +56,7 @@ public abstract class BaseMultipleTableFileSink
         this.hadoopConf = hadoopConf;
         this.fileSinkConfig =
                 new FileSinkConfig(readonlyConfig.toConfig(), catalogTable.getSeaTunnelRowType());
-        this.writeStrategy =
-                WriteStrategyFactory.of(fileSinkConfig.getFileFormat(), fileSinkConfig);
-        this.hadoopFileSystemProxy = new HadoopFileSystemProxy(hadoopConf);
-        this.writeStrategy.setSeaTunnelRowTypeInfo(catalogTable.getSeaTunnelRowType());
+        this.catalogTable = catalogTable;
     }
 
     @Override
@@ -72,7 +67,7 @@ public abstract class BaseMultipleTableFileSink
     @Override
     public SinkWriter<SeaTunnelRow, FileCommitInfo, FileSinkState> restoreWriter(
             SinkWriter.Context context, List<FileSinkState> states) {
-        return new BaseFileSinkWriter(writeStrategy, hadoopConf, context, jobId, states);
+        return new BaseFileSinkWriter(createWriteStrategy(), hadoopConf, context, jobId, states);
     }
 
     @Override
@@ -84,7 +79,7 @@ public abstract class BaseMultipleTableFileSink
     @Override
     public SinkWriter<SeaTunnelRow, FileCommitInfo, FileSinkState> createWriter(
             SinkWriter.Context context) {
-        return new BaseFileSinkWriter(writeStrategy, hadoopConf, context, jobId);
+        return new BaseFileSinkWriter(createWriteStrategy(), hadoopConf, context, jobId);
     }
 
     @Override
@@ -100,5 +95,12 @@ public abstract class BaseMultipleTableFileSink
     @Override
     public Optional<Serializer<FileSinkState>> getWriterStateSerializer() {
         return Optional.of(new DefaultSerializer<>());
+    }
+
+    protected WriteStrategy createWriteStrategy() {
+        WriteStrategy writeStrategy =
+                WriteStrategyFactory.of(fileSinkConfig.getFileFormat(), fileSinkConfig);
+        writeStrategy.setSeaTunnelRowTypeInfo(catalogTable.getSeaTunnelRowType());
+        return writeStrategy;
     }
 }

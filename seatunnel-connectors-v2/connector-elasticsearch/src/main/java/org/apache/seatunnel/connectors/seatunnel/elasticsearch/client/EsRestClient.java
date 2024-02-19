@@ -21,8 +21,8 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.TextNode;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.EsClusterConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.BulkResponse;
@@ -78,60 +78,24 @@ public class EsRestClient {
         this.restClient = restClient;
     }
 
-    public static EsRestClient createInstance(Config pluginConfig) {
-        List<String> hosts = pluginConfig.getStringList(EsClusterConnectionConfig.HOSTS.key());
-        Optional<String> username = Optional.empty();
-        Optional<String> password = Optional.empty();
-        if (pluginConfig.hasPath(EsClusterConnectionConfig.USERNAME.key())) {
-            username =
-                    Optional.of(pluginConfig.getString(EsClusterConnectionConfig.USERNAME.key()));
-            if (pluginConfig.hasPath(EsClusterConnectionConfig.PASSWORD.key())) {
-                password =
-                        Optional.of(
-                                pluginConfig.getString(EsClusterConnectionConfig.PASSWORD.key()));
-            }
-        }
+    public static EsRestClient createInstance(ReadonlyConfig config) {
+        List<String> hosts = config.get(EsClusterConnectionConfig.HOSTS);
+        Optional<String> username = config.getOptional(EsClusterConnectionConfig.USERNAME);
+        Optional<String> password = config.getOptional(EsClusterConnectionConfig.PASSWORD);
         Optional<String> keystorePath = Optional.empty();
         Optional<String> keystorePassword = Optional.empty();
         Optional<String> truststorePath = Optional.empty();
         Optional<String> truststorePassword = Optional.empty();
-        boolean tlsVerifyCertificate =
-                EsClusterConnectionConfig.TLS_VERIFY_CERTIFICATE.defaultValue();
-        if (pluginConfig.hasPath(EsClusterConnectionConfig.TLS_VERIFY_CERTIFICATE.key())) {
-            tlsVerifyCertificate =
-                    pluginConfig.getBoolean(EsClusterConnectionConfig.TLS_VERIFY_CERTIFICATE.key());
-        }
+        boolean tlsVerifyCertificate = config.get(EsClusterConnectionConfig.TLS_VERIFY_CERTIFICATE);
         if (tlsVerifyCertificate) {
-            if (pluginConfig.hasPath(EsClusterConnectionConfig.TLS_KEY_STORE_PATH.key())) {
-                keystorePath =
-                        Optional.of(
-                                pluginConfig.getString(
-                                        EsClusterConnectionConfig.TLS_KEY_STORE_PATH.key()));
-            }
-            if (pluginConfig.hasPath(EsClusterConnectionConfig.TLS_KEY_STORE_PASSWORD.key())) {
-                keystorePassword =
-                        Optional.of(
-                                pluginConfig.getString(
-                                        EsClusterConnectionConfig.TLS_KEY_STORE_PASSWORD.key()));
-            }
-            if (pluginConfig.hasPath(EsClusterConnectionConfig.TLS_TRUST_STORE_PATH.key())) {
-                truststorePath =
-                        Optional.of(
-                                pluginConfig.getString(
-                                        EsClusterConnectionConfig.TLS_TRUST_STORE_PATH.key()));
-            }
-            if (pluginConfig.hasPath(EsClusterConnectionConfig.TLS_TRUST_STORE_PASSWORD.key())) {
-                truststorePassword =
-                        Optional.of(
-                                pluginConfig.getString(
-                                        EsClusterConnectionConfig.TLS_TRUST_STORE_PASSWORD.key()));
-            }
+            keystorePath = config.getOptional(EsClusterConnectionConfig.TLS_KEY_STORE_PATH);
+            keystorePassword = config.getOptional(EsClusterConnectionConfig.TLS_KEY_STORE_PASSWORD);
+            truststorePath = config.getOptional(EsClusterConnectionConfig.TLS_TRUST_STORE_PATH);
+            truststorePassword =
+                    config.getOptional(EsClusterConnectionConfig.TLS_TRUST_STORE_PASSWORD);
         }
-        boolean tlsVerifyHostnames = EsClusterConnectionConfig.TLS_VERIFY_HOSTNAME.defaultValue();
-        if (pluginConfig.hasPath(EsClusterConnectionConfig.TLS_VERIFY_HOSTNAME.key())) {
-            tlsVerifyHostnames =
-                    pluginConfig.getBoolean(EsClusterConnectionConfig.TLS_VERIFY_HOSTNAME.key());
-        }
+
+        boolean tlsVerifyHostnames = config.get(EsClusterConnectionConfig.TLS_VERIFY_HOSTNAME);
         return createInstance(
                 hosts,
                 username,
