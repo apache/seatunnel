@@ -297,6 +297,8 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 || threadName.startsWith("OkHttp TaskRunner")
                 // IOTDB org.apache.iotdb.session.Session
                 || threadName.startsWith("SessionExecutor")
+                // Iceberg org.apache.iceberg.util.ThreadPools.WORKER_POOL
+                || threadName.startsWith("iceberg-worker-pool")
                 // Oracle Driver
                 // oracle.jdbc.driver.BlockSource.ThreadedCachingBlockSource.BlockReleaser
                 || threadName.contains(
