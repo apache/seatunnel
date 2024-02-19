@@ -160,6 +160,7 @@ public class DorisIT extends AbstractDorisIT {
             sourceResultSet.last();
             sinkResultSet.last();
             Assertions.assertEquals(sourceResultSet.getRow(), sinkResultSet.getRow());
+            log.info("tested doris with row " + sourceResultSet.getRow());
             clearSinkTable();
         } catch (Exception e) {
             throw new RuntimeException("Doris connection error", e);
