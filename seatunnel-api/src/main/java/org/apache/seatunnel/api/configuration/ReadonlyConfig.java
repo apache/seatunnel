@@ -71,6 +71,7 @@ public class ReadonlyConfig implements Serializable {
      *
      * @return Config
      */
+    @Deprecated
     public Config toConfig() {
         return ConfigFactory.parseMap(confData);
     }
