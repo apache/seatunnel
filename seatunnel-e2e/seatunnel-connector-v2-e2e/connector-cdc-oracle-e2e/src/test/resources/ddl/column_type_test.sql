@@ -61,6 +61,8 @@ create table DEBEZIUM.FULL_TYPES (
     primary key (ID)
 );
 
+ALTER TABLE DEBEZIUM.FULL_TYPES ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;
+
 create table DEBEZIUM.FULL_TYPES2 (
                                      ID                           NUMBER(9) not null,
                                      VAL_VARCHAR                  VARCHAR2(1000),
@@ -102,6 +104,8 @@ create table DEBEZIUM.FULL_TYPES2 (
                                      primary key (ID)
 );
 
+ALTER TABLE DEBEZIUM.FULL_TYPES2 ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;
+
 create table DEBEZIUM.FULL_TYPES_NO_PRIMARY_KEY (
                                       ID                           NUMBER(9) not null,
                                       VAL_VARCHAR                  VARCHAR2(1000),
@@ -141,6 +145,8 @@ create table DEBEZIUM.FULL_TYPES_NO_PRIMARY_KEY (
                                       VAL_TS_PRECISION9            TIMESTAMP(6),
                                       VAL_TSLTZ                    TIMESTAMP(6) WITH LOCAL TIME ZONE
 );
+
+ALTER TABLE DEBEZIUM.FULL_TYPES_NO_PRIMARY_KEY ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;
 
 INSERT INTO DEBEZIUM.FULL_TYPES VALUES (
     1, 'vc2', 'vc2', 'nvc2', 'c', 'nc',
