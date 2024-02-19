@@ -35,7 +35,6 @@ import org.apache.seatunnel.connectors.doris.catalog.DorisCatalog;
 import org.apache.seatunnel.connectors.doris.catalog.DorisCatalogFactory;
 import org.apache.seatunnel.connectors.doris.config.DorisOptions;
 import org.apache.seatunnel.connectors.doris.sink.DorisSinkFactory;
-import org.apache.seatunnel.connectors.doris.source.DorisSource;
 import org.apache.seatunnel.connectors.doris.source.DorisSourceFactory;
 
 import org.junit.jupiter.api.AfterAll;
@@ -261,19 +260,37 @@ public class DorisCatalogIT extends AbstractDorisIT {
     @Test
     public void testDorisSourceSelectFieldsNotLossKeysInformation() {
         catalog.createTable(tablePath, catalogTable, true);
-
         DorisSourceFactory dorisSourceFactory = new DorisSourceFactory();
-        SeaTunnelSource dorisSource = dorisSourceFactory.createSource(new TableSourceFactoryContext(ReadonlyConfig.fromMap(new HashMap<String, Object>() {{
-            put(DorisOptions.DATABASE.key(), DATABASE);
-            put(DorisOptions.TABLE.key(), SINK_TABLE);
-            put(DorisOptions.USERNAME.key(), USERNAME);
-            put(DorisOptions.PASSWORD.key(), PASSWORD);
-            put(DorisOptions.FENODES.key(), container.getHost() + ":" + HTTP_PORT);
-            put(DorisOptions.QUERY_PORT.key(), QUERY_PORT);
-        }}), Thread.currentThread().getContextClassLoader())).createSource();
+        SeaTunnelSource dorisSource =
+                dorisSourceFactory
+                        .createSource(
+                                new TableSourceFactoryContext(
+                                        ReadonlyConfig.fromMap(
+                                                new HashMap<String, Object>() {
+                                                    {
+                                                        put(DorisOptions.DATABASE.key(), DATABASE);
+                                                        put(DorisOptions.TABLE.key(), SINK_TABLE);
+                                                        put(DorisOptions.USERNAME.key(), USERNAME);
+                                                        put(DorisOptions.PASSWORD.key(), PASSWORD);
+                                                        put(
+                                                                DorisOptions.DORIS_READ_FIELD.key(),
+                                                                "k1,k2");
+                                                        put(
+                                                                DorisOptions.FENODES.key(),
+                                                                container.getHost()
+                                                                        + ":"
+                                                                        + HTTP_PORT);
+                                                        put(
+                                                                DorisOptions.QUERY_PORT.key(),
+                                                                QUERY_PORT);
+                                                    }
+                                                }),
+                                        Thread.currentThread().getContextClassLoader()))
+                        .createSource();
         CatalogTable table = (CatalogTable) dorisSource.getProducedCatalogTables().get(0);
+        Assertions.assertIterableEquals(
+                Arrays.asList("k1", "k2"), table.getTableSchema().getPrimaryKey().getColumnNames());
     }
-
 
     @AfterAll
     public void close() {
