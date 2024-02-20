@@ -17,9 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
-
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -48,7 +46,7 @@ public class ElasticsearchRowSerializerTest {
         confMap.put(SinkConfig.INDEX.key(), index);
         confMap.put(SinkConfig.PRIMARY_KEYS.key(), Arrays.asList(primaryKey));
 
-        Config pluginConf = ConfigFactory.parseMap(confMap);
+        ReadonlyConfig pluginConf = ReadonlyConfig.fromMap(confMap);
         ElasticsearchClusterInfo clusterInfo =
                 ElasticsearchClusterInfo.builder().clusterVersion("8.0.0").build();
         IndexInfo indexInfo = new IndexInfo(pluginConf);
@@ -87,7 +85,7 @@ public class ElasticsearchRowSerializerTest {
         Map<String, Object> confMap = new HashMap<>();
         confMap.put(SinkConfig.INDEX.key(), index);
 
-        Config pluginConf = ConfigFactory.parseMap(confMap);
+        ReadonlyConfig pluginConf = ReadonlyConfig.fromMap(confMap);
         ElasticsearchClusterInfo clusterInfo =
                 ElasticsearchClusterInfo.builder().clusterVersion("8.0.0").build();
         IndexInfo indexInfo = new IndexInfo(pluginConf);
@@ -126,7 +124,7 @@ public class ElasticsearchRowSerializerTest {
         confMap.put(SinkConfig.INDEX.key(), index);
         confMap.put(SinkConfig.PRIMARY_KEYS.key(), Arrays.asList(primaryKey));
 
-        Config pluginConf = ConfigFactory.parseMap(confMap);
+        ReadonlyConfig pluginConf = ReadonlyConfig.fromMap(confMap);
         ElasticsearchClusterInfo clusterInfo =
                 ElasticsearchClusterInfo.builder().clusterVersion("8.0.0").build();
         IndexInfo indexInfo = new IndexInfo(pluginConf);
@@ -164,7 +162,7 @@ public class ElasticsearchRowSerializerTest {
         confMap.put(SinkConfig.INDEX.key(), index);
         confMap.put(SinkConfig.PRIMARY_KEYS.key(), Arrays.asList(primaryKey));
 
-        Config pluginConf = ConfigFactory.parseMap(confMap);
+        ReadonlyConfig pluginConf = ReadonlyConfig.fromMap(confMap);
         ElasticsearchClusterInfo clusterInfo =
                 ElasticsearchClusterInfo.builder().clusterVersion("8.0.0").build();
         IndexInfo indexInfo = new IndexInfo(pluginConf);

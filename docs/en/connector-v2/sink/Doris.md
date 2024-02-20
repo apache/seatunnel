@@ -2,6 +2,12 @@
 
 > Doris sink connector
 
+## Support Doris Version
+
+- exactly-once & cdc supported  `Doris version is >= 1.1.x`
+- Array data type supported  `Doris version is >= 1.2.x`
+- Map data type will be support in `Doris version is 2.x`
+
 ## Support Those Engines
 
 > Spark<br/>
@@ -18,18 +24,6 @@
 Used to send data to Doris. Both support streaming and batch mode.
 The internal implementation of Doris sink connector is cached and imported by stream load in batches.
 
-## Supported DataSource Info
-
-:::tip
-
-Version Supported
-
-* exactly-once & cdc supported  `Doris version is >= 1.1.x`
-* Array data type supported  `Doris version is >= 1.2.x`
-* Map data type will be support in `Doris version is 2.x`
-
-:::
-
 ## Sink Options
 
 |              Name              |  Type   | Required |           Default            |                                                                                                                                         Description                                                                                                                                          |
@@ -42,7 +36,7 @@ Version Supported
 | table                          | String  | Yes      | -                            | The table name of `Doris` table,  use `${table_name}` to represent the upstream table name                                                                                                                                                                                                   |
 | table.identifier               | String  | Yes      | -                            | The name of `Doris` table, it will deprecate after version 2.3.5, please use `database` and `table` instead.                                                                                                                                                                                 |
 | sink.label-prefix              | String  | Yes      | -                            | The label prefix used by stream load imports. In the 2pc scenario, global uniqueness is required to ensure the EOS semantics of SeaTunnel.                                                                                                                                                   |
-| sink.enable-2pc                | bool    | No       | -                            | Whether to enable two-phase commit (2pc), the default is true, to ensure Exactly-Once semantics. For two-phase commit, please refer to [here](https://doris.apache.org/docs/dev/sql-manual/sql-reference/Data-Manipulation-Statements/Load/STREAM-LOAD).                                     |
+| sink.enable-2pc                | bool    | No       | false                        | Whether to enable two-phase commit (2pc), the default is false. For two-phase commit, please refer to [here](https://doris.apache.org/docs/dev/sql-manual/sql-reference/Data-Manipulation-Statements/Load/STREAM-LOAD).                                                                      |
 | sink.enable-delete             | bool    | No       | -                            | Whether to enable deletion. This option requires Doris table to enable batch delete function (0.15+ version is enabled by default), and only supports Unique model. you can get more detail at this [link](https://doris.apache.org/docs/dev/data-operate/update-delete/batch-delete-manual) |
 | sink.check-interval            | int     | No       | 10000                        | check exception with the interval while loading                                                                                                                                                                                                                                              |
 | sink.max-retries               | int     | No       | 3                            | the max retry times if writing records to database failed                                                                                                                                                                                                                                    |
@@ -120,7 +114,7 @@ You can use the following placeholders
 
 ## Data Type Mapping
 
-| Doris Data type |           SeaTunnel Data type           |
+| Doris Data Type |           SeaTunnel Data Type           |
 |-----------------|-----------------------------------------|
 | BOOLEAN         | BOOLEAN                                 |
 | TINYINT         | TINYINT                                 |

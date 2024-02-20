@@ -34,7 +34,7 @@ public final class TablePath implements Serializable {
     private final String schemaName;
     private final String tableName;
 
-    public static final TablePath EMPTY = TablePath.of(null, null, null);
+    public static final TablePath DEFAULT = TablePath.of("default", "default", "default");
 
     public static TablePath of(String fullName) {
         return of(fullName, false);

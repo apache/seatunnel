@@ -617,4 +617,10 @@ public class SFTPFileSystem extends FileSystem {
             disconnect(channel);
         }
     }
+
+    @Override
+    public void close() throws IOException {
+        super.close();
+        connectionPool.shutdown();
+    }
 }

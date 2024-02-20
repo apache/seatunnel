@@ -2,6 +2,12 @@
 
 > FakeSource connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 The FakeSource is a virtual data source, which randomly generates the number of rows according to the data structure of the user-defined schema,
@@ -62,12 +68,13 @@ just for some test cases such as type conversion or connector new feature testin
 
 ### Simple:
 
-> This example Randomly generates data of a specified type
+> This example Randomly generates data of a specified type. If you want to learn how to declare field types, click [here](../../concept/schema-feature.md#how-to-declare-type-supported).
 
 ```hocon
 schema = {
   fields {
     c_map = "map<string, array<int>>"
+    c_map_nest = "map<string, {c_int = int, c_string = string}>"
     c_array = "array<int>"
     c_string = string
     c_boolean = boolean
@@ -183,6 +190,8 @@ source {
   }
 }
 ```
+
+> Due to the constraints of the [HOCON](https://github.com/lightbend/config/blob/main/HOCON.md) specification, users cannot directly create byte sequence objects. FakeSource uses strings to assign `bytes` type values. In the example above, the `bytes` type field is assigned `"bWlJWmo="`, which is encoded from "miIZj" with **base64**. Hence, when assigning values to `bytes` type fields, please use strings encoded with **base64**.
 
 ### Specified Data number Simple:
 
@@ -371,14 +380,20 @@ rows = [
 
 ### Options `table-names` Case
 
-```agsl
-FakeSource {
-    table-names = ["test.table1", "test.table2"]
+```hocon
+
+source {
+  # This is a example source plugin **only for test and demonstrate the feature source plugin**
+  FakeSource {
+    table-names = ["test.table1", "test.table2", "test.table3"]
+    parallelism = 1
     schema = {
-        table = "database.schema.table"
-        ...
+      fields {
+        name = "string"
+        age = "int"
+      }
     }
-    ...
+  }
 }
 ```
 

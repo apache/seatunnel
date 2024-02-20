@@ -8,6 +8,26 @@
 > Flink<br/>
 > SeaTunnel Zeta<br/>
 
+## Description
+
+Read external data source data through IoTDB.
+
+:::tip
+
+There is a conflict of thrift version between IoTDB and Spark.Therefore, you need to execute `rm -f $SPARK_HOME/jars/libthrift*` and `cp $IOTDB_HOME/lib/libthrift* $SPARK_HOME/jars/` to resolve it.
+
+:::
+
+## Using Dependency
+
+### For Spark/Flink Engine
+
+> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/org.apache.iotdb/iotdb-jdbc) has been placed in directory `${SEATUNNEL_HOME}/plugins/`.
+
+### For SeaTunnel Zeta Engine
+
+> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/org.apache.iotdb/iotdb-jdbc) has been placed in directory `${SEATUNNEL_HOME}/lib/`.
+
 ## Key features
 
 - [x] [batch](../../concept/connector-v2-features.md)
@@ -20,16 +40,6 @@ supports query SQL and can achieve projection effect.
 - [x] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
 
-## Description
-
-Read external data source data through IoTDB.
-
-:::tip
-
-There is a conflict of thrift version between IoTDB and Spark.Therefore, you need to execute `rm -f $SPARK_HOME/jars/libthrift*` and `cp $IOTDB_HOME/lib/libthrift* $SPARK_HOME/jars/` to resolve it.
-
-:::
-
 ## Supported DataSource Info
 
 | Datasource | Supported Versions |      Url       |
@@ -38,7 +48,7 @@ There is a conflict of thrift version between IoTDB and Spark.Therefore, you nee
 
 ## Data Type Mapping
 
-| IotDB Data type | SeaTunnel Data type |
+| IotDB Data Type | SeaTunnel Data Type |
 |-----------------|---------------------|
 | BOOLEAN         | BOOLEAN             |
 | INT32           | TINYINT             |

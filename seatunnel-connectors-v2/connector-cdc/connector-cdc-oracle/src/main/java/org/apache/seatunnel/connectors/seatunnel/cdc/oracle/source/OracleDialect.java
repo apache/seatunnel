@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.ConstraintKey;
+import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
@@ -24,6 +27,7 @@ import org.apache.seatunnel.connectors.cdc.base.relational.connection.JdbcConnec
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.splitter.ChunkSplitter;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.external.FetchTask;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
+import org.apache.seatunnel.connectors.cdc.base.utils.CatalogTableUtils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.config.OracleSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.config.OracleSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.eumerator.OracleChunkSplitter;
@@ -40,6 +44,8 @@ import io.debezium.relational.history.TableChanges.TableChange;
 
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 import static org.apache.seatunnel.connectors.seatunnel.cdc.oracle.utils.OracleConnectionUtils.createOracleConnection;
 
@@ -49,10 +55,13 @@ public class OracleDialect implements JdbcDataSourceDialect {
     private final OracleSourceConfigFactory configFactory;
     private final OracleSourceConfig sourceConfig;
     private transient OracleSchema oracleSchema;
+    private final Map<TableId, CatalogTable> tableMap;
 
-    public OracleDialect(OracleSourceConfigFactory configFactory) {
+    public OracleDialect(
+            OracleSourceConfigFactory configFactory, List<CatalogTable> catalogTables) {
         this.configFactory = configFactory;
         this.sourceConfig = configFactory.create(0);
+        this.tableMap = CatalogTableUtils.convertTables(catalogTables);
     }
 
     @Override
@@ -102,7 +111,7 @@ public class OracleDialect implements JdbcDataSourceDialect {
     @Override
     public TableChange queryTableSchema(JdbcConnection jdbc, TableId tableId) {
         if (oracleSchema == null) {
-            oracleSchema = new OracleSchema(sourceConfig.getDbzConnectorConfig());
+            oracleSchema = new OracleSchema(sourceConfig.getDbzConnectorConfig(), tableMap);
         }
         return oracleSchema.getTableSchema(jdbc, tableId);
     }
@@ -120,5 +129,15 @@ public class OracleDialect implements JdbcDataSourceDialect {
         } else {
             return new OracleRedoLogFetchTask(sourceSplitBase.asIncrementalSplit());
         }
+    }
+
+    @Override
+    public Optional<PrimaryKey> getPrimaryKey(JdbcConnection jdbcConnection, TableId tableId) {
+        return Optional.ofNullable(tableMap.get(tableId).getTableSchema().getPrimaryKey());
+    }
+
+    @Override
+    public List<ConstraintKey> getConstraintKeys(JdbcConnection jdbcConnection, TableId tableId) {
+        return tableMap.get(tableId).getTableSchema().getConstraintKeys();
     }
 }

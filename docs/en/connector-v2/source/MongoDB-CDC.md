@@ -75,7 +75,7 @@ db.createUser(
 
 The following table lists the field data type mapping from MongoDB BSON type to Seatunnel data type.
 
-| MongoDB BSON type | Seatunnel Data type |
+| MongoDB BSON Type | SeaTunnel Data Type |
 |-------------------|---------------------|
 | ObjectId          | STRING              |
 | String            | STRING              |
@@ -92,7 +92,7 @@ The following table lists the field data type mapping from MongoDB BSON type to 
 
 For specific types in MongoDB, we use Extended JSON format to map them to Seatunnel STRING type.
 
-| MongoDB BSON type |                                       Seatunnel STRING                                       |
+| MongoDB BSON type |                                       SeaTunnel STRING                                       |
 |-------------------|----------------------------------------------------------------------------------------------|
 | Symbol            | {"_value": {"$symbol": "12"}}                                                                |
 | RegularExpression | {"_value": {"$regularExpression": {"pattern": "^9$", "options": "i"}}}                       |

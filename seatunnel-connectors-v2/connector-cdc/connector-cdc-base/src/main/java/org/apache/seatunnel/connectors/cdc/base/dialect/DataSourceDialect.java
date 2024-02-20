@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.cdc.base.dialect;
 
+import org.apache.seatunnel.api.state.CheckpointListener;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.splitter.ChunkSplitter;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.external.FetchTask;
@@ -32,7 +33,8 @@ import java.util.List;
  *
  * @param <C> The source config of data source.
  */
-public interface DataSourceDialect<C extends SourceConfig> extends Serializable {
+public interface DataSourceDialect<C extends SourceConfig>
+        extends Serializable, CheckpointListener {
 
     /** Get the name of dialect. */
     String getName();
@@ -51,4 +53,13 @@ public interface DataSourceDialect<C extends SourceConfig> extends Serializable 
 
     /** The task context used for fetch task to fetch data from external systems. */
     FetchTask.Context createFetchTaskContext(SourceSplitBase sourceSplitBase, C sourceConfig);
+
+    /**
+     * We have an empty default implementation here because most dialects do not have to implement
+     * the method.
+     *
+     * @see CheckpointListener#notifyCheckpointComplete(long)
+     */
+    @Override
+    default void notifyCheckpointComplete(long checkpointId) throws Exception {}
 }

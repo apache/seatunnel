@@ -414,4 +414,14 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
     public HadoopFileSystemProxy getHadoopFileSystemProxy() {
         return hadoopFileSystemProxy;
     }
+
+    @Override
+    public void close() throws IOException {
+        try {
+            if (hadoopFileSystemProxy != null) {
+                hadoopFileSystemProxy.close();
+            }
+        } catch (Exception ignore) {
+        }
+    }
 }

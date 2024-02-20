@@ -41,7 +41,7 @@ Read external data source data through JDBC.
 
 ## Data Type Mapping
 
-|                                      Hive Data type                                       | SeaTunnel Data type |
+|                                      Hive Data Type                                       | SeaTunnel Data Type |
 |-------------------------------------------------------------------------------------------|---------------------|
 | BOOLEAN                                                                                   | BOOLEAN             |
 | TINYINT<br/> SMALLINT                                                                     | SHORT               |

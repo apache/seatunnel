@@ -19,6 +19,7 @@ package org.apache.seatunnel.e2e.connector.kudu;
 
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
@@ -27,6 +28,7 @@ import org.apache.kudu.ColumnTypeAttributes;
 import org.apache.kudu.Schema;
 import org.apache.kudu.Type;
 import org.apache.kudu.client.AsyncKuduClient;
+import org.apache.kudu.client.Bytes;
 import org.apache.kudu.client.CreateTableOptions;
 import org.apache.kudu.client.Insert;
 import org.apache.kudu.client.KuduClient;
@@ -65,6 +67,7 @@ import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static java.lang.String.format;
@@ -169,6 +172,27 @@ public class KuduIT extends TestSuiteBase implements TestResource {
         }
     }
 
+    private void batchInsertData(String tableName) throws KuduException {
+        KuduTable table = kuduClient.openTable(tableName);
+        KuduSession kuduSession = kuduClient.newSession();
+        for (int i = 0; i < 100; i++) {
+            Insert insert = table.newInsert();
+            PartialRow row = insert.getRow();
+            row.addObject("id", i);
+            row.addObject("val_bool", true);
+            row.addObject("val_int8", (byte) 1);
+            row.addObject("val_int16", (short) 300);
+            row.addObject("val_int32", 30000);
+            row.addObject("val_int64", 30000000L);
+            row.addObject("val_float", 1.0f);
+            row.addObject("val_double", 2.0d);
+            row.addObject("val_decimal", new BigDecimal("1.1212"));
+            row.addObject("val_string", "test");
+            row.addObject("val_unixtime_micros", new java.sql.Timestamp(1693477266998L));
+            OperationResponse response = kuduSession.apply(insert);
+        }
+    }
+
     private void initializeKuduTable() throws KuduException {
 
         List<ColumnSchema> columns = new ArrayList();
@@ -232,6 +256,64 @@ public class KuduIT extends TestSuiteBase implements TestResource {
         kuduClient.createTable(KUDU_SINK_TABLE, schema, tableOptions);
     }
 
+    private void initializeKuduTable(String tableName) throws KuduException {
+
+        List<ColumnSchema> columns = new ArrayList();
+
+        columns.add(new ColumnSchema.ColumnSchemaBuilder("id", Type.INT32).key(true).build());
+        columns.add(
+                new ColumnSchema.ColumnSchemaBuilder("val_bool", Type.BOOL).nullable(true).build());
+        columns.add(
+                new ColumnSchema.ColumnSchemaBuilder("val_int8", Type.INT8).nullable(true).build());
+        columns.add(
+                new ColumnSchema.ColumnSchemaBuilder("val_int16", Type.INT16)
+                        .nullable(true)
+                        .build());
+        columns.add(
+                new ColumnSchema.ColumnSchemaBuilder("val_int32", Type.INT32)
+                        .nullable(true)
+                        .build());
+        columns.add(
+                new ColumnSchema.ColumnSchemaBuilder("val_int64", Type.INT64)
+                        .nullable(true)
+                        .build());
+        columns.add(
+                new ColumnSchema.ColumnSchemaBuilder("val_float", Type.FLOAT)
+                        .nullable(true)
+                        .build());
+        columns.add(
+                new ColumnSchema.ColumnSchemaBuilder("val_double", Type.DOUBLE)
+                        .nullable(true)
+                        .build());
+        columns.add(
+                new ColumnSchema.ColumnSchemaBuilder("val_decimal", Type.DECIMAL)
+                        .nullable(true)
+                        .typeAttributes(
+                                new ColumnTypeAttributes.ColumnTypeAttributesBuilder()
+                                        .precision(20)
+                                        .scale(5)
+                                        .build())
+                        .build());
+        columns.add(
+                new ColumnSchema.ColumnSchemaBuilder("val_string", Type.STRING)
+                        .nullable(true)
+                        .build());
+        // spark
+        columns.add(
+                new ColumnSchema.ColumnSchemaBuilder("val_unixtime_micros", Type.UNIXTIME_MICROS)
+                        .nullable(true)
+                        .build());
+
+        Schema schema = new Schema(columns);
+
+        ImmutableList<String> hashKeys = ImmutableList.of("id");
+        CreateTableOptions tableOptions = new CreateTableOptions();
+
+        tableOptions.addHashPartitions(hashKeys, 2);
+        tableOptions.setNumReplicas(1);
+        kuduClient.createTable(tableName, schema, tableOptions);
+    }
+
     private void getKuduClient() {
         kuduClient =
                 new AsyncKuduClient.AsyncKuduClientBuilder(
@@ -260,15 +342,147 @@ public class KuduIT extends TestSuiteBase implements TestResource {
         kuduClient.deleteTable(KUDU_SINK_TABLE);
     }
 
-    public List<String> readData(String tableName) throws KuduException {
-        List<String> result = new ArrayList<>();
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK},
+            disabledReason = "Currently SPARK do not support cdc")
+    @TestTemplate
+    public void testCdcKudu(TestContainer container) throws IOException, InterruptedException {
+        this.initializeKuduTable("kudu_cdc_sink_table");
+        Container.ExecResult execResult = container.executeJob("/write-cdc-changelog-to-kudu.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertIterableEquals(
+                                    Stream.<List<Object>>of(
+                                                    Arrays.asList(
+                                                            "3",
+                                                            "true",
+                                                            "1",
+                                                            "2",
+                                                            "3",
+                                                            "4",
+                                                            "4.3",
+                                                            "5.3",
+                                                            "6.30000",
+                                                            "NEW",
+                                                            "2020-02-02 02:02:02.0"),
+                                                    Arrays.asList(
+                                                            "1",
+                                                            "true",
+                                                            "2",
+                                                            "2",
+                                                            "3",
+                                                            "4",
+                                                            "4.3",
+                                                            "5.3",
+                                                            "6.30000",
+                                                            "NEW",
+                                                            "2020-02-02 02:02:02.0"))
+                                            .collect(Collectors.toList()),
+                                    readData("kudu_cdc_sink_table"));
+                        });
+
+        kuduClient.deleteTable("kudu_cdc_sink_table");
+    }
+
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "Currently SPARK/FLINK do not support multiple table read")
+    @TestTemplate
+    public void testKuduMultipleRead(TestContainer container)
+            throws IOException, InterruptedException {
+        initializeKuduTable("kudu_source_table_1");
+        initializeKuduTable("kudu_source_table_2");
+        batchInsertData("kudu_source_table_1");
+        batchInsertData("kudu_source_table_2");
+        Container.ExecResult execResult =
+                container.executeJob("/kudu_to_assert_with_multipletable.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        kuduClient.deleteTable("kudu_source_table_1");
+        kuduClient.deleteTable("kudu_source_table_2");
+    }
+
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "Currently SPARK/FLINK do not support multiple table read")
+    @TestTemplate
+    public void testKuduMultipleWrite(TestContainer container)
+            throws IOException, InterruptedException {
+        initializeKuduTable("kudu_sink_1");
+        initializeKuduTable("kudu_sink_2");
+        Container.ExecResult execResult =
+                container.executeJob("/fake_to_kudu_with_multipletable.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertAll(
+                                        () -> {
+                                            Assertions.assertIterableEquals(
+                                                    Stream.<List<Object>>of(
+                                                                    Arrays.asList(
+                                                                            "1",
+                                                                            "true",
+                                                                            "1",
+                                                                            "2",
+                                                                            "3",
+                                                                            "4",
+                                                                            "4.3",
+                                                                            "5.3",
+                                                                            "6.30000",
+                                                                            "NEW",
+                                                                            "2020-02-02 02:02:02.0"))
+                                                            .collect(Collectors.toList()),
+                                                    readData("kudu_sink_1"));
+                                        },
+                                        () -> {
+                                            Assertions.assertIterableEquals(
+                                                    Stream.<List<Object>>of(
+                                                                    Arrays.asList(
+                                                                            "1",
+                                                                            "true",
+                                                                            "1",
+                                                                            "2",
+                                                                            "3",
+                                                                            "4",
+                                                                            "4.3",
+                                                                            "5.3",
+                                                                            "6.30000",
+                                                                            "NEW",
+                                                                            "2020-02-02 02:02:02.0"))
+                                                            .collect(Collectors.toList()),
+                                                    readData("kudu_sink_2"));
+                                        }));
+
+        kuduClient.deleteTable("kudu_sink_1");
+        kuduClient.deleteTable("kudu_sink_2");
+    }
+
+    public List<List<Object>> readData(String tableName) throws KuduException {
+        List<List<Object>> result = new ArrayList<>();
         KuduTable kuduTable = kuduClient.openTable(tableName);
         KuduScanner scanner = kuduClient.newScannerBuilder(kuduTable).build();
         while (scanner.hasMoreRows()) {
             RowResultIterator rowResults = scanner.nextRows();
+            List<Object> row = new ArrayList<>();
             while (rowResults.hasNext()) {
                 RowResult rowResult = rowResults.next();
-                result.add(rowResult.rowToString());
+                for (int i = 0; i < rowResult.getSchema().getColumns().size(); i++) {
+                    if (rowResult.getSchema().getColumnByIndex(i).getType() == Type.BINARY) {
+                        row.add(Bytes.pretty(rowResult.getBinaryCopy(i)));
+                        break;
+                    }
+                    row.add(rowResult.getObject(i).toString());
+                }
+            }
+            if (!row.isEmpty()) {
+                result.add(row);
             }
         }
         return result;
