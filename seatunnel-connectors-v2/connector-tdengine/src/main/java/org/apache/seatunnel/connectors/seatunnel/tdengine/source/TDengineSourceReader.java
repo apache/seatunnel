@@ -81,7 +81,7 @@ public class TDengineSourceReader implements SourceReader<SeaTunnelRow, TDengine
                 }
             } else if (noMoreSplit && sourceSplits.isEmpty()) {
                 // signal to the source that we have reached the end of the data.
-                log.info("Closed the bounded jdbc source");
+                log.info("Closed the bounded TDengine source");
                 context.signalNoMoreElement();
             } else {
                 Thread.sleep(1000L);
