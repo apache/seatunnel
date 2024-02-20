@@ -142,26 +142,39 @@ class IcebergCatalogTest {
 
     CatalogTable buildAllTypesTable(TableIdentifier tableIdentifier) {
         TableSchema.Builder builder = TableSchema.builder();
-        builder.column(PhysicalColumn.of("id", BasicType.INT_TYPE, null, true, null, null));
-        builder.column(
-                PhysicalColumn.of("boolean_col", BasicType.BOOLEAN_TYPE, null, true, null, null));
-        builder.column(
-                PhysicalColumn.of("integer_col", BasicType.INT_TYPE, null, true, null, null));
-        builder.column(PhysicalColumn.of("long_col", BasicType.LONG_TYPE, null, true, null, null));
-        builder.column(
-                PhysicalColumn.of("float_col", BasicType.FLOAT_TYPE, null, true, null, null));
-        builder.column(
-                PhysicalColumn.of("double_col", BasicType.DOUBLE_TYPE, null, true, null, null));
-        builder.column(PhysicalColumn.of("date_col", LOCAL_DATE_TYPE, null, true, null, null));
-        builder.column(
-                PhysicalColumn.of("timestamp_col", LOCAL_DATE_TIME_TYPE, null, true, null, null));
-        builder.column(PhysicalColumn.of("string_col", STRING_TYPE, null, true, null, null));
+        builder.column(PhysicalColumn.of("id", BasicType.INT_TYPE, (Long) null, true, null, null));
         builder.column(
                 PhysicalColumn.of(
-                        "binary_col", PrimitiveByteArrayType.INSTANCE, null, true, null, null));
+                        "boolean_col", BasicType.BOOLEAN_TYPE, (Long) null, true, null, null));
         builder.column(
-                PhysicalColumn.of("decimal_col", new DecimalType(38, 18), null, true, null, null));
-        builder.column(PhysicalColumn.of("dt_col", STRING_TYPE, null, true, null, null));
+                PhysicalColumn.of(
+                        "integer_col", BasicType.INT_TYPE, (Long) null, true, null, null));
+        builder.column(
+                PhysicalColumn.of("long_col", BasicType.LONG_TYPE, (Long) null, true, null, null));
+        builder.column(
+                PhysicalColumn.of(
+                        "float_col", BasicType.FLOAT_TYPE, (Long) null, true, null, null));
+        builder.column(
+                PhysicalColumn.of(
+                        "double_col", BasicType.DOUBLE_TYPE, (Long) null, true, null, null));
+        builder.column(
+                PhysicalColumn.of("date_col", LOCAL_DATE_TYPE, (Long) null, true, null, null));
+        builder.column(
+                PhysicalColumn.of(
+                        "timestamp_col", LOCAL_DATE_TIME_TYPE, (Long) null, true, null, null));
+        builder.column(PhysicalColumn.of("string_col", STRING_TYPE, (Long) null, true, null, null));
+        builder.column(
+                PhysicalColumn.of(
+                        "binary_col",
+                        PrimitiveByteArrayType.INSTANCE,
+                        (Long) null,
+                        true,
+                        null,
+                        null));
+        builder.column(
+                PhysicalColumn.of(
+                        "decimal_col", new DecimalType(38, 18), (Long) null, true, null, null));
+        builder.column(PhysicalColumn.of("dt_col", STRING_TYPE, (Long) null, true, null, null));
 
         TableSchema schema = builder.build();
         HashMap<String, String> options = new HashMap<>();
