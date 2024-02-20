@@ -56,7 +56,7 @@ public class InfluxDBSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(URL, DATABASES)
+                .required(URL, DATABASES, KEY_MEASUREMENT)
                 .bundled(USERNAME, PASSWORD)
                 .optional(
                         CONNECT_TIMEOUT_MS,
