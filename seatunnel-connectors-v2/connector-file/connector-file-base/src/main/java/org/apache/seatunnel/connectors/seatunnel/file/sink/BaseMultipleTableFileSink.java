@@ -99,7 +99,8 @@ public abstract class BaseMultipleTableFileSink
 
     protected WriteStrategy createWriteStrategy() {
         WriteStrategy writeStrategy =
-                WriteStrategyFactory.of(fileSinkConfig.getFileFormat(), fileSinkConfig);
+                WriteStrategyFactory.of(
+                        fileSinkConfig.getFileFormat(), fileSinkConfig, getPluginName());
         writeStrategy.setSeaTunnelRowTypeInfo(catalogTable.getSeaTunnelRowType());
         return writeStrategy;
     }
