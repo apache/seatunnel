@@ -5,9 +5,7 @@
 [![Slack](https://img.shields.io/badge/slack-%23seatunnel-4f8eba?logo=slack)](https://s.apache.org/seatunnel-slack)
 [![Twitter Follow](https://img.shields.io/twitter/follow/ASFSeaTunnel.svg?label=Follow&logo=twitter)](https://twitter.com/ASFSeaTunnel)
 
-SeaTunnel是一个非常易用、超高性能的分布式数据集成平台，支持实时
-海量数据同步。 每天可稳定高效同步数百亿数据，拥有
-已被近百家企业应用于生产。
+SeaTunnel是一个非常易用、超高性能的分布式数据集成平台，支持实时海量数据同步。 每天可稳定高效同步数百亿数据，已被近百家企业应用于生产。
 
 ## 我们为什么需要 SeaTunnel
 

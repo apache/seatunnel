@@ -293,7 +293,7 @@ log4j.appender.console.layout.ConversionPattern=%d{yyyy-MM-dd HH:mm:ss} %-5p %c{
 
 参考：
 
-https://stackoverflow.com/questions/27781187/how-to-stop-info-messages-displaying-on-spark-console
+https://stackoverflow.com/questions/27781187how-to-stop-info-messages-displaying-on-spark-console
 
 http://spark.apache.org/docs/latest/configuration.html#configuring-logging
 
@@ -315,7 +315,7 @@ https://medium.com/@iacomini.riccardo/spark-logging-configuration-in-yarn-faf5ba
 1.过滤器转换插件
 2.过滤Sql插件
 
-详细数据类型转换参考：【ClickHouse数据类型检查列表】(https://interestinglab.github.io/seatunnel-docs/#/en/configuration/output-plugins/Clickhouse?id=clickhouse-data-type-check- 列表）
+详细数据类型转换参考：[ClickHouse数据类型检查列表](https://interestinglab.github.io/seatunnel-docs/#/en/configuration/output-plugins/Clickhouse?id=clickhouse-data-type-check-list)
 
 请参阅问题：[#488](https://github.com/apache/seatunnel/issues/488)[#382](https://github.com/apache/seatunnel/issues/382)。
 
