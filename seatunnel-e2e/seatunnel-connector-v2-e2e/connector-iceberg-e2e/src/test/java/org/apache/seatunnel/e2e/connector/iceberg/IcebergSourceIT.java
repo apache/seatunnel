@@ -17,8 +17,11 @@
 
 package org.apache.seatunnel.e2e.connector.iceberg;
 
-import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergCatalogFactory;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergCatalogLoader;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.CommonConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCatalogType;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceConfig;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
@@ -63,7 +66,9 @@ import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCatalogType.HADOOP;
 
@@ -133,7 +138,19 @@ public class IcebergSourceIT extends TestSuiteBase implements TestResource {
     }
 
     private void initializeIcebergTable() {
-        CATALOG = new IcebergCatalogFactory(CATALOG_NAME, CATALOG_TYPE, WAREHOUSE, null).create();
+
+        Map<String, Object> configs = new HashMap<>();
+        // build catalog props
+        Map<String, Object> catalogProps = new HashMap<>();
+        catalogProps.put("type", CATALOG_TYPE.getType());
+        catalogProps.put("warehouse", WAREHOUSE);
+
+        configs.put(CommonConfig.KEY_CATALOG_NAME.key(), CATALOG_NAME);
+        configs.put(CommonConfig.CATALOG_PROPS.key(), catalogProps);
+
+        CATALOG =
+                new IcebergCatalogLoader(new SourceConfig(ReadonlyConfig.fromMap(configs)))
+                        .loadCatalog();
         if (!CATALOG.tableExists(TABLE)) {
             CATALOG.createTable(TABLE, SCHEMA);
         }
