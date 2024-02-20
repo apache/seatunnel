@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.kudu.sink;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSinkConfig;
@@ -32,7 +33,9 @@ import java.io.IOException;
 import java.util.Optional;
 
 @Slf4j
-public class KuduSinkWriter implements SinkWriter<SeaTunnelRow, KuduCommitInfo, KuduSinkState> {
+public class KuduSinkWriter
+        implements SinkWriter<SeaTunnelRow, KuduCommitInfo, KuduSinkState>,
+                SupportMultiTableSinkWriter<Void> {
 
     private SeaTunnelRowType seaTunnelRowType;
     private KuduOutputFormat fileWriter;

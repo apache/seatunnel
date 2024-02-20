@@ -14,6 +14,16 @@ e.g. If you use MySQL, should download and copy `mysql-connector-java-xxx.jar` t
 
 :::
 
+## Using Dependency
+
+### For Spark/Flink Engine
+
+> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/mysql/mysql-connector-java) has been placed in directory `${SEATUNNEL_HOME}/plugins/`.
+
+### For SeaTunnel Zeta Engine
+
+> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/mysql/mysql-connector-java) has been placed in directory `${SEATUNNEL_HOME}/lib/`.
+
 ## Key features
 
 - [x] [batch](../../concept/connector-v2-features.md)
@@ -82,22 +92,6 @@ The compatible mode of database, required when the database supports multiple co
 
 The time in seconds to wait for the database operation used to validate the connection to complete.
 
-### partition_column [string]
-
-The column name for parallelism's partition, only support numeric type.
-
-### partition_upper_bound [BigDecimal]
-
-The partition_column max value for scan, if not set SeaTunnel will query database get max value.
-
-### partition_lower_bound [BigDecimal]
-
-The partition_column min value for scan, if not set SeaTunnel will query database get min value.
-
-### partition_num [int]
-
-The number of partition count, only support positive integer. default value is job parallelism
-
 ### fetch_size [int]
 
 For queries that return a large number of objects, you can configure the row fetch size used in the query to
@@ -139,34 +133,73 @@ table_list = [
 
 Common row filter conditions for all tables/queries, must start with `where`. for example `where id > 100`
 
-### split.size
-
-The split size (number of rows) of table, captured tables are split into multiple splits when read of table.
-
-### split.even-distribution.factor.lower-bound
-
-The lower bound of the chunk key distribution factor. This factor is used to determine whether the table data is evenly distributed. If the distribution factor is calculated to be greater than or equal to this lower bound (i.e., (MAX(id) - MIN(id) + 1) / row count), the table chunks would be optimized for even distribution. Otherwise, if the distribution factor is less, the table will be considered as unevenly distributed and the sampling-based sharding strategy will be used if the estimated shard count exceeds the value specified by `sample-sharding.threshold`. The default value is 0.05.
-
-### split.even-distribution.factor.upper-bound
-
-The upper bound of the chunk key distribution factor. This factor is used to determine whether the table data is evenly distributed. If the distribution factor is calculated to be less than or equal to this upper bound (i.e., (MAX(id) - MIN(id) + 1) / row count), the table chunks would be optimized for even distribution. Otherwise, if the distribution factor is greater, the table will be considered as unevenly distributed and the sampling-based sharding strategy will be used if the estimated shard count exceeds the value specified by `sample-sharding.threshold`. The default value is 100.0.
-
-### split.sample-sharding.threshold
-
-This configuration specifies the threshold of estimated shard count to trigger the sample sharding strategy. When the distribution factor is outside the bounds specified by `chunk-key.even-distribution.factor.upper-bound` and `chunk-key.even-distribution.factor.lower-bound`, and the estimated shard count (calculated as approximate row count / chunk size) exceeds this threshold, the sample sharding strategy will be used. This can help to handle large datasets more efficiently. The default value is 1000 shards.
-
-### split.inverse-sampling.rate
-
-The inverse of the sampling rate used in the sample sharding strategy. For example, if this value is set to 1000, it means a 1/1000 sampling rate is applied during the sampling process. This option provides flexibility in controlling the granularity of the sampling, thus affecting the final number of shards. It's especially useful when dealing with very large datasets where a lower sampling rate is preferred. The default value is 1000.
-
 ### common options
 
 Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.
 
+## Parallel Reader
+
+The JDBC Source connector supports parallel reading of data from tables. SeaTunnel will use certain rules to split the data in the table, which will be handed over to readers for reading. The number of readers is determined by the `parallelism` option.
+
+**Split Key Rules:**
+
+1. If `partition_column` is not null, It will be used to calculate split. The column must in **Supported split data type**.
+2. If `partition_column` is null, seatunnel will read the schema from table and get the Primary Key and Unique Index. If there are more than one column in Primary Key and Unique Index, The first column which in the **supported split data type** will be used to split data. For example, the table have Primary Key(nn guid, name varchar), because `guid` id not in **supported split data type**, so the column `name` will be used to split data.
+
+**Supported split data type:**
+* String
+* Number(int, bigint, decimal, ...)
+* Date
+
+### Options Related To Split
+
+#### split.size
+
+How many rows in one split, captured tables are split into multiple splits when read of table.
+
+#### split.even-distribution.factor.lower-bound
+
+> Not recommended for use
+
+The lower bound of the chunk key distribution factor. This factor is used to determine whether the table data is evenly distributed. If the distribution factor is calculated to be greater than or equal to this lower bound (i.e., (MAX(id) - MIN(id) + 1) / row count), the table chunks would be optimized for even distribution. Otherwise, if the distribution factor is less, the table will be considered as unevenly distributed and the sampling-based sharding strategy will be used if the estimated shard count exceeds the value specified by `sample-sharding.threshold`. The default value is 0.05.
+
+#### split.even-distribution.factor.upper-bound
+
+> Not recommended for use
+
+The upper bound of the chunk key distribution factor. This factor is used to determine whether the table data is evenly distributed. If the distribution factor is calculated to be less than or equal to this upper bound (i.e., (MAX(id) - MIN(id) + 1) / row count), the table chunks would be optimized for even distribution. Otherwise, if the distribution factor is greater, the table will be considered as unevenly distributed and the sampling-based sharding strategy will be used if the estimated shard count exceeds the value specified by `sample-sharding.threshold`. The default value is 100.0.
+
+#### split.sample-sharding.threshold
+
+This configuration specifies the threshold of estimated shard count to trigger the sample sharding strategy. When the distribution factor is outside the bounds specified by `chunk-key.even-distribution.factor.upper-bound` and `chunk-key.even-distribution.factor.lower-bound`, and the estimated shard count (calculated as approximate row count / chunk size) exceeds this threshold, the sample sharding strategy will be used. This can help to handle large datasets more efficiently. The default value is 1000 shards.
+
+#### split.inverse-sampling.rate
+
+The inverse of the sampling rate used in the sample sharding strategy. For example, if this value is set to 1000, it means a 1/1000 sampling rate is applied during the sampling process. This option provides flexibility in controlling the granularity of the sampling, thus affecting the final number of shards. It's especially useful when dealing with very large datasets where a lower sampling rate is preferred. The default value is 1000.
+
+#### partition_column [string]
+
+The column name for split data.
+
+#### partition_upper_bound [BigDecimal]
+
+The partition_column max value for scan, if not set SeaTunnel will query database get max value.
+
+#### partition_lower_bound [BigDecimal]
+
+The partition_column min value for scan, if not set SeaTunnel will query database get min value.
+
+#### partition_num [int]
+
+> Not recommended for use, The correct approach is to control the number of split through `split.size`
+
+How many splits do we need to split into, only support positive integer. default value is job parallelism.
+
 ## tips
 
-If partition_column is not set, it will run in single concurrency, and if partition_column is set, it will be executed
-in parallel according to the concurrency of tasks.
+> If the table can not be split(for example, table have no Primary Key or Unique Index, and `partition_column` is not set), it will run in single concurrency.
+>
+> Use `table_path` to replace `query` for single table reading. If you need to read multiple tables, use `table_list`.
 
 ## appendix
 
@@ -197,7 +230,7 @@ there are some reference value for params above.
 
 ## Example
 
-simple:
+### simple
 
 ```
 Jdbc {
@@ -210,11 +243,11 @@ Jdbc {
 }
 ```
 
-parallel:
+### parallel by partition_column
 
 ```
 env {
-  execution.parallelism = 10
+  parallelism = 10
   job.mode = "BATCH"
 }
 source {
@@ -226,7 +259,7 @@ source {
         password = "123456"
         query = "select * from type_bin"
         partition_column = "id"
-        partition_num = 10
+        split.size = 10000
         # Read start boundary
         #partition_lower_bound = ...
         # Read end boundary
@@ -239,29 +272,61 @@ sink {
 }
 ```
 
-Using `table_path` read:
+### Parallel Boundary:
 
-***Configuring `table_path` will turn on auto split, you can configure `split.*` to adjust the split strategy***
+> It is more efficient to specify the data within the upper and lower bounds of the query. It is more efficient to read your data source according to the upper and lower boundaries you configured.
 
-```hocon
-Jdbc {
-    url = "jdbc:mysql://localhost/test?serverTimezone=GMT%2b8"
-    driver = "com.mysql.cj.jdbc.Driver"
-    connection_check_timeout_sec = 100
-    user = "root"
-    password = "123456"
-  
-    # e.g. table_path = "testdb.table1"、table_path = "test_schema.table1"、table_path = "testdb.test_schema.table1"
-    table_path = "testdb.table1"
-    #split.size = 8096
-    #split.even-distribution.factor.upper-bound = 100
-    #split.even-distribution.factor.lower-bound = 0.05
-    #split.sample-sharding.threshold = 1000
-    #split.inverse-sampling.rate = 1000
+```
+source {
+    Jdbc {
+        url = "jdbc:mysql://localhost:3306/test?serverTimezone=GMT%2b8&useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
+        driver = "com.mysql.cj.jdbc.Driver"
+        connection_check_timeout_sec = 100
+        user = "root"
+        password = "123456"
+        # Define query logic as required
+        query = "select * from type_bin"
+        partition_column = "id"
+        # Read start boundary
+        partition_lower_bound = 1
+        # Read end boundary
+        partition_upper_bound = 500
+        partition_num = 10
+        properties {
+         useSSL=false
+        }
+    }
 }
 ```
 
-multiple table read:
+### parallel by Primary Key or Unique Index
+
+> Configuring `table_path` will turn on auto split, you can configure `split.*` to adjust the split strategy
+
+```
+env {
+  parallelism = 10
+  job.mode = "BATCH"
+}
+source {
+    Jdbc {
+        url = "jdbc:mysql://localhost/test?serverTimezone=GMT%2b8"
+        driver = "com.mysql.cj.jdbc.Driver"
+        connection_check_timeout_sec = 100
+        user = "root"
+        password = "123456"
+        table_path = "testdb.table1"
+        query = "select * from testdb.table1"
+        split.size = 10000
+    }
+}
+
+sink {
+  Console {}
+}
+```
+
+### multiple table read:
 
 ***Configuring `table_list` will turn on auto split, you can configure `split.*` to adjust the split strategy***
 
@@ -285,7 +350,7 @@ Jdbc {
         }
     ]
     #where_condition= "where id > 100"
-    #split.size = 8096
+    #split.size = 10000
     #split.even-distribution.factor.upper-bound = 100
     #split.even-distribution.factor.lower-bound = 0.05
     #split.sample-sharding.threshold = 1000

@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
@@ -135,6 +136,57 @@ public class CatalogTableUtilTest {
                         CatalogTableUtil.getCatalogTables(
                                 cannotFindCatalogReadonlyConfig,
                                 Thread.currentThread().getContextClassLoader()));
+    }
+
+    @Test
+    public void testDefaultTablePath() throws FileNotFoundException, URISyntaxException {
+        String path = getTestConfigFile("/conf/default_tablepath.conf");
+        Config config = ConfigFactory.parseFile(new File(path));
+        Config source = config.getConfigList("source").get(0);
+        ReadonlyConfig sourceReadonlyConfig = ReadonlyConfig.fromConfig(source);
+        CatalogTable catalogTable = CatalogTableUtil.buildWithConfig(sourceReadonlyConfig);
+        Assertions.assertEquals(
+                TablePath.DEFAULT.getDatabaseName(), catalogTable.getTablePath().getDatabaseName());
+        Assertions.assertEquals(
+                TablePath.DEFAULT.getSchemaName(), catalogTable.getTablePath().getSchemaName());
+        Assertions.assertEquals(
+                TablePath.DEFAULT.getTableName(), catalogTable.getTablePath().getTableName());
+    }
+
+    @Test
+    public void testGenericRowSchemaTest() throws FileNotFoundException, URISyntaxException {
+        String path = getTestConfigFile("/conf/generic_row.schema.conf");
+        Config config = ConfigFactory.parseFile(new File(path));
+        SeaTunnelRowType seaTunnelRowType =
+                CatalogTableUtil.buildWithConfig(config).getSeaTunnelRowType();
+        Assertions.assertNotNull(seaTunnelRowType);
+        Assertions.assertArrayEquals(
+                new String[] {"map0", "map1"}, seaTunnelRowType.getFieldNames());
+
+        MapType<String, SeaTunnelRowType> mapType0 =
+                (MapType<String, SeaTunnelRowType>) seaTunnelRowType.getFieldType(0);
+        MapType<String, SeaTunnelRowType> mapType1 =
+                (MapType<String, SeaTunnelRowType>) seaTunnelRowType.getFieldType(1);
+        Assertions.assertNotNull(mapType0);
+        Assertions.assertNotNull(mapType1);
+        Assertions.assertEquals(BasicType.STRING_TYPE, mapType0.getKeyType());
+
+        SeaTunnelRowType expectedVal =
+                new SeaTunnelRowType(
+                        new String[] {"c_int", "c_string", "c_row"},
+                        new SeaTunnelDataType[] {
+                            BasicType.INT_TYPE,
+                            BasicType.STRING_TYPE,
+                            new SeaTunnelRowType(
+                                    new String[] {"c_int"},
+                                    new SeaTunnelDataType[] {BasicType.INT_TYPE})
+                        });
+        SeaTunnelRowType mapType0ValType =
+                (SeaTunnelRowType) ((SeaTunnelDataType<?>) mapType0.getValueType());
+        Assertions.assertEquals(expectedVal, mapType0ValType);
+        SeaTunnelRowType mapType1ValType =
+                (SeaTunnelRowType) ((SeaTunnelDataType<?>) mapType1.getValueType());
+        Assertions.assertEquals(expectedVal, mapType1ValType);
     }
 
     public static String getTestConfigFile(String configFile)

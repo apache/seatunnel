@@ -12,7 +12,7 @@
 > Flink<br/>
 > SeaTunnel Zeta<br/>
 
-## Key features
+## Key Features
 
 - [x] [exactly-once](../../concept/connector-v2-features.md)
 
@@ -61,7 +61,7 @@ If name is set as the key, then the hash value of the name column will determine
 
 ```hocon
 env {
-  execution.parallelism = 1
+  parallelism = 1
 }
 
 source {
@@ -107,7 +107,7 @@ sink {
 
 ```hocon
 env {
-  execution.parallelism = 1
+  parallelism = 1
 }
 
 source {
@@ -152,7 +152,7 @@ sink {
 ```hocon
 
 env {
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "STREAMING"
 }
 

@@ -20,7 +20,7 @@ Write data to Clickhouse can also be done using JDBC
 
 ## Options
 
-|          name          |  type   | required |             default value              |
+|          Name          |  Type   | Required |                Default                 |
 |------------------------|---------|----------|----------------------------------------|
 | host                   | string  | yes      | -                                      |
 | database               | string  | yes      | -                                      |

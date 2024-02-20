@@ -63,13 +63,15 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | retry_backoff_multiplier_ms | Int     | No       | 100     | The retry-backoff times(millis) multiplier if request http failed.                                                                   |
 | retry_backoff_max_ms        | Int     | No       | 10000   | The maximum retry-backoff times(millis) if request http failed                                                                       |
 | enable_multi_lines          | Boolean | No       | false   |                                                                                                                                      |
+| connect_timeout_ms          | Int     | No       | 12000   | Connection timeout setting, default 12s.                                                                                             |
+| socket_timeout_ms           | Int     | No       | 60000   | Socket timeout setting, default 60s.                                                                                                 |
 | common-options              |         | No       | -       | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details                              |
 
 ## How to Create a Http Data Synchronization Jobs
 
 ```hocon
 env {
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "BATCH"
 }
 

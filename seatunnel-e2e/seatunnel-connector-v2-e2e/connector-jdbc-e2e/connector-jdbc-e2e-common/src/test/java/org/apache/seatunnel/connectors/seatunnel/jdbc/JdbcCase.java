@@ -47,6 +47,7 @@ public class JdbcCase {
     private String jdbcTemplate;
     private String jdbcUrl;
     private String createSql;
+    private String sinkCreateSql;
     private String insertSql;
     private List<String> configFile;
     private Pair<String[], List<SeaTunnelRow>> testData;

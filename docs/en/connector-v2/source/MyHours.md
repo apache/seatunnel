@@ -66,7 +66,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 
 ```hocon
 env {
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "BATCH"
 }
 

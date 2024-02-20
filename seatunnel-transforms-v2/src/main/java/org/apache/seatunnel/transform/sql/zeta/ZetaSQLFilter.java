@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.transform.sql.zeta;
 
+import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.transform.exception.TransformException;
 
@@ -47,9 +48,15 @@ import java.util.regex.Pattern;
 
 public class ZetaSQLFilter {
     private final ZetaSQLFunction zetaSQLFunction;
+    private final ZetaSQLType zetaSQLType;
 
-    public ZetaSQLFilter(ZetaSQLFunction zetaSQLFunction) {
+    public ZetaSQLFilter(ZetaSQLFunction zetaSQLFunction, ZetaSQLType zetaSQLType) {
         this.zetaSQLFunction = zetaSQLFunction;
+        this.zetaSQLType = zetaSQLType;
+    }
+
+    public boolean isConditionExpr(Expression expression) {
+        return BasicType.BOOLEAN_TYPE.equals(zetaSQLType.getExpressionType(expression));
     }
 
     public boolean executeFilter(Expression whereExpr, Object[] inputFields) {
@@ -252,7 +259,7 @@ public class ZetaSQLFilter {
         return Pair.of(leftVal, rightVal);
     }
 
-    private boolean equalsToExpr(Pair<Object, Object> pair) {
+    boolean equalsToExpr(Pair<Object, Object> pair) {
         Object leftVal = pair.getLeft();
         Object rightVal = pair.getRight();
         if (leftVal == null || rightVal == null) {

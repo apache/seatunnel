@@ -25,6 +25,7 @@ import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.ThreadShareMode;
 import org.apache.seatunnel.engine.common.exception.JobNotFoundException;
+import org.apache.seatunnel.engine.common.loader.ClassLoaderUtil;
 import org.apache.seatunnel.engine.common.loader.SeaTunnelChildFirstClassLoader;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
@@ -230,6 +231,13 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                         new BlockingWorker(
                                                 new TaskTracker(t, taskGroupExecutionTracker),
                                                 startedLatch))
+                        .map(
+                                r ->
+                                        new NamedTaskWrapper(
+                                                r,
+                                                "BlockingWorker-"
+                                                        + taskGroupExecutionTracker.taskGroup
+                                                                .getTaskGroupLocation()))
                         .map(executorService::submit)
                         .collect(toList());
 
@@ -262,7 +270,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             Set<ConnectorJarIdentifier> connectorJarIdentifiers =
                     taskImmutableInfo.getConnectorJarIdentifiers();
             Set<URL> jars = taskImmutableInfo.getJars();
-            ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+            ClassLoader classLoader;
             if (!CollectionUtils.isEmpty(connectorJarIdentifiers)) {
                 // Prioritize obtaining the jar package file required for the current task execution
                 // from the local, if it does not exist locally, it will be downloaded from the
@@ -285,6 +293,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                 classLoader,
                                 taskImmutableInfo.getGroup());
             } else {
+                classLoader = new SeaTunnelChildFirstClassLoader(emptyList());
                 taskGroup =
                         nodeEngine.getSerializationService().toObject(taskImmutableInfo.getGroup());
             }
@@ -879,8 +888,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                             task.getTaskID(), taskGroupLocation));
             Throwable ex = executionException.get();
             if (completionLatch.decrementAndGet() == 0) {
-                // recycle classloader
-                executionContexts.get(taskGroupLocation).setClassLoader(null);
+                recycleClassLoader(taskGroupLocation);
                 finishedExecutionContexts.put(
                         taskGroupLocation, executionContexts.remove(taskGroupLocation));
                 cancellationFutures.remove(taskGroupLocation);
@@ -903,6 +911,12 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             }
         }
 
+        private void recycleClassLoader(TaskGroupLocation taskGroupLocation) {
+            ClassLoader classLoader = executionContexts.get(taskGroupLocation).getClassLoader();
+            executionContexts.get(taskGroupLocation).setClassLoader(null);
+            ClassLoaderUtil.recycleClassLoaderFromThread(classLoader);
+        }
+
         boolean executionCompletedExceptionally() {
             return executionException.get() != null;
         }
@@ -910,5 +924,27 @@ public class TaskExecutionService implements DynamicMetricsProvider {
 
     public ServerConnectorPackageClient getServerConnectorPackageClient() {
         return serverConnectorPackageClient;
+    }
+
+    public static class NamedTaskWrapper implements Runnable {
+        private final Runnable task;
+        private final String threadName;
+
+        public NamedTaskWrapper(Runnable task, String threadName) {
+            this.task = task;
+            this.threadName = threadName;
+        }
+
+        @Override
+        public void run() {
+            Thread currentThread = Thread.currentThread();
+            String originalName = currentThread.getName();
+            try {
+                currentThread.setName(threadName);
+                task.run();
+            } finally {
+                currentThread.setName(originalName);
+            }
+        }
     }
 }
