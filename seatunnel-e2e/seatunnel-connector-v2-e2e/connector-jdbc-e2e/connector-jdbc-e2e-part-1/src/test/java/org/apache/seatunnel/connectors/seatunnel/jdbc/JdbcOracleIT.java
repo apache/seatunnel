@@ -108,7 +108,7 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                 JdbcSourceTable.builder()
                         .tablePath(TablePath.of(null, SCHEMA, SOURCE_TABLE))
                         .build();
-        dialect.sampleDataFromColumn(connection, table, "INTEGER_COL", 1);
+        dialect.sampleDataFromColumn(connection, table, "INTEGER_COL", 1, 1024);
     }
 
     @Override

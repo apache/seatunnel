@@ -72,7 +72,7 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
     private static final String PG_GEOMETRY_JAR =
             "https://repo1.maven.org/maven2/net/postgis/postgis-geometry/2.5.1/postgis-geometry-2.5.1.jar";
 
-    private static final String MYSQL_IMAGE = "mysql:latest";
+    private static final String MYSQL_IMAGE = "mysql:8.0";
     private static final String MYSQL_CONTAINER_HOST = "mysql-e2e";
     private static final String MYSQL_DATABASE = "auto";
 

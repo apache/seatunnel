@@ -8,6 +8,21 @@
 > Flink<br/>
 > SeaTunnel Zeta<br/>
 
+## Description
+
+Write data through jdbc. Support Batch mode and Streaming mode, support concurrent writing, support exactly-once
+semantics (using XA transaction guarantee).
+
+## Using Dependency
+
+### For Spark/Flink Engine
+
+> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/org.postgresql/postgresql) has been placed in directory `${SEATUNNEL_HOME}/plugins/`.
+
+### For SeaTunnel Zeta Engine
+
+> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/org.postgresql/postgresql) has been placed in directory `${SEATUNNEL_HOME}/lib/`.
+
 ## Key Features
 
 - [x] [exactly-once](../../concept/connector-v2-features.md)
@@ -15,11 +30,6 @@
 
 > Use `Xa transactions` to ensure `exactly-once`. So only support `exactly-once` for the database which is
 > support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
-
-## Description
-
-Write data through jdbc. Support Batch mode and Streaming mode, support concurrent writing, support exactly-once
-semantics (using XA transaction guarantee).
 
 ## Supported DataSource Info
 
@@ -36,7 +46,7 @@ semantics (using XA transaction guarantee).
 
 ## Data Type Mapping
 
-|                                       PostgreSQL Data type                                       |                                                              SeaTunnel Data type                                                               |
+|                                       PostgreSQL Data Type                                       |                                                              SeaTunnel Data Type                                                               |
 |--------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------|
 | BOOL<br/>                                                                                        | BOOLEAN                                                                                                                                        |
 | _BOOL<br/>                                                                                       | ARRAY&LT;BOOLEAN&GT;                                                                                                                           |

@@ -2,11 +2,27 @@
 
 > JDBC Oracle Source Connector
 
+## Description
+
+Read external data source data through JDBC.
+
 ## Support Those Engines
 
 > Spark<br/>
 > Flink<br/>
 > SeaTunnel Zeta<br/>
+
+## Using Dependency
+
+### For Spark/Flink Engine
+
+> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/com.oracle.database.jdbc/ojdbc8) has been placed in directory `${SEATUNNEL_HOME}/plugins/`.
+> 2. To support the i18n character set, copy the `orai18n.jar` to the `$SEATNUNNEL_HOME/plugins/` directory.
+
+### For SeaTunnel Zeta Engine
+
+> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/com.oracle.database.jdbc/ojdbc8) has been placed in directory `${SEATUNNEL_HOME}/lib/`.
+> 2. To support the i18n character set, copy the `orai18n.jar` to the `$SEATNUNNEL_HOME/lib/` directory.
 
 ## Key Features
 
@@ -19,13 +35,9 @@
 
 > supports query SQL and can achieve projection effect.
 
-## Description
-
-Read external data source data through JDBC.
-
 ## Supported DataSource Info
 
-| Datasource |                    Supported versions                    |          Driver          |                  Url                   |                               Maven                                |
+| Datasource |                    Supported Versions                    |          Driver          |                  Url                   |                               Maven                                |
 |------------|----------------------------------------------------------|--------------------------|----------------------------------------|--------------------------------------------------------------------|
 | Oracle     | Different dependency version has different driver class. | oracle.jdbc.OracleDriver | jdbc:oracle:thin:@datasource01:1523:xe | https://mvnrepository.com/artifact/com.oracle.database.jdbc/ojdbc8 |
 
@@ -37,7 +49,7 @@ Read external data source data through JDBC.
 
 ## Data Type Mapping
 
-|                                   Oracle Data type                                   | SeaTunnel Data type |
+|                                   Oracle Data Type                                   | SeaTunnel Data Type |
 |--------------------------------------------------------------------------------------|---------------------|
 | INTEGER                                                                              | INT                 |
 | FLOAT                                                                                | DECIMAL(38, 18)     |

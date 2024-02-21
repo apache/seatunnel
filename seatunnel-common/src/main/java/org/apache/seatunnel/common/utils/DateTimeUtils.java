@@ -34,6 +34,9 @@ public class DateTimeUtils {
                 Formatter.YYYY_MM_DD_HH_MM_SS,
                 DateTimeFormatter.ofPattern(Formatter.YYYY_MM_DD_HH_MM_SS.value));
         FORMATTER_MAP.put(
+                Formatter.YYYY_MM_DD_HH_MM_SS_SSSSSS,
+                DateTimeFormatter.ofPattern(Formatter.YYYY_MM_DD_HH_MM_SS_SSSSSS.value));
+        FORMATTER_MAP.put(
                 Formatter.YYYY_MM_DD_HH_MM_SS_SPOT,
                 DateTimeFormatter.ofPattern(Formatter.YYYY_MM_DD_HH_MM_SS_SPOT.value));
         FORMATTER_MAP.put(
@@ -71,6 +74,7 @@ public class DateTimeUtils {
 
     public enum Formatter {
         YYYY_MM_DD_HH_MM_SS("yyyy-MM-dd HH:mm:ss"),
+        YYYY_MM_DD_HH_MM_SS_SSSSSS("yyyy-MM-dd HH:mm:ss.SSSSSS"),
         YYYY_MM_DD_HH_MM_SS_SPOT("yyyy.MM.dd HH:mm:ss"),
         YYYY_MM_DD_HH_MM_SS_SLASH("yyyy/MM/dd HH:mm:ss"),
         YYYY_MM_DD_HH_MM_SS_NO_SPLIT("yyyyMMddHHmmss"),

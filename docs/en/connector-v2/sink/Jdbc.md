@@ -7,15 +7,17 @@
 Write data through jdbc. Support Batch mode and Streaming mode, support concurrent writing, support exactly-once
 semantics (using XA transaction guarantee).
 
-:::tip
+## Using Dependency
 
-Warn: for license compliance, you have to provide database driver yourself, copy to `$SEATNUNNEL_HOME/lib/` directory in order to make them work.
+### For Spark/Flink Engine
 
-e.g. If you use MySQL, should download and copy `mysql-connector-java-xxx.jar` to `$SEATNUNNEL_HOME/lib/`. For Spark/Flink, you should also copy it to `$SPARK_HOME/jars/` or `$FLINK_HOME/lib/`.
+> 1. You need to ensure that the jdbc driver jar package has been placed in directory `${SEATUNNEL_HOME}/plugins/`.
 
-:::
+### For SeaTunnel Zeta Engine
 
-## Key features
+> 1. You need to ensure that the jdbc driver jar package has been placed in directory `${SEATUNNEL_HOME}/lib/`.
+
+## Key Features
 
 - [x] [exactly-once](../../concept/connector-v2-features.md)
 
@@ -26,7 +28,7 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 
 ## Options
 
-|                   name                    |  type   | required |        default value         |
+|                   Name                    |  Type   | Required |           Default            |
 |-------------------------------------------|---------|----------|------------------------------|
 | url                                       | String  | Yes      | -                            |
 | driver                                    | String  | Yes      | -                            |

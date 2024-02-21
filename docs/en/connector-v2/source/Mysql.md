@@ -2,6 +2,10 @@
 
 > JDBC Mysql Source Connector
 
+## Description
+
+Read external data source data through JDBC.
+
 ## Support Mysql Version
 
 - 5.5/5.6/5.7/8.0
@@ -11,6 +15,16 @@
 > Spark<br/>
 > Flink<br/>
 > SeaTunnel Zeta<br/>
+
+## Using Dependency
+
+### For Spark/Flink Engine
+
+> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/mysql/mysql-connector-java) has been placed in directory `${SEATUNNEL_HOME}/plugins/`.
+
+### For SeaTunnel Zeta Engine
+
+> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/mysql/mysql-connector-java) has been placed in directory `${SEATUNNEL_HOME}/lib/`.
 
 ## Key Features
 
@@ -23,10 +37,6 @@
 - [x] [support multiple table reading](../../concept/connector-v2-features.md)
 
 > supports query SQL and can achieve projection effect.
-
-## Description
-
-Read external data source data through JDBC.
 
 ## Supported DataSource Info
 
@@ -41,7 +51,7 @@ Read external data source data through JDBC.
 
 ## Data Type Mapping
 
-|                                                          Mysql Data type                                                          |                                                                 SeaTunnel Data type                                                                 |
+|                                                          Mysql Data Type                                                          |                                                                 SeaTunnel Data Type                                                                 |
 |-----------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
 | BIT(1)<br/>INT UNSIGNED                                                                                                           | BOOLEAN                                                                                                                                             |
 | TINYINT<br/>TINYINT UNSIGNED<br/>SMALLINT<br/>SMALLINT UNSIGNED<br/>MEDIUMINT<br/>MEDIUMINT UNSIGNED<br/>INT<br/>INTEGER<br/>YEAR | INT                                                                                                                                                 |

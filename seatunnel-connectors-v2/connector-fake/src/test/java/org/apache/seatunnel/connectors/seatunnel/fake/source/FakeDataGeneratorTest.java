@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -84,15 +85,21 @@ public class FakeDataGeneratorTest {
     public void testRowDataParse(String conf) throws FileNotFoundException, URISyntaxException {
         SeaTunnelRow row1 = new SeaTunnelRow(new Object[] {1L, "A", 100});
         row1.setRowKind(RowKind.INSERT);
+        row1.setTableId(TablePath.DEFAULT.getFullName());
         SeaTunnelRow row2 = new SeaTunnelRow(new Object[] {2L, "B", 100});
         row2.setRowKind(RowKind.INSERT);
+        row2.setTableId(TablePath.DEFAULT.getFullName());
         SeaTunnelRow row3 = new SeaTunnelRow(new Object[] {3L, "C", 100});
         row3.setRowKind(RowKind.INSERT);
+        row3.setTableId(TablePath.DEFAULT.getFullName());
         SeaTunnelRow row1UpdateBefore = new SeaTunnelRow(new Object[] {1L, "A", 100});
+        row1UpdateBefore.setTableId(TablePath.DEFAULT.getFullName());
         row1UpdateBefore.setRowKind(RowKind.UPDATE_BEFORE);
         SeaTunnelRow row1UpdateAfter = new SeaTunnelRow(new Object[] {1L, "A_1", 100});
+        row1UpdateAfter.setTableId(TablePath.DEFAULT.getFullName());
         row1UpdateAfter.setRowKind(RowKind.UPDATE_AFTER);
         SeaTunnelRow row2Delete = new SeaTunnelRow(new Object[] {2L, "B", 100});
+        row2Delete.setTableId(TablePath.DEFAULT.getFullName());
         row2Delete.setRowKind(RowKind.DELETE);
         List<SeaTunnelRow> expected =
                 Arrays.asList(row1, row2, row3, row1UpdateBefore, row1UpdateAfter, row2Delete);

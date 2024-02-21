@@ -8,6 +8,16 @@
 > Flink<br/>
 > SeaTunnel Zeta<br/>
 
+## Using Dependency
+
+### For Spark/Flink Engine
+
+> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/org.postgresql/postgresql) has been placed in directory `${SEATUNNEL_HOME}/plugins/`.
+
+### For SeaTunnel Zeta Engine
+
+> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/org.postgresql/postgresql) has been placed in directory `${SEATUNNEL_HOME}/lib/`.
+
 ## Key Features
 
 - [x] [batch](../../concept/connector-v2-features.md)
@@ -25,7 +35,7 @@ Read external data source data through JDBC.
 
 ## Supported DataSource Info
 
-| Datasource |                     Supported versions                     |        Driver         |                  Url                  |                                  Maven                                   |
+| Datasource |                     Supported Versions                     |        Driver         |                  Url                  |                                  Maven                                   |
 |------------|------------------------------------------------------------|-----------------------|---------------------------------------|--------------------------------------------------------------------------|
 | PostgreSQL | Different dependency version has different driver class.   | org.postgresql.Driver | jdbc:postgresql://localhost:5432/test | [Download](https://mvnrepository.com/artifact/org.postgresql/postgresql) |
 | PostgreSQL | If you want to manipulate the GEOMETRY type in PostgreSQL. | org.postgresql.Driver | jdbc:postgresql://localhost:5432/test | [Download](https://mvnrepository.com/artifact/net.postgis/postgis-jdbc)  |

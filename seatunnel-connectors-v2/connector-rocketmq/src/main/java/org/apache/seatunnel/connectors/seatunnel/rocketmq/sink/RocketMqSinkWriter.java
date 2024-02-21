@@ -49,6 +49,9 @@ public class RocketMqSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                     new RocketMqNoTransactionSender(
                             producerMetadata.getConfiguration(), producerMetadata.isSync());
         }
+        // Set `rocketmq.client.logUseSlf4j` to `true` to avoid create many
+        // `AsyncAppender-Dispatcher-Thread`
+        System.setProperty("rocketmq.client.logUseSlf4j", "true");
     }
 
     @Override
