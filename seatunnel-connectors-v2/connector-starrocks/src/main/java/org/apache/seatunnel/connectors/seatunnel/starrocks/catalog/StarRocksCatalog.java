@@ -20,7 +20,9 @@ package org.apache.seatunnel.connectors.seatunnel.starrocks.catalog;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.PreviewResult;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
+import org.apache.seatunnel.api.table.catalog.SQLPreviewResult;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
@@ -44,6 +46,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.google.common.base.Preconditions;
 import com.mysql.cj.MysqlType;
 import lombok.extern.slf4j.Slf4j;
 
@@ -242,7 +245,7 @@ public class StarRocksCatalog implements Catalog {
         try (Connection conn = DriverManager.getConnection(defaultUrl, username, pwd)) {
             if (ignoreIfNotExists) {
                 conn.createStatement()
-                        .execute(String.format("TRUNCATE TABLE  %s", tablePath.getFullName()));
+                        .execute(String.format("TRUNCATE TABLE %s", tablePath.getFullName()));
             }
         } catch (Exception e) {
             throw new CatalogException(
@@ -499,6 +502,33 @@ public class StarRocksCatalog implements Catalog {
                     && listTables(tablePath.getDatabaseName()).contains(tablePath.getTableName());
         } catch (DatabaseNotExistException e) {
             return false;
+        }
+    }
+
+    @Override
+    public PreviewResult previewAction(
+            ActionType actionType, TablePath tablePath, Optional<CatalogTable> catalogTable) {
+        if (actionType == ActionType.CREATE_TABLE) {
+            Preconditions.checkArgument(catalogTable.isPresent(), "CatalogTable cannot be null");
+            return new SQLPreviewResult(
+                    StarRocksSaveModeUtil.fillingCreateSql(
+                            template,
+                            tablePath.getDatabaseName(),
+                            tablePath.getTableName(),
+                            catalogTable.get().getTableSchema()));
+        } else if (actionType == ActionType.DROP_TABLE) {
+            return new SQLPreviewResult("DROP TABLE IF EXISTS " + tablePath.getFullName());
+        } else if (actionType == ActionType.TRUNCATE_TABLE) {
+            return new SQLPreviewResult(
+                    String.format("TRUNCATE TABLE %s", tablePath.getFullName()));
+        } else if (actionType == ActionType.CREATE_DATABASE) {
+            return new SQLPreviewResult(
+                    "CREATE DATABASE IF NOT EXISTS `" + tablePath.getDatabaseName() + "`");
+        } else if (actionType == ActionType.DROP_DATABASE) {
+            return new SQLPreviewResult(
+                    "DROP DATABASE IF EXISTS `" + tablePath.getDatabaseName() + "`");
+        } else {
+            throw new UnsupportedOperationException("Unsupported action type: " + actionType);
         }
     }
 }

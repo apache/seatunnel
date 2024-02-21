@@ -21,7 +21,9 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigUtil;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.InfoPreviewResult;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.PreviewResult;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
@@ -44,7 +46,9 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
@@ -231,5 +235,24 @@ public class ElasticSearchCatalog implements Catalog {
         // bootstrapt servers here?
         options.put("config", ConfigUtil.convertToJsonString(tablePath));
         return options;
+    }
+
+    @Override
+    public PreviewResult previewAction(
+            ActionType actionType, TablePath tablePath, Optional<CatalogTable> catalogTable) {
+        if (actionType == ActionType.CREATE_TABLE) {
+            checkArgument(catalogTable.isPresent(), "CatalogTable cannot be null");
+            return new InfoPreviewResult("create index " + tablePath.getTableName());
+        } else if (actionType == ActionType.DROP_TABLE) {
+            return new InfoPreviewResult("delete index " + tablePath.getTableName());
+        } else if (actionType == ActionType.TRUNCATE_TABLE) {
+            return new InfoPreviewResult("delete and create index " + tablePath.getTableName());
+        } else if (actionType == ActionType.CREATE_DATABASE) {
+            return new InfoPreviewResult("create index " + tablePath.getTableName());
+        } else if (actionType == ActionType.DROP_DATABASE) {
+            return new InfoPreviewResult("delete index " + tablePath.getTableName());
+        } else {
+            throw new UnsupportedOperationException("Unsupported action type: " + actionType);
+        }
     }
 }

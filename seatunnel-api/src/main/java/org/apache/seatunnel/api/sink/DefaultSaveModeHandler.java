@@ -23,11 +23,15 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
 import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
+import java.util.Optional;
 
 import static org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode.SINK_TABLE_NOT_EXIST;
 import static org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode.SOURCE_ALREADY_HAS_DATA;
 
 @AllArgsConstructor
+@Slf4j
 public class DefaultSaveModeHandler implements SaveModeHandler {
 
     public SchemaSaveMode schemaSaveMode;
@@ -132,17 +136,56 @@ public class DefaultSaveModeHandler implements SaveModeHandler {
     }
 
     protected void dropTable() {
+        try {
+            log.info(
+                    "Dropping table {} with action {}",
+                    tablePath,
+                    catalog.previewAction(
+                            Catalog.ActionType.DROP_TABLE, tablePath, Optional.empty()));
+        } catch (UnsupportedOperationException ignore) {
+            log.info("Dropping table {}", tablePath);
+        }
         catalog.dropTable(tablePath, true);
     }
 
     protected void createTable() {
         if (!catalog.databaseExists(tablePath.getDatabaseName())) {
-            catalog.createDatabase(TablePath.of(tablePath.getDatabaseName(), ""), true);
+            TablePath databasePath = TablePath.of(tablePath.getDatabaseName(), "");
+            try {
+                log.info(
+                        "Creating database {} with action {}",
+                        tablePath.getDatabaseName(),
+                        catalog.previewAction(
+                                Catalog.ActionType.CREATE_DATABASE,
+                                databasePath,
+                                Optional.empty()));
+            } catch (UnsupportedOperationException ignore) {
+                log.info("Creating database {}", tablePath.getDatabaseName());
+            }
+            catalog.createDatabase(databasePath, true);
+        }
+        try {
+            log.info(
+                    "Creating table {} with action {}",
+                    tablePath,
+                    catalog.previewAction(
+                            Catalog.ActionType.CREATE_TABLE, tablePath, Optional.of(catalogTable)));
+        } catch (UnsupportedOperationException ignore) {
+            log.info("Creating table {}", tablePath);
         }
         catalog.createTable(tablePath, catalogTable, true);
     }
 
     protected void truncateTable() {
+        try {
+            log.info(
+                    "Truncating table {} with action {}",
+                    tablePath,
+                    catalog.previewAction(
+                            Catalog.ActionType.TRUNCATE_TABLE, tablePath, Optional.empty()));
+        } catch (UnsupportedOperationException ignore) {
+            log.info("Truncating table {}", tablePath);
+        }
         catalog.truncateTable(tablePath, true);
     }
 
@@ -151,7 +194,28 @@ public class DefaultSaveModeHandler implements SaveModeHandler {
     }
 
     protected void executeCustomSql() {
+        log.info("Executing custom SQL for table {} with SQL: {}", tablePath, customSql);
         catalog.executeSql(tablePath, customSql);
+    }
+
+    @Override
+    public TablePath getHandleTablePath() {
+        return tablePath;
+    }
+
+    @Override
+    public Catalog getHandleCatalog() {
+        return catalog;
+    }
+
+    @Override
+    public SchemaSaveMode getSchemaSaveMode() {
+        return schemaSaveMode;
+    }
+
+    @Override
+    public DataSaveMode getDataSaveMode() {
+        return dataSaveMode;
     }
 
     @Override
