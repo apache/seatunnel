@@ -21,13 +21,11 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 
 import lombok.Getter;
 
-import java.util.collections;
-
 import java.util.List;
 
 public class SingleChoiceOption<T> extends Option<T> {
 
-    @Getter 
+    @Getter
     private final List<T> optionValues;
 
     public SingleChoiceOption(
