@@ -217,7 +217,7 @@ public class StarRocksCatalog implements Catalog {
     public void createTable(TablePath tablePath, CatalogTable table, boolean ignoreIfExists)
             throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
         this.createTable(
-                StarRocksSaveModeUtil.fillingCreateSql(
+                StarRocksSaveModeUtil.getCreateTableSql(
                         template,
                         tablePath.getDatabaseName(),
                         tablePath.getTableName(),
@@ -228,12 +228,8 @@ public class StarRocksCatalog implements Catalog {
     public void dropTable(TablePath tablePath, boolean ignoreIfNotExists)
             throws TableNotExistException, CatalogException {
         try (Connection conn = DriverManager.getConnection(defaultUrl, username, pwd)) {
-            if (ignoreIfNotExists) {
-                conn.createStatement().execute("DROP TABLE IF EXISTS " + tablePath.getFullName());
-            } else {
-                conn.createStatement()
-                        .execute(String.format("DROP TABLE %s", tablePath.getFullName()));
-            }
+            conn.createStatement()
+                    .execute(StarRocksSaveModeUtil.getDropTableSql(tablePath, ignoreIfNotExists));
         } catch (Exception e) {
             throw new CatalogException(
                     String.format("Failed listing database in catalog %s", catalogName), e);
@@ -245,7 +241,7 @@ public class StarRocksCatalog implements Catalog {
         try (Connection conn = DriverManager.getConnection(defaultUrl, username, pwd)) {
             if (ignoreIfNotExists) {
                 conn.createStatement()
-                        .execute(String.format("TRUNCATE TABLE %s", tablePath.getFullName()));
+                        .execute(StarRocksSaveModeUtil.getTruncateTableSql(tablePath));
             }
         } catch (Exception e) {
             throw new CatalogException(
@@ -280,16 +276,10 @@ public class StarRocksCatalog implements Catalog {
     public void createDatabase(TablePath tablePath, boolean ignoreIfExists)
             throws DatabaseAlreadyExistException, CatalogException {
         try (Connection conn = DriverManager.getConnection(defaultUrl, username, pwd)) {
-            if (ignoreIfExists) {
-                conn.createStatement()
-                        .execute(
-                                "CREATE DATABASE IF NOT EXISTS `"
-                                        + tablePath.getDatabaseName()
-                                        + "`");
-            } else {
-                conn.createStatement()
-                        .execute("CREATE DATABASE `" + tablePath.getDatabaseName() + "`");
-            }
+            conn.createStatement()
+                    .execute(
+                            StarRocksSaveModeUtil.getCreateDatabaseSql(
+                                    tablePath.getDatabaseName(), ignoreIfExists));
         } catch (Exception e) {
             throw new CatalogException(
                     String.format("Failed listing database in catalog %s", catalogName), e);
@@ -300,13 +290,10 @@ public class StarRocksCatalog implements Catalog {
     public void dropDatabase(TablePath tablePath, boolean ignoreIfNotExists)
             throws DatabaseNotExistException, CatalogException {
         try (Connection conn = DriverManager.getConnection(defaultUrl, username, pwd)) {
-            if (ignoreIfNotExists) {
-                conn.createStatement()
-                        .execute("DROP DATABASE IF EXISTS `" + tablePath.getDatabaseName() + "`");
-            } else {
-                conn.createStatement()
-                        .execute(String.format("DROP DATABASE `%s`", tablePath.getDatabaseName()));
-            }
+            conn.createStatement()
+                    .execute(
+                            StarRocksSaveModeUtil.getDropDatabaseSql(
+                                    tablePath.getDatabaseName(), ignoreIfNotExists));
         } catch (Exception e) {
             throw new CatalogException(
                     String.format("Failed listing database in catalog %s", catalogName), e);
@@ -511,19 +498,18 @@ public class StarRocksCatalog implements Catalog {
         if (actionType == ActionType.CREATE_TABLE) {
             Preconditions.checkArgument(catalogTable.isPresent(), "CatalogTable cannot be null");
             return new SQLPreviewResult(
-                    StarRocksSaveModeUtil.fillingCreateSql(
+                    StarRocksSaveModeUtil.getCreateTableSql(
                             template,
                             tablePath.getDatabaseName(),
                             tablePath.getTableName(),
                             catalogTable.get().getTableSchema()));
         } else if (actionType == ActionType.DROP_TABLE) {
-            return new SQLPreviewResult("DROP TABLE IF EXISTS " + tablePath.getFullName());
+            return new SQLPreviewResult(StarRocksSaveModeUtil.getDropTableSql(tablePath, true));
         } else if (actionType == ActionType.TRUNCATE_TABLE) {
-            return new SQLPreviewResult(
-                    String.format("TRUNCATE TABLE %s", tablePath.getFullName()));
+            return new SQLPreviewResult(StarRocksSaveModeUtil.getTruncateTableSql(tablePath));
         } else if (actionType == ActionType.CREATE_DATABASE) {
             return new SQLPreviewResult(
-                    "CREATE DATABASE IF NOT EXISTS `" + tablePath.getDatabaseName() + "`");
+                    StarRocksSaveModeUtil.getCreateDatabaseSql(tablePath.getDatabaseName(), true));
         } else if (actionType == ActionType.DROP_DATABASE) {
             return new SQLPreviewResult(
                     "DROP DATABASE IF EXISTS `" + tablePath.getDatabaseName() + "`");

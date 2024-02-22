@@ -54,7 +54,7 @@ public class StarRocksCreateTableTest {
                 PhysicalColumn.of("create_time", BasicType.LONG_TYPE, (Long) null, true, null, ""));
 
         String result =
-                StarRocksSaveModeUtil.fillingCreateSql(
+                StarRocksSaveModeUtil.getCreateTableSql(
                         "CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}` (                                                                                                                                                   \n"
                                 + "${rowtype_primary_key}  ,       \n"
                                 + "${rowtype_unique_key} , \n"
@@ -187,7 +187,7 @@ public class StarRocksCreateTableTest {
                         "L_COMMENT", BasicType.STRING_TYPE, (Long) null, false, null, ""));
 
         String result =
-                StarRocksSaveModeUtil.fillingCreateSql(
+                StarRocksSaveModeUtil.getCreateTableSql(
                         "CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}` (\n"
                                 + "`L_COMMITDATE`,\n"
                                 + "${rowtype_primary_key},\n"
@@ -244,7 +244,7 @@ public class StarRocksCreateTableTest {
         columns.add(PhysicalColumn.of("description", BasicType.STRING_TYPE, 70000, true, null, ""));
 
         String result =
-                StarRocksSaveModeUtil.fillingCreateSql(
+                StarRocksSaveModeUtil.getCreateTableSql(
                         "CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}` (                                                                                                                                                   \n"
                                 + "${rowtype_primary_key}  ,       \n"
                                 + "`create_time` DATETIME NOT NULL ,  \n"
