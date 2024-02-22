@@ -1,23 +1,22 @@
-# Speed Control
+# 速度控制
 
-## Introduction
+## 介绍
 
-The SeaTunnel provides a powerful speed control feature that allows you to manage the rate at which data is synchronized.
-This functionality is essential when you need to ensure efficient and controlled data transfer between systems.
-The speed control is primarily governed by two key parameters: `read_limit.rows_per_second` and `read_limit.bytes_per_second`.
-This document will guide you through the usage of these parameters and how to leverage them effectively.
+SeaTunnel提供了强大的速度控制功能允许你管理数据同步的速率。当你需要确保在系统之间数据传输的高效和可控这个功能是至关重要的。
+速度控制主要由两个关键参数控制：`read_limit.rows_per_second` 和 `read_limit.bytes_per_second`。
+本文档将指导您如何使用这些参数以及如何有效地利用它们。
 
-## Support Those Engines
+
+## 支持这些引擎
 
 > SeaTunnel Zeta<br/>
 > Flink<br/>
 > Spark<br/>
 
-## Configuration
+## 配置
+要使用速度控制功能，你需要在job配置中设置`read_limit.rows_per_second` 或 `read_limit.bytes_per_second`参数。
 
-To use the speed control feature, you need to configure the `read_limit.rows_per_second` or `read_limit.bytes_per_second` parameters in your job config.
-
-Example env config in your config file:
+配置文件中env配置示例：
 
 ```hocon
 env {
@@ -39,6 +38,6 @@ sink {
 }
 ```
 
-We have placed `read_limit.bytes_per_second` and `read_limit.rows_per_second` in the `env` parameters, completing the speed control configuration.
-You can configure both of these parameters simultaneously or choose to configure only one of them. The value of each `value` represents the maximum rate at which each thread is restricted.
-Therefore, when configuring the respective values, please take into account the parallelism of your tasks.
+我们在`env`参数中放了`read_limit.bytes_per_second` 和 `read_limit.rows_per_second`来完成速度控制的配置。
+你可以同时配置这两个参数，或者只配置其中一个。每个`value`的值代表每个线程被限制的最大速率。
+因此，在配置各个值时，请考虑你任务的并行性。
