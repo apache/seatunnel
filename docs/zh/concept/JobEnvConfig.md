@@ -39,7 +39,7 @@
 
 这里列出了一些与 Flink 中名称相对应的 SeaTunnel 参数名称，并非全部，更多内容请参考官方 [flink documentation](https://flink.apache.org/) for more.
 
-| Flink 配置名称                  | SeaTunnel 配置名称                    |
+|           Flink 配置名称            |            SeaTunnel 配置名称             |
 |---------------------------------|---------------------------------------|
 | pipeline.max-parallelism        | flink.pipeline.max-parallelism        |
 | execution.checkpointing.mode    | flink.execution.checkpointing.mode    |
