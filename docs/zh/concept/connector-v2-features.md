@@ -5,7 +5,6 @@
 从 https://github.com/apache/seatunnel/issues/1608 我们添加了 Connector V2 特性。
 Connector V2 是基于SeaTunnel Connector API接口定义的连接器。不像Connector V1，Connector V2 支持如下特性：
 
-
 * **多引擎支持** SeaTunnel Connector API 是引擎独立的API。基于这个API开发的连接器可以在多个引擎上运行。目前支持Flink和Spark引擎，后续我们会支持其它的引擎。
 * **多引擎版本支持** 通过翻译层将连接器与引擎解耦，解决了大多数连接器需要修改代码才能支持新版本底层引擎的问题。
 * **流批一体** Connector V2 可以支持批处理和流处理。我们不需要为批和流分别开发连接器。
@@ -22,9 +21,7 @@ Source connector有一些公共的核心特性，每个source connector在不同
 在SeaTunnel中, 我们可以保存读取的 **Split** 和 它的 **offset**(当时读取的数据被分割时的位置，例如行号, 字节大小, 偏移量等) 作为检查点时的 **StateSnapshot** 。 如果任务重新启动, 我们会得到最后的 **StateSnapshot**
 然后定位到上次读取的 **Split** 和 **offset**，继续向下游发送数据。
 
-
 例如 `File`, `Kafka`。
-
 
 ### 列投影（column projection）
 
@@ -46,7 +43,6 @@ Source connector有一些公共的核心特性，每个source connector在不同
 
 并行执行的Source Connector支持配置 `parallelism`，每个并发会创建一个任务来读取数据。
 在**Parallelism Source Connector**中，source会被分割成多个split，然后枚举器会将 split 分配给 SourceReader 进行处理。
-
 
 ### 支持用户自定义split
 

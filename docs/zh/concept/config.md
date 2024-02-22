@@ -18,7 +18,6 @@ BTW, we also support the `json` format, but you should know that the name of the
 配置文件的主要格式是 `hocon`, 有关该格式类型的更多信息你可以参考[HOCON-GUIDE](https://github.com/lightbend/config/blob/main/HOCON.md),
 顺便提一下，我们也支持 `json`格式，但你应该知道配置文件的名称应该是以 `.json`结尾。
 
-
 ## 例子
 
 在你阅读之前，你可以在发布包中的config目录[这里](https://github.com/apache/seatunnel/tree/dev/config)找到配置文件的例子。
@@ -133,7 +132,6 @@ source用于定义SeaTunnel在哪儿检索数据，并将检索的数据用于�
 定义如何检索数据，SeaTunnel也抽象了每种source所使用的参数，例如 `result_table_name` 参数，用于指定当前source生成的数据的名称，
 方便后续其他模块使用。
 
-
 ### transform
 
 当我们有了数据源之后，我们可能需要对数据进行进一步的处理，所以我们就有了transform模块。当然，这里使用了“可能”这个词，
@@ -170,6 +168,7 @@ sink {
   }
 }
 ```
+
 与source类似, transform也有属于每个模块的特定参数。目前支持的source请看。目前支持的transform请看 [Transform V2 of SeaTunnel](../transform-v2)
 
 <!-- TODO missing source links --->

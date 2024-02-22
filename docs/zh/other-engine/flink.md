@@ -80,4 +80,4 @@ sink{
 
 ### 如何在项目中运行job
 
-当你将代码拉到本地后，转到 `seatunnel-examples/seatunnel-flink-connector-v2-example` 模块，查找 `org.apache.seatunnel.example.flink.v2.SeaTunnelApiExample` 即可完成job的操作 
+当你将代码拉到本地后，转到 `seatunnel-examples/seatunnel-flink-connector-v2-example` 模块，查找 `org.apache.seatunnel.example.flink.v2.SeaTunnelApiExample` 即可完成job的操作

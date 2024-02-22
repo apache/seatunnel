@@ -9,7 +9,6 @@
 
 我们可以使用SchemaOptions定义schema, SchemaOptions包含了一些定义schema的配置。 例如：columns, primaryKey, constraintKeys。
 
-
 ```
 schema = {
     table = "database.schema.table"
@@ -59,42 +58,42 @@ columns = [
 ]
 ```
 
-| 字段         | 是否必须 | 默认值  | 描述                                              |
-|:-------------|:---------|:--------|---------------------------------------------------|
-| name         | Yes      | -       | 列的名称                                          |
-| type         | Yes      | -       | 列的数据类型                                      |
-| nullable     | No       | true    | 列是否可空                                        |
-| columnLength | No       | 0       | 列的长度，当您需要定义长度时将很有用              |
-| defaultValue | No       | null    | 列的默认值                                        |
-| comment      | No       | null    | 列的注释                                          |
+| 字段           | 是否必须 | 默认值  |         描述         |
+|:-------------|:-----|:-----|--------------------|
+| name         | Yes  | -    | 列的名称               |
+| type         | Yes  | -    | 列的数据类型             |
+| nullable     | No   | true | 列是否可空              |
+| columnLength | No   | 0    | 列的长度，当您需要定义长度时将很有用 |
+| defaultValue | No   | null | 列的默认值              |
+| comment      | No   | null | 列的注释               |
 
 #### 目前支持哪些类型
 
-| 数据类型  | Java中的值类型                                     | 描述                                                         |
-| :-------- | :------------------------------------------------- | :----------------------------------------------------------- |
-| string    | `java.lang.String`                                 | 字符串                                                       |
-| boolean   | `java.lang.Boolean`                                | 布尔                                                         |
-| tinyint   | `java.lang.Byte`                                   | 常规-128 至 127 。 0 到 255 无符号*。 指定括号中的最大位数。 |
-| smallint  | `java.lang.Short`                                  | 常规-32768 至 32767。 0 到 65535 无符号*。 指定括号中的最大位数。 |
-| int       | `java.lang.Integer`                                | 允许从 -2,147,483,648 到 2,147,483,647 的所有数字。          |
-| bigint    | `java.lang.Long`                                   | 允许 -9,223,372,036,854,775,808 和 9,223,372,036,854,775,807 之间的所有数字。 |
-| float     | `java.lang.Float`                                  | 从-1.79E+308 到 1.79E+308浮点精度数值数据。                  |
-| double    | `java.lang.Double`                                 | 双精度浮点。 处理大多数小数。                                |
-| decimal   | `java.math.BigDecimal`                             | DOUBLE 类型存储为字符串，允许固定小数点。                    |
-| null      | `java.lang.Void`                                   | null                                                         |
-| bytes     | `byte[]`                                           | 字节。                                                       |
-| date      | `java.time.LocalDate`                              | 仅存储日期。从0001年1月1日到9999 年 12 月 31 日。            |
-| time      | `java.time.LocalTime`                              | 仅存储时间。精度为 100 纳秒。                                |
-| timestamp | `java.time.LocalDateTime`                          | 存储一个唯一的编号，每当创建或修改行时都会更新该编号。 时间戳基于内部时钟，与实际时间不对应。 每个表只能有一个时间戳变量。 |
-| row       | `org.apache.seatunnel.api.table.type.SeaTunnelRow` | 行类型，可以嵌套。                                           |
+| 数据类型      | Java中的值类型                                          | 描述                                                                                                                                                                                                                                                                                                              |
+|:----------|:---------------------------------------------------|:----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| string    | `java.lang.String`                                 | 字符串                                                                                                                                                                                                                                                                                                             |
+| boolean   | `java.lang.Boolean`                                | 布尔                                                                                                                                                                                                                                                                                                              |
+| tinyint   | `java.lang.Byte`                                   | 常规-128 至 127 。 0 到 255 无符号*。 指定括号中的最大位数。                                                                                                                                                                                                                                                                        |
+| smallint  | `java.lang.Short`                                  | 常规-32768 至 32767。 0 到 65535 无符号*。 指定括号中的最大位数。                                                                                                                                                                                                                                                                   |
+| int       | `java.lang.Integer`                                | 允许从 -2,147,483,648 到 2,147,483,647 的所有数字。                                                                                                                                                                                                                                                                       |
+| bigint    | `java.lang.Long`                                   | 允许 -9,223,372,036,854,775,808 和 9,223,372,036,854,775,807 之间的所有数字。                                                                                                                                                                                                                                              |
+| float     | `java.lang.Float`                                  | 从-1.79E+308 到 1.79E+308浮点精度数值数据。                                                                                                                                                                                                                                                                                |
+| double    | `java.lang.Double`                                 | 双精度浮点。 处理大多数小数。                                                                                                                                                                                                                                                                                                 |
+| decimal   | `java.math.BigDecimal`                             | DOUBLE 类型存储为字符串，允许固定小数点。                                                                                                                                                                                                                                                                                        |
+| null      | `java.lang.Void`                                   | null                                                                                                                                                                                                                                                                                                            |
+| bytes     | `byte[]`                                           | 字节。                                                                                                                                                                                                                                                                                                             |
+| date      | `java.time.LocalDate`                              | 仅存储日期。从0001年1月1日到9999 年 12 月 31 日。                                                                                                                                                                                                                                                                              |
+| time      | `java.time.LocalTime`                              | 仅存储时间。精度为 100 纳秒。                                                                                                                                                                                                                                                                                               |
+| timestamp | `java.time.LocalDateTime`                          | 存储一个唯一的编号，每当创建或修改行时都会更新该编号。 时间戳基于内部时钟，与实际时间不对应。 每个表只能有一个时间戳变量。                                                                                                                                                                                                                                                  |
+| row       | `org.apache.seatunnel.api.table.type.SeaTunnelRow` | 行类型，可以嵌套。                                                                                                                                                                                                                                                                                                       |
 | map       | `java.util.Map`                                    | Map 是将键映射到值的对象。 键类型包括： `int` `string` `boolean` `tinyint` `smallint` `bigint` `float` `double` `decimal` `date` `time` `timestamp` `null` , and the value type includes `int` `string` `boolean` `tinyint` `smallint` `bigint` `float` `double` `decimal` `date` `time` `timestamp` `null` `array` `map` `row`. |
-| array     | `ValueType[]`                                      | 数组是一种表示元素集合的数据类型。 元素类型包括： `int` `string` `boolean` `tinyint` `smallint` `bigint` `float` `double`. |
+| array     | `ValueType[]`                                      | 数组是一种表示元素集合的数据类型。 元素类型包括： `int` `string` `boolean` `tinyint` `smallint` `bigint` `float` `double`.                                                                                                                                                                                                              |
 
 #### 如何声明支持的类型
 
 SeaTunnel 提供了一种简单直接的方式来声明基本类型。基本类型的关键字包括：`string`, `boolean`, `tinyint`, `smallint`, `int`, `bigint`, `float`, `double`, `date`, `time`, `timestamp`, 和 `null`。基本类型的关键字名称可以直接用作类型声明，并且SeaTunnel对类型关键字不区分大小写。 例如，如果您需要声明一个整数类型的字段，您可以简单地将字段定义为`int`或`"int"`。
 
-> null 类型声明必须用双引号引起来, 例如：`"null"`。 这种方法有助于避免与 [HOCON] (https://github.com/lightbend/config/blob/main/HOCON.md) 中表示未定义的对象的 `null` 类型混淆。
+> null 类型声明必须用双引号引起来, 例如：`"null"`。 这种方法有助于避免与 [HOCON](https://github.com/lightbend/config/blob/main/HOCON.md) 中表示未定义的对象的 `null` 类型混淆。
 
 声明复杂类型（例如 **decimal**、**array**、**map** 和 **row**）时，请注意具体注意事项。
 - 声明decimal类型时，需要设置精度(precision)和小数位数(scale)，类型定义遵循“decimal(precision, scale)”格式。 需要强调的是，十进制类型的声明必须用 `"` 括起来；不能像基本类型一样直接使用类型名称。例如，当声明精度为 10、小数位数为 2 的十进制字段时，您可以指定字段类型为`"decimal(10,2)"`。
@@ -135,10 +134,10 @@ primaryKey {
 }
 ```
 
-| 字段    | 是否必须 | 默认值 | 描述           |
-| :------ | :------- | :----- | -------------- |
-| name    | 是       | -      | 主键名称       |
-| columns | 是       | -      | 主键中的列列表 |
+| 字段      | 是否必须 | 默认值 |   描述    |
+|:--------|:-----|:----|---------|
+| name    | 是    | -   | 主键名称    |
+| columns | 是    | -   | 主键中的列列表 |
 
 ### 约束键（constraintKeys）
 
@@ -159,18 +158,18 @@ constraintKeys = [
    ]
 ```
 
-| 字段              | 是否必须 | 默认值 | 描述                                                         |
-| :---------------- | :------- | :----- | ------------------------------------------------------------ |
-| constraintName    | 是       | -      | 约束键的名称                                                 |
-| constraintType    | 否       | KEY    | 约束键的类型                                                 |
-| constraintColumns | 是       | -      | PrimaryKey中的列列表，每列应包含constraintType和sortType，sortType支持ASC和DESC，默认为ASC |
+| 字段                | 是否必须 | 默认值 |                                   描述                                   |
+|:------------------|:-----|:----|------------------------------------------------------------------------|
+| constraintName    | 是    | -   | 约束键的名称                                                                 |
+| constraintType    | 否    | KEY | 约束键的类型                                                                 |
+| constraintColumns | 是    | -   | PrimaryKey中的列列表，每列应包含constraintType和sortType，sortType支持ASC和DESC，默认为ASC |
 
 #### 目前支持哪些约束类型
 
-| 约束类型 | 描述  |
-|:---------------|:----|
-| INDEX_KEY      | 键   |
-| UNIQUE_KEY     | 唯一键 |
+| 约束类型       | 描述  |
+|:-----------|:----|
+| INDEX_KEY  | 键   |
+| UNIQUE_KEY | 唯一键 |
 
 ## 如何使用schema
 
