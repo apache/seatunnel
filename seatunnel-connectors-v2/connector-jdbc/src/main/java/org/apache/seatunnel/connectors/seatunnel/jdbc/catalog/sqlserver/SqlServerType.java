@@ -34,6 +34,7 @@ public enum SqlServerType implements SQLType {
     BIT("bit", java.sql.Types.BIT, Boolean.class),
     SMALLINT("smallint", java.sql.Types.SMALLINT, Short.class),
     INTEGER("int", java.sql.Types.INTEGER, Integer.class),
+    INT_IDENTITY("int identity", java.sql.Types.INTEGER, Integer.class),
     BIGINT("bigint", java.sql.Types.BIGINT, Long.class),
     FLOAT("float", java.sql.Types.DOUBLE, Double.class),
     REAL("real", java.sql.Types.REAL, Float.class),

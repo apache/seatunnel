@@ -7,15 +7,17 @@
 Write data through jdbc. Support Batch mode and Streaming mode, support concurrent writing, support exactly-once
 semantics (using XA transaction guarantee).
 
-:::tip
+## Using Dependency
 
-Warn: for license compliance, you have to provide database driver yourself, copy to `$SEATNUNNEL_HOME/lib/` directory in order to make them work.
+### For Spark/Flink Engine
 
-e.g. If you use MySQL, should download and copy `mysql-connector-java-xxx.jar` to `$SEATNUNNEL_HOME/lib/`. For Spark/Flink, you should also copy it to `$SPARK_HOME/jars/` or `$FLINK_HOME/lib/`.
+> 1. You need to ensure that the jdbc driver jar package has been placed in directory `${SEATUNNEL_HOME}/plugins/`.
 
-:::
+### For SeaTunnel Zeta Engine
 
-## Key features
+> 1. You need to ensure that the jdbc driver jar package has been placed in directory `${SEATUNNEL_HOME}/lib/`.
+
+## Key Features
 
 - [x] [exactly-once](../../concept/connector-v2-features.md)
 
@@ -26,7 +28,7 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 
 ## Options
 
-|                   name                    |  type   | required |        default value         |
+|                   Name                    |  Type   | Required |           Default            |
 |-------------------------------------------|---------|----------|------------------------------|
 | url                                       | String  | Yes      | -                            |
 | driver                                    | String  | Yes      | -                            |
@@ -49,10 +51,11 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 | auto_commit                               | Boolean | No       | true                         |
 | field_ide                                 | String  | No       | -                            |
 | properties                                | Map     | No       | -                            |
-| common-options                            |         | no       | -                            |
-| schema_save_mode                          | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST |
-| data_save_mode                            | Enum    | no       | APPEND_DATA                  |
-| custom_sql                                | String  | no       | -                            |
+| common-options                            |         | No       | -                            |
+| schema_save_mode                          | Enum    | No       | CREATE_SCHEMA_WHEN_NOT_EXIST |
+| data_save_mode                            | Enum    | No       | APPEND_DATA                  |
+| custom_sql                                | String  | No       | -                            |
+| enable_upsert                             | Boolean | No       | true                         |
 
 ### driver [string]
 
@@ -169,7 +172,7 @@ Additional connection configuration parameters,when properties and URL have the 
 
 Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
 
-### schema_save_mode[Enum]
+### schema_save_mode [Enum]
 
 Before the synchronous task is turned on, different treatment schemes are selected for the existing surface structure of the target side.  
 Option introduction：  
@@ -177,7 +180,7 @@ Option introduction：
 `CREATE_SCHEMA_WHEN_NOT_EXIST` ：Will Created when the table does not exist, skipped when the table is saved        
 `ERROR_WHEN_SCHEMA_NOT_EXIST` ：Error will be reported when the table does not exist
 
-### data_save_mode[Enum]
+### data_save_mode [Enum]
 
 Before the synchronous task is turned on, different processing schemes are selected for data existing data on the target side.  
 Option introduction：  
@@ -186,9 +189,13 @@ Option introduction：
 `CUSTOM_PROCESSING`：User defined processing  
 `ERROR_WHEN_DATA_EXISTS`：When there is data, an error is reported
 
-### custom_sql[String]
+### custom_sql [String]
 
 When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.
+
+### enable_upsert [boolean]
+
+Enable upsert by primary_keys exist, If the task has no key duplicate data, setting this parameter to `false` can speed up data import
 
 ## tips
 

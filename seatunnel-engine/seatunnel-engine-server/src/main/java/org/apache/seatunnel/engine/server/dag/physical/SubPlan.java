@@ -560,7 +560,9 @@ public class SubPlan {
         log.warn(
                 String.format(
                         "%s checkpoint have error, cancel the pipeline", getPipelineFullName()));
-        this.cancelPipeline();
+        if (!getPipelineState().isEndState()) {
+            updatePipelineState(PipelineStatus.CANCELING);
+        }
     }
 
     public void startSubPlanStateProcess() {

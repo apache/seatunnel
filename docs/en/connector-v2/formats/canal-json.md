@@ -15,14 +15,14 @@ SeaTunnel also supports to encode the INSERT/UPDATE/DELETE messages in SeaTunnel
 
 # Format Options
 
-|             option             | default | required |                                                                                                Description                                                                                                 |
+|             Option             | Default | Required |                                                                                                Description                                                                                                 |
 |--------------------------------|---------|----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | format                         | (none)  | yes      | Specify what format to use, here should be 'canal_json'.                                                                                                                                                   |
 | canal_json.ignore-parse-errors | false   | no       | Skip fields and rows with parse errors instead of failing. Fields are set to null in case of errors.                                                                                                       |
 | canal_json.database.include    | (none)  | no       | An optional regular expression to only read the specific databases changelog rows by regular matching the "database" meta field in the Canal record. The pattern string is compatible with Java's Pattern. |
 | canal_json.table.include       | (none)  | no       | An optional regular expression to only read the specific tables changelog rows by regular matching the "table" meta field in the Canal record. The pattern string is compatible with Java's Pattern.       |
 
-# How to use Canal format
+# How to use
 
 ## Kafka uses example
 

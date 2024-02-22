@@ -25,8 +25,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.doris.config.DorisConfig;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorErrorCode;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorException;
-import org.apache.seatunnel.connectors.doris.rest.RestService;
-import org.apache.seatunnel.connectors.doris.rest.models.BackendV2;
 import org.apache.seatunnel.connectors.doris.rest.models.RespContent;
 import org.apache.seatunnel.connectors.doris.serialize.DorisSerializer;
 import org.apache.seatunnel.connectors.doris.serialize.SeaTunnelRowSerializer;
@@ -39,8 +37,6 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -58,7 +54,6 @@ public class DorisSinkWriter
         implements SinkWriter<SeaTunnelRow, DorisCommitInfo, DorisSinkState>,
                 SupportMultiTableSinkWriter<Void> {
     private static final int INITIAL_DELAY = 200;
-    private static final int CONNECT_TIMEOUT = 1000;
     private static final List<String> DORIS_SUCCESS_STATUS =
             new ArrayList<>(Arrays.asList(LoadStatus.SUCCESS, LoadStatus.PUBLISH_TIMEOUT));
     private long lastCheckpointId;
@@ -73,15 +68,13 @@ public class DorisSinkWriter
     private final transient ScheduledExecutorService scheduledExecutorService;
     private transient Thread executorThread;
     private transient volatile Exception loadException = null;
-    private List<BackendV2.BackendRowV2> backends;
 
     public DorisSinkWriter(
             SinkWriter.Context context,
             List<DorisSinkState> state,
             CatalogTable catalogTable,
             DorisConfig dorisConfig,
-            String jobId)
-            throws IOException {
+            String jobId) {
         this.dorisConfig = dorisConfig;
         this.catalogTable = catalogTable;
         this.lastCheckpointId = !state.isEmpty() ? state.get(0).getCheckpointId() : 0;
@@ -105,9 +98,8 @@ public class DorisSinkWriter
         this.initializeLoad();
     }
 
-    private void initializeLoad() throws IOException {
-        this.backends = RestService.getBackendsV2(dorisConfig, log);
-        String backend = getAvailableBackend();
+    private void initializeLoad() {
+        String backend = dorisConfig.getFrontends();
         try {
             this.dorisStreamLoad =
                     new DorisStreamLoad(
@@ -124,7 +116,7 @@ public class DorisSinkWriter
         }
         // get main work thread.
         executorThread = Thread.currentThread();
-        dorisStreamLoad.startLoad(labelGenerator.generateLabel(lastCheckpointId + 1));
+        startLoad(labelGenerator.generateLabel(lastCheckpointId + 1));
         // when uploading data in streaming mode, we need to regularly detect whether there are
         // exceptions.
         scheduledExecutorService.scheduleWithFixedDelay(
@@ -178,15 +170,14 @@ public class DorisSinkWriter
     }
 
     @Override
-    public List<DorisSinkState> snapshotState(long checkpointId) throws IOException {
+    public List<DorisSinkState> snapshotState(long checkpointId) {
         checkState(dorisStreamLoad != null);
         startLoad(labelGenerator.generateLabel(checkpointId + 1));
         this.lastCheckpointId = checkpointId;
         return Collections.singletonList(new DorisSinkState(labelPrefix, lastCheckpointId));
     }
 
-    private void startLoad(String label) throws IOException {
-        this.dorisStreamLoad.setHostPort(getAvailableBackend());
+    private void startLoad(String label) {
         this.dorisStreamLoad.startLoad(label);
         this.loading = true;
     }
@@ -247,33 +238,6 @@ public class DorisSinkWriter
         }
         if (dorisStreamLoad != null) {
             dorisStreamLoad.close();
-        }
-    }
-
-    private String getAvailableBackend() {
-        Collections.shuffle(backends);
-        for (BackendV2.BackendRowV2 backend : backends) {
-            String res = backend.toBackendString();
-            if (tryHttpConnection(res)) {
-                return res;
-            }
-        }
-        String errMsg = "no available backend.";
-        throw new DorisConnectorException(DorisConnectorErrorCode.STREAM_LOAD_FAILED, errMsg);
-    }
-
-    public boolean tryHttpConnection(String backend) {
-        try {
-            backend = "http://" + backend;
-            URL url = new URL(backend);
-            HttpURLConnection co = (HttpURLConnection) url.openConnection();
-            co.setConnectTimeout(CONNECT_TIMEOUT);
-            co.connect();
-            co.disconnect();
-            return true;
-        } catch (Exception ex) {
-            log.warn("Failed to connect to backend:{}", backend, ex);
-            return false;
         }
     }
 

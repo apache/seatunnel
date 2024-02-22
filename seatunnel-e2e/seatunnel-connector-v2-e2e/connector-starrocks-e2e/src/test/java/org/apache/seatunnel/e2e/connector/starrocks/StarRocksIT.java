@@ -31,6 +31,7 @@ import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
@@ -318,8 +319,8 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
         }
     }
 
-    @TestTemplate
-    public void testCatalog(TestContainer container) throws IOException, InterruptedException {
+    @Test
+    public void testCatalog() {
         TablePath tablePathStarRocksSource = TablePath.of("test", "e2e_table_source");
         TablePath tablePathStarRocksSink = TablePath.of("test", "e2e_table_source_2");
         StarRocksCatalog starRocksCatalog =

@@ -155,7 +155,7 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
 
     @Override
     public String getServerLogs() {
-        return jobManager.getLogs();
+        return jobManager.getLogs() + "\n" + taskManager.getLogs();
     }
 
     public String executeJobManagerInnerCommand(String command)

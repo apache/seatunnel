@@ -34,29 +34,29 @@ import java.util.List;
 
 class ReadonlyConfigParserTest extends BaseConfigParserTest {
 
-    private final String columnConfig = "/conf/catalog/schema_column.conf";
-    private final String fieldConfig = "/conf/catalog/schema_field.conf";
+    private static final String COLUMN_CONFIG = "/conf/catalog/schema_column.conf";
+    private static final String FIELD_CONFIG = "/conf/catalog/schema_field.conf";
 
     @Test
     void parseColumn() throws FileNotFoundException, URISyntaxException {
-        ReadonlyConfig config = getReadonlyConfig(columnConfig);
+        ReadonlyConfig config = getReadonlyConfig(COLUMN_CONFIG);
 
         ReadonlyConfigParser readonlyConfigParser = new ReadonlyConfigParser();
         TableSchema tableSchema = readonlyConfigParser.parse(config);
         assertPrimaryKey(tableSchema);
         assertConstraintKey(tableSchema);
-        assertColumn(tableSchema);
+        assertColumn(tableSchema, true);
     }
 
     @Test
     void parseField() throws FileNotFoundException, URISyntaxException {
-        ReadonlyConfig config = getReadonlyConfig(fieldConfig);
+        ReadonlyConfig config = getReadonlyConfig(FIELD_CONFIG);
 
         ReadonlyConfigParser readonlyConfigParser = new ReadonlyConfigParser();
         TableSchema tableSchema = readonlyConfigParser.parse(config);
         assertPrimaryKey(tableSchema);
         assertConstraintKey(tableSchema);
-        assertColumn(tableSchema);
+        assertColumn(tableSchema, false);
     }
 
     private void assertPrimaryKey(TableSchema tableSchema) {
@@ -77,7 +77,7 @@ class ReadonlyConfigParserTest extends BaseConfigParserTest {
                 constraintKey.getColumnNames().get(0).getSortType());
     }
 
-    private void assertColumn(TableSchema tableSchema) {
+    private void assertColumn(TableSchema tableSchema, boolean checkDefaultValue) {
         List<Column> columns = tableSchema.getColumns();
         Assertions.assertEquals(19, columns.size());
 
@@ -108,5 +108,13 @@ class ReadonlyConfigParserTest extends BaseConfigParserTest {
 
         SeaTunnelRowType seatunnalRowType1 = (SeaTunnelRowType) seaTunnelRowType.getFieldType(17);
         Assertions.assertEquals(17, seatunnalRowType1.getTotalFields());
+
+        if (checkDefaultValue) {
+            Assertions.assertEquals(0, columns.get(0).getDefaultValue());
+            Assertions.assertEquals("I'm default value", columns.get(4).getDefaultValue());
+            Assertions.assertEquals(false, columns.get(5).getDefaultValue());
+            Assertions.assertEquals(1.1, columns.get(10).getDefaultValue());
+            Assertions.assertEquals("2020-01-01", columns.get(15).getDefaultValue());
+        }
     }
 }

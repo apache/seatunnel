@@ -141,7 +141,6 @@ class JobMetricsTest extends AbstractSeaTunnelServerTest {
                 .untilAsserted(
                         () -> {
                             JobMetrics jobMetrics = coordinatorService.getJobMetrics(jobId3);
-                            log.info(jobMetrics.toJsonString());
                             assertTrue(40 < (Long) jobMetrics.get(SINK_WRITE_COUNT).get(0).value());
                             assertTrue(40 < (Long) jobMetrics.get(SINK_WRITE_COUNT).get(1).value());
                             assertTrue(

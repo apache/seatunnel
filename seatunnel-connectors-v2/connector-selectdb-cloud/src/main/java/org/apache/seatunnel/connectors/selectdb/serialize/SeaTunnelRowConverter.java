@@ -35,7 +35,8 @@ public class SeaTunnelRowConverter {
     @Builder.Default private DateUtils.Formatter dateFormatter = DateUtils.Formatter.YYYY_MM_DD;
 
     @Builder.Default
-    private DateTimeUtils.Formatter dateTimeFormatter = DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS;
+    private DateTimeUtils.Formatter dateTimeFormatter =
+            DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS_SSSSSS;
 
     @Builder.Default private TimeUtils.Formatter timeFormatter = TimeUtils.Formatter.HH_MM_SS;
 

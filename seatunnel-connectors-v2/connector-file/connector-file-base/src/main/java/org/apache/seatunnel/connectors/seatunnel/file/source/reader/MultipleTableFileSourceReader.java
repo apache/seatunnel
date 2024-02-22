@@ -123,5 +123,8 @@ public class MultipleTableFileSourceReader implements SourceReader<SeaTunnelRow,
     public void close() throws IOException {
         // do nothing
         log.info("Closed the MultipleTableLocalFileSourceReader");
+        for (ReadStrategy strategy : readStrategyMap.values()) {
+            strategy.close();
+        }
     }
 }

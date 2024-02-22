@@ -24,16 +24,20 @@ import org.apache.commons.lang3.StringUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
+import org.testcontainers.images.PullPolicy;
 import org.testcontainers.utility.DockerLoggerFactory;
 import org.testcontainers.utility.MountableFile;
 
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
 
@@ -51,6 +55,7 @@ public class JobClientJobProxyIT extends SeaTunnelContainer {
                                 ContainerUtil.adaptPathForWin(
                                         Paths.get(SEATUNNEL_HOME, "bin", SERVER_SHELL).toString()))
                         .withNetworkAliases("server")
+                        .withImagePullPolicy(PullPolicy.alwaysPull())
                         .withExposedPorts()
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
@@ -59,6 +64,7 @@ public class JobClientJobProxyIT extends SeaTunnelContainer {
                         .waitingFor(Wait.forListeningPort());
         copySeaTunnelStarterToContainer(server);
         server.setExposedPorts(Arrays.asList(5801));
+        server.setPortBindings(Collections.singletonList("5801:5801"));
         server.withCopyFileToContainer(
                 MountableFile.forHostPath(
                         PROJECT_ROOT_PATH
@@ -77,6 +83,18 @@ public class JobClientJobProxyIT extends SeaTunnelContainer {
                         PROJECT_ROOT_PATH
                                 + "/seatunnel-shade/seatunnel-hadoop3-3.1.4-uber/target/seatunnel-hadoop3-3.1.4-uber.jar"),
                 Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop3-3.1.4-uber.jar").toString());
+        LOG.info(
+                "find images: "
+                        + DockerClientFactory.lazyClient().listImagesCmd().exec().stream()
+                                .map(
+                                        image -> {
+                                            if (image.getRepoTags() != null) {
+                                                return image.getRepoTags()[0];
+                                            } else {
+                                                return image.getRepoDigests()[0];
+                                            }
+                                        })
+                                .collect(Collectors.joining(",")));
         server.start();
         // execute extra commands
         executeExtraCommands(server);

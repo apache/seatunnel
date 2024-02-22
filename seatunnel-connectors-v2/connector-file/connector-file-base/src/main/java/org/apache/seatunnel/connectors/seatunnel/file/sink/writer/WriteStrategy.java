@@ -26,11 +26,12 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig
 
 import org.apache.hadoop.conf.Configuration;
 
+import java.io.Closeable;
 import java.io.Serializable;
 import java.util.LinkedHashMap;
 import java.util.List;
 
-public interface WriteStrategy extends Transaction, Serializable {
+public interface WriteStrategy extends Transaction, Serializable, Closeable {
     /**
      * init hadoop conf
      *
