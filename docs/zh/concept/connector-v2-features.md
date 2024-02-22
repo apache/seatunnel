@@ -1,71 +1,74 @@
-# Intro To Connector V2 Features
+# Connector V2 功能简介
 
-## Differences Between Connector V2 And Connector v1
+## Connector V2 和 Connector V1 之间的不同
 
-Since https://github.com/apache/seatunnel/issues/1608 We Added Connector V2 Features.
-Connector V2 is a connector defined based on the SeaTunnel Connector API interface. Unlike Connector V1, Connector V2 supports the following features.
+从 https://github.com/apache/seatunnel/issues/1608 我们添加了 Connector V2 特性。
+Connector V2 是基于SeaTunnel Connector API接口定义的连接器。不像Connector V1，Connector V2 支持如下特性：
 
-* **Multi Engine Support** SeaTunnel Connector API is an engine independent API. The connectors developed based on this API can run in multiple engines. Currently, Flink and Spark are supported, and we will support other engines in the future.
-* **Multi Engine Version Support** Decoupling the connector from the engine through the translation layer solves the problem that most connectors need to modify the code in order to support a new version of the underlying engine.
-* **Unified Batch And Stream** Connector V2 can perform batch processing or streaming processing. We do not need to develop connectors for batch and stream separately.
-* **Multiplexing JDBC/Log connection.** Connector V2 supports JDBC resource reuse and sharing database log parsing.
 
-## Source Connector Features
+* **多引擎支持** SeaTunnel Connector API 是引擎独立的API。基于这个API开发的连接器可以在多个引擎上运行。目前支持Flink和Spark引擎，后续我们会支持其它的引擎。
+* **多引擎版本支持** 通过翻译层将连接器与引擎解耦，解决了大多数连接器需要修改代码才能支持新版本底层引擎的问题。
+* **流批一体** Connector V2 可以支持批处理和流处理。我们不需要为批和流分别开发连接器。
+* **多路复用JDBC/Log连接。** Connector V2支持JDBC资源复用和共享数据库日志解析。
 
-Source connectors have some common core features, and each source connector supports them to varying degrees.
+## Source Connector 特性
 
-### exactly-once
+Source connector有一些公共的核心特性，每个source connector在不同程度上支持它们。
 
-If each piece of data in the data source will only be sent downstream by the source once, we think this source connector supports exactly once.
+### 精确一次（exactly-once）
 
-In SeaTunnel, we can save the read **Split** and its **offset**(The position of the read data in split at that time,
-such as line number, byte size, offset, etc) as **StateSnapshot** when checkpoint. If the task restarted, we will get the last **StateSnapshot**
-and then locate the **Split** and **offset** read last time and continue to send data downstream.
+如果数据源中的每条数据仅由源向下游发送一次，我们认为该source connector支持精确一次（exactly-once）。
 
-For example `File`, `Kafka`.
+在SeaTunnel中, 我们可以保存读取的 **Split** 和 它的 **offset**(当时读取的数据被分割时的位置，例如行号, 字节大小, 偏移量等) 作为检查点时的 **StateSnapshot** 。 如果任务重新启动, 我们会得到最后的 **StateSnapshot**
+然后定位到上次读取的 **Split** 和 **offset**，继续向下游发送数据。
 
-### column projection
 
-If the connector supports reading only specified columns from the data source (note that if you read all columns first and then filter unnecessary columns through the schema, this method is not a real column projection)
+例如 `File`, `Kafka`。
 
-For example `JDBCSource` can use sql define read columns.
 
-`KafkaSource` will read all content from topic and then use `schema` to filter unnecessary columns, This is not `column projection`.
+### 列投影（column projection）
 
-### batch
+如果连接器支持仅从数据源读取指定列（请注意，如果先读取所有列，然后通过元数据（schema）过滤不需要的列，则此方法不是真正的列投影）
 
-Batch Job Mode, The data read is bounded and the job will stop when all data read complete.
+例如 `JDBCSource` 可以使用sql定义读取列。
 
-### stream
+`KafkaSource` 从主题中读取所有内容然后使用`schema`过滤不必要的列, 这不是真正的`列投影`。
 
-Streaming Job Mode, The data read is unbounded and the job never stop.
+### 批（batch）
 
-### parallelism
+批处理作业模式，读取的数据是有界的，当所有数据读取完成后作业将停止。
 
-Parallelism Source Connector support config `parallelism`, every parallelism will create a task to read the data.
-In the **Parallelism Source Connector**, the source will be split into multiple splits, and then the enumerator will allocate the splits to the SourceReader for processing.
+### 流（stream）
 
-### support user-defined split
+流式作业模式，数据读取无界，作业永不停止。
 
-User can config the split rule.
+### 并行性（parallelism）
 
-### support multiple table read
+并行执行的Source Connector支持配置 `parallelism`，每个并发会创建一个任务来读取数据。
+在**Parallelism Source Connector**中，source会被分割成多个split，然后枚举器会将 split 分配给 SourceReader 进行处理。
 
-Supports reading multiple tables in one SeaTunnel job
 
-## Sink Connector Features
+### 支持用户自定义split
 
-Sink connectors have some common core features, and each sink connector supports them to varying degrees.
+用户可以配置分割规则。
 
-### exactly-once
+### 支持多表读取
 
-When any piece of data flows into a distributed system, if the system processes any piece of data accurately only once in the whole processing process and the processing results are correct, it is considered that the system meets the exact once consistency.
+支持在一个 SeaTunnel 作业中读取多个表
 
-For sink connector, the sink connector supports exactly-once if any piece of data only write into target once. There are generally two ways to achieve this:
+## Sink Connector 的特性
 
-* The target database supports key deduplication. For example `MySQL`, `Kudu`.
-* The target support **XA Transaction**(This transaction can be used across sessions. Even if the program that created the transaction has ended, the newly started program only needs to know the ID of the last transaction to resubmit or roll back the transaction). Then we can use **Two-phase Commit** to ensure **exactly-once**. For example `File`, `MySQL`.
+Sink connector有一些公共的核心特性，每个sink connector在不同程度上支持它们。
 
-### cdc(change data capture)
+### 精确一次（exactly-once）
 
-If a sink connector supports writing row kinds(INSERT/UPDATE_BEFORE/UPDATE_AFTER/DELETE) based on primary key, we think it supports cdc(change data capture).
+当任意一条数据流入分布式系统时，如果系统在整个处理过程中仅准确处理任意一条数据一次，且处理结果正确，则认为系统满足精确一次一致性。
+
+对于sink connector，如果任何数据只写入目标一次，则sink connector支持精确一次。 通常有两种方法可以实现这一目标：
+
+* 目标数据库支持key去重。例如 `MySQL`, `Kudu`。
+* 目标支持 **XA 事务**(事务可以跨会话使用。即使创建事务的程序已经结束，新启动的程序也只需要知道最后一个事务的ID就可以重新提交或回滚事务）。 然后我们可以使用 **两阶段提交** 来确保 * 精确一次**。 例如：`File`, `MySQL`.
+
+### cdc(更改数据捕获，change data capture)
+
+如果sink connector支持基于主键写入行类型（INSERT/UPDATE_BEFORE/UPDATE_AFTER/DELETE），我们认为它支持cdc（更改数据捕获，change data capture）。
