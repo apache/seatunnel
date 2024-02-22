@@ -1,13 +1,14 @@
-# Intro to schema feature
+# Schema 特性简介
 
-## Why we need schema
+## 为什么我们需要Schema
 
-Some NoSQL databases or message queue are not strongly limited schema, so the schema cannot be obtained through the api.
-At this time, a schema needs to be defined to convert to TableSchema and obtain data.
+某些NoSQL数据库或消息队列没有严格限制schema，因此无法通过api获取schema。
+这时需要定义一个schema来转换为TableSchema并获取数据。
 
 ## SchemaOptions
 
-We can use SchemaOptions to define schema, the SchemaOptions contains some config to define the schema. e.g. columns, primaryKey, constraintKeys.
+我们可以使用SchemaOptions定义schema, SchemaOptions包含了一些定义schema的配置。 例如：columns, primaryKey, constraintKeys。
+
 
 ```
 schema = {
@@ -29,21 +30,21 @@ schema = {
 
 ### table
 
-The table full name of the table identifier which the schema belongs to, it contains database, schema, table name. e.g. `database.schema.table`, `database.table`, `table`.
+schema所属的表标识符的表全名，包含数据库、schema、表名。 例如 `database.schema.table`、`database.table`、`table`。
 
 ### schema_first
 
-Default is false.
+默认是false。
 
-If the schema_first is true, the schema will be used first, this means if we set `table = "a.b"`, `a` will be parsed as schema rather than database, then we can support write `table = "schema.table"`.
+如果schema_first是true, schema会优先使用, 这意味着如果我们设置 `table = "a.b"`, `a` 会被解析为schema而不是数据库, 那么我们可以支持写入 `table = "schema.table"`.
 
 ### comment
 
-The comment of the CatalogTable which the schema belongs to.
+schema所属的 CatalogTable 的注释。
 
 ### Columns
 
-Columns is a list of config used to define the column in schema, each column can contains name, type, nullable, defaultValue, comment field.
+Columns 是用于定义模式中的列的配置列表，每列可以包含名称（name）、类型(type)、是否可空(nullable)、默认值(defaultValue)、注释（comment）字段。
 
 ```
 columns = [
@@ -58,50 +59,50 @@ columns = [
 ]
 ```
 
-| Field        | Required | Default Value |                                   Description                                    |
-|:-------------|:---------|:--------------|----------------------------------------------------------------------------------|
-| name         | Yes      | -             | The name of the column                                                           |
-| type         | Yes      | -             | The data type of the column                                                      |
-| nullable     | No       | true          | If the column can be nullable                                                    |
-| columnLength | No       | 0             | The length of the column which will be useful when you need to define the length |
-| defaultValue | No       | null          | The default value of the column                                                  |
-| comment      | No       | null          | The comment of the column                                                        |
+| 字段         | 是否必须 | 默认值  | 描述                                              |
+|:-------------|:---------|:--------|---------------------------------------------------|
+| name         | Yes      | -       | 列的名称                                          |
+| type         | Yes      | -       | 列的数据类型                                      |
+| nullable     | No       | true    | 列是否可空                                        |
+| columnLength | No       | 0       | 列的长度，当您需要定义长度时将很有用              |
+| defaultValue | No       | null    | 列的默认值                                        |
+| comment      | No       | null    | 列的注释                                          |
 
-#### What type supported at now
+#### 目前支持哪些类型
 
-| Data type | Value type in Java                                 | Description                                                                                                                                                                                                                                                                                                                                                 |
-|:----------|:---------------------------------------------------|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| string    | `java.lang.String`                                 | string                                                                                                                                                                                                                                                                                                                                                      |
-| boolean   | `java.lang.Boolean`                                | boolean                                                                                                                                                                                                                                                                                                                                                     |
-| tinyint   | `java.lang.Byte`                                   | -128 to 127 regular. 0 to 255 unsigned*. Specify the maximum number of digits in parentheses.                                                                                                                                                                                                                                                               |
-| smallint  | `java.lang.Short`                                  | -32768 to 32767 General. 0 to 65535 unsigned*. Specify the maximum number of digits in parentheses.                                                                                                                                                                                                                                                         |
-| int       | `java.lang.Integer`                                | All numbers from -2,147,483,648 to 2,147,483,647 are allowed.                                                                                                                                                                                                                                                                                               |
-| bigint    | `java.lang.Long`                                   | All numbers between -9,223,372,036,854,775,808 and 9,223,372,036,854,775,807 are allowed.                                                                                                                                                                                                                                                                   |
-| float     | `java.lang.Float`                                  | Float-precision numeric data from -1.79E+308 to 1.79E+308.                                                                                                                                                                                                                                                                                                  |
-| double    | `java.lang.Double`                                 | Double precision floating point. Handle most decimals.                                                                                                                                                                                                                                                                                                      |
-| decimal   | `java.math.BigDecimal`                             | DOUBLE type stored as a string, allowing a fixed decimal point.                                                                                                                                                                                                                                                                                             |
-| null      | `java.lang.Void`                                   | null                                                                                                                                                                                                                                                                                                                                                        |
-| bytes     | `byte[]`                                           | bytes.                                                                                                                                                                                                                                                                                                                                                      |
-| date      | `java.time.LocalDate`                              | Only the date is stored. From January 1, 0001 to December 31, 9999.                                                                                                                                                                                                                                                                                         |
-| time      | `java.time.LocalTime`                              | Only store time. Accuracy is 100 nanoseconds.                                                                                                                                                                                                                                                                                                               |
-| timestamp | `java.time.LocalDateTime`                          | Stores a unique number that is updated whenever a row is created or modified. timestamp is based on the internal clock and does not correspond to real time. There can only be one timestamp variable per table.                                                                                                                                            |
-| row       | `org.apache.seatunnel.api.table.type.SeaTunnelRow` | Row type,can be nested.                                                                                                                                                                                                                                                                                                                                     |
-| map       | `java.util.Map`                                    | A Map is an object that maps keys to values. The key type includes `int` `string` `boolean` `tinyint` `smallint` `bigint` `float` `double` `decimal` `date` `time` `timestamp` `null` , and the value type includes `int` `string` `boolean` `tinyint` `smallint` `bigint` `float` `double` `decimal` `date` `time` `timestamp` `null` `array` `map` `row`. |
-| array     | `ValueType[]`                                      | A array is a data type that represents a collection of elements. The element type includes `int` `string` `boolean` `tinyint` `smallint` `bigint` `float` `double`.                                                                                                                                                                                         |
+| 数据类型  | Java中的值类型                                     | 描述                                                         |
+| :-------- | :------------------------------------------------- | :----------------------------------------------------------- |
+| string    | `java.lang.String`                                 | 字符串                                                       |
+| boolean   | `java.lang.Boolean`                                | 布尔                                                         |
+| tinyint   | `java.lang.Byte`                                   | 常规-128 至 127 。 0 到 255 无符号*。 指定括号中的最大位数。 |
+| smallint  | `java.lang.Short`                                  | 常规-32768 至 32767。 0 到 65535 无符号*。 指定括号中的最大位数。 |
+| int       | `java.lang.Integer`                                | 允许从 -2,147,483,648 到 2,147,483,647 的所有数字。          |
+| bigint    | `java.lang.Long`                                   | 允许 -9,223,372,036,854,775,808 和 9,223,372,036,854,775,807 之间的所有数字。 |
+| float     | `java.lang.Float`                                  | 从-1.79E+308 到 1.79E+308浮点精度数值数据。                  |
+| double    | `java.lang.Double`                                 | 双精度浮点。 处理大多数小数。                                |
+| decimal   | `java.math.BigDecimal`                             | DOUBLE 类型存储为字符串，允许固定小数点。                    |
+| null      | `java.lang.Void`                                   | null                                                         |
+| bytes     | `byte[]`                                           | 字节。                                                       |
+| date      | `java.time.LocalDate`                              | 仅存储日期。从0001年1月1日到9999 年 12 月 31 日。            |
+| time      | `java.time.LocalTime`                              | 仅存储时间。精度为 100 纳秒。                                |
+| timestamp | `java.time.LocalDateTime`                          | 存储一个唯一的编号，每当创建或修改行时都会更新该编号。 时间戳基于内部时钟，与实际时间不对应。 每个表只能有一个时间戳变量。 |
+| row       | `org.apache.seatunnel.api.table.type.SeaTunnelRow` | 行类型，可以嵌套。                                           |
+| map       | `java.util.Map`                                    | Map 是将键映射到值的对象。 键类型包括： `int` `string` `boolean` `tinyint` `smallint` `bigint` `float` `double` `decimal` `date` `time` `timestamp` `null` , and the value type includes `int` `string` `boolean` `tinyint` `smallint` `bigint` `float` `double` `decimal` `date` `time` `timestamp` `null` `array` `map` `row`. |
+| array     | `ValueType[]`                                      | 数组是一种表示元素集合的数据类型。 元素类型包括： `int` `string` `boolean` `tinyint` `smallint` `bigint` `float` `double`. |
 
-#### How to declare type supported
+#### 如何声明支持的类型
 
-SeaTunnel provides a simple and direct way to declare basic types. Basic type keywords include `string`, `boolean`, `tinyint`, `smallint`, `int`, `bigint`, `float`, `double`, `date`, `time`, `timestamp`, and `null`. The keyword names for basic types can be used directly as type declarations, and SeaTunnel is case-insensitive to type keywords. For example, if you need to declare a field with integer type, you can simply define the field as `int` or `"int"`.
+SeaTunnel 提供了一种简单直接的方式来声明基本类型。基本类型的关键字包括：`string`, `boolean`, `tinyint`, `smallint`, `int`, `bigint`, `float`, `double`, `date`, `time`, `timestamp`, 和 `null`。基本类型的关键字名称可以直接用作类型声明，并且SeaTunnel对类型关键字不区分大小写。 例如，如果您需要声明一个整数类型的字段，您可以简单地将字段定义为`int`或`"int"`。
 
-> The null type declaration must be enclosed in double quotes, like `"null"`. This approach helps avoid confusion with [HOCON](https://github.com/lightbend/config/blob/main/HOCON.md)'s `null` type which represents undefined object.
+> null 类型声明必须用双引号引起来, 例如：`"null"`。 这种方法有助于避免与 [HOCON] (https://github.com/lightbend/config/blob/main/HOCON.md) 中表示未定义的对象的 `null` 类型混淆。
 
-When declaring complex types (such as **decimal**, **array**, **map**, and **row**), pay attention to specific considerations.
-- When declaring a decimal type, precision and scale settings are required, and the type definition follows the format `decimal(precision, scale)`. It's essential to emphasize that the declaration of the decimal type must be enclosed in `"`; you cannot use the type name directly, as with basic types. For example, when declaring a decimal field with precision 10 and scale 2, you specify the field type as `"decimal(10,2)"`.
-- When declaring an array type, you need to specify the element type, and the type definition follows the format `array<T>`, where `T` represents the element type. The element type includes `int`,`string`,`boolean`,`tinyint`,`smallint`,`bigint`,`float` and `double`. Similar to the decimal type declaration, it also be enclosed in `"`. For example, when declaring a field with an array of integers, you specify the field type as `"array<int>"`.
-- When declaring a map type, you need to specify the key and value types. The map type definition follows the format `map<K,V>`, where `K` represents the key type and `V` represents the value type. `K` can be any basic type and decimal type, and `V` can be any type supported by SeaTunnel. Similar to previous type declarations, the map type declaration must be enclosed in double quotes. For example, when declaring a field with map type, where the key type is string and the value type is integer, you can declare the field as `"map<string, int>"`.
-- When declaring a row type, you need to define a [HOCON](https://github.com/lightbend/config/blob/main/HOCON.md) object to describe the fields and their types. The field types can be any type supported by SeaTunnel. For example, when declaring a row type containing an integer field `a` and a string field `b`, you can declare it as `{a = int, b = string}`. Enclosing the definition in `"` as a string is also acceptable, so `"{a = int, b = string}"` is equivalent to `{a = int, c = string}`. Since HOCON is compatible with JSON, `"{\"a\":\"int\", \"b\":\"string\"}"` is equivalent to `"{a = int, b = string}"`.
+声明复杂类型（例如 **decimal**、**array**、**map** 和 **row**）时，请注意具体注意事项。
+- 声明decimal类型时，需要设置精度(precision)和小数位数(scale)，类型定义遵循“decimal(precision, scale)”格式。 需要强调的是，十进制类型的声明必须用 `"` 括起来；不能像基本类型一样直接使用类型名称。例如，当声明精度为 10、小数位数为 2 的十进制字段时，您可以指定字段类型为`"decimal(10,2)"`。
+- 声明array类型时，需要指定元素类型，类型定义遵循 `array<T>` 格式，其中 `T` 代表元素类型。元素类型包括`int`,`string`,`boolean`,`tinyint`,`smallint`,`bigint`,`float` 和 `double`。与十进制类型声明类似，它也用 `"` 括起来。例如，在声明具有整数数组的字段时，将字段类型指定为 `"array<int>"`。
+- 声明map类型时，需要指定键和值类型。map类型定义遵循`map<K,V>`格式，其中`K`表示键类型，`V`表示值类型。 `K`可以是任何基本类型和十进制类型，`V`可以是 SeaTunnel 支持的任何类型。 与之前的类型声明类似，map类型声明必须用双引号引起来。 例如，当声明一个map类型的字段时，键类型为字符串，值类型为整数，则可以将该字段声明为`"map<string, int>"`。
+- 声明row类型时，需要定义一个 [HOCON](https://github.com/lightbend/config/blob/main/HOCON.md) 对象来描述字段及其类型。 字段类型可以是 SeaTunnel 支持的任何类型。 例如，当声明包含整数字段“a”和字符串字段“b”的行类型时，可以将其声明为“{a = int, b = string}”。 将定义作为字符串括在 `"` 中也是可以接受的，因此 `"{a = int, b = string}"` 相当于 `{a = int, c = string}`。由于 HOCON 与 JSON 兼容， `"{\"a\":\"int\", \"b\":\"string\"}"` 等价于 `"{a = int, b = string}"`。
 
-Here is an example of complex type declarations:
+以下是复杂类型声明的示例：
 
 ```hocon
 schema {
@@ -115,17 +116,17 @@ schema {
             c_int = int
         }
     }
-    # Hocon style declare row type in generic type
+    # 在泛型中Hocon风格声明行类型
     map0 = "map<string, {c_int = int, c_string = string, c_row = {c_int = int}}>"
-    # Json style declare row type in generic type
+    # 在泛型中Json风格声明行类型
     map1 = "map<string, {\"c_int\":\"int\", \"c_string\":\"string\", \"c_row\":{\"c_int\":\"int\"}}>"
   }
 }
 ```
 
-### PrimaryKey
+### 主键（PrimaryKey）
 
-Primary key is a config used to define the primary key in schema, it contains name, columns field.
+主键是用于定义模式中主键的配置，它包含name、columns字段。
 
 ```
 primaryKey {
@@ -134,14 +135,14 @@ primaryKey {
 }
 ```
 
-| Field   | Required | Default Value |            Description            |
-|:--------|:---------|:--------------|-----------------------------------|
-| name    | Yes      | -             | The name of the primaryKey        |
-| columns | Yes      | -             | The column list in the primaryKey |
+| 字段    | 是否必须 | 默认值 | 描述           |
+| :------ | :------- | :----- | -------------- |
+| name    | 是       | -      | 主键名称       |
+| columns | 是       | -      | 主键中的列列表 |
 
-### ConstraintKeys
+### 约束键（constraintKeys）
 
-Constraint keys is a list of config used to define the constraint keys in schema, it contains constraintName, constraintType, constraintColumns field.
+约束键是用于定义模式中约束键的配置列表，它包含constraintName，constraintType，constraintColumns字段。
 
 ```
 constraintKeys = [
@@ -158,22 +159,22 @@ constraintKeys = [
    ]
 ```
 
-| Field             | Required | Default Value |                                                                Description                                                                |
-|:------------------|:---------|:--------------|-------------------------------------------------------------------------------------------------------------------------------------------|
-| constraintName    | Yes      | -             | The name of the constraintKey                                                                                                             |
-| constraintType    | No       | KEY           | The type of the constraintKey                                                                                                             |
-| constraintColumns | Yes      | -             | The column list in the primaryKey, each column should contains constraintType and sortType, sortType support ASC and DESC, default is ASC |
+| 字段              | 是否必须 | 默认值 | 描述                                                         |
+| :---------------- | :------- | :----- | ------------------------------------------------------------ |
+| constraintName    | 是       | -      | 约束键的名称                                                 |
+| constraintType    | 否       | KEY    | 约束键的类型                                                 |
+| constraintColumns | 是       | -      | PrimaryKey中的列列表，每列应包含constraintType和sortType，sortType支持ASC和DESC，默认为ASC |
 
-#### What constraintType supported at now
+#### 目前支持哪些约束类型
 
-| ConstraintType | Description |
-|:---------------|:------------|
-| INDEX_KEY      | key         |
-| UNIQUE_KEY     | unique key  |
+| 约束类型 | 描述  |
+|:---------------|:----|
+| INDEX_KEY      | 键   |
+| UNIQUE_KEY     | 唯一键 |
 
-## How to use schema
+## 如何使用schema
 
-### Recommended
+### 推荐
 
 ```
 source {
@@ -225,9 +226,9 @@ source {
 }
 ```
 
-### Deprecated
+### 已弃用
 
-If you only need to define the column, you can use fields to define the column, this is a simple way but will be remove in the future.
+如果你只需要定义列，你可以使用字段来定义列，这是一种简单的方式，但将来会被删除。
 
 ```
 source {
@@ -258,6 +259,6 @@ source {
 }
 ```
 
-## When we should use it or not
+## 我们什么时候应该使用它，什么时候不应该使用它
 
-If there is a `schema` configuration project in Options,the connector can then customize the schema. Like `Fake` `Pulsar` `Http` source connector etc.
+如果选项中有`schema`配置项目，则连接器可以自定义schema。 比如 `Fake` `Pulsar` `Http` 源连接器等。
