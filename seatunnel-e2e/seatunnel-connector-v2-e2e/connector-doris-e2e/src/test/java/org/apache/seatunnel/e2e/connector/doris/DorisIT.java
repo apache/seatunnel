@@ -145,6 +145,8 @@ public class DorisIT extends AbstractDorisIT {
                         Object source = sourceResultSet.getObject(column);
                         Object sink = sinkResultSet.getObject(column);
                         if (column.equals("F_DATETIME_P")) {
+                            log.info("source type" + source.getClass());
+                            log.info("sink type" + sink.getClass());
                             log.info("F_DATETIME_P value source: {}, sink: {}", source, sink);
                         }
                         if (!Objects.deepEquals(source, sink)) {
