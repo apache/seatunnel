@@ -290,6 +290,8 @@ public class DorisCatalogIT extends AbstractDorisIT {
         CatalogTable table = (CatalogTable) dorisSource.getProducedCatalogTables().get(0);
         Assertions.assertIterableEquals(
                 Arrays.asList("k1", "k2"), table.getTableSchema().getPrimaryKey().getColumnNames());
+        catalog.dropTable(tablePath, false);
+        Assertions.assertFalse(catalog.tableExists(tablePath));
     }
 
     @AfterAll
