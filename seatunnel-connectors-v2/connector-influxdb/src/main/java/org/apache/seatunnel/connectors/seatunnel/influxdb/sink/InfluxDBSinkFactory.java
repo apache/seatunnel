@@ -60,6 +60,7 @@ public class InfluxDBSinkFactory implements TableSinkFactory {
                 .bundled(USERNAME, PASSWORD)
                 .optional(
                         CONNECT_TIMEOUT_MS,
+                        KEY_MEASUREMENT,
                         KEY_TAGS,
                         KEY_TIME,
                         BATCH_SIZE,
