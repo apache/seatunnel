@@ -43,7 +43,12 @@ public class PreviewActionTest {
                     TableSchema.builder()
                             .column(
                                     PhysicalColumn.of(
-                                            "test", BasicType.STRING_TYPE, null, true, null, ""))
+                                            "test",
+                                            BasicType.STRING_TYPE,
+                                            (Long) null,
+                                            true,
+                                            null,
+                                            ""))
                             .build(),
                     Collections.emptyMap(),
                     Collections.emptyList(),

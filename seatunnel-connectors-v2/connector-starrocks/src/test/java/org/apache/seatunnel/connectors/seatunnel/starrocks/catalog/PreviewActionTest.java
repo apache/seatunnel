@@ -44,10 +44,20 @@ public class PreviewActionTest {
                     TableSchema.builder()
                             .column(
                                     PhysicalColumn.of(
-                                            "test", BasicType.STRING_TYPE, null, true, null, ""))
+                                            "test",
+                                            BasicType.STRING_TYPE,
+                                            (Long) null,
+                                            true,
+                                            null,
+                                            ""))
                             .column(
                                     PhysicalColumn.of(
-                                            "test2", BasicType.STRING_TYPE, null, true, null, ""))
+                                            "test2",
+                                            BasicType.STRING_TYPE,
+                                            (Long) null,
+                                            true,
+                                            null,
+                                            ""))
                             .primaryKey(PrimaryKey.of("test", Collections.singletonList("test")))
                             .build(),
                     Collections.emptyMap(),

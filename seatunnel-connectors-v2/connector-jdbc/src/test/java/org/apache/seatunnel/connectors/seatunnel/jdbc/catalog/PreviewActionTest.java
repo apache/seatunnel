@@ -50,7 +50,12 @@ public class PreviewActionTest {
                     TableSchema.builder()
                             .column(
                                     PhysicalColumn.of(
-                                            "test", BasicType.STRING_TYPE, null, true, null, ""))
+                                            "test",
+                                            BasicType.STRING_TYPE,
+                                            (Long) null,
+                                            true,
+                                            null,
+                                            ""))
                             .build(),
                     Collections.emptyMap(),
                     Collections.emptyList(),
@@ -195,7 +200,7 @@ public class PreviewActionTest {
         assertPreviewResult(
                 catalog,
                 Catalog.ActionType.CREATE_TABLE,
-                "CREATE TABLE \"testtable\" (\n" + "\"test\" CLOB\n" + ")",
+                "CREATE TABLE \"testtable\" (\n" + "\"test\" NVARCHAR2(4000)\n" + ")",
                 Optional.of(CATALOG_TABLE));
 
         Catalog catalog2 =
@@ -282,7 +287,7 @@ public class PreviewActionTest {
         assertPreviewResult(
                 catalog,
                 Catalog.ActionType.CREATE_TABLE,
-                "CREATE TABLE \"testtable\" (\n" + "\"test\" CLOB\n" + ")",
+                "CREATE TABLE \"testtable\" (\n" + "\"test\" NVARCHAR2(4000)\n" + ")",
                 Optional.of(CATALOG_TABLE));
     }
 
@@ -372,7 +377,7 @@ public class PreviewActionTest {
                 "IF OBJECT_ID('[testddatabase].[testtable]', 'U') IS NULL \n"
                         + "BEGIN \n"
                         + "CREATE TABLE [testddatabase].[testtable] ( \n"
-                        + "\t[test] nvarchar null NULL\n"
+                        + "\t[test] TEXT NULL\n"
                         + ");\n"
                         + "EXEC testddatabase.sys.sp_addextendedproperty 'MS_Description', N'comment', 'schema', N'null', 'table', N'testtable';\n"
                         + "EXEC testddatabase.sys.sp_addextendedproperty 'MS_Description', N'', 'schema', N'null', 'table', N'testtable', 'column', N'test';\n"
