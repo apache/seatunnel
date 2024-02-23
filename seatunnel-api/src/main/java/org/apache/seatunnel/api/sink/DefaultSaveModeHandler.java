@@ -25,6 +25,9 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
 import java.util.Optional;
 
 import static org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode.SINK_TABLE_NOT_EXIST;
@@ -34,12 +37,12 @@ import static org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode.SOURCE_ALREA
 @Slf4j
 public class DefaultSaveModeHandler implements SaveModeHandler {
 
-    public SchemaSaveMode schemaSaveMode;
-    public DataSaveMode dataSaveMode;
-    public Catalog catalog;
-    public TablePath tablePath;
-    public CatalogTable catalogTable;
-    public String customSql;
+    @Nonnull public SchemaSaveMode schemaSaveMode;
+    @Nonnull public DataSaveMode dataSaveMode;
+    @Nonnull public Catalog catalog;
+    @Nonnull public TablePath tablePath;
+    @Nullable public CatalogTable catalogTable;
+    @Nullable public String customSql;
 
     public DefaultSaveModeHandler(
             SchemaSaveMode schemaSaveMode,
@@ -169,7 +172,9 @@ public class DefaultSaveModeHandler implements SaveModeHandler {
                     "Creating table {} with action {}",
                     tablePath,
                     catalog.previewAction(
-                            Catalog.ActionType.CREATE_TABLE, tablePath, Optional.of(catalogTable)));
+                            Catalog.ActionType.CREATE_TABLE,
+                            tablePath,
+                            Optional.ofNullable(catalogTable)));
         } catch (UnsupportedOperationException ignore) {
             log.info("Creating table {}", tablePath);
         }

@@ -48,7 +48,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 /**
@@ -241,7 +240,6 @@ public class ElasticSearchCatalog implements Catalog {
     public PreviewResult previewAction(
             ActionType actionType, TablePath tablePath, Optional<CatalogTable> catalogTable) {
         if (actionType == ActionType.CREATE_TABLE) {
-            checkArgument(catalogTable.isPresent(), "CatalogTable cannot be null");
             return new InfoPreviewResult("create index " + tablePath.getTableName());
         } else if (actionType == ActionType.DROP_TABLE) {
             return new InfoPreviewResult("delete index " + tablePath.getTableName());
