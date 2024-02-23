@@ -209,26 +209,7 @@ public class SeaTunnelContainer extends AbstractTestContainer {
 
     private List<String> removeSystemThread(List<String> beforeThreads, List<String> afterThreads)
             throws IOException {
-        Pattern aqsThread = Pattern.compile("pool-[0-9]-thread-[0-9]");
-        afterThreads.removeIf(
-                s ->
-                        s.startsWith("hz.main")
-                                || s.startsWith("seatunnel-coordinator-service")
-                                || s.startsWith("GC task thread")
-                                || s.contains("CompilerThread")
-                                || s.contains("NioNetworking-closeListenerExecutor")
-                                || s.contains("ForkJoinPool.commonPool")
-                                || s.contains("DestroyJavaVM")
-                                || s.contains("main-query-state-checker")
-                                || s.contains("Keep-Alive-SocketCleaner")
-                                || s.contains("process reaper")
-                                || s.startsWith("Timer-")
-                                || s.contains("InterruptTimer")
-                                || s.contains("Java2D Disposer")
-                                || s.contains(
-                                        "org.apache.hadoop.fs.FileSystem$Statistics$StatisticsDataReferenceCleaner")
-                                || s.startsWith("Log4j2-TF-")
-                                || aqsThread.matcher(s).matches());
+        afterThreads.removeIf(SeaTunnelContainer::isSystemThread);
         afterThreads.removeIf(beforeThreads::contains);
         Map<String, String> threadAndClassLoader = getThreadClassLoader();
         List<String> notSystemClassLoaderThread =
@@ -247,7 +228,29 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                         .collect(Collectors.toList());
         notSystemClassLoaderThread.addAll(afterThreads);
         notSystemClassLoaderThread.removeIf(this::isIssueWeAlreadyKnow);
+        notSystemClassLoaderThread.removeIf(SeaTunnelContainer::isSystemThread);
         return notSystemClassLoaderThread;
+    }
+
+    private static boolean isSystemThread(String s) {
+        Pattern aqsThread = Pattern.compile("pool-[0-9]-thread-[0-9]");
+        return s.startsWith("hz.main")
+                || s.startsWith("seatunnel-coordinator-service")
+                || s.startsWith("GC task thread")
+                || s.contains("CompilerThread")
+                || s.contains("NioNetworking-closeListenerExecutor")
+                || s.contains("ForkJoinPool.commonPool")
+                || s.contains("DestroyJavaVM")
+                || s.contains("main-query-state-checker")
+                || s.contains("Keep-Alive-SocketCleaner")
+                || s.contains("process reaper")
+                || s.startsWith("Timer-")
+                || s.contains("InterruptTimer")
+                || s.contains("Java2D Disposer")
+                || s.contains(
+                        "org.apache.hadoop.fs.FileSystem$Statistics$StatisticsDataReferenceCleaner")
+                || s.startsWith("Log4j2-TF-")
+                || aqsThread.matcher(s).matches();
     }
 
     private void classLoaderObjectCheck(Integer maxSize) throws IOException, InterruptedException {
@@ -309,7 +312,9 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 // MongoDB
                 || threadName.startsWith("BufferPoolPruner")
                 || threadName.startsWith("MaintenanceTimer")
-                || threadName.startsWith("cluster-");
+                || threadName.startsWith("cluster-")
+                // Iceberg
+                || threadName.startsWith("iceberg");
     }
 
     @Override
