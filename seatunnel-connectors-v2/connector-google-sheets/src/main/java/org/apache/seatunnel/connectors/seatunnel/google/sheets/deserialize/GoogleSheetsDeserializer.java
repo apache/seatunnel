@@ -17,12 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.google.sheets.deserialize;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.google.sheets.exception.GoogleSheetsConnectorException;
+import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.connectors.seatunnel.google.sheets.exception.GoogleSheetsError;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -43,20 +44,20 @@ public class GoogleSheetsDeserializer implements SeaTunnelRowDeserializer {
 
     @Override
     public SeaTunnelRow deserializeRow(List<Object> row) {
-        try {
-            Map<String, Object> map = new HashMap<>();
-            for (int i = 0; i < row.size(); i++) {
-                if (i < fields.length) {
-                    map.put(fields[i], row.get(i));
-                }
+        Map<String, Object> map = new HashMap<>();
+        for (int i = 0; i < row.size(); i++) {
+            if (i < fields.length) {
+                map.put(fields[i], row.get(i));
             }
+        }
+
+        try {
             String rowStr = objectMapper.writeValueAsString(map);
             return deserializationSchema.deserialize(rowStr.getBytes());
+        } catch (JsonProcessingException e) {
+            throw CommonError.jsonOperationError("GoogleSheets", map.toString(), e);
         } catch (IOException e) {
-            throw new GoogleSheetsConnectorException(
-                    CommonErrorCode.JSON_OPERATION_FAILED,
-                    "Object json deserialization failed.",
-                    e);
+            throw GoogleSheetsError.deserializeError(map.toString(), e);
         }
     }
 }

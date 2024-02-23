@@ -54,12 +54,6 @@ public class YamlSeaTunnelConfigParserTest {
                 7000, config.getEngineConfig().getCheckpointConfig().getCheckpointTimeout());
 
         Assertions.assertEquals(
-                1, config.getEngineConfig().getCheckpointConfig().getMaxConcurrentCheckpoints());
-
-        Assertions.assertEquals(
-                2, config.getEngineConfig().getCheckpointConfig().getTolerableFailureCheckpoints());
-
-        Assertions.assertEquals(
                 "hdfs", config.getEngineConfig().getCheckpointConfig().getStorage().getStorage());
 
         Assertions.assertEquals(
@@ -84,5 +78,11 @@ public class YamlSeaTunnelConfigParserTest {
         ClientConfig clientConfig = yamlClientConfigBuilder.build();
 
         Assertions.assertEquals("custmoize", clientConfig.getClusterName());
+        Assertions.assertEquals(
+                3000L,
+                clientConfig
+                        .getConnectionStrategyConfig()
+                        .getConnectionRetryConfig()
+                        .getClusterConnectTimeoutMillis());
     }
 }

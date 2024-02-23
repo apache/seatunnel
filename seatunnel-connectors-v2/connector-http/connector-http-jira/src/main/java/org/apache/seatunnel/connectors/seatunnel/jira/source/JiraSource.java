@@ -21,7 +21,6 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.source.Boundedness;
-import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
@@ -34,32 +33,16 @@ import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceReader;
 import org.apache.seatunnel.connectors.seatunnel.jira.source.config.JiraSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.jira.source.config.JiraSourceParameter;
 
-import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
 import static org.apache.seatunnel.connectors.seatunnel.http.util.AuthorizationUtil.getTokenByBasicAuth;
 
 @Slf4j
-@AutoService(SeaTunnelSource.class)
 public class JiraSource extends HttpSource {
     private final JiraSourceParameter jiraSourceParameter = new JiraSourceParameter();
 
-    @Override
-    public String getPluginName() {
-        return "Jira";
-    }
-
-    @Override
-    public Boundedness getBoundedness() {
-        if (JobMode.BATCH.equals(jobContext.getJobMode())) {
-            return Boundedness.BOUNDED;
-        }
-        throw new UnsupportedOperationException(
-                "Jira source connector not support unbounded operation");
-    }
-
-    @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
+    protected JiraSource(Config pluginConfig) {
+        super(pluginConfig);
         CheckResult result =
                 CheckConfigUtil.checkAllExists(
                         pluginConfig,
@@ -75,7 +58,20 @@ public class JiraSource extends HttpSource {
                         pluginConfig.getString(JiraSourceConfig.EMAIL.key()),
                         pluginConfig.getString(JiraSourceConfig.API_TOKEN.key()));
         jiraSourceParameter.buildWithConfig(pluginConfig, accessToken);
-        buildSchemaWithConfig(pluginConfig);
+    }
+
+    @Override
+    public String getPluginName() {
+        return "Jira";
+    }
+
+    @Override
+    public Boundedness getBoundedness() {
+        if (JobMode.BATCH.equals(jobContext.getJobMode())) {
+            return Boundedness.BOUNDED;
+        }
+        throw new UnsupportedOperationException(
+                "Jira source connector not support unbounded operation");
     }
 
     @Override

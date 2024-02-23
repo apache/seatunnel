@@ -23,7 +23,6 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-@SuppressWarnings("checkstyle:RegexpSingleline")
 public class SerializationUtilsTest {
 
     @Test

@@ -75,7 +75,6 @@ public class SeaTunnelHealthMonitor {
         return format("%.2f%%", p);
     }
 
-    @SuppressWarnings("checkstyle:magicnumber")
     private static String numberToUnit(long number) {
         for (int i = 6; i > 0; i--) {
             // 1024 is for 1024 kb is 1 MB etc
@@ -282,7 +281,6 @@ public class SeaTunnelHealthMonitor {
                     .append(", ");
         }
 
-        @SuppressWarnings("checkstyle:UnnecessaryParentheses")
         private void renderHeap() {
             sb.append("heap.memory.used=")
                     .append(numberToUnit(runtimeUsedMemory.read()))

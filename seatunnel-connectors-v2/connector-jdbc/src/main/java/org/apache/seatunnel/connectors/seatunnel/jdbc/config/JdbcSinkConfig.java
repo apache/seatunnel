@@ -51,11 +51,10 @@ public class JdbcSinkConfig implements Serializable {
         config.getOptional(JdbcOptions.PRIMARY_KEYS).ifPresent(builder::primaryKeys);
         config.getOptional(JdbcOptions.DATABASE).ifPresent(builder::database);
         config.getOptional(JdbcOptions.TABLE).ifPresent(builder::table);
-        config.getOptional(ENABLE_UPSERT).ifPresent(builder::enableUpsert);
-        config.getOptional(IS_PRIMARY_KEY_UPDATED).ifPresent(builder::isPrimaryKeyUpdated);
-        config.getOptional(SUPPORT_UPSERT_BY_INSERT_ONLY)
-                .ifPresent(builder::supportUpsertByInsertOnly);
-        config.getOptional(JdbcOptions.QUERY).ifPresent(builder::simpleSql);
+        builder.enableUpsert(config.get(ENABLE_UPSERT));
+        builder.isPrimaryKeyUpdated(config.get(IS_PRIMARY_KEY_UPDATED));
+        builder.supportUpsertByInsertOnly(config.get(SUPPORT_UPSERT_BY_INSERT_ONLY));
+        builder.simpleSql(config.get(JdbcOptions.QUERY));
         return builder.build();
     }
 }

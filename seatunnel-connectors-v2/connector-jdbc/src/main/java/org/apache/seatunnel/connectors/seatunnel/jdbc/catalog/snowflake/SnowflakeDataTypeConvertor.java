@@ -18,7 +18,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.snowflake;
 
-import org.apache.seatunnel.api.table.catalog.DataTypeConvertException;
 import org.apache.seatunnel.api.table.catalog.DataTypeConvertor;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -26,6 +25,8 @@ import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SqlType;
+import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 import org.apache.commons.collections4.MapUtils;
 
@@ -87,14 +88,13 @@ public class SnowflakeDataTypeConvertor implements DataTypeConvertor<String> {
     private static final String SNOWFLAKE_OBJECT = "OBJECT";
 
     @Override
-    public SeaTunnelDataType<?> toSeaTunnelType(String connectorDataType) {
-        return toSeaTunnelType(connectorDataType, Collections.emptyMap());
+    public SeaTunnelDataType<?> toSeaTunnelType(String field, String connectorDataType) {
+        return toSeaTunnelType(field, connectorDataType, Collections.emptyMap());
     }
 
     @Override
     public SeaTunnelDataType<?> toSeaTunnelType(
-            String connectorDataType, Map<String, Object> dataTypeProperties)
-            throws DataTypeConvertException {
+            String field, String connectorDataType, Map<String, Object> dataTypeProperties) {
         checkNotNull(connectorDataType, "redshiftType cannot be null");
 
         switch (connectorDataType) {
@@ -148,16 +148,16 @@ public class SnowflakeDataTypeConvertor implements DataTypeConvertor<String> {
             case SNOWFLAKE_TIMESTAMP_TZ:
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
             default:
-                throw new UnsupportedOperationException(
-                        String.format(
-                                "Doesn't support SNOWFLAKE type '%s' yet.", connectorDataType));
+                throw CommonError.convertToSeaTunnelTypeError(
+                        DatabaseIdentifier.SNOWFLAKE, connectorDataType, field);
         }
     }
 
     @Override
     public String toConnectorType(
-            SeaTunnelDataType<?> seaTunnelDataType, Map<String, Object> dataTypeProperties)
-            throws DataTypeConvertException {
+            String field,
+            SeaTunnelDataType<?> seaTunnelDataType,
+            Map<String, Object> dataTypeProperties) {
         checkNotNull(seaTunnelDataType, "seaTunnelDataType cannot be null");
         SqlType sqlType = seaTunnelDataType.getSqlType();
 
@@ -188,14 +188,15 @@ public class SnowflakeDataTypeConvertor implements DataTypeConvertor<String> {
             case TIMESTAMP:
                 return SNOWFLAKE_TIMESTAMP;
             default:
-                throw new UnsupportedOperationException(
-                        String.format(
-                                "Doesn't support SeaTunnel type '%s''  yet.", seaTunnelDataType));
+                throw CommonError.convertToSeaTunnelTypeError(
+                        DatabaseIdentifier.SNOWFLAKE,
+                        seaTunnelDataType.getSqlType().toString(),
+                        field);
         }
     }
 
     @Override
     public String getIdentity() {
-        return "SNOWFLAKE";
+        return DatabaseIdentifier.SNOWFLAKE;
     }
 }

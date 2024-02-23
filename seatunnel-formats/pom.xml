@@ -30,6 +30,8 @@
         <module>seatunnel-format-json</module>
         <module>seatunnel-format-text</module>
         <module>seatunnel-format-compatible-debezium-json</module>
+        <module>seatunnel-format-compatible-connect-json</module>
+        <module>seatunnel-format-avro</module>
     </modules>
 
 </project>

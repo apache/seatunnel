@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa;
 
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 
 import javax.transaction.xa.Xid;
@@ -26,7 +26,7 @@ import java.io.Serializable;
 import java.util.Arrays;
 import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 
 /**
  * A simple {@link Xid} implementation that stores branch and global transaction identifiers as byte
@@ -112,7 +112,8 @@ final class XidImpl implements Xid, Serializable {
         final int number0x0f = 0x0F;
         final int number4 = 4;
         if (bytes == null) {
-            throw new JdbcConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT, "bytes == null");
+            throw new JdbcConnectorException(
+                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT, "bytes == null");
         }
 
         int length = end - start;

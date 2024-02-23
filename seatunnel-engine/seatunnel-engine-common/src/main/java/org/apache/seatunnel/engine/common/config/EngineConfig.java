@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.common.config;
 
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
+import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
 import org.apache.seatunnel.engine.common.config.server.QueueType;
 import org.apache.seatunnel.engine.common.config.server.ServerConfigOptions;
 import org.apache.seatunnel.engine.common.config.server.SlotServiceConfig;
@@ -30,8 +31,8 @@ import static com.hazelcast.internal.util.Preconditions.checkNotNull;
 import static com.hazelcast.internal.util.Preconditions.checkPositive;
 
 @Data
-@SuppressWarnings("checkstyle:MagicNumber")
 public class EngineConfig {
+
     private int backupCount = ServerConfigOptions.BACKUP_COUNT.defaultValue();
     private int printExecutionInfoInterval =
             ServerConfigOptions.PRINT_EXECUTION_INFO_INTERVAL.defaultValue();
@@ -49,7 +50,12 @@ public class EngineConfig {
 
     private CheckpointConfig checkpointConfig = ServerConfigOptions.CHECKPOINT.defaultValue();
 
+    private ConnectorJarStorageConfig connectorJarStorageConfig =
+            ServerConfigOptions.CONNECTOR_JAR_STORAGE_CONFIG.defaultValue();
+
     private QueueType queueType = ServerConfigOptions.QUEUE_TYPE.defaultValue();
+    private int historyJobExpireMinutes =
+            ServerConfigOptions.HISTORY_JOB_EXPIRE_MINUTES.defaultValue();
 
     public void setBackupCount(int newBackupCount) {
         checkBackupCount(newBackupCount, 0);
@@ -80,6 +86,13 @@ public class EngineConfig {
     public void setTaskExecutionThreadShareMode(ThreadShareMode taskExecutionThreadShareMode) {
         checkNotNull(queueType);
         this.taskExecutionThreadShareMode = taskExecutionThreadShareMode;
+    }
+
+    public void setHistoryJobExpireMinutes(int historyJobExpireMinutes) {
+        checkPositive(
+                historyJobExpireMinutes,
+                ServerConfigOptions.HISTORY_JOB_EXPIRE_MINUTES + " must be > 0");
+        this.historyJobExpireMinutes = historyJobExpireMinutes;
     }
 
     public EngineConfig setQueueType(QueueType queueType) {

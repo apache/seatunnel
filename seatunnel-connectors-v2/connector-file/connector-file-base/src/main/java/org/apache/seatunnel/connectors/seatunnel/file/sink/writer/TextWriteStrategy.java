@@ -20,10 +20,12 @@ package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 import org.apache.seatunnel.format.text.TextSerializationSchema;
@@ -47,6 +49,8 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
     private final DateUtils.Formatter dateFormat;
     private final DateTimeUtils.Formatter dateTimeFormat;
     private final TimeUtils.Formatter timeFormat;
+    private final FileFormat fileFormat;
+    private final Boolean enableHeaderWriter;
     private SerializationSchema serializationSchema;
 
     public TextWriteStrategy(FileSinkConfig fileSinkConfig) {
@@ -58,6 +62,8 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
         this.dateFormat = fileSinkConfig.getDateFormat();
         this.dateTimeFormat = fileSinkConfig.getDatetimeFormat();
         this.timeFormat = fileSinkConfig.getTimeFormat();
+        this.fileFormat = fileSinkConfig.getFileFormat();
+        this.enableHeaderWriter = fileSinkConfig.getEnableHeaderWriter();
     }
 
     @Override
@@ -92,10 +98,7 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
                                             .mapToInt(Integer::intValue)
                                             .toArray())));
         } catch (IOException e) {
-            throw new FileConnectorException(
-                    CommonErrorCode.FILE_OPERATION_FAILED,
-                    String.format("Write data to file [%s] failed", filePath),
-                    e);
+            throw CommonError.fileOperationFailed("TextFile", "write", filePath, e);
         }
     }
 
@@ -107,7 +110,7 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
                         value.flush();
                     } catch (IOException e) {
                         throw new FileConnectorException(
-                                CommonErrorCode.FLUSH_DATA_FAILED,
+                                CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
                                 String.format("Flush data to this file [%s] failed", key),
                                 e);
                     } finally {
@@ -131,28 +134,40 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
                     case LZO:
                         LzopCodec lzo = new LzopCodec();
                         OutputStream out =
-                                lzo.createOutputStream(fileSystemUtils.getOutputStream(filePath));
+                                lzo.createOutputStream(
+                                        hadoopFileSystemProxy.getOutputStream(filePath));
                         fsDataOutputStream = new FSDataOutputStream(out, null);
+                        enableWriteHeader(fsDataOutputStream);
                         break;
                     case NONE:
-                        fsDataOutputStream = fileSystemUtils.getOutputStream(filePath);
+                        fsDataOutputStream = hadoopFileSystemProxy.getOutputStream(filePath);
+                        enableWriteHeader(fsDataOutputStream);
                         break;
                     default:
                         log.warn(
                                 "Text file does not support this compress type: {}",
                                 compressFormat.getCompressCodec());
-                        fsDataOutputStream = fileSystemUtils.getOutputStream(filePath);
+                        fsDataOutputStream = hadoopFileSystemProxy.getOutputStream(filePath);
+                        enableWriteHeader(fsDataOutputStream);
                         break;
                 }
                 beingWrittenOutputStream.put(filePath, fsDataOutputStream);
                 isFirstWrite.put(filePath, true);
             } catch (IOException e) {
-                throw new FileConnectorException(
-                        CommonErrorCode.FILE_OPERATION_FAILED,
-                        String.format("Open file output stream [%s] failed", filePath),
-                        e);
+                throw CommonError.fileOperationFailed("TextFile", "open", filePath, e);
             }
         }
         return fsDataOutputStream;
+    }
+
+    private void enableWriteHeader(FSDataOutputStream fsDataOutputStream) throws IOException {
+        if (enableHeaderWriter) {
+            fsDataOutputStream.write(
+                    String.join(
+                                    FileFormat.CSV.equals(fileFormat) ? "," : fieldDelimiter,
+                                    seaTunnelRowType.getFieldNames())
+                            .getBytes());
+            fsDataOutputStream.write(rowDelimiter.getBytes());
+        }
     }
 }

@@ -29,7 +29,6 @@ import java.util.List;
 import java.util.Properties;
 
 /** A {@link SourceConfig.Factory} to provide {@link SourceConfig} of JDBC data source. */
-@SuppressWarnings("checkstyle:MagicNumber")
 public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<JdbcSourceConfig> {
 
     private static final long serialVersionUID = 1L;

@@ -57,7 +57,8 @@ public class SqlServerChunkSplitter extends AbstractJdbcSourceChunkSplitter {
     public Object[] sampleDataFromColumn(
             JdbcConnection jdbc, TableId tableId, String columnName, int inverseSamplingRate)
             throws SQLException {
-        return SqlServerUtils.sampleDataFromColumn(jdbc, tableId, columnName, inverseSamplingRate);
+        return SqlServerUtils.skipReadAndSortSampleData(
+                jdbc, tableId, columnName, inverseSamplingRate);
     }
 
     @Override

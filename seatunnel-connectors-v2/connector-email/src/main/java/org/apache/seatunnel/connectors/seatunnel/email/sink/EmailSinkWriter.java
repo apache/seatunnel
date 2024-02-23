@@ -21,7 +21,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.email.config.EmailSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.email.exception.EmailConnectorErrorCode;
@@ -143,9 +143,10 @@ public class EmailSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     }
 
     public void createFile() {
+        String fileName = "emailsink.csv";
         try {
             String data = stringBuffer.toString();
-            File file = new File("emailsink.csv");
+            File file = new File(fileName);
             // if file doesn't exist, then create it
             if (!file.exists()) {
                 file.createNewFile();
@@ -155,8 +156,7 @@ public class EmailSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             fileWriter.close();
             log.info("Create File successfully....");
         } catch (IOException e) {
-            throw new EmailConnectorException(
-                    CommonErrorCode.FILE_OPERATION_FAILED, "Create file failed", e);
+            throw CommonError.fileOperationFailed("Email", "create", fileName, e);
         }
     }
 }

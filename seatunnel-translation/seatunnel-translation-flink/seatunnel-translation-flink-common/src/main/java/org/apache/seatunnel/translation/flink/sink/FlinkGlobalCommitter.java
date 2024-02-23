@@ -17,7 +17,9 @@
 
 package org.apache.seatunnel.translation.flink.sink;
 
+import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
+import org.apache.seatunnel.api.sink.SupportResourceShare;
 
 import org.apache.flink.api.connector.sink.GlobalCommitter;
 import org.apache.flink.api.connector.sink.Sink;
@@ -44,8 +46,20 @@ public class FlinkGlobalCommitter<CommT, GlobalCommT>
 
     private final SinkAggregatedCommitter<CommT, GlobalCommT> aggregatedCommitter;
 
+    private MultiTableResourceManager resourceManager;
+
     FlinkGlobalCommitter(SinkAggregatedCommitter<CommT, GlobalCommT> aggregatedCommitter) {
         this.aggregatedCommitter = aggregatedCommitter;
+        if (this.aggregatedCommitter instanceof SupportResourceShare) {
+            resourceManager =
+                    ((SupportResourceShare) this.aggregatedCommitter)
+                            .initMultiTableResourceManager(1, 1);
+        }
+        aggregatedCommitter.init();
+        if (resourceManager != null) {
+            ((SupportResourceShare) this.aggregatedCommitter)
+                    .setMultiTableResourceManager(resourceManager, 0);
+        }
     }
 
     @Override
@@ -75,6 +89,16 @@ public class FlinkGlobalCommitter<CommT, GlobalCommT>
 
     @Override
     public void close() throws Exception {
+        // TODO we should move FlinkGlobalCommitter to WithPostCommitTopology with
+        // StandardSinkTopologies#addGlobalCommitter,
+        // because FlinkGlobalCommitter never invoke close method
         aggregatedCommitter.close();
+        try {
+            if (resourceManager != null) {
+                resourceManager.close();
+            }
+        } catch (Throwable e) {
+            log.error("close resourceManager error", e);
+        }
     }
 }

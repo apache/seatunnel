@@ -35,6 +35,9 @@ public class DefaultSerializer<T extends Serializable> implements Serializer<T> 
 
     @Override
     public T deserialize(byte[] serialized) throws IOException {
+        if (serialized == null) {
+            return null;
+        }
         return SerializationUtils.deserialize(serialized);
     }
 }

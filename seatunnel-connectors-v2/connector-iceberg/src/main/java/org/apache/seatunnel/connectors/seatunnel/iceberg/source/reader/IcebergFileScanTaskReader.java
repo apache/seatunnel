@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iceberg.source.reader;
 
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.data.IcebergRecordProjection;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.exception.IcebergConnectorException;
 
@@ -32,7 +32,6 @@ import org.apache.iceberg.data.InternalRecordWrapper;
 import org.apache.iceberg.data.Record;
 import org.apache.iceberg.data.avro.DataReader;
 import org.apache.iceberg.data.orc.GenericOrcReader;
-import org.apache.iceberg.data.parquet.GenericParquetReaders;
 import org.apache.iceberg.expressions.Evaluator;
 import org.apache.iceberg.expressions.Expression;
 import org.apache.iceberg.expressions.Expressions;
@@ -51,6 +50,8 @@ import lombok.NonNull;
 
 import java.io.Closeable;
 import java.util.Map;
+
+import static org.apache.iceberg.data.parquet.GenericParquetReaders.buildReader;
 
 @Builder
 public class IcebergFileScanTaskReader implements Closeable {
@@ -103,7 +104,7 @@ public class IcebergFileScanTaskReader implements Closeable {
     private CloseableIterable<Record> openFile(FileScanTask task, Schema fileProjection) {
         if (task.isDataTask()) {
             throw new IcebergConnectorException(
-                    CommonErrorCode.UNSUPPORTED_OPERATION, "Cannot read data task.");
+                    CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION, "Cannot read data task.");
         }
         InputFile input = fileIO.newInputFile(task.file().path().toString());
         Map<Integer, ?> partition =
@@ -130,8 +131,7 @@ public class IcebergFileScanTaskReader implements Closeable {
                                 .project(fileProjection)
                                 .createReaderFunc(
                                         fileSchema ->
-                                                GenericParquetReaders.buildReader(
-                                                        fileProjection, fileSchema, partition))
+                                                buildReader(fileProjection, fileSchema, partition))
                                 .split(task.start(), task.length())
                                 .filter(task.residual());
                 if (reuseContainers) {
@@ -156,7 +156,7 @@ public class IcebergFileScanTaskReader implements Closeable {
                 return orc.build();
             default:
                 throw new IcebergConnectorException(
-                        CommonErrorCode.UNSUPPORTED_OPERATION,
+                        CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                         String.format(
                                 "Cannot read %s file: %s",
                                 task.file().format().name(), task.file().path()));

@@ -44,7 +44,6 @@ public class SerializationUtils {
         return null;
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public static <T extends Serializable> byte[] serialize(T obj) {
         try (ByteArrayOutputStream b = new ByteArrayOutputStream(512);
                 ObjectOutputStream out = new ObjectOutputStream(b)) {

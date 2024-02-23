@@ -31,17 +31,22 @@ import com.hazelcast.spi.impl.NodeEngineImpl;
 import com.hazelcast.spi.impl.operationservice.Operation;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Objects;
+import java.util.Set;
 import java.util.function.Predicate;
 
-public class GetMetricsOperation extends Operation implements IdentifiedDataSerializable {
+import static org.apache.seatunnel.api.common.metrics.MetricTags.JOB_ID;
 
-    private Predicate<MetricDescriptor> metricDescriptorPredicate;
+public class GetMetricsOperation extends Operation implements IdentifiedDataSerializable {
     private RawJobMetrics response;
+    private Set<Long> runningJobIds;
 
     public GetMetricsOperation() {}
 
-    public GetMetricsOperation(Predicate<MetricDescriptor> metricDescriptorPredicate) {
-        this.metricDescriptorPredicate = metricDescriptorPredicate;
+    public GetMetricsOperation(Set<Long> runningJobIds) {
+        this.runningJobIds = runningJobIds;
     }
 
     @Override
@@ -60,6 +65,10 @@ public class GetMetricsOperation extends Operation implements IdentifiedDataSeri
                             + " because it is not master. Master is: "
                             + masterAddress);
         }
+        Predicate<MetricDescriptor> metricDescriptorPredicate =
+                dis ->
+                        (dis.tagValue(JOB_ID) != null
+                                && runningJobIds.contains(Long.parseLong(dis.tagValue(JOB_ID))));
 
         ZetaMetricsCollector metricsRenderer =
                 new ZetaMetricsCollector(
@@ -71,13 +80,15 @@ public class GetMetricsOperation extends Operation implements IdentifiedDataSeri
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         super.writeInternal(out);
-        out.writeObject(metricDescriptorPredicate);
+        out.writeLongArray(runningJobIds.stream().mapToLong(Long::longValue).toArray());
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         super.readInternal(in);
-        this.metricDescriptorPredicate = in.readObject();
+        this.runningJobIds =
+                Arrays.stream(Objects.requireNonNull(in.readLongArray()))
+                        .collect(HashSet::new, HashSet::add, HashSet::addAll);
     }
 
     @Override

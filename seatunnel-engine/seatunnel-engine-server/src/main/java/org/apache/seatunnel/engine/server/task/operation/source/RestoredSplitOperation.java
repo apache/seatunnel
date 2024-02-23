@@ -19,11 +19,9 @@ package org.apache.seatunnel.engine.server.task.operation.source;
 
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.common.utils.RetryUtils;
-import org.apache.seatunnel.common.utils.SerializationUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.TaskExecutionService;
-import org.apache.seatunnel.engine.server.checkpoint.operation.CheckpointErrorReportOperation;
 import org.apache.seatunnel.engine.server.exception.TaskGroupContextNotFoundException;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
@@ -34,19 +32,18 @@ import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 
 import java.io.IOException;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class RestoredSplitOperation extends TaskOperation {
 
-    private byte[] splits;
+    private List<byte[]> splits;
     private Integer subtaskIndex;
 
     public RestoredSplitOperation() {}
 
     public RestoredSplitOperation(
-            TaskLocation enumeratorLocation, byte[] splits, int subtaskIndex) {
+            TaskLocation enumeratorLocation, List<byte[]> splits, int subtaskIndex) {
         super(enumeratorLocation);
         this.splits = splits;
         this.subtaskIndex = subtaskIndex;
@@ -55,14 +52,21 @@ public class RestoredSplitOperation extends TaskOperation {
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         super.writeInternal(out);
-        out.writeByteArray(splits);
+        out.writeInt(splits.size());
+        for (byte[] split : splits) {
+            out.writeByteArray(split);
+        }
         out.writeInt(subtaskIndex);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         super.readInternal(in);
-        splits = in.readByteArray();
+        int splitCount = in.readInt();
+        splits = new ArrayList<>(splitCount);
+        for (int i = 0; i < splitCount; i++) {
+            splits.add(in.readByteArray());
+        }
         subtaskIndex = in.readInt();
     }
 
@@ -82,34 +86,24 @@ public class RestoredSplitOperation extends TaskOperation {
         TaskExecutionService taskExecutionService = server.getTaskExecutionService();
         RetryUtils.retryWithException(
                 () -> {
-                    ClassLoader classLoader =
+                    SourceSplitEnumeratorTask<SourceSplit> task =
+                            taskExecutionService.getTask(taskLocation);
+                    ClassLoader taskClassLoader =
                             taskExecutionService
                                     .getExecutionContext(taskLocation.getTaskGroupLocation())
                                     .getClassLoader();
+                    ClassLoader mainClassLoader = Thread.currentThread().getContextClassLoader();
 
-                    List<SourceSplit> deserialize =
-                            Arrays.stream(
-                                            (Object[])
-                                                    SerializationUtils.deserialize(
-                                                            splits, classLoader))
-                                    .map(o -> (SourceSplit) o)
-                                    .collect(Collectors.toList());
-                    SourceSplitEnumeratorTask<SourceSplit> task =
-                            taskExecutionService.getTask(taskLocation);
-                    task.getExecutionContext()
-                            .getTaskExecutionService()
-                            .asyncExecuteFunction(
-                                    taskLocation.getTaskGroupLocation(),
-                                    () -> {
-                                        try {
-                                            task.addSplitsBack(deserialize, subtaskIndex);
-                                        } catch (Exception e) {
-                                            task.getExecutionContext()
-                                                    .sendToMaster(
-                                                            new CheckpointErrorReportOperation(
-                                                                    taskLocation, e));
-                                        }
-                                    });
+                    List<SourceSplit> deserializeSplits = new ArrayList<>();
+                    try {
+                        Thread.currentThread().setContextClassLoader(taskClassLoader);
+                        for (byte[] split : splits) {
+                            deserializeSplits.add(task.getSplitSerializer().deserialize(split));
+                        }
+                        task.addSplitsBack(deserializeSplits, subtaskIndex);
+                    } finally {
+                        Thread.currentThread().setContextClassLoader(mainClassLoader);
+                    }
                     return null;
                 },
                 new RetryUtils.RetryMaterial(

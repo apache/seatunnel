@@ -51,6 +51,25 @@ public interface EnvCommonOptions {
                     .withDescription(
                             "The interval (in milliseconds) between two consecutive checkpoints.");
 
+    Option<Integer> READ_LIMIT_ROW_PER_SECOND =
+            Options.key("read_limit.rows_per_second")
+                    .intType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "The each parallelism row limit per second for read data from source.");
+
+    Option<Integer> READ_LIMIT_BYTES_PER_SECOND =
+            Options.key("read_limit.bytes_per_second")
+                    .intType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "The each parallelism bytes limit per second for read data from source.");
+    Option<Long> CHECKPOINT_TIMEOUT =
+            Options.key("checkpoint.timeout")
+                    .longType()
+                    .noDefaultValue()
+                    .withDescription("The timeout (in milliseconds) for a checkpoint.");
+
     Option<String> JARS =
             Options.key("jars")
                     .stringType()

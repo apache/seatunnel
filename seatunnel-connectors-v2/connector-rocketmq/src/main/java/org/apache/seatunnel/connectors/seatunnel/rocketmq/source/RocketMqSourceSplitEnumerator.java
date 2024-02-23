@@ -67,6 +67,9 @@ public class RocketMqSourceSplitEnumerator
         this.context = context;
         this.assignedSplit = new HashMap<>();
         this.pendingSplit = new HashMap<>();
+        // Set `rocketmq.client.logUseSlf4j` to `true` to avoid create many
+        // `AsyncAppender-Dispatcher-Thread`
+        System.setProperty("rocketmq.client.logUseSlf4j", "true");
     }
 
     public RocketMqSourceSplitEnumerator(
@@ -77,7 +80,6 @@ public class RocketMqSourceSplitEnumerator
         this.discoveryIntervalMillis = discoveryIntervalMillis;
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     private static int getSplitOwner(MessageQueue messageQueue, int numReaders) {
         int startIndex = ((messageQueue.getQueueId() * 31) & 0x7FFFFFFF) % numReaders;
         return (startIndex + messageQueue.getQueueId()) % numReaders;
@@ -150,7 +152,10 @@ public class RocketMqSourceSplitEnumerator
                             ConsumeFromWhere.CONSUME_FROM_LAST_OFFSET);
             splits.forEach(
                     split -> {
-                        split.setStartOffset(split.getEndOffset() + 1);
+                        split.setStartOffset(
+                                Math.min(
+                                        split.getEndOffset() + 1,
+                                        listOffsets.get(split.getMessageQueue())));
                         split.setEndOffset(listOffsets.get(split.getMessageQueue()));
                     });
             return splits.stream()

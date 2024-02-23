@@ -17,40 +17,36 @@
 
 package org.apache.seatunnel.connectors.seatunnel.fake.source;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import org.apache.seatunnel.api.common.JobContext;
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SupportColumnProjection;
 import org.apache.seatunnel.api.source.SupportParallelism;
-import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.JobMode;
-import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.fake.config.FakeConfig;
-import org.apache.seatunnel.connectors.seatunnel.fake.exception.FakeConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.fake.config.MultipleTableFakeSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.fake.state.FakeSourceState;
 
-import com.google.auto.service.AutoService;
-
 import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
 
-@AutoService(SeaTunnelSource.class)
 public class FakeSource
         implements SeaTunnelSource<SeaTunnelRow, FakeSourceSplit, FakeSourceState>,
                 SupportParallelism,
                 SupportColumnProjection {
 
     private JobContext jobContext;
-    private SeaTunnelRowType rowType;
-    private FakeConfig fakeConfig;
+    private final MultipleTableFakeSourceConfig multipleTableFakeSourceConfig;
+
+    public FakeSource(ReadonlyConfig readonlyConfig) {
+        this.multipleTableFakeSourceConfig = new MultipleTableFakeSourceConfig(readonlyConfig);
+    }
 
     @Override
     public Boundedness getBoundedness() {
@@ -60,49 +56,38 @@ public class FakeSource
     }
 
     @Override
-    public SeaTunnelRowType getProducedType() {
-        return rowType;
+    public List<CatalogTable> getProducedCatalogTables() {
+        return multipleTableFakeSourceConfig.getFakeConfigs().stream()
+                .map(FakeConfig::getCatalogTable)
+                .collect(Collectors.toList());
     }
 
     @Override
     public SourceSplitEnumerator<FakeSourceSplit, FakeSourceState> createEnumerator(
-            SourceSplitEnumerator.Context<FakeSourceSplit> enumeratorContext) throws Exception {
-        return new FakeSourceSplitEnumerator(enumeratorContext, fakeConfig, Collections.emptySet());
+            SourceSplitEnumerator.Context<FakeSourceSplit> enumeratorContext) {
+        return new FakeSourceSplitEnumerator(
+                enumeratorContext, multipleTableFakeSourceConfig, Collections.emptySet());
     }
 
     @Override
     public SourceSplitEnumerator<FakeSourceSplit, FakeSourceState> restoreEnumerator(
             SourceSplitEnumerator.Context<FakeSourceSplit> enumeratorContext,
-            FakeSourceState checkpointState)
-            throws Exception {
+            FakeSourceState checkpointState) {
         return new FakeSourceSplitEnumerator(
-                enumeratorContext, fakeConfig, checkpointState.getAssignedSplits());
+                enumeratorContext,
+                multipleTableFakeSourceConfig,
+                checkpointState.getAssignedSplits());
     }
 
     @Override
     public SourceReader<SeaTunnelRow, FakeSourceSplit> createReader(
-            SourceReader.Context readerContext) throws Exception {
-        return new FakeSourceReader(readerContext, rowType, fakeConfig);
+            SourceReader.Context readerContext) {
+        return new FakeSourceReader(readerContext, multipleTableFakeSourceConfig);
     }
 
     @Override
     public String getPluginName() {
         return "FakeSource";
-    }
-
-    @Override
-    public void prepare(Config pluginConfig) {
-        CheckResult result =
-                CheckConfigUtil.checkAllExists(pluginConfig, CatalogTableUtil.SCHEMA.key());
-        if (!result.isSuccess()) {
-            throw new FakeConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SOURCE, result.getMsg()));
-        }
-        this.rowType = CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
-        this.fakeConfig = FakeConfig.buildWithConfig(pluginConfig);
     }
 
     @Override

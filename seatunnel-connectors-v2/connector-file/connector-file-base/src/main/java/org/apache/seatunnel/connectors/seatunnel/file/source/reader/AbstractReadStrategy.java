@@ -22,17 +22,11 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
-import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.util.FileSystemUtils;
+import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
 
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.CommonConfigurationKeys;
 import org.apache.hadoop.fs.FileStatus;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -48,11 +42,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-import static org.apache.parquet.avro.AvroReadSupport.READ_INT96_AS_FIXED;
-import static org.apache.parquet.avro.AvroSchemaConverter.ADD_LIST_ELEMENT_RECORDS;
-import static org.apache.parquet.avro.AvroWriteSupport.WRITE_FIXED_AS_INT96;
-import static org.apache.parquet.avro.AvroWriteSupport.WRITE_OLD_LIST_STRUCTURE;
 
 @Slf4j
 public abstract class AbstractReadStrategy implements ReadStrategy {
@@ -76,14 +65,16 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     protected List<String> readPartitions = new ArrayList<>();
     protected List<String> readColumns = new ArrayList<>();
     protected boolean isMergePartition = true;
-    protected long skipHeaderNumber = BaseSourceConfig.SKIP_HEADER_ROW_NUMBER.defaultValue();
+    protected long skipHeaderNumber = BaseSourceConfigOptions.SKIP_HEADER_ROW_NUMBER.defaultValue();
     protected transient boolean isKerberosAuthorization = false;
+    protected HadoopFileSystemProxy hadoopFileSystemProxy;
 
     protected Pattern pattern;
 
     @Override
     public void init(HadoopConf conf) {
         this.hadoopConf = conf;
+        this.hadoopFileSystemProxy = new HadoopFileSystemProxy(hadoopConf);
     }
 
     @Override
@@ -93,47 +84,20 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                 mergePartitionTypes(fileNames.get(0), seaTunnelRowType);
     }
 
-    @Override
-    public Configuration getConfiguration(HadoopConf hadoopConf) {
-        Configuration configuration = new Configuration();
-        configuration.setBoolean(READ_INT96_AS_FIXED, true);
-        configuration.setBoolean(WRITE_FIXED_AS_INT96, true);
-        configuration.setBoolean(ADD_LIST_ELEMENT_RECORDS, false);
-        configuration.setBoolean(WRITE_OLD_LIST_STRUCTURE, true);
-        configuration.set(CommonConfigurationKeys.FS_DEFAULT_NAME_KEY, hadoopConf.getHdfsNameKey());
-        configuration.set(
-                String.format("fs.%s.impl", hadoopConf.getSchema()), hadoopConf.getFsHdfsImpl());
-        hadoopConf.setExtraOptionsForConfiguration(configuration);
-        String principal = hadoopConf.getKerberosPrincipal();
-        String keytabPath = hadoopConf.getKerberosKeytabPath();
-        if (!isKerberosAuthorization) {
-            FileSystemUtils.doKerberosAuthentication(configuration, principal, keytabPath);
-            isKerberosAuthorization = true;
-        }
-        return configuration;
-    }
-
-    Configuration getConfiguration() {
-        return getConfiguration(hadoopConf);
-    }
-
     boolean checkFileType(String path) {
         return true;
     }
 
     @Override
-    public List<String> getFileNamesByPath(HadoopConf hadoopConf, String path) throws IOException {
-        Configuration configuration = getConfiguration(hadoopConf);
-        FileSystem hdfs = FileSystem.get(configuration);
+    public List<String> getFileNamesByPath(String path) throws IOException {
         ArrayList<String> fileNames = new ArrayList<>();
-        Path listFiles = new Path(path);
-        FileStatus[] stats = hdfs.listStatus(listFiles);
+        FileStatus[] stats = hadoopFileSystemProxy.listStatus(path);
         for (FileStatus fileStatus : stats) {
             if (fileStatus.isDirectory()) {
-                fileNames.addAll(getFileNamesByPath(hadoopConf, fileStatus.getPath().toString()));
+                fileNames.addAll(getFileNamesByPath(fileStatus.getPath().toString()));
                 continue;
             }
-            if (fileStatus.isFile() && filterFileByPattern(fileStatus)) {
+            if (fileStatus.isFile() && filterFileByPattern(fileStatus) && fileStatus.getLen() > 0) {
                 // filter '_SUCCESS' file
                 if (!fileStatus.getPath().getName().equals("_SUCCESS")
                         && !fileStatus.getPath().getName().startsWith(".")) {
@@ -154,37 +118,32 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
             }
         }
 
-        if (fileNames.isEmpty()) {
-            throw new FileConnectorException(
-                    FileConnectorErrorCode.FILE_LIST_EMPTY,
-                    "The target file list is empty,"
-                            + "SeaTunnel will not be able to sync empty table, "
-                            + "please check the configuration parameters such as: [file_filter_pattern]");
-        }
-
         return fileNames;
     }
 
     @Override
     public void setPluginConfig(Config pluginConfig) {
         this.pluginConfig = pluginConfig;
-        if (pluginConfig.hasPath(BaseSourceConfig.PARSE_PARTITION_FROM_PATH.key())) {
+        if (pluginConfig.hasPath(BaseSourceConfigOptions.PARSE_PARTITION_FROM_PATH.key())) {
             isMergePartition =
-                    pluginConfig.getBoolean(BaseSourceConfig.PARSE_PARTITION_FROM_PATH.key());
+                    pluginConfig.getBoolean(
+                            BaseSourceConfigOptions.PARSE_PARTITION_FROM_PATH.key());
         }
-        if (pluginConfig.hasPath(BaseSourceConfig.SKIP_HEADER_ROW_NUMBER.key())) {
-            skipHeaderNumber = pluginConfig.getLong(BaseSourceConfig.SKIP_HEADER_ROW_NUMBER.key());
+        if (pluginConfig.hasPath(BaseSourceConfigOptions.SKIP_HEADER_ROW_NUMBER.key())) {
+            skipHeaderNumber =
+                    pluginConfig.getLong(BaseSourceConfigOptions.SKIP_HEADER_ROW_NUMBER.key());
         }
-        if (pluginConfig.hasPath(BaseSourceConfig.READ_PARTITIONS.key())) {
+        if (pluginConfig.hasPath(BaseSourceConfigOptions.READ_PARTITIONS.key())) {
             readPartitions.addAll(
-                    pluginConfig.getStringList(BaseSourceConfig.READ_PARTITIONS.key()));
+                    pluginConfig.getStringList(BaseSourceConfigOptions.READ_PARTITIONS.key()));
         }
-        if (pluginConfig.hasPath(BaseSourceConfig.READ_COLUMNS.key())) {
-            readColumns.addAll(pluginConfig.getStringList(BaseSourceConfig.READ_COLUMNS.key()));
+        if (pluginConfig.hasPath(BaseSourceConfigOptions.READ_COLUMNS.key())) {
+            readColumns.addAll(
+                    pluginConfig.getStringList(BaseSourceConfigOptions.READ_COLUMNS.key()));
         }
-        if (pluginConfig.hasPath(BaseSourceConfig.FILE_FILTER_PATTERN.key())) {
+        if (pluginConfig.hasPath(BaseSourceConfigOptions.FILE_FILTER_PATTERN.key())) {
             String filterPattern =
-                    pluginConfig.getString(BaseSourceConfig.FILE_FILTER_PATTERN.key());
+                    pluginConfig.getString(BaseSourceConfigOptions.FILE_FILTER_PATTERN.key());
             this.pattern = Pattern.compile(Matcher.quoteReplacement(filterPattern));
         }
     }
@@ -241,5 +200,15 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
             return pattern.matcher(fileStatus.getPath().getName()).matches();
         }
         return true;
+    }
+
+    @Override
+    public void close() throws IOException {
+        try {
+            if (hadoopFileSystemProxy != null) {
+                hadoopFileSystemProxy.close();
+            }
+        } catch (Exception ignore) {
+        }
     }
 }

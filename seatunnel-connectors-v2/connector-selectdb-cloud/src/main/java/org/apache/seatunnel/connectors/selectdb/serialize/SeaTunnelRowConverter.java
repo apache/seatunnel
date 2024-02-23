@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.selectdb.serialize;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
@@ -35,7 +35,8 @@ public class SeaTunnelRowConverter {
     @Builder.Default private DateUtils.Formatter dateFormatter = DateUtils.Formatter.YYYY_MM_DD;
 
     @Builder.Default
-    private DateTimeUtils.Formatter dateTimeFormatter = DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS;
+    private DateTimeUtils.Formatter dateTimeFormatter =
+            DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS_SSSSSS;
 
     @Builder.Default private TimeUtils.Formatter timeFormatter = TimeUtils.Formatter.HH_MM_SS;
 
@@ -67,7 +68,8 @@ public class SeaTunnelRowConverter {
                 return new String((byte[]) val);
             default:
                 throw new SelectDBConnectorException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE, dataType + " is not supported ");
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
+                        dataType + " is not supported ");
         }
     }
 }

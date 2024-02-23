@@ -20,9 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.file.source;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
-import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 
@@ -37,25 +35,22 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 @Slf4j
 public class BaseFileSourceReader implements SourceReader<SeaTunnelRow, FileSourceSplit> {
     private final ReadStrategy readStrategy;
-    private final HadoopConf hadoopConf;
     private final SourceReader.Context context;
     private final Deque<FileSourceSplit> sourceSplits = new ConcurrentLinkedDeque<>();
     private volatile boolean noMoreSplit;
 
-    public BaseFileSourceReader(
-            ReadStrategy readStrategy, HadoopConf hadoopConf, SourceReader.Context context) {
+    public BaseFileSourceReader(ReadStrategy readStrategy, SourceReader.Context context) {
         this.readStrategy = readStrategy;
-        this.hadoopConf = hadoopConf;
         this.context = context;
     }
 
     @Override
-    public void open() throws Exception {
-        readStrategy.init(hadoopConf);
-    }
+    public void open() throws Exception {}
 
     @Override
-    public void close() throws IOException {}
+    public void close() throws IOException {
+        readStrategy.close();
+    }
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
@@ -63,12 +58,11 @@ public class BaseFileSourceReader implements SourceReader<SeaTunnelRow, FileSour
             FileSourceSplit split = sourceSplits.poll();
             if (null != split) {
                 try {
-                    readStrategy.read(split.splitId(), output);
+                    // todo: If there is only one table , the tableId is not needed, but it's better
+                    // to set this
+                    readStrategy.read(split.splitId(), "", output);
                 } catch (Exception e) {
-                    String errorMsg =
-                            String.format("Read data from this file [%s] failed", split.splitId());
-                    throw new FileConnectorException(
-                            CommonErrorCode.FILE_OPERATION_FAILED, errorMsg, e);
+                    throw CommonError.fileOperationFailed("SeaTunnel", "read", split.splitId(), e);
                 }
             } else if (noMoreSplit && sourceSplits.isEmpty()) {
                 // signal to the source that we have reached the end of the data.
