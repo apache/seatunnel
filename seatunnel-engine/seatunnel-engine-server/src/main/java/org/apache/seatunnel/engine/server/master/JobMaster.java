@@ -200,7 +200,7 @@ public class JobMaster {
                         jobImmutableInformation.getJobConfig().getName(),
                         jobImmutableInformation.getJobId(),
                         jobImmutableInformation.getPluginJarsUrls()));
-
+        ClassLoader appClassLoader = Thread.currentThread().getContextClassLoader();
         ClassLoader classLoader =
                 new SeaTunnelChildFirstClassLoader(jobImmutableInformation.getPluginJarsUrls());
         logicalDag =
@@ -222,6 +222,8 @@ public class JobMaster {
                         runningJobStateTimestampsIMap,
                         engineConfig.getQueueType(),
                         engineConfig);
+        // revert to app class loader, it may be changed by PlanUtils.fromLogicalDAG
+        Thread.currentThread().setContextClassLoader(appClassLoader);
         this.physicalPlan = planTuple.f0();
         this.physicalPlan.setJobMaster(this);
         this.checkpointPlanMap = planTuple.f1();
