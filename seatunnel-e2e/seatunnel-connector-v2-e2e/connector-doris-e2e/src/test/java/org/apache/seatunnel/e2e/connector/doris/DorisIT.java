@@ -126,7 +126,7 @@ public class DorisIT extends AbstractDorisIT {
             String sinkSql = String.format("select * from %s.%s order by F_ID", sinkDB, TABLE);
             List<String> columnList =
                     Arrays.stream(COLUMN_STRING.split(","))
-                            .map(x -> x.trim())
+                            .map(String::trim)
                             .collect(Collectors.toList());
             Statement sourceStatement =
                     conn.createStatement(
@@ -144,6 +144,9 @@ public class DorisIT extends AbstractDorisIT {
                     for (String column : columnList) {
                         Object source = sourceResultSet.getObject(column);
                         Object sink = sinkResultSet.getObject(column);
+                        if (column.equals("F_DATETIME_P")) {
+                            log.info("F_DATETIME_P value source: {}, sink: {}", source, sink);
+                        }
                         if (!Objects.deepEquals(source, sink)) {
                             InputStream sourceAsciiStream = sourceResultSet.getBinaryStream(column);
                             InputStream sinkAsciiStream = sinkResultSet.getBinaryStream(column);
@@ -160,7 +163,6 @@ public class DorisIT extends AbstractDorisIT {
             sourceResultSet.last();
             sinkResultSet.last();
             Assertions.assertEquals(sourceResultSet.getRow(), sinkResultSet.getRow());
-            log.info("tested doris with row " + sourceResultSet.getRow());
             clearSinkTable();
         } catch (Exception e) {
             throw new RuntimeException("Doris connection error", e);
