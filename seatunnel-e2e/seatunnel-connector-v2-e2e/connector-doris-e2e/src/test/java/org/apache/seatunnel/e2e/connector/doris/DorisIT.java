@@ -289,8 +289,8 @@ public class DorisIT extends AbstractDorisIT {
                                 GenerateTestData.genString(1),
                                 GenerateTestData.genString(11),
                                 GenerateTestData.genString(12),
-                                GenerateTestData.genDatetimeString(false),
                                 GenerateTestData.genDatetimeString(true),
+                                GenerateTestData.genDatetimeString(false),
                                 GenerateTestData.genDateString()
                             }));
         }
