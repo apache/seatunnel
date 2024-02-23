@@ -23,10 +23,9 @@ import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
-import org.apache.seatunnel.api.table.type.DecimalType;
-import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlserver.SqlServerTypeConverter;
 
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -55,14 +54,11 @@ public class SqlServerCreateTableSqlBuilder {
 
     private List<ConstraintKey> constraintKeys;
 
-    private SqlServerDataTypeConvertor sqlServerDataTypeConvertor;
-
     private String fieldIde;
 
     private SqlServerCreateTableSqlBuilder(String tableName) {
         checkNotNull(tableName, "tableName must not be null");
         this.tableName = tableName;
-        this.sqlServerDataTypeConvertor = new SqlServerDataTypeConvertor();
     }
 
     public static SqlServerCreateTableSqlBuilder builder(
@@ -197,58 +193,10 @@ public class SqlServerCreateTableSqlBuilder {
             Column column, String catalogName, Map<String, String> columnComments) {
         final List<String> columnSqls = new ArrayList<>();
         columnSqls.add("[" + column.getName() + "]");
-        String tyNameDef = "";
         if (StringUtils.equals(catalogName, DatabaseIdentifier.SQLSERVER)) {
             columnSqls.add(column.getSourceType());
         } else {
-            // Column name
-            SqlType dataType = column.getDataType().getSqlType();
-            boolean isBytes = StringUtils.equals(dataType.name(), SqlType.BYTES.name());
-            Long columnLength = column.getLongColumnLength();
-            Long bitLen = column.getBitLen();
-            bitLen = bitLen == -1 || bitLen <= 8 ? bitLen : bitLen >> 3;
-            if (isBytes) {
-                if (bitLen > 8000 || bitLen == -1) {
-                    columnSqls.add(SqlServerType.VARBINARY.getName());
-                } else {
-                    columnSqls.add(SqlServerType.BINARY.getName());
-                    tyNameDef = SqlServerType.BINARY.getName();
-                }
-                columnSqls.add("(" + (bitLen == -1 || bitLen > 8000 ? "max)" : bitLen + ")"));
-            } else {
-                // Add column type
-                SqlServerType sqlServerType =
-                        sqlServerDataTypeConvertor.toConnectorType(
-                                column.getName(), column.getDataType(), null);
-                String typeName = sqlServerType.getName();
-                String fieldSuffixSql = null;
-                tyNameDef = typeName;
-                // Add column length
-                if (StringUtils.equals(SqlServerType.VARCHAR.getName(), typeName)) {
-                    if (columnLength > 8000 || columnLength == -1) {
-                        columnSqls.add(typeName);
-                        fieldSuffixSql = "(max)";
-                    } else if (columnLength > 4000) {
-                        columnSqls.add(SqlServerType.VARCHAR.getName());
-                        fieldSuffixSql = "(" + columnLength + ")";
-                    } else {
-                        columnSqls.add(SqlServerType.NVARCHAR.getName());
-                        if (columnLength > 0) {
-                            fieldSuffixSql = "(" + columnLength + ")";
-                        }
-                    }
-                    columnSqls.add(fieldSuffixSql);
-                } else if (StringUtils.equals(SqlServerType.DECIMAL.getName(), typeName)) {
-                    columnSqls.add(typeName);
-                    DecimalType decimalType = (DecimalType) column.getDataType();
-                    columnSqls.add(
-                            String.format(
-                                    "(%d, %d)",
-                                    decimalType.getPrecision(), decimalType.getScale()));
-                } else {
-                    columnSqls.add(typeName);
-                }
-            }
+            columnSqls.add(SqlServerTypeConverter.INSTANCE.reconvert(column).getColumnType());
         }
         // nullable
         if (column.isNullable()) {

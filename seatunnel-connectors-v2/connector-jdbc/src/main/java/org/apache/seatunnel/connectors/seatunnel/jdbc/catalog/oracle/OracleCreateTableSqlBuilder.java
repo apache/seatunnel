@@ -21,10 +21,9 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.api.table.type.DecimalType;
-import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleTypeConverter;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -36,14 +35,12 @@ public class OracleCreateTableSqlBuilder {
 
     private List<Column> columns;
     private PrimaryKey primaryKey;
-    private OracleDataTypeConvertor oracleDataTypeConvertor;
     private String sourceCatalogName;
     private String fieldIde;
 
     public OracleCreateTableSqlBuilder(CatalogTable catalogTable) {
         this.columns = catalogTable.getTableSchema().getColumns();
         this.primaryKey = catalogTable.getTableSchema().getPrimaryKey();
-        this.oracleDataTypeConvertor = new OracleDataTypeConvertor();
         this.sourceCatalogName = catalogTable.getCatalogName();
         this.fieldIde = catalogTable.getOptions().get("fieldIde");
     }
@@ -94,7 +91,7 @@ public class OracleCreateTableSqlBuilder {
         String columnType =
                 StringUtils.equalsIgnoreCase(DatabaseIdentifier.ORACLE, sourceCatalogName)
                         ? column.getSourceType()
-                        : buildColumnType(column);
+                        : OracleTypeConverter.INSTANCE.reconvert(column).getColumnType();
         columnSql.append(columnType);
 
         if (!column.isNullable()) {
@@ -102,43 +99,6 @@ public class OracleCreateTableSqlBuilder {
         }
 
         return columnSql.toString();
-    }
-
-    private String buildColumnType(Column column) {
-        SqlType sqlType = column.getDataType().getSqlType();
-        Long columnLength = column.getLongColumnLength();
-        Long bitLen = column.getBitLen();
-        switch (sqlType) {
-            case BYTES:
-                if (bitLen < 0 || bitLen > 2000) {
-                    return "BLOB";
-                } else {
-                    return "RAW(" + bitLen + ")";
-                }
-            case STRING:
-                if (columnLength > 0 && columnLength < 4000) {
-                    return "VARCHAR2(" + columnLength + " CHAR)";
-                } else {
-                    return "CLOB";
-                }
-            default:
-                String type =
-                        oracleDataTypeConvertor.toConnectorType(
-                                column.getName(), column.getDataType(), null);
-                if (type.equals("NUMBER")) {
-                    if (column.getDataType() instanceof DecimalType) {
-                        DecimalType decimalType = (DecimalType) column.getDataType();
-                        return "NUMBER("
-                                + decimalType.getPrecision()
-                                + ","
-                                + decimalType.getScale()
-                                + ")";
-                    } else {
-                        return "NUMBER";
-                    }
-                }
-                return type;
-        }
     }
 
     private String buildPrimaryKeySql(PrimaryKey primaryKey) {

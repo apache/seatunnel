@@ -158,7 +158,7 @@ public class ElasticSearchCatalog implements Catalog {
                             nameAndType.getKey(),
                             elasticSearchDataTypeConvertor.toSeaTunnelType(
                                     nameAndType.getKey(), nameAndType.getValue()),
-                            null,
+                            (Long) null,
                             true,
                             null,
                             null);
