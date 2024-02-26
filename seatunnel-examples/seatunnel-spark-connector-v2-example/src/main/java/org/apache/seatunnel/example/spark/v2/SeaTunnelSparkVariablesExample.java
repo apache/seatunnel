@@ -19,24 +19,23 @@ package org.apache.seatunnel.example.spark.v2;
 
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.starter.SeaTunnel;
-import org.apache.seatunnel.core.starter.exception.CommandException;
 import org.apache.seatunnel.core.starter.spark.args.SparkCommandArgs;
 
 import java.io.FileNotFoundException;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Paths;
+import java.util.Collections;
 
-public class SeaTunnelApiExample {
+public class SeaTunnelSparkVariablesExample {
 
-    public static void main(String[] args)
-            throws FileNotFoundException, URISyntaxException, CommandException {
-        String configurePath = args.length > 0 ? args[0] : "/examples/spark.batch.conf";
+    public static void main(String[] args) throws FileNotFoundException, URISyntaxException {
+        String configurePath = args.length > 0 ? args[0] : "/examples/spark.batch.variables.conf";
         String configFile = getTestConfigFile(configurePath);
         SparkCommandArgs sparkCommandArgs = new SparkCommandArgs();
         sparkCommandArgs.setConfigFile(configFile);
         sparkCommandArgs.setCheckConfig(false);
-        sparkCommandArgs.setVariables(null);
+        sparkCommandArgs.setVariables(Collections.singletonList("intVal=1"));
         sparkCommandArgs.setDeployMode(DeployMode.CLIENT);
         SeaTunnel.run(sparkCommandArgs.buildCommand());
     }
