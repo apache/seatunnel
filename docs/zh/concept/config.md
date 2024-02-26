@@ -169,14 +169,14 @@ sink {
 }
 ```
 
-与source类似, transform也有属于每个模块的特定参数。目前支持的source请看。目前支持的transform请看 [Transform V2 of SeaTunnel](../transform-v2)
+与source类似, transform也有属于每个模块的特定参数。目前支持的source请看。目前支持的transform请看 [Transform V2 of SeaTunnel](../../en/transform-v2)
 
 <!-- TODO missing source links --->
 
 ### sink
 
 我们使用SeaTunnel的作用是将数据从一个地方同步到其它地方，所以定义数据如何写入，写入到哪里是至关重要的。通过SeaTunnel提供的
-sink模块，你可以快速高效地完成这个操作。Sink和source非常相似，区别在于读取和写入。所以去看看我们[支持的sink](../connector-v2/sink)吧。
+sink模块，你可以快速高效地完成这个操作。Sink和source非常相似，区别在于读取和写入。所以去看看我们[支持的sink](../../en/connector-v2/sink)吧。
 
 ### 其它
 
