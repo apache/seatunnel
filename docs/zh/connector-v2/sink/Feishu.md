@@ -23,30 +23,30 @@
 
 ## 数据类型映射
 
-|     SeaTunnel 数据类型     | 飞书数据类型   |
-|-----------------------------|------------------|
-| ROW<br/>MAP                 | Json             |
-| NULL                        | null             |
-| BOOLEAN                     | boolean          |
-| TINYINT                     | byte             |
-| SMALLINT                    | short            |
-| INT                         | int              |
-| BIGINT                      | long             |
-| FLOAT                       | float            |
-| DOUBLE                      | double           |
-| DECIMAL                     | BigDecimal       |
-| BYTES                       | byte[]           |
-| STRING                      | String           |
-| TIME<br/>TIMESTAMP<br/>TIME | String           |
-| ARRAY                       | JsonArray        |
+|       SeaTunnel 数据类型        |   飞书数据类型   |
+|-----------------------------|------------|
+| ROW<br/>MAP                 | Json       |
+| NULL                        | null       |
+| BOOLEAN                     | boolean    |
+| TINYINT                     | byte       |
+| SMALLINT                    | short      |
+| INT                         | int        |
+| BIGINT                      | long       |
+| FLOAT                       | float      |
+| DOUBLE                      | double     |
+| DECIMAL                     | BigDecimal |
+| BYTES                       | byte[]     |
+| STRING                      | String     |
+| TIME<br/>TIMESTAMP<br/>TIME | String     |
+| ARRAY                       | JsonArray  |
 
 ## 接收器选项
 
-|      名称      |  类型  | 是否必需 | 默认值 |                                             描述                                             |
-|----------------|--------|----------|---------|-------------------------------------------------------------------------------------------------|
-| url            | String | 是       | -       | 飞书web hook URL                                                                              |
-| headers        | Map    | 否       | -       | HTTP 请求头                                                                                    |
-| common-options |        | 否       | -       | 接收器插件常见参数，请参阅 [接收器通用选项](common-options.md) 以获取详细信息 |
+|       名称       |   类型   | 是否必需 | 默认值 |                         描述                         |
+|----------------|--------|------|-----|----------------------------------------------------|
+| url            | String | 是    | -   | 飞书web hook URL                                     |
+| headers        | Map    | 否    | -   | HTTP 请求头                                           |
+| common-options |        | 否    | -   | 接收器插件常见参数，请参阅 [接收器通用选项](common-options.md) 以获取详细信息 |
 
 ## 任务示例
 
@@ -63,3 +63,4 @@ Feishu {
 ### 2.2.0-beta 2022-09-26
 
 - 添加飞书接收器
+

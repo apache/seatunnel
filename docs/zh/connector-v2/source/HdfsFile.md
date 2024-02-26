@@ -20,12 +20,12 @@
 - [x] [并行度](../../concept/connector-v2-features.md)
 - [ ] [支持用户定义的分片](../../concept/connector-v2-features.md)
 - [x] 文件格式
-    - [x] 文本
-    - [x] CSV
-    - [x] Parquet
-    - [x] ORC
-    - [x] JSON
-    - [x] Excel
+  - [x] 文本
+  - [x] CSV
+  - [x] Parquet
+  - [x] ORC
+  - [x] JSON
+  - [x] Excel
 
 ## 描述
 
@@ -33,32 +33,32 @@
 
 ## 支持的数据源信息
 
-| 数据源    | 支持的版本    |
-|----------|--------------|
+|  数据源   |      支持的版本       |
+|--------|------------------|
 | Hdfs文件 | hadoop 2.x 和 3.x |
 
 ## 源选项
 
-|           名称           |  类型   | 是否必须 |       默认值       |                                                                                                                                                                   描述                                                                                                                                                                   |
-|-------------------------|---------|----------|-------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| path                    | string  | 是       | -                 | 源文件路径。                                                                                                                                                                                                                                                                                                                                     |
-| file_format_type        | string  | 是       | -                 | 我们支持以下文件类型：`text` `json` `csv` `orc` `parquet` `excel`。请注意，最终文件名将以文件格式的后缀结束，文本文件的后缀是 `txt`。                                                                                                                                                                                                               |
-| fs.defaultFS            | string  | 是       | -                 | 以 `hdfs://` 开头的 Hadoop 集群地址，例如：`hdfs://hadoopcluster`。                                                                                                                                                                                                                                                                              |
-| read_columns            | list    | 是       | -                 | 数据源的读取列列表，用户可以使用它实现字段投影。支持的文件类型的列投影如下所示：[text,json,csv,orc,parquet,excel]。提示：如果用户在读取 `text` `json` `csv` 文件时想要使用此功能，必须配置 schema 选项。                                                                                                                                               |
-| hdfs_site_path          | string  | 否       | -                 | `hdfs-site.xml` 的路径，用于加载 namenodes 的 ha 配置。                                                                                                                                                                                                                                                                                         |
-| delimiter/field_delimiter | string  | 否       | \001              | 字段分隔符，用于告诉连接器在读取文本文件时如何切分字段。默认 `\001`，与 Hive 的默认分隔符相同。                                                                                                                                                                                                                                                  |
-| parse_partition_from_path | boolean | 否       | true              | 控制是否从文件路径中解析分区键和值。例如，如果您从路径 `hdfs://hadoop-cluster/tmp/seatunnel/parquet/name=tyrantlucifer/age=26` 读取文件，则来自文件的每条记录数据将添加这两个字段：[name:tyrantlucifer,age:26]。提示：不要在 schema 选项中定义分区字段。                                                                                                          |
-| date_format             | string  | 否       | yyyy-MM-dd        | 日期类型格式，用于告诉连接器如何将字符串转换为日期，支持的格式如下：`yyyy-MM-dd` `yyyy.MM.dd` `yyyy/MM/dd`，默认 `yyyy-MM-dd`。日期时间类型格式，用于告诉连接器如何将字符串转换为日期时间，支持的格式如下：`yyyy-MM-dd HH:mm:ss` `yyyy.MM.dd HH:mm:ss` `yyyy/MM/dd HH:mm:ss` `yyyyMMddHHmmss`，默认 `yyyy-MM-dd HH:mm:ss`。 |
-| time_format             | string  | 否       | HH:mm:ss          | 时间类型格式，用于告诉连接器如何将字符串转换为时间，支持的格式如下：`HH:mm:ss` `HH:mm:ss.SSS`，默认 `HH:mm:ss`。                                                                                                                                                                                                                              |
-| remote_user             | string  | 否       | -                 | 用于连接 Hadoop 的登录用户。它旨在用于 RPC 中的远程用户，不会有任何凭据。                                                                                                                                                                                                                                                                         |
-| krb5_path               | string  | 否       | /etc/krb5.conf    | kerberos 的 krb5 路径。                                                                                                                                                                                                                                                                                                                        |
-| kerberos_principal      | string  | 否       | -                 | kerberos 的 principal。                                                                                                                                                                                                                                                                                                                        |
-| kerberos_keytab_path    | string  | 否       | -                 | kerberos 的 keytab 路径。                                                                                                                                                                                                                                                                                                                      |
-| skip_header_row_number  | long    | 否       | 0                 | 跳过前几行，但仅适用于 txt 和 csv。例如，设置如下：`skip_header_row_number = 2`。然后 Seatunnel 将跳过源文件中的前两行。                                                                                                                                                                                                                          |
-| schema                  | config  | 否       | -                 | 上游数据的模式字段。                                                                                                                                                                                                                                                                                                                           |
-| sheet_name              | string  | 否       | -                 | 读取工作簿的表格，仅在文件格式为 excel 时使用。                                                                                                                                                                                                                                                                                                 |
-| compress_codec          | string  | 否       | none              | 文件的压缩编解码器。                                                                                                                                                                                                                                                                                                                           |
-| common-options          |         | 否       | -                 | 源插件通用参数，请参阅 [源通用选项](common-options.md) 获取详细信息。                                                                                                                                                                                                                                                                          |
+|            名称             |   类型    | 是否必须 |      默认值       |                                                                                                                     描述                                                                                                                      |
+|---------------------------|---------|------|----------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| path                      | string  | 是    | -              | 源文件路径。                                                                                                                                                                                                                                      |
+| file_format_type          | string  | 是    | -              | 我们支持以下文件类型：`text` `json` `csv` `orc` `parquet` `excel`。请注意，最终文件名将以文件格式的后缀结束，文本文件的后缀是 `txt`。                                                                                                                                                 |
+| fs.defaultFS              | string  | 是    | -              | 以 `hdfs://` 开头的 Hadoop 集群地址，例如：`hdfs://hadoopcluster`。                                                                                                                                                                                      |
+| read_columns              | list    | 是    | -              | 数据源的读取列列表，用户可以使用它实现字段投影。支持的文件类型的列投影如下所示：[text,json,csv,orc,parquet,excel]。提示：如果用户在读取 `text` `json` `csv` 文件时想要使用此功能，必须配置 schema 选项。                                                                                                         |
+| hdfs_site_path            | string  | 否    | -              | `hdfs-site.xml` 的路径，用于加载 namenodes 的 ha 配置。                                                                                                                                                                                                 |
+| delimiter/field_delimiter | string  | 否    | \001           | 字段分隔符，用于告诉连接器在读取文本文件时如何切分字段。默认 `\001`，与 Hive 的默认分隔符相同。                                                                                                                                                                                      |
+| parse_partition_from_path | boolean | 否    | true           | 控制是否从文件路径中解析分区键和值。例如，如果您从路径 `hdfs://hadoop-cluster/tmp/seatunnel/parquet/name=tyrantlucifer/age=26` 读取文件，则来自文件的每条记录数据将添加这两个字段：[name:tyrantlucifer,age:26]。提示：不要在 schema 选项中定义分区字段。                                                          |
+| date_format               | string  | 否    | yyyy-MM-dd     | 日期类型格式，用于告诉连接器如何将字符串转换为日期，支持的格式如下：`yyyy-MM-dd` `yyyy.MM.dd` `yyyy/MM/dd`，默认 `yyyy-MM-dd`。日期时间类型格式，用于告诉连接器如何将字符串转换为日期时间，支持的格式如下：`yyyy-MM-dd HH:mm:ss` `yyyy.MM.dd HH:mm:ss` `yyyy/MM/dd HH:mm:ss` `yyyyMMddHHmmss`，默认 `yyyy-MM-dd HH:mm:ss`。 |
+| time_format               | string  | 否    | HH:mm:ss       | 时间类型格式，用于告诉连接器如何将字符串转换为时间，支持的格式如下：`HH:mm:ss` `HH:mm:ss.SSS`，默认 `HH:mm:ss`。                                                                                                                                                                  |
+| remote_user               | string  | 否    | -              | 用于连接 Hadoop 的登录用户。它旨在用于 RPC 中的远程用户，不会有任何凭据。                                                                                                                                                                                                 |
+| krb5_path                 | string  | 否    | /etc/krb5.conf | kerberos 的 krb5 路径。                                                                                                                                                                                                                         |
+| kerberos_principal        | string  | 否    | -              | kerberos 的 principal。                                                                                                                                                                                                                       |
+| kerberos_keytab_path      | string  | 否    | -              | kerberos 的 keytab 路径。                                                                                                                                                                                                                       |
+| skip_header_row_number    | long    | 否    | 0              | 跳过前几行，但仅适用于 txt 和 csv。例如，设置如下：`skip_header_row_number = 2`。然后 Seatunnel 将跳过源文件中的前两行。                                                                                                                                                        |
+| schema                    | config  | 否    | -              | 上游数据的模式字段。                                                                                                                                                                                                                                  |
+| sheet_name                | string  | 否    | -              | 读取工作簿的表格，仅在文件格式为 excel 时使用。                                                                                                                                                                                                                 |
+| compress_codec            | string  | 否    | none           | 文件的压缩编解码器。                                                                                                                                                                                                                                  |
+| common-options            |         | 否    | -              | 源插件通用参数，请参阅 [源通用选项](common-options.md) 获取详细信息。                                                                                                                                                                                              |
 
 ### delimiter/field_delimiter [string]
 
@@ -124,3 +124,4 @@ sink {
   # 请访问 https://seatunnel.apache.org/docs/category/sink-v2
 }
 ```
+
