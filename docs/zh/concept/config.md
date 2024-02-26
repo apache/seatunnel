@@ -128,7 +128,7 @@ sink {
 ### source
 
 source用于定义SeaTunnel在哪儿检索数据，并将检索的数据用于下一步。
-可以同时定义多个source。目前支持的source请看[Source of SeaTunnel](../connector-v2/source)。每种source都有自己特定的参数用来
+可以同时定义多个source。目前支持的source请看[Source of SeaTunnel](../../en/connector-v2/source)。每种source都有自己特定的参数用来
 定义如何检索数据，SeaTunnel也抽象了每种source所使用的参数，例如 `result_table_name` 参数，用于指定当前source生成的数据的名称，
 方便后续其他模块使用。
 
