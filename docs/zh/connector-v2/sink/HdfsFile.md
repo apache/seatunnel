@@ -10,7 +10,7 @@
 
 ## 主要特性
 
-- [x] [精确一次](../../concept/connector-v2-features.md)
+- [x] [精确一次](../../../en/concept/connector-v2-features.md)
 
 默认情况下，我们使用2PC提交来确保"精确一次"
 
@@ -60,7 +60,7 @@
 | kerberos_principal               | string  | 否    | -                                          | kerberos 的主体                                                                                                                                                                                                                                                                                     |
 | kerberos_keytab_path             | string  | 否    | -                                          | kerberos 的 keytab 路径                                                                                                                                                                                                                                                                             |
 | compress_codec                   | string  | 否    | none                                       | 压缩编解码器                                                                                                                                                                                                                                                                                           |
-| common-options                   | object  | 否    | -                                          | 接收器插件通用参数，请参阅 [接收器通用选项](common-options.md) 了解详情                                                                                                                                                                                                                                                  |
+| common-options                   | object  | 否    | -                                          | 接收器插件通用参数，请参阅 [接收器通用选项](../../../en/connector-v2/source/common-options.md) 了解详情                                                                                                                                                                                                                  |
 | max_rows_in_memory               | int     | 否    | -                                          | 仅当 file_format 为 excel 时使用。当文件格式为 Excel 时，可以缓存在内存中的最大数据项数。                                                                                                                                                                                                                                       |
 | sheet_name                       | string  | 否    | Sheet${Random number}                      | 仅当 file_format 为 excel 时使用。将工作簿的表写入指定的表名                                                                                                                                                                                                                                                         |
 

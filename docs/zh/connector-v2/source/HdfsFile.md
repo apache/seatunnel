@@ -10,15 +10,15 @@
 
 ## 主要特性
 
-- [x] [批处理](../../concept/connector-v2-features.md)
-- [ ] [流处理](../../concept/connector-v2-features.md)
-- [x] [精确一次](../../concept/connector-v2-features.md)
+- [x] [批处理](../../../en/concept/connector-v2-features.md)
+- [ ] [流处理](../../../en/concept/connector-v2-features.md)
+- [x] [精确一次](../../../en/concept/connector-v2-features.md)
 
 在一次 pollNext 调用中读取分片中的所有数据。将读取的分片保存在快照中。
 
-- [x] [列投影](../../concept/connector-v2-features.md)
-- [x] [并行度](../../concept/connector-v2-features.md)
-- [ ] [支持用户定义的分片](../../concept/connector-v2-features.md)
+- [x] [列投影](../../../en/concept/connector-v2-features.md)
+- [x] [并行度](../../../en/concept/connector-v2-features.md)
+- [ ] [支持用户定义的分片](../../../en/concept/connector-v2-features.md)
 - [x] 文件格式
   - [x] 文本
   - [x] CSV
@@ -58,7 +58,7 @@
 | schema                    | config  | 否    | -              | 上游数据的模式字段。                                                                                                                                                                                                                                  |
 | sheet_name                | string  | 否    | -              | 读取工作簿的表格，仅在文件格式为 excel 时使用。                                                                                                                                                                                                                 |
 | compress_codec            | string  | 否    | none           | 文件的压缩编解码器。                                                                                                                                                                                                                                  |
-| common-options            |         | 否    | -              | 源插件通用参数，请参阅 [源通用选项](common-options.md) 获取详细信息。                                                                                                                                                                                              |
+| common-options            |         | 否    | -              | 源插件通用参数，请参阅 [源通用选项](../../../en/connector-v2/source/common-options.md) 获取详细信息。                                                                                                                                                              |
 
 ### delimiter/field_delimiter [string]
 
