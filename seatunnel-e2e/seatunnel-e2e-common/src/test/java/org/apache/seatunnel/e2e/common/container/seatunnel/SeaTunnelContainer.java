@@ -62,9 +62,9 @@ import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PA
 @AutoService(TestContainer.class)
 public class SeaTunnelContainer extends AbstractTestContainer {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-    private static final String JDK_DOCKER_IMAGE = "openjdk:8";
+    protected static final String JDK_DOCKER_IMAGE = "openjdk:8";
     private static final String CLIENT_SHELL = "seatunnel.sh";
-    private static final String SERVER_SHELL = "seatunnel-cluster.sh";
+    protected static final String SERVER_SHELL = "seatunnel-cluster.sh";
     protected GenericContainer<?> server;
     private final AtomicInteger runningCount = new AtomicInteger();
 
@@ -300,6 +300,8 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 || threadName.startsWith("OkHttp TaskRunner")
                 // IOTDB org.apache.iotdb.session.Session
                 || threadName.startsWith("SessionExecutor")
+                // Iceberg org.apache.iceberg.util.ThreadPools.WORKER_POOL
+                || threadName.startsWith("iceberg-worker-pool")
                 // Oracle Driver
                 // oracle.jdbc.driver.BlockSource.ThreadedCachingBlockSource.BlockReleaser
                 || threadName.contains(

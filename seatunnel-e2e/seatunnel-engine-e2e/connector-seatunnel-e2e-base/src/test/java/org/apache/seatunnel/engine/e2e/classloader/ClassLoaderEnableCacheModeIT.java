@@ -15,19 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.execution;
+package org.apache.seatunnel.engine.e2e.classloader;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+public class ClassLoaderEnableCacheModeIT extends ClassLoaderITBase {
+    @Override
+    boolean cacheMode() {
+        return true;
+    }
 
-import java.net.URL;
-import java.util.Collection;
-
-@Data
-@AllArgsConstructor
-public class TaskGroupContext {
-    private TaskGroup taskGroup;
-
-    private ClassLoader classLoader;
-    private Collection<URL> jars;
+    @Override
+    String seatunnelConfigFileName() {
+        return "seatunnel_cache_mode.yaml";
+    }
 }

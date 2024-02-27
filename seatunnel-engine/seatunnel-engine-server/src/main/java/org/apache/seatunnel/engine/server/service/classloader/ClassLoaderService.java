@@ -15,19 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.execution;
-
-import lombok.AllArgsConstructor;
-import lombok.Data;
+package org.apache.seatunnel.engine.server.service.classloader;
 
 import java.net.URL;
 import java.util.Collection;
 
-@Data
-@AllArgsConstructor
-public class TaskGroupContext {
-    private TaskGroup taskGroup;
+/** ClassLoaderService is used to manage the classloader of the connector plugin. */
+public interface ClassLoaderService {
+    /**
+     * Get the classloader of the connector plugin.
+     *
+     * @param jobId the job id
+     * @param jars the jars of the connector plugin
+     * @return the classloader of the connector plugin
+     */
+    ClassLoader getClassLoader(long jobId, Collection<URL> jars);
 
-    private ClassLoader classLoader;
-    private Collection<URL> jars;
+    /**
+     * Release the classloader of the connector plugin.
+     *
+     * @param jobId the job id
+     * @param jars the jars of the connector plugin
+     */
+    void releaseClassLoader(long jobId, Collection<URL> jars);
+
+    /** Close the classloader service. */
+    void close();
 }
