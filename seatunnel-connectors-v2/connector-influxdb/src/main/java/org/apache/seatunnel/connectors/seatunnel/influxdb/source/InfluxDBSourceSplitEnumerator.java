@@ -26,7 +26,6 @@ import org.apache.seatunnel.connectors.seatunnel.influxdb.state.InfluxDBSourceSt
 import org.apache.commons.lang3.tuple.Pair;
 
 import lombok.extern.slf4j.Slf4j;
-import okhttp3.internal.concurrent.TaskRunner;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -220,10 +219,7 @@ public class InfluxDBSourceSplitEnumerator
     }
 
     @Override
-    public void close() {
-        // TODO we should remove shutdown logic when supported closed part task
-        ((TaskRunner.RealBackend) TaskRunner.INSTANCE.getBackend()).shutdown();
-    }
+    public void close() {}
 
     @Override
     public void notifyCheckpointComplete(long checkpointId) {

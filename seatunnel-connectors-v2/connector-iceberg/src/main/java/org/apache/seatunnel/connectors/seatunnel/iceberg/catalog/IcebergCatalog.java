@@ -232,7 +232,7 @@ public class IcebergCatalog implements Catalog {
                                     PhysicalColumn.of(
                                             name,
                                             seaTunnelType,
-                                            null,
+                                            (Long) null,
                                             true,
                                             null,
                                             nestedField.doc());

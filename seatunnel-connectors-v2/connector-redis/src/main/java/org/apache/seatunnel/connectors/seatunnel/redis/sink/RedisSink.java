@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.redis.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -29,7 +30,8 @@ import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
 
 import java.io.IOException;
 
-public class RedisSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
+public class RedisSink extends AbstractSimpleSink<SeaTunnelRow, Void>
+        implements SupportMultiTableSink {
     private final RedisParameters redisParameters = new RedisParameters();
     private SeaTunnelRowType seaTunnelRowType;
     private ReadonlyConfig readonlyConfig;

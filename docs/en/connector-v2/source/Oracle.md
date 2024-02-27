@@ -49,20 +49,20 @@ Read external data source data through JDBC.
 
 ## Data Type Mapping
 
-|                                   Oracle Data Type                                   | SeaTunnel Data Type |
-|--------------------------------------------------------------------------------------|---------------------|
-| INTEGER                                                                              | INT                 |
-| FLOAT                                                                                | DECIMAL(38, 18)     |
-| NUMBER(precision <= 9, scale == 0)                                                   | INT                 |
-| NUMBER(9 < precision <= 18, scale == 0)                                              | BIGINT              |
-| NUMBER(18 < precision, scale == 0)                                                   | DECIMAL(38, 0)      |
-| NUMBER(scale != 0)                                                                   | DECIMAL(38, 18)     |
-| BINARY_DOUBLE                                                                        | DOUBLE              |
-| BINARY_FLOAT<br/>REAL                                                                | FLOAT               |
-| CHAR<br/>NCHAR<br/>NVARCHAR2<br/>VARCHAR2<br/>LONG<br/>ROWID<br/>NCLOB<br/>CLOB<br/> | STRING              |
-| DATE                                                                                 | DATE                |
-| TIMESTAMP<br/>TIMESTAMP WITH LOCAL TIME ZONE                                         | TIMESTAMP           |
-| BLOB<br/>RAW<br/>LONG RAW<br/>BFILE                                                  | BYTES               |
+|                                             Oracle Data Type                                             | SeaTunnel Data Type |
+|----------------------------------------------------------------------------------------------------------|---------------------|
+| INTEGER                                                                                                  | DECIMAL(38,0)       |
+| FLOAT                                                                                                    | DECIMAL(38, 18)     |
+| NUMBER(precision <= 9, scale == 0)                                                                       | INT                 |
+| NUMBER(9 < precision <= 18, scale == 0)                                                                  | BIGINT              |
+| NUMBER(18 < precision, scale == 0)                                                                       | DECIMAL(38, 0)      |
+| NUMBER(scale != 0)                                                                                       | DECIMAL(38, 18)     |
+| BINARY_DOUBLE                                                                                            | DOUBLE              |
+| BINARY_FLOAT<br/>REAL                                                                                    | FLOAT               |
+| CHAR<br/>NCHAR<br/>VARCHAR<br/>NVARCHAR2<br/>VARCHAR2<br/>LONG<br/>ROWID<br/>NCLOB<br/>CLOB<br/>XML<br/> | STRING              |
+| DATE                                                                                                     | TIMESTAMP           |
+| TIMESTAMP<br/>TIMESTAMP WITH LOCAL TIME ZONE                                                             | TIMESTAMP           |
+| BLOB<br/>RAW<br/>LONG RAW<br/>BFILE                                                                      | BYTES               |
 
 ## Source Options
 

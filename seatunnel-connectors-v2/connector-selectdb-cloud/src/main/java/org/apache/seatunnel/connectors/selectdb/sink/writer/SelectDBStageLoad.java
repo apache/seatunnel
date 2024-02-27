@@ -21,6 +21,7 @@ import org.apache.seatunnel.connectors.selectdb.config.SelectDBConfig;
 import org.apache.seatunnel.connectors.selectdb.exception.SelectDBConnectorErrorCode;
 import org.apache.seatunnel.connectors.selectdb.exception.SelectDBConnectorException;
 import org.apache.seatunnel.connectors.selectdb.rest.BaseResponse;
+import org.apache.seatunnel.connectors.selectdb.rest.CopySQLUtil;
 import org.apache.seatunnel.connectors.selectdb.util.HttpPutBuilder;
 
 import org.apache.http.Header;
@@ -32,8 +33,6 @@ import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.annotations.VisibleForTesting;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -57,7 +56,6 @@ import static org.apache.seatunnel.connectors.selectdb.sink.writer.LoadConstants
 
 @Slf4j
 public class SelectDBStageLoad implements Serializable {
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private final LabelGenerator labelGenerator;
     private final String lineDelimiter;
     private static final String UPLOAD_URL_PATTERN = "http://%s/copy/upload";
@@ -67,8 +65,6 @@ public class SelectDBStageLoad implements Serializable {
     private String hostPort;
     private final String username;
     private final String password;
-    private final String db;
-    private final String table;
     private final Properties stageLoadProps;
     private List<String> fileList = new CopyOnWriteArrayList();
     private RecordBuffer buffer;
@@ -84,9 +80,6 @@ public class SelectDBStageLoad implements Serializable {
     public SelectDBStageLoad(SelectDBConfig selectdbConfig, LabelGenerator labelGenerator) {
         this.selectdbConfig = selectdbConfig;
         this.hostPort = selectdbConfig.getLoadUrl();
-        String[] tableInfo = selectdbConfig.getTableIdentifier().split("\\.");
-        this.db = tableInfo[0];
-        this.table = tableInfo[1];
         this.username = selectdbConfig.getUsername();
         this.password = selectdbConfig.getPassword();
         this.labelGenerator = labelGenerator;
@@ -178,16 +171,12 @@ public class SelectDBStageLoad implements Serializable {
     }
 
     public void close() {
+        this.started.set(false);
         this.loadExecutorService.shutdown();
     }
 
     public void setCurrentCheckpointID(long currentCheckpointID) {
         this.currentCheckpointID = currentCheckpointID;
-    }
-
-    @VisibleForTesting
-    public void setHttpClientBuilder(HttpClientBuilder httpClientBuilder) {
-        this.httpClientBuilder = httpClientBuilder;
     }
 
     class StageLoadAsyncExecutor implements Runnable {
@@ -200,6 +189,18 @@ public class SelectDBStageLoad implements Serializable {
                     if (buffer != null && buffer.getFileName() != null) {
                         uploadToStorage(buffer.getFileName(), buffer);
                         fileList.add(buffer.getFileName());
+                        if (!selectdbConfig.isEnable2PC()) {
+                            CopySQLBuilder copySQLBuilder =
+                                    new CopySQLBuilder(selectdbConfig, fileList);
+                            String copySql = copySQLBuilder.buildCopySQL();
+                            CopySQLUtil.copyFileToDatabase(
+                                    selectdbConfig,
+                                    selectdbConfig.getClusterName(),
+                                    copySql,
+                                    hostPort);
+                            log.info("clear the file list {}", fileList);
+                            clearFileList();
+                        }
                     }
                 } catch (Exception e) {
                     log.error("worker running error", e);
