@@ -27,20 +27,31 @@ import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.constants.JobMode;
+import org.apache.seatunnel.connectors.seatunnel.common.source.reader.RecordsWithSplitIds;
+import org.apache.seatunnel.connectors.seatunnel.common.source.reader.SourceReaderOptions;
+import org.apache.seatunnel.connectors.seatunnel.kafka.source.fetch.KafkaSourceFetcherManager;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSourceState;
 
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+
+import com.google.common.base.Supplier;
+import com.google.common.collect.Lists;
+
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 public class KafkaSource
         implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSplit, KafkaSourceState>,
                 SupportParallelism {
 
+    private final ReadonlyConfig readonlyConfig;
     private JobContext jobContext;
 
     private final KafkaSourceConfig kafkaSourceConfig;
 
     public KafkaSource(ReadonlyConfig readonlyConfig) {
+        this.readonlyConfig = readonlyConfig;
         kafkaSourceConfig = new KafkaSourceConfig(readonlyConfig);
     }
 
@@ -58,16 +69,34 @@ public class KafkaSource
 
     @Override
     public List<CatalogTable> getProducedCatalogTables() {
-        return kafkaSourceConfig.getMapMetadata().values().stream()
-                .map(ConsumerMetadata::getCatalogTable)
-                .collect(Collectors.toList());
+        return Lists.newArrayList(kafkaSourceConfig.getCatalogTable());
     }
 
     @Override
     public SourceReader<SeaTunnelRow, KafkaSourceSplit> createReader(
             SourceReader.Context readerContext) {
+
+        BlockingQueue<RecordsWithSplitIds<ConsumerRecord<byte[], byte[]>>> elementsQueue =
+                new LinkedBlockingQueue<>();
+
+        Supplier<KafkaPartitionSplitReader> kafkaPartitionSplitReaderSupplier =
+                () -> new KafkaPartitionSplitReader(kafkaSourceConfig.getMetadata(), readerContext);
+
+        KafkaSourceFetcherManager kafkaSourceFetcherManager =
+                new KafkaSourceFetcherManager(
+                        elementsQueue, kafkaPartitionSplitReaderSupplier::get);
+        KafkaRecordEmitter kafkaRecordEmitter =
+                new KafkaRecordEmitter(
+                        kafkaSourceConfig.getDeserializationSchema(),
+                        kafkaSourceConfig.getMessageFormatErrorHandleWay());
+
         return new KafkaSourceReader(
-                kafkaSourceConfig,
+                elementsQueue,
+                kafkaSourceFetcherManager,
+                kafkaRecordEmitter,
+                new SourceReaderOptions(readonlyConfig),
+                kafkaSourceConfig.getMetadata(),
+                kafkaSourceConfig.getDeserializationSchema(),
                 readerContext,
                 kafkaSourceConfig.getMessageFormatErrorHandleWay());
     }
@@ -75,7 +104,10 @@ public class KafkaSource
     @Override
     public SourceSplitEnumerator<KafkaSourceSplit, KafkaSourceState> createEnumerator(
             SourceSplitEnumerator.Context<KafkaSourceSplit> enumeratorContext) {
-        return new KafkaSourceSplitEnumerator(kafkaSourceConfig, enumeratorContext, null);
+        return new KafkaSourceSplitEnumerator(
+                kafkaSourceConfig.getMetadata(),
+                enumeratorContext,
+                kafkaSourceConfig.getDiscoveryIntervalMillis());
     }
 
     @Override
@@ -83,7 +115,10 @@ public class KafkaSource
             SourceSplitEnumerator.Context<KafkaSourceSplit> enumeratorContext,
             KafkaSourceState checkpointState) {
         return new KafkaSourceSplitEnumerator(
-                kafkaSourceConfig, enumeratorContext, checkpointState);
+                kafkaSourceConfig.getMetadata(),
+                enumeratorContext,
+                checkpointState,
+                kafkaSourceConfig.getDiscoveryIntervalMillis());
     }
 
     @Override
