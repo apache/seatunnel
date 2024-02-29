@@ -369,7 +369,7 @@ public class AmazondynamodbIT extends TestSuiteBase implements TestResource {
                 return AttributeValue.builder().m(resultMap).build();
             case L:
                 ArrayType<?, ?> arrayType = (ArrayType<?, ?>) seaTunnelDataType;
-                BasicType<?> elementType = arrayType.getElementType();
+                SeaTunnelDataType<?> elementType = arrayType.getElementType();
                 Object[] l = (Object[]) value;
                 return AttributeValue.builder()
                         .l(

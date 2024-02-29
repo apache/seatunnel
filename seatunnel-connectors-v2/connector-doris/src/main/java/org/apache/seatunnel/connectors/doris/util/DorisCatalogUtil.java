@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.converter.TypeConverter;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.seatunnel.connectors.doris.catalog.DorisCatalog;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -125,6 +126,18 @@ public class DorisCatalogUtil {
                             .map(r -> "`" + r.getColumnName() + "`")
                             .collect(Collectors.joining(","));
         }
+
+        // dup key
+        String dupKey = "";
+        if (catalogTable.getOptions() != null
+                && StringUtils.isNotBlank(catalogTable.getOptions().get(DorisCatalog.DUP_KEY))) {
+            String dupKeyColumns = catalogTable.getOptions().get(DorisCatalog.DUP_KEY);
+            dupKey =
+                    Arrays.stream(dupKeyColumns.split(","))
+                            .map(r -> "`" + r + "`")
+                            .collect(Collectors.joining(","));
+        }
+
         SqlTemplate.canHandledByTemplateWithPlaceholder(
                 template,
                 SaveModePlaceHolder.ROWTYPE_PRIMARY_KEY.getPlaceHolder(),
@@ -144,6 +157,15 @@ public class DorisCatalogUtil {
         template =
                 template.replaceAll(
                         SaveModePlaceHolder.ROWTYPE_UNIQUE_KEY.getReplacePlaceHolder(), uniqueKey);
+        SqlTemplate.canHandledByTemplateWithPlaceholder(
+                template,
+                SaveModePlaceHolder.ROWTYPE_DUPLICATE_KEY.getPlaceHolder(),
+                uniqueKey,
+                tablePath.getFullName(),
+                DorisOptions.SAVE_MODE_CREATE_TEMPLATE.key());
+        template =
+                template.replaceAll(
+                        SaveModePlaceHolder.ROWTYPE_DUPLICATE_KEY.getReplacePlaceHolder(), uniqueKey);
         Map<String, CreateTableParser.ColumnInfo> columnInTemplate =
                 CreateTableParser.getColumnList(template);
         template = mergeColumnInTemplate(columnInTemplate, tableSchema, template, typeConverter);

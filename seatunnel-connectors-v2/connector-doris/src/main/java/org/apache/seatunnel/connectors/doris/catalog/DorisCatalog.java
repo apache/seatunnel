@@ -45,7 +45,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.google.common.base.Preconditions;
-import com.mysql.cj.MysqlType;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -86,6 +85,8 @@ public class DorisCatalog implements Catalog {
     private String dorisVersion;
 
     private TypeConverter<BasicTypeDefine> typeConverter;
+
+    public static final String DUP_KEY = "rowtype_dup_key";
 
     public DorisCatalog(
             String catalogName,
@@ -245,12 +246,13 @@ public class DorisCatalog implements Catalog {
             ps.setString(1, tablePath.getDatabaseName());
             ps.setString(2, tablePath.getTableName());
             ResultSet rs = ps.executeQuery();
-            buildTableSchemaWithErrorCheck(tablePath, rs, builder);
+            Map<String, String> options = connectorOptions();
+            buildTableSchemaWithErrorCheck(tablePath, rs, builder, options);
             return CatalogTable.of(
                     TableIdentifier.of(
                             catalogName, tablePath.getDatabaseName(), tablePath.getTableName()),
                     builder.build(),
-                    connectorOptions(),
+                    options,
                     Collections.emptyList(),
                     "",
                     catalogName);
@@ -263,15 +265,28 @@ public class DorisCatalog implements Catalog {
     }
 
     private void buildTableSchemaWithErrorCheck(
-            TablePath tablePath, ResultSet resultSet, TableSchema.Builder builder)
+            TablePath tablePath,
+            ResultSet resultSet,
+            TableSchema.Builder builder,
+            Map<String, String> options)
             throws SQLException {
         Map<String, String> unsupported = new LinkedHashMap<>();
         List<String> keyList = new ArrayList<>();
         while (resultSet.next()) {
             try {
                 builder.column(buildColumn(resultSet));
-                if ("UNI".equalsIgnoreCase(resultSet.getString("COLUMN_KEY"))) {
-                    keyList.add(resultSet.getString("COLUMN_NAME"));
+                String columnKey = resultSet.getString("COLUMN_KEY");
+                String columName = resultSet.getString("COLUMN_NAME");
+                if ("UNI".equalsIgnoreCase(columnKey)) {
+                    keyList.add(columName);
+                } else if ("DUP".equalsIgnoreCase(columnKey)) {
+                    String dupKey = options.getOrDefault(DUP_KEY, "");
+                    if (dupKey == "") {
+                        dupKey = columName;
+                    } else {
+                        dupKey = dupKey + "," + columName;
+                    }
+                    options.put(DUP_KEY, dupKey);
                 }
             } catch (SeaTunnelRuntimeException e) {
                 if (e.getSeaTunnelErrorCode()
@@ -315,8 +330,8 @@ public class DorisCatalog implements Catalog {
         Preconditions.checkArgument(!(numberPrecision > 0 && charOctetLength > 0));
         Preconditions.checkArgument(!(numberScale > 0 && timePrecision > 0));
 
-        BasicTypeDefine<MysqlType> typeDefine =
-                BasicTypeDefine.<MysqlType>builder()
+        BasicTypeDefine typeDefine =
+                BasicTypeDefine.builder()
                         .name(columnName)
                         .columnType(columnType)
                         .dataType(dataType)

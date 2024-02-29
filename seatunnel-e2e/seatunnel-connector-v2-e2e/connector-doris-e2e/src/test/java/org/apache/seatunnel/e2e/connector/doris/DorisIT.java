@@ -19,6 +19,7 @@ package org.apache.seatunnel.e2e.connector.doris;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
+import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.doris.util.DorisCatalogUtil;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
@@ -28,16 +29,16 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
-import org.testcontainers.shaded.org.apache.commons.io.IOUtils;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.math.BigDecimal;
+import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLClassLoader;
-import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 import java.sql.Driver;
 import java.sql.PreparedStatement;
@@ -47,19 +48,19 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Slf4j
 public class DorisIT extends AbstractDorisIT {
-    private static final String TABLE = "doris_e2e_table";
-    private static final String ALL_TYPE_TABLE = "doris_all_type_table";
-    private static final String FAKESOURCE_ALL_TYPE_TABLE = "fake_all_type_table";
+    private static final String UNIQUE_TABLE = "doris_e2e_unique_table";
+    private static final String DUPLICATE_TABLE = "doris_duplicate_table";
     private static final String DRIVER_JAR =
             "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
 
@@ -69,11 +70,11 @@ public class DorisIT extends AbstractDorisIT {
 
     private Map<String, String> checkColumnTypeMap = null;
 
-    private static final String INIT_DATA_SQL =
+    private static final String INIT_UNIQUE_TABLE_DATA_SQL =
             "insert into "
                     + sourceDB
                     + "."
-                    + TABLE
+                    + UNIQUE_TABLE
                     + " (\n"
                     + "  F_ID,\n"
                     + "  F_INT,\n"
@@ -90,16 +91,30 @@ public class DorisIT extends AbstractDorisIT {
                     + "  F_STRING,\n"
                     + "  F_DATETIME_P,\n"
                     + "  F_DATETIME,\n"
-                    + "  F_DATE\n"
+                    + "  F_DATE,\n"
+                    + "  MAP_VARCHAR_BOOLEAN,\n"
+                    + "  MAP_CHAR_TINYINT,\n"
+                    + "  MAP_STRING_SMALLINT,\n"
+                    + "  MAP_INT_INT,\n"
+                    + "  MAP_TINYINT_BIGINT,\n"
+                    + "  MAP_SMALLINT_LARGEINT,\n"
+                    + "  MAP_BIGINT_FLOAT,\n"
+                    + "  MAP_LARGEINT_DOUBLE,\n"
+                    + "  MAP_STRING_DECIMAL,\n"
+                    + "  MAP_DECIMAL_DATE,\n"
+                    + "  MAP_DATE_DATETIME,\n"
+                    + "  MAP_DATETIME_CHAR,\n"
+                    + "  MAP_CHAR_VARCHAR,\n"
+                    + "  MAP_VARCHAR_STRING\n"
                     + ")values(\n"
-                    + "\t?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?\n"
+                    + "\t?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?\n"
                     + ")";
 
-    private static final String INIT_ALL_TYPE_DATA_SQL =
+    private static final String INIT_DUPLICATE_TABLE_DATA_SQL =
             "insert into "
                     + sourceDB
                     + "."
-                    + ALL_TYPE_TABLE
+                    + DUPLICATE_TABLE
                     + " (\n"
                     + "  F_ID,\n"
                     + "  F_INT,\n"
@@ -132,14 +147,19 @@ public class DorisIT extends AbstractDorisIT {
                     + "  F_ARRAY_STRING_CHAR,\n"
                     + "  F_ARRAY_STRING_VARCHAR,\n"
                     + "  F_ARRAY_STRING_LARGEINT,\n"
-                    + "  F_ARRAY_STRING_STRING\n"
+                    + "  F_ARRAY_STRING_STRING,\n"
+                    + "  F_ARRAY_DECIMAL,\n"
+                    + "  F_ARRAY_DATE,\n"
+                    + "  F_ARRAY_DATETIME\n"
                     + ")values(\n"
-                    + "\t?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?\n"
+                    + "\t?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?\n"
                     + ")";
 
-    private final String COLUMN_STRING =
-            "F_ID, F_INT, F_BIGINT, F_TINYINT, F_SMALLINT, F_DECIMAL, F_LARGEINT, F_BOOLEAN, F_DOUBLE, F_FLOAT, "
-                    + "F_CHAR, F_VARCHAR_11, F_STRING, F_DATETIME_P, F_DATETIME, F_DATE";
+    private final String DUPLICATE_TABLE_COLUMN_STRING =
+            "F_ID, F_INT, F_BIGINT, F_TINYINT, F_SMALLINT, F_DECIMAL, F_DECIMAL_V3, F_LARGEINT, F_BOOLEAN, F_DOUBLE, F_FLOAT, F_CHAR, F_VARCHAR_11, F_STRING, F_DATETIME_P, F_DATETIME_V2, F_DATETIME, F_DATE, F_DATE_V2, F_JSON, F_JSONB, F_ARRAY_BOOLEAN, F_ARRAY_BYTE, F_ARRAY_SHOT, F_ARRAY_INT, F_ARRAY_BIGINT, F_ARRAY_FLOAT, F_ARRAY_DOUBLE, F_ARRAY_STRING_CHAR, F_ARRAY_STRING_VARCHAR, F_ARRAY_STRING_LARGEINT, F_ARRAY_STRING_STRING, F_ARRAY_DECIMAL, F_ARRAY_DATE, F_ARRAY_DATETIME";
+
+    private final String UNIQUE_TABLE_COLUMN_STRING =
+            "F_ID, F_INT, F_BIGINT, F_TINYINT, F_SMALLINT, F_DECIMAL, F_LARGEINT, F_BOOLEAN, F_DOUBLE, F_FLOAT, F_CHAR, F_VARCHAR_11, F_STRING, F_DATETIME_P, F_DATETIME, F_DATE, MAP_VARCHAR_BOOLEAN, MAP_CHAR_TINYINT, MAP_STRING_SMALLINT, MAP_INT_INT, MAP_TINYINT_BIGINT, MAP_SMALLINT_LARGEINT, MAP_BIGINT_FLOAT, MAP_LARGEINT_DOUBLE, MAP_STRING_DECIMAL, MAP_DECIMAL_DATE, MAP_DATE_DATETIME, MAP_DATETIME_CHAR, MAP_CHAR_VARCHAR, MAP_VARCHAR_STRING";
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
@@ -156,38 +176,33 @@ public class DorisIT extends AbstractDorisIT {
     @TestTemplate
     public void testDoris(TestContainer container) throws IOException, InterruptedException {
         initializeJdbcTable();
-        batchInsertData();
+        batchInsertUniqueTableData();
 
         Container.ExecResult execResult = container.executeJob("/doris_source_and_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
         checkSinkData();
 
-        batchInsertData();
+        batchInsertUniqueTableData();
         Container.ExecResult execResult2 =
                 container.executeJob("/doris_source_and_sink_2pc_false.conf");
         Assertions.assertEquals(0, execResult2.getExitCode());
         checkSinkData();
 
-        batchInsertAllTypeData();
+        batchInsertDuplicateTableData();
         Container.ExecResult execResult3 =
                 container.executeJob("/doris_source_to_doris_sink_type_convertor.conf");
         Assertions.assertEquals(0, execResult3.getExitCode());
         checkAllTypeSinkData();
-
-        Container.ExecResult execResult4 =
-                container.executeJob("/fake_source_to_doris_type_convertor.conf");
-        Assertions.assertEquals(0, execResult4.getExitCode());
-        checkFakeSourceAllTypeSinkData();
     }
 
     private void checkAllTypeSinkData() {
         try {
-            assertHasData(sourceDB, ALL_TYPE_TABLE);
+            assertHasData(sourceDB, DUPLICATE_TABLE);
 
             try (PreparedStatement ps =
                     conn.prepareStatement(DorisCatalogUtil.TABLE_SCHEMA_QUERY)) {
                 ps.setString(1, sinkDB);
-                ps.setString(2, ALL_TYPE_TABLE);
+                ps.setString(2, DUPLICATE_TABLE);
                 ResultSet resultSet = ps.executeQuery();
                 while (resultSet.next()) {
                     String columnName = resultSet.getString("COLUMN_NAME");
@@ -199,151 +214,10 @@ public class DorisIT extends AbstractDorisIT {
             }
 
             String sourceSql =
-                    String.format("select * from %s.%s order by F_ID ", sourceDB, ALL_TYPE_TABLE);
+                    String.format("select * from %s.%s order by F_ID ", sourceDB, DUPLICATE_TABLE);
             String sinkSql =
-                    String.format("select * from %s.%s order by F_ID", sinkDB, ALL_TYPE_TABLE);
-            List<String> columnList =
-                    Arrays.stream(COLUMN_STRING.split(","))
-                            .map(x -> x.trim())
-                            .collect(Collectors.toList());
-            Statement sourceStatement =
-                    conn.createStatement(
-                            ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_READ_ONLY);
-            Statement sinkStatement =
-                    conn.createStatement(
-                            ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_READ_ONLY);
-            ResultSet sourceResultSet = sourceStatement.executeQuery(sourceSql);
-            ResultSet sinkResultSet = sinkStatement.executeQuery(sinkSql);
-            Assertions.assertEquals(
-                    sourceResultSet.getMetaData().getColumnCount(),
-                    sinkResultSet.getMetaData().getColumnCount());
-            while (sourceResultSet.next()) {
-                if (sinkResultSet.next()) {
-                    for (String column : columnList) {
-                        Object source = sourceResultSet.getObject(column);
-                        Object sink = sinkResultSet.getObject(column);
-                        if (!Objects.deepEquals(source, sink)) {
-                            InputStream sourceAsciiStream = sourceResultSet.getBinaryStream(column);
-                            InputStream sinkAsciiStream = sinkResultSet.getBinaryStream(column);
-                            String sourceValue =
-                                    IOUtils.toString(sourceAsciiStream, StandardCharsets.UTF_8);
-                            String sinkValue =
-                                    IOUtils.toString(sinkAsciiStream, StandardCharsets.UTF_8);
-                            Assertions.assertEquals(sourceValue, sinkValue);
-                        }
-                    }
-                }
-            }
-            // Check the row numbers is equal
-            sourceResultSet.last();
-            sinkResultSet.last();
-            Assertions.assertEquals(sourceResultSet.getRow(), sinkResultSet.getRow());
-        } catch (Exception e) {
-            throw new RuntimeException("Doris connection error", e);
-        }
-    }
-
-    private void checkFakeSourceAllTypeSinkData() {
-        try {
-            Map<String, String> fakeTypeMap = new LinkedHashMap<>();
-            fakeTypeMap.put("c_bigint", "bigint(20)");
-            fakeTypeMap.put("c_array", "ARRAY<INT(11)>");
-            fakeTypeMap.put("c_string", "string");
-            fakeTypeMap.put("c_boolean", "tinyint(1)");
-            fakeTypeMap.put("c_tinyint", "tinyint(4)");
-            fakeTypeMap.put("c_smallint", "smallint(6)");
-            fakeTypeMap.put("c_int", "int(11)");
-            fakeTypeMap.put("c_float", "float");
-            fakeTypeMap.put("c_double", "double");
-            fakeTypeMap.put("c_bytes", "string");
-            fakeTypeMap.put("c_date", "date");
-            fakeTypeMap.put("c_decimal", "decimalv3(10, 2)");
-            fakeTypeMap.put("c_timestamp", "datetime(6)");
-            fakeTypeMap.put("c_map", "json");
-            try (PreparedStatement ps =
-                    conn.prepareStatement(DorisCatalogUtil.TABLE_SCHEMA_QUERY)) {
-                ps.setString(1, sinkDB);
-                ps.setString(2, FAKESOURCE_ALL_TYPE_TABLE);
-                ResultSet resultSet = ps.executeQuery();
-                while (resultSet.next()) {
-                    String columnName = resultSet.getString("COLUMN_NAME");
-                    String columnType = resultSet.getString("COLUMN_TYPE");
-                    Assertions.assertEquals(
-                            fakeTypeMap.get(columnName).toUpperCase(Locale.ROOT),
-                            columnType.toUpperCase(Locale.ROOT));
-                }
-            }
-
-            BigDecimal bigDecimal = BigDecimal.valueOf(1091, 2);
-            List<Map<String, Object>> fakeSourceTestData = new ArrayList<>();
-            Map<String, Object> row1 = new HashMap<>();
-            row1.put("c_bigint", 1L);
-            row1.put("c_array", "[1, 2, 3]");
-            row1.put("c_string", "1");
-            row1.put("c_boolean", true);
-            row1.put("c_tinyint", 1);
-            row1.put("c_smallint", 2);
-            row1.put("c_int", 1);
-            row1.put("c_float", 1.0);
-            row1.put("c_double", 1.0);
-            row1.put("c_bytes", null);
-            row1.put("c_date", "2023-04-22");
-            row1.put("c_decimal", bigDecimal.toString());
-            row1.put("c_timestamp", "2023-04-22T23:20:58");
-            row1.put("c_map", "{\"1\":\"v\"}");
-
-            Map<String, Object> row2 = new HashMap<>();
-            row2.put("c_bigint", 1L);
-            row2.put("c_array", "[1, 2, 3]");
-            row2.put("c_string", "1");
-            row2.put("c_boolean", true);
-            row2.put("c_tinyint", 1);
-            row2.put("c_smallint", 2);
-            row2.put("c_int", 1);
-            row2.put("c_float", 1.0);
-            row2.put("c_double", 1.0);
-            row2.put("c_bytes", null);
-            row2.put("c_date", "2023-04-22");
-            row2.put("c_decimal", bigDecimal.toString());
-            row2.put("c_timestamp", "2023-04-22T23:20:58");
-            row2.put("c_map", "{\"1\":\"v\"}");
-
-            fakeSourceTestData.add(row1);
-            fakeSourceTestData.add(row2);
-
-            String sinkSql =
-                    String.format(
-                            "select * from %s.%s order by c_bigint",
-                            sinkDB, FAKESOURCE_ALL_TYPE_TABLE);
-            List<String> columnList =
-                    fakeTypeMap.keySet().stream().map(x -> x.trim()).collect(Collectors.toList());
-            Statement sinkStatement =
-                    conn.createStatement(
-                            ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_READ_ONLY);
-
-            ResultSet sinkResultSet = sinkStatement.executeQuery(sinkSql);
-            for (Map<String, Object> row : fakeSourceTestData) {
-                if (sinkResultSet.next()) {
-                    for (String column : columnList) {
-                        Object source = row.get(column);
-                        if (column.equalsIgnoreCase("c_array")) {
-                            String value = sinkResultSet.getString(column);
-                            Assertions.assertEquals(source, value);
-                            continue;
-                        }
-                        if (column.equalsIgnoreCase("c_bytes")) {
-                            Object sink = sinkResultSet.getObject(column);
-                            Assertions.assertEquals(source, sink);
-                            continue;
-                        }
-                        Object sink = sinkResultSet.getObject(column);
-                        Assertions.assertEquals(source.toString(), sink.toString());
-                    }
-                }
-            }
-
-            // Check the row numbers is equal
-            sinkResultSet.last();
+                    String.format("select * from %s.%s order by F_ID", sinkDB, DUPLICATE_TABLE);
+            checkSourceAndSinkTableDate(sourceSql, sinkSql, DUPLICATE_TABLE_COLUMN_STRING);
         } catch (Exception e) {
             throw new RuntimeException("Doris connection error", e);
         }
@@ -351,52 +225,121 @@ public class DorisIT extends AbstractDorisIT {
 
     private void checkSinkData() {
         try {
-            assertHasData(sourceDB, TABLE);
+            assertHasData(sourceDB, UNIQUE_TABLE);
+            assertHasData(sinkDB, UNIQUE_TABLE);
+
+            PreparedStatement sourcePre =
+                    conn.prepareStatement(DorisCatalogUtil.TABLE_SCHEMA_QUERY);
+            sourcePre.setString(1, sourceDB);
+            sourcePre.setString(2, UNIQUE_TABLE);
+            ResultSet sourceResultSet = sourcePre.executeQuery();
+
+            PreparedStatement sinkPre = conn.prepareStatement(DorisCatalogUtil.TABLE_SCHEMA_QUERY);
+            sinkPre.setString(1, sinkDB);
+            sinkPre.setString(2, UNIQUE_TABLE);
+            ResultSet sinkResultSet = sinkPre.executeQuery();
+
+            while (sourceResultSet.next()) {
+                if (sinkResultSet.next()) {
+                    String sourceColumnType = sourceResultSet.getString("COLUMN_TYPE");
+                    String sinkColumnType = sinkResultSet.getString("COLUMN_TYPE");
+                    // because seatunnel type can not save the scale and length of the key type and
+                    // value type in the MapType,
+                    // so we use the longest scale on the doris sink to prevent data overflow.
+                    if (sourceColumnType.equalsIgnoreCase("map<varchar(200),tinyint(1)>")) {
+                        Assertions.assertEquals("map<string,tinyint(1)>", sinkColumnType);
+                        continue;
+                    }
+
+                    if (sourceColumnType.equalsIgnoreCase("map<char(1),tinyint(4)>")) {
+                        Assertions.assertEquals("map<string,tinyint(4)>", sinkColumnType);
+                        continue;
+                    }
+
+                    if (sourceColumnType.equalsIgnoreCase("map<smallint(6),largeint>")) {
+                        Assertions.assertEquals(
+                                "map<smallint(6),decimalv3(20, 0)>", sinkColumnType);
+                        continue;
+                    }
+
+                    if (sourceColumnType.equalsIgnoreCase("map<largeint,double>")) {
+                        Assertions.assertEquals("map<decimalv3(20, 0),double>", sinkColumnType);
+                        continue;
+                    }
+
+                    if (sourceColumnType.equalsIgnoreCase("map<date,datetime>")) {
+                        Assertions.assertEquals("map<date,datetime(6)>", sinkColumnType);
+                        continue;
+                    }
+
+                    if (sourceColumnType.equalsIgnoreCase("map<datetime,char(20)>")) {
+                        Assertions.assertEquals("map<datetime(6),string>", sinkColumnType);
+                        continue;
+                    }
+
+                    if (sourceColumnType.equalsIgnoreCase("map<char(20),varchar(255)>")) {
+                        Assertions.assertEquals("map<string,string>", sinkColumnType);
+                        continue;
+                    }
+
+                    if (sourceColumnType.equalsIgnoreCase("map<varchar(255),string>")) {
+                        Assertions.assertEquals("map<string,string>", sinkColumnType);
+                        continue;
+                    }
+
+                    Assertions.assertEquals(
+                            sourceColumnType.toUpperCase(Locale.ROOT),
+                            sinkColumnType.toUpperCase(Locale.ROOT));
+                }
+            }
 
             String sourceSql =
                     String.format(
-                            "select * from %s.%s where F_ID > 50 order by F_ID ", sourceDB, TABLE);
-            String sinkSql = String.format("select * from %s.%s order by F_ID", sinkDB, TABLE);
-            List<String> columnList =
-                    Arrays.stream(COLUMN_STRING.split(","))
-                            .map(String::trim)
-                            .collect(Collectors.toList());
-            Statement sourceStatement =
-                    conn.createStatement(
-                            ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_READ_ONLY);
-            Statement sinkStatement =
-                    conn.createStatement(
-                            ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_READ_ONLY);
-            ResultSet sourceResultSet = sourceStatement.executeQuery(sourceSql);
-            ResultSet sinkResultSet = sinkStatement.executeQuery(sinkSql);
-            Assertions.assertEquals(
-                    sourceResultSet.getMetaData().getColumnCount(),
-                    sinkResultSet.getMetaData().getColumnCount());
-            while (sourceResultSet.next()) {
-                if (sinkResultSet.next()) {
-                    for (String column : columnList) {
-                        Object source = sourceResultSet.getObject(column);
-                        Object sink = sinkResultSet.getObject(column);
-                        if (!Objects.deepEquals(source, sink)) {
-                            InputStream sourceAsciiStream = sourceResultSet.getBinaryStream(column);
-                            InputStream sinkAsciiStream = sinkResultSet.getBinaryStream(column);
-                            String sourceValue =
-                                    IOUtils.toString(sourceAsciiStream, StandardCharsets.UTF_8);
-                            String sinkValue =
-                                    IOUtils.toString(sinkAsciiStream, StandardCharsets.UTF_8);
-                            Assertions.assertEquals(sourceValue, sinkValue);
-                        }
-                    }
-                }
-            }
-            // Check the row numbers is equal
-            sourceResultSet.last();
-            sinkResultSet.last();
-            Assertions.assertEquals(sourceResultSet.getRow(), sinkResultSet.getRow());
+                            "select * from %s.%s where F_ID > 50 order by F_ID ",
+                            sourceDB, UNIQUE_TABLE);
+            String sinkSql =
+                    String.format("select * from %s.%s order by F_ID", sinkDB, UNIQUE_TABLE);
+            checkSourceAndSinkTableDate(sourceSql, sinkSql, UNIQUE_TABLE_COLUMN_STRING);
             clearSinkTable();
         } catch (Exception e) {
             throw new RuntimeException("Doris connection error", e);
         }
+    }
+
+    private void checkSourceAndSinkTableDate(String sourceSql, String sinkSql, String columnsString)
+            throws Exception {
+        List<String> columnList =
+                Arrays.stream(columnsString.split(","))
+                        .map(x -> x.trim())
+                        .collect(Collectors.toList());
+        Statement sourceStatement =
+                conn.createStatement(ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_READ_ONLY);
+        Statement sinkStatement =
+                conn.createStatement(ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_READ_ONLY);
+        ResultSet sourceResultSet = sourceStatement.executeQuery(sourceSql);
+        ResultSet sinkResultSet = sinkStatement.executeQuery(sinkSql);
+        Assertions.assertEquals(
+                sourceResultSet.getMetaData().getColumnCount(),
+                sinkResultSet.getMetaData().getColumnCount());
+        while (sourceResultSet.next()) {
+            if (sinkResultSet.next()) {
+                for (String column : columnList) {
+                    Object source = sourceResultSet.getObject(column);
+                    Object sink = sinkResultSet.getObject(column);
+                    if (!Objects.deepEquals(source, sink)) {
+                        // source read map<xx,datetime> will create map<xx,datetime(6)> in doris
+                        // sink, because seatunnel type can not save the scale in MapType
+                        // so we use the longest scale on the doris sink to prevent data overflow.
+                        String sinkStr = sink.toString().replaceAll(".000000", "");
+                        Assertions.assertEquals(source, sinkStr);
+                    }
+                }
+            }
+        }
+        // Check the row numbers is equal
+        sourceResultSet.last();
+        sinkResultSet.last();
+        Assertions.assertEquals(sourceResultSet.getRow(), sinkResultSet.getRow());
     }
 
     private void assertHasData(String db, String table) {
@@ -411,8 +354,8 @@ public class DorisIT extends AbstractDorisIT {
 
     private void clearSinkTable() {
         try (Statement statement = conn.createStatement()) {
-            statement.execute(String.format("TRUNCATE TABLE %s.%s", sourceDB, TABLE));
-            statement.execute(String.format("TRUNCATE TABLE %s.%s", sinkDB, TABLE));
+            statement.execute(String.format("TRUNCATE TABLE %s.%s", sourceDB, UNIQUE_TABLE));
+            statement.execute(String.format("TRUNCATE TABLE %s.%s", sinkDB, UNIQUE_TABLE));
         } catch (SQLException e) {
             throw new RuntimeException("test doris server image error", e);
         }
@@ -435,9 +378,8 @@ public class DorisIT extends AbstractDorisIT {
                 statement.execute(createDatabase(sinkDB));
                 log.info("create source and sink database succeed");
                 // create source and sink table
-                statement.execute(createTableForTest(sourceDB));
-                statement.execute(createTableForTest(sinkDB));
-                statement.execute(createAllTypeTableForTest(sourceDB));
+                statement.execute(createUniqueTableForTest(sourceDB));
+                statement.execute(createDuplicateTableForTest(sourceDB));
             } catch (SQLException e) {
                 throw new RuntimeException("Initializing table failed!", e);
             }
@@ -450,7 +392,7 @@ public class DorisIT extends AbstractDorisIT {
         return String.format("CREATE DATABASE IF NOT EXISTS %s ;", db);
     }
 
-    private String createTableForTest(String db) {
+    private String createUniqueTableForTest(String db) {
         String createTableSql =
                 "create table if not exists `%s`.`%s`(\n"
                         + "F_ID bigint null,\n"
@@ -468,18 +410,32 @@ public class DorisIT extends AbstractDorisIT {
                         + "F_STRING string null,\n"
                         + "F_DATETIME_P datetime(6),\n"
                         + "F_DATETIME datetime,\n"
-                        + "F_DATE date\n"
+                        + "F_DATE date,\n"
+                        + "MAP_VARCHAR_BOOLEAN map<varchar(200),boolean>,\n"
+                        + "MAP_CHAR_TINYINT MAP<CHAR, TINYINT>,\n"
+                        + "MAP_STRING_SMALLINT MAP<STRING, SMALLINT>,\n"
+                        + "MAP_INT_INT MAP<INT, INT>,\n"
+                        + "MAP_TINYINT_BIGINT MAP<TINYINT, BIGINT>,\n"
+                        + "MAP_SMALLINT_LARGEINT MAP<SMALLINT, LARGEINT>,\n"
+                        + "MAP_BIGINT_FLOAT MAP<BIGINT, FLOAT>,\n"
+                        + "MAP_LARGEINT_DOUBLE MAP<LARGEINT, DOUBLE>,\n"
+                        + "MAP_STRING_DECIMAL MAP<STRING, DECIMAL(10,2)>,\n"
+                        + "MAP_DECIMAL_DATE MAP<DECIMAL(10,2), DATE>,\n"
+                        + "MAP_DATE_DATETIME MAP<DATE, DATETIME>,\n"
+                        + "MAP_DATETIME_CHAR MAP<DATETIME, CHAR(20)>,\n"
+                        + "MAP_CHAR_VARCHAR MAP<CHAR(20), VARCHAR(255)>,\n"
+                        + "MAP_VARCHAR_STRING MAP<VARCHAR(255), STRING>\n"
                         + ")\n"
                         + "UNIQUE KEY(`F_ID`)\n"
                         + "DISTRIBUTED BY HASH(`F_ID`) BUCKETS 1\n"
                         + "properties(\n"
                         + "\"replication_allocation\" = \"tag.location.default: 1\""
                         + ");";
-        return String.format(createTableSql, db, TABLE);
+        return String.format(createTableSql, db, UNIQUE_TABLE);
     }
 
-    private String createAllTypeTableForTest(String db) {
-        String createTableSql =
+    private String createDuplicateTableForTest(String db) {
+        String createDuplicateTableSql =
                 "create table if not exists `%s`.`%s`(\n"
                         + "F_ID bigint null,\n"
                         + "F_INT int null,\n"
@@ -512,7 +468,10 @@ public class DorisIT extends AbstractDorisIT {
                         + "F_ARRAY_STRING_CHAR ARRAY<char(10)>,\n"
                         + "F_ARRAY_STRING_VARCHAR ARRAY<varchar(100)>,\n"
                         + "F_ARRAY_STRING_LARGEINT ARRAY<largeint>,\n"
-                        + "F_ARRAY_STRING_STRING ARRAY<string>\n"
+                        + "F_ARRAY_STRING_STRING ARRAY<string>,\n"
+                        + "F_ARRAY_DECIMAL ARRAY<decimalv3(10,2)>,\n"
+                        + "F_ARRAY_DATE ARRAY<date>,\n"
+                        + "F_ARRAY_DATETIME ARRAY<datetime>\n"
                         + ")\n"
                         + "Duplicate KEY(`F_ID`)\n"
                         + "DISTRIBUTED BY HASH(`F_ID`) BUCKETS 1\n"
@@ -536,7 +495,7 @@ public class DorisIT extends AbstractDorisIT {
         checkColumnTypeMap.put("F_STRING", "string");
         checkColumnTypeMap.put("F_DATETIME_P", "datetime(6)");
         checkColumnTypeMap.put("F_DATETIME_V2", "datetime(6)");
-        checkColumnTypeMap.put("F_DATETIME", "datetime(6)");
+        checkColumnTypeMap.put("F_DATETIME", "datetime");
         checkColumnTypeMap.put("F_DATE", "date");
         checkColumnTypeMap.put("F_DATE_V2", "date");
         checkColumnTypeMap.put("F_JSON", "json");
@@ -550,17 +509,21 @@ public class DorisIT extends AbstractDorisIT {
         checkColumnTypeMap.put("F_ARRAY_DOUBLE", "ARRAY<double>");
         checkColumnTypeMap.put("F_ARRAY_STRING_CHAR", "ARRAY<string>");
         checkColumnTypeMap.put("F_ARRAY_STRING_VARCHAR", "ARRAY<string>");
-        checkColumnTypeMap.put("F_ARRAY_STRING_LARGEINT", "ARRAY<string>");
+        checkColumnTypeMap.put("F_ARRAY_STRING_LARGEINT", "ARRAY<decimalv3(20, 0)>");
         checkColumnTypeMap.put("F_ARRAY_STRING_STRING", "ARRAY<string>");
+        checkColumnTypeMap.put("F_ARRAY_DECIMAL", "ARRAY<decimalv3(10, 2)>");
+        checkColumnTypeMap.put("F_ARRAY_DATE", "ARRAY<date>");
+        checkColumnTypeMap.put("F_ARRAY_DATETIME", "ARRAY<datetime>");
 
-        return String.format(createTableSql, db, ALL_TYPE_TABLE);
+        return String.format(createDuplicateTableSql, db, DUPLICATE_TABLE);
     }
 
-    private void batchInsertData() {
-        List<SeaTunnelRow> rows = genDorisTestData(100L);
+    private void batchInsertUniqueTableData() {
+        List<SeaTunnelRow> rows = genUniqueTableTestData(100L);
         try {
             conn.setAutoCommit(false);
-            try (PreparedStatement preparedStatement = conn.prepareStatement(INIT_DATA_SQL)) {
+            try (PreparedStatement preparedStatement =
+                    conn.prepareStatement(INIT_UNIQUE_TABLE_DATA_SQL)) {
                 for (int i = 0; i < rows.size(); i++) {
                     for (int index = 0; index < rows.get(i).getFields().length; index++) {
                         preparedStatement.setObject(index + 1, rows.get(i).getFields()[index]);
@@ -572,17 +535,19 @@ public class DorisIT extends AbstractDorisIT {
             conn.commit();
         } catch (Exception exception) {
             log.error(ExceptionUtils.getMessage(exception));
+            String message = ExceptionUtils.getMessage(exception);
+            getErrorUrl(message);
             throw new RuntimeException("get connection error", exception);
         }
         log.info("insert data succeed");
     }
 
-    private void batchInsertAllTypeData() {
-        List<SeaTunnelRow> rows = genDorisAllTypeTestData(100L);
+    private void batchInsertDuplicateTableData() {
+        List<SeaTunnelRow> rows = genDuplicateTableTestData(100L);
         try {
             conn.setAutoCommit(false);
             try (PreparedStatement preparedStatement =
-                    conn.prepareStatement(INIT_ALL_TYPE_DATA_SQL)) {
+                    conn.prepareStatement(INIT_DUPLICATE_TABLE_DATA_SQL)) {
                 for (int i = 0; i < rows.size(); i++) {
                     for (int index = 0; index < rows.get(i).getFields().length; index++) {
                         preparedStatement.setObject(index + 1, rows.get(i).getFields()[index]);
@@ -599,8 +564,43 @@ public class DorisIT extends AbstractDorisIT {
         log.info("insert all type data succeed");
     }
 
-    private List<SeaTunnelRow> genDorisTestData(Long nums) {
+    private List<SeaTunnelRow> genUniqueTableTestData(Long nums) {
         List<SeaTunnelRow> datas = new ArrayList<>();
+        Map<String, Boolean> varcharBooleanMap = new HashMap<>();
+        varcharBooleanMap.put("aa", true);
+
+        Map<String, Byte> charTinyintMap = new HashMap<>();
+        charTinyintMap.put("a", (byte) 1);
+
+        Map<String, Short> stringSmallintMap = new HashMap<>();
+        stringSmallintMap.put("aa", Short.valueOf("1"));
+
+        Map<Integer, Integer> intIntMap = new HashMap<>();
+        intIntMap.put(1, 1);
+
+        Map<Byte, Long> tinyintBigintMap = new HashMap<>();
+        tinyintBigintMap.put((byte) 1, 1L);
+
+        Map<Short, Long> smallintLargeintMap = new HashMap<>();
+        smallintLargeintMap.put(Short.valueOf("1"), Long.valueOf("11"));
+
+        Map<Long, Float> bigintFloatMap = new HashMap<>();
+        bigintFloatMap.put(Long.valueOf("1"), Float.valueOf("11.1"));
+
+        Map<Long, Double> largeintDoubtMap = new HashMap<>();
+        largeintDoubtMap.put(11L, Double.valueOf("11.1"));
+
+        String stringDecimalMap = "{\"11\":\"10.2\"}";
+
+        String decimalDateMap = "{\"10.02\":\"2020-02-01\"}";
+
+        String dateDatetimeMap = "{\"2020-02-01\":\"2020-02-01 12:00:00\"}";
+
+        String datetimeCharMap = "{\"2020-02-01 12:00:00\":\"1\"}";
+
+        String charVarcharMap = "{\"1\":\"11\"}";
+
+        String varcharStringMap = "{\"11\":\"11\"}";
         for (int i = 0; i < nums; i++) {
             datas.add(
                     new SeaTunnelRow(
@@ -618,23 +618,30 @@ public class DorisIT extends AbstractDorisIT {
                                 GenerateTestData.genString(1),
                                 GenerateTestData.genString(11),
                                 GenerateTestData.genString(12),
-                                GenerateTestData.genDatetimeString(true),
                                 GenerateTestData.genDatetimeString(false),
-                                GenerateTestData.genDateString()
+                                GenerateTestData.genDatetimeString(true),
+                                GenerateTestData.genDateString(),
+                                JsonUtils.toJsonString(varcharBooleanMap),
+                                JsonUtils.toJsonString(charTinyintMap),
+                                JsonUtils.toJsonString(stringSmallintMap),
+                                JsonUtils.toJsonString(intIntMap),
+                                JsonUtils.toJsonString(tinyintBigintMap),
+                                JsonUtils.toJsonString(smallintLargeintMap),
+                                JsonUtils.toJsonString(bigintFloatMap),
+                                JsonUtils.toJsonString(largeintDoubtMap),
+                                stringDecimalMap,
+                                decimalDateMap,
+                                dateDatetimeMap,
+                                datetimeCharMap,
+                                charVarcharMap,
+                                varcharStringMap
                             }));
         }
         log.info("generate test data succeed");
         return datas;
     }
 
-    private List<SeaTunnelRow> genDorisAllTypeTestData(Long nums) {
-        HashMap<String, String> stringStringHashMap = new HashMap<>();
-        stringStringHashMap.put("1", "1");
-        stringStringHashMap.put("2", "2");
-
-        HashMap<String, Integer> stringIntHashMap = new HashMap<>();
-        stringIntHashMap.put("1", 1);
-        stringIntHashMap.put("2", 2);
+    private List<SeaTunnelRow> genDuplicateTableTestData(Long nums) {
         List<SeaTunnelRow> datas = new ArrayList<>();
         for (int i = 0; i < nums; i++) {
             datas.add(
@@ -671,7 +678,14 @@ public class DorisIT extends AbstractDorisIT {
                                 (new String[] {"1", "1"}).toString(),
                                 (new String[] {"1", "1"}).toString(),
                                 (new String[] {"1", "1"}).toString(),
-                                (new String[] {"1", "1"}).toString()
+                                (new String[] {"1", "1"}).toString(),
+                                (new BigDecimal[] {
+                                            new BigDecimal("10.02"), new BigDecimal("10.03")
+                                        })
+                                        .toString(),
+                                (new String[] {"2020-06-09", "2020-06-10"}).toString(),
+                                (new String[] {"2020-06-09 12:02:02", "2020-06-10 12:02:02"})
+                                        .toString()
                             }));
         }
         log.info("generate test data succeed");
@@ -682,6 +696,51 @@ public class DorisIT extends AbstractDorisIT {
     public void close() throws SQLException {
         if (conn != null) {
             conn.close();
+        }
+    }
+
+    public void getErrorUrl(String message) {
+        // 使用正则表达式匹配URL
+        Pattern pattern = Pattern.compile("http://[\\w./?=&-_]+");
+        Matcher matcher = pattern.matcher(message);
+        String urlString = null;
+        if (matcher.find()) {
+            log.error("Found URL: " + matcher.group());
+            urlString = matcher.group();
+        } else {
+            log.error("No URL found.");
+            return;
+        }
+
+        try {
+            URL url = new URL(urlString);
+            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+
+            // 设置请求方法
+            connection.setRequestMethod("GET");
+
+            // 设置连接超时时间
+            connection.setConnectTimeout(5000);
+            // 设置读取超时时间
+            connection.setReadTimeout(5000);
+
+            int responseCode = connection.getResponseCode();
+
+            if (responseCode == HttpURLConnection.HTTP_OK) {
+                BufferedReader in =
+                        new BufferedReader(new InputStreamReader(connection.getInputStream()));
+                String inputLine;
+                StringBuilder response = new StringBuilder();
+
+                while ((inputLine = in.readLine()) != null) {
+                    response.append(inputLine);
+                }
+                in.close();
+            } else {
+                log.error("GET request not worked");
+            }
+        } catch (Exception e) {
+            log.error(ExceptionUtils.getMessage(e));
         }
     }
 }
