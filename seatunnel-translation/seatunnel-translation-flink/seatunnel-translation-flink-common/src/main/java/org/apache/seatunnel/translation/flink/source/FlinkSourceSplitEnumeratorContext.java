@@ -19,6 +19,8 @@ package org.apache.seatunnel.translation.flink.source;
 
 import org.apache.seatunnel.api.common.metrics.AbstractMetricsContext;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
+import org.apache.seatunnel.api.event.DefaultEventProcessor;
+import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
@@ -38,10 +40,12 @@ public class FlinkSourceSplitEnumeratorContext<SplitT extends SourceSplit>
         implements SourceSplitEnumerator.Context<SplitT> {
 
     private final SplitEnumeratorContext<SplitWrapper<SplitT>> enumContext;
+    protected final EventListener eventListener;
 
     public FlinkSourceSplitEnumeratorContext(
             SplitEnumeratorContext<SplitWrapper<SplitT>> enumContext) {
         this.enumContext = enumContext;
+        this.eventListener = new DefaultEventProcessor();
     }
 
     @Override
@@ -75,5 +79,10 @@ public class FlinkSourceSplitEnumeratorContext<SplitT extends SourceSplit>
     @Override
     public MetricsContext getMetricsContext() {
         return new AbstractMetricsContext() {};
+    }
+
+    @Override
+    public EventListener getEventListener() {
+        return eventListener;
     }
 }

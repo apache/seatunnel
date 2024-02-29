@@ -18,6 +18,8 @@
 package org.apache.seatunnel.translation.flink.sink;
 
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
+import org.apache.seatunnel.api.event.DefaultEventProcessor;
+import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.translation.flink.metric.FlinkMetricContext;
 
@@ -35,9 +37,11 @@ public class FlinkSinkWriterContext implements SinkWriter.Context {
     private static final Logger LOGGER = LoggerFactory.getLogger(FlinkMetricContext.class);
 
     private final InitContext writerContext;
+    private final EventListener eventListener;
 
     public FlinkSinkWriterContext(InitContext writerContext) {
         this.writerContext = writerContext;
+        this.eventListener = new DefaultEventProcessor();
     }
 
     @Override
@@ -70,5 +74,10 @@ public class FlinkSinkWriterContext implements SinkWriter.Context {
         } catch (Exception e) {
             throw new IllegalStateException("Initial sink metrics failed", e);
         }
+    }
+
+    @Override
+    public EventListener getEventListener() {
+        return eventListener;
     }
 }

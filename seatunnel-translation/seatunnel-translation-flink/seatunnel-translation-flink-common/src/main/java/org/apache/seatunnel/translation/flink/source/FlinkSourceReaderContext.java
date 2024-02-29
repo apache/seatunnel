@@ -18,6 +18,8 @@
 package org.apache.seatunnel.translation.flink.source;
 
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
+import org.apache.seatunnel.api.event.DefaultEventProcessor;
+import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceReader;
@@ -46,10 +48,12 @@ public class FlinkSourceReaderContext implements SourceReader.Context {
     private final SourceReaderContext readerContext;
 
     private final SeaTunnelSource source;
+    protected final EventListener eventListener;
 
     public FlinkSourceReaderContext(SourceReaderContext readerContext, SeaTunnelSource source) {
         this.readerContext = readerContext;
         this.source = source;
+        this.eventListener = new DefaultEventProcessor();
     }
 
     @Override
@@ -101,5 +105,10 @@ public class FlinkSourceReaderContext implements SourceReader.Context {
 
     public boolean isSendNoMoreElementEvent() {
         return isSendNoMoreElementEvent.get();
+    }
+
+    @Override
+    public EventListener getEventListener() {
+        return eventListener;
     }
 }

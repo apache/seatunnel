@@ -18,8 +18,9 @@
 package org.apache.seatunnel.connectors.cdc.base.source.reader;
 
 import org.apache.seatunnel.api.common.metrics.Counter;
-import org.apache.seatunnel.api.common.metrics.MetricsContext;
+import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
@@ -66,16 +67,18 @@ public class IncrementalSourceRecordEmitter<T>
 
     protected final Counter recordFetchDelay;
     protected final Counter recordEmitDelay;
+    protected final EventListener eventListener;
 
     public IncrementalSourceRecordEmitter(
             DebeziumDeserializationSchema<T> debeziumDeserializationSchema,
             OffsetFactory offsetFactory,
-            MetricsContext metricsContext) {
+            SourceReader.Context context) {
         this.debeziumDeserializationSchema = debeziumDeserializationSchema;
         this.outputCollector = new OutputCollector<>();
         this.offsetFactory = offsetFactory;
-        this.recordFetchDelay = metricsContext.counter(CDC_RECORD_FETCH_DELAY);
-        this.recordEmitDelay = metricsContext.counter(CDC_RECORD_EMIT_DELAY);
+        this.recordFetchDelay = context.getMetricsContext().counter(CDC_RECORD_FETCH_DELAY);
+        this.recordEmitDelay = context.getMetricsContext().counter(CDC_RECORD_EMIT_DELAY);
+        this.eventListener = context.getEventListener();
     }
 
     @Override
@@ -157,7 +160,7 @@ public class IncrementalSourceRecordEmitter<T>
         debeziumDeserializationSchema.deserialize(element, outputCollector);
     }
 
-    private static class OutputCollector<T> implements Collector<T> {
+    private class OutputCollector<T> implements Collector<T> {
         private Collector<T> output;
 
         @Override
@@ -167,6 +170,7 @@ public class IncrementalSourceRecordEmitter<T>
 
         @Override
         public void collect(SchemaChangeEvent event) {
+            eventListener.onEvent(event);
             output.collect(event);
         }
 

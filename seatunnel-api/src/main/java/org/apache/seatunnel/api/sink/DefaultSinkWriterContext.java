@@ -19,13 +19,17 @@ package org.apache.seatunnel.api.sink;
 
 import org.apache.seatunnel.api.common.metrics.AbstractMetricsContext;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
+import org.apache.seatunnel.api.event.DefaultEventProcessor;
+import org.apache.seatunnel.api.event.EventListener;
 
 /** The default {@link SinkWriter.Context} implement class. */
 public class DefaultSinkWriterContext implements SinkWriter.Context {
     private final int subtask;
+    private final EventListener eventListener;
 
     public DefaultSinkWriterContext(int subtask) {
         this.subtask = subtask;
+        this.eventListener = new DefaultEventProcessor();
     }
 
     @Override
@@ -38,5 +42,10 @@ public class DefaultSinkWriterContext implements SinkWriter.Context {
         // TODO Waiting for Flink and Spark to implement MetricsContext
         // https://github.com/apache/seatunnel/issues/3431
         return new AbstractMetricsContext() {};
+    }
+
+    @Override
+    public EventListener getEventListener() {
+        return eventListener;
     }
 }
