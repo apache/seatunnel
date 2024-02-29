@@ -35,7 +35,6 @@ import org.influxdb.dto.Query;
 import org.influxdb.dto.QueryResult;
 
 import lombok.extern.slf4j.Slf4j;
-import okhttp3.internal.concurrent.TaskRunner;
 
 import java.net.ConnectException;
 import java.util.ArrayList;
@@ -94,8 +93,6 @@ public class InfluxdbSourceReader implements SourceReader<SeaTunnelRow, InfluxDB
         if (influxdb != null) {
             influxdb.close();
             influxdb = null;
-            // TODO we should remove shutdown logic when supported closed part task
-            ((TaskRunner.RealBackend) TaskRunner.INSTANCE.getBackend()).shutdown();
         }
     }
 

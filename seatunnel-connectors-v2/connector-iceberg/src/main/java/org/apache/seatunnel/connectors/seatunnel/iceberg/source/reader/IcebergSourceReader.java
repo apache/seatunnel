@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.iceberg.source.reader;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergTableLoader;
@@ -30,7 +31,6 @@ import org.apache.seatunnel.connectors.seatunnel.iceberg.source.split.IcebergFil
 
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.io.CloseableIterator;
-import org.apache.iceberg.util.ThreadPools;
 
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
@@ -59,14 +59,18 @@ public class IcebergSourceReader implements SourceReader<SeaTunnelRow, IcebergFi
     private IcebergFileScanTaskSplit currentReadSplit;
     private boolean noMoreSplitsAssignment;
 
+    private CatalogTable catalogTable;
+
     public IcebergSourceReader(
             @NonNull SourceReader.Context context,
             @NonNull SeaTunnelRowType seaTunnelRowType,
             @NonNull Schema tableSchema,
             @NonNull Schema projectedSchema,
-            @NonNull SourceConfig sourceConfig) {
+            @NonNull SourceConfig sourceConfig,
+            CatalogTable catalogTable) {
         this.context = context;
         this.pendingSplits = new LinkedList<>();
+        this.catalogTable = catalogTable;
         this.deserializer = new DefaultDeserializer(seaTunnelRowType, projectedSchema);
         this.tableSchema = tableSchema;
         this.projectedSchema = projectedSchema;
@@ -75,7 +79,7 @@ public class IcebergSourceReader implements SourceReader<SeaTunnelRow, IcebergFi
 
     @Override
     public void open() {
-        icebergTableLoader = IcebergTableLoader.create(sourceConfig);
+        icebergTableLoader = IcebergTableLoader.create(sourceConfig, catalogTable);
         icebergTableLoader.open();
 
         icebergFileScanTaskSplitReader =
@@ -96,8 +100,6 @@ public class IcebergSourceReader implements SourceReader<SeaTunnelRow, IcebergFi
             icebergFileScanTaskSplitReader.close();
         }
         icebergTableLoader.close();
-        // TODO we should remove shutdown logic when supported closed part task
-        ThreadPools.getWorkerPool().shutdownNow();
     }
 
     @Override

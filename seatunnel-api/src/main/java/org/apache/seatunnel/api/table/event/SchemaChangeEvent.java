@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.api.table.event;
 
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 
 import java.io.Serializable;
@@ -29,5 +30,14 @@ public interface SchemaChangeEvent extends Serializable {
      *
      * @return
      */
-    TablePath tablePath();
+    default TablePath tablePath() {
+        return tableIdentifier().toTablePath();
+    }
+
+    /**
+     * Path of the change table object
+     *
+     * @return
+     */
+    TableIdentifier tableIdentifier();
 }
