@@ -275,7 +275,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         if (!jobId.isEmpty() && jobInfo != null) {
             this.prepareResponse(command, convertToJson(jobInfo, Long.parseLong(jobId)));
         } else {
-            this.prepareResponse(command, new JsonObject());
+            this.prepareResponse(command, new JsonObject().add(RestConstant.JOB_ID, jobId));
         }
     }
 
