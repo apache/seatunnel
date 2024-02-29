@@ -17,36 +17,16 @@
 
 package org.apache.seatunnel.example.spark.v2;
 
-import org.apache.seatunnel.common.config.DeployMode;
-import org.apache.seatunnel.core.starter.SeaTunnel;
 import org.apache.seatunnel.core.starter.exception.CommandException;
-import org.apache.seatunnel.core.starter.spark.args.SparkCommandArgs;
 
 import java.io.FileNotFoundException;
 import java.net.URISyntaxException;
-import java.net.URL;
-import java.nio.file.Paths;
 
 public class SeaTunnelApiExample {
 
     public static void main(String[] args)
             throws FileNotFoundException, URISyntaxException, CommandException {
         String configurePath = args.length > 0 ? args[0] : "/examples/spark.batch.conf";
-        String configFile = getTestConfigFile(configurePath);
-        SparkCommandArgs sparkCommandArgs = new SparkCommandArgs();
-        sparkCommandArgs.setConfigFile(configFile);
-        sparkCommandArgs.setCheckConfig(false);
-        sparkCommandArgs.setVariables(null);
-        sparkCommandArgs.setDeployMode(DeployMode.CLIENT);
-        SeaTunnel.run(sparkCommandArgs.buildCommand());
-    }
-
-    private static String getTestConfigFile(String configFile)
-            throws FileNotFoundException, URISyntaxException {
-        URL resource = SeaTunnelApiExample.class.getResource(configFile);
-        if (resource == null) {
-            throw new FileNotFoundException("Can't find config file: " + configFile);
-        }
-        return Paths.get(resource.toURI()).toString();
+        ExampleUtils.builder(configurePath);
     }
 }

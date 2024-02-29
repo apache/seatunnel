@@ -53,19 +53,7 @@ public class ConfigBuilder {
                         .resolveWith(
                                 ConfigFactory.systemProperties(),
                                 ConfigResolveOptions.defaults().setAllowUnresolved(true));
-        if (variables != null) {
-            Map<String, String> map =
-                    variables.stream()
-                            .filter(Objects::nonNull)
-                            .map(variable -> variable.split("=", 2))
-                            .filter(pair -> pair.length == 2F)
-                            .collect(Collectors.toMap(pair -> pair[0], pair -> pair[1]));
-            config =
-                    config.resolveWith(
-                            ConfigFactory.parseMap(map),
-                            ConfigResolveOptions.defaults().setAllowUnresolved(true));
-        }
-        return ConfigShadeUtils.decryptConfig(config);
+        return ConfigShadeUtils.decryptConfig(backfillUserVariables(config, variables));
     }
 
     public static Config of(@NonNull String filePath) {
@@ -118,24 +106,29 @@ public class ConfigBuilder {
         try {
             Map<String, Object> flattenedMap = configAdapter.loadConfig(filePath);
             Config config = ConfigFactory.parseMap(flattenedMap);
-            if (variables != null) {
-                Map<String, String> map =
-                        variables.stream()
-                                .filter(Objects::nonNull)
-                                .map(variable -> variable.split("=", 2))
-                                .filter(pair -> pair.length == 2F)
-                                .collect(Collectors.toMap(pair -> pair[0], pair -> pair[1]));
-                config =
-                        config.resolveWith(
-                                ConfigFactory.parseMap(map),
-                                ConfigResolveOptions.defaults().setAllowUnresolved(true));
-            }
-            return ConfigShadeUtils.decryptConfig(config);
+            return ConfigShadeUtils.decryptConfig(backfillUserVariables(config, variables));
         } catch (Exception warn) {
             log.warn(
                     "Loading config failed with spi {}, fallback to HOCON loader.",
                     configAdapter.getClass().getName());
             return ofInner(filePath, variables);
         }
+    }
+
+    private static Config backfillUserVariables(Config config, List<String> variables) {
+        if (variables != null) {
+            log.info("user variables size is : {}", variables.size());
+            Map<String, String> map =
+                    variables.stream()
+                            .filter(Objects::nonNull)
+                            .map(variable -> variable.split("=", 2))
+                            .filter(pair -> pair.length == 2F)
+                            .collect(Collectors.toMap(pair -> pair[0], pair -> pair[1]));
+            return config.resolveWith(
+                    ConfigFactory.parseMap(map),
+                    ConfigResolveOptions.defaults().setAllowUnresolved(true));
+        }
+        log.info("user variable is null");
+        return config;
     }
 }
