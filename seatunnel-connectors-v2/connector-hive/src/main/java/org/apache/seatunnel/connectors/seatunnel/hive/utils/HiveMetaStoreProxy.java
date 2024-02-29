@@ -56,7 +56,7 @@ public class HiveMetaStoreProxy {
                 String hiveSitePath = config.getString(HiveConfig.HIVE_SITE_PATH.key());
                 hiveConf.addResource(new File(hiveSitePath).toURI().toURL());
             }
-            if (enableKerberos(config)) {
+            if (HiveMetaStoreProxyUtils.enableKerberos(config)) {
                 this.hiveMetaStoreClient =
                         HadoopLoginFactory.loginWithKerberos(
                                 new Configuration(),
@@ -71,7 +71,7 @@ public class HiveMetaStoreProxy {
                                         new HiveMetaStoreClient(hiveConf));
                 return;
             }
-            if (enableRemoteUser(config)) {
+            if (HiveMetaStoreProxyUtils.enableRemoteUser(config)) {
                 this.hiveMetaStoreClient =
                         HadoopLoginFactory.loginWithRemoteUser(
                                 new Configuration(),
@@ -148,26 +148,5 @@ public class HiveMetaStoreProxy {
             hiveMetaStoreClient.close();
             HiveMetaStoreProxy.INSTANCE = null;
         }
-    }
-
-    private boolean enableKerberos(Config config) {
-        boolean kerberosPrincipalEmpty =
-                config.hasPath(BaseSourceConfigOptions.KERBEROS_PRINCIPAL.key());
-        boolean kerberosKeytabPathEmpty =
-                config.hasPath(BaseSourceConfigOptions.KERBEROS_KEYTAB_PATH.key());
-        if (kerberosKeytabPathEmpty && kerberosPrincipalEmpty) {
-            return false;
-        }
-        if (!kerberosPrincipalEmpty && !kerberosKeytabPathEmpty) {
-            return true;
-        }
-        if (kerberosPrincipalEmpty) {
-            throw new IllegalArgumentException("Please set kerberosPrincipal");
-        }
-        throw new IllegalArgumentException("Please set kerberosKeytabPath");
-    }
-
-    private boolean enableRemoteUser(Config config) {
-        return config.hasPath(BaseSourceConfigOptions.REMOTE_USER.key());
     }
 }

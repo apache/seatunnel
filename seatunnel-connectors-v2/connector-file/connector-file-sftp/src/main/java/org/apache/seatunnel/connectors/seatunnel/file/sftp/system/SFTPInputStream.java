@@ -110,6 +110,7 @@ public class SFTPInputStream extends FSInputStream {
         if (closed) {
             return;
         }
+        wrappedStream.close();
         super.close();
         closed = true;
         if (!channel.isConnected()) {

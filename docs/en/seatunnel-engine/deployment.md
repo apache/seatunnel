@@ -105,6 +105,20 @@ seatunnel:
     history-job-expire-minutes: 1440
 ```
 
+### 4.5 ClassLoader Cache Mode
+
+This configuration mainly solves the resource leakage caused by constantly creating and trying to destroy classloaders. If you encounter exceptions related to metaspace overflow, you can try to enable this configuration.
+In order to reduce the frequency of creating classloaders, after enabling on this configuration, SeaTunnel will not try to release the corresponding classloader when the job is completed, so that it can be used by subsequent jobs,
+that is to say, it is more effective when the Source/Sink connectors used in the running job are not too many types. Default value is false.
+
+Example
+
+```
+seatunnel:
+  engine:
+    classloader-cache-mode: true
+```
+
 ## 5. Config SeaTunnel Engine Server
 
 All SeaTunnel Engine Server config in `hazelcast.yaml` file.

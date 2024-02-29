@@ -53,6 +53,9 @@ public class EngineConfig {
     private ConnectorJarStorageConfig connectorJarStorageConfig =
             ServerConfigOptions.CONNECTOR_JAR_STORAGE_CONFIG.defaultValue();
 
+    private boolean classloaderCacheMode =
+            ServerConfigOptions.CLASSLOADER_CACHE_MODE.defaultValue();
+
     private QueueType queueType = ServerConfigOptions.QUEUE_TYPE.defaultValue();
     private int historyJobExpireMinutes =
             ServerConfigOptions.HISTORY_JOB_EXPIRE_MINUTES.defaultValue();

@@ -63,6 +63,11 @@ import static java.sql.Types.TINYINT;
 import static java.sql.Types.VARBINARY;
 import static java.sql.Types.VARCHAR;
 
+/**
+ * @deprecated instead by {@link
+ *     org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper}
+ */
+@Deprecated
 public class JdbcColumnConverter {
 
     public static List<Column> convert(DatabaseMetaData metadata, TablePath tablePath)

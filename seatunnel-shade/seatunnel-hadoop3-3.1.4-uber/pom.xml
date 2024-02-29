@@ -47,7 +47,6 @@
             <artifactId>hadoop-client</artifactId>
             <version>${hadoop3.version}</version>
         </dependency>
-
     </dependencies>
 
     <build>

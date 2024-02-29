@@ -143,7 +143,7 @@ seatunnel:
           fs.defaultFS: hdfs://localhost:9000
           // if you used kerberos, you can config like this:
           kerberosPrincipal: your-kerberos-principal
-          kerberosKeytab: your-kerberos-keytab  
+          kerberosKeytabFilePath: your-kerberos-keytab
 ```
 
 if HDFS is in HA mode , you can config like this:

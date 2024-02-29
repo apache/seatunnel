@@ -152,7 +152,7 @@ public interface DorisOptions {
     Option<Boolean> SINK_ENABLE_2PC =
             Options.key("sink.enable-2pc")
                     .booleanType()
-                    .defaultValue(true)
+                    .defaultValue(false)
                     .withDescription("enable 2PC while loading");
 
     Option<Integer> SINK_CHECK_INTERVAL =

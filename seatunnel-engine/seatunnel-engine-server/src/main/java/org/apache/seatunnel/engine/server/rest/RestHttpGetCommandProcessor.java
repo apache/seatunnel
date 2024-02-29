@@ -24,7 +24,6 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.engine.common.Constant;
-import org.apache.seatunnel.engine.common.loader.SeaTunnelChildFirstClassLoader;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
@@ -36,6 +35,7 @@ import org.apache.seatunnel.engine.server.master.JobHistoryService.JobState;
 import org.apache.seatunnel.engine.server.operation.GetClusterHealthMetricsOperation;
 import org.apache.seatunnel.engine.server.operation.GetJobMetricsOperation;
 import org.apache.seatunnel.engine.server.operation.GetJobStatusOperation;
+import org.apache.seatunnel.engine.server.service.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import com.hazelcast.cluster.Address;
@@ -67,6 +67,7 @@ import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_500;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.FINISHED_JOBS_INFO;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_JOBS_URL;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_JOB_URL;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_THREADS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.SYSTEM_MONITORING_INFORMATION;
 
 public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCommand> {
@@ -104,6 +105,8 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                 handleJobInfoById(httpGetCommand, uri);
             } else if (uri.startsWith(SYSTEM_MONITORING_INFORMATION)) {
                 getSystemMonitoringInformation(httpGetCommand);
+            } else if (uri.startsWith(RUNNING_THREADS)) {
+                getRunningThread(httpGetCommand);
             } else {
                 original.handle(httpGetCommand);
             }
@@ -223,7 +226,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                         .map(
                                 jobState -> {
                                     Long jobId = jobState.getJobId();
-                                    SeaTunnelServer seaTunnelServer = getSeaTunnelServer();
+                                    SeaTunnelServer seaTunnelServer = getSeaTunnelServer(true);
                                     String jobMetrics;
                                     if (seaTunnelServer == null) {
                                         jobMetrics =
@@ -276,6 +279,24 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         }
     }
 
+    private void getRunningThread(HttpGetCommand command) {
+        this.prepareResponse(
+                command,
+                Thread.getAllStackTraces().keySet().stream()
+                        .sorted(Comparator.comparing(Thread::getName))
+                        .map(
+                                stackTraceElements -> {
+                                    JsonObject jobInfoJson = new JsonObject();
+                                    jobInfoJson.add("threadName", stackTraceElements.getName());
+                                    jobInfoJson.add(
+                                            "classLoader",
+                                            String.valueOf(
+                                                    stackTraceElements.getContextClassLoader()));
+                                    return jobInfoJson;
+                                })
+                        .collect(JsonArray::new, JsonArray::add, JsonArray::add));
+    }
+
     private Map<String, Long> getJobMetrics(String jobMetrics) {
         Map<String, Long> metricsMap = new HashMap<>();
         long sourceReadCount = 0L;
@@ -299,12 +320,12 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         return metricsMap;
     }
 
-    private SeaTunnelServer getSeaTunnelServer() {
+    private SeaTunnelServer getSeaTunnelServer(boolean shouldBeMaster) {
         Map<String, Object> extensionServices =
                 this.textCommandService.getNode().getNodeExtension().createExtensionServices();
         SeaTunnelServer seaTunnelServer =
                 (SeaTunnelServer) extensionServices.get(Constant.SEATUNNEL_SERVICE_NAME);
-        if (!seaTunnelServer.isMasterNode()) {
+        if (!seaTunnelServer.isMasterNode() && shouldBeMaster) {
             return null;
         }
         return seaTunnelServer;
@@ -325,15 +346,18 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                                         .getSerializationService()
                                         .toObject(jobInfo.getJobImmutableInformation()));
 
+        ClassLoaderService classLoaderService = getSeaTunnelServer(false).getClassLoaderService();
         ClassLoader classLoader =
-                new SeaTunnelChildFirstClassLoader(jobImmutableInformation.getPluginJarsUrls());
+                classLoaderService.getClassLoader(
+                        jobId, jobImmutableInformation.getPluginJarsUrls());
         LogicalDag logicalDag =
                 CustomClassLoadedObject.deserializeWithCustomClassLoader(
                         this.textCommandService.getNode().getNodeEngine().getSerializationService(),
                         classLoader,
                         jobImmutableInformation.getLogicalDag());
+        classLoaderService.releaseClassLoader(jobId, jobImmutableInformation.getPluginJarsUrls());
 
-        SeaTunnelServer seaTunnelServer = getSeaTunnelServer();
+        SeaTunnelServer seaTunnelServer = getSeaTunnelServer(true);
         String jobMetrics;
         JobStatus jobStatus;
         if (seaTunnelServer == null) {
