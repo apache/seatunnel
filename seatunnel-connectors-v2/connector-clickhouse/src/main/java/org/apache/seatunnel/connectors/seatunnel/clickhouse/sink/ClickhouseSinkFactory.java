@@ -181,6 +181,7 @@ public class ClickhouseSinkFactory implements TableSinkFactory {
                         .primaryKeys(primaryKeys)
                         .supportUpsert(supportUpsert)
                         .allowExperimentalLightweightDelete(allowExperimentalLightweightDelete)
+                        .seaTunnelRowType(context.getCatalogTable().getSeaTunnelRowType())
                         .build();
 
         return () -> new ClickhouseSink(readerOption);

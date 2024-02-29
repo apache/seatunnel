@@ -22,7 +22,6 @@ import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ReaderOption;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.state.CKAggCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.state.CKCommitInfo;
@@ -61,10 +60,5 @@ public class ClickhouseSink
     @Override
     public Optional<Serializer<ClickhouseSinkState>> getWriterStateSerializer() {
         return Optional.of(new DefaultSerializer<>());
-    }
-
-    @Override
-    public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
-        this.option.setSeaTunnelRowType(seaTunnelRowType);
     }
 }
