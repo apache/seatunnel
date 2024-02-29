@@ -139,7 +139,8 @@ public class Neo4jSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                 final SeaTunnelDataType<?> valueType = ((MapType<?, ?>) dataType).getValueType();
                 return value.asMap(v -> valueType.getTypeClass().cast(convertType(valueType, v)));
             case ARRAY:
-                final BasicType<?> elementType = ((ArrayType<?, ?>) dataType).getElementType();
+                final SeaTunnelDataType<?> elementType =
+                        ((ArrayType<?, ?>) dataType).getElementType();
                 final List<?> list =
                         value.asList(
                                 v -> elementType.getTypeClass().cast(convertType(elementType, v)));

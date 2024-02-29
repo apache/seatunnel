@@ -59,7 +59,7 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
     public static final String DORIS_FLOAT_ARRAY = "ARRAY<float>";
     public static final String DORIS_DOUBLE_ARRAY = "ARRAY<double>";
     public static final String DORIS_DECIMALV3_ARRAY = "ARRAY<DECIMALV3>";
-    public static final String DORIS_DECIMALV3_ARRAY_COLUMN_TYPE_TMP = "ARRAY<DECIMALV3(%, %)>";
+    public static final String DORIS_DECIMALV3_ARRAY_COLUMN_TYPE_TMP = "ARRAY<DECIMALV3(%s, %s)>";
     public static final String DORIS_DATEV2_ARRAY = "ARRAY<DATEV2>";
     public static final String DORIS_DATETIMEV2_ARRAY = "ARRAY<DATETIMEV2>";
     public static final String DORIS_STRING_ARRAY = "ARRAY<STRING>";
@@ -75,10 +75,11 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
     public static final String DORIS_JSON = "JSON";
     public static final String DORIS_JSONB = "JSONB";
 
-    public static final Integer DEFAULT_PRECISION = 9;
-    public static final Integer MAX_PRECISION = 38;
+    public static final Long DEFAULT_PRECISION = 9L;
+    public static final Long MAX_PRECISION = 38L;
 
     public static final Integer DEFAULT_SCALE = 0;
+    public static final Integer MAX_SCALE = 10;
 
     public static final Integer MAX_DATETIME_SCALE = 6;
 
@@ -114,7 +115,12 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
     }
 
     protected String getDorisColumnName(BasicTypeDefine typeDefine) {
-        String dorisColumnType = typeDefine.getColumnType().toUpperCase(Locale.ROOT);
+        String dorisColumnType = typeDefine.getColumnType();
+        return getDorisColumnName(dorisColumnType);
+    }
+
+    protected String getDorisColumnName(String dorisColumnType) {
+        dorisColumnType = dorisColumnType.toUpperCase(Locale.ROOT);
         int idx = dorisColumnType.indexOf("(");
         int idx2 = dorisColumnType.indexOf("<");
         if (idx != -1) {
@@ -167,8 +173,11 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
                 builder.dataType(BasicType.STRING_TYPE);
                 break;
             case DORIS_LARGEINT:
-                builder.dataType(BasicType.STRING_TYPE);
-                builder.columnLength(MAX_DORIS_LARGEINT_TO_VARCHAR_LENGTH);
+                DecimalType decimalType;
+                decimalType = new DecimalType(20, 0);
+                builder.dataType(decimalType);
+                builder.columnLength(20L);
+                builder.scale(0);
                 break;
             case DORIS_STRING:
             case DORIS_JSON:
@@ -183,14 +192,6 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
 
     protected void sampleReconvertString(
             Column column, BasicTypeDefine.BasicTypeDefineBuilder builder) {
-        // source is doris too.
-        if (column.getSourceType() != null
-                && column.getSourceType().equalsIgnoreCase(DORIS_LARGEINT)) {
-            builder.columnType(DORIS_LARGEINT);
-            builder.dataType(DORIS_LARGEINT);
-            return;
-        }
-
         if (column.getColumnLength() == null || column.getColumnLength() <= 0) {
             builder.columnType(DORIS_STRING);
             builder.dataType(DORIS_STRING);
@@ -278,12 +279,19 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
                 builder.dataType(DORIS_DOUBLE);
                 break;
             case DECIMAL:
+                // DORIS LARGEINT
+                if (column.getSourceType() != null
+                        && column.getSourceType().equalsIgnoreCase(DORIS_LARGEINT)) {
+                    builder.dataType(DORIS_LARGEINT);
+                    builder.columnType(DORIS_LARGEINT);
+                    break;
+                }
                 DecimalType decimalType = (DecimalType) column.getDataType();
                 int precision = decimalType.getPrecision();
                 int scale = decimalType.getScale();
                 if (precision <= 0) {
-                    precision = DEFAULT_PRECISION;
-                    scale = DEFAULT_SCALE;
+                    precision = MAX_PRECISION.intValue();
+                    scale = MAX_SCALE;
                     log.warn(
                             "The decimal column {} type decimal({},{}) is out of range, "
                                     + "which is precision less than 0, "
@@ -343,11 +351,15 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
                 builder.dataType(DORIS_VARCHAR);
                 break;
             case ARRAY:
-                ArrayType arrayType = (ArrayType) column.getDataType();
-                SeaTunnelDataType elementType = arrayType.getElementType();
-                buildArrayInternal(elementType, builder, column.getName());
+                SeaTunnelDataType<?> dataType = column.getDataType();
+                SeaTunnelDataType elementType = null;
+                if (dataType instanceof ArrayType) {
+                    ArrayType arrayType = (ArrayType) dataType;
+                    elementType = arrayType.getElementType();
+                }
+
+                reconvertBuildArrayInternal(elementType, builder, column.getName());
                 break;
-            case MAP:
             case ROW:
                 builder.columnType(DORIS_JSON);
                 builder.dataType(DORIS_JSON);
@@ -361,7 +373,7 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
         return builder.build();
     }
 
-    private void buildArrayInternal(
+    private void reconvertBuildArrayInternal(
             SeaTunnelDataType elementType,
             BasicTypeDefine.BasicTypeDefineBuilder builder,
             String columnName) {
@@ -395,11 +407,12 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
                 builder.dataType(DORIS_DOUBLE_ARRAY);
                 break;
             case DECIMAL:
+                int[] precisionAndScale = getPrecisionAndScale(elementType.toString());
                 builder.columnType(
                         String.format(
                                 DORIS_DECIMALV3_ARRAY_COLUMN_TYPE_TMP,
-                                MAX_PRECISION,
-                                DEFAULT_SCALE));
+                                precisionAndScale[0],
+                                precisionAndScale[1]));
                 builder.dataType(DORIS_DECIMALV3_ARRAY);
                 break;
             case STRING:
@@ -419,5 +432,27 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
                 throw CommonError.convertToConnectorTypeError(
                         DorisConfig.IDENTIFIER, elementType.getSqlType().name(), columnName);
         }
+    }
+
+    protected static int[] getPrecisionAndScale(String decimalTypeDefinition) {
+        // Remove the "DECIMALV3" part and the parentheses
+        decimalTypeDefinition = decimalTypeDefinition.toUpperCase(Locale.ROOT);
+        String numericPart = decimalTypeDefinition.replace("DECIMALV3(", "").replace(")", "");
+        numericPart = numericPart.replace("DECIMAL(", "").replace(")", "");
+
+        // Split by comma to separate precision and scale
+        String[] parts = numericPart.split(",");
+
+        if (parts.length != 2) {
+            throw new IllegalArgumentException(
+                    "Invalid DECIMAL definition: " + decimalTypeDefinition);
+        }
+
+        // Parse precision and scale from the split parts
+        int precision = Integer.parseInt(parts[0].trim());
+        int scale = Integer.parseInt(parts[1].trim());
+
+        // Return an array containing precision and scale
+        return new int[] {precision, scale};
     }
 }

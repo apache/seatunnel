@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
-import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -168,7 +167,8 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
         }
         switch (seaTunnelDataType.getSqlType()) {
             case ARRAY:
-                BasicType<?> elementType = ((ArrayType<?, ?>) seaTunnelDataType).getElementType();
+                SeaTunnelDataType<?> elementType =
+                        ((ArrayType<?, ?>) seaTunnelDataType).getElementType();
                 ArrayList<Object> records = new ArrayList<>(((Object[]) data).length);
                 for (Object object : (Object[]) data) {
                     Object resolvedObject = resolveObject(object, elementType);
@@ -228,7 +228,8 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
             String fieldName, SeaTunnelDataType<?> seaTunnelDataType) {
         switch (seaTunnelDataType.getSqlType()) {
             case ARRAY:
-                BasicType<?> elementType = ((ArrayType<?, ?>) seaTunnelDataType).getElementType();
+                SeaTunnelDataType<?> elementType =
+                        ((ArrayType<?, ?>) seaTunnelDataType).getElementType();
                 return Types.optionalGroup()
                         .as(OriginalType.LIST)
                         .addField(

@@ -26,7 +26,6 @@ import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.connectors.doris.config.DorisConfig;
 
 import com.google.auto.service.AutoService;
-import com.google.common.base.Preconditions;
 import lombok.extern.slf4j.Slf4j;
 
 /** Doris type converter for version 1.2.x */
@@ -59,21 +58,24 @@ public class DorisTypeConverterV1 extends AbstractDorisTypeConverter {
             case DORIS_DATETIME:
             case DORIS_DATETIMEV2:
                 builder.dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE);
-                builder.scale(typeDefine.getScale());
+                builder.scale(typeDefine.getScale() == null ? 0 : typeDefine.getScale());
                 break;
             case DORIS_DECIMAL:
             case DORIS_DECIMALV3:
-                Preconditions.checkArgument(typeDefine.getPrecision() > 0);
+                Long p = MAX_PRECISION;
+                int scale = MAX_SCALE;
+                if (typeDefine.getPrecision() != null && typeDefine.getPrecision() > 0) {
+                    p = typeDefine.getPrecision();
+                }
+
+                if (typeDefine.getScale() != null && typeDefine.getScale() > 0) {
+                    scale = typeDefine.getScale();
+                }
                 DecimalType decimalType;
-                decimalType =
-                        new DecimalType(
-                                typeDefine.getPrecision().intValue(),
-                                typeDefine.getScale() == null
-                                        ? 0
-                                        : typeDefine.getScale().intValue());
+                decimalType = new DecimalType(p.intValue(), scale);
                 builder.dataType(decimalType);
-                builder.columnLength(Long.valueOf(decimalType.getPrecision()));
-                builder.scale(decimalType.getScale());
+                builder.columnLength(p);
+                builder.scale(scale);
                 break;
             default:
                 super.sampleTypeConverter(builder, typeDefine, dorisColumnType);
@@ -107,6 +109,11 @@ public class DorisTypeConverterV1 extends AbstractDorisTypeConverter {
                     builder.scale(MAX_DATETIME_SCALE);
                 }
                 builder.dataType(DORIS_DATETIMEV2);
+                break;
+            case MAP:
+                // doris 1.x have no map type
+                builder.columnType(DORIS_JSON);
+                builder.dataType(DORIS_JSON);
                 break;
             default:
                 super.sampleReconvert(column, builder);

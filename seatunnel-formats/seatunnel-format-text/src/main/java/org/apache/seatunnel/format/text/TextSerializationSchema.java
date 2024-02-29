@@ -19,7 +19,6 @@ package org.apache.seatunnel.format.text;
 
 import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.ArrayType;
-import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -168,7 +167,7 @@ public class TextSerializationSchema implements SerializationSchema {
             case BYTES:
                 return new String((byte[]) field, StandardCharsets.UTF_8);
             case ARRAY:
-                BasicType<?> elementType = ((ArrayType<?, ?>) fieldType).getElementType();
+                SeaTunnelDataType<?> elementType = ((ArrayType<?, ?>) fieldType).getElementType();
                 return Arrays.stream((Object[]) field)
                         .map(f -> convert(f, elementType, level + 1))
                         .collect(Collectors.joining(separators[level + 1]));

@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.converter.TypeConverter;
+import org.apache.seatunnel.connectors.doris.catalog.DorisCatalog;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -125,6 +126,18 @@ public class DorisCatalogUtil {
                             .map(r -> "`" + r.getColumnName() + "`")
                             .collect(Collectors.joining(","));
         }
+
+        // dup key
+        String dupKey = "";
+        if (catalogTable.getOptions() != null
+                && StringUtils.isNotBlank(catalogTable.getOptions().get(DorisCatalog.DUP_KEY))) {
+            String dupKeyColumns = catalogTable.getOptions().get(DorisCatalog.DUP_KEY);
+            dupKey =
+                    Arrays.stream(dupKeyColumns.split(","))
+                            .map(r -> "`" + r + "`")
+                            .collect(Collectors.joining(","));
+        }
+
         template =
                 template.replaceAll(
                         String.format("\\$\\{%s\\}", SaveModeConstants.ROWTYPE_PRIMARY_KEY),
@@ -133,6 +146,8 @@ public class DorisCatalogUtil {
                 template.replaceAll(
                         String.format("\\$\\{%s\\}", SaveModeConstants.ROWTYPE_UNIQUE_KEY),
                         uniqueKey);
+        template = template.replaceAll(String.format("\\$\\{%s\\}", DorisCatalog.DUP_KEY), dupKey);
+
         Map<String, CreateTableParser.ColumnInfo> columnInTemplate =
                 CreateTableParser.getColumnList(template);
         template = mergeColumnInTemplate(columnInTemplate, tableSchema, template, typeConverter);

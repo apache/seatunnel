@@ -19,7 +19,6 @@
 package org.apache.seatunnel.format.avro;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
-import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -111,7 +110,8 @@ public class RowToAvroConverter implements Serializable {
             case BYTES:
                 return ByteBuffer.wrap((byte[]) data);
             case ARRAY:
-                BasicType<?> basicType = ((ArrayType<?, ?>) seaTunnelDataType).getElementType();
+                SeaTunnelDataType<?> basicType =
+                        ((ArrayType<?, ?>) seaTunnelDataType).getElementType();
                 int length = Array.getLength(data);
                 ArrayList<Object> records = new ArrayList<>(length);
                 for (int i = 0; i < length; i++) {

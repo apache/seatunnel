@@ -42,14 +42,14 @@ public class ArrayType<T, E> implements SeaTunnelDataType<T> {
     // --------------------------------------------------------------------------------------------
 
     private final Class<T> arrayClass;
-    private final BasicType<E> elementType;
+    private final SeaTunnelDataType<E> elementType;
 
-    private ArrayType(Class<T> arrayClass, BasicType<E> elementType) {
+    protected ArrayType(Class<T> arrayClass, SeaTunnelDataType<E> elementType) {
         this.arrayClass = arrayClass;
         this.elementType = elementType;
     }
 
-    public BasicType<E> getElementType() {
+    public SeaTunnelDataType<E> getElementType() {
         return elementType;
     }
 
