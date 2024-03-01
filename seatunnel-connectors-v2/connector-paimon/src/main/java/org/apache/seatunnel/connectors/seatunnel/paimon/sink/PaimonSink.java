@@ -19,14 +19,15 @@ package org.apache.seatunnel.connectors.seatunnel.paimon.sink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.apache.seatunnel.api.common.PrepareFailException;
+import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
@@ -38,6 +39,7 @@ import org.apache.seatunnel.connectors.seatunnel.paimon.sink.commit.PaimonAggreg
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.commit.PaimonAggregatedCommitter;
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.commit.PaimonCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.state.PaimonSinkState;
+import org.apache.seatunnel.connectors.seatunnel.paimon.utils.SchemaUtil;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -46,6 +48,7 @@ import org.apache.paimon.catalog.CatalogContext;
 import org.apache.paimon.catalog.CatalogFactory;
 import org.apache.paimon.catalog.Identifier;
 import org.apache.paimon.options.Options;
+import org.apache.paimon.schema.Schema;
 import org.apache.paimon.table.Table;
 
 import com.google.auto.service.AutoService;
@@ -72,18 +75,11 @@ public class PaimonSink
 
     private SeaTunnelRowType seaTunnelRowType;
 
-    private Config pluginConfig;
-
     private Table table;
 
-    @Override
-    public String getPluginName() {
-        return PLUGIN_NAME;
-    }
+    private JobContext jobContext;
 
-    @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
-        this.pluginConfig = pluginConfig;
+    public PaimonSink(Config pluginConfig, CatalogTable catalogTable) {
         CheckResult result =
                 CheckConfigUtil.checkAllExists(
                         pluginConfig, WAREHOUSE.key(), DATABASE.key(), TABLE.key());
@@ -108,11 +104,18 @@ public class PaimonSink
         final CatalogContext catalogContext = CatalogContext.create(options, hadoopConf);
         try (Catalog catalog = CatalogFactory.createCatalog(catalogContext)) {
             Identifier identifier = Identifier.create(database, table);
+            // Auto create if not exists the database and table for paimon
+            catalog.createDatabase(database, true);
+            TableSchema tableSchema = catalogTable.getTableSchema();
+            this.seaTunnelRowType = tableSchema.toPhysicalRowDataType();
+            Schema paimonTableSchema = SchemaUtil.toPaimonSchema(tableSchema);
+            catalog.createTable(identifier, paimonTableSchema, true);
             this.table = catalog.getTable(identifier);
+            // todo if source is cdc，need to check primary key of tableSchema
         } catch (Exception e) {
             String errorMsg =
                     String.format(
-                            "Failed to get table [%s] from database [%s] on warehouse [%s]",
+                            "Failed to create table [%s] from database [%s] on warehouse [%s]",
                             database, table, warehouse);
             throw new PaimonConnectorException(
                     PaimonConnectorErrorCode.GET_TABLE_FAILED, errorMsg, e);
@@ -120,31 +123,26 @@ public class PaimonSink
     }
 
     @Override
-    public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
-        this.seaTunnelRowType = seaTunnelRowType;
-    }
-
-    @Override
-    public SeaTunnelDataType<SeaTunnelRow> getConsumedType() {
-        return this.seaTunnelRowType;
+    public String getPluginName() {
+        return PLUGIN_NAME;
     }
 
     @Override
     public SinkWriter<SeaTunnelRow, PaimonCommitInfo, PaimonSinkState> createWriter(
             SinkWriter.Context context) throws IOException {
-        return new PaimonSinkWriter(context, table, seaTunnelRowType);
+        return new PaimonSinkWriter(context, table, seaTunnelRowType, jobContext);
     }
 
     @Override
     public Optional<SinkAggregatedCommitter<PaimonCommitInfo, PaimonAggregatedCommitInfo>>
             createAggregatedCommitter() throws IOException {
-        return Optional.of(new PaimonAggregatedCommitter(table));
+        return Optional.of(new PaimonAggregatedCommitter(table, jobContext));
     }
 
     @Override
     public SinkWriter<SeaTunnelRow, PaimonCommitInfo, PaimonSinkState> restoreWriter(
             SinkWriter.Context context, List<PaimonSinkState> states) throws IOException {
-        return new PaimonSinkWriter(context, table, seaTunnelRowType, states);
+        return new PaimonSinkWriter(context, table, seaTunnelRowType, states, jobContext);
     }
 
     @Override
@@ -155,5 +153,10 @@ public class PaimonSink
     @Override
     public Optional<Serializer<PaimonCommitInfo>> getCommitInfoSerializer() {
         return Optional.of(new DefaultSerializer<>());
+    }
+
+    @Override
+    public void setJobContext(JobContext jobContext) {
+        this.jobContext = jobContext;
     }
 }

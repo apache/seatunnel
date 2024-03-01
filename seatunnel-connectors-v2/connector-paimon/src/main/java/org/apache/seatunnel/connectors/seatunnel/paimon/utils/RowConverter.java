@@ -333,6 +333,10 @@ public class RowConverter {
             SeaTunnelRow seaTunnelRow, SeaTunnelRowType seaTunnelRowType) {
         BinaryRow binaryRow = new BinaryRow(seaTunnelRowType.getTotalFields());
         BinaryWriter binaryWriter = new BinaryRowWriter(binaryRow);
+        // Convert SeaTunnel RowKind to Paimon RowKind
+        org.apache.paimon.types.RowKind rowKind =
+                RowKindConverter.convertSeaTunnelRowKind2PaimonRowKind(seaTunnelRow.getRowKind());
+        binaryRow.setRowKind(rowKind);
         SeaTunnelDataType<?>[] fieldTypes = seaTunnelRowType.getFieldTypes();
         for (int i = 0; i < fieldTypes.length; i++) {
             // judge the field is or not equals null
