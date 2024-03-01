@@ -106,9 +106,15 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
     }
 
     @Override
-    public SeaTunnelRow deserialize(byte[] message, TablePath tablePath) throws IOException {
+    public SeaTunnelRow deserialize(byte[] message) throws IOException {
         throw new UnsupportedOperationException(
                 "Please invoke DeserializationSchema#deserialize(byte[], Collector<SeaTunnelRow>) instead.");
+    }
+
+    @Override
+    public SeaTunnelRow deserialize(byte[] message, TablePath tablePath) throws IOException {
+        throw new UnsupportedOperationException(
+                "Please invoke DeserializationSchema#deserialize(byte[],TablePath tablePath , Collector<SeaTunnelRow>) instead.");
     }
 
     @Override

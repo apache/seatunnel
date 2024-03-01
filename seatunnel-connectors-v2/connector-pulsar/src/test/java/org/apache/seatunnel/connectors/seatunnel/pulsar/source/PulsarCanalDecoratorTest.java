@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.pulsar.source;
 
 import org.apache.seatunnel.api.source.Collector;
-import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -63,8 +62,7 @@ public class PulsarCanalDecoratorTest {
                 new PulsarCanalDecorator(canalJsonDeserializationSchema);
 
         SimpleCollector simpleCollector = new SimpleCollector();
-        pulsarCanalDecorator.deserialize(
-                json.getBytes(StandardCharsets.UTF_8), simpleCollector, TablePath.of(""));
+        pulsarCanalDecorator.deserialize(json.getBytes(StandardCharsets.UTF_8), simpleCollector);
         Assertions.assertFalse(simpleCollector.getList().isEmpty());
         for (SeaTunnelRow seaTunnelRow : simpleCollector.list) {
             for (Object field : seaTunnelRow.getFields()) {

@@ -100,12 +100,16 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
     }
 
     @Override
-    public SeaTunnelRow deserialize(byte[] message, TablePath tablePath) throws IOException {
-        if (message == null || message.length == 0) {
+    public SeaTunnelRow deserialize(byte[] message) throws IOException {
+        if (message == null) {
             return null;
         }
-        SeaTunnelRow seaTunnelRow = convertJsonNode(convertBytes(message));
-        assert seaTunnelRow != null;
+        return convertJsonNode(convertBytes(message));
+    }
+
+    @Override
+    public SeaTunnelRow deserialize(byte[] message, TablePath tablePath) throws IOException {
+        SeaTunnelRow seaTunnelRow = deserialize(message);
         seaTunnelRow.setTableId(tablePath.toString());
         return seaTunnelRow;
     }

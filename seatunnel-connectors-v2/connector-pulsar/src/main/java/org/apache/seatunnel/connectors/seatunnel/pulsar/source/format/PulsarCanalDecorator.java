@@ -53,16 +53,17 @@ public class PulsarCanalDecorator implements DeserializationSchema<SeaTunnelRow>
     }
 
     @Override
+    public SeaTunnelRow deserialize(byte[] message) throws IOException {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public SeaTunnelRow deserialize(byte[] message, TablePath tablePath) throws IOException {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public void deserialize(byte[] message, Collector<SeaTunnelRow> out, TablePath tablePath)
-            throws IOException {
-        if (message == null || message.length == 0) {
-            return;
-        }
+    public void deserialize(byte[] message, Collector<SeaTunnelRow> out) throws IOException {
         JsonNode pulsarCanal = JsonUtils.parseObject(message);
         ArrayNode canalList = JsonUtils.parseArray(pulsarCanal.get(MESSAGE).asText());
         Iterator<JsonNode> canalIterator = canalList.elements();
@@ -71,6 +72,7 @@ public class PulsarCanalDecorator implements DeserializationSchema<SeaTunnelRow>
             // reconvert pulsar handler, reference to
             // https://github.com/apache/pulsar/blob/master/pulsar-io/canal/src/main/java/org/apache/pulsar/io/canal/MessageUtils.java
             ObjectNode root = reconvertPulsarData((ObjectNode) next);
+            // todo Wait for TablePath functionality to be added
             canalJsonDeserializationSchema.deserialize(root, out, TablePath.of(""));
         }
     }

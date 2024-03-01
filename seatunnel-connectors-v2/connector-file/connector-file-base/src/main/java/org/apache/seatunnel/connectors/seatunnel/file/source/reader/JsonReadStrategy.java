@@ -19,7 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
-import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonError;
@@ -94,8 +93,7 @@ public class JsonReadStrategy extends AbstractReadStrategy {
                             line -> {
                                 try {
                                     SeaTunnelRow seaTunnelRow =
-                                            deserializationSchema.deserialize(
-                                                    line.getBytes(), TablePath.of(""));
+                                            deserializationSchema.deserialize(line.getBytes());
                                     if (isMergePartition) {
                                         int index = seaTunnelRowType.getTotalFields();
                                         for (String value : partitionsMap.values()) {

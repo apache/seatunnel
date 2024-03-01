@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.format.text;
 
-import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -137,8 +136,7 @@ public class TextFormatSchemaTest {
                         .seaTunnelRowType(seaTunnelRowType)
                         .delimiter("\u0001")
                         .build();
-        SeaTunnelRow seaTunnelRow =
-                deserializationSchema.deserialize(content.getBytes(), TablePath.of(""));
+        SeaTunnelRow seaTunnelRow = deserializationSchema.deserialize(content.getBytes());
         String data = new String(serializationSchema.serialize(seaTunnelRow));
         Assertions.assertEquals(((Map<?, ?>) (seaTunnelRow.getField(1))).get("tyrantlucifer"), 18);
         Assertions.assertEquals(((Map<?, ?>) (seaTunnelRow.getField(1))).get("Kris"), 21);

@@ -21,7 +21,6 @@ import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
-import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.Handover;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarClientConfig;
@@ -135,7 +134,7 @@ public class PulsarSourceReader<T> implements SourceReader<T, PulsarPartitionSpl
                 final Message<byte[]> message = recordWithSplitId.get().getMessage();
                 synchronized (output.getCheckpointLock()) {
                     splitStates.get(splitId).setLatestConsumedId(message.getMessageId());
-                    deserialization.deserialize(message.getData(), output, TablePath.of(""));
+                    deserialization.deserialize(message.getData(), output);
                 }
             }
             if (noMoreSplitsAssignment && finishedSplits.size() == splitStates.size()) {

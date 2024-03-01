@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.amazonsqs.deserialize;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
-import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import java.io.IOException;
@@ -34,7 +33,7 @@ public class AmazonSqsDeserializer implements SeaTunnelRowDeserializer {
     @Override
     public SeaTunnelRow deserializeRow(String row) {
         try {
-            return deserializationSchema.deserialize(row.getBytes(), TablePath.of(""));
+            return deserializationSchema.deserialize(row.getBytes());
         } catch (IOException e) {
             return null;
         }

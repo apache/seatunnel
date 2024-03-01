@@ -25,16 +25,22 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
 import lombok.AllArgsConstructor;
 
+import java.io.IOException;
+
 @AllArgsConstructor
 public class SimpleTextDeserializationSchema implements DeserializationSchema<SeaTunnelRow> {
 
     private SeaTunnelRowType rowType;
 
     @Override
-    public SeaTunnelRow deserialize(byte[] message, TablePath tablePath) {
-        SeaTunnelRow seaTunnelRow = new SeaTunnelRow(new Object[] {new String(message)});
-        seaTunnelRow.setTableId(tablePath.toString());
-        return seaTunnelRow;
+    public SeaTunnelRow deserialize(byte[] message) {
+        return new SeaTunnelRow(new Object[] {new String(message)});
+    }
+
+    @Override
+    public SeaTunnelRow deserialize(byte[] message, TablePath tablePath) throws IOException {
+        throw new UnsupportedOperationException(
+                "Please invoke SimpleTextDeserializationSchema#deserialize(byte[]) instead.");
     }
 
     @Override

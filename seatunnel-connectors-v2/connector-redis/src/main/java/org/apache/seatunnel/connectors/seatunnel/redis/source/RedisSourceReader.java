@@ -92,8 +92,7 @@ public class RedisSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                                     TablePath.of(""));
                         }
                     } else {
-                        deserializationSchema.deserialize(
-                                value.getBytes(), output, TablePath.of(""));
+                        deserializationSchema.deserialize(value.getBytes(), output);
                     }
                 }
             }

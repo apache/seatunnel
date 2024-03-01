@@ -52,6 +52,11 @@ public class CompatibleDebeziumJsonDeserializationSchema
     }
 
     @Override
+    public SeaTunnelRow deserialize(byte[] message) throws IOException {
+        throw new UnsupportedEncodingException();
+    }
+
+    @Override
     public SeaTunnelRow deserialize(byte[] message, TablePath tablePath) throws IOException {
         throw new UnsupportedEncodingException();
     }

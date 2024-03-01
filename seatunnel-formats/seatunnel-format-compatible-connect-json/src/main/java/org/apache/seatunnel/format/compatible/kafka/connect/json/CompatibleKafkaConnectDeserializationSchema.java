@@ -43,7 +43,6 @@ import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Collections;
@@ -88,8 +87,15 @@ public class CompatibleKafkaConnectDeserializationSchema
     }
 
     @Override
+    public SeaTunnelRow deserialize(byte[] message) throws IOException {
+        throw new UnsupportedOperationException(
+                "Please invoke DeserializationSchema#deserialize(byte[], Collector<SeaTunnelRow>) instead.");
+    }
+
+    @Override
     public SeaTunnelRow deserialize(byte[] message, TablePath tablePath) throws IOException {
-        throw new UnsupportedEncodingException();
+        throw new UnsupportedOperationException(
+                "Please invoke DeserializationSchema#deserialize(byte[],TablePath, Collector<SeaTunnelRow>) instead.");
     }
 
     /**

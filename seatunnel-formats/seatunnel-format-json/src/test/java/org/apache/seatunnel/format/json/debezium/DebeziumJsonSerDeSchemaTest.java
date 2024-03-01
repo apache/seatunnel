@@ -19,7 +19,6 @@
 package org.apache.seatunnel.format.json.debezium;
 
 import org.apache.seatunnel.api.source.Collector;
-import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -61,8 +60,8 @@ public class DebeziumJsonSerDeSchemaTest {
                 new DebeziumJsonDeserializationSchema(PHYSICAL_DATA_TYPE, false);
         SimpleCollector collector = new SimpleCollector();
 
-        deserializationSchema.deserialize(null, collector, TablePath.of(""));
-        deserializationSchema.deserialize(new byte[0], collector, TablePath.of(""));
+        deserializationSchema.deserialize(null, collector);
+        deserializationSchema.deserialize(new byte[0], collector);
         assertEquals(0, collector.list.size());
     }
 
@@ -84,8 +83,7 @@ public class DebeziumJsonSerDeSchemaTest {
                 assertThrows(
                         expected.getClass(),
                         () -> {
-                            deserializationSchema.deserialize(
-                                    noJsonMsg.getBytes(), collector, TablePath.of(""));
+                            deserializationSchema.deserialize(noJsonMsg.getBytes(), collector);
                         });
         assertEquals(cause.getMessage(), expected.getMessage());
     }
@@ -101,8 +99,7 @@ public class DebeziumJsonSerDeSchemaTest {
                 assertThrows(
                         expected.getClass(),
                         () -> {
-                            deserializationSchema.deserialize(
-                                    emptyMsg.getBytes(), collector, TablePath.of(""));
+                            deserializationSchema.deserialize(emptyMsg.getBytes(), collector);
                         });
         assertEquals(cause.getMessage(), expected.getMessage());
     }
@@ -118,8 +115,7 @@ public class DebeziumJsonSerDeSchemaTest {
                 assertThrows(
                         expected.getClass(),
                         () -> {
-                            deserializationSchema.deserialize(
-                                    noDataMsg.getBytes(), collector, TablePath.of(""));
+                            deserializationSchema.deserialize(noDataMsg.getBytes(), collector);
                         });
         assertEquals(cause.getMessage(), expected.getMessage());
 
@@ -151,7 +147,7 @@ public class DebeziumJsonSerDeSchemaTest {
                         expected.getClass(),
                         () -> {
                             deserializationSchema.deserialize(
-                                    unknownOperationMsg.getBytes(), collector, TablePath.of(""));
+                                    unknownOperationMsg.getBytes(), collector);
                         });
         assertEquals(cause.getMessage(), expected.getMessage());
 
@@ -170,8 +166,7 @@ public class DebeziumJsonSerDeSchemaTest {
         SimpleCollector collector = new SimpleCollector();
 
         for (String line : lines) {
-            deserializationSchema.deserialize(
-                    line.getBytes(StandardCharsets.UTF_8), collector, TablePath.of(""));
+            deserializationSchema.deserialize(line.getBytes(StandardCharsets.UTF_8), collector);
         }
 
         List<String> expected =

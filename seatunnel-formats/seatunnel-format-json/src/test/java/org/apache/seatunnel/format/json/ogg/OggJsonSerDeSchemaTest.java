@@ -19,7 +19,6 @@
 package org.apache.seatunnel.format.json.ogg;
 
 import org.apache.seatunnel.api.source.Collector;
-import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -72,7 +71,7 @@ public class OggJsonSerDeSchemaTest {
                 createOggJsonDeserializationSchema(null, null);
         final SimpleCollector collector = new SimpleCollector();
 
-        deserializationSchema.deserialize((byte[]) null, collector, TablePath.of(""));
+        deserializationSchema.deserialize((byte[]) null, collector);
         assertEquals(0, collector.list.size());
     }
 
@@ -88,8 +87,7 @@ public class OggJsonSerDeSchemaTest {
                 assertThrows(
                         expected.getClass(),
                         () -> {
-                            deserializationSchema.deserialize(
-                                    noJsonMsg.getBytes(), collector, TablePath.of(""));
+                            deserializationSchema.deserialize(noJsonMsg.getBytes(), collector);
                         });
         assertEquals(cause.getMessage(), expected.getMessage());
     }
@@ -105,8 +103,7 @@ public class OggJsonSerDeSchemaTest {
                 assertThrows(
                         expected.getClass(),
                         () -> {
-                            deserializationSchema.deserialize(
-                                    emptyMsg.getBytes(), collector, TablePath.of(""));
+                            deserializationSchema.deserialize(emptyMsg.getBytes(), collector);
                         });
         assertEquals(cause.getMessage(), expected.getMessage());
     }
@@ -122,8 +119,7 @@ public class OggJsonSerDeSchemaTest {
                 assertThrows(
                         expected.getClass(),
                         () -> {
-                            deserializationSchema.deserialize(
-                                    noDataMsg.getBytes(), collector, TablePath.of(""));
+                            deserializationSchema.deserialize(noDataMsg.getBytes(), collector);
                         });
         assertEquals(cause.getMessage(), expected.getMessage());
 
@@ -153,7 +149,7 @@ public class OggJsonSerDeSchemaTest {
                         expected.getClass(),
                         () -> {
                             deserializationSchema.deserialize(
-                                    unknownOperationMsg.getBytes(), collector, TablePath.of(""));
+                                    unknownOperationMsg.getBytes(), collector);
                         });
         assertEquals(cause.getMessage(), expected.getMessage());
 
@@ -168,8 +164,7 @@ public class OggJsonSerDeSchemaTest {
             throws IOException {
         SimpleCollector collector = new SimpleCollector();
         for (String line : lines) {
-            deserializationSchema.deserialize(
-                    line.getBytes(StandardCharsets.UTF_8), collector, TablePath.of(""));
+            deserializationSchema.deserialize(line.getBytes(StandardCharsets.UTF_8), collector);
         }
 
         List<String> expected =

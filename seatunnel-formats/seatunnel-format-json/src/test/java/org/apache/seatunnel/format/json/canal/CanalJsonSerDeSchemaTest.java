@@ -19,7 +19,6 @@
 package org.apache.seatunnel.format.json.canal;
 
 import org.apache.seatunnel.api.source.Collector;
-import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -66,7 +65,7 @@ public class CanalJsonSerDeSchemaTest {
                 createCanalJsonDeserializationSchema(null, null);
         final SimpleCollector collector = new SimpleCollector();
 
-        deserializationSchema.deserialize((byte[]) null, collector, TablePath.of(""));
+        deserializationSchema.deserialize((byte[]) null, collector);
         assertEquals(0, collector.list.size());
     }
 
@@ -74,8 +73,7 @@ public class CanalJsonSerDeSchemaTest {
             throws IOException {
         SimpleCollector collector = new SimpleCollector();
         for (String line : lines) {
-            deserializationSchema.deserialize(
-                    line.getBytes(StandardCharsets.UTF_8), collector, TablePath.of(""));
+            deserializationSchema.deserialize(line.getBytes(StandardCharsets.UTF_8), collector);
         }
 
         List<String> expected =

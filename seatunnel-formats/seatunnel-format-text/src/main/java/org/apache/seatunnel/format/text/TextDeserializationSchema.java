@@ -113,7 +113,7 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
     }
 
     @Override
-    public SeaTunnelRow deserialize(byte[] message, TablePath tablePath) throws IOException {
+    public SeaTunnelRow deserialize(byte[] message) throws IOException {
         if (message == null || message.length == 0) {
             return null;
         }
@@ -123,9 +123,14 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
         for (int i = 0; i < objects.length; i++) {
             objects[i] = convert(splitsMap.get(i), seaTunnelRowType.getFieldType(i), 0);
         }
-        SeaTunnelRow seaTunnelRow = new SeaTunnelRow(objects);
-        seaTunnelRow.setTableId(tablePath.toString());
-        return seaTunnelRow;
+        return new SeaTunnelRow(objects);
+    }
+
+    @Override
+    public SeaTunnelRow deserialize(byte[] message, TablePath tablePath) throws IOException {
+        SeaTunnelRow deserialize = deserialize(message);
+        deserialize.setTableId(tablePath.toString());
+        return deserialize;
     }
 
     @Override
