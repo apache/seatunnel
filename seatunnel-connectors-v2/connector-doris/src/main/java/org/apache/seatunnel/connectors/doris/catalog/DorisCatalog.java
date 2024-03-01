@@ -219,7 +219,15 @@ public class DorisCatalog implements Catalog {
             while (rs.next()) {
                 String name = rs.getString(1);
                 int size = rs.getInt(6);
-                boolean nullable = rs.getBoolean(4);
+                Object rsNullable = rs.getObject(4);
+                boolean nullable = false;
+                if (rsNullable instanceof String) {
+                    if (((String) rsNullable).equalsIgnoreCase("yes")) {
+                        nullable = true;
+                    }
+                } else {
+                    nullable = (Boolean) rsNullable;
+                }
                 String defaultVal = rs.getString(3);
                 String comment = rs.getString(10);
                 builder.column(

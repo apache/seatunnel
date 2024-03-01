@@ -119,6 +119,7 @@ public class DorisSourceFactory implements TableSourceFactory {
             Column column = tableColumnsMap.get(field);
             builder.column(column);
         }
+        builder.primaryKey(table.getTableSchema().getPrimaryKey());
         table =
                 CatalogTable.of(
                         TableIdentifier.of(
