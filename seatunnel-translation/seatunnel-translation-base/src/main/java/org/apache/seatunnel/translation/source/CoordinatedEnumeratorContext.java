@@ -53,7 +53,7 @@ public class CoordinatedEnumeratorContext<SplitT extends SourceSplit>
 
     @Override
     public void signalNoMoreSplits(int subtaskId) {
-        /* Notify the reader that there are no unassigned splits left */
+        // Notify the reader that there are no unassigned splits left
         coordinatedSource.handleNoMoreSplits(subtaskId);
     }
 

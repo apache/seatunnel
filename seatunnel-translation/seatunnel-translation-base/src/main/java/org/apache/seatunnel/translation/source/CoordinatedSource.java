@@ -69,7 +69,7 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
     protected final AtomicInteger completedReader = new AtomicInteger(0);
     protected transient volatile ScheduledThreadPoolExecutor executorService;
 
-    /** Flag indicating whether the consumer is still running. */
+    // Flag indicating whether the consumer is still running
     protected volatile boolean running = true;
 
     public CoordinatedSource(
