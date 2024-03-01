@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.ConstraintKey;
+import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
@@ -24,6 +27,7 @@ import org.apache.seatunnel.connectors.cdc.base.relational.connection.JdbcConnec
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.splitter.ChunkSplitter;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.external.FetchTask;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
+import org.apache.seatunnel.connectors.cdc.base.utils.CatalogTableUtils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.eumerator.MySqlChunkSplitter;
@@ -40,6 +44,8 @@ import io.debezium.relational.history.TableChanges;
 
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlConnectionUtils.isTableIdCaseSensitive;
 
@@ -49,9 +55,11 @@ public class MySqlDialect implements JdbcDataSourceDialect {
     private static final long serialVersionUID = 1L;
     private final MySqlSourceConfig sourceConfig;
     private transient MySqlSchema mySqlSchema;
+    private final Map<TableId, CatalogTable> tableMap;
 
-    public MySqlDialect(MySqlSourceConfigFactory configFactory) {
+    public MySqlDialect(MySqlSourceConfigFactory configFactory, List<CatalogTable> catalogTables) {
         this.sourceConfig = configFactory.create(0);
+        this.tableMap = CatalogTableUtils.convertTables(catalogTables);
     }
 
     @Override
@@ -93,7 +101,8 @@ public class MySqlDialect implements JdbcDataSourceDialect {
     public TableChanges.TableChange queryTableSchema(JdbcConnection jdbc, TableId tableId) {
         if (mySqlSchema == null) {
             mySqlSchema =
-                    new MySqlSchema(sourceConfig, isDataCollectionIdCaseSensitive(sourceConfig));
+                    new MySqlSchema(
+                            sourceConfig, isDataCollectionIdCaseSensitive(sourceConfig), tableMap);
         }
         return mySqlSchema.getTableSchema(jdbc, tableId);
     }
@@ -111,5 +120,15 @@ public class MySqlDialect implements JdbcDataSourceDialect {
         } else {
             return new MySqlBinlogFetchTask(sourceSplitBase.asIncrementalSplit());
         }
+    }
+
+    @Override
+    public Optional<PrimaryKey> getPrimaryKey(JdbcConnection jdbcConnection, TableId tableId) {
+        return Optional.ofNullable(tableMap.get(tableId).getTableSchema().getPrimaryKey());
+    }
+
+    @Override
+    public List<ConstraintKey> getConstraintKeys(JdbcConnection jdbcConnection, TableId tableId) {
+        return tableMap.get(tableId).getTableSchema().getConstraintKeys();
     }
 }

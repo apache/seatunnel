@@ -46,10 +46,22 @@ public class StarRocksSaveModeUtil {
                             .map(r -> "`" + r + "`")
                             .collect(Collectors.joining(","));
         }
+        String uniqueKey = "";
+        if (!tableSchema.getConstraintKeys().isEmpty()) {
+            uniqueKey =
+                    tableSchema.getConstraintKeys().stream()
+                            .flatMap(c -> c.getColumnNames().stream())
+                            .map(r -> "`" + r.getColumnName() + "`")
+                            .collect(Collectors.joining(","));
+        }
         template =
                 template.replaceAll(
                         String.format("\\$\\{%s\\}", SaveModeConstants.ROWTYPE_PRIMARY_KEY),
                         primaryKey);
+        template =
+                template.replaceAll(
+                        String.format("\\$\\{%s\\}", SaveModeConstants.ROWTYPE_UNIQUE_KEY),
+                        uniqueKey);
         Map<String, CreateTableParser.ColumnInfo> columnInTemplate =
                 CreateTableParser.getColumnList(template);
         template = mergeColumnInTemplate(columnInTemplate, tableSchema, template);
@@ -72,7 +84,9 @@ public class StarRocksSaveModeUtil {
         return String.format(
                 "`%s` %s %s ",
                 column.getName(),
-                dataTypeToStarrocksType(column.getDataType()),
+                dataTypeToStarrocksType(
+                        column.getDataType(),
+                        column.getColumnLength() == null ? 0 : column.getColumnLength()),
                 column.isNullable() ? "NULL" : "NOT NULL");
     }
 
@@ -116,14 +130,18 @@ public class StarRocksSaveModeUtil {
         return template;
     }
 
-    private static String dataTypeToStarrocksType(SeaTunnelDataType<?> dataType) {
+    private static String dataTypeToStarrocksType(SeaTunnelDataType<?> dataType, long length) {
         checkNotNull(dataType, "The SeaTunnel's data type is required.");
         switch (dataType.getSqlType()) {
             case NULL:
             case TIME:
-                throw new IllegalArgumentException(
-                        "Unsupported SeaTunnel's data type: " + dataType);
+                return "VARCHAR(8)";
             case STRING:
+                if (length > 65533 || length <= 0) {
+                    return "STRING";
+                } else {
+                    return "VARCHAR(" + length + ")";
+                }
             case BYTES:
                 return "STRING";
             case BOOLEAN:
@@ -146,7 +164,8 @@ public class StarRocksSaveModeUtil {
                 return "DATETIME";
             case ARRAY:
                 return "ARRAY<"
-                        + dataTypeToStarrocksType(((ArrayType<?, ?>) dataType).getElementType())
+                        + dataTypeToStarrocksType(
+                                ((ArrayType<?, ?>) dataType).getElementType(), Long.MAX_VALUE)
                         + ">";
             case DECIMAL:
                 DecimalType decimalType = (DecimalType) dataType;

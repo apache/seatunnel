@@ -22,7 +22,11 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
 import java.util.Map;
 
-/** DataTypeConvertor is used to convert the data type between connector and SeaTunnel. */
+/**
+ * @deprecated instead by {@link org.apache.seatunnel.api.table.converter.TypeConverter}
+ * @param <T>
+ */
+@Deprecated
 public interface DataTypeConvertor<T> {
 
     /**
@@ -44,8 +48,7 @@ public interface DataTypeConvertor<T> {
      */
     // todo: If the origin data type contains the properties, we can remove the dataTypeProperties.
     SeaTunnelDataType<?> toSeaTunnelType(
-            String field, T connectorDataType, Map<String, Object> dataTypeProperties)
-            throws DataTypeConvertException;
+            String field, T connectorDataType, Map<String, Object> dataTypeProperties);
 
     /**
      * Transfer the data type from SeaTunnel to connector.
@@ -60,8 +63,7 @@ public interface DataTypeConvertor<T> {
     T toConnectorType(
             String field,
             SeaTunnelDataType<?> seaTunnelDataType,
-            Map<String, Object> dataTypeProperties)
-            throws DataTypeConvertException;
+            Map<String, Object> dataTypeProperties);
 
     String getIdentity();
 }

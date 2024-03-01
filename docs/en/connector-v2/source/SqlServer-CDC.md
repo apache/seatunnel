@@ -31,26 +31,35 @@ describes how to setup the Sql Server CDC connector to run SQL queries against S
 |------------|---------------------------------------------------------------|----------------------------------------------|---------------------------------------------------------------|-----------------------------------------------------------------------|
 | SqlServer  | <li> server:2019 (Or later version for information only)</li> | com.microsoft.sqlserver.jdbc.SQLServerDriver | jdbc:sqlserver://localhost:1433;databaseName=column_type_test | https://mvnrepository.com/artifact/com.microsoft.sqlserver/mssql-jdbc |
 
+## Using Dependency
+
 ### Install Jdbc Driver
 
-Please download and put SqlServer driver in `${SEATUNNEL_HOME}/lib/` dir. For example: cp mssql-jdbc-xxx.jar `$SEATNUNNEL_HOME/lib/`
+#### For Spark/Flink Engine
+
+> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/com.microsoft.sqlserver/mssql-jdbc) has been placed in directory `${SEATUNNEL_HOME}/plugins/`.
+
+#### For SeaTunnel Zeta Engine
+
+> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/com.microsoft.sqlserver/mssql-jdbc) has been placed in directory `${SEATUNNEL_HOME}/lib/`.
 
 ## Data Type Mapping
 
-|                                        SQLserver Data type                                        |                SeaTunnel Data type                 |
-|---------------------------------------------------------------------------------------------------|----------------------------------------------------|
-| CHAR<br/>VARCHAR<br/>NCHAR<br/>NVARCHAR<br/>STRUCT<br/>CLOB<br/>LONGVARCHAR<br/>LONGNVARCHAR<br/> | STRING                                             |
-| BLOB                                                                                              | BYTES                                              |
-| INTEGER                                                                                           | INT                                                |
-| SMALLINT<br/>TINYINT<br/>                                                                         | SMALLINT                                           |
-| BIGINT                                                                                            | BIGINT                                             |
-| FLOAT<br/>REAL<br/>                                                                               | FLOAT                                              |
-| DOUBLE                                                                                            | DOUBLE                                             |
-| NUMERIC<br/>DECIMAL(column.length(), column.scale().orElse(0))<br/>                               | DECIMAL(column.length(), column.scale().orElse(0)) |
-| TIMESTAMP                                                                                         | TIMESTAMP                                          |
-| DATE                                                                                              | DATE                                               |
-| TIME                                                                                              | TIME                                               |
-| BOOLEAN     <br/>BIT<br/>                                                                         | BOOLEAN                                            |
+|                         SQLserver Data Type                          | SeaTunnel Data Type |
+|----------------------------------------------------------------------|---------------------|
+| CHAR<br/>VARCHAR<br/>NCHAR<br/>NVARCHAR<br/>TEXT<br/>NTEXT<br/>XML   | STRING              |
+| BINARY<br/>VARBINARY<br/>IMAGE                                       | BYTES               |
+| INTEGER<br/>INT                                                      | INT                 |
+| SMALLINT<br/>TINYINT                                                 | SMALLINT            |
+| BIGINT                                                               | BIGINT              |
+| FLOAT(1~24)<br/>REAL                                                 | FLOAT               |
+| DOUBLE<br/>FLOAT(>24)                                                | DOUBLE              |
+| NUMERIC(p,s)<br/>DECIMAL(p,s)<br/>MONEY<br/>SMALLMONEY               | DECIMAL(p, s)       |
+| TIMESTAMP                                                            | BYTES               |
+| DATE                                                                 | DATE                |
+| TIME(s)                                                              | TIME(s)             |
+| DATETIME(s)<br/>DATETIME2(s)<br/>DATETIMEOFFSET(s)<br/>SMALLDATETIME | TIMESTAMP(s)        |
+| BOOLEAN<br/>BIT<br/>                                                 | BOOLEAN             |
 
 ## Source Options
 
@@ -60,6 +69,7 @@ Please download and put SqlServer driver in `${SEATUNNEL_HOME}/lib/` dir. For ex
 | password                                       | String   | Yes      | -       | Password to use when connecting to the database server.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | database-names                                 | List     | Yes      | -       | Database name of the database to monitor.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | table-names                                    | List     | Yes      | -       | Table name is a combination of schema name and table name (databaseName.schemaName.tableName).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| table-names-config                             | List     | No       | -       | Table config list. for example: [{"table": "db1.schema1.table1","primaryKeys":["key1"]}]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | base-url                                       | String   | Yes      | -       | URL has to be with database, like "jdbc:sqlserver://localhost:1433;databaseName=test".                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | startup.mode                                   | Enum     | No       | INITIAL | Optional startup mode for SqlServer CDC consumer, valid enumerations are "initial", "earliest", "latest" and "specific".                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | startup.timestamp                              | Long     | No       | -       | Start from the specified epoch timestamp (in milliseconds).<br/> **Note, This option is required when** the **"startup.mode" option used `'timestamp'`.**                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
@@ -80,8 +90,8 @@ Please download and put SqlServer driver in `${SEATUNNEL_HOME}/lib/` dir. For ex
 | chunk-key.even-distribution.factor.lower-bound | Double   | No       | 0.05    | The lower bound of the chunk key distribution factor. This factor is used to determine whether the table data is evenly distributed. If the distribution factor is calculated to be greater than or equal to this lower bound (i.e., (MAX(id) - MIN(id) + 1) / row count), the table chunks would be optimized for even distribution. Otherwise, if the distribution factor is less, the table will be considered as unevenly distributed and the sampling-based sharding strategy will be used if the estimated shard count exceeds the value specified by `sample-sharding.threshold`. The default value is 0.05.  |
 | sample-sharding.threshold                      | int      | No       | 1000    | This configuration specifies the threshold of estimated shard count to trigger the sample sharding strategy. When the distribution factor is outside the bounds specified by `chunk-key.even-distribution.factor.upper-bound` and `chunk-key.even-distribution.factor.lower-bound`, and the estimated shard count (calculated as approximate row count / chunk size) exceeds this threshold, the sample sharding strategy will be used. This can help to handle large datasets more efficiently. The default value is 1000 shards.                                                                                   |
 | inverse-sampling.rate                          | int      | No       | 1000    | The inverse of the sampling rate used in the sample sharding strategy. For example, if this value is set to 1000, it means a 1/1000 sampling rate is applied during the sampling process. This option provides flexibility in controlling the granularity of the sampling, thus affecting the final number of shards. It's especially useful when dealing with very large datasets where a lower sampling rate is preferred. The default value is 1000.                                                                                                                                                              |
-| exactly_once                                   | Boolean  | No       | true    | Enable exactly once semantic.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| debezium.*                                     | config   | No       | -       | Pass-through Debezium's properties to Debezium Embedded Engine which is used to capture data changes from SqlServer server.<br/>See more about<br/>the [Debezium's SqlServer Connector properties](https://debezium.io/documentation/reference/1.6/connectors/sqlserver.html#sqlserver-connector-properties)                                                                                                                                                                                                                                                                                                         |
+| exactly_once                                   | Boolean  | No       | false   | Enable exactly once semantic.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| debezium.*                                     | config   | No       | -       | Pass-through Debezium's properties to Debezium Embedded Engine which is used to capture data changes from SqlServer server.<br/>See more about<br/>the [Debezium's SqlServer Connector properties](https://github.com/debezium/debezium/blob/1.6/documentation/modules/ROOT/pages/connectors/sqlserver.adoc#connector-properties)                                                                                                                                                                                                                                                                                    |
 | format                                         | Enum     | No       | DEFAULT | Optional output format for SqlServer CDC, valid enumerations are "DEFAULT"、"COMPATIBLE_DEBEZIUM_JSON".                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | common-options                                 |          | no       | -       | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 
@@ -92,7 +102,7 @@ Please download and put SqlServer driver in `${SEATUNNEL_HOME}/lib/` dir. For ex
 > EXEC xp_servicecontrol N'querystate', N'SQLServerAGENT'; <br/>
 > If the result is running, prove that it is enabled. Otherwise, you need to manually enable it
 
-2.Enable the CDC Agent
+2. Enable the CDC Agent
 
 > /opt/mssql/bin/mssql-conf setup
 
@@ -123,9 +133,9 @@ Please download and put SqlServer driver in `${SEATUNNEL_HOME}/lib/` dir. For ex
 ```
 env {
   # You can set engine configuration here
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "STREAMING"
-  execution.checkpoint.interval = 5000
+  checkpoint.interval = 5000
 }
 
 source {
@@ -157,9 +167,9 @@ sink {
 ```
 env {
   # You can set engine configuration here
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "STREAMING"
-  execution.checkpoint.interval = 5000
+  checkpoint.interval = 5000
 }
 
 source {
@@ -183,6 +193,37 @@ transform {
 sink {
   console {
     source_table_name = "customers"
+  }
+```
+
+### Support custom primary key for table
+
+```
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  SqlServer-CDC {
+    base-url = "jdbc:sqlserver://localhost:1433;databaseName=column_type_test"
+    username = "sa"
+    password = "Y.sa123456"
+    database-names = ["column_type_test"]
+    
+    table-names = ["column_type_test.dbo.simple_types", "column_type_test.dbo.full_types"]
+    table-names-config = [
+      {
+        table = "column_type_test.dbo.full_types"
+        primaryKeys = ["id"]
+      }
+    ]
+  }
+}
+
+sink {
+  console {
   }
 ```
 

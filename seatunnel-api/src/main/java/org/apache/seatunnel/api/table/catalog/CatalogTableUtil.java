@@ -213,7 +213,9 @@ public class CatalogTableUtil implements Serializable {
                             schemaConfig.get(
                                     TableSchemaOptions.TableIdentifierOptions.SCHEMA_FIRST));
         } else {
-            tablePath = TablePath.EMPTY;
+            Optional<String> resultTableNameOptional =
+                    readonlyConfig.getOptional(CommonOptions.RESULT_TABLE_NAME);
+            tablePath = resultTableNameOptional.map(TablePath::of).orElse(TablePath.DEFAULT);
         }
 
         return CatalogTable.of(
@@ -227,5 +229,9 @@ public class CatalogTableUtil implements Serializable {
 
     public static SeaTunnelRowType buildSimpleTextSchema() {
         return SIMPLE_SCHEMA;
+    }
+
+    public static CatalogTable buildSimpleTextTable() {
+        return getCatalogTable("default", buildSimpleTextSchema());
     }
 }

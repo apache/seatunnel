@@ -19,9 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcInputFormat;
 
@@ -42,7 +42,7 @@ public class JdbcSourceReader implements SourceReader<SeaTunnelRow, JdbcSourceSp
     private volatile boolean noMoreSplit;
 
     public JdbcSourceReader(
-            Context context, JdbcSourceConfig config, Map<TablePath, SeaTunnelRowType> tables) {
+            Context context, JdbcSourceConfig config, Map<TablePath, CatalogTable> tables) {
         this.inputFormat = new JdbcInputFormat(config, tables);
         this.context = context;
     }

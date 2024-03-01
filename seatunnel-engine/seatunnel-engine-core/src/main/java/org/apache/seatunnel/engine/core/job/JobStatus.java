@@ -44,6 +44,12 @@ public enum JobStatus {
     /** The job has failed with a non-recoverable task failure. */
     FAILED(EndState.GLOBALLY),
 
+    /** Job is being savepoint. */
+    DOING_SAVEPOINT(EndState.NOT_END),
+
+    /** Job has been savepoint. */
+    SAVEPOINT_DONE(EndState.GLOBALLY),
+
     /** Job is being cancelled. */
     CANCELING(EndState.NOT_END),
 

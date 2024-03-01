@@ -17,10 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter;
 
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcUtils;
 
@@ -47,7 +48,8 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
     public AbstractJdbcRowConverter() {}
 
     @Override
-    public SeaTunnelRow toInternal(ResultSet rs, SeaTunnelRowType typeInfo) throws SQLException {
+    public SeaTunnelRow toInternal(ResultSet rs, TableSchema tableSchema) throws SQLException {
+        SeaTunnelRowType typeInfo = tableSchema.toPhysicalRowDataType();
         Object[] fields = new Object[typeInfo.getTotalFields()];
         for (int fieldIndex = 0; fieldIndex < typeInfo.getTotalFields(); fieldIndex++) {
             SeaTunnelDataType<?> seaTunnelDataType = typeInfo.getFieldType(fieldIndex);
@@ -86,9 +88,7 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
                             Optional.ofNullable(sqlDate).map(e -> e.toLocalDate()).orElse(null);
                     break;
                 case TIME:
-                    Time sqlTime = JdbcUtils.getTime(rs, resultSetIndex);
-                    fields[fieldIndex] =
-                            Optional.ofNullable(sqlTime).map(e -> e.toLocalTime()).orElse(null);
+                    fields[fieldIndex] = readTime(rs, resultSetIndex);
                     break;
                 case TIMESTAMP:
                     Timestamp sqlTimestamp = JdbcUtils.getTimestamp(rs, resultSetIndex);
@@ -108,17 +108,23 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
                 case ROW:
                 default:
                     throw new JdbcConnectorException(
-                            CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                            CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                             "Unexpected value: " + seaTunnelDataType);
             }
         }
         return new SeaTunnelRow(fields);
     }
 
+    protected LocalTime readTime(ResultSet rs, int resultSetIndex) throws SQLException {
+        Time sqlTime = JdbcUtils.getTime(rs, resultSetIndex);
+        return Optional.ofNullable(sqlTime).map(e -> e.toLocalTime()).orElse(null);
+    }
+
     @Override
     public PreparedStatement toExternal(
-            SeaTunnelRowType rowType, SeaTunnelRow row, PreparedStatement statement)
+            TableSchema tableSchema, SeaTunnelRow row, PreparedStatement statement)
             throws SQLException {
+        SeaTunnelRowType rowType = tableSchema.toPhysicalRowDataType();
         for (int fieldIndex = 0; fieldIndex < rowType.getTotalFields(); fieldIndex++) {
             SeaTunnelDataType<?> seaTunnelDataType = rowType.getFieldType(fieldIndex);
             int statementIndex = fieldIndex + 1;
@@ -161,8 +167,7 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
                     statement.setDate(statementIndex, java.sql.Date.valueOf(localDate));
                     break;
                 case TIME:
-                    LocalTime localTime = (LocalTime) row.getField(fieldIndex);
-                    statement.setTime(statementIndex, java.sql.Time.valueOf(localTime));
+                    writeTime(statement, statementIndex, (LocalTime) row.getField(fieldIndex));
                     break;
                 case TIMESTAMP:
                     LocalDateTime localDateTime = (LocalDateTime) row.getField(fieldIndex);
@@ -175,15 +180,27 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
                 case NULL:
                     statement.setNull(statementIndex, java.sql.Types.NULL);
                     break;
-                case MAP:
                 case ARRAY:
+                    Object[] array = (Object[]) row.getField(fieldIndex);
+                    if (array == null) {
+                        statement.setNull(statementIndex, java.sql.Types.ARRAY);
+                        break;
+                    }
+                    statement.setObject(statementIndex, array);
+                    break;
+                case MAP:
                 case ROW:
                 default:
                     throw new JdbcConnectorException(
-                            CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                            CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                             "Unexpected value: " + seaTunnelDataType);
             }
         }
         return statement;
+    }
+
+    protected void writeTime(PreparedStatement statement, int index, LocalTime time)
+            throws SQLException {
+        statement.setTime(index, java.sql.Time.valueOf(time));
     }
 }

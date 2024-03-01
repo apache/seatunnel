@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.influxdb.serialize;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.exception.InfluxdbConnectorException;
 
 import org.apache.commons.collections4.CollectionUtils;
@@ -104,7 +104,7 @@ public class DefaultSerializer implements Serializer {
                         break;
                     default:
                         throw new InfluxdbConnectorException(
-                                CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                                CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                                 "Unsupported data type: " + dataType);
                 }
             }

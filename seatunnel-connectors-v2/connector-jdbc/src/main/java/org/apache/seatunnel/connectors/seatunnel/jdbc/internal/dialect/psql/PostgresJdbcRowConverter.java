@@ -17,15 +17,18 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql;
 
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.AbstractJdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcUtils;
 
+import java.sql.Array;
 import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -45,7 +48,8 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
     }
 
     @Override
-    public SeaTunnelRow toInternal(ResultSet rs, SeaTunnelRowType typeInfo) throws SQLException {
+    public SeaTunnelRow toInternal(ResultSet rs, TableSchema tableSchema) throws SQLException {
+        SeaTunnelRowType typeInfo = tableSchema.toPhysicalRowDataType();
         Object[] fields = new Object[typeInfo.getTotalFields()];
         for (int fieldIndex = 0; fieldIndex < typeInfo.getTotalFields(); fieldIndex++) {
             SeaTunnelDataType<?> seaTunnelDataType = typeInfo.getFieldType(fieldIndex);
@@ -111,12 +115,29 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
                 case NULL:
                     fields[fieldIndex] = null;
                     break;
-                case MAP:
                 case ARRAY:
+                    Array jdbcArray = rs.getArray(resultSetIndex);
+                    if (jdbcArray == null) {
+                        fields[fieldIndex] = null;
+                        break;
+                    }
+
+                    Object arrayObject = jdbcArray.getArray();
+                    if (((ArrayType) seaTunnelDataType)
+                            .getTypeClass()
+                            .equals(arrayObject.getClass())) {
+                        fields[fieldIndex] = arrayObject;
+                    } else {
+                        throw new JdbcConnectorException(
+                                CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
+                                "Unexpected value: " + seaTunnelDataType.getTypeClass());
+                    }
+                    break;
+                case MAP:
                 case ROW:
                 default:
                     throw new JdbcConnectorException(
-                            CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                            CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                             "Unexpected value: " + seaTunnelDataType);
             }
         }

@@ -21,17 +21,17 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.Constants;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.VariablesSubstitute;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.CompressFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.state.FileSinkState;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.util.FileSystemUtils;
 
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -71,7 +71,7 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
     protected String jobId;
     protected int subTaskIndex;
     protected HadoopConf hadoopConf;
-    protected FileSystemUtils fileSystemUtils;
+    protected HadoopFileSystemProxy hadoopFileSystemProxy;
     protected String transactionId;
     /** The uuid prefix to make sure same job different file sink will not conflict. */
     protected String uuidPrefix;
@@ -87,7 +87,6 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
     protected int partId = 0;
     protected int batchSize;
     protected int currentBatchSize = 0;
-    protected boolean isKerberosAuthorization = false;
 
     public AbstractWriteStrategy(FileSinkConfig fileSinkConfig) {
         this.fileSinkConfig = fileSinkConfig;
@@ -104,6 +103,7 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
     @Override
     public void init(HadoopConf conf, String jobId, String uuidPrefix, int subTaskIndex) {
         this.hadoopConf = conf;
+        this.hadoopFileSystemProxy = new HadoopFileSystemProxy(conf);
         this.jobId = jobId;
         this.subTaskIndex = subTaskIndex;
         this.uuidPrefix = uuidPrefix;
@@ -157,12 +157,6 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
         configuration.set(
                 String.format("fs.%s.impl", hadoopConf.getSchema()), hadoopConf.getFsHdfsImpl());
         this.hadoopConf.setExtraOptionsForConfiguration(configuration);
-        String principal = hadoopConf.getKerberosPrincipal();
-        String keytabPath = hadoopConf.getKerberosKeytabPath();
-        if (!isKerberosAuthorization) {
-            FileSystemUtils.doKerberosAuthentication(configuration, principal, keytabPath);
-            isKerberosAuthorization = true;
-        }
         return configuration;
     }
 
@@ -289,10 +283,10 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
      */
     public void abortPrepare(String transactionId) {
         try {
-            fileSystemUtils.deleteFile(getTransactionDir(transactionId));
+            hadoopFileSystemProxy.deleteFile(getTransactionDir(transactionId));
         } catch (IOException e) {
             throw new FileConnectorException(
-                    CommonErrorCode.FILE_OPERATION_FAILED,
+                    CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED,
                     "Abort transaction "
                             + transactionId
                             + " error, delete transaction directory failed",
@@ -417,12 +411,17 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
     }
 
     @Override
-    public FileSystemUtils getFileSystemUtils() {
-        return fileSystemUtils;
+    public HadoopFileSystemProxy getHadoopFileSystemProxy() {
+        return hadoopFileSystemProxy;
     }
 
     @Override
-    public void setFileSystemUtils(FileSystemUtils fileSystemUtils) {
-        this.fileSystemUtils = fileSystemUtils;
+    public void close() throws IOException {
+        try {
+            if (hadoopFileSystemProxy != null) {
+                hadoopFileSystemProxy.close();
+            }
+        } catch (Exception ignore) {
+        }
     }
 }

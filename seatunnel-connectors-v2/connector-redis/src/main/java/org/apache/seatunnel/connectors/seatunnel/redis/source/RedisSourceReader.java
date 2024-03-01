@@ -65,7 +65,7 @@ public class RedisSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     }
 
     @Override
-    public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
+    public void internalPollNext(Collector<SeaTunnelRow> output) throws Exception {
         Set<String> keys = jedis.keys(redisParameters.getKeysPattern());
         RedisDataType redisDataType = redisParameters.getRedisDataType();
         for (String key : keys) {

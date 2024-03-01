@@ -143,7 +143,7 @@ seatunnel:
           fs.defaultFS: hdfs://localhost:9000
           // if you used kerberos, you can config like this:
           kerberosPrincipal: your-kerberos-principal
-          kerberosKeytab: your-kerberos-keytab  
+          kerberosKeytabFilePath: your-kerberos-keytab
 ```
 
 if HDFS is in HA mode , you can config like this:
@@ -162,7 +162,7 @@ seatunnel:
           seatunnel.hadoop.dfs.ha.namenodes.usdp-bing: nn1,nn2
           seatunnel.hadoop.dfs.namenode.rpc-address.usdp-bing.nn1: usdp-bing-nn1:8020
           seatunnel.hadoop.dfs.namenode.rpc-address.usdp-bing.nn2: usdp-bing-nn2:8020
-          seatunnel.hadoop.dfs.client.failover.proxy.provider.usdp-bing: org.apache.hadoop.hdfs.server.namenode.ha.ConfiguredFailoverProxyProvider"
+          seatunnel.hadoop.dfs.client.failover.proxy.provider.usdp-bing: org.apache.hadoop.hdfs.server.namenode.ha.ConfiguredFailoverProxyProvider
 
 ```
 

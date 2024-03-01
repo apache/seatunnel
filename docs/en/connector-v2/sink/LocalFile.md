@@ -14,7 +14,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 
 :::
 
-## Key features
+## Key Features
 
 - [x] [exactly-once](../../concept/connector-v2-features.md)
 
@@ -30,7 +30,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 
 ## Options
 
-|               name               |  type   | required |               default value                |                                              remarks                                              |
+|               Name               |  Type   | Required |                  Default                   |                                            Description                                            |
 |----------------------------------|---------|----------|--------------------------------------------|---------------------------------------------------------------------------------------------------|
 | path                             | string  | yes      | -                                          |                                                                                                   |
 | tmp_path                         | string  | no       | /tmp/seatunnel                             | The result file will write to a tmp path first and then use `mv` to submit tmp dir to target dir. |
@@ -55,7 +55,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 
 ### path [string]
 
-The target dir path is required.
+The target dir path is required, you can inject the upstream CatalogTable into the path by using: `${database_name}`, `${table_name}` and `${schema_name}`.
 
 ### custom_filename [boolean]
 
@@ -234,6 +234,18 @@ LocalFile {
     filename_time_format="yyyy.MM.dd"
     is_enable_transaction=true
   }
+
+```
+
+For extract source metadata from upstream, you can use `${database_name}`, `${table_name}` and `${schema_name}` in the path.
+
+```bash
+
+LocalFile {
+    path = "/tmp/hive/warehouse/${table_name}"
+    file_format_type = "parquet"
+    sink_columns = ["name","age"]
+}
 
 ```
 

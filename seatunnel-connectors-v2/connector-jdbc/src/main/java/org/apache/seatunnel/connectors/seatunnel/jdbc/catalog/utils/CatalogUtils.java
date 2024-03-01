@@ -24,12 +24,17 @@ import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
 
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -40,12 +45,14 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
+@Slf4j
 public class CatalogUtils {
     public static String getFieldIde(String identifier, String fieldIde) {
         if (StringUtils.isBlank(fieldIde)) {
@@ -130,13 +137,14 @@ public class CatalogUtils {
 
     public static List<ConstraintKey> getConstraintKeys(
             DatabaseMetaData metadata, TablePath tablePath) throws SQLException {
+        // We set approximate to true to avoid querying the statistics table, which is slow.
         ResultSet resultSet =
                 metadata.getIndexInfo(
                         tablePath.getDatabaseName(),
                         tablePath.getSchemaName(),
                         tablePath.getTableName(),
                         false,
-                        false);
+                        true);
         // index name -> index
         Map<String, ConstraintKey> constraintKeyMap = new HashMap<>();
         while (resultSet.next()) {
@@ -171,11 +179,23 @@ public class CatalogUtils {
         return new ArrayList<>(constraintKeyMap.values());
     }
 
-    public static TableSchema getTableSchema(DatabaseMetaData metadata, TablePath tablePath)
+    public static TableSchema getTableSchema(
+            DatabaseMetaData metadata, TablePath tablePath, JdbcDialectTypeMapper typeMapper)
             throws SQLException {
         Optional<PrimaryKey> primaryKey = getPrimaryKey(metadata, tablePath);
         List<ConstraintKey> constraintKeys = getConstraintKeys(metadata, tablePath);
-        List<Column> columns = JdbcColumnConverter.convert(metadata, tablePath);
+        List<Column> columns;
+        try {
+            columns =
+                    typeMapper.mappingColumn(
+                            metadata,
+                            tablePath.getDatabaseName(),
+                            tablePath.getSchemaName(),
+                            tablePath.getTableName(),
+                            null);
+        } catch (UnsupportedOperationException e) {
+            columns = JdbcColumnConverter.convert(metadata, tablePath);
+        }
         return TableSchema.builder()
                 .primaryKey(primaryKey.orElse(null))
                 .constraintKey(constraintKeys)
@@ -183,10 +203,11 @@ public class CatalogUtils {
                 .build();
     }
 
-    public static CatalogTable getCatalogTable(Connection connection, TablePath tablePath)
+    public static CatalogTable getCatalogTable(
+            Connection connection, TablePath tablePath, JdbcDialectTypeMapper typeMapper)
             throws SQLException {
         DatabaseMetaData metadata = connection.getMetaData();
-        TableSchema tableSchema = getTableSchema(metadata, tablePath);
+        TableSchema tableSchema = getTableSchema(metadata, tablePath, typeMapper);
         String catalogName = "jdbc_catalog";
         return CatalogTable.of(
                 TableIdentifier.of(
@@ -201,7 +222,7 @@ public class CatalogUtils {
                 catalogName);
     }
 
-    public static CatalogTable getCatalogTable(ResultSetMetaData resultSetMetaData)
+    public static CatalogTable getCatalogTable(ResultSetMetaData resultSetMetaData, String sqlQuery)
             throws SQLException {
         return getCatalogTable(
                 resultSetMetaData,
@@ -212,11 +233,13 @@ public class CatalogUtils {
                             } catch (SQLException e) {
                                 throw new RuntimeException(e);
                             }
-                        });
+                        },
+                sqlQuery);
     }
 
     public static CatalogTable getCatalogTable(
-            ResultSetMetaData metadata, JdbcDialectTypeMapper typeMapper) throws SQLException {
+            ResultSetMetaData metadata, JdbcDialectTypeMapper typeMapper, String sqlQuery)
+            throws SQLException {
         return getCatalogTable(
                 metadata,
                 (BiFunction<ResultSetMetaData, Integer, Column>)
@@ -226,17 +249,32 @@ public class CatalogUtils {
                             } catch (SQLException e) {
                                 throw new RuntimeException(e);
                             }
-                        });
+                        },
+                sqlQuery);
     }
 
     public static CatalogTable getCatalogTable(
             ResultSetMetaData metadata,
-            BiFunction<ResultSetMetaData, Integer, Column> columnConverter)
+            BiFunction<ResultSetMetaData, Integer, Column> columnConverter,
+            String sqlQuery)
             throws SQLException {
         TableSchema.Builder schemaBuilder = TableSchema.builder();
+        Map<String, String> unsupported = new LinkedHashMap<>();
         for (int index = 1; index <= metadata.getColumnCount(); index++) {
-            Column column = columnConverter.apply(metadata, index);
-            schemaBuilder.column(column);
+            try {
+                Column column = columnConverter.apply(metadata, index);
+                schemaBuilder.column(column);
+            } catch (SeaTunnelRuntimeException e) {
+                if (e.getSeaTunnelErrorCode()
+                        .equals(CommonErrorCode.CONVERT_TO_SEATUNNEL_TYPE_ERROR_SIMPLE)) {
+                    unsupported.put(e.getParams().get("field"), e.getParams().get("dataType"));
+                } else {
+                    throw e;
+                }
+            }
+        }
+        if (!unsupported.isEmpty()) {
+            throw CommonError.getCatalogTableWithUnsupportedType("UNKNOWN", sqlQuery, unsupported);
         }
         String catalogName = "jdbc_catalog";
         return CatalogTable.of(
@@ -252,16 +290,24 @@ public class CatalogUtils {
             Connection connection, String sqlQuery, JdbcDialectTypeMapper typeMapper)
             throws SQLException {
         try (PreparedStatement ps = connection.prepareStatement(sqlQuery)) {
-            return getCatalogTable(ps.getMetaData(), typeMapper);
+            return getCatalogTable(ps.getMetaData(), typeMapper, sqlQuery);
         }
     }
 
+    /**
+     * @deprecated instead by {@link #getCatalogTable(Connection, String, JdbcDialectTypeMapper)}
+     * @param connection
+     * @param sqlQuery
+     * @return
+     * @throws SQLException
+     */
+    @Deprecated
     public static CatalogTable getCatalogTable(Connection connection, String sqlQuery)
             throws SQLException {
         ResultSetMetaData resultSetMetaData;
         try (PreparedStatement ps = connection.prepareStatement(sqlQuery)) {
             resultSetMetaData = ps.getMetaData();
-            return getCatalogTable(resultSetMetaData);
+            return getCatalogTable(resultSetMetaData, sqlQuery);
         }
     }
 }

@@ -196,4 +196,11 @@ public class ServerConfigOptions {
                     .type(new TypeReference<ConnectorJarStorageConfig>() {})
                     .defaultValue(new ConnectorJarStorageConfig())
                     .withDescription("The connector jar storage configuration.");
+
+    public static final Option<Boolean> CLASSLOADER_CACHE_MODE =
+            Options.key("classloader-cache-mode")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Whether to use classloader cache mode. With cache mode, all jobs share the same classloader if the jars are the same");
 }

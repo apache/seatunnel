@@ -100,7 +100,7 @@ sink to console.
 
 ```conf
 env {
-  execution.parallelism = 1
+  parallelism = 1
 }
 
 source {

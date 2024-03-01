@@ -22,11 +22,9 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorExc
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.SimpleJdbcConnectionProvider;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.security.UserGroupInformation;
 
 import lombok.NonNull;
 
-import java.io.IOException;
 import java.sql.Connection;
 import java.sql.Driver;
 import java.sql.SQLException;
@@ -46,27 +44,15 @@ public class HiveJdbcConnectionProvider extends SimpleJdbcConnectionProvider {
             return super.getConnection();
         }
         JdbcConnectionConfig jdbcConfig = super.getJdbcConfig();
+        final Driver driver = getLoadedDriver();
+        HiveConnectionProduceFunction hiveConnectionProduceFunction =
+                new HiveConnectionProduceFunction(driver, jdbcConfig);
+
         if (jdbcConfig.useKerberos) {
-            System.setProperty("java.security.krb5.conf", jdbcConfig.krb5Path);
-            Configuration configuration = new Configuration();
-            configuration.set("hadoop.security.authentication", "kerberos");
-            UserGroupInformation.setConfiguration(configuration);
-            try {
-                UserGroupInformation.loginUserFromKeytab(
-                        jdbcConfig.kerberosPrincipal, jdbcConfig.kerberosKeytabPath);
-            } catch (IOException e) {
-                throw new JdbcConnectorException(KERBEROS_AUTHENTICATION_FAILED, e);
-            }
+            super.setConnection(getConnectionWithKerberos(hiveConnectionProduceFunction));
+        } else {
+            super.setConnection(hiveConnectionProduceFunction.produce());
         }
-        Driver driver = getLoadedDriver();
-        Properties info = new Properties();
-        if (super.getJdbcConfig().getUsername().isPresent()) {
-            info.setProperty("user", super.getJdbcConfig().getUsername().get());
-        }
-        if (super.getJdbcConfig().getPassword().isPresent()) {
-            info.setProperty("password", super.getJdbcConfig().getPassword().get());
-        }
-        super.setConnection(driver.connect(super.getJdbcConfig().getUrl(), info));
         if (super.getConnection() == null) {
             // Throw same exception as DriverManager.getConnection when no driver found to match
             // caller expectation.
@@ -75,5 +61,44 @@ public class HiveJdbcConnectionProvider extends SimpleJdbcConnectionProvider {
                     "No suitable driver found for " + super.getJdbcConfig().getUrl());
         }
         return super.getConnection();
+    }
+
+    private Connection getConnectionWithKerberos(
+            HiveConnectionProduceFunction hiveConnectionProduceFunction) {
+        try {
+            Configuration configuration = new Configuration();
+            configuration.set("hadoop.security.authentication", "kerberos");
+            return HadoopLoginFactory.loginWithKerberos(
+                    configuration,
+                    jdbcConfig.krb5Path,
+                    jdbcConfig.kerberosPrincipal,
+                    jdbcConfig.kerberosKeytabPath,
+                    (conf, userGroupInformation) -> hiveConnectionProduceFunction.produce());
+        } catch (Exception ex) {
+            throw new JdbcConnectorException(KERBEROS_AUTHENTICATION_FAILED, ex);
+        }
+    }
+
+    public static class HiveConnectionProduceFunction {
+
+        private final Driver driver;
+        private final JdbcConnectionConfig jdbcConnectionConfig;
+
+        public HiveConnectionProduceFunction(
+                Driver driver, JdbcConnectionConfig jdbcConnectionConfig) {
+            this.driver = driver;
+            this.jdbcConnectionConfig = jdbcConnectionConfig;
+        }
+
+        public Connection produce() throws SQLException {
+            final Properties info = new Properties();
+            jdbcConnectionConfig
+                    .getUsername()
+                    .ifPresent(username -> info.setProperty("user", username));
+            jdbcConnectionConfig
+                    .getPassword()
+                    .ifPresent(username -> info.setProperty("password", username));
+            return driver.connect(jdbcConnectionConfig.getUrl(), info);
+        }
     }
 }

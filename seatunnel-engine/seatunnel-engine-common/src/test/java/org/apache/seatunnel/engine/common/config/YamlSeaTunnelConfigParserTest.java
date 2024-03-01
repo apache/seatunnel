@@ -78,5 +78,11 @@ public class YamlSeaTunnelConfigParserTest {
         ClientConfig clientConfig = yamlClientConfigBuilder.build();
 
         Assertions.assertEquals("custmoize", clientConfig.getClusterName());
+        Assertions.assertEquals(
+                3000L,
+                clientConfig
+                        .getConnectionStrategyConfig()
+                        .getConnectionRetryConfig()
+                        .getClusterConnectTimeoutMillis());
     }
 }
