@@ -55,7 +55,6 @@ public class FlinkStarter implements Starter {
     @Override
     public List<String> buildCommands() {
         List<String> command = new ArrayList<>();
-        // Below code is to fix port-specific issue when submitting flink job on windows.
         String local_os_type="";
         
         SystemUtil my_system_util=new SystemUtil();
@@ -65,10 +64,10 @@ public class FlinkStarter implements Starter {
         
         String cmd_flink="";
         
-        // Set correct flink command on different platform
-        // Note that "flink.bat" can be retrieved from earlier flink release(e.g. flink 1.8
+		// Nothe that "flink.cmd” or "flink.bat" can be retrieved from lower version of flink (e.g. 1.0.9)
+		// We do not check if this file exists on the box, user needs to make sure this file exists or not.
         if (local_os_type.toLowerCase().equals("windows")) {
-            cmd_flink="%FLINK_HOME%/bin/flink.bat";
+            cmd_flink="%FLINK_HOME%/bin/flink.cmd";
         } else if (local_os_type.toLowerCase().equals("linux")) {             
             cmd_flink="${FLINK_HOME}/bin/flink";
         } else if (local_os_type.toLowerCase().equals("unknown")) {             
