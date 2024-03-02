@@ -88,6 +88,10 @@ public class IncrementalSourceScanFetcher implements Fetcher<SourceRecords, Sour
         executorService.submit(
                 () -> {
                     try {
+                        log.info(
+                                "Start snapshot read task for snapshot split: {} exactly-once: {}",
+                                currentSnapshotSplit,
+                                taskContext.isExactlyOnce());
                         snapshotSplitReadTask.execute(taskContext);
                     } catch (Exception e) {
                         log.error(

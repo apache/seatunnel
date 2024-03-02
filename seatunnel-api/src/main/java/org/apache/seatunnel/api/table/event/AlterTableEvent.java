@@ -17,13 +17,13 @@
 
 package org.apache.seatunnel.api.table.event;
 
-import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 
 import lombok.ToString;
 
 @ToString(callSuper = true)
 public abstract class AlterTableEvent extends TableEvent {
-    public AlterTableEvent(TablePath tablePath) {
-        super(tablePath);
+    public AlterTableEvent(TableIdentifier tableIdentifier) {
+        super(tableIdentifier);
     }
 }
