@@ -198,7 +198,6 @@ public class SparkStarter implements Starter {
     /** build final spark-submit commands */
     protected List<String> buildFinal() {
         List<String> commands = new ArrayList<>();
-        // Below code is to fix port-specific issue when submitting flink job on windows.
         String local_os_type="";
         
         SystemUtil my_system_util=new SystemUtil();
@@ -208,7 +207,6 @@ public class SparkStarter implements Starter {
         
         String cmd_spark="";
         
-        // Set correct "spark-submit" command on different platform
         if (local_os_type.toLowerCase().equals("windows")) {
             cmd_spark="%SPARK_HOME%/bin/spark-submit.cmd";
         } else if (local_os_type.toLowerCase().equals("linux")) {             
