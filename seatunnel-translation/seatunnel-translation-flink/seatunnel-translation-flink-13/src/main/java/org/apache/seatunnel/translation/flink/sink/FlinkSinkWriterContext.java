@@ -22,8 +22,8 @@ import org.apache.seatunnel.api.event.DefaultEventProcessor;
 import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.translation.flink.metric.FlinkMetricContext;
-import org.apache.seatunnel.translation.flink.utils.FlinkContextUtils;
 
+import org.apache.flink.api.connector.sink.Sink;
 import org.apache.flink.api.connector.sink.Sink.InitContext;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.streaming.api.operators.StreamingRuntimeContext;
@@ -42,8 +42,7 @@ public class FlinkSinkWriterContext implements SinkWriter.Context {
 
     public FlinkSinkWriterContext(InitContext writerContext) {
         this.writerContext = writerContext;
-        this.eventListener =
-                new DefaultEventProcessor(FlinkContextUtils.getJobIdForV14(writerContext));
+        this.eventListener = new DefaultEventProcessor(getJobIdForV14(writerContext));
     }
 
     @Override
@@ -55,7 +54,7 @@ public class FlinkSinkWriterContext implements SinkWriter.Context {
     public MetricsContext getMetricsContext() {
         try {
             StreamingRuntimeContext runtimeContext =
-                    FlinkContextUtils.getStreamingRuntimeContextForV14(writerContext);
+                    getStreamingRuntimeContextForV14(writerContext);
             return new FlinkMetricContext(runtimeContext);
         } catch (Exception e) {
             LOGGER.info(
@@ -77,5 +76,24 @@ public class FlinkSinkWriterContext implements SinkWriter.Context {
     @Override
     public EventListener getEventListener() {
         return eventListener;
+    }
+
+    private static StreamingRuntimeContext getStreamingRuntimeContextForV14(
+            Sink.InitContext writerContext) {
+        try {
+            // In flink 1.14, it has contained runtimeContext in InitContext, so first step to
+            // detect if
+            // it is existed
+            Field field = writerContext.getClass().getDeclaredField("runtimeContext");
+            field.setAccessible(true);
+            return (StreamingRuntimeContext) field.get(writerContext);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private static String getJobIdForV14(Sink.InitContext writerContext) {
+        StreamingRuntimeContext runtimeContext = getStreamingRuntimeContextForV14(writerContext);
+        return runtimeContext != null ? runtimeContext.getJobId().toString() : null;
     }
 }

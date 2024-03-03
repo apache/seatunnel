@@ -24,13 +24,18 @@ import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
-import org.apache.seatunnel.translation.flink.utils.FlinkContextUtils;
 
 import org.apache.flink.api.connector.source.SplitEnumeratorContext;
+import org.apache.flink.runtime.operators.coordination.OperatorCoordinator;
+import org.apache.flink.runtime.scheduler.SchedulerBase;
+import org.apache.flink.runtime.source.coordinator.SourceCoordinatorContext;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.lang.reflect.Field;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -90,12 +95,61 @@ public class FlinkSourceSplitEnumeratorContext<SplitT extends SourceSplit>
         return eventListener;
     }
 
-    private String getFlinkJobId(SplitEnumeratorContext<SplitWrapper<SplitT>> enumContext) {
+    private static String getFlinkJobId(SplitEnumeratorContext enumContext) {
         try {
-            return FlinkContextUtils.getJobIdForV15(enumContext);
+            return getJobIdForV15(enumContext);
         } catch (Exception e) {
             log.warn("Get flink job id failed", e);
             return null;
+        }
+    }
+
+    private static String getJobIdForV15(SplitEnumeratorContext enumContext) {
+        try {
+            SourceCoordinatorContext coordinatorContext = (SourceCoordinatorContext) enumContext;
+            Field field =
+                    coordinatorContext.getClass().getDeclaredField("operatorCoordinatorContext");
+            field.setAccessible(true);
+            OperatorCoordinator.Context operatorCoordinatorContext =
+                    (OperatorCoordinator.Context) field.get(coordinatorContext);
+            Field[] fields = operatorCoordinatorContext.getClass().getDeclaredFields();
+            Optional<Field> fieldOptional =
+                    Arrays.stream(fields)
+                            .filter(f -> f.getName().equals("globalFailureHandler"))
+                            .findFirst();
+            if (!fieldOptional.isPresent()) {
+                // RecreateOnResetOperatorCoordinator.QuiesceableContext
+                fieldOptional =
+                        Arrays.stream(fields)
+                                .filter(f -> f.getName().equals("context"))
+                                .findFirst();
+                field = fieldOptional.get();
+                field.setAccessible(true);
+                operatorCoordinatorContext =
+                        (OperatorCoordinator.Context) field.get(operatorCoordinatorContext);
+            }
+
+            // OperatorCoordinatorHolder.LazyInitializedCoordinatorContext
+            field =
+                    Arrays.stream(operatorCoordinatorContext.getClass().getDeclaredFields())
+                            .filter(f -> f.getName().equals("globalFailureHandler"))
+                            .findFirst()
+                            .get();
+            field.setAccessible(true);
+
+            // SchedulerBase$xxx
+            Object obj = field.get(operatorCoordinatorContext);
+            fields = obj.getClass().getDeclaredFields();
+            field =
+                    Arrays.stream(fields)
+                            .filter(f -> f.getName().equals("arg$1"))
+                            .findFirst()
+                            .get();
+            field.setAccessible(true);
+            SchedulerBase schedulerBase = (SchedulerBase) field.get(obj);
+            return schedulerBase.getExecutionGraph().getJobID().toString();
+        } catch (Exception e) {
+            throw new IllegalStateException("Initialize flink job-id failed", e);
         }
     }
 }

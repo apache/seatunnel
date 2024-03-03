@@ -24,15 +24,17 @@ import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.translation.flink.metric.FlinkMetricContext;
-import org.apache.seatunnel.translation.flink.utils.FlinkContextUtils;
 
 import org.apache.flink.api.connector.source.SourceReaderContext;
+import org.apache.flink.streaming.api.operators.AbstractStreamOperator;
+import org.apache.flink.streaming.api.operators.StreamingRuntimeContext;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.lang.reflect.Field;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -92,7 +94,7 @@ public class FlinkSourceReaderContext implements SourceReader.Context {
 
     @Override
     public MetricsContext getMetricsContext() {
-        return new FlinkMetricContext(FlinkContextUtils.getStreamingRuntimeContext(readerContext));
+        return new FlinkMetricContext(getStreamingRuntimeContext(readerContext));
     }
 
     public boolean isSendNoMoreElementEvent() {
@@ -104,15 +106,26 @@ public class FlinkSourceReaderContext implements SourceReader.Context {
         return eventListener;
     }
 
-    private String getFlinkJobId(SourceReaderContext readerContext) {
+    private static String getFlinkJobId(SourceReaderContext readerContext) {
         try {
-            return FlinkContextUtils.getStreamingRuntimeContext(readerContext)
-                    .getJobId()
-                    .toString();
+            return getStreamingRuntimeContext(readerContext).getJobId().toString();
         } catch (Exception e) {
             // ignore
             log.warn("Get flink job id failed", e);
             return null;
+        }
+    }
+
+    private static StreamingRuntimeContext getStreamingRuntimeContext(
+            SourceReaderContext readerContext) {
+        try {
+            Field field = readerContext.getClass().getDeclaredField("this$0");
+            field.setAccessible(true);
+            AbstractStreamOperator<?> operator =
+                    (AbstractStreamOperator<?>) field.get(readerContext);
+            return operator.getRuntimeContext();
+        } catch (Exception e) {
+            throw new IllegalStateException("Initialize flink context failed", e);
         }
     }
 }

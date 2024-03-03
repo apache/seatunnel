@@ -22,12 +22,14 @@ import org.apache.seatunnel.api.event.DefaultEventProcessor;
 import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.translation.flink.metric.FlinkMetricContext;
-import org.apache.seatunnel.translation.flink.utils.FlinkContextUtils;
 
 import org.apache.flink.api.connector.sink.Sink;
 import org.apache.flink.api.connector.sink.Sink.InitContext;
+import org.apache.flink.streaming.api.operators.StreamingRuntimeContext;
 
 import lombok.extern.slf4j.Slf4j;
+
+import java.lang.reflect.Field;
 
 @Slf4j
 public class FlinkSinkWriterContext implements SinkWriter.Context {
@@ -47,8 +49,7 @@ public class FlinkSinkWriterContext implements SinkWriter.Context {
 
     @Override
     public MetricsContext getMetricsContext() {
-        return new FlinkMetricContext(
-                FlinkContextUtils.getStreamingRuntimeContextForV15(writerContext));
+        return new FlinkMetricContext(getStreamingRuntimeContextForV15(writerContext));
     }
 
     @Override
@@ -56,13 +57,27 @@ public class FlinkSinkWriterContext implements SinkWriter.Context {
         return eventListener;
     }
 
-    private String getFlinkJobId(Sink.InitContext writerContext) {
+    private static String getFlinkJobId(Sink.InitContext writerContext) {
         try {
-            return FlinkContextUtils.getJobIdForV15(writerContext);
+            return getStreamingRuntimeContextForV15(writerContext).getJobId().toString();
         } catch (Exception e) {
             // ignore
             log.warn("Get flink job id failed", e);
             return null;
+        }
+    }
+
+    private static StreamingRuntimeContext getStreamingRuntimeContextForV15(
+            Sink.InitContext writerContext) {
+        try {
+            Field contextImplField = writerContext.getClass().getDeclaredField("context");
+            contextImplField.setAccessible(true);
+            Object contextImpl = contextImplField.get(writerContext);
+            Field runtimeContextField = contextImpl.getClass().getDeclaredField("runtimeContext");
+            runtimeContextField.setAccessible(true);
+            return (StreamingRuntimeContext) runtimeContextField.get(contextImpl);
+        } catch (Exception e) {
+            throw new IllegalStateException("Initialize flink context failed", e);
         }
     }
 }
