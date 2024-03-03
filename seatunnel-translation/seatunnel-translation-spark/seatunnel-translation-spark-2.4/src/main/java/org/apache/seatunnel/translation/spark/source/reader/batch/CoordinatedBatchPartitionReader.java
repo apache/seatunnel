@@ -39,9 +39,10 @@ public class CoordinatedBatchPartitionReader extends ParallelBatchPartitionReade
     public CoordinatedBatchPartitionReader(
             SeaTunnelSource<SeaTunnelRow, ?, ?> source,
             Integer parallelism,
+            String jobId,
             Integer subtaskId,
             Map<String, String> envOptions) {
-        super(source, parallelism, subtaskId, envOptions);
+        super(source, parallelism, jobId, subtaskId, envOptions);
         this.collectorMap = new HashMap<>(parallelism);
         for (int i = 0; i < parallelism; i++) {
             collectorMap.put(
@@ -58,7 +59,7 @@ public class CoordinatedBatchPartitionReader extends ParallelBatchPartitionReade
 
     @Override
     protected BaseSourceFunction<SeaTunnelRow> createInternalSource() {
-        return new InternalCoordinatedSource<>(source, null, parallelism);
+        return new InternalCoordinatedSource<>(source, null, parallelism, jobId);
     }
 
     public class InternalCoordinatedSource<SplitT extends SourceSplit, StateT extends Serializable>
@@ -67,8 +68,9 @@ public class CoordinatedBatchPartitionReader extends ParallelBatchPartitionReade
         public InternalCoordinatedSource(
                 SeaTunnelSource<SeaTunnelRow, SplitT, StateT> source,
                 Map<Integer, List<byte[]>> restoredState,
-                int parallelism) {
-            super(source, restoredState, parallelism);
+                int parallelism,
+                String jobId) {
+            super(source, restoredState, parallelism, jobId);
         }
 
         @Override

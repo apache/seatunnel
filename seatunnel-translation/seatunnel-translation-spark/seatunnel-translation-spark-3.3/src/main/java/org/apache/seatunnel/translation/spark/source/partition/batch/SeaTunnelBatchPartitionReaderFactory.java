@@ -33,14 +33,17 @@ public class SeaTunnelBatchPartitionReaderFactory implements PartitionReaderFact
     private final SeaTunnelSource<SeaTunnelRow, ?, ?> source;
 
     private final int parallelism;
+    private final String jobId;
     private final Map<String, String> envOptions;
 
     public SeaTunnelBatchPartitionReaderFactory(
             SeaTunnelSource<SeaTunnelRow, ?, ?> source,
             int parallelism,
+            String jobId,
             Map<String, String> envOptions) {
         this.source = source;
         this.parallelism = parallelism;
+        this.jobId = jobId;
         this.envOptions = envOptions;
     }
 
@@ -52,10 +55,11 @@ public class SeaTunnelBatchPartitionReaderFactory implements PartitionReaderFact
         if (source instanceof SupportCoordinate) {
             partitionReader =
                     new CoordinatedBatchPartitionReader(
-                            source, parallelism, partitionId, envOptions);
+                            source, parallelism, jobId, partitionId, envOptions);
         } else {
             partitionReader =
-                    new ParallelBatchPartitionReader(source, parallelism, partitionId, envOptions);
+                    new ParallelBatchPartitionReader(
+                            source, parallelism, jobId, partitionId, envOptions);
         }
         return new SeaTunnelBatchPartitionReader(partitionReader);
     }

@@ -22,13 +22,14 @@ import org.apache.seatunnel.api.event.DefaultEventProcessor;
 import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.translation.flink.metric.FlinkMetricContext;
+import org.apache.seatunnel.translation.flink.utils.FlinkContextUtils;
 
 import org.apache.flink.api.connector.sink.Sink;
 import org.apache.flink.api.connector.sink.Sink.InitContext;
-import org.apache.flink.streaming.api.operators.StreamingRuntimeContext;
 
-import java.lang.reflect.Field;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class FlinkSinkWriterContext implements SinkWriter.Context {
 
     private final Sink.InitContext writerContext;
@@ -36,7 +37,7 @@ public class FlinkSinkWriterContext implements SinkWriter.Context {
 
     public FlinkSinkWriterContext(InitContext writerContext) {
         this.writerContext = writerContext;
-        this.eventListener = new DefaultEventProcessor();
+        this.eventListener = new DefaultEventProcessor(getFlinkJobId(writerContext));
     }
 
     @Override
@@ -46,22 +47,22 @@ public class FlinkSinkWriterContext implements SinkWriter.Context {
 
     @Override
     public MetricsContext getMetricsContext() {
-        try {
-            Field contextImplField = writerContext.getClass().getDeclaredField("context");
-            contextImplField.setAccessible(true);
-            Object contextImpl = contextImplField.get(writerContext);
-            Field runtimeContextField = contextImpl.getClass().getDeclaredField("runtimeContext");
-            runtimeContextField.setAccessible(true);
-            StreamingRuntimeContext runtimeContext =
-                    (StreamingRuntimeContext) runtimeContextField.get(contextImpl);
-            return new FlinkMetricContext(runtimeContext);
-        } catch (Exception e) {
-            throw new IllegalStateException("Initialize sink metrics failed", e);
-        }
+        return new FlinkMetricContext(
+                FlinkContextUtils.getStreamingRuntimeContextForV15(writerContext));
     }
 
     @Override
     public EventListener getEventListener() {
         return eventListener;
+    }
+
+    private String getFlinkJobId(Sink.InitContext writerContext) {
+        try {
+            return FlinkContextUtils.getJobIdForV15(writerContext);
+        } catch (Exception e) {
+            // ignore
+            log.warn("Get flink job id failed", e);
+            return null;
+        }
     }
 }

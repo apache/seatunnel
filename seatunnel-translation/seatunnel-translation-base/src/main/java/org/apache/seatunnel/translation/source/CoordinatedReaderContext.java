@@ -35,11 +35,12 @@ public class CoordinatedReaderContext implements SourceReader.Context {
     public CoordinatedReaderContext(
             CoordinatedSource<?, ?, ?> coordinatedSource,
             Boundedness boundedness,
+            String jobId,
             Integer subtaskId) {
         this.coordinatedSource = coordinatedSource;
         this.boundedness = boundedness;
         this.subtaskId = subtaskId;
-        this.eventListener = new DefaultEventProcessor();
+        this.eventListener = new DefaultEventProcessor(jobId);
     }
 
     @Override

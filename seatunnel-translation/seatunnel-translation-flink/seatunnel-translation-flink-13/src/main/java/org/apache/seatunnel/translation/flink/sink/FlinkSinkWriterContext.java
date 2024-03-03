@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.event.DefaultEventProcessor;
 import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.translation.flink.metric.FlinkMetricContext;
+import org.apache.seatunnel.translation.flink.utils.FlinkContextUtils;
 
 import org.apache.flink.api.connector.sink.Sink.InitContext;
 import org.apache.flink.metrics.MetricGroup;
@@ -41,7 +42,8 @@ public class FlinkSinkWriterContext implements SinkWriter.Context {
 
     public FlinkSinkWriterContext(InitContext writerContext) {
         this.writerContext = writerContext;
-        this.eventListener = new DefaultEventProcessor();
+        this.eventListener =
+                new DefaultEventProcessor(FlinkContextUtils.getJobIdForV14(writerContext));
     }
 
     @Override
@@ -51,13 +53,9 @@ public class FlinkSinkWriterContext implements SinkWriter.Context {
 
     @Override
     public MetricsContext getMetricsContext() {
-        // In flink 1.14, it has contained runtimeContext in InitContext, so first step to detect if
-        // it is existed
         try {
-            Field field = writerContext.getClass().getDeclaredField("runtimeContext");
-            field.setAccessible(true);
             StreamingRuntimeContext runtimeContext =
-                    (StreamingRuntimeContext) field.get(writerContext);
+                    FlinkContextUtils.getStreamingRuntimeContextForV14(writerContext);
             return new FlinkMetricContext(runtimeContext);
         } catch (Exception e) {
             LOGGER.info(

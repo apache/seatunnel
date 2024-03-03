@@ -24,8 +24,11 @@ import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.translation.flink.utils.FlinkContextUtils;
 
 import org.apache.flink.api.connector.source.SplitEnumeratorContext;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
 import java.util.Set;
@@ -36,6 +39,7 @@ import java.util.Set;
  *
  * @param <SplitT>
  */
+@Slf4j
 public class FlinkSourceSplitEnumeratorContext<SplitT extends SourceSplit>
         implements SourceSplitEnumerator.Context<SplitT> {
 
@@ -45,7 +49,7 @@ public class FlinkSourceSplitEnumeratorContext<SplitT extends SourceSplit>
     public FlinkSourceSplitEnumeratorContext(
             SplitEnumeratorContext<SplitWrapper<SplitT>> enumContext) {
         this.enumContext = enumContext;
-        this.eventListener = new DefaultEventProcessor();
+        this.eventListener = new DefaultEventProcessor(getFlinkJobId(enumContext));
     }
 
     @Override
@@ -84,5 +88,14 @@ public class FlinkSourceSplitEnumeratorContext<SplitT extends SourceSplit>
     @Override
     public EventListener getEventListener() {
         return eventListener;
+    }
+
+    private String getFlinkJobId(SplitEnumeratorContext<SplitWrapper<SplitT>> enumContext) {
+        try {
+            return FlinkContextUtils.getJobIdForV15(enumContext);
+        } catch (Exception e) {
+            log.warn("Get flink job id failed", e);
+            return null;
+        }
     }
 }

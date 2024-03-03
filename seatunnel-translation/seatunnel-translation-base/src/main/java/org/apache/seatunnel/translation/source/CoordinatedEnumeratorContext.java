@@ -34,9 +34,10 @@ public class CoordinatedEnumeratorContext<SplitT extends SourceSplit>
     protected final CoordinatedSource<?, SplitT, ?> coordinatedSource;
     protected final EventListener eventListener;
 
-    public CoordinatedEnumeratorContext(CoordinatedSource<?, SplitT, ?> coordinatedSource) {
+    public CoordinatedEnumeratorContext(
+            CoordinatedSource<?, SplitT, ?> coordinatedSource, String jobId) {
         this.coordinatedSource = coordinatedSource;
-        this.eventListener = new DefaultEventProcessor();
+        this.eventListener = new DefaultEventProcessor(jobId);
     }
 
     @Override

@@ -28,8 +28,16 @@ public class DefaultSinkWriterContext implements SinkWriter.Context {
     private final EventListener eventListener;
 
     public DefaultSinkWriterContext(int subtask) {
+        this(subtask, new DefaultEventProcessor());
+    }
+
+    public DefaultSinkWriterContext(String jobId, int subtask) {
+        this(subtask, new DefaultEventProcessor(jobId));
+    }
+
+    public DefaultSinkWriterContext(int subtask, EventListener eventListener) {
         this.subtask = subtask;
-        this.eventListener = new DefaultEventProcessor();
+        this.eventListener = eventListener;
     }
 
     @Override

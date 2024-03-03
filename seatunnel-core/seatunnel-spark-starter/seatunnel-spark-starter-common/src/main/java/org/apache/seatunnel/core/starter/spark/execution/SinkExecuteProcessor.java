@@ -149,7 +149,13 @@ public class SinkExecuteProcessor
                     }
                 }
             }
-            SparkSinkInjector.inject(dataset.write(), sink, datasetTableInfo.getCatalogTable())
+            String applicationId =
+                    sparkRuntimeEnvironment.getStreamingContext().sparkContext().applicationId();
+            SparkSinkInjector.inject(
+                            dataset.write(),
+                            sink,
+                            datasetTableInfo.getCatalogTable(),
+                            applicationId)
                     .option("checkpointLocation", "/tmp")
                     .mode(SaveMode.Append)
                     .save();

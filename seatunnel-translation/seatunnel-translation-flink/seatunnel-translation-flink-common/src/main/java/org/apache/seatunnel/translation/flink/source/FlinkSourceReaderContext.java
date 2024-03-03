@@ -24,21 +24,22 @@ import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.translation.flink.metric.FlinkMetricContext;
+import org.apache.seatunnel.translation.flink.utils.FlinkContextUtils;
 
 import org.apache.flink.api.connector.source.SourceReaderContext;
-import org.apache.flink.streaming.api.operators.AbstractStreamOperator;
-import org.apache.flink.streaming.api.operators.StreamingRuntimeContext;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.lang.reflect.Field;
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * The implementation of {@link org.apache.seatunnel.api.source.SourceReader.Context} for flink
  * engine.
  */
+@Slf4j
 public class FlinkSourceReaderContext implements SourceReader.Context {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FlinkSourceReaderContext.class);
@@ -53,7 +54,7 @@ public class FlinkSourceReaderContext implements SourceReader.Context {
     public FlinkSourceReaderContext(SourceReaderContext readerContext, SeaTunnelSource source) {
         this.readerContext = readerContext;
         this.source = source;
-        this.eventListener = new DefaultEventProcessor();
+        this.eventListener = new DefaultEventProcessor(getFlinkJobId(readerContext));
     }
 
     @Override
@@ -91,16 +92,7 @@ public class FlinkSourceReaderContext implements SourceReader.Context {
 
     @Override
     public MetricsContext getMetricsContext() {
-        try {
-            Field field = readerContext.getClass().getDeclaredField("this$0");
-            field.setAccessible(true);
-            AbstractStreamOperator<?> operator =
-                    (AbstractStreamOperator<?>) field.get(readerContext);
-            StreamingRuntimeContext runtimeContext = operator.getRuntimeContext();
-            return new FlinkMetricContext(runtimeContext);
-        } catch (Exception e) {
-            throw new IllegalStateException("Initialize source metrics failed", e);
-        }
+        return new FlinkMetricContext(FlinkContextUtils.getStreamingRuntimeContext(readerContext));
     }
 
     public boolean isSendNoMoreElementEvent() {
@@ -110,5 +102,17 @@ public class FlinkSourceReaderContext implements SourceReader.Context {
     @Override
     public EventListener getEventListener() {
         return eventListener;
+    }
+
+    private String getFlinkJobId(SourceReaderContext readerContext) {
+        try {
+            return FlinkContextUtils.getStreamingRuntimeContext(readerContext)
+                    .getJobId()
+                    .toString();
+        } catch (Exception e) {
+            // ignore
+            log.warn("Get flink job id failed", e);
+            return null;
+        }
     }
 }

@@ -25,14 +25,19 @@ import java.util.List;
 @Slf4j
 @AllArgsConstructor
 public class DefaultEventProcessor implements EventListener, EventProcessor {
+    private final String jobId;
     private final List<EventHandler> handlers;
 
     public DefaultEventProcessor() {
         this(DefaultEventProcessor.class.getClassLoader());
     }
 
+    public DefaultEventProcessor(String jobId) {
+        this(jobId, EventProcessor.loadEventHandlers(DefaultEventProcessor.class.getClassLoader()));
+    }
+
     public DefaultEventProcessor(ClassLoader classLoader) {
-        this(EventProcessor.loadEventHandlers(classLoader));
+        this(null, EventProcessor.loadEventHandlers(classLoader));
     }
 
     @Override
@@ -42,6 +47,9 @@ public class DefaultEventProcessor implements EventListener, EventProcessor {
 
     @Override
     public void onEvent(Event event) {
+        if (jobId != null) {
+            event.setJobId(jobId);
+        }
         process(event);
     }
 

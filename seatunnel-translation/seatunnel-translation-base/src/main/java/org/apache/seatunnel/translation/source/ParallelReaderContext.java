@@ -33,11 +33,14 @@ public class ParallelReaderContext implements SourceReader.Context {
     protected final EventListener eventListener;
 
     public ParallelReaderContext(
-            ParallelSource<?, ?, ?> parallelSource, Boundedness boundedness, Integer subtaskId) {
+            ParallelSource<?, ?, ?> parallelSource,
+            Boundedness boundedness,
+            String jobId,
+            Integer subtaskId) {
         this.parallelSource = parallelSource;
         this.boundedness = boundedness;
         this.subtaskId = subtaskId;
-        this.eventListener = new DefaultEventProcessor();
+        this.eventListener = new DefaultEventProcessor(jobId);
     }
 
     @Override
