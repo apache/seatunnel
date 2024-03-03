@@ -39,13 +39,16 @@ import io.debezium.DebeziumException;
 import io.debezium.connector.base.ChangeEventQueue;
 import io.debezium.connector.postgresql.PostgresConnectorConfig;
 import io.debezium.connector.postgresql.PostgresErrorHandler;
+import io.debezium.connector.postgresql.PostgresEventDispatcher;
 import io.debezium.connector.postgresql.PostgresEventMetadataProvider;
 import io.debezium.connector.postgresql.PostgresOffsetContext;
+import io.debezium.connector.postgresql.PostgresPartition;
 import io.debezium.connector.postgresql.PostgresSchema;
 import io.debezium.connector.postgresql.PostgresTaskContext;
 import io.debezium.connector.postgresql.PostgresTopicSelector;
 import io.debezium.connector.postgresql.TypeRegistry;
 import io.debezium.connector.postgresql.connection.PostgresConnection;
+import io.debezium.connector.postgresql.connection.PostgresDefaultValueConverter;
 import io.debezium.connector.postgresql.connection.ReplicationConnection;
 import io.debezium.connector.postgresql.spi.SlotCreationResult;
 import io.debezium.connector.postgresql.spi.SlotState;
@@ -77,7 +80,7 @@ import static io.debezium.connector.AbstractSourceInfo.TABLE_NAME_KEY;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.postgres.utils.PostgresConnectionUtils.newPostgresValueConverterBuilder;
 
 @Slf4j
-public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
+public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext<PostgresPartition> {
 
     private static final String CONTEXT_NAME = "postgres-cdc-connector-task";
 
@@ -90,22 +93,24 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
     @Getter private Snapshotter snapshotter;
     private PostgresSchema databaseSchema;
     private PostgresOffsetContext offsetContext;
+    private PostgresPartition partition;
     private TopicSelector<TableId> topicSelector;
-    private JdbcSourceEventDispatcher dispatcher;
+    private JdbcSourceEventDispatcher<PostgresPartition> dispatcher;
+    private PostgresEventDispatcher<TableId> pgEventDispatcher;
     private ChangeEventQueue<DataChangeEvent> queue;
     private PostgresErrorHandler errorHandler;
 
     @Getter private PostgresTaskContext taskContext;
 
-    private SnapshotChangeEventSourceMetrics snapshotChangeEventSourceMetrics;
+    private SnapshotChangeEventSourceMetrics<PostgresPartition> snapshotChangeEventSourceMetrics;
 
-    private PostgresConnection.PostgresValueConverterBuilder postgresValueConverterBuilder;
+    private final PostgresConnection.PostgresValueConverterBuilder postgresValueConverterBuilder;
 
     private Collection<TableChanges.TableChange> engineHistory;
 
     public PostgresSourceFetchTaskContext(
             JdbcSourceConfig sourceConfig,
-            JdbcDataSourceDialect dataSourceDialect,
+            JdbcDataSourceDialect<PostgresPartition> dataSourceDialect,
             PostgresConnection dataConnection,
             Collection<TableChanges.TableChange> engineHistory) {
         super(sourceConfig, dataSourceDialect);
@@ -114,7 +119,9 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
         this.engineHistory = engineHistory;
         this.postgresValueConverterBuilder =
                 newPostgresValueConverterBuilder(
-                        getDbzConnectorConfig(), sourceConfig.getServerTimeZone());
+                        getDbzConnectorConfig(),
+                        "postgres-source-fetch-task-context",
+                        sourceConfig.getServerTimeZone());
     }
 
     @Override
@@ -128,10 +135,14 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
         this.topicSelector = PostgresTopicSelector.create(connectorConfig);
         final TypeRegistry typeRegistry = dataConnection.getTypeRegistry();
 
+        PostgresDefaultValueConverter defaultValueConverter =
+                dataConnection.getDefaultValueConverter();
+
         this.databaseSchema =
                 new PostgresSchema(
                         connectorConfig,
                         typeRegistry,
+                        defaultValueConverter,
                         topicSelector,
                         postgresValueConverterBuilder.build(typeRegistry));
 
@@ -144,6 +155,7 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
         this.offsetContext =
                 loadStartingOffsetState(
                         new PostgresOffsetContext.Loader(connectorConfig), sourceSplitBase);
+        this.partition = new PostgresPartition(connectorConfig.getLogicalName());
 
         // If in the snapshot read phase and enable exactly-once, the queue needs to be set to a
         // maximum size of `Integer.MAX_VALUE` (buffered a current snapshot all data). otherwise,
@@ -224,7 +236,18 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                             .build();
 
             this.dispatcher =
-                    new JdbcSourceEventDispatcher(
+                    new JdbcSourceEventDispatcher<>(
+                            connectorConfig,
+                            topicSelector,
+                            databaseSchema,
+                            queue,
+                            connectorConfig.getTableFilters().dataCollectionFilter(),
+                            DataChangeEvent::new,
+                            metadataProvider,
+                            schemaNameAdjuster);
+
+            this.pgEventDispatcher =
+                    new PostgresEventDispatcher<>(
                             connectorConfig,
                             topicSelector,
                             databaseSchema,
@@ -235,10 +258,10 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                             schemaNameAdjuster);
 
             this.snapshotChangeEventSourceMetrics =
-                    new DefaultChangeEventSourceMetricsFactory()
+                    new DefaultChangeEventSourceMetricsFactory<PostgresPartition>()
                             .getSnapshotMetrics(taskContext, queue, metadataProvider);
 
-            this.errorHandler = new PostgresErrorHandler(connectorConfig.getLogicalName(), queue);
+            this.errorHandler = new PostgresErrorHandler(connectorConfig, queue);
         } finally {
             previousContext.restore();
         }
@@ -288,7 +311,8 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
         return dataConnection;
     }
 
-    public SnapshotChangeEventSourceMetrics getSnapshotChangeEventSourceMetrics() {
+    public SnapshotChangeEventSourceMetrics<PostgresPartition>
+            getSnapshotChangeEventSourceMetrics() {
         return snapshotChangeEventSourceMetrics;
     }
 
@@ -300,6 +324,11 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
     @Override
     public PostgresOffsetContext getOffsetContext() {
         return offsetContext;
+    }
+
+    @Override
+    public PostgresPartition getPartition() {
+        return this.partition;
     }
 
     @Override
@@ -327,8 +356,12 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
     }
 
     @Override
-    public JdbcSourceEventDispatcher getDispatcher() {
+    public JdbcSourceEventDispatcher<PostgresPartition> getDispatcher() {
         return dispatcher;
+    }
+
+    public PostgresEventDispatcher<TableId> getPgEventDispatcher() {
+        return pgEventDispatcher;
     }
 
     @Override
@@ -377,7 +410,7 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
         ReplicationConnection replicationConnection = null;
         while (retryCount <= maxRetries) {
             try {
-                return taskContext.createReplicationConnection(doSnapshot);
+                return taskContext.createReplicationConnection(doSnapshot, this.dataConnection);
             } catch (SQLException ex) {
                 retryCount++;
                 if (retryCount > maxRetries) {

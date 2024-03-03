@@ -26,6 +26,7 @@ import org.slf4j.LoggerFactory;
 import io.debezium.config.Configuration;
 import io.debezium.connector.oracle.OracleConnection;
 import io.debezium.connector.oracle.Scn;
+import io.debezium.jdbc.JdbcConfiguration;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.RelationalTableFilters;
 import io.debezium.relational.TableId;
@@ -50,11 +51,15 @@ public class OracleConnectionUtils {
     private static final String SHOW_CURRENT_SCN = "SELECT CURRENT_SCN FROM V$DATABASE";
 
     /** Creates a new {@link OracleConnection}, but not open the connection. */
-    public static OracleConnection createOracleConnection(Configuration dbzConfiguration) {
-        Configuration configuration = dbzConfiguration.subset(DATABASE_CONFIG_PREFIX, true);
+    public static OracleConnection createOracleConnection(Configuration configuration) {
+        return createOracleConnection(JdbcConfiguration.adapt(configuration));
+    }
 
+    /** Creates a new {@link OracleConnection}, but not open the connection. */
+    public static OracleConnection createOracleConnection(JdbcConfiguration dbzConfiguration) {
+        Configuration configuration = dbzConfiguration.subset(DATABASE_CONFIG_PREFIX, true);
         return new OracleConnection(
-                configuration.isEmpty() ? dbzConfiguration : configuration,
+                configuration.isEmpty() ? dbzConfiguration : JdbcConfiguration.adapt(configuration),
                 OracleConnectionUtils.class::getClassLoader);
     }
 
@@ -84,14 +89,14 @@ public class OracleConnectionUtils {
     }
 
     public static List<TableId> listTables(
-            JdbcConnection jdbcConnection, String database, RelationalTableFilters tableFilters)
+            JdbcConnection jdbcConnection, RelationalTableFilters tableFilters)
             throws SQLException {
         final List<TableId> capturedTableIds = new ArrayList<>();
 
         Set<TableId> tableIdSet = new HashSet<>();
         String queryTablesSql =
                 "SELECT OWNER ,TABLE_NAME,TABLESPACE_NAME FROM ALL_TABLES \n"
-                        + "WHERE TABLESPACE_NAME IS NOT NULL AND TABLESPACE_NAME NOT IN ('SYSAUX')";
+                        + "WHERE TABLESPACE_NAME IS NOT NULL AND TABLESPACE_NAME NOT IN ('SYSTEM','SYSAUX') AND NESTED = 'NO' AND TABLE_NAME NOT IN (SELECT PARENT_TABLE_NAME FROM ALL_NESTED_TABLES)";
         try {
             jdbcConnection.query(
                     queryTablesSql,
@@ -99,7 +104,8 @@ public class OracleConnectionUtils {
                         while (rs.next()) {
                             String schemaName = rs.getString(1);
                             String tableName = rs.getString(2);
-                            TableId tableId = new TableId(database, schemaName, tableName);
+                            TableId tableId =
+                                    new TableId(jdbcConnection.database(), schemaName, tableName);
                             tableIdSet.add(tableId);
                         }
                     });

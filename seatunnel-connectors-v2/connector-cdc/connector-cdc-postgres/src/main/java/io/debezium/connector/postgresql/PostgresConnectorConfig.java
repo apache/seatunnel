@@ -35,6 +35,7 @@ import io.debezium.connector.AbstractSourceInfo;
 import io.debezium.connector.SourceInfoStructMaker;
 import io.debezium.connector.postgresql.connection.MessageDecoder;
 import io.debezium.connector.postgresql.connection.MessageDecoderContext;
+import io.debezium.connector.postgresql.connection.PostgresConnection;
 import io.debezium.connector.postgresql.connection.ReplicationConnection;
 import io.debezium.connector.postgresql.connection.pgoutput.PgOutputMessageDecoder;
 import io.debezium.connector.postgresql.connection.pgproto.PgProtoMessageDecoder;
@@ -45,7 +46,7 @@ import io.debezium.connector.postgresql.snapshot.InitialOnlySnapshotter;
 import io.debezium.connector.postgresql.snapshot.InitialSnapshotter;
 import io.debezium.connector.postgresql.snapshot.NeverSnapshotter;
 import io.debezium.connector.postgresql.spi.Snapshotter;
-import io.debezium.heartbeat.DatabaseHeartbeatImpl;
+import io.debezium.data.Envelope;
 import io.debezium.jdbc.JdbcConfiguration;
 import io.debezium.relational.ColumnFilterMode;
 import io.debezium.relational.RelationalDatabaseConnectorConfig;
@@ -55,12 +56,30 @@ import io.debezium.util.Strings;
 
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-/** The configuration properties for the {@link PostgresConnector} */
-@SuppressWarnings({"InnerTypeLast", "MagicNumber", "MethodName", "RegexpSinglelineJava"})
+/**
+ * Copied from Debezium 1.9.8.Final
+ *
+ * <p>Line 232 : change method {@link
+ * io.debezium.connector.postgresql.PostgresConnectorConfig.SnapshotMode#getSnapshotter} access
+ * modifier to public.
+ *
+ * <p>Line 1224 : change method {@link
+ * io.debezium.connector.postgresql.PostgresConnectorConfig#plugin} access modifier to public.
+ *
+ * <p>Line 1228 : change method {@link
+ * io.debezium.connector.postgresql.PostgresConnectorConfig#slotName} access modifier to public.
+ */
+
+/**
+ * The configuration properties for the {@link PostgresConnector}
+ *
+ * @author Horia Chiorean
+ */
 public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(PostgresConnectorConfig.class);
@@ -181,25 +200,25 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
     public enum SnapshotMode implements EnumeratedValue {
 
         /** Always perform a snapshot when starting. */
-        ALWAYS("always", c -> new AlwaysSnapshotter()),
+        ALWAYS("always", (c) -> new AlwaysSnapshotter()),
 
         /** Perform a snapshot only upon initial startup of a connector. */
-        INITIAL("initial", c -> new InitialSnapshotter()),
+        INITIAL("initial", (c) -> new InitialSnapshotter()),
 
         /** Never perform a snapshot and only receive logical changes. */
-        NEVER("never", c -> new NeverSnapshotter()),
+        NEVER("never", (c) -> new NeverSnapshotter()),
 
         /** Perform a snapshot and then stop before attempting to receive any logical changes. */
-        INITIAL_ONLY("initial_only", c -> new InitialOnlySnapshotter()),
+        INITIAL_ONLY("initial_only", (c) -> new InitialOnlySnapshotter()),
 
         /** Perform an exported snapshot */
         @Deprecated
-        EXPORTED("exported", c -> new InitialSnapshotter()),
+        EXPORTED("exported", (c) -> new InitialSnapshotter()),
 
         /** Inject a custom snapshotter, which allows for more control over snapshots. */
         CUSTOM(
                 "custom",
-                c -> {
+                (c) -> {
                     return c.getInstance(SNAPSHOT_MODE_CLASS, Snapshotter.class);
                 });
 
@@ -346,8 +365,9 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
     public enum LogicalDecoder implements EnumeratedValue {
         PGOUTPUT("pgoutput") {
             @Override
-            public MessageDecoder messageDecoder(MessageDecoderContext config) {
-                return new PgOutputMessageDecoder(config);
+            public MessageDecoder messageDecoder(
+                    MessageDecoderContext config, PostgresConnection connection) {
+                return new PgOutputMessageDecoder(config, connection);
             }
 
             @Override
@@ -359,10 +379,16 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
             public boolean supportsTruncate() {
                 return true;
             }
+
+            @Override
+            public boolean supportsLogicalDecodingMessage() {
+                return true;
+            }
         },
         DECODERBUFS("decoderbufs") {
             @Override
-            public MessageDecoder messageDecoder(MessageDecoderContext config) {
+            public MessageDecoder messageDecoder(
+                    MessageDecoderContext config, PostgresConnection connection) {
                 return new PgProtoMessageDecoder();
             }
 
@@ -375,10 +401,17 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
             public boolean supportsTruncate() {
                 return false;
             }
+
+            @Override
+            public boolean supportsLogicalDecodingMessage() {
+                return false;
+            }
         },
+        @Deprecated
         WAL2JSON_STREAMING("wal2json_streaming") {
             @Override
-            public MessageDecoder messageDecoder(MessageDecoderContext config) {
+            public MessageDecoder messageDecoder(
+                    MessageDecoderContext config, PostgresConnection connection) {
                 return new StreamingWal2JsonMessageDecoder();
             }
 
@@ -401,10 +434,17 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
             public boolean sendsNullToastedValuesInOld() {
                 return false;
             }
+
+            @Override
+            public boolean supportsLogicalDecodingMessage() {
+                return false;
+            }
         },
+        @Deprecated
         WAL2JSON_RDS_STREAMING("wal2json_rds_streaming") {
             @Override
-            public MessageDecoder messageDecoder(MessageDecoderContext config) {
+            public MessageDecoder messageDecoder(
+                    MessageDecoderContext config, PostgresConnection connection) {
                 return new StreamingWal2JsonMessageDecoder();
             }
 
@@ -432,10 +472,17 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
             public boolean sendsNullToastedValuesInOld() {
                 return false;
             }
+
+            @Override
+            public boolean supportsLogicalDecodingMessage() {
+                return false;
+            }
         },
+        @Deprecated
         WAL2JSON("wal2json") {
             @Override
-            public MessageDecoder messageDecoder(MessageDecoderContext config) {
+            public MessageDecoder messageDecoder(
+                    MessageDecoderContext config, PostgresConnection connection) {
                 return new NonStreamingWal2JsonMessageDecoder();
             }
 
@@ -458,10 +505,17 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
             public boolean sendsNullToastedValuesInOld() {
                 return false;
             }
+
+            @Override
+            public boolean supportsLogicalDecodingMessage() {
+                return true;
+            }
         },
+        @Deprecated
         WAL2JSON_RDS("wal2json_rds") {
             @Override
-            public MessageDecoder messageDecoder(MessageDecoderContext config) {
+            public MessageDecoder messageDecoder(
+                    MessageDecoderContext config, PostgresConnection connection) {
                 return new NonStreamingWal2JsonMessageDecoder();
             }
 
@@ -487,6 +541,11 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
 
             @Override
             public boolean sendsNullToastedValuesInOld() {
+                return false;
+            }
+
+            @Override
+            public boolean supportsLogicalDecodingMessage() {
                 return false;
             }
         };
@@ -497,7 +556,8 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
             this.decoderName = decoderName;
         }
 
-        public abstract MessageDecoder messageDecoder(MessageDecoderContext config);
+        public abstract MessageDecoder messageDecoder(
+                MessageDecoderContext config, PostgresConnection connection);
 
         public boolean forceRds() {
             return false;
@@ -523,9 +583,16 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
         public abstract String getPostgresPluginName();
 
         public abstract boolean supportsTruncate();
+
+        public abstract boolean supportsLogicalDecodingMessage();
     }
 
-    /** The set of predefined TruncateHandlingMode options or aliases */
+    /**
+     * The set of predefined TruncateHandlingMode options or aliases
+     *
+     * @deprecated use skipped operations instead.
+     */
+    @Deprecated
     public enum TruncateHandlingMode implements EnumeratedValue {
 
         /** Skip TRUNCATE messages */
@@ -620,23 +687,18 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
     public static final Field PLUGIN_NAME =
             Field.create("plugin.name")
                     .withDisplayName("Plugin")
+                    .withGroup(
+                            Field.createGroupEntry(Field.Group.CONNECTION_ADVANCED_REPLICATION, 0))
                     .withEnum(LogicalDecoder.class, LogicalDecoder.DECODERBUFS)
                     .withWidth(Width.MEDIUM)
                     .withImportance(Importance.MEDIUM)
+                    .withValidation(PostgresConnectorConfig::validatePluginName)
                     .withDescription(
                             "The name of the Postgres logical decoding plugin installed on the server. "
                                     + "Supported values are '"
                                     + LogicalDecoder.DECODERBUFS.getValue()
-                                    + "', '"
-                                    + LogicalDecoder.WAL2JSON.getValue()
-                                    + "', '"
-                                    + LogicalDecoder.PGOUTPUT.getValue()
-                                    + "', '"
-                                    + LogicalDecoder.WAL2JSON_STREAMING.getValue()
-                                    + "', '"
-                                    + LogicalDecoder.WAL2JSON_RDS.getValue()
                                     + "' and '"
-                                    + LogicalDecoder.WAL2JSON_RDS_STREAMING.getValue()
+                                    + LogicalDecoder.PGOUTPUT.getValue()
                                     + "'. "
                                     + "Defaults to '"
                                     + LogicalDecoder.DECODERBUFS.getValue()
@@ -646,6 +708,8 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
             Field.create("slot.name")
                     .withDisplayName("Slot")
                     .withType(Type.STRING)
+                    .withGroup(
+                            Field.createGroupEntry(Field.Group.CONNECTION_ADVANCED_REPLICATION, 1))
                     .withWidth(Width.MEDIUM)
                     .withImportance(Importance.MEDIUM)
                     .withDefault(ReplicationConnection.Builder.DEFAULT_SLOT_NAME)
@@ -658,6 +722,8 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
             Field.create("slot.drop.on.stop")
                     .withDisplayName("Drop slot on stop")
                     .withType(Type.BOOLEAN)
+                    .withGroup(
+                            Field.createGroupEntry(Field.Group.CONNECTION_ADVANCED_REPLICATION, 3))
                     .withDefault(false)
                     .withImportance(Importance.MEDIUM)
                     .withDescription(
@@ -668,6 +734,8 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
             Field.create("publication.name")
                     .withDisplayName("Publication")
                     .withType(Type.STRING)
+                    .withGroup(
+                            Field.createGroupEntry(Field.Group.CONNECTION_ADVANCED_REPLICATION, 8))
                     .withWidth(Width.MEDIUM)
                     .withImportance(Importance.MEDIUM)
                     .withDefault(ReplicationConnection.Builder.DEFAULT_PUBLICATION_NAME)
@@ -739,6 +807,8 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
             Field.create("publication.autocreate.mode")
                     .withDisplayName("Publication Auto Create Mode")
                     .withEnum(AutoCreateMode.class, AutoCreateMode.FILTERED)
+                    .withGroup(
+                            Field.createGroupEntry(Field.Group.CONNECTION_ADVANCED_REPLICATION, 9))
                     .withWidth(Width.MEDIUM)
                     .withImportance(Importance.MEDIUM)
                     .withDescription(
@@ -759,6 +829,8 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
                     .withDisplayName(
                             "Optional parameters to pass to the logical decoder when the stream is started.")
                     .withType(Type.STRING)
+                    .withGroup(
+                            Field.createGroupEntry(Field.Group.CONNECTION_ADVANCED_REPLICATION, 2))
                     .withWidth(Width.LONG)
                     .withImportance(Importance.LOW)
                     .withDescription(
@@ -768,6 +840,8 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
             Field.create("slot.max.retries")
                     .withDisplayName("Retry count")
                     .withType(Type.INT)
+                    .withGroup(
+                            Field.createGroupEntry(Field.Group.CONNECTION_ADVANCED_REPLICATION, 4))
                     .withImportance(Importance.LOW)
                     .withDefault(DEFAULT_MAX_RETRIES)
                     .withValidation(Field::isInteger)
@@ -778,6 +852,8 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
             Field.create("slot.retry.delay.ms")
                     .withDisplayName("Retry delay")
                     .withType(Type.LONG)
+                    .withGroup(
+                            Field.createGroupEntry(Field.Group.CONNECTION_ADVANCED_REPLICATION, 5))
                     .withImportance(Importance.LOW)
                     .withDefault(Duration.ofSeconds(10).toMillis())
                     .withValidation(Field::isInteger)
@@ -788,6 +864,7 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
             Field.create(DATABASE_CONFIG_PREFIX + JdbcConfiguration.ON_CONNECT_STATEMENTS)
                     .withDisplayName("Initial statements")
                     .withType(Type.STRING)
+                    .withGroup(Field.createGroupEntry(Field.Group.CONNECTION_ADVANCED, 1))
                     .withWidth(Width.LONG)
                     .withImportance(Importance.LOW)
                     .withDescription(
@@ -799,6 +876,7 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
     public static final Field SSL_MODE =
             Field.create(DATABASE_CONFIG_PREFIX + "sslmode")
                     .withDisplayName("SSL mode")
+                    .withGroup(Field.createGroupEntry(Field.Group.CONNECTION_ADVANCED_SSL, 0))
                     .withEnum(SecureConnectionMode.class, SecureConnectionMode.DISABLED)
                     .withWidth(Width.MEDIUM)
                     .withImportance(Importance.MEDIUM)
@@ -814,6 +892,7 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
             Field.create(DATABASE_CONFIG_PREFIX + "sslcert")
                     .withDisplayName("SSL Client Certificate")
                     .withType(Type.STRING)
+                    .withGroup(Field.createGroupEntry(Field.Group.CONNECTION_ADVANCED_SSL, 1))
                     .withWidth(Width.LONG)
                     .withImportance(Importance.MEDIUM)
                     .withDescription(
@@ -823,6 +902,7 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
             Field.create(DATABASE_CONFIG_PREFIX + "sslkey")
                     .withDisplayName("SSL Client Key")
                     .withType(Type.STRING)
+                    .withGroup(Field.createGroupEntry(Field.Group.CONNECTION_ADVANCED_SSL, 4))
                     .withWidth(Width.LONG)
                     .withImportance(Importance.MEDIUM)
                     .withDescription(
@@ -832,6 +912,7 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
             Field.create(DATABASE_CONFIG_PREFIX + "sslpassword")
                     .withDisplayName("SSL Client Key Password")
                     .withType(Type.PASSWORD)
+                    .withGroup(Field.createGroupEntry(Field.Group.CONNECTION_ADVANCED_SSL, 2))
                     .withWidth(Width.MEDIUM)
                     .withImportance(Importance.MEDIUM)
                     .withDescription(
@@ -841,6 +922,7 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
             Field.create(DATABASE_CONFIG_PREFIX + "sslrootcert")
                     .withDisplayName("SSL Root Certificate")
                     .withType(Type.STRING)
+                    .withGroup(Field.createGroupEntry(Field.Group.CONNECTION_ADVANCED_SSL, 3))
                     .withWidth(Width.LONG)
                     .withImportance(Importance.MEDIUM)
                     .withDescription(
@@ -850,6 +932,7 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
             Field.create(DATABASE_CONFIG_PREFIX + "sslfactory")
                     .withDisplayName("SSL Root Certificate")
                     .withType(Type.STRING)
+                    .withGroup(Field.createGroupEntry(Field.Group.CONNECTION_ADVANCED_SSL, 5))
                     .withWidth(Width.LONG)
                     .withImportance(Importance.MEDIUM)
                     .withDescription(
@@ -858,6 +941,7 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
     public static final Field SNAPSHOT_MODE =
             Field.create("snapshot.mode")
                     .withDisplayName("Snapshot mode")
+                    .withGroup(Field.createGroupEntry(Field.Group.CONNECTOR_SNAPSHOT, 0))
                     .withEnum(SnapshotMode.class, SnapshotMode.INITIAL)
                     .withWidth(Width.SHORT)
                     .withImportance(Importance.MEDIUM)
@@ -887,6 +971,7 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
             Field.create("snapshot.custom.class")
                     .withDisplayName("Snapshot Mode Custom Class")
                     .withType(Type.STRING)
+                    .withGroup(Field.createGroupEntry(Field.Group.CONNECTOR_SNAPSHOT, 9))
                     .withWidth(Width.MEDIUM)
                     .withImportance(Importance.MEDIUM)
                     .withValidation(
@@ -905,21 +990,60 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
                             "When 'snapshot.mode' is set as custom, this setting must be set to specify a fully qualified class name to load (via the default class loader)."
                                     + "This class must implement the 'Snapshotter' interface and is called on each app boot to determine whether to do a snapshot and how to build queries.");
 
+    /**
+     * A comma-separated list of regular expressions that match the prefix of logical decoding
+     * messages to be excluded from monitoring. Must not be used with {@link
+     * #LOGICAL_DECODING_MESSAGE_PREFIX_INCLUDE_LIST}
+     */
+    public static final Field LOGICAL_DECODING_MESSAGE_PREFIX_EXCLUDE_LIST =
+            Field.create("message.prefix.exclude.list")
+                    .withDisplayName("Exclude Logical Decoding Message Prefixes")
+                    .withType(Type.LIST)
+                    .withGroup(Field.createGroupEntry(Field.Group.CONNECTOR, 25))
+                    .withWidth(Width.LONG)
+                    .withImportance(Importance.MEDIUM)
+                    .withValidation(
+                            Field::isListOfRegex,
+                            PostgresConnectorConfig::validateLogicalDecodingMessageExcludeList)
+                    .withDescription(
+                            "A comma-separated list of regular expressions that match the logical decoding message prefixes to be excluded from monitoring.");
+
+    /**
+     * A comma-separated list of regular expressions that match the prefix of logical decoding
+     * messages to be monitored. Must not be used with {@link
+     * #LOGICAL_DECODING_MESSAGE_PREFIX_EXCLUDE_LIST}
+     */
+    public static final Field LOGICAL_DECODING_MESSAGE_PREFIX_INCLUDE_LIST =
+            Field.create("message.prefix.include.list")
+                    .withDisplayName("Include Logical Decoding Message Prefixes")
+                    .withType(Type.LIST)
+                    .withGroup(Field.createGroupEntry(Field.Group.CONNECTOR, 24))
+                    .withWidth(Width.LONG)
+                    .withImportance(Importance.MEDIUM)
+                    .withValidation(Field::isListOfRegex)
+                    .withDescription(
+                            "A comma-separated list of regular expressions that match the logical decoding message prefixes to be monitored. All prefixes are monitored by default.");
+
+    /** @deprecated use skipped operations instead */
+    @Deprecated
     public static final Field TRUNCATE_HANDLING_MODE =
             Field.create("truncate.handling.mode")
                     .withDisplayName("Truncate handling mode")
+                    .withGroup(Field.createGroupEntry(Field.Group.CONNECTOR, 23))
                     .withEnum(TruncateHandlingMode.class, TruncateHandlingMode.SKIP)
                     .withWidth(Width.MEDIUM)
                     .withImportance(Importance.MEDIUM)
                     .withValidation(PostgresConnectorConfig::validateTruncateHandlingMode)
                     .withDescription(
-                            "Specify how TRUNCATE operations are handled for change events (supported only on pg11+ pgoutput plugin), including: "
+                            "(Deprecated) Specify how TRUNCATE operations are handled for change events (supported only on pg11+ pgoutput plugin), including: "
                                     + "'skip' to skip / ignore TRUNCATE events (default), "
-                                    + "'include' to handle and include TRUNCATE events");
+                                    + "'include' to handle and include TRUNCATE events. "
+                                    + "Use 'skipped.operations' instead.");
 
     public static final Field HSTORE_HANDLING_MODE =
             Field.create("hstore.handling.mode")
                     .withDisplayName("HStore Handling")
+                    .withGroup(Field.createGroupEntry(Field.Group.CONNECTOR, 22))
                     .withEnum(HStoreHandlingMode.class, HStoreHandlingMode.JSON)
                     .withWidth(Width.MEDIUM)
                     .withImportance(Importance.LOW)
@@ -931,6 +1055,7 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
     public static final Field INTERVAL_HANDLING_MODE =
             Field.create("interval.handling.mode")
                     .withDisplayName("Interval Handling")
+                    .withGroup(Field.createGroupEntry(Field.Group.CONNECTOR, 21))
                     .withEnum(IntervalHandlingMode.class, IntervalHandlingMode.NUMERIC)
                     .withWidth(Width.MEDIUM)
                     .withImportance(Importance.LOW)
@@ -943,6 +1068,8 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
             Field.create("status.update.interval.ms")
                     .withDisplayName("Status update interval (ms)")
                     .withType(Type.INT) // Postgres doesn't accept long for this value
+                    .withGroup(
+                            Field.createGroupEntry(Field.Group.CONNECTION_ADVANCED_REPLICATION, 6))
                     .withDefault(10_000)
                     .withWidth(Width.SHORT)
                     .withImportance(Importance.MEDIUM)
@@ -954,6 +1081,7 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
             Field.create(DATABASE_CONFIG_PREFIX + "tcpKeepAlive")
                     .withDisplayName("TCP keep-alive probe")
                     .withType(Type.BOOLEAN)
+                    .withGroup(Field.createGroupEntry(Field.Group.CONNECTION_ADVANCED, 0))
                     .withDefault(true)
                     .withWidth(Width.SHORT)
                     .withImportance(Importance.MEDIUM)
@@ -965,6 +1093,7 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
             Field.create("include.unknown.datatypes")
                     .withDisplayName("Include unknown datatypes")
                     .withType(Type.BOOLEAN)
+                    .withGroup(Field.createGroupEntry(Field.Group.CONNECTOR_ADVANCED, 1))
                     .withDefault(false)
                     .withWidth(Width.SHORT)
                     .withImportance(Importance.MEDIUM)
@@ -976,6 +1105,7 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
     public static final Field SCHEMA_REFRESH_MODE =
             Field.create("schema.refresh.mode")
                     .withDisplayName("Schema refresh mode")
+                    .withGroup(Field.createGroupEntry(Field.Group.CONNECTOR_ADVANCED, 0))
                     .withEnum(SchemaRefreshMode.class, SchemaRefreshMode.COLUMNS_DIFF)
                     .withWidth(Width.SHORT)
                     .withImportance(Importance.MEDIUM)
@@ -993,6 +1123,8 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
             Field.create("xmin.fetch.interval.ms")
                     .withDisplayName("Xmin fetch interval (ms)")
                     .withType(Type.LONG)
+                    .withGroup(
+                            Field.createGroupEntry(Field.Group.CONNECTION_ADVANCED_REPLICATION, 7))
                     .withWidth(Width.SHORT)
                     .withDefault(0L)
                     .withImportance(Importance.MEDIUM)
@@ -1004,19 +1136,54 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
                                     + "The default is set to 0 ms, which disables tracking xmin.")
                     .withValidation(Field::isNonNegativeLong);
 
+    @Deprecated
     public static final Field TOASTED_VALUE_PLACEHOLDER =
             Field.create("toasted.value.placeholder")
                     .withDisplayName("Toasted value placeholder")
                     .withType(Type.STRING)
+                    .withGroup(Field.createGroupEntry(Field.Group.CONNECTOR_ADVANCED, 2))
                     .withWidth(Width.MEDIUM)
-                    .withDefault("__debezium_unavailable_value")
+                    .withDefault(DEFAULT_UNAVAILABLE_VALUE_PLACEHOLDER)
                     .withImportance(Importance.MEDIUM)
+                    .withValidation(PostgresConnectorConfig::validateToastedValuePlaceholder)
                     .withDescription(
                             "Specify the constant that will be provided by Debezium to indicate that "
                                     + "the original value is a toasted value not provided by the database. "
-                                    + "If starts with 'hex:' prefix it is expected that the rest of the string repesents hexadecimally encoded octets.");
+                                    + "If starts with 'hex:' prefix it is expected that the rest of the string represents hexadecimal encoded octets."
+                                    + "Deprecated, use 'unavailable.value.placeholder' instead.");
+
+    public static final Field UNAVAILABLE_VALUE_PLACEHOLDER =
+            RelationalDatabaseConnectorConfig.UNAVAILABLE_VALUE_PLACEHOLDER.withDescription(
+                    "Specify the constant that will be provided by Debezium to indicate that "
+                            + "the original value is a toasted value not provided by the database. "
+                            + "If starts with 'hex:' prefix it is expected that the rest of the string represents hexadecimal encoded octets.");
+
+    public static final Field MONEY_FRACTION_DIGITS =
+            Field.create("money.fraction.digits")
+                    .withDisplayName("Money fraction digits")
+                    .withType(Type.SHORT)
+                    .withGroup(Field.createGroupEntry(Field.Group.CONNECTOR, 1))
+                    .withWidth(Width.MEDIUM)
+                    .withImportance(Importance.LOW)
+                    .withDefault(2)
+                    .withDescription(
+                            "Number of fractional digits when money type is converted to 'precise' decimal number.");
+
+    // With the deprecation of TruncateHandlingMode and an attempt to fold that into skipped
+    // operations,
+    // the PostgreSQL flavor of skipped operations will skip TRUNCATE by default to align with
+    // legacy
+    // behavior of TruncateHandlingMode. This way we can emit boot-up warnings in preparation of the
+    // overall behavior change in a future release.
+    public static final Field SKIPPED_OPERATIONS =
+            CommonConnectorConfig.SKIPPED_OPERATIONS
+                    .withDefault("t")
+                    .withValidation(
+                            CommonConnectorConfig::validateSkippedOperation,
+                            PostgresConnectorConfig::validateSkippedOperations);
 
     private final TruncateHandlingMode truncateHandlingMode;
+    private final LogicalDecodingMessageFilter logicalDecodingMessageFilter;
     private final HStoreHandlingMode hStoreHandlingMode;
     private final IntervalHandlingMode intervalHandlingMode;
     private final SnapshotMode snapshotMode;
@@ -1034,6 +1201,10 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
         this.truncateHandlingMode =
                 TruncateHandlingMode.parse(
                         config.getString(PostgresConnectorConfig.TRUNCATE_HANDLING_MODE));
+        this.logicalDecodingMessageFilter =
+                new LogicalDecodingMessageFilter(
+                        config.getString(LOGICAL_DECODING_MESSAGE_PREFIX_INCLUDE_LIST),
+                        config.getString(LOGICAL_DECODING_MESSAGE_PREFIX_EXCLUDE_LIST));
         String hstoreHandlingModeStr =
                 config.getString(PostgresConnectorConfig.HSTORE_HANDLING_MODE);
         this.hStoreHandlingMode = HStoreHandlingMode.parse(hstoreHandlingModeStr);
@@ -1076,6 +1247,17 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
         return getConfig().getString(PUBLICATION_NAME);
     }
 
+    @Override
+    public EnumSet<Envelope.Operation> getSkippedOperations() {
+        EnumSet<Envelope.Operation> skippedOperations = super.getSkippedOperations();
+        // If user specified TruncateHandlingMode.SKIP we merge that with the existing skipped
+        // operations
+        if (TruncateHandlingMode.SKIP.equals(truncateHandlingMode)) {
+            skippedOperations.add(Envelope.Operation.TRUNCATE);
+        }
+        return skippedOperations;
+    }
+
     protected AutoCreateMode publicationAutocreateMode() {
         return AutoCreateMode.parse(getConfig().getString(PUBLICATION_AUTOCREATE_MODE));
     }
@@ -1097,8 +1279,8 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
                 getConfig().getLong(PostgresConnectorConfig.STATUS_UPDATE_INTERVAL_MS));
     }
 
-    public TruncateHandlingMode truncateHandlingMode() {
-        return truncateHandlingMode;
+    public LogicalDecodingMessageFilter getMessageFilter() {
+        return logicalDecodingMessageFilter;
     }
 
     protected HStoreHandlingMode hStoreHandlingMode() {
@@ -1129,17 +1311,25 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
         return Duration.ofMillis(getConfig().getLong(PostgresConnectorConfig.XMIN_FETCH_INTERVAL));
     }
 
-    protected byte[] toastedValuePlaceholder() {
-        final String placeholder = getConfig().getString(TOASTED_VALUE_PLACEHOLDER);
+    @Override
+    public byte[] getUnavailableValuePlaceholder() {
+        String placeholder = getConfig().getString(TOASTED_VALUE_PLACEHOLDER);
+        if (Strings.isNullOrEmpty(placeholder)) {
+            placeholder = getConfig().getString(UNAVAILABLE_VALUE_PLACEHOLDER);
+        }
         if (placeholder.startsWith("hex:")) {
             return Strings.hexStringToByteArray(placeholder.substring(4));
         }
         return placeholder.getBytes();
     }
 
+    protected int moneyFractionDigits() {
+        return getConfig().getInteger(MONEY_FRACTION_DIGITS);
+    }
+
     @Override
     protected SourceInfoStructMaker<? extends AbstractSourceInfo> getSourceInfoStructMaker(
-            CommonConnectorConfig.Version version) {
+            Version version) {
         switch (version) {
             case V1:
                 return new LegacyV1PostgresSourceInfoStructMaker(
@@ -1153,6 +1343,7 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
             RelationalDatabaseConnectorConfig.CONFIG_DEFINITION
                     .edit()
                     .name("Postgres")
+                    .excluding(CommonConnectorConfig.SKIPPED_OPERATIONS)
                     .type(
                             HOSTNAME,
                             PORT,
@@ -1176,19 +1367,24 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
                             SSL_SOCKET_FACTORY,
                             STATUS_UPDATE_INTERVAL_MS,
                             TCP_KEEPALIVE,
-                            XMIN_FETCH_INTERVAL)
-                    .events(
-                            INCLUDE_UNKNOWN_DATATYPES,
-                            DatabaseHeartbeatImpl.HEARTBEAT_ACTION_QUERY,
-                            TOASTED_VALUE_PLACEHOLDER)
+                            XMIN_FETCH_INTERVAL,
+                            // Use this connector's implementation rather than common connector's
+                            // flavor
+                            SKIPPED_OPERATIONS)
+                    .events(INCLUDE_UNKNOWN_DATATYPES, TOASTED_VALUE_PLACEHOLDER)
                     .connector(
                             SNAPSHOT_MODE,
                             SNAPSHOT_MODE_CLASS,
                             HSTORE_HANDLING_MODE,
                             BINARY_HANDLING_MODE,
+                            SCHEMA_NAME_ADJUSTMENT_MODE,
                             INTERVAL_HANDLING_MODE,
                             SCHEMA_REFRESH_MODE,
-                            INCREMENTAL_SNAPSHOT_CHUNK_SIZE)
+                            TRUNCATE_HANDLING_MODE,
+                            INCREMENTAL_SNAPSHOT_CHUNK_SIZE,
+                            UNAVAILABLE_VALUE_PLACEHOLDER,
+                            LOGICAL_DECODING_MESSAGE_PREFIX_INCLUDE_LIST,
+                            LOGICAL_DECODING_MESSAGE_PREFIX_EXCLUDE_LIST)
                     .excluding(INCLUDE_SCHEMA_CHANGES)
                     .create();
 
@@ -1237,8 +1433,8 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
                 return errors;
             }
             if (truncateHandlingMode == TruncateHandlingMode.INCLUDE) {
-                LogicalDecoder logicalDecoder =
-                        config.getInstance(PLUGIN_NAME, LogicalDecoder.class);
+                final LogicalDecoder logicalDecoder =
+                        LogicalDecoder.parse(config.getString(PLUGIN_NAME));
                 if (!logicalDecoder.supportsTruncate()) {
                     String message =
                             String.format(
@@ -1251,8 +1447,100 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
                     errors++;
                 }
             }
+            if (errors == 0) {
+                LOGGER.warn(
+                        "Configuration property '{}' is deprecated and will be removed in future versions. Please use '{}' instead.",
+                        TRUNCATE_HANDLING_MODE.name(),
+                        SKIPPED_OPERATIONS.name());
+            }
         }
         return errors;
+    }
+
+    private static int validateSkippedOperations(
+            Configuration config, Field field, Field.ValidationOutput problems) {
+        // We explicitly use this syntax to get the raw user-supplied value without defaults.
+        // We need to know whether the value is actually supplied without having the default value
+        // being enforced.
+        final String value = config.getString(field.name(), (String) null);
+
+        boolean isTruncateSkipped = false;
+        if (value != null) {
+            // A value is provided, verify whether "t" (truncate) is part of the user-supplied value
+            final String[] operations = value.split(",");
+            for (String operation : operations) {
+                if ("t".equals(operation)) {
+                    isTruncateSkipped = true;
+                    break;
+                }
+            }
+        }
+
+        if (!isTruncateSkipped) {
+            // The user did not explicitly configure skipped.operations, or it is configured but the
+            // user did
+            // not include the "t" in their explicit configuration value.
+            final LogicalDecoder logicalDecoder =
+                    LogicalDecoder.parse(config.getString(PLUGIN_NAME));
+            if (!logicalDecoder.supportsTruncate()) {
+                // if the decoder doesn't support truncate, there is nothing to warn about
+                return 0;
+            }
+            final TruncateHandlingMode truncateHandlingMode =
+                    TruncateHandlingMode.parse(config.getString(TRUNCATE_HANDLING_MODE));
+            if (truncateHandlingMode == TruncateHandlingMode.SKIP) {
+                // the user is allowing the legacy configuration option's skip default to be used.
+                // We want to warn about this configuration pair being changed in a future version,
+                // urging the user
+                // to explicitly configure skipped.operations if they want to maintain skipped
+                // TRUNCATEs.
+                LOGGER.warn(
+                        "Configuration property '{}' is deprecated and will be removed soon. "
+                                + "If you wish to retain skipped truncate functionality, please configure '{}' with \"{}\".",
+                        TRUNCATE_HANDLING_MODE.name(),
+                        SKIPPED_OPERATIONS.name(),
+                        "t");
+            }
+        }
+        return 0;
+    }
+
+    private static int validateToastedValuePlaceholder(
+            Configuration config, Field field, Field.ValidationOutput problems) {
+        final String placeholder = config.getString(TOASTED_VALUE_PLACEHOLDER);
+        if (!Strings.isNullOrEmpty(placeholder)) {
+            LOGGER.warn(
+                    "Configuration property '{}' is deprecated and will be removed in future versions. Please use '{}' instead.",
+                    TOASTED_VALUE_PLACEHOLDER.name(),
+                    UNAVAILABLE_VALUE_PLACEHOLDER.name());
+        }
+        return 0;
+    }
+
+    private static int validatePluginName(
+            Configuration config, Field field, Field.ValidationOutput problems) {
+        final String pluginName = config.getString(PLUGIN_NAME);
+        if (!Strings.isNullOrEmpty(pluginName) && pluginName.startsWith("wal2json")) {
+            LOGGER.warn(
+                    "Logical decoder '{}' is deprecated and will be removed in future versions",
+                    pluginName);
+        }
+        return 0;
+    }
+
+    private static int validateLogicalDecodingMessageExcludeList(
+            Configuration config, Field field, Field.ValidationOutput problems) {
+        String includeList = config.getString(LOGICAL_DECODING_MESSAGE_PREFIX_INCLUDE_LIST);
+        String excludeList = config.getString(LOGICAL_DECODING_MESSAGE_PREFIX_EXCLUDE_LIST);
+
+        if (includeList != null && excludeList != null) {
+            problems.accept(
+                    LOGICAL_DECODING_MESSAGE_PREFIX_EXCLUDE_LIST,
+                    excludeList,
+                    "\"logical_decoding_message.prefix.include.list\" is already specified");
+            return 1;
+        }
+        return 0;
     }
 
     @Override
@@ -1268,10 +1556,17 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
     private static class SystemTablesPredicate implements TableFilter {
         protected static final List<String> SYSTEM_SCHEMAS =
                 Arrays.asList("pg_catalog", "information_schema");
+        // these are tables that may be placed in the user's schema but are system tables. This
+        // typically includes modules
+        // that install system tables such as the GEO module
+        protected static final List<String> SYSTEM_TABLES = Arrays.asList("spatial_ref_sys");
+        protected static final String TEMP_TABLE_SCHEMA_PREFIX = "pg_temp";
 
         @Override
         public boolean isIncluded(TableId t) {
-            return !SYSTEM_SCHEMAS.contains(t.schema().toLowerCase());
+            return !SYSTEM_SCHEMAS.contains(t.schema().toLowerCase())
+                    && !SYSTEM_TABLES.contains(t.table().toLowerCase())
+                    && !t.schema().startsWith(TEMP_TABLE_SCHEMA_PREFIX);
         }
     }
 }

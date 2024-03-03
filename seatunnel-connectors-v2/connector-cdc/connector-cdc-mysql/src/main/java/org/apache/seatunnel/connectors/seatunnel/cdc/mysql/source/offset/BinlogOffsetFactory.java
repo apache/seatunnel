@@ -24,6 +24,7 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceCon
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlConnectionUtils;
 
+import io.debezium.connector.mysql.MySqlPartition;
 import io.debezium.jdbc.JdbcConnection;
 
 import java.util.Map;
@@ -33,10 +34,10 @@ public class BinlogOffsetFactory extends OffsetFactory {
 
     private final MySqlSourceConfig sourceConfig;
 
-    private final JdbcDataSourceDialect dialect;
+    private final JdbcDataSourceDialect<MySqlPartition> dialect;
 
     public BinlogOffsetFactory(
-            MySqlSourceConfigFactory configFactory, JdbcDataSourceDialect dialect) {
+            MySqlSourceConfigFactory configFactory, JdbcDataSourceDialect<MySqlPartition> dialect) {
         this.sourceConfig = configFactory.create(0);
         this.dialect = dialect;
     }

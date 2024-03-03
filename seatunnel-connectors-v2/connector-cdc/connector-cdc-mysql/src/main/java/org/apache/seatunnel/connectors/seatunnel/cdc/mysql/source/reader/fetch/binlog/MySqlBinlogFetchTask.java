@@ -34,6 +34,7 @@ import io.debezium.DebeziumException;
 import io.debezium.connector.mysql.MySqlConnection;
 import io.debezium.connector.mysql.MySqlConnectorConfig;
 import io.debezium.connector.mysql.MySqlOffsetContext;
+import io.debezium.connector.mysql.MySqlPartition;
 import io.debezium.connector.mysql.MySqlStreamingChangeEventSource;
 import io.debezium.connector.mysql.MySqlStreamingChangeEventSourceMetrics;
 import io.debezium.connector.mysql.MySqlTaskContext;
@@ -73,7 +74,9 @@ public class MySqlBinlogFetchTask implements FetchTask<SourceSplitBase> {
                 new BinlogSplitChangeEventSourceContext();
 
         mySqlStreamingChangeEventSource.execute(
-                changeEventSourceContext, sourceFetchContext.getOffsetContext());
+                changeEventSourceContext,
+                sourceFetchContext.getPartition(),
+                sourceFetchContext.getOffsetContext());
     }
 
     @Override
@@ -100,7 +103,7 @@ public class MySqlBinlogFetchTask implements FetchTask<SourceSplitBase> {
         private static final Logger LOG = LoggerFactory.getLogger(MySqlBinlogSplitReadTask.class);
         private final IncrementalSplit binlogSplit;
         private final MySqlOffsetContext offsetContext;
-        private final JdbcSourceEventDispatcher dispatcher;
+        private final JdbcSourceEventDispatcher<MySqlPartition> dispatcher;
         private final ErrorHandler errorHandler;
         private ChangeEventSourceContext context;
 
@@ -108,7 +111,7 @@ public class MySqlBinlogFetchTask implements FetchTask<SourceSplitBase> {
                 MySqlConnectorConfig connectorConfig,
                 MySqlOffsetContext offsetContext,
                 MySqlConnection connection,
-                JdbcSourceEventDispatcher dispatcher,
+                JdbcSourceEventDispatcher<MySqlPartition> dispatcher,
                 ErrorHandler errorHandler,
                 MySqlTaskContext taskContext,
                 MySqlStreamingChangeEventSourceMetrics metrics,
@@ -128,15 +131,19 @@ public class MySqlBinlogFetchTask implements FetchTask<SourceSplitBase> {
         }
 
         @Override
-        public void execute(ChangeEventSourceContext context, MySqlOffsetContext offsetContext)
+        public void execute(
+                ChangeEventSourceContext context,
+                MySqlPartition partition,
+                MySqlOffsetContext offsetContext)
                 throws InterruptedException {
             this.context = context;
-            super.execute(context, this.offsetContext);
+            super.execute(context, partition, offsetContext);
         }
 
         @Override
-        protected void handleEvent(MySqlOffsetContext offsetContext, Event event) {
-            super.handleEvent(offsetContext, event);
+        protected void handleEvent(
+                MySqlPartition partition, MySqlOffsetContext offsetContext, Event event) {
+            super.handleEvent(partition, offsetContext, event);
             // check do we need to stop for fetch binlog for snapshot split.
             if (isBoundedRead()) {
                 final BinlogOffset currentBinlogOffset =
@@ -146,7 +153,7 @@ public class MySqlBinlogFetchTask implements FetchTask<SourceSplitBase> {
                     // send binlog end event
                     try {
                         dispatcher.dispatchWatermarkEvent(
-                                offsetContext.getPartition(),
+                                partition.getSourcePartition(),
                                 binlogSplit,
                                 currentBinlogOffset,
                                 WatermarkKind.END);

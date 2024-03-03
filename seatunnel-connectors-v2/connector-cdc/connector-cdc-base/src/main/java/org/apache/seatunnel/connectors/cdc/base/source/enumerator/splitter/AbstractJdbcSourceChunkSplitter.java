@@ -26,6 +26,7 @@ import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 import org.apache.seatunnel.connectors.cdc.base.utils.ObjectUtils;
 
 import io.debezium.jdbc.JdbcConnection;
+import io.debezium.pipeline.spi.Partition;
 import io.debezium.relational.Column;
 import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
@@ -44,13 +45,14 @@ import static java.math.BigDecimal.ROUND_CEILING;
 import static org.apache.seatunnel.connectors.cdc.base.utils.ObjectUtils.doubleCompare;
 
 @Slf4j
-public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunkSplitter {
+public abstract class AbstractJdbcSourceChunkSplitter<P extends Partition>
+        implements JdbcSourceChunkSplitter {
 
     private final JdbcSourceConfig sourceConfig;
-    private final JdbcDataSourceDialect dialect;
+    private final JdbcDataSourceDialect<P> dialect;
 
     public AbstractJdbcSourceChunkSplitter(
-            JdbcSourceConfig sourceConfig, JdbcDataSourceDialect dialect) {
+            JdbcSourceConfig sourceConfig, JdbcDataSourceDialect<P> dialect) {
         this.sourceConfig = sourceConfig;
         this.dialect = dialect;
     }
@@ -379,7 +381,7 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
     }
 
     protected Column getSplitColumn(
-            JdbcConnection jdbc, JdbcDataSourceDialect dialect, TableId tableId)
+            JdbcConnection jdbc, JdbcDataSourceDialect<P> dialect, TableId tableId)
             throws SQLException {
         Optional<PrimaryKey> primaryKey = dialect.getPrimaryKey(jdbc, tableId);
         Column splitColumn = null;

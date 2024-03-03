@@ -36,6 +36,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import io.debezium.jdbc.JdbcConnection;
+import io.debezium.pipeline.spi.Partition;
 import io.debezium.relational.Column;
 import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
@@ -60,10 +61,11 @@ public class JdbcSourceChunkSplitterTest {
         Assertions.assertEquals(splitColumn.typeName(), "tinyint");
     }
 
-    private class TestJdbcSourceChunkSplitter extends AbstractJdbcSourceChunkSplitter {
+    private static class TestJdbcSourceChunkSplitter
+            extends AbstractJdbcSourceChunkSplitter<Partition> {
 
         public TestJdbcSourceChunkSplitter(
-                JdbcSourceConfig sourceConfig, JdbcDataSourceDialect dialect) {
+                JdbcSourceConfig sourceConfig, JdbcDataSourceDialect<Partition> dialect) {
             super(sourceConfig, dialect);
         }
 
@@ -136,13 +138,13 @@ public class JdbcSourceChunkSplitterTest {
 
         @Override
         public Column getSplitColumn(
-                JdbcConnection jdbc, JdbcDataSourceDialect dialect, TableId tableId)
+                JdbcConnection jdbc, JdbcDataSourceDialect<Partition> dialect, TableId tableId)
                 throws SQLException {
             return super.getSplitColumn(jdbc, dialect, tableId);
         }
     }
 
-    private class TestSourceDialect implements JdbcDataSourceDialect {
+    private static class TestSourceDialect implements JdbcDataSourceDialect<Partition> {
 
         @Override
         public String getName() {
@@ -161,6 +163,11 @@ public class JdbcSourceChunkSplitterTest {
 
         @Override
         public List<TableId> discoverDataCollections(JdbcSourceConfig sourceConfig) {
+            return null;
+        }
+
+        @Override
+        public JdbcConnection openJdbcConnection(JdbcSourceConfig sourceConfig) {
             return null;
         }
 
@@ -216,7 +223,7 @@ public class JdbcSourceChunkSplitterTest {
         }
 
         @Override
-        public JdbcSourceFetchTaskContext createFetchTaskContext(
+        public JdbcSourceFetchTaskContext<Partition> createFetchTaskContext(
                 SourceSplitBase sourceSplitBase, JdbcSourceConfig taskSourceConfig) {
             return null;
         }

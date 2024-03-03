@@ -44,6 +44,7 @@ import io.debezium.connector.oracle.OracleConnectorConfig;
 import io.debezium.connector.oracle.OracleDatabaseSchema;
 import io.debezium.connector.oracle.OracleErrorHandler;
 import io.debezium.connector.oracle.OracleOffsetContext;
+import io.debezium.connector.oracle.OraclePartition;
 import io.debezium.connector.oracle.OracleStreamingChangeEventSourceMetrics;
 import io.debezium.connector.oracle.OracleTaskContext;
 import io.debezium.connector.oracle.OracleTopicSelector;
@@ -55,6 +56,7 @@ import io.debezium.pipeline.ErrorHandler;
 import io.debezium.pipeline.metrics.SnapshotChangeEventSourceMetrics;
 import io.debezium.pipeline.source.spi.EventMetadataProvider;
 import io.debezium.pipeline.spi.OffsetContext;
+import io.debezium.pipeline.spi.Offsets;
 import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
 import io.debezium.relational.Tables;
@@ -75,7 +77,7 @@ import static org.apache.seatunnel.connectors.seatunnel.cdc.oracle.utils.OracleC
 
 /** The context for fetch task that fetching data of snapshot split from Oracle data source. */
 @Slf4j
-public class OracleSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
+public class OracleSourceFetchTaskContext extends JdbcSourceFetchTaskContext<OraclePartition> {
 
     private static final Logger LOG = LoggerFactory.getLogger(OracleSourceFetchTaskContext.class);
 
@@ -85,17 +87,19 @@ public class OracleSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
     private OracleDatabaseSchema databaseSchema;
     private OracleTaskContext taskContext;
     private OracleOffsetContext offsetContext;
-    private SnapshotChangeEventSourceMetrics snapshotChangeEventSourceMetrics;
+    private OraclePartition partition;
+    private SnapshotChangeEventSourceMetrics<OraclePartition> snapshotChangeEventSourceMetrics;
     private OracleStreamingChangeEventSourceMetrics streamingChangeEventSourceMetrics;
 
     private Collection<TableChanges.TableChange> engineHistory;
     private TopicSelector<TableId> topicSelector;
-    private JdbcSourceEventDispatcher dispatcher;
+    private JdbcSourceEventDispatcher<OraclePartition> dispatcher;
     private ChangeEventQueue<DataChangeEvent> queue;
     private OracleErrorHandler errorHandler;
 
     public OracleSourceFetchTaskContext(
-            JdbcSourceConfig sourceConfig, JdbcDataSourceDialect dataSourceDialect) {
+            JdbcSourceConfig sourceConfig,
+            JdbcDataSourceDialect<OraclePartition> dataSourceDialect) {
         super(sourceConfig, dataSourceDialect);
         this.connection = createOracleConnection(sourceConfig.getDbzConfiguration());
         this.metadataProvider = new OracleEventMetadataProvider();
@@ -115,6 +119,7 @@ public class OracleSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
         this.offsetContext =
                 loadStartingOffsetState(
                         new LogMinerOracleOffsetContextLoader(connectorConfig), sourceSplitBase);
+        this.partition = new OraclePartition(connectorConfig.getLogicalName());
         validateAndLoadDatabaseHistory(offsetContext, databaseSchema);
 
         this.taskContext = new OracleTaskContext(connectorConfig, databaseSchema);
@@ -140,7 +145,7 @@ public class OracleSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                         // .buffering()
                         .build();
         this.dispatcher =
-                new JdbcSourceEventDispatcher(
+                new JdbcSourceEventDispatcher<>(
                         connectorConfig,
                         topicSelector,
                         databaseSchema,
@@ -162,7 +167,7 @@ public class OracleSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                 (OracleStreamingChangeEventSourceMetrics)
                         changeEventSourceMetricsFactory.getStreamingMetrics(
                                 taskContext, queue, metadataProvider);
-        this.errorHandler = new OracleErrorHandler(connectorConfig.getLogicalName(), queue);
+        this.errorHandler = new OracleErrorHandler(connectorConfig, queue);
     }
 
     @Override
@@ -193,7 +198,12 @@ public class OracleSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
         return offsetContext;
     }
 
-    public SnapshotChangeEventSourceMetrics getSnapshotChangeEventSourceMetrics() {
+    @Override
+    public OraclePartition getPartition() {
+        return this.partition;
+    }
+
+    public SnapshotChangeEventSourceMetrics<OraclePartition> getSnapshotChangeEventSourceMetrics() {
         return snapshotChangeEventSourceMetrics;
     }
 
@@ -217,7 +227,7 @@ public class OracleSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
     }
 
     @Override
-    public JdbcSourceEventDispatcher getDispatcher() {
+    public JdbcSourceEventDispatcher<OraclePartition> getDispatcher() {
         return dispatcher;
     }
 
@@ -238,14 +248,13 @@ public class OracleSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
 
     /** Loads the connector's persistent offset (if present) via the given loader. */
     private OracleOffsetContext loadStartingOffsetState(
-            OffsetContext.Loader loader, SourceSplitBase oracleSplit) {
+            OffsetContext.Loader<OracleOffsetContext> loader, SourceSplitBase oracleSplit) {
         Offset offset =
                 oracleSplit.isSnapshotSplit()
                         ? RedoLogOffset.INITIAL_OFFSET
                         : oracleSplit.asIncrementalSplit().getStartupOffset();
 
-        OracleOffsetContext oracleOffsetContext =
-                (OracleOffsetContext) loader.load(offset.getOffset());
+        OracleOffsetContext oracleOffsetContext = loader.load(offset.getOffset());
 
         return oracleOffsetContext;
     }
@@ -274,7 +283,7 @@ public class OracleSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
     private void validateAndLoadDatabaseHistory(
             OracleOffsetContext offset, OracleDatabaseSchema schema) {
         schema.initializeStorage();
-        schema.recover(offset);
+        schema.recover(Offsets.of(partition, offset));
     }
 
     /** Copied from debezium for accessing here. */

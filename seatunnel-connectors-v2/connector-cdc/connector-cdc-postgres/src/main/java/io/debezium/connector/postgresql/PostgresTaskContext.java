@@ -34,11 +34,28 @@ import java.sql.SQLException;
 import java.util.Collections;
 
 /**
+ * Copied from Debezium 1.9.8.Final
+ *
+ * <p>Line 60 : change {@link io.debezium.connector.postgresql.PostgresTaskContext} constructor
+ * access modifier to public.
+ *
+ * <p>Line 91 : change {@link io.debezium.connector.postgresql.PostgresTaskContext#refreshSchema}
+ * access modifier to public.
+ *
+ * <p>Line 123 : change {@link
+ * io.debezium.connector.postgresql.PostgresTaskContext#createReplicationConnection} access modifier
+ * to public.
+ */
+
+/**
  * The context of a {@link PostgresConnectorTask}. This deals with most of the brunt of reading
  * various configuration options and creating other objects with these various options.
+ *
+ * @author Horia Chiorean (hchiorea@redhat.com)
  */
 @ThreadSafe
 public class PostgresTaskContext extends CdcSourceTaskContext {
+
     protected static final Logger LOGGER = LoggerFactory.getLogger(PostgresTaskContext.class);
 
     private final PostgresConnectorConfig config;
@@ -88,7 +105,7 @@ public class PostgresTaskContext extends CdcSourceTaskContext {
         if (config.xminFetchInterval().toMillis() <= 0) {
             return null;
         }
-        assert this.refreshXmin != null;
+        assert (this.refreshXmin != null);
 
         if (this.refreshXmin.hasElapsed()) {
             lastXmin = getCurrentSlotState(connection).slotCatalogXmin();
@@ -109,8 +126,8 @@ public class PostgresTaskContext extends CdcSourceTaskContext {
                 config.slotName(), config.plugin().getPostgresPluginName());
     }
 
-    public ReplicationConnection createReplicationConnection(boolean doSnapshot)
-            throws SQLException {
+    public ReplicationConnection createReplicationConnection(
+            boolean doSnapshot, PostgresConnection jdbcConnection) throws SQLException {
         final boolean dropSlotOnStop = config.dropSlotOnStop();
         if (dropSlotOnStop) {
             LOGGER.warn(
@@ -125,13 +142,13 @@ public class PostgresTaskContext extends CdcSourceTaskContext {
                 .withTableFilter(config.getTableFilters())
                 .withPublicationAutocreateMode(config.publicationAutocreateMode())
                 .withPlugin(config.plugin())
-                .withTruncateHandlingMode(config.truncateHandlingMode())
                 .dropSlotOnClose(dropSlotOnStop)
                 .streamParams(config.streamParams())
                 .statusUpdateInterval(config.statusUpdateInterval())
                 .withTypeRegistry(schema.getTypeRegistry())
                 .doSnapshot(doSnapshot)
                 .withSchema(schema)
+                .jdbcMetadataConnection(jdbcConnection)
                 .build();
     }
 

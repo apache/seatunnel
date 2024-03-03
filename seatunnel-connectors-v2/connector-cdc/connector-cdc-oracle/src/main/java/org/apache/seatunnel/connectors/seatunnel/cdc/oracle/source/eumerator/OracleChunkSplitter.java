@@ -26,6 +26,7 @@ import org.apache.seatunnel.connectors.cdc.base.utils.ObjectUtils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.utils.OracleTypeUtils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.utils.OracleUtils;
 
+import io.debezium.connector.oracle.OraclePartition;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.Column;
 import io.debezium.relational.TableId;
@@ -38,9 +39,10 @@ import java.sql.SQLException;
  * The {@code ChunkSplitter} used to split Oracle table into a set of chunks for JDBC data source.
  */
 @Slf4j
-public class OracleChunkSplitter extends AbstractJdbcSourceChunkSplitter {
+public class OracleChunkSplitter extends AbstractJdbcSourceChunkSplitter<OraclePartition> {
 
-    public OracleChunkSplitter(JdbcSourceConfig sourceConfig, JdbcDataSourceDialect dialect) {
+    public OracleChunkSplitter(
+            JdbcSourceConfig sourceConfig, JdbcDataSourceDialect<OraclePartition> dialect) {
         super(sourceConfig, dialect);
     }
 

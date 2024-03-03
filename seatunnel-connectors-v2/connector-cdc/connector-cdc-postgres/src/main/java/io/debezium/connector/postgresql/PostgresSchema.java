@@ -25,6 +25,7 @@ import org.slf4j.LoggerFactory;
 
 import io.debezium.annotation.NotThreadSafe;
 import io.debezium.connector.postgresql.connection.PostgresConnection;
+import io.debezium.connector.postgresql.connection.PostgresDefaultValueConverter;
 import io.debezium.connector.postgresql.connection.ServerInfo;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.RelationalDatabaseSchema;
@@ -33,7 +34,6 @@ import io.debezium.relational.TableId;
 import io.debezium.relational.TableSchemaBuilder;
 import io.debezium.relational.Tables;
 import io.debezium.schema.TopicSelector;
-import io.debezium.util.SchemaNameAdjuster;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -43,10 +43,19 @@ import java.util.List;
 import java.util.Map;
 
 /**
+ * Copied from Debezium 1.9.8.Final
+ *
+ * <p>Line 77 : change {@link io.debezium.connector.postgresql.PostgresSchema} constructor access
+ * modifier to public.
+ */
+
+/**
  * Component that records the schema information for the {@link PostgresConnector}. The schema
  * information contains the {@link Tables table definitions} and the Kafka Connect {@link
  * #schemaFor(TableId) Schema}s for each table, where the {@link Schema} excludes any columns that
  * have been {@link PostgresConnectorConfig#COLUMN_EXCLUDE_LIST specified} in the configuration.
+ *
+ * @author Horia Chiorean
  */
 @NotThreadSafe
 public class PostgresSchema extends RelationalDatabaseSchema {
@@ -69,14 +78,15 @@ public class PostgresSchema extends RelationalDatabaseSchema {
     public PostgresSchema(
             PostgresConnectorConfig config,
             TypeRegistry typeRegistry,
+            PostgresDefaultValueConverter defaultValueConverter,
             TopicSelector<TableId> topicSelector,
             PostgresValueConverter valueConverter) {
         super(
                 config,
                 topicSelector,
-                new Filters(config).tableFilter(),
+                config.getTableFilters().dataCollectionFilter(),
                 config.getColumnFilter(),
-                getTableSchemaBuilder(config, valueConverter),
+                getTableSchemaBuilder(config, valueConverter, defaultValueConverter),
                 false,
                 config.getKeyMapper());
 
@@ -87,13 +97,17 @@ public class PostgresSchema extends RelationalDatabaseSchema {
     }
 
     private static TableSchemaBuilder getTableSchemaBuilder(
-            PostgresConnectorConfig config, PostgresValueConverter valueConverter) {
+            PostgresConnectorConfig config,
+            PostgresValueConverter valueConverter,
+            PostgresDefaultValueConverter defaultValueConverter) {
         return new TableSchemaBuilder(
                 valueConverter,
-                SchemaNameAdjuster.create(),
+                defaultValueConverter,
+                config.schemaNameAdjustmentMode().createAdjuster(),
                 config.customConverterRegistry(),
                 config.getSourceInfoStructMaker().schema(),
-                config.getSanitizeFieldNames());
+                config.getSanitizeFieldNames(),
+                false);
     }
 
     /**

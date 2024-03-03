@@ -25,6 +25,7 @@ import org.apache.seatunnel.connectors.cdc.base.source.enumerator.splitter.Abstr
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlTypeUtils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlUtils;
 
+import io.debezium.connector.mysql.MySqlPartition;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.Column;
 import io.debezium.relational.TableId;
@@ -34,9 +35,10 @@ import java.sql.SQLException;
 
 /** The {@code ChunkSplitter} used to split table into a set of chunks for JDBC data source. */
 @Slf4j
-public class MySqlChunkSplitter extends AbstractJdbcSourceChunkSplitter {
+public class MySqlChunkSplitter extends AbstractJdbcSourceChunkSplitter<MySqlPartition> {
 
-    public MySqlChunkSplitter(JdbcSourceConfig sourceConfig, JdbcDataSourceDialect dialect) {
+    public MySqlChunkSplitter(
+            JdbcSourceConfig sourceConfig, JdbcDataSourceDialect<MySqlPartition> dialect) {
         super(sourceConfig, dialect);
     }
 

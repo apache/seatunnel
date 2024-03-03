@@ -28,6 +28,7 @@ import org.postgresql.util.PSQLState;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.zaxxer.hikari.pool.HikariProxyConnection;
 import io.debezium.DebeziumException;
 import io.debezium.annotation.VisibleForTesting;
 import io.debezium.config.Configuration;
@@ -51,6 +52,7 @@ import io.debezium.util.Clock;
 import io.debezium.util.Metronome;
 
 import java.nio.charset.Charset;
+import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
@@ -59,15 +61,39 @@ import java.sql.Statement;
 import java.time.Duration;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.regex.Pattern;
 
 /**
  * {@link JdbcConnection} connection extension used for connecting to Postgres instances.
  *
  * @author Horia Chiorean
+ *     <p>Copied from Debezium 1.9.8-Final with three additional methods:
+ *     <ul>
+ *       <li>Constructor PostgresConnection( Configuration config, PostgresValueConverterBuilder
+ *           valueConverterBuilder, ConnectionFactory factory) to allow passing a custom
+ *           ConnectionFactory
+ *       <li>override connection() to return a unwrapped PgConnection (otherwise, it will complain
+ *           about HikariProxyConnection cannot be cast to class org.postgresql.core.BaseConnection)
+ *       <li>override isTableUniqueIndexIncluded: Copied DBZ-5398 from Debezium 2.0.0.Final to fix
+ *           https://github.com/ververica/flink-cdc-connectors/issues/2710. Remove this comment
+ *           after bumping debezium version to 2.0.0.Final.
+ *     </ul>
  */
 public class PostgresConnection extends JdbcConnection {
 
+    public static final String CONNECTION_STREAMING = "Debezium Streaming";
+    public static final String CONNECTION_SLOT_INFO = "Debezium Slot Info";
+    public static final String CONNECTION_DROP_SLOT = "Debezium Drop Slot";
+    public static final String CONNECTION_VALIDATE_CONNECTION = "Debezium Validate Connection";
+    public static final String CONNECTION_HEARTBEAT = "Debezium Heartbeat";
+    public static final String CONNECTION_GENERAL = "Debezium General";
+
+    private static final Pattern FUNCTION_DEFAULT_PATTERN =
+            Pattern.compile("^[(]?[A-Za-z0-9_.]+\\((?:.+(?:, ?.+)*)?\\)");
+    private static final Pattern EXPRESSION_DEFAULT_PATTERN =
+            Pattern.compile("\\(+(?:.+(?:[+ - * / < > = ~ ! @ # % ^ & | ` ?] ?.+)+)+\\)");
     private static Logger LOGGER = LoggerFactory.getLogger(PostgresConnection.class);
 
     private static final String URL_PATTERN =
@@ -107,14 +133,38 @@ public class PostgresConnection extends JdbcConnection {
      * @param config {@link Configuration} instance, may not be null.
      * @param valueConverterBuilder supplies a configured {@link PostgresValueConverter} for a given
      *     {@link TypeRegistry}
+     * @param connectionUsage a symbolic name of the connection to be tracked in monitoring tools
      */
     public PostgresConnection(
-            Configuration config, PostgresValueConverterBuilder valueConverterBuilder) {
+            JdbcConfiguration config,
+            PostgresValueConverterBuilder valueConverterBuilder,
+            String connectionUsage) {
+        this(config, valueConverterBuilder, connectionUsage, FACTORY);
+    }
+
+    /**
+     * Creates a Postgres connection using the supplied configuration. If necessary this connection
+     * is able to resolve data type mappings. Such a connection requires a {@link
+     * PostgresValueConverter}, and will provide its own {@link TypeRegistry}. Usually only one such
+     * connection per connector is needed.
+     *
+     * @param config {@link Configuration} instance, may not be null.
+     * @param valueConverterBuilder supplies a configured {@link PostgresValueConverter} for a given
+     *     {@link TypeRegistry}
+     * @param connectionUsage a symbolic name of the connection to be tracked in monitoring tools
+     */
+    public PostgresConnection(
+            JdbcConfiguration config,
+            PostgresValueConverterBuilder valueConverterBuilder,
+            String connectionUsage,
+            ConnectionFactory factory) {
         super(
-                config,
-                FACTORY,
+                addDefaultSettings(config, connectionUsage),
+                factory,
                 PostgresConnection::validateServerVersion,
-                PostgresConnection::defaultSettings);
+                null,
+                "\"",
+                "\"");
 
         if (Objects.isNull(valueConverterBuilder)) {
             this.typeRegistry = null;
@@ -134,23 +184,24 @@ public class PostgresConnection extends JdbcConnection {
      *
      * @param config {@link Configuration} instance, may not be null.
      * @param typeRegistry an existing/already-primed {@link TypeRegistry} instance
+     * @param connectionUsage a symbolic name of the connection to be tracked in monitoring tools
      */
-    public PostgresConnection(Configuration config, TypeRegistry typeRegistry) {
+    public PostgresConnection(
+            PostgresConnectorConfig config, TypeRegistry typeRegistry, String connectionUsage) {
         super(
-                config,
+                addDefaultSettings(config.getJdbcConfig(), connectionUsage),
                 FACTORY,
                 PostgresConnection::validateServerVersion,
-                PostgresConnection::defaultSettings);
+                null,
+                "\"",
+                "\"");
         if (Objects.isNull(typeRegistry)) {
             this.typeRegistry = null;
             this.defaultValueConverter = null;
         } else {
             this.typeRegistry = typeRegistry;
             final PostgresValueConverter valueConverter =
-                    PostgresValueConverter.of(
-                            new PostgresConnectorConfig(config),
-                            this.getDatabaseCharset(),
-                            typeRegistry);
+                    PostgresValueConverter.of(config, this.getDatabaseCharset(), typeRegistry);
             this.defaultValueConverter =
                     new PostgresDefaultValueConverter(valueConverter, this.getTimestampUtils());
         }
@@ -161,9 +212,33 @@ public class PostgresConnection extends JdbcConnection {
      * one without datatype resolution capabilities.
      *
      * @param config {@link Configuration} instance, may not be null.
+     * @param connectionUsage a symbolic name of the connection to be tracked in monitoring tools
      */
-    public PostgresConnection(Configuration config) {
-        this(config, (TypeRegistry) null);
+    public PostgresConnection(JdbcConfiguration config, String connectionUsage) {
+        this(config, null, connectionUsage);
+    }
+
+    /** Return an unwrapped PgConnection instead of HikariProxyConnection */
+    @Override
+    public synchronized Connection connection() throws SQLException {
+        Connection conn = connection(true);
+        if (conn instanceof HikariProxyConnection) {
+            // assuming HikariCP use org.postgresql.jdbc.PgConnection
+            return conn.unwrap(PgConnection.class);
+        }
+        return conn;
+    }
+
+    static JdbcConfiguration addDefaultSettings(
+            JdbcConfiguration configuration, String connectionUsage) {
+        // we require Postgres 9.4 as the minimum server version since that's where logical
+        // replication was first introduced
+        return JdbcConfiguration.adapt(
+                configuration
+                        .edit()
+                        .with("assumeMinServerVersion", "9.4")
+                        .with("ApplicationName", connectionUsage)
+                        .build());
     }
 
     /**
@@ -488,7 +563,7 @@ public class PostgresConnection extends JdbcConnection {
     public Long currentTransactionId() throws SQLException {
         AtomicLong txId = new AtomicLong(0);
         query(
-                "select * from txid_current()",
+                "select (case pg_is_in_recovery() when 't' then 0 else txid_current() end) AS pg_current_txid",
                 rs -> {
                     if (rs.next()) {
                         txId.compareAndSet(0, rs.getLong(1));
@@ -509,7 +584,7 @@ public class PostgresConnection extends JdbcConnection {
         int majorVersion = connection().getMetaData().getDatabaseMajorVersion();
         query(
                 majorVersion >= 10
-                        ? "select * from pg_current_wal_lsn()"
+                        ? "select (case pg_is_in_recovery() when 't' then pg_last_wal_receive_lsn() else pg_current_wal_lsn() end) AS pg_current_wal_lsn"
                         : "select * from pg_current_xlog_location()",
                 rs -> {
                     if (!rs.next()) {
@@ -586,12 +661,6 @@ public class PostgresConnection extends JdbcConnection {
         }
     }
 
-    protected static void defaultSettings(Configuration.Builder builder) {
-        // we require Postgres 9.4 as the minimum server version since that's where logical
-        // replication was first introduced
-        builder.with("assumeMinServerVersion", "9.4");
-    }
-
     private static void validateServerVersion(Statement statement) throws SQLException {
         DatabaseMetaData metaData = statement.getConnection().getMetaData();
         int majorVersion = metaData.getDatabaseMajorVersion();
@@ -599,6 +668,15 @@ public class PostgresConnection extends JdbcConnection {
         if (majorVersion < 9 || (majorVersion == 9 && minorVersion < 4)) {
             throw new SQLException("Cannot connect to a version of Postgres lower than 9.4");
         }
+    }
+
+    @Override
+    public String quotedColumnIdString(String columnName) {
+        if (columnName.contains("\"")) {
+            columnName = columnName.replaceAll("\"", "\"\"");
+        }
+
+        return super.quotedColumnIdString(columnName);
     }
 
     @Override
@@ -672,9 +750,10 @@ public class PostgresConnection extends JdbcConnection {
                 column.scale(nativeType.getDefaultScale());
             }
 
-            final String defaultValue = columnMetadata.getString(13);
-            if (defaultValue != null) {
-                getDefaultValue(column.create(), defaultValue).ifPresent(column::defaultValue);
+            final String defaultValueExpression = columnMetadata.getString(13);
+            if (defaultValueExpression != null
+                    && getDefaultValueConverter().supportConversion(column.typeName())) {
+                column.defaultValueExpression(defaultValueExpression);
             }
 
             return Optional.of(column);
@@ -683,9 +762,10 @@ public class PostgresConnection extends JdbcConnection {
         return Optional.empty();
     }
 
-    @Override
-    protected Optional<Object> getDefaultValue(Column column, String defaultValue) {
-        return defaultValueConverter.parseDefaultValue(column, defaultValue);
+    public PostgresDefaultValueConverter getDefaultValueConverter() {
+        Objects.requireNonNull(
+                defaultValueConverter, "Connection does not provide default value converter");
+        return defaultValueConverter;
     }
 
     public TypeRegistry getTypeRegistry() {
@@ -760,6 +840,36 @@ public class PostgresConnection extends JdbcConnection {
             // not a known type
             return super.getColumnValue(rs, columnIndex, column, table, schema);
         }
+    }
+
+    @Override
+    protected String[] supportedTableTypes() {
+        return new String[] {"VIEW", "MATERIALIZED VIEW", "TABLE", "PARTITIONED TABLE"};
+    }
+
+    @Override
+    protected boolean isTableType(String tableType) {
+        return "TABLE".equals(tableType) || "PARTITIONED TABLE".equals(tableType);
+    }
+
+    @Override
+    protected boolean isTableUniqueIndexIncluded(String indexName, String columnName) {
+        if (columnName != null) {
+            return !FUNCTION_DEFAULT_PATTERN.matcher(columnName).matches()
+                    && !EXPRESSION_DEFAULT_PATTERN.matcher(columnName).matches();
+        }
+        return false;
+    }
+
+    /**
+     * Retrieves all {@code TableId}s in a given database catalog, including partitioned tables.
+     *
+     * @param catalogName the catalog/database name
+     * @return set of all table ids for existing table objects
+     * @throws SQLException if a database exception occurred
+     */
+    public Set<TableId> getAllTableIds(String catalogName) throws SQLException {
+        return readTableNames(catalogName, null, null, new String[] {"TABLE", "PARTITIONED TABLE"});
     }
 
     @FunctionalInterface
