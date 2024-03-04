@@ -107,7 +107,7 @@ seatunnel:
 
 You can define the implementation class of `org.apache.seatunnel.api.event.EventHandler` interface and add to the classpath to automatically load it through SPI.
 
-Support flink version: 1.15.0+
+Support flink version: 1.14.0+
 
 Example: `org.apache.seatunnel.api.event.LoggingEventHandler`
 
