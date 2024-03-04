@@ -79,21 +79,23 @@ public class FlinkSinkWriterContext implements SinkWriter.Context {
     }
 
     private static StreamingRuntimeContext getStreamingRuntimeContextForV14(
-            Sink.InitContext writerContext) {
-        try {
-            // In flink 1.14, it has contained runtimeContext in InitContext, so first step to
-            // detect if
-            // it is existed
-            Field field = writerContext.getClass().getDeclaredField("runtimeContext");
-            field.setAccessible(true);
-            return (StreamingRuntimeContext) field.get(writerContext);
-        } catch (Exception e) {
-            return null;
-        }
+            Sink.InitContext writerContext) throws NoSuchFieldException, IllegalAccessException {
+        // In flink 1.14, it has contained runtimeContext in InitContext, so first step to
+        // detect if
+        // it is existed
+        Field field = writerContext.getClass().getDeclaredField("runtimeContext");
+        field.setAccessible(true);
+        return (StreamingRuntimeContext) field.get(writerContext);
     }
 
     private static String getJobIdForV14(Sink.InitContext writerContext) {
-        StreamingRuntimeContext runtimeContext = getStreamingRuntimeContextForV14(writerContext);
-        return runtimeContext != null ? runtimeContext.getJobId().toString() : null;
+        try {
+            StreamingRuntimeContext runtimeContext =
+                    getStreamingRuntimeContextForV14(writerContext);
+            return runtimeContext != null ? runtimeContext.getJobId().toString() : null;
+        } catch (Exception e) {
+            LOGGER.info("Flink version is not 1.14.x, will not initial job id");
+            return null;
+        }
     }
 }
