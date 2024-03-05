@@ -47,6 +47,11 @@
             <version>${project.version}</version>
         </dependency>
 
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-api</artifactId>
+            <version>${project.version}</version>
+        </dependency>
         <!-- Pulsar bundles the latest bookkeeper & zookeeper, -->
         <!-- we don't override the version here. -->
         <dependency>
