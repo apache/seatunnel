@@ -55,7 +55,7 @@
 
     <properties>
         <!--todo The classification is too confusing, reclassify by type-->
-        <revision>2.3.4-SNAPSHOT</revision>
+        <revision>2.3.5-SNAPSHOT</revision>
         <seatunnel.config.shade.version>2.1.1</seatunnel.config.shade.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <java.version>1.8</java.version>
@@ -70,7 +70,6 @@
         <log4j.version>1.2.17</log4j.version>
         <logback.version>1.2.3</logback.version>
         <commons-logging.version>1.2</commons-logging.version>
-        <iceberg.version>0.13.1</iceberg.version>
         <flink.1.13.6.version>1.13.6</flink.1.13.6.version>
         <flink.1.15.3.version>1.15.3</flink.1.15.3.version>
         <spark.2.4.0.version>2.4.0</spark.2.4.0.version>
@@ -87,6 +86,7 @@
         <jackson.version>2.13.3</jackson.version>
         <lombok.version>1.18.24</lombok.version>
         <commons-compress.version>1.20</commons-compress.version>
+        <avro.version>1.11.1</avro.version>
         <skip.pmd.check>false</skip.pmd.check>
         <maven.deploy.skip>false</maven.deploy.skip>
         <maven.javadoc.skip>false</maven.javadoc.skip>
@@ -105,7 +105,6 @@
         <commons-io.version>2.11.0</commons-io.version>
         <commons-collections4.version>4.4</commons-collections4.version>
         <maven-assembly-plugin.version>3.3.0</maven-assembly-plugin.version>
-        <commons-compress.version>1.20</commons-compress.version>
         <protostuff.version>1.8.0</protostuff.version>
         <spark.scope>provided</spark.scope>
         <flink.scope>provided</flink.scope>

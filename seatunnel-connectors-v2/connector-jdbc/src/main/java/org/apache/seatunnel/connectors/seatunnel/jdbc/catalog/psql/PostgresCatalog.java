@@ -19,14 +19,14 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
-import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresTypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresTypeMapper;
 
 import org.apache.commons.collections4.CollectionUtils;
@@ -37,24 +37,9 @@ import lombok.extern.slf4j.Slf4j;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.HashMap;
-import java.util.Map;
-
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresDataTypeConvertor.PG_BIT;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresDataTypeConvertor.PG_BYTEA;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresDataTypeConvertor.PG_CHAR;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresDataTypeConvertor.PG_CHARACTER;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresDataTypeConvertor.PG_CHARACTER_VARYING;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresDataTypeConvertor.PG_GEOGRAPHY;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresDataTypeConvertor.PG_GEOMETRY;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresDataTypeConvertor.PG_INTERVAL;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresDataTypeConvertor.PG_TEXT;
 
 @Slf4j
 public class PostgresCatalog extends AbstractJdbcCatalog {
-
-    private static final PostgresDataTypeConvertor DATA_TYPE_CONVERTOR =
-            new PostgresDataTypeConvertor();
 
     private static final String SELECT_COLUMNS_SQL_TEMPLATE =
             "SELECT \n"
@@ -132,54 +117,34 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
         String typeName = resultSet.getString("type_name");
         String fullTypeName = resultSet.getString("full_type_name");
         long columnLength = resultSet.getLong("column_length");
-        long columnScale = resultSet.getLong("column_scale");
+        int columnScale = resultSet.getInt("column_scale");
         String columnComment = resultSet.getString("column_comment");
         Object defaultValue = resultSet.getObject("default_value");
         boolean isNullable = resultSet.getString("is_nullable").equals("YES");
 
+        // dealingSpecialNumeric
+        if (typeName.equals(PostgresTypeConverter.PG_NUMERIC) && columnLength < 1) {
+            fullTypeName = "numeric(38,10)";
+            columnLength = 38;
+            columnScale = 10;
+        }
         if (defaultValue != null && defaultValue.toString().contains("regclass")) {
             defaultValue = null;
         }
 
-        SeaTunnelDataType<?> type = fromJdbcType(columnName, typeName, columnLength, columnScale);
-        long bitLen = 0;
-        switch (typeName) {
-            case PG_BYTEA:
-                bitLen = -1;
-                break;
-            case PG_TEXT:
-                columnLength = -1;
-                break;
-            case PG_INTERVAL:
-                columnLength = 50;
-                break;
-            case PG_GEOMETRY:
-            case PG_GEOGRAPHY:
-                columnLength = 255;
-                break;
-            case PG_BIT:
-                bitLen = columnLength;
-                break;
-            case PG_CHAR:
-            case PG_CHARACTER:
-            case PG_CHARACTER_VARYING:
-            default:
-                break;
-        }
-
-        return PhysicalColumn.of(
-                columnName,
-                type,
-                0,
-                isNullable,
-                defaultValue,
-                columnComment,
-                fullTypeName,
-                false,
-                false,
-                bitLen,
-                null,
-                columnLength);
+        BasicTypeDefine typeDefine =
+                BasicTypeDefine.builder()
+                        .name(columnName)
+                        .columnType(fullTypeName)
+                        .dataType(typeName)
+                        .length(columnLength)
+                        .precision(columnLength)
+                        .scale(columnScale)
+                        .nullable(isNullable)
+                        .defaultValue(defaultValue)
+                        .comment(columnComment)
+                        .build();
+        return PostgresTypeConverter.INSTANCE.convert(typeDefine);
     }
 
     @Override
@@ -248,14 +213,6 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
     protected void dropDatabaseInternal(String databaseName) throws CatalogException {
         closeDatabaseConnection(databaseName);
         super.dropDatabaseInternal(databaseName);
-    }
-
-    private SeaTunnelDataType<?> fromJdbcType(
-            String columnName, String typeName, long precision, long scale) {
-        Map<String, Object> dataTypeProperties = new HashMap<>();
-        dataTypeProperties.put(PostgresDataTypeConvertor.PRECISION, precision);
-        dataTypeProperties.put(PostgresDataTypeConvertor.SCALE, scale);
-        return DATA_TYPE_CONVERTOR.toSeaTunnelType(columnName, typeName, dataTypeProperties);
     }
 
     @Override

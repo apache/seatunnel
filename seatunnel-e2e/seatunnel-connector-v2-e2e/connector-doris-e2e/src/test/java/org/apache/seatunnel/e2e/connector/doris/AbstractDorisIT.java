@@ -85,7 +85,7 @@ public abstract class AbstractDorisIT extends TestSuiteBase implements TestResou
                 .untilAsserted(this::initializeJdbcConnection);
     }
 
-    private void initializeJdbcConnection() throws SQLException {
+    protected void initializeJdbcConnection() throws SQLException {
         Properties props = new Properties();
         props.put("user", USERNAME);
         props.put("password", PASSWORD);

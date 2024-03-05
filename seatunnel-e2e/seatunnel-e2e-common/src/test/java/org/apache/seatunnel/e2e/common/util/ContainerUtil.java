@@ -166,7 +166,7 @@ public final class ContainerUtil {
         return path == null ? "" : path.replaceAll("\\\\", "/");
     }
 
-    private static List<File> getConnectorFiles(
+    public static List<File> getConnectorFiles(
             File currentModule, Set<String> connectorNames, String connectorPrefix) {
         List<File> connectorFiles = new ArrayList<>();
         for (File file : Objects.requireNonNull(currentModule.listFiles())) {

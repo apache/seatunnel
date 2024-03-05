@@ -1,4 +1,4 @@
-# Hive
+# HiveJdbc
 
 > JDBC Hive Source Connector
 

@@ -343,6 +343,7 @@ public class PhysicalVertex {
 
     private TaskGroupImmutableInformation getTaskGroupImmutableInformation() {
         return new TaskGroupImmutableInformation(
+                this.taskGroup.getTaskGroupLocation().getJobId(),
                 flakeIdGenerator.newId(),
                 nodeEngine.getSerializationService().toData(this.taskGroup),
                 this.pluginJarsUrls,

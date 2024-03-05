@@ -62,9 +62,9 @@ import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PA
 @AutoService(TestContainer.class)
 public class SeaTunnelContainer extends AbstractTestContainer {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-    private static final String JDK_DOCKER_IMAGE = "openjdk:8";
+    protected static final String JDK_DOCKER_IMAGE = "openjdk:8";
     private static final String CLIENT_SHELL = "seatunnel.sh";
-    private static final String SERVER_SHELL = "seatunnel-cluster.sh";
+    protected static final String SERVER_SHELL = "seatunnel-cluster.sh";
     protected GenericContainer<?> server;
     private final AtomicInteger runningCount = new AtomicInteger();
 
@@ -209,26 +209,7 @@ public class SeaTunnelContainer extends AbstractTestContainer {
 
     private List<String> removeSystemThread(List<String> beforeThreads, List<String> afterThreads)
             throws IOException {
-        Pattern aqsThread = Pattern.compile("pool-[0-9]-thread-[0-9]");
-        afterThreads.removeIf(
-                s ->
-                        s.startsWith("hz.main")
-                                || s.startsWith("seatunnel-coordinator-service")
-                                || s.startsWith("GC task thread")
-                                || s.contains("CompilerThread")
-                                || s.contains("NioNetworking-closeListenerExecutor")
-                                || s.contains("ForkJoinPool.commonPool")
-                                || s.contains("DestroyJavaVM")
-                                || s.contains("main-query-state-checker")
-                                || s.contains("Keep-Alive-SocketCleaner")
-                                || s.contains("process reaper")
-                                || s.startsWith("Timer-")
-                                || s.contains("InterruptTimer")
-                                || s.contains("Java2D Disposer")
-                                || s.contains(
-                                        "org.apache.hadoop.fs.FileSystem$Statistics$StatisticsDataReferenceCleaner")
-                                || s.startsWith("Log4j2-TF-")
-                                || aqsThread.matcher(s).matches());
+        afterThreads.removeIf(SeaTunnelContainer::isSystemThread);
         afterThreads.removeIf(beforeThreads::contains);
         Map<String, String> threadAndClassLoader = getThreadClassLoader();
         List<String> notSystemClassLoaderThread =
@@ -247,7 +228,29 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                         .collect(Collectors.toList());
         notSystemClassLoaderThread.addAll(afterThreads);
         notSystemClassLoaderThread.removeIf(this::isIssueWeAlreadyKnow);
+        notSystemClassLoaderThread.removeIf(SeaTunnelContainer::isSystemThread);
         return notSystemClassLoaderThread;
+    }
+
+    private static boolean isSystemThread(String s) {
+        Pattern aqsThread = Pattern.compile("pool-[0-9]-thread-[0-9]");
+        return s.startsWith("hz.main")
+                || s.startsWith("seatunnel-coordinator-service")
+                || s.startsWith("GC task thread")
+                || s.contains("CompilerThread")
+                || s.contains("NioNetworking-closeListenerExecutor")
+                || s.contains("ForkJoinPool.commonPool")
+                || s.contains("DestroyJavaVM")
+                || s.contains("main-query-state-checker")
+                || s.contains("Keep-Alive-SocketCleaner")
+                || s.contains("process reaper")
+                || s.startsWith("Timer-")
+                || s.contains("InterruptTimer")
+                || s.contains("Java2D Disposer")
+                || s.contains(
+                        "org.apache.hadoop.fs.FileSystem$Statistics$StatisticsDataReferenceCleaner")
+                || s.startsWith("Log4j2-TF-")
+                || aqsThread.matcher(s).matches();
     }
 
     private void classLoaderObjectCheck(Integer maxSize) throws IOException, InterruptedException {
@@ -297,6 +300,8 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 || threadName.startsWith("OkHttp TaskRunner")
                 // IOTDB org.apache.iotdb.session.Session
                 || threadName.startsWith("SessionExecutor")
+                // Iceberg org.apache.iceberg.util.ThreadPools.WORKER_POOL
+                || threadName.startsWith("iceberg-worker-pool")
                 // Oracle Driver
                 // oracle.jdbc.driver.BlockSource.ThreadedCachingBlockSource.BlockReleaser
                 || threadName.contains(
@@ -307,7 +312,9 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 // MongoDB
                 || threadName.startsWith("BufferPoolPruner")
                 || threadName.startsWith("MaintenanceTimer")
-                || threadName.startsWith("cluster-");
+                || threadName.startsWith("cluster-")
+                // Iceberg
+                || threadName.startsWith("iceberg");
     }
 
     @Override
