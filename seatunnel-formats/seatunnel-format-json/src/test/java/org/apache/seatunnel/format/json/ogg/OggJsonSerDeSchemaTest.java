@@ -19,6 +19,7 @@
 package org.apache.seatunnel.format.json.ogg;
 
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -119,7 +120,8 @@ public class OggJsonSerDeSchemaTest {
                 assertThrows(
                         expected.getClass(),
                         () -> {
-                            deserializationSchema.deserialize(noDataMsg.getBytes(), collector);
+                            deserializationSchema.deserialize(
+                                    noDataMsg.getBytes(), collector, TablePath.of("test"));
                         });
         assertEquals(cause.getMessage(), expected.getMessage());
 
