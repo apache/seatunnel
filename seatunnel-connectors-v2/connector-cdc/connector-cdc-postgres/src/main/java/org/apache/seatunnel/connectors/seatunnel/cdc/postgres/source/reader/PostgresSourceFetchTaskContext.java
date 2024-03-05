@@ -162,7 +162,7 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext<P
         // use the configuration queue size.
         final int queueSize =
                 sourceSplitBase.isSnapshotSplit() && isExactlyOnce()
-                        ? Integer.MAX_VALUE
+                        ? 4096
                         : getSourceConfig().getDbzConnectorConfig().getMaxQueueSize();
 
         LoggingContext.PreviousContext previousContext =

@@ -129,7 +129,7 @@ public class OracleSourceFetchTaskContext extends JdbcSourceFetchTaskContext<Ora
         // use the configuration queue size.
         final int queueSize =
                 sourceSplitBase.isSnapshotSplit() && isExactlyOnce()
-                        ? Integer.MAX_VALUE
+                        ? 4096
                         : getSourceConfig().getDbzConnectorConfig().getMaxQueueSize();
         this.queue =
                 new ChangeEventQueue.Builder<DataChangeEvent>()
