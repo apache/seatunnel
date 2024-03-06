@@ -1,13 +1,12 @@
 # Seatunnel runs on Flink
 
-Flink is a powerful high-performance distributed stream processing engine,More information about it you can,You can search for `Apache Flink`
+Flink是一个强大的高性能分布式流处理引擎，更多关于它的信息，你可以搜索 `Apache Flink`。
 
-### Set Flink configuration information in the job
+### 在Job中设置Flink的配置信息
 
-Begin with `flink.`
+从 `flink` 开始：
 
-Example:
-I set a precise Checkpoint for this job
+例子: 我对这个项目设置一个精确的检查点
 
 ```
 env {
@@ -16,20 +15,20 @@ env {
 }
 ```
 
-Enumeration types are not currently supported, you need to specify them in the Flink conf file ,Only these types of Settings are supported for the time being:<br/>
+枚举类型当前还不支持，你需要在Flink的配置文件中指定它们，暂时只有这些类型的设置受支持：<br/>
 Integer/Boolean/String/Duration
 
-### How to set up a simple Flink job
+### 如何设置一个简单的Flink job
 
-This is a simple job that runs on Flink Randomly generated data is printed to the console
+这是一个运行在Flink中随机生成数据打印到控制台的简单job
 
 ```
 env {
-  # common parameter
+  # 公共参数
   parallelism = 1
   checkpoint.interval = 5000
 
-  # flink special parameter
+  # flink特殊参数
   flink.execution.checkpointing.mode = "EXACTLY_ONCE"
   flink.execution.checkpointing.timeout = 600000
 }
@@ -70,8 +69,8 @@ source {
 }
 
 transform {
-  # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-  # please go to https://seatunnel.apache.org/docs/transform-v2/sql
+  # 如果你想知道更多关于如何配置seatunnel的信息和查看完整的transform插件，
+  # 请访问：https://seatunnel.apache.org/docs/transform-v2/sql
 }
 
 sink{
@@ -79,6 +78,6 @@ sink{
 }
 ```
 
-### How to run a job in a project
+### 如何在项目中运行job
 
-After you pull the code to the local, go to the `seatunnel-examples/seatunnel-flink-connector-v2-example` module find `org.apache.seatunnel.example.flink.v2.SeaTunnelApiExample` To complete the operation of the job
+当你将代码拉到本地后，转到 `seatunnel-examples/seatunnel-flink-connector-v2-example` 模块，查找 `org.apache.seatunnel.example.flink.v2.SeaTunnelApiExample` 即可完成job的操作
