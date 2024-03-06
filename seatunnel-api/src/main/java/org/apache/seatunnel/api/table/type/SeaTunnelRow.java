@@ -237,7 +237,9 @@ public final class SeaTunnelRow implements Serializable {
             case "String[]":
                 int s = 0;
                 for (String i : ((String[]) v)) {
-                    s += i.length();
+                    if (null != i) {
+                        s += i.length();
+                    }
                 }
                 return s;
             case "Boolean[]":
