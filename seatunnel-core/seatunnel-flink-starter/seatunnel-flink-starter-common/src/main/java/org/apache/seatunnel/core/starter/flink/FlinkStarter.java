@@ -22,7 +22,6 @@ import org.apache.seatunnel.core.starter.Starter;
 import org.apache.seatunnel.core.starter.enums.EngineType;
 import org.apache.seatunnel.core.starter.flink.args.FlinkCommandArgs;
 import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
-
 import org.apache.seatunnel.core.starter.utils.SystemUtil;
 
 import java.util.ArrayList;
@@ -55,38 +54,40 @@ public class FlinkStarter implements Starter {
     @Override
     public List<String> buildCommands() {
         List<String> command = new ArrayList<>();
-        String local_os_type="";
-        
-        SystemUtil my_system_util=new SystemUtil();
-        local_os_type=my_system_util.GetOsType();
+        String local_os_type = "";
+
+        SystemUtil my_system_util = new SystemUtil();
+        local_os_type = my_system_util.GetOsType();
         // debug
         // System.out.println("OS type:"+local_os_type);
-        
-        String cmd_flink="";
-        
-		// Nothe that "flink.cmd” or "flink.bat" can be retrieved from lower version of flink (e.g. 1.0.9)
-		// We do not check if this file exists on the box, user needs to make sure this file exists or not.
+
+        String cmd_flink = "";
+
+        // Note that "flink.cmd” or "flink.bat" can be retrieved from lower version of flink (e.g.
+        // 1.0.9)
+        // We do not check if this file exists on the box, user needs to make sure this file exists
+        // or not.
         switch (local_os_type.toLowerCase()) {
-           case "windows":
-               cmd_flink="%FLINK_HOME%/bin/flink.cmd";
-           case "linux":             
-               cmd_flink="${FLINK_HOME}/bin/flink";
-           case "solaris":
-               cmd_flink="${FLINK_HOME}/bin/flink";
-           case "mac":
-               cmd_flink="${FLINK_HOME}/bin/flink";             
-           case "unknown":
-              cmd_flink="error";
+            case "windows":
+                cmd_flink = "%FLINK_HOME%/bin/flink.cmd";
+            case "linux":
+                cmd_flink = "${FLINK_HOME}/bin/flink";
+            case "solaris":
+                cmd_flink = "${FLINK_HOME}/bin/flink";
+            case "mac":
+                cmd_flink = "${FLINK_HOME}/bin/flink";
+            case "unknown":
+                cmd_flink = "error";
         }
-        
+
         // set start command
-        if ( ! (cmd_flink.equals("error"))) {
-           command.add(cmd_flink);
+        if (!(cmd_flink.equals("error"))) {
+            command.add(cmd_flink);
         } else {
             System.out.println("Error: Can not determine OS type, abort run !");
             System.exit(-1);
-        }    
-        
+        }
+
         // set deploy mode, run or run-application
         command.add(flinkCommandArgs.getDeployMode().getDeployMode());
         // set submitted target master
