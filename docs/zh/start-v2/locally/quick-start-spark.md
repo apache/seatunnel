@@ -7,13 +7,13 @@ sidebar_position: 4
 
 ## 步骤 1: 部署SeaTunnel及连接器
 
-在开始前，请确保您已经按照[部署](deployment.md)中的描述下载并部署了SeaTunnel
+在开始前，请确保您已经按照[部署](../../../en/start-v2/locally/deployment.md)中的描述下载并部署了SeaTunnel
 
 ## 步骤 2: 部署并配置Spark
 
 请先[下载Spark](https://spark.apache.org/downloads.html)(**需要版本 >= 2.4.0**)。 更多信息您可以查看[入门: standalone模式](https://spark.apache.org/docs/latest/spark-standalone.html#installing-spark-standalone-to-a-cluster)
 
-**配置SeaTunnel**: 修改`config/seatunnel-env.sh`中的设置,它是基于你的引擎在[部署](deployment.md)时的安装路径。
+**配置SeaTunnel**: 修改`config/seatunnel-env.sh`中的设置,它是基于你的引擎在[部署](../../../en/start-v2/locally/deployment.md)时的安装路径。
 将`SPARK_HOME`修改为Spark的部署目录。
 
 ## 步骤 3: 添加作业配置文件来定义作业
@@ -59,7 +59,7 @@ sink {
 
 ```
 
-关于配置的更多信息请查看[配置的基本概念](../../concept/config.md)
+关于配置的更多信息请查看[配置的基本概念](../../../en/concept/config.md)
 
 ## 步骤 4: 运行SeaTunnel应用程序
 
@@ -113,6 +113,6 @@ row=16 : SGZCr, 94186144
 ## 此外
 
 现在，您已经快速浏览了SeaTunnel使用Spark引擎的方式，你可以通过在[连接器](/docs/category/connector-v2)中找到SeaTunnel所支持的所有source和sink。
-如果您想要了解更多关于SeaTunnel运行在Spark上的信息，请参阅[基于Spark的SeaTunnel](../../other-engine/spark.md)。
+如果您想要了解更多关于SeaTunnel运行在Spark上的信息，请参阅[基于Spark的SeaTunnel](../../../en/other-engine/spark.md)。
 
-SeaTunnel有自己的名为`Zeta`的引擎，同时`Zeta`是SeaTunnel的默认引擎。您可以参考[快速开始](quick-start-seatunnel-engine.md)配置和运行数据同步作业。
+SeaTunnel有自己的名为`Zeta`的引擎，同时`Zeta`是SeaTunnel的默认引擎。您可以参考[快速开始](../../../en/start-v2/locally/quick-start-seatunnel-engine.md)配置和运行数据同步作业。
