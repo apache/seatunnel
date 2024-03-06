@@ -17,8 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.ftp.config;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 
 import java.util.HashMap;
@@ -42,20 +41,18 @@ public class FtpConf extends HadoopConf {
         return SCHEMA;
     }
 
-    public static HadoopConf buildWithConfig(Config config) {
-        String host = config.getString(FtpConfigOptions.FTP_HOST.key());
-        int port = config.getInt(FtpConfigOptions.FTP_PORT.key());
+    public static HadoopConf buildWithConfig(ReadonlyConfig config) {
+        String host = config.get(FtpConfigOptions.FTP_HOST);
+        int port = config.get(FtpConfigOptions.FTP_PORT);
         String defaultFS = String.format("ftp://%s:%s", host, port);
         HadoopConf hadoopConf = new FtpConf(defaultFS);
         HashMap<String, String> ftpOptions = new HashMap<>();
-        ftpOptions.put(
-                "fs.ftp.user." + host, config.getString(FtpConfigOptions.FTP_USERNAME.key()));
-        ftpOptions.put(
-                "fs.ftp.password." + host, config.getString(FtpConfigOptions.FTP_PASSWORD.key()));
-        if (config.hasPath(FtpConfigOptions.FTP_CONNECTION_MODE.key())) {
+        ftpOptions.put("fs.ftp.user." + host, config.get(FtpConfigOptions.FTP_USERNAME));
+        ftpOptions.put("fs.ftp.password." + host, config.get(FtpConfigOptions.FTP_PASSWORD));
+        if (config.getOptional(FtpConfigOptions.FTP_CONNECTION_MODE).isPresent()) {
             ftpOptions.put(
                     "fs.ftp.connection.mode",
-                    config.getString(FtpConfigOptions.FTP_CONNECTION_MODE.key()));
+                    config.get(FtpConfigOptions.FTP_CONNECTION_MODE).getMode());
         }
         hadoopConf.setExtraOptions(ftpOptions);
         return hadoopConf;
