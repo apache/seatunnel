@@ -122,24 +122,8 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
         return this.physicalRowType;
     }
 
-    public void deserializeMessage(
-            byte[] message, Collector<SeaTunnelRow> out, TablePath tablePath) {
-        if (message == null || message.length == 0) {
-            // skip tombstone messages
-            return;
-        }
-
-        ObjectNode jsonNode;
-        try {
-            jsonNode = convertBytes(message);
-        } catch (SeaTunnelRuntimeException cause) {
-            if (!ignoreParseErrors) {
-                throw cause;
-            } else {
-                return;
-            }
-        }
-
+    public void deserialize(ObjectNode jsonNode, Collector<SeaTunnelRow> out, TablePath tablePath)
+            throws IOException {
         try {
             if (database != null
                     && !databasePattern.matcher(jsonNode.get(FIELD_DATABASE).asText()).matches()) {
@@ -211,7 +195,6 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
                     throw new IllegalStateException(
                             String.format("Unknown operation type '%s'.", op));
             }
-
         } catch (RuntimeException e) {
             if (!ignoreParseErrors) {
                 throw CommonError.jsonOperationError(FORMAT, jsonNode.toString(), e);
@@ -220,21 +203,35 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
     }
 
     private ObjectNode convertBytes(byte[] message) throws SeaTunnelRuntimeException {
+        if (message == null || message.length == 0) {
+            return null;
+        }
+
         try {
             return (ObjectNode) jsonDeserializer.deserializeToJsonNode(message);
         } catch (Throwable t) {
-            throw CommonError.jsonOperationError(FORMAT, new String(message), t);
+            if (!ignoreParseErrors) {
+                throw CommonError.jsonOperationError(FORMAT, new String(message), t);
+            }
+            return null;
         }
     }
 
     @Override
-    public void deserialize(byte[] message, Collector<SeaTunnelRow> out) {
-        deserializeMessage(message, out, null);
+    public void deserialize(byte[] message, Collector<SeaTunnelRow> out) throws IOException {
+        ObjectNode jsonNodes = convertBytes(message);
+        if (jsonNodes != null) {
+            deserialize(convertBytes(message), out, null);
+        }
     }
 
     @Override
-    public void deserialize(byte[] message, Collector<SeaTunnelRow> out, TablePath tablePath) {
-        deserializeMessage(message, out, tablePath);
+    public void deserialize(byte[] message, Collector<SeaTunnelRow> out, TablePath tablePath)
+            throws IOException {
+        ObjectNode jsonNodes = convertBytes(message);
+        if (jsonNodes != null) {
+            deserialize(convertBytes(message), out, tablePath);
+        }
     }
 
     private SeaTunnelRow convertJsonNode(JsonNode root) {
