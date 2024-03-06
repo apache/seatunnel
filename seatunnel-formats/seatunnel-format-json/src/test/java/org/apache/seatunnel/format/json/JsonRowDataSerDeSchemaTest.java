@@ -333,7 +333,7 @@ public class JsonRowDataSerDeSchemaTest {
         assertEquals(actual.getMessage(), expected.getMessage());
 
         SeaTunnelRuntimeException expectedCause =
-                CommonError.jsonOperationError("Common", "Field $.name in " + root);
+                CommonError.jsonOperationError("Common", "Field $.name in " + root.toString());
         Throwable cause = actual.getCause();
         assertEquals(cause.getClass(), expectedCause.getClass());
         assertEquals(cause.getMessage(), expectedCause.getMessage());

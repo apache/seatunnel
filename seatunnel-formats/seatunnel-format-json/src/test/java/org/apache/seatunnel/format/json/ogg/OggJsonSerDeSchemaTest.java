@@ -19,7 +19,6 @@
 package org.apache.seatunnel.format.json.ogg;
 
 import org.apache.seatunnel.api.source.Collector;
-import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -48,7 +47,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class OggJsonSerDeSchemaTest {
     private static final String FORMAT = "Ogg";
-    private static final String RESOURCE_OGG_DATA_NAME = "ogg-data-filter-table.txt";
 
     private static final SeaTunnelRowType PHYSICAL_DATA_TYPE =
             new SeaTunnelRowType(
@@ -57,7 +55,7 @@ public class OggJsonSerDeSchemaTest {
 
     @Test
     public void testFilteringTables() throws Exception {
-        List<String> lines = readLines();
+        List<String> lines = readLines("ogg-data-filter-table.txt");
         OggJsonDeserializationSchema deserializationSchema =
                 new OggJsonDeserializationSchema.Builder(PHYSICAL_DATA_TYPE)
                         .setDatabase("^OG.*")
@@ -104,8 +102,7 @@ public class OggJsonSerDeSchemaTest {
                 assertThrows(
                         expected.getClass(),
                         () -> {
-                            deserializationSchema.deserialize(
-                                    emptyMsg.getBytes(), collector, TablePath.of(""));
+                            deserializationSchema.deserialize(emptyMsg.getBytes(), collector);
                         });
         assertEquals(cause.getMessage(), expected.getMessage());
     }
@@ -121,8 +118,7 @@ public class OggJsonSerDeSchemaTest {
                 assertThrows(
                         expected.getClass(),
                         () -> {
-                            deserializationSchema.deserialize(
-                                    noDataMsg.getBytes(), collector, TablePath.of("test"));
+                            deserializationSchema.deserialize(noDataMsg.getBytes(), collector);
                         });
         assertEquals(cause.getMessage(), expected.getMessage());
 
@@ -243,9 +239,8 @@ public class OggJsonSerDeSchemaTest {
                 .build();
     }
 
-    private static List<String> readLines() throws IOException {
-        final URL url =
-                OggJsonSerDeSchemaTest.class.getClassLoader().getResource(RESOURCE_OGG_DATA_NAME);
+    private static List<String> readLines(String resource) throws IOException {
+        final URL url = OggJsonSerDeSchemaTest.class.getClassLoader().getResource(resource);
         Assertions.assertNotNull(url);
         Path path = new File(url.getFile()).toPath();
         return Files.readAllLines(path);
@@ -253,7 +248,7 @@ public class OggJsonSerDeSchemaTest {
 
     private static class SimpleCollector implements Collector<SeaTunnelRow> {
 
-        private final List<SeaTunnelRow> list = new ArrayList<>();
+        private List<SeaTunnelRow> list = new ArrayList<>();
 
         @Override
         public void collect(SeaTunnelRow record) {

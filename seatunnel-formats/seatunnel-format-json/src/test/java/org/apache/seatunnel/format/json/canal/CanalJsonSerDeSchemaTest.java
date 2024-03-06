@@ -19,10 +19,11 @@
 package org.apache.seatunnel.format.json.canal;
 
 import org.apache.seatunnel.api.source.Collector;
-import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
 import org.junit.jupiter.api.Test;
 
@@ -41,8 +42,10 @@ import static org.apache.seatunnel.api.table.type.BasicType.FLOAT_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.INT_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class CanalJsonSerDeSchemaTest {
+    private static final String FORMAT = "Canal";
 
     private static final SeaTunnelRowType PHYSICAL_DATA_TYPE =
             new SeaTunnelRowType(
@@ -66,16 +69,96 @@ public class CanalJsonSerDeSchemaTest {
                 createCanalJsonDeserializationSchema(null, null);
         final SimpleCollector collector = new SimpleCollector();
 
-        deserializationSchema.deserialize((byte[]) null, collector, TablePath.of("test"));
+        deserializationSchema.deserialize((byte[]) null, collector);
         assertEquals(0, collector.list.size());
+    }
+
+    @Test
+    public void testDeserializeNoJson() throws Exception {
+        final CanalJsonDeserializationSchema deserializationSchema =
+                createCanalJsonDeserializationSchema(null, null);
+        final SimpleCollector collector = new SimpleCollector();
+        String noJsonMsg = "{]";
+
+        SeaTunnelRuntimeException expected = CommonError.jsonOperationError(FORMAT, noJsonMsg);
+        SeaTunnelRuntimeException cause =
+                assertThrows(
+                        expected.getClass(),
+                        () -> {
+                            deserializationSchema.deserialize(noJsonMsg.getBytes(), collector);
+                        });
+        assertEquals(cause.getMessage(), expected.getMessage());
+    }
+
+    @Test
+    public void testDeserializeEmptyJson() throws Exception {
+        final CanalJsonDeserializationSchema deserializationSchema =
+                createCanalJsonDeserializationSchema(null, null);
+        final SimpleCollector collector = new SimpleCollector();
+        String emptyMsg = "{}";
+        SeaTunnelRuntimeException expected = CommonError.jsonOperationError(FORMAT, emptyMsg);
+        SeaTunnelRuntimeException cause =
+                assertThrows(
+                        expected.getClass(),
+                        () -> {
+                            deserializationSchema.deserialize(emptyMsg.getBytes(), collector);
+                        });
+        assertEquals(cause.getMessage(), expected.getMessage());
+    }
+
+    @Test
+    public void testDeserializeNoDataJson() throws Exception {
+        final CanalJsonDeserializationSchema deserializationSchema =
+                createCanalJsonDeserializationSchema(null, null);
+        final SimpleCollector collector = new SimpleCollector();
+        String noDataMsg = "{\"type\":\"INSERT\"}";
+        SeaTunnelRuntimeException expected = CommonError.jsonOperationError(FORMAT, noDataMsg);
+        SeaTunnelRuntimeException cause =
+                assertThrows(
+                        expected.getClass(),
+                        () -> {
+                            deserializationSchema.deserialize(noDataMsg.getBytes(), collector);
+                        });
+        assertEquals(cause.getMessage(), expected.getMessage());
+
+        Throwable noDataCause = cause.getCause();
+        assertEquals(noDataCause.getClass(), IllegalStateException.class);
+        assertEquals(
+                noDataCause.getMessage(),
+                String.format("Null data value '%s' Cannot send downstream", noDataMsg));
+    }
+
+    @Test
+    public void testDeserializeUnknownTypeJson() throws Exception {
+        final CanalJsonDeserializationSchema deserializationSchema =
+                createCanalJsonDeserializationSchema(null, null);
+        final SimpleCollector collector = new SimpleCollector();
+        String unknownType = "XX";
+        String unknownOperationMsg =
+                "{\"data\":{\"id\":101,\"name\":\"scooter\"},\"type\":\"" + unknownType + "\"}";
+        SeaTunnelRuntimeException expected =
+                CommonError.jsonOperationError(FORMAT, unknownOperationMsg);
+        SeaTunnelRuntimeException cause =
+                assertThrows(
+                        expected.getClass(),
+                        () -> {
+                            deserializationSchema.deserialize(
+                                    unknownOperationMsg.getBytes(), collector);
+                        });
+        assertEquals(cause.getMessage(), expected.getMessage());
+
+        Throwable unknownTypeCause = cause.getCause();
+        assertEquals(unknownTypeCause.getClass(), IllegalStateException.class);
+        assertEquals(
+                unknownTypeCause.getMessage(),
+                String.format("Unknown operation type '%s'.", unknownType));
     }
 
     public void runTest(List<String> lines, CanalJsonDeserializationSchema deserializationSchema)
             throws IOException {
         SimpleCollector collector = new SimpleCollector();
         for (String line : lines) {
-            deserializationSchema.deserialize(
-                    line.getBytes(StandardCharsets.UTF_8), collector, TablePath.of(""));
+            deserializationSchema.deserialize(line.getBytes(StandardCharsets.UTF_8), collector);
         }
 
         List<String> expected =

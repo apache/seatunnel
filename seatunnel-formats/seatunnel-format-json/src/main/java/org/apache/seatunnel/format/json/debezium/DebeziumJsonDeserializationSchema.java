@@ -90,8 +90,18 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
     }
 
     @Override
+    public void deserialize(byte[] message, Collector<SeaTunnelRow> out) {
+        deserializeMessage(message, out, null);
+    }
+
+    @Override
     public void deserialize(byte[] message, Collector<SeaTunnelRow> out, TablePath tablePath)
             throws IOException {
+        deserializeMessage(message, out, tablePath);
+    }
+
+    private void deserializeMessage(
+            byte[] message, Collector<SeaTunnelRow> out, TablePath tablePath) {
         if (message == null || message.length == 0) {
             // skip tombstone messages
             return;
@@ -101,36 +111,50 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
             JsonNode payload = getPayload(convertBytes(message));
             String op = payload.get("op").asText();
 
-            if (OP_CREATE.equals(op) || OP_READ.equals(op)) {
-                SeaTunnelRow insert = convertJsonNode(payload.get("after"));
-                insert.setRowKind(RowKind.INSERT);
-                insert.setTableId(tablePath.toString());
-                out.collect(insert);
-            } else if (OP_UPDATE.equals(op)) {
-                SeaTunnelRow before = convertJsonNode(payload.get("before"));
-                if (before == null) {
-                    throw new IllegalStateException(
-                            String.format(REPLICA_IDENTITY_EXCEPTION, "UPDATE"));
-                }
-                before.setRowKind(RowKind.UPDATE_BEFORE);
-                before.setTableId(tablePath.toString());
-                out.collect(before);
+            switch (op) {
+                case OP_CREATE:
+                case OP_READ:
+                    SeaTunnelRow insert = convertJsonNode(payload.get("after"));
+                    insert.setRowKind(RowKind.INSERT);
+                    if (tablePath != null && !tablePath.toString().isEmpty()) {
+                        insert.setTableId(tablePath.toString());
+                    }
+                    out.collect(insert);
+                    break;
+                case OP_UPDATE:
+                    SeaTunnelRow before = convertJsonNode(payload.get("before"));
+                    if (before == null) {
+                        throw new IllegalStateException(
+                                String.format(REPLICA_IDENTITY_EXCEPTION, "UPDATE"));
+                    }
+                    before.setRowKind(RowKind.UPDATE_BEFORE);
+                    if (tablePath != null && !tablePath.toString().isEmpty()) {
+                        before.setTableId(tablePath.toString());
+                    }
+                    out.collect(before);
 
-                SeaTunnelRow after = convertJsonNode(payload.get("after"));
-                after.setRowKind(RowKind.UPDATE_AFTER);
-                after.setTableId(tablePath.toString());
-                out.collect(after);
-            } else if (OP_DELETE.equals(op)) {
-                SeaTunnelRow delete = convertJsonNode(payload.get("before"));
-                if (delete == null) {
-                    throw new IllegalStateException(
-                            String.format(REPLICA_IDENTITY_EXCEPTION, "UPDATE"));
-                }
-                delete.setRowKind(RowKind.DELETE);
-                delete.setTableId(tablePath.toString());
-                out.collect(delete);
-            } else {
-                throw new IllegalStateException(format("Unknown operation type '%s'.", op));
+                    SeaTunnelRow after = convertJsonNode(payload.get("after"));
+                    after.setRowKind(RowKind.UPDATE_AFTER);
+
+                    if (tablePath != null && !tablePath.toString().isEmpty()) {
+                        after.setTableId(tablePath.toString());
+                    }
+                    out.collect(after);
+                    break;
+                case OP_DELETE:
+                    SeaTunnelRow delete = convertJsonNode(payload.get("before"));
+                    if (delete == null) {
+                        throw new IllegalStateException(
+                                String.format(REPLICA_IDENTITY_EXCEPTION, "UPDATE"));
+                    }
+                    delete.setRowKind(RowKind.DELETE);
+                    if (tablePath != null && !tablePath.toString().isEmpty()) {
+                        delete.setTableId(tablePath.toString());
+                    }
+                    out.collect(delete);
+                    break;
+                default:
+                    throw new IllegalStateException(format("Unknown operation type '%s'.", op));
             }
         } catch (RuntimeException e) {
             // a big try catch to protect the processing.

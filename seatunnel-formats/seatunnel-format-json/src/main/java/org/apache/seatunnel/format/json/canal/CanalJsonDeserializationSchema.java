@@ -122,8 +122,24 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
         return this.physicalRowType;
     }
 
-    public void deserialize(ObjectNode jsonNode, Collector<SeaTunnelRow> out, TablePath tablePath)
-            throws IOException {
+    public void deserializeMessage(
+            byte[] message, Collector<SeaTunnelRow> out, TablePath tablePath) {
+        if (message == null || message.length == 0) {
+            // skip tombstone messages
+            return;
+        }
+
+        ObjectNode jsonNode;
+        try {
+            jsonNode = convertBytes(message);
+        } catch (SeaTunnelRuntimeException cause) {
+            if (!ignoreParseErrors) {
+                throw cause;
+            } else {
+                return;
+            }
+        }
+
         try {
             if (database != null
                     && !databasePattern.matcher(jsonNode.get(FIELD_DATABASE).asText()).matches()) {
@@ -135,52 +151,67 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
             }
 
             JsonNode dataNode = jsonNode.get(FIELD_DATA);
-            String type = jsonNode.get(FIELD_TYPE).asText();
+            String op = jsonNode.get(FIELD_TYPE).asText();
             // When a null value is encountered, an exception needs to be thrown for easy sensing
             if (dataNode == null || dataNode.isNull()) {
                 // We'll skip the query or create or alter event data
-                if (OP_QUERY.equals(type) || OP_CREATE.equals(type) || OP_ALTER.equals(type)) {
+                if (OP_QUERY.equals(op) || OP_CREATE.equals(op) || OP_ALTER.equals(op)) {
                     return;
                 }
                 throw new IllegalStateException(
                         format("Null data value '%s' Cannot send downstream", jsonNode));
             }
-            if (OP_INSERT.equals(type)) {
-                for (int i = 0; i < dataNode.size(); i++) {
-                    SeaTunnelRow row = convertJsonNode(dataNode.get(i));
-                    row.setTableId(tablePath.toString());
-                    out.collect(row);
-                }
-            } else if (OP_UPDATE.equals(type)) {
-                final ArrayNode oldNode = (ArrayNode) jsonNode.get(FIELD_OLD);
-                for (int i = 0; i < dataNode.size(); i++) {
-                    SeaTunnelRow after = convertJsonNode(dataNode.get(i));
-                    SeaTunnelRow before = convertJsonNode(oldNode.get(i));
-                    for (int f = 0; f < fieldCount; f++) {
-                        if (before.isNullAt(f) && oldNode.findValue(fieldNames[f]) == null) {
-                            // fields in "old" (before) means the fields are changed
-                            // fields not in "old" (before) means the fields are not changed
-                            // so we just copy the not changed fields into before
-                            before.setField(f, after.getField(f));
+
+            switch (op) {
+                case OP_INSERT:
+                    for (int i = 0; i < dataNode.size(); i++) {
+                        SeaTunnelRow row = convertJsonNode(dataNode.get(i));
+                        if (tablePath != null && !tablePath.toString().isEmpty()) {
+                            row.setTableId(tablePath.toString());
                         }
+                        out.collect(row);
                     }
-                    before.setRowKind(RowKind.UPDATE_BEFORE);
-                    before.setTableId(tablePath.toString());
-                    after.setRowKind(RowKind.UPDATE_AFTER);
-                    after.setTableId(tablePath.toString());
-                    out.collect(before);
-                    out.collect(after);
-                }
-            } else if (OP_DELETE.equals(type)) {
-                for (int i = 0; i < dataNode.size(); i++) {
-                    SeaTunnelRow row = convertJsonNode(dataNode.get(i));
-                    row.setRowKind(RowKind.DELETE);
-                    row.setTableId(tablePath.toString());
-                    out.collect(row);
-                }
-            } else {
-                throw new IllegalStateException(format("Unknown operation type '%s'.", type));
+                    break;
+                case OP_UPDATE:
+                    final ArrayNode oldNode = (ArrayNode) jsonNode.get(FIELD_OLD);
+                    for (int i = 0; i < dataNode.size(); i++) {
+                        SeaTunnelRow after = convertJsonNode(dataNode.get(i));
+                        SeaTunnelRow before = convertJsonNode(oldNode.get(i));
+                        for (int f = 0; f < fieldCount; f++) {
+                            if (before.isNullAt(f) && oldNode.findValue(fieldNames[f]) == null) {
+                                // fields in "old" (before) means the fields are changed
+                                // fields not in "old" (before) means the fields are not changed
+                                // so we just copy the not changed fields into before
+                                before.setField(f, after.getField(f));
+                            }
+                        }
+                        before.setRowKind(RowKind.UPDATE_BEFORE);
+                        if (tablePath != null && !tablePath.toString().isEmpty()) {
+                            before.setTableId(tablePath.toString());
+                        }
+                        after.setRowKind(RowKind.UPDATE_AFTER);
+                        if (tablePath != null && !tablePath.toString().isEmpty()) {
+                            after.setTableId(tablePath.toString());
+                        }
+                        out.collect(before);
+                        out.collect(after);
+                    }
+                    break;
+                case OP_DELETE:
+                    for (int i = 0; i < dataNode.size(); i++) {
+                        SeaTunnelRow row = convertJsonNode(dataNode.get(i));
+                        row.setRowKind(RowKind.DELETE);
+                        if (tablePath != null && !tablePath.toString().isEmpty()) {
+                            row.setTableId(tablePath.toString());
+                        }
+                        out.collect(row);
+                    }
+                    break;
+                default:
+                    throw new IllegalStateException(
+                            String.format("Unknown operation type '%s'.", op));
             }
+
         } catch (RuntimeException e) {
             if (!ignoreParseErrors) {
                 throw CommonError.jsonOperationError(FORMAT, jsonNode.toString(), e);
@@ -197,24 +228,13 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
     }
 
     @Override
-    public void deserialize(byte[] message, Collector<SeaTunnelRow> out, TablePath tablePath)
-            throws IOException {
-        if (message == null) {
-            return;
-        }
+    public void deserialize(byte[] message, Collector<SeaTunnelRow> out) {
+        deserializeMessage(message, out, null);
+    }
 
-        ObjectNode jsonNode;
-        try {
-            jsonNode = convertBytes(message);
-        } catch (SeaTunnelRuntimeException cause) {
-            if (!ignoreParseErrors) {
-                throw cause;
-            } else {
-                return;
-            }
-        }
-
-        deserialize(jsonNode, out, tablePath);
+    @Override
+    public void deserialize(byte[] message, Collector<SeaTunnelRow> out, TablePath tablePath) {
+        deserializeMessage(message, out, tablePath);
     }
 
     private SeaTunnelRow convertJsonNode(JsonNode root) {
