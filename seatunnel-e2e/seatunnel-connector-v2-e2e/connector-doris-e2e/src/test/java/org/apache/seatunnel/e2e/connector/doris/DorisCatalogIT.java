@@ -19,6 +19,7 @@ package org.apache.seatunnel.e2e.connector.doris;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SupportSaveMode;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
@@ -27,12 +28,14 @@ import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
+import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.connectors.doris.catalog.DorisCatalog;
 import org.apache.seatunnel.connectors.doris.catalog.DorisCatalogFactory;
 import org.apache.seatunnel.connectors.doris.config.DorisOptions;
 import org.apache.seatunnel.connectors.doris.sink.DorisSinkFactory;
+import org.apache.seatunnel.connectors.doris.source.DorisSourceFactory;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -252,6 +255,43 @@ public class DorisCatalogIT extends AbstractDorisIT {
                         .map(Column::getName)
                         .collect(Collectors.toList()));
         return createdTable;
+    }
+
+    @Test
+    public void testDorisSourceSelectFieldsNotLossKeysInformation() {
+        catalog.createTable(tablePath, catalogTable, true);
+        DorisSourceFactory dorisSourceFactory = new DorisSourceFactory();
+        SeaTunnelSource dorisSource =
+                dorisSourceFactory
+                        .createSource(
+                                new TableSourceFactoryContext(
+                                        ReadonlyConfig.fromMap(
+                                                new HashMap<String, Object>() {
+                                                    {
+                                                        put(DorisOptions.DATABASE.key(), DATABASE);
+                                                        put(DorisOptions.TABLE.key(), SINK_TABLE);
+                                                        put(DorisOptions.USERNAME.key(), USERNAME);
+                                                        put(DorisOptions.PASSWORD.key(), PASSWORD);
+                                                        put(
+                                                                DorisOptions.DORIS_READ_FIELD.key(),
+                                                                "k1,k2");
+                                                        put(
+                                                                DorisOptions.FENODES.key(),
+                                                                container.getHost()
+                                                                        + ":"
+                                                                        + HTTP_PORT);
+                                                        put(
+                                                                DorisOptions.QUERY_PORT.key(),
+                                                                QUERY_PORT);
+                                                    }
+                                                }),
+                                        Thread.currentThread().getContextClassLoader()))
+                        .createSource();
+        CatalogTable table = (CatalogTable) dorisSource.getProducedCatalogTables().get(0);
+        Assertions.assertIterableEquals(
+                Arrays.asList("k1", "k2"), table.getTableSchema().getPrimaryKey().getColumnNames());
+        catalog.dropTable(tablePath, false);
+        Assertions.assertFalse(catalog.tableExists(tablePath));
     }
 
     @AfterAll

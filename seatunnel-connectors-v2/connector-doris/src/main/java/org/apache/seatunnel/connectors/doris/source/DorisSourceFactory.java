@@ -23,6 +23,8 @@ import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.ConstraintKey;
+import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
@@ -119,6 +121,34 @@ public class DorisSourceFactory implements TableSourceFactory {
             Column column = tableColumnsMap.get(field);
             builder.column(column);
         }
+        if (table.getTableSchema().getPrimaryKey() != null) {
+            List<String> columns =
+                    table.getTableSchema().getPrimaryKey().getColumnNames().stream()
+                            .filter(matchingFieldNames::contains)
+                            .collect(Collectors.toList());
+            if (!columns.isEmpty()) {
+                builder.primaryKey(
+                        new PrimaryKey(
+                                table.getTableSchema().getPrimaryKey().getPrimaryKey(), columns));
+            }
+        }
+
+        if (table.getTableSchema().getConstraintKeys() != null) {
+            List<ConstraintKey> keys =
+                    table.getTableSchema().getConstraintKeys().stream()
+                            .filter(
+                                    k ->
+                                            k.getColumnNames().stream()
+                                                    .map(
+                                                            ConstraintKey.ConstraintKeyColumn
+                                                                    ::getColumnName)
+                                                    .allMatch(matchingFieldNames::contains))
+                            .collect(Collectors.toList());
+            if (!keys.isEmpty()) {
+                builder.constraintKey(keys);
+            }
+        }
+
         table =
                 CatalogTable.of(
                         TableIdentifier.of(
