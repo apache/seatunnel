@@ -66,12 +66,17 @@ public class FlinkStarter implements Starter {
         
 		// Nothe that "flink.cmd” or "flink.bat" can be retrieved from lower version of flink (e.g. 1.0.9)
 		// We do not check if this file exists on the box, user needs to make sure this file exists or not.
-        if (local_os_type.toLowerCase().equals("windows")) {
-            cmd_flink="%FLINK_HOME%/bin/flink.cmd";
-        } else if (local_os_type.toLowerCase().equals("linux")) {             
-            cmd_flink="${FLINK_HOME}/bin/flink";
-        } else if (local_os_type.toLowerCase().equals("unknown")) {             
-          cmd_flink="error";
+        switch (local_os_type.toLowerCase()) {
+           case "windows":
+               cmd_flink="%FLINK_HOME%/bin/flink.cmd";
+           case "linux":             
+               cmd_flink="${FLINK_HOME}/bin/flink";
+           case "solaris":
+               cmd_flink="${FLINK_HOME}/bin/flink";
+           case "mac":
+               cmd_flink="${FLINK_HOME}/bin/flink";             
+           case "unknown":
+              cmd_flink="error";
         }
         
         // set start command
