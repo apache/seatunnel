@@ -293,7 +293,7 @@ log4j.appender.console.layout.ConversionPattern=%d{yyyy-MM-dd HH:mm:ss} %-5p %c{
 
 参考：
 
-https://stackoverflow.com/questions/27781187how-to-stop-info-messages-displaying-on-spark-console
+https://stackoverflow.com/questions/27781187/how-to-stop-info-messages-displaying-on-spark-console
 
 http://spark.apache.org/docs/latest/configuration.html#configuring-logging
 
