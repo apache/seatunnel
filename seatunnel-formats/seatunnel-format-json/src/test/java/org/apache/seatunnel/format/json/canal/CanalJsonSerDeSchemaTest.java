@@ -75,7 +75,7 @@ public class CanalJsonSerDeSchemaTest {
         SimpleCollector collector = new SimpleCollector();
         for (String line : lines) {
             deserializationSchema.deserialize(
-                    line.getBytes(StandardCharsets.UTF_8), collector, TablePath.of("test"));
+                    line.getBytes(StandardCharsets.UTF_8), collector, TablePath.of(""));
         }
 
         List<String> expected =
