@@ -104,7 +104,8 @@ public class OggJsonSerDeSchemaTest {
                 assertThrows(
                         expected.getClass(),
                         () -> {
-                            deserializationSchema.deserialize(emptyMsg.getBytes(), collector);
+                            deserializationSchema.deserialize(
+                                    emptyMsg.getBytes(), collector, TablePath.of(""));
                         });
         assertEquals(cause.getMessage(), expected.getMessage());
     }
