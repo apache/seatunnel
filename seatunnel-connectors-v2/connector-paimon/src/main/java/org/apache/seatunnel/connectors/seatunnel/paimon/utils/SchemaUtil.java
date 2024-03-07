@@ -20,7 +20,6 @@ package org.apache.seatunnel.connectors.seatunnel.paimon.utils;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.connectors.seatunnel.paimon.data.PaimonTypeMapper;
 
 import org.apache.paimon.schema.Schema;
@@ -31,15 +30,15 @@ import java.util.Objects;
 /** The util seatunnel schema to paimon schema */
 public class SchemaUtil {
 
-    public static DataType toPaimonType(SeaTunnelDataType rowType) {
-        return PaimonTypeMapper.toPaimonType(rowType);
+    public static DataType toPaimonType(Column column) {
+        return PaimonTypeMapper.INSTANCE.reconvert(column);
     }
 
     public static Schema toPaimonSchema(TableSchema tableSchema) {
         Schema.Builder paiSchemaBuilder = Schema.newBuilder();
         for (int i = 0; i < tableSchema.getColumns().size(); i++) {
             Column column = tableSchema.getColumns().get(i);
-            paiSchemaBuilder.column(column.getName(), toPaimonType(column.getDataType()));
+            paiSchemaBuilder.column(column.getName(), toPaimonType(column));
         }
         PrimaryKey primaryKey = tableSchema.getPrimaryKey();
         if (Objects.nonNull(primaryKey) && primaryKey.getColumnNames().size() > 0) {
