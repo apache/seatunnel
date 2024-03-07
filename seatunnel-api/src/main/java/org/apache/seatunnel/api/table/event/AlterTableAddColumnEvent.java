@@ -18,7 +18,7 @@
 package org.apache.seatunnel.api.table.event;
 
 import org.apache.seatunnel.api.table.catalog.Column;
-import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 
 import lombok.Getter;
 import lombok.ToString;
@@ -31,23 +31,24 @@ public class AlterTableAddColumnEvent extends AlterTableColumnEvent {
     private final String afterColumn;
 
     public AlterTableAddColumnEvent(
-            TablePath tablePath, Column column, boolean first, String afterColumn) {
-        super(tablePath);
+            TableIdentifier tableIdentifier, Column column, boolean first, String afterColumn) {
+        super(tableIdentifier);
         this.column = column;
         this.first = first;
         this.afterColumn = afterColumn;
     }
 
-    public static AlterTableAddColumnEvent addFirst(TablePath tablePath, Column column) {
-        return new AlterTableAddColumnEvent(tablePath, column, true, null);
+    public static AlterTableAddColumnEvent addFirst(
+            TableIdentifier tableIdentifier, Column column) {
+        return new AlterTableAddColumnEvent(tableIdentifier, column, true, null);
     }
 
-    public static AlterTableAddColumnEvent add(TablePath tablePath, Column column) {
-        return new AlterTableAddColumnEvent(tablePath, column, false, null);
+    public static AlterTableAddColumnEvent add(TableIdentifier tableIdentifier, Column column) {
+        return new AlterTableAddColumnEvent(tableIdentifier, column, false, null);
     }
 
     public static AlterTableAddColumnEvent addAfter(
-            TablePath tablePath, Column column, String afterColumn) {
-        return new AlterTableAddColumnEvent(tablePath, column, false, afterColumn);
+            TableIdentifier tableIdentifier, Column column, String afterColumn) {
+        return new AlterTableAddColumnEvent(tableIdentifier, column, false, afterColumn);
     }
 }

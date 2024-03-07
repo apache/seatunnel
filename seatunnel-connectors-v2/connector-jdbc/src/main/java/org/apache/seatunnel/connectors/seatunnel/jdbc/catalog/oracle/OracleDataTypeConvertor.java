@@ -17,15 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle;
 
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.DataTypeConvertor;
-import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.DecimalType;
-import org.apache.seatunnel.api.table.type.LocalTimeType;
-import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SqlType;
-import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleTypeConverter;
 
 import org.apache.commons.collections4.MapUtils;
 
@@ -38,43 +36,15 @@ import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+/** @deprecated instead by {@link OracleTypeConverter} */
+@Deprecated
 @AutoService(DataTypeConvertor.class)
 public class OracleDataTypeConvertor implements DataTypeConvertor<String> {
 
     public static final String PRECISION = "precision";
     public static final String SCALE = "scale";
-    public static final Integer DEFAULT_PRECISION = 38;
+    public static final Long DEFAULT_PRECISION = 38L;
     public static final Integer DEFAULT_SCALE = 18;
-
-    // ============================data types=====================
-    public static final String ORACLE_UNKNOWN = "UNKNOWN";
-    // -------------------------number----------------------------
-    public static final String ORACLE_BINARY_DOUBLE = "BINARY_DOUBLE";
-    public static final String ORACLE_BINARY_FLOAT = "BINARY_FLOAT";
-    public static final String ORACLE_NUMBER = "NUMBER";
-    public static final String ORACLE_FLOAT = "FLOAT";
-    public static final String ORACLE_REAL = "REAL";
-    public static final String ORACLE_INTEGER = "INTEGER";
-    // -------------------------string----------------------------
-    public static final String ORACLE_CHAR = "CHAR";
-    public static final String ORACLE_VARCHAR2 = "VARCHAR2";
-    public static final String ORACLE_NCHAR = "NCHAR";
-    public static final String ORACLE_NVARCHAR2 = "NVARCHAR2";
-    public static final String ORACLE_LONG = "LONG";
-    public static final String ORACLE_ROWID = "ROWID";
-    public static final String ORACLE_CLOB = "CLOB";
-    public static final String ORACLE_NCLOB = "NCLOB";
-    private static final String ORACLE_XML = "XMLTYPE";
-    // ------------------------------time-------------------------
-    public static final String ORACLE_DATE = "DATE";
-    public static final String ORACLE_TIMESTAMP = "TIMESTAMP";
-    public static final String ORACLE_TIMESTAMP_WITH_LOCAL_TIME_ZONE =
-            "TIMESTAMP WITH LOCAL TIME ZONE";
-    // ------------------------------blob-------------------------
-    public static final String ORACLE_BLOB = "BLOB";
-    public static final String ORACLE_BFILE = "BFILE";
-    public static final String ORACLE_RAW = "RAW";
-    public static final String ORACLE_LONG_RAW = "LONG RAW";
 
     @Override
     public SeaTunnelDataType<?> toSeaTunnelType(String field, String connectorDataType) {
@@ -85,63 +55,29 @@ public class OracleDataTypeConvertor implements DataTypeConvertor<String> {
     public SeaTunnelDataType<?> toSeaTunnelType(
             String field, String connectorDataType, Map<String, Object> dataTypeProperties) {
         checkNotNull(connectorDataType, "Oracle Type cannot be null");
-        connectorDataType = normalizeTimestamp(connectorDataType);
+
+        Long precision = null;
+        Integer scale = null;
         switch (connectorDataType) {
-            case ORACLE_INTEGER:
-                return BasicType.INT_TYPE;
-            case ORACLE_FLOAT:
-                // The float type will be converted to DecimalType(10, -127),
-                // which will lose precision in the spark engine
-                return new DecimalType(38, 18);
-            case ORACLE_NUMBER:
-                int precision =
-                        MapUtils.getInteger(dataTypeProperties, PRECISION, DEFAULT_PRECISION);
-                int scale = MapUtils.getInteger(dataTypeProperties, SCALE, DEFAULT_SCALE);
-                if (scale == 0) {
-                    if (precision == 0) {
-                        return new DecimalType(38, 18);
-                    }
-                    if (precision == 1) {
-                        return BasicType.BOOLEAN_TYPE;
-                    }
-                    if (precision <= 9) {
-                        return BasicType.INT_TYPE;
-                    }
-                    if (precision <= 18) {
-                        return BasicType.LONG_TYPE;
-                    }
-                }
-                return new DecimalType(38, 18);
-            case ORACLE_BINARY_DOUBLE:
-                return BasicType.DOUBLE_TYPE;
-            case ORACLE_BINARY_FLOAT:
-            case ORACLE_REAL:
-                return BasicType.FLOAT_TYPE;
-            case ORACLE_CHAR:
-            case ORACLE_NCHAR:
-            case ORACLE_NVARCHAR2:
-            case ORACLE_VARCHAR2:
-            case ORACLE_LONG:
-            case ORACLE_ROWID:
-            case ORACLE_NCLOB:
-            case ORACLE_CLOB:
-            case ORACLE_XML:
-                return BasicType.STRING_TYPE;
-            case ORACLE_DATE:
-            case ORACLE_TIMESTAMP:
-            case ORACLE_TIMESTAMP_WITH_LOCAL_TIME_ZONE:
-                return LocalTimeType.LOCAL_DATE_TIME_TYPE;
-            case ORACLE_BLOB:
-            case ORACLE_RAW:
-            case ORACLE_LONG_RAW:
-            case ORACLE_BFILE:
-                return PrimitiveByteArrayType.INSTANCE;
-                // Doesn't support yet
-            case ORACLE_UNKNOWN:
+            case OracleTypeConverter.ORACLE_NUMBER:
+                precision = MapUtils.getLong(dataTypeProperties, PRECISION, DEFAULT_PRECISION);
+                scale = MapUtils.getInteger(dataTypeProperties, SCALE, DEFAULT_SCALE);
+                break;
             default:
-                throw CommonError.convertToSeaTunnelTypeError(
-                        DatabaseIdentifier.ORACLE, connectorDataType, field);
+                break;
         }
+
+        BasicTypeDefine typeDefine =
+                BasicTypeDefine.builder()
+                        .name(field)
+                        .columnType(connectorDataType)
+                        .dataType(normalizeTimestamp(connectorDataType))
+                        .length(precision)
+                        .precision(precision)
+                        .scale(scale)
+                        .build();
+
+        return OracleTypeConverter.INSTANCE.convert(typeDefine).getDataType();
     }
 
     @Override
@@ -150,36 +86,20 @@ public class OracleDataTypeConvertor implements DataTypeConvertor<String> {
             SeaTunnelDataType<?> seaTunnelDataType,
             Map<String, Object> dataTypeProperties) {
         checkNotNull(seaTunnelDataType, "seaTunnelDataType cannot be null");
-        SqlType sqlType = seaTunnelDataType.getSqlType();
-        switch (sqlType) {
-            case TINYINT:
-            case SMALLINT:
-            case INT:
-                return ORACLE_INTEGER;
-            case BIGINT:
-                return ORACLE_NUMBER;
-            case FLOAT:
-                return ORACLE_FLOAT;
-            case DOUBLE:
-                return ORACLE_BINARY_DOUBLE;
-            case DECIMAL:
-                return ORACLE_NUMBER;
-            case BOOLEAN:
-                return ORACLE_NUMBER;
-            case STRING:
-                return ORACLE_VARCHAR2;
-            case DATE:
-                return ORACLE_DATE;
-            case TIMESTAMP:
-                return ORACLE_TIMESTAMP_WITH_LOCAL_TIME_ZONE;
-            case BYTES:
-                return ORACLE_BLOB;
-            default:
-                throw CommonError.convertToConnectorTypeError(
-                        DatabaseIdentifier.ORACLE,
-                        seaTunnelDataType.getSqlType().toString(),
-                        field);
-        }
+
+        Long precision = MapUtils.getLong(dataTypeProperties, PRECISION);
+        Integer scale = MapUtils.getInteger(dataTypeProperties, SCALE);
+        Column column =
+                PhysicalColumn.builder()
+                        .name(field)
+                        .dataType(seaTunnelDataType)
+                        .columnLength(precision)
+                        .scale(scale)
+                        .nullable(true)
+                        .build();
+
+        BasicTypeDefine typeDefine = OracleTypeConverter.INSTANCE.reconvert(column);
+        return typeDefine.getColumnType();
     }
 
     public static String normalizeTimestamp(String oracleType) {

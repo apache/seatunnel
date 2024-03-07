@@ -54,7 +54,7 @@
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>oracle-xe</artifactId>
-            <version>1.15.3</version>
+            <version>${testcontainer.version}</version>
             <scope>test</scope>
         </dependency>
 

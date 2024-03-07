@@ -35,6 +35,29 @@ public class InMemorySinkWriter
     private static final List<InMemoryMultiTableResourceManager> resourceManagers =
             new ArrayList<>();
 
+    // use a daemon thread to test classloader leak
+    private static final Thread THREAD;
+
+    static {
+        // use the daemon thread to always hold the classloader
+        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+        THREAD =
+                new Thread(
+                        () -> {
+                            while (true) {
+                                try {
+                                    Thread.sleep(1000);
+                                    System.out.println(classLoader);
+                                } catch (InterruptedException e) {
+                                    e.printStackTrace();
+                                }
+                            }
+                        },
+                        "InMemorySinkWriter-daemon-thread" + System.currentTimeMillis());
+        THREAD.setDaemon(true);
+        THREAD.start();
+    }
+
     public static List<String> getEvents() {
         return events;
     }

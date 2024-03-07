@@ -738,7 +738,7 @@ public class PostgresConnectorConfig extends RelationalDatabaseConnectorConfig {
     public static final Field PUBLICATION_AUTOCREATE_MODE =
             Field.create("publication.autocreate.mode")
                     .withDisplayName("Publication Auto Create Mode")
-                    .withEnum(AutoCreateMode.class, AutoCreateMode.ALL_TABLES)
+                    .withEnum(AutoCreateMode.class, AutoCreateMode.FILTERED)
                     .withWidth(Width.MEDIUM)
                     .withImportance(Importance.MEDIUM)
                     .withDescription(

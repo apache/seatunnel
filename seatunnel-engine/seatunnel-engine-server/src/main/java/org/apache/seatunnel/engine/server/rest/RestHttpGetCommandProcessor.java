@@ -24,7 +24,6 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.engine.common.Constant;
-import org.apache.seatunnel.engine.common.loader.SeaTunnelChildFirstClassLoader;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
@@ -36,6 +35,7 @@ import org.apache.seatunnel.engine.server.master.JobHistoryService.JobState;
 import org.apache.seatunnel.engine.server.operation.GetClusterHealthMetricsOperation;
 import org.apache.seatunnel.engine.server.operation.GetJobMetricsOperation;
 import org.apache.seatunnel.engine.server.operation.GetJobStatusOperation;
+import org.apache.seatunnel.engine.server.service.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import com.hazelcast.cluster.Address;
@@ -226,7 +226,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                         .map(
                                 jobState -> {
                                     Long jobId = jobState.getJobId();
-                                    SeaTunnelServer seaTunnelServer = getSeaTunnelServer();
+                                    SeaTunnelServer seaTunnelServer = getSeaTunnelServer(true);
                                     String jobMetrics;
                                     if (seaTunnelServer == null) {
                                         jobMetrics =
@@ -275,7 +275,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         if (!jobId.isEmpty() && jobInfo != null) {
             this.prepareResponse(command, convertToJson(jobInfo, Long.parseLong(jobId)));
         } else {
-            this.prepareResponse(command, new JsonObject());
+            this.prepareResponse(command, new JsonObject().add(RestConstant.JOB_ID, jobId));
         }
     }
 
@@ -320,12 +320,12 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         return metricsMap;
     }
 
-    private SeaTunnelServer getSeaTunnelServer() {
+    private SeaTunnelServer getSeaTunnelServer(boolean shouldBeMaster) {
         Map<String, Object> extensionServices =
                 this.textCommandService.getNode().getNodeExtension().createExtensionServices();
         SeaTunnelServer seaTunnelServer =
                 (SeaTunnelServer) extensionServices.get(Constant.SEATUNNEL_SERVICE_NAME);
-        if (!seaTunnelServer.isMasterNode()) {
+        if (!seaTunnelServer.isMasterNode() && shouldBeMaster) {
             return null;
         }
         return seaTunnelServer;
@@ -346,15 +346,18 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                                         .getSerializationService()
                                         .toObject(jobInfo.getJobImmutableInformation()));
 
+        ClassLoaderService classLoaderService = getSeaTunnelServer(false).getClassLoaderService();
         ClassLoader classLoader =
-                new SeaTunnelChildFirstClassLoader(jobImmutableInformation.getPluginJarsUrls());
+                classLoaderService.getClassLoader(
+                        jobId, jobImmutableInformation.getPluginJarsUrls());
         LogicalDag logicalDag =
                 CustomClassLoadedObject.deserializeWithCustomClassLoader(
                         this.textCommandService.getNode().getNodeEngine().getSerializationService(),
                         classLoader,
                         jobImmutableInformation.getLogicalDag());
+        classLoaderService.releaseClassLoader(jobId, jobImmutableInformation.getPluginJarsUrls());
 
-        SeaTunnelServer seaTunnelServer = getSeaTunnelServer();
+        SeaTunnelServer seaTunnelServer = getSeaTunnelServer(true);
         String jobMetrics;
         JobStatus jobStatus;
         if (seaTunnelServer == null) {

@@ -22,7 +22,11 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
 import java.util.Map;
 
-/** DataTypeConvertor is used to convert the data type between connector and SeaTunnel. */
+/**
+ * @deprecated instead by {@link org.apache.seatunnel.api.table.converter.TypeConverter}
+ * @param <T>
+ */
+@Deprecated
 public interface DataTypeConvertor<T> {
 
     /**

@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.api.table.event;
 
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 
 import lombok.Getter;
@@ -25,10 +26,15 @@ import lombok.ToString;
 @Getter
 @ToString(callSuper = true)
 public class AlterTableNameEvent extends AlterTableColumnEvent {
-    private final TablePath newTablePath;
+    private final TableIdentifier newTableIdentifier;
 
-    public AlterTableNameEvent(TablePath tablePath, TablePath newTablePath) {
-        super(tablePath);
-        this.newTablePath = newTablePath;
+    public AlterTableNameEvent(
+            TableIdentifier tableIdentifier, TableIdentifier newTableIdentifier) {
+        super(tableIdentifier);
+        this.newTableIdentifier = newTableIdentifier;
+    }
+
+    public TablePath getNewTablePath() {
+        return newTableIdentifier.toTablePath();
     }
 }
