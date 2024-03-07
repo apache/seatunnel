@@ -36,6 +36,7 @@ import org.apache.paimon.types.TimeType;
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @Slf4j
@@ -141,7 +142,10 @@ public class PaimonTypeMapper implements TypeConverter<DataType> {
                 return DataTypes.DATE();
             case TIME:
                 Integer timeScale = column.getScale();
-                if (timeScale != null && timeScale > TimeType.MAX_PRECISION) {
+                if (Objects.isNull(timeScale)) {
+                    timeScale = TimeType.DEFAULT_PRECISION;
+                }
+                if (timeScale > TimeType.MAX_PRECISION) {
                     timeScale = TimeType.MAX_PRECISION;
                     log.warn(
                             "The time column {} type time({}) is out of range, "
@@ -155,8 +159,10 @@ public class PaimonTypeMapper implements TypeConverter<DataType> {
                 return DataTypes.TIME(timeScale);
             case TIMESTAMP:
                 Integer timestampScale = column.getScale();
-                if (timestampScale != null
-                        && timestampScale > LocalZonedTimestampType.MAX_PRECISION) {
+                if (Objects.isNull(timestampScale)) {
+                    timestampScale = LocalZonedTimestampType.DEFAULT_PRECISION;
+                }
+                if (timestampScale > LocalZonedTimestampType.MAX_PRECISION) {
                     timestampScale = LocalZonedTimestampType.MAX_PRECISION;
                     log.warn(
                             "The timestamp column {} type timestamp({}) is out of range, "
@@ -193,6 +199,8 @@ public class PaimonTypeMapper implements TypeConverter<DataType> {
                                     id, field, reconvert(getPhysicalColumn(column, fieldType)));
                 }
                 return DataTypes.ROW(dataFields);
+            case NULL:
+                return DataTypes.VARBINARY(0);
             default:
                 throw CommonError.convertToConnectorTypeError(
                         identifier(), column.getDataType().getSqlType().name(), column.getName());

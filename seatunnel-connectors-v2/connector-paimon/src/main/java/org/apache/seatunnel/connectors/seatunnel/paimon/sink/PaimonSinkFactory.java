@@ -19,15 +19,25 @@ package org.apache.seatunnel.connectors.seatunnel.paimon.sink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
+import org.apache.seatunnel.common.config.CheckConfigUtil;
+import org.apache.seatunnel.common.config.CheckResult;
+import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig;
+import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorException;
 
 import com.google.auto.service.AutoService;
+
+import static org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig.DATABASE;
+import static org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig.TABLE;
+import static org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig.WAREHOUSE;
 
 @AutoService(Factory.class)
 public class PaimonSinkFactory implements TableSinkFactory {
@@ -50,7 +60,29 @@ public class PaimonSinkFactory implements TableSinkFactory {
     @Override
     public TableSink createSink(TableSinkFactoryContext context) {
         Config pluginConfig = context.getOptions().toConfig();
-        CatalogTable catalogTable = context.getCatalogTable();
+        CatalogTable catalogTable = renameCatalogTable(pluginConfig, context.getCatalogTable());
         return () -> new PaimonSink(pluginConfig, catalogTable);
+    }
+
+    private CatalogTable renameCatalogTable(Config pluginConfig, CatalogTable catalogTable) {
+        CheckResult result =
+                CheckConfigUtil.checkAllExists(
+                        pluginConfig, WAREHOUSE.key(), DATABASE.key(), TABLE.key());
+        if (!result.isSuccess()) {
+            throw new PaimonConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "PluginName: %s, PluginType: %s, Message: %s",
+                            factoryIdentifier(), PluginType.SINK, result.getMsg()));
+        }
+        TableIdentifier tableId = catalogTable.getTableId();
+        String tableName = pluginConfig.getString(TABLE.key());
+        String namespace = pluginConfig.getString(DATABASE.key());
+
+        TableIdentifier newTableId =
+                TableIdentifier.of(
+                        tableId.getCatalogName(), namespace, tableId.getSchemaName(), tableName);
+
+        return CatalogTable.of(newTableId, catalogTable);
     }
 }
