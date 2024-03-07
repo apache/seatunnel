@@ -282,6 +282,28 @@ public class EsRestClient {
     }
 
     /**
+     * first time to request search documents by scroll call /${index}/_search?scroll=${scroll}
+     *
+     * @param index index name
+     * @param scrollTime such as:1m
+     * @param scrollSize fetch documents count in one request
+     */
+    public ScrollResult searchByScroll(
+            String index,
+            Map<String, Object> query,
+            String scrollTime,
+            int scrollSize) {
+        Map<String, Object> param = new HashMap<>();
+        param.put("query", query);
+        param.put("sort", new String[] {"_doc"});
+        param.put("size", scrollSize);
+        String endpoint = "/" + index + "/_search?scroll=" + scrollTime;
+        ScrollResult scrollResult =
+                getDocsFromScrollRequest(endpoint, JsonUtils.toJsonString(param));
+        return scrollResult;
+    }
+
+    /**
      * scroll to get result call _search/scroll
      *
      * @param scrollId the scroll id of the last request
