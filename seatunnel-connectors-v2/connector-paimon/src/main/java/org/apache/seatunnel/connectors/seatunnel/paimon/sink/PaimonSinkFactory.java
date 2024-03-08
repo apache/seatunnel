@@ -61,7 +61,7 @@ public class PaimonSinkFactory implements TableSinkFactory {
     public TableSink createSink(TableSinkFactoryContext context) {
         Config pluginConfig = context.getOptions().toConfig();
         CatalogTable catalogTable = renameCatalogTable(pluginConfig, context.getCatalogTable());
-        return () -> new PaimonSink(pluginConfig, catalogTable);
+        return () -> new PaimonSink(context.getOptions(), catalogTable);
     }
 
     private CatalogTable renameCatalogTable(Config pluginConfig, CatalogTable catalogTable) {

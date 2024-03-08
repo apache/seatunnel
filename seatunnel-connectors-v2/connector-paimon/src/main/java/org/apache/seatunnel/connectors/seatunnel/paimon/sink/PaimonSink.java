@@ -17,53 +17,48 @@
 
 package org.apache.seatunnel.connectors.seatunnel.paimon.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import org.apache.seatunnel.api.common.JobContext;
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
+import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportSaveMode;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorErrorCode;
+import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.paimon.handler.PaimonSaveModeHandler;
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.commit.PaimonAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.commit.PaimonAggregatedCommitter;
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.commit.PaimonCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.state.PaimonSinkState;
-import org.apache.seatunnel.connectors.seatunnel.paimon.utils.SchemaUtil;
 
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
-import org.apache.paimon.catalog.Catalog;
-import org.apache.paimon.catalog.CatalogContext;
-import org.apache.paimon.catalog.CatalogFactory;
-import org.apache.paimon.catalog.Identifier;
-import org.apache.paimon.options.Options;
-import org.apache.paimon.schema.Schema;
 import org.apache.paimon.table.Table;
 
 import com.google.auto.service.AutoService;
 
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
-import static org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig.DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig.HDFS_SITE_PATH;
-import static org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig.TABLE;
-import static org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig.WAREHOUSE;
+import static org.apache.seatunnel.api.table.factory.FactoryUtil.discoverFactory;
 
 @AutoService(SeaTunnelSink.class)
 public class PaimonSink
         implements SeaTunnelSink<
-                SeaTunnelRow, PaimonSinkState, PaimonCommitInfo, PaimonAggregatedCommitInfo> {
+                        SeaTunnelRow,
+                        PaimonSinkState,
+                        PaimonCommitInfo,
+                        PaimonAggregatedCommitInfo>,
+                SupportSaveMode,
+                SupportLoadTable<Table> {
 
     private static final long serialVersionUID = 1L;
 
@@ -75,37 +70,18 @@ public class PaimonSink
 
     private JobContext jobContext;
 
-    public PaimonSink(Config pluginConfig, CatalogTable catalogTable) {
-        // initialize paimon table
-        final String warehouse = pluginConfig.getString(WAREHOUSE.key());
-        final String database = pluginConfig.getString(DATABASE.key());
-        final String table = pluginConfig.getString(TABLE.key());
-        final Map<String, String> optionsMap = new HashMap<>();
-        optionsMap.put(WAREHOUSE.key(), warehouse);
-        final Options options = Options.fromMap(optionsMap);
-        final Configuration hadoopConf = new Configuration();
-        if (pluginConfig.hasPath(HDFS_SITE_PATH.key())) {
-            hadoopConf.addResource(new Path(pluginConfig.getString(HDFS_SITE_PATH.key())));
-        }
-        final CatalogContext catalogContext = CatalogContext.create(options, hadoopConf);
-        try (Catalog catalog = CatalogFactory.createCatalog(catalogContext)) {
-            Identifier identifier = Identifier.create(database, table);
-            // Auto create if not exists the database and table for paimon
-            catalog.createDatabase(database, true);
-            TableSchema tableSchema = catalogTable.getTableSchema();
-            this.seaTunnelRowType = tableSchema.toPhysicalRowDataType();
-            Schema paimonTableSchema = SchemaUtil.toPaimonSchema(tableSchema);
-            catalog.createTable(identifier, paimonTableSchema, true);
-            this.table = catalog.getTable(identifier);
-            // todo if source is cdc，need to check primary key of tableSchema
-        } catch (Exception e) {
-            String errorMsg =
-                    String.format(
-                            "Failed to create table [%s] from database [%s] on warehouse [%s]",
-                            database, table, warehouse);
-            throw new PaimonConnectorException(
-                    PaimonConnectorErrorCode.GET_TABLE_FAILED, errorMsg, e);
-        }
+    private ReadonlyConfig readonlyConfig;
+
+    private PaimonSinkConfig paimonSinkConfig;
+
+    private CatalogTable catalogTable;
+
+    public PaimonSink(ReadonlyConfig readonlyConfig, CatalogTable catalogTable) {
+        this.readonlyConfig = readonlyConfig;
+        this.paimonSinkConfig = new PaimonSinkConfig(readonlyConfig);
+        this.catalogTable = catalogTable;
+        TableSchema tableSchema = catalogTable.getTableSchema();
+        this.seaTunnelRowType = tableSchema.toPhysicalRowDataType();
     }
 
     @Override
@@ -144,5 +120,39 @@ public class PaimonSink
     @Override
     public void setJobContext(JobContext jobContext) {
         this.jobContext = jobContext;
+    }
+
+    @Override
+    public Optional<SaveModeHandler> getSaveModeHandler() {
+        org.apache.seatunnel.api.table.factory.CatalogFactory catalogFactory =
+                discoverFactory(
+                        Thread.currentThread().getContextClassLoader(),
+                        org.apache.seatunnel.api.table.factory.CatalogFactory.class,
+                        "Paimon");
+        if (catalogFactory == null) {
+            throw new PaimonConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "PluginName: %s, PluginType: %s, Message: %s",
+                            getPluginName(),
+                            PluginType.SINK,
+                            "Cannot find paimon catalog factory"));
+        }
+        org.apache.seatunnel.api.table.catalog.Catalog catalog =
+                catalogFactory.createCatalog(catalogFactory.factoryIdentifier(), readonlyConfig);
+        catalog.open();
+        return Optional.of(
+                new PaimonSaveModeHandler(
+                        this,
+                        paimonSinkConfig.getSchemaSaveMode(),
+                        paimonSinkConfig.getDataSaveMode(),
+                        catalog,
+                        catalogTable,
+                        null));
+    }
+
+    @Override
+    public void setLoadTable(Table table) {
+        this.table = table;
     }
 }
