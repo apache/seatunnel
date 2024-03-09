@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.service.classloader;
+package org.apache.seatunnel.engine.core.classloader;
 
 import org.apache.seatunnel.engine.common.loader.SeaTunnelChildFirstClassLoader;
 

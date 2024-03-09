@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.service.classloader;
 
 import org.apache.seatunnel.engine.common.loader.SeaTunnelChildFirstClassLoader;
+import org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderService;
 
 import org.apache.curator.shaded.com.google.common.collect.Lists;
 
