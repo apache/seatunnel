@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.source;
 
-import com.google.common.collect.Lists;
-import org.apache.commons.collections4.CollectionUtils;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -38,6 +36,10 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.catalog.ElasticSe
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsRestClient;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SourceConfig;
 
+import org.apache.commons.collections4.CollectionUtils;
+
+import com.google.common.collect.Lists;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -46,9 +48,9 @@ import java.util.Map;
 
 public class ElasticsearchSource
         implements SeaTunnelSource<
-        SeaTunnelRow, ElasticsearchSourceSplit, ElasticsearchSourceState>,
-        SupportParallelism,
-        SupportColumnProjection {
+                        SeaTunnelRow, ElasticsearchSourceSplit, ElasticsearchSourceState>,
+                SupportParallelism,
+                SupportColumnProjection {
 
     private final ReadonlyConfig config;
 
@@ -133,16 +135,16 @@ public class ElasticsearchSource
 
     @Override
     public SourceSplitEnumerator<ElasticsearchSourceSplit, ElasticsearchSourceState>
-    createEnumerator(
-            SourceSplitEnumerator.Context<ElasticsearchSourceSplit> enumeratorContext) {
+            createEnumerator(
+                    SourceSplitEnumerator.Context<ElasticsearchSourceSplit> enumeratorContext) {
         return new ElasticsearchSourceSplitEnumerator(enumeratorContext, config, source);
     }
 
     @Override
     public SourceSplitEnumerator<ElasticsearchSourceSplit, ElasticsearchSourceState>
-    restoreEnumerator(
-            SourceSplitEnumerator.Context<ElasticsearchSourceSplit> enumeratorContext,
-            ElasticsearchSourceState sourceState) {
+            restoreEnumerator(
+                    SourceSplitEnumerator.Context<ElasticsearchSourceSplit> enumeratorContext,
+                    ElasticsearchSourceState sourceState) {
         return new ElasticsearchSourceSplitEnumerator(
                 enumeratorContext, sourceState, config, source);
     }

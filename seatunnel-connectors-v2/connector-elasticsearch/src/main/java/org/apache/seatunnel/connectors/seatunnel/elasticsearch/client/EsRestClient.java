@@ -289,10 +289,7 @@ public class EsRestClient {
      * @param scrollSize fetch documents count in one request
      */
     public ScrollResult searchByScroll(
-            String index,
-            Map<String, Object> query,
-            String scrollTime,
-            int scrollSize) {
+            String index, Map<String, Object> query, String scrollTime, int scrollSize) {
         Map<String, Object> param = new HashMap<>();
         param.put("query", query);
         param.put("sort", new String[] {"_doc"});

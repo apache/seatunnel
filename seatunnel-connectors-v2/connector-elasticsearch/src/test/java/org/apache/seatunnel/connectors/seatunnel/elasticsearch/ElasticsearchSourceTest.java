@@ -17,15 +17,18 @@
 
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch;
 
-import com.google.common.collect.Lists;
-import org.apache.commons.collections4.CollectionUtils;
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.catalog.ElasticSearchDataTypeConvertor;
+
+import org.apache.commons.collections4.CollectionUtils;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import com.google.common.collect.Lists;
 
 import java.util.ArrayList;
 import java.util.HashMap;
