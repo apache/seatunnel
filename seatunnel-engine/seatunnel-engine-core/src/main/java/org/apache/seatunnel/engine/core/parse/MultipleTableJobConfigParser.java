@@ -47,6 +47,7 @@ import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.exception.JobDefineCheckException;
 import org.apache.seatunnel.engine.common.loader.ClassLoaderUtil;
+import org.apache.seatunnel.engine.common.loader.SeaTunnelChildFirstClassLoader;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
@@ -166,9 +167,15 @@ public class MultipleTableJobConfigParser {
             connectorJars.addAll(commonPluginJars);
         }
         ClassLoader parentClassLoader = Thread.currentThread().getContextClassLoader();
-        ClassLoader classLoader =
-                classLoaderService.getClassLoader(
-                        Long.parseLong(jobConfig.getJobContext().getJobId()), connectorJars);
+
+        ClassLoader classLoader;
+        if (classLoaderService == null) {
+            classLoader = new SeaTunnelChildFirstClassLoader(connectorJars);
+        } else {
+            classLoader =
+                    classLoaderService.getClassLoader(
+                            Long.parseLong(jobConfig.getJobContext().getJobId()), connectorJars);
+        }
         try {
             Thread.currentThread().setContextClassLoader(classLoader);
             ConfigParserUtil.checkGraph(sourceConfigs, transformConfigs, sinkConfigs);
@@ -198,8 +205,10 @@ public class MultipleTableJobConfigParser {
             return new ImmutablePair<>(sinkActions, factoryUrls);
         } finally {
             Thread.currentThread().setContextClassLoader(parentClassLoader);
-            classLoaderService.releaseClassLoader(
-                    Long.parseLong(jobConfig.getJobContext().getJobId()), connectorJars);
+            if (classLoaderService != null) {
+                classLoaderService.releaseClassLoader(
+                        Long.parseLong(jobConfig.getJobContext().getJobId()), connectorJars);
+            }
             ClassLoaderUtil.recycleClassLoaderFromThread(classLoader);
         }
     }
