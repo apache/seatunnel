@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.common.utils.EncodingUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
@@ -33,6 +34,7 @@ import lombok.NonNull;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.charset.Charset;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -42,12 +44,14 @@ public class JsonWriteStrategy extends AbstractWriteStrategy {
     private SerializationSchema serializationSchema;
     private final LinkedHashMap<String, FSDataOutputStream> beingWrittenOutputStream;
     private final Map<String, Boolean> isFirstWrite;
+    private final Charset charset;
 
     public JsonWriteStrategy(FileSinkConfig textFileSinkConfig) {
         super(textFileSinkConfig);
         this.beingWrittenOutputStream = new LinkedHashMap<>();
         this.isFirstWrite = new HashMap<>();
-        this.rowDelimiter = textFileSinkConfig.getRowDelimiter().getBytes();
+        this.charset = EncodingUtils.tryParseCharset(textFileSinkConfig.getEncoding());
+        this.rowDelimiter = textFileSinkConfig.getRowDelimiter().getBytes(charset);
     }
 
     @Override
@@ -55,7 +59,7 @@ public class JsonWriteStrategy extends AbstractWriteStrategy {
         super.setSeaTunnelRowTypeInfo(seaTunnelRowType);
         this.serializationSchema =
                 new JsonSerializationSchema(
-                        buildSchemaWithRowType(seaTunnelRowType, sinkColumnsIndexInRow));
+                        buildSchemaWithRowType(seaTunnelRowType, sinkColumnsIndexInRow), charset);
     }
 
     @Override
