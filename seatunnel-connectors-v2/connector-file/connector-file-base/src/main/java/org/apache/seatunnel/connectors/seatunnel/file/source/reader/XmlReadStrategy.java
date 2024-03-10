@@ -216,13 +216,13 @@ public class XmlReadStrategy extends AbstractReadStrategy {
             case INT:
                 return (int) Double.parseDouble(fieldValue);
             case BIGINT:
-                return (long) Double.parseDouble(fieldValue);
+                return new BigDecimal(fieldValue).longValue();
             case DOUBLE:
                 return Double.parseDouble(fieldValue);
             case FLOAT:
                 return (float) Double.parseDouble(fieldValue);
             case DECIMAL:
-                return BigDecimal.valueOf(Double.parseDouble(fieldValue));
+                return new BigDecimal(fieldValue);
             case BOOLEAN:
                 return Boolean.parseBoolean(fieldValue);
             case BYTES:
