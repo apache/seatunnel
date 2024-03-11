@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.source;
 
-import com.starrocks.shade.org.apache.thrift.TException;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
@@ -26,13 +25,17 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.client.source.StarRocksBeReadClient;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.client.source.model.QueryPartition;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SourceConfig;
-
-import lombok.extern.slf4j.Slf4j;
-import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorException;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Queue;
 
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorErrorCode.CLOSE_BE_READER_FAILED;
 
@@ -117,15 +120,19 @@ public class StarRocksSourceReader implements SourceReader<SeaTunnelRow, StarRoc
     @Override
     public void close() throws IOException {
         if (!clientsPools.isEmpty()) {
-            clientsPools.values().forEach(client -> {
-                if (client != null) {
-                    try {
-                        client.close();
-                    } catch (StarRocksConnectorException e) {
-                        throw new StarRocksConnectorException(CLOSE_BE_READER_FAILED, e);
-                    }
-                }
-            });
+            clientsPools
+                    .values()
+                    .forEach(
+                            client -> {
+                                if (client != null) {
+                                    try {
+                                        client.close();
+                                    } catch (StarRocksConnectorException e) {
+                                        throw new StarRocksConnectorException(
+                                                CLOSE_BE_READER_FAILED, e);
+                                    }
+                                }
+                            });
         }
     }
 
