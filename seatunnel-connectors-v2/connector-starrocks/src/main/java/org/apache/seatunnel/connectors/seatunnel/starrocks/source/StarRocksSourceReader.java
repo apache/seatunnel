@@ -37,8 +37,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 
-import static org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorErrorCode.CLOSE_BE_READER_FAILED;
-
 @Slf4j
 public class StarRocksSourceReader implements SourceReader<SeaTunnelRow, StarRocksSourceSplit> {
 
@@ -128,8 +126,7 @@ public class StarRocksSourceReader implements SourceReader<SeaTunnelRow, StarRoc
                                     try {
                                         client.close();
                                     } catch (StarRocksConnectorException e) {
-                                        throw new StarRocksConnectorException(
-                                                CLOSE_BE_READER_FAILED, e);
+                                        log.error("Failed to close reader:", e);
                                     }
                                 }
                             });
