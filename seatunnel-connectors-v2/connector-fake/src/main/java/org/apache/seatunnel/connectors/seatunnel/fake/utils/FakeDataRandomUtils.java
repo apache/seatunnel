@@ -37,7 +37,7 @@ public class FakeDataRandomUtils {
     }
 
     private static <T> T randomFromList(List<T> list) {
-        int index = RandomUtils.nextInt(0, list.size());
+        int index = RandomUtils.nextInt(0, list.size() - 1);
         return list.get(index);
     }
 

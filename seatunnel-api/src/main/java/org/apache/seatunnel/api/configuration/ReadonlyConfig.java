@@ -69,10 +69,8 @@ public class ReadonlyConfig implements Serializable {
     /**
      * Transform to Config todo: This method should be removed after we remove Config
      *
-     * @deprecated Please use ReadonlyConfig directly
      * @return Config
      */
-    @Deprecated
     public Config toConfig() {
         return ConfigFactory.parseMap(confData);
     }
