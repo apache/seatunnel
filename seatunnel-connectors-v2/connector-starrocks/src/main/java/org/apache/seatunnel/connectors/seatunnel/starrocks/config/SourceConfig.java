@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 
 import lombok.Getter;
@@ -44,6 +45,18 @@ public class SourceConfig extends CommonConfig {
             @NonNull String database,
             @NonNull String table) {
         super(nodeUrls, username, password, database, table);
+    }
+
+    public SourceConfig(ReadonlyConfig config) {
+        super(config);
+        this.maxRetries = config.get(MAX_RETRIES);
+        this.requestTabletSize = config.get(QUERY_TABLET_SIZE);
+        this.scanFilter = config.get(SCAN_FILTER);
+        this.connectTimeoutMs = config.get(SCAN_CONNECT_TIMEOUT);
+        this.batchRows = config.get(SCAN_BATCH_ROWS);
+        this.keepAliveMin = config.get(SCAN_KEEP_ALIVE_MIN);
+        this.queryTimeoutSec = config.get(SCAN_QUERY_TIMEOUT_SEC);
+        this.memLimit = config.get(SCAN_MEM_LIMIT);
     }
 
     public static final Option<Integer> MAX_RETRIES =
