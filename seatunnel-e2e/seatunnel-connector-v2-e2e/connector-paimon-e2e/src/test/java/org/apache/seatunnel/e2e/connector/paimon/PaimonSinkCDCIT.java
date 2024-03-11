@@ -18,15 +18,12 @@
 package org.apache.seatunnel.e2e.connector.paimon;
 
 import org.apache.seatunnel.common.utils.FileUtils;
-import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlContainer;
-import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlVersion;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
-import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
 import org.apache.paimon.catalog.Catalog;
 import org.apache.paimon.catalog.CatalogContext;
@@ -45,10 +42,6 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
-import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.output.Slf4jLogConsumer;
-import org.testcontainers.lifecycle.Startables;
-import org.testcontainers.utility.DockerLoggerFactory;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -56,16 +49,10 @@ import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Stream;
 
-import static java.lang.Thread.sleep;
 import static org.awaitility.Awaitility.given;
 
 @DisabledOnContainer(
@@ -75,191 +62,148 @@ import static org.awaitility.Awaitility.given;
                 "Spark and Flink engine can not auto create paimon table on worker node(e.g flink tm) by org.apache.seatunnel.connectors.seatunnel.paimon.sink.PaimonSink.PaimonSink which can lead error")
 @Slf4j
 public class PaimonSinkCDCIT extends TestSuiteBase implements TestResource {
-
-    private static final String CATALOG_DIR = "/tmp/paimon/";
-    private static final String NAMESPACE = "seatunnel_namespace";
-    private static final String MYSQL_HOST = "paimon-e2e";
-    private static final String MYSQL_USER_NAME = "st_user";
-    private static final String MYSQL_USER_PASSWORD = "Abc!@#135_seatunnel";
-    private static final String SOURCE_TABLE = "mysql_cdc_e2e_source_table";
-    private static final String SOURCE_DATABASE = "db";
-    private static final String DATABASE_SUFFIX = ".db";
+    private static final String CATALOG_ROOT_DIR = "/tmp/";
+    private static final String NAMESPACE = "paimon";
+    private static final String NAMESPACE_TAR = "paimon.tar.gz";
+    private static final String CATALOG_DIR = CATALOG_ROOT_DIR + NAMESPACE + "/";
     private static final String TARGET_TABLE = "st_test";
     private static final String TARGET_DATABASE = "seatunnel_namespace";
-    private MySqlContainer mysqlContainer;
+    private static final String FAKE_TABLE1 = "FakeTable1";
+    private static final String FAKE_DATABASE1 = "FakeDatabase1";
+    private static final String FAKE_TABLE2 = "FakeTable1";
+    private static final String FAKE_DATABASE2 = "FakeDatabase2";
 
     @BeforeAll
     @Override
-    public void startUp() throws Exception {
-        log.info("Mysql container starting");
-        this.mysqlContainer = startMySqlContainer();
-        log.info("Mysql container started");
-        initializeMysqlTable();
-    }
+    public void startUp() throws Exception {}
 
     @AfterAll
     @Override
-    public void tearDown() throws Exception {
-        if (mysqlContainer != null) {
-            mysqlContainer.close();
-        }
+    public void tearDown() throws Exception {}
+
+    @TestTemplate
+    public void testFakeCDCSinkPaimon(TestContainer container) throws Exception {
+        Container.ExecResult execResult = container.executeJob("/fake_cdc_sink_paimon_case1.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+
+        given().ignoreExceptions()
+                .await()
+                .atLeast(100L, TimeUnit.MILLISECONDS)
+                .atMost(30L, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            // copy paimon to local
+                            container.executeExtraCommands(containerExtendedFactory);
+                            List<PaimonRecord> paimonRecords =
+                                    loadPaimonData(TARGET_DATABASE, TARGET_TABLE);
+                            Assertions.assertEquals(2, paimonRecords.size());
+                            paimonRecords.forEach(
+                                    paimonRecord -> {
+                                        if (paimonRecord.getPkId() == 1) {
+                                            Assertions.assertEquals("A_1", paimonRecord.getName());
+                                        }
+                                        if (paimonRecord.getPkId() == 3) {
+                                            Assertions.assertEquals("C", paimonRecord.getName());
+                                        }
+                                    });
+                        });
+
+        cleanPaimonTable(container);
     }
 
     @TestTemplate
-    public void testMysqlCDCSinkPaimon(TestContainer container) throws Exception {
-        clearTable(SOURCE_DATABASE, SOURCE_TABLE);
-        CompletableFuture.supplyAsync(
-                () -> {
-                    try {
-                        container.executeJob("/mysql_cdc_sink_paimon_case1.conf");
-                    } catch (Exception e) {
-                        log.error("Commit task exception :" + e.getMessage());
-                        throw new RuntimeException(e);
-                    }
-                    return null;
-                });
-        insertAndCheckData(container);
-        upsertAndCheckData(container);
+    public void testFakeMultipleTableSinkPaimon(TestContainer container) throws Exception {
+        Container.ExecResult execResult = container.executeJob("/fake_cdc_sink_paimon_case2.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+
+        given().ignoreExceptions()
+                .await()
+                .atLeast(100L, TimeUnit.MILLISECONDS)
+                .atMost(30L, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            // copy paimon to local
+                            container.executeExtraCommands(containerExtendedFactory);
+                            // Check FakeDatabase1.FakeTable1
+                            List<PaimonRecord> fake1PaimonRecords =
+                                    loadPaimonData(FAKE_DATABASE1, FAKE_TABLE1);
+                            Assertions.assertEquals(2, fake1PaimonRecords.size());
+                            fake1PaimonRecords.forEach(
+                                    paimonRecord -> {
+                                        if (paimonRecord.getPkId() == 1) {
+                                            Assertions.assertEquals("A_1", paimonRecord.getName());
+                                        }
+                                        if (paimonRecord.getPkId() == 3) {
+                                            Assertions.assertEquals("C", paimonRecord.getName());
+                                        }
+                                    });
+                            // Check FakeDatabase2.FakeTable1
+                            List<PaimonRecord> fake2PaimonRecords =
+                                    loadPaimonData(FAKE_DATABASE2, FAKE_TABLE2);
+                            Assertions.assertEquals(2, fake2PaimonRecords.size());
+                            fake2PaimonRecords.forEach(
+                                    paimonRecord -> {
+                                        if (paimonRecord.getPkId() == 100) {
+                                            Assertions.assertEquals(
+                                                    "A_100", paimonRecord.getName());
+                                        }
+                                        if (paimonRecord.getPkId() == 200) {
+                                            Assertions.assertEquals("C", paimonRecord.getName());
+                                        }
+                                    });
+                        });
+
+        cleanPaimonTable(container);
     }
 
-    private MySqlContainer startMySqlContainer() {
-        MySqlContainer container =
-                new MySqlContainer(MySqlVersion.V8_0)
-                        .withConfigurationOverride("mysql/server-gtids/my.cnf")
-                        .withSetupSQL("mysql/setup.sql")
-                        .withNetwork(NETWORK)
-                        .withNetworkAliases(MYSQL_HOST)
-                        .withDatabaseName(SOURCE_DATABASE)
-                        .withUsername(MYSQL_USER_NAME)
-                        .withPassword(MYSQL_USER_PASSWORD)
-                        .withLogConsumer(
-                                new Slf4jLogConsumer(
-                                        DockerLoggerFactory.getLogger("mysql-mysql-image")));
+    protected final ContainerExtendedFactory cleanContainerExtendedFactory =
+            genericContainer ->
+                    genericContainer.execInContainer("sh", "-c", "rm -rf  " + CATALOG_DIR + "**");
 
-        Startables.deepStart(Stream.of(container)).join();
-        return container;
+    private void cleanPaimonTable(TestContainer container)
+            throws IOException, InterruptedException {
+        // clean table
+        container.executeExtraCommands(cleanContainerExtendedFactory);
     }
 
-    // Execute SQL
-    private void executeSql(String sql) {
-        try (Connection connection = getJdbcConnection()) {
-            connection.createStatement().execute(sql);
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
+    protected final ContainerExtendedFactory containerExtendedFactory =
+            container -> {
+                FileUtils.deleteFile(CATALOG_ROOT_DIR + NAMESPACE_TAR);
+                FileUtils.createNewDir(CATALOG_DIR);
+                container.execInContainer(
+                        "sh",
+                        "-c",
+                        "cd "
+                                + CATALOG_ROOT_DIR
+                                + " && tar -czvf "
+                                + NAMESPACE_TAR
+                                + " "
+                                + NAMESPACE);
+                container.copyFileFromContainer(
+                        CATALOG_ROOT_DIR + NAMESPACE_TAR, CATALOG_ROOT_DIR + NAMESPACE_TAR);
+                extractFiles();
+            };
+
+    private void extractFiles() {
+        ProcessBuilder processBuilder = new ProcessBuilder();
+        processBuilder.command(
+                "sh", "-c", "cd " + CATALOG_ROOT_DIR + " && tar -zxvf " + NAMESPACE_TAR);
+        try {
+            Process process = processBuilder.start();
+            // 等待命令执行完成
+            int exitCode = process.waitFor();
+            if (exitCode == 0) {
+                log.info("Extract files successful.");
+            } else {
+                log.error("Extract files failed with exit code " + exitCode);
+            }
+        } catch (IOException | InterruptedException e) {
+            e.printStackTrace();
         }
     }
 
-    private Connection getJdbcConnection() throws SQLException {
-        return DriverManager.getConnection(
-                mysqlContainer.getJdbcUrl(),
-                mysqlContainer.getUsername(),
-                mysqlContainer.getPassword());
-    }
-
-    private void insertAndCheckData(TestContainer container)
-            throws InterruptedException, IOException {
-        // Init table data
-        initSourceTableData(SOURCE_DATABASE, SOURCE_TABLE);
-        // Waiting 30s for source capture data
-        sleep(30000);
-
-        // stream stage
-        given().ignoreExceptions()
-                .await()
-                .atMost(60000, TimeUnit.MILLISECONDS)
-                .untilAsserted(
-                        () -> {
-                            // copy iceberg to local
-                            container.executeExtraCommands(containerExtendedFactory);
-                            Assertions.assertEquals(3, loadPaimonData().size());
-                        });
-    }
-
-    private void upsertAndCheckData(TestContainer container)
-            throws InterruptedException, IOException {
-        upsertDeleteSourceTable(SOURCE_DATABASE, SOURCE_TABLE);
-        // Waiting 60s for source capture data
-        sleep(30000);
-
-        // stream stage
-        given().ignoreExceptions()
-                .await()
-                .atMost(60000, TimeUnit.MILLISECONDS)
-                .untilAsserted(
-                        () -> {
-                            // copy iceberg to local
-                            container.executeExtraCommands(containerExtendedFactory);
-                            List<PaimonRecord> internalRows = loadPaimonData();
-                            Assertions.assertEquals(5, internalRows.size());
-                            for (PaimonRecord paimonRecord : internalRows) {
-                                if (paimonRecord.getPkId() == 3) {
-                                    Assertions.assertEquals(150, paimonRecord.getScore());
-                                }
-                            }
-                        });
-    }
-
-    private String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
-    }
-
-    @TestContainerExtension
-    protected final ContainerExtendedFactory extendedFactory =
-            container -> {
-                container.execInContainer("sh", "-c", "mkdir -p " + CATALOG_DIR);
-                container.execInContainer("sh", "-c", "chmod -R 777 " + CATALOG_DIR);
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "sh",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/MySQL-CDC/lib && cd /tmp/seatunnel/plugins/MySQL-CDC/lib && wget "
-                                        + driverUrl());
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
-            };
-
-    private final String NAMESPACE_TAR = NAMESPACE + ".tar.gz";
-    protected final ContainerExtendedFactory containerExtendedFactory =
-            new ContainerExtendedFactory() {
-                @Override
-                public void extend(GenericContainer<?> container)
-                        throws IOException, InterruptedException {
-                    FileUtils.createNewDir(CATALOG_DIR);
-                    container.execInContainer(
-                            "sh",
-                            "-c",
-                            "cd "
-                                    + CATALOG_DIR
-                                    + " && tar -czvf "
-                                    + NAMESPACE_TAR
-                                    + " "
-                                    + NAMESPACE
-                                    + DATABASE_SUFFIX);
-                    container.copyFileFromContainer(
-                            CATALOG_DIR + NAMESPACE_TAR, CATALOG_DIR + NAMESPACE_TAR);
-                    extractFiles();
-                }
-
-                private void extractFiles() {
-                    ProcessBuilder processBuilder = new ProcessBuilder();
-                    processBuilder.command(
-                            "sh", "-c", "cd " + CATALOG_DIR + " && tar -zxvf " + NAMESPACE_TAR);
-                    try {
-                        Process process = processBuilder.start();
-                        // 等待命令执行完成
-                        int exitCode = process.waitFor();
-                        if (exitCode == 0) {
-                            log.info("Extract files successful.");
-                        } else {
-                            log.error("Extract files failed with exit code " + exitCode);
-                        }
-                    } catch (IOException | InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                }
-            };
-
-    private List<PaimonRecord> loadPaimonData() throws Exception {
-        Table table = getTable();
+    private List<PaimonRecord> loadPaimonData(String dbName, String tbName) throws Exception {
+        Table table = getTable(dbName, tbName);
         ReadBuilder readBuilder = table.newReadBuilder();
         TableScan.Plan plan = readBuilder.newScan().plan();
         TableRead tableRead = readBuilder.newRead();
@@ -273,18 +217,8 @@ public class PaimonSinkCDCIT extends TestSuiteBase implements TestResource {
         try (RecordReader<InternalRow> reader = tableRead.createReader(plan)) {
             reader.forEachRemaining(
                     row -> {
-                        result.add(
-                                new PaimonRecord(
-                                        row.getLong(0),
-                                        row.getString(1).toString(),
-                                        row.getInt(2)));
-                        log.info(
-                                "key_id:"
-                                        + row.getLong(0)
-                                        + ", name:"
-                                        + row.getString(1)
-                                        + ", score:"
-                                        + row.getInt(2));
+                        result.add(new PaimonRecord(row.getLong(0), row.getString(1).toString()));
+                        log.info("key_id:" + row.getLong(0) + ", name:" + row.getString(1));
                     });
         }
         log.info(
@@ -296,17 +230,17 @@ public class PaimonSinkCDCIT extends TestSuiteBase implements TestResource {
         return result;
     }
 
-    private Table getTable() {
+    private Table getTable(String dbName, String tbName) {
         try {
-            return getCatalog().getTable(getIdentifier());
+            return getCatalog().getTable(getIdentifier(dbName, tbName));
         } catch (Catalog.TableNotExistException e) {
             // do something
             throw new RuntimeException("table not exist");
         }
     }
 
-    private Identifier getIdentifier() {
-        return Identifier.create(TARGET_DATABASE, TARGET_TABLE);
+    private Identifier getIdentifier(String dbName, String tbName) {
+        return Identifier.create(dbName, tbName);
     }
 
     private Catalog getCatalog() {
@@ -316,54 +250,11 @@ public class PaimonSinkCDCIT extends TestSuiteBase implements TestResource {
         return catalog;
     }
 
-    private void initializeMysqlTable() {
-        String sql =
-                String.format(
-                        "create table if not exists %s.%s(\n"
-                                + "    `pk_id`         bigint primary key,\n"
-                                + "    `name`          varchar(255),\n"
-                                + "    `score`         int\n"
-                                + ")",
-                        SOURCE_DATABASE, SOURCE_TABLE);
-        executeSql(sql);
-    }
-
-    private void clearTable(String database, String tableName) {
-        executeSql("truncate table " + database + "." + tableName);
-    }
-
-    private void initSourceTableData(String database, String tableName) {
-        executeSql(
-                "INSERT INTO "
-                        + database
-                        + "."
-                        + tableName
-                        + " ( pk_id, name, score )\n"
-                        + "VALUES ( 1, 'person1', 100 ),\n"
-                        + " ( 2, 'person2', 99 ),\n"
-                        + " ( 3, 'person3', 98 );\n");
-    }
-
-    private void upsertDeleteSourceTable(String database, String tableName) {
-        executeSql(
-                "INSERT INTO "
-                        + database
-                        + "."
-                        + tableName
-                        + " ( pk_id, name, score )\n"
-                        + "VALUES ( 4, 'person4', 100 ),\n"
-                        + " ( 5, 'person5', 99 ),\n"
-                        + " ( 7, 'person6', 98 );\n");
-        executeSql("DELETE FROM " + database + "." + tableName + " where pk_id = 2");
-        executeSql("UPDATE " + database + "." + tableName + " SET score = 150 where pk_id = 3");
-    }
-
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
     public class PaimonRecord {
         private Long pkId;
         private String name;
-        private Integer score;
     }
 }

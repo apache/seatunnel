@@ -49,10 +49,11 @@ public class PaimonSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(PaimonConfig.WAREHOUSE)
-                .required(PaimonConfig.DATABASE)
-                .required(PaimonConfig.TABLE)
-                .optional(PaimonConfig.HDFS_SITE_PATH)
+                .required(PaimonConfig.WAREHOUSE, PaimonConfig.DATABASE, PaimonConfig.TABLE)
+                .optional(
+                        PaimonConfig.HDFS_SITE_PATH,
+                        PaimonSinkConfig.SCHEMA_SAVE_MODE,
+                        PaimonSinkConfig.DATA_SAVE_MODE)
                 .build();
     }
 
