@@ -99,6 +99,10 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
         executorService.submit(
                 () -> {
                     try {
+                        log.info(
+                                "Start incremental read task for incremental split: {} exactly-once: {}",
+                                currentIncrementalSplit,
+                                taskContext.isExactlyOnce());
                         streamFetchTask.execute(taskContext);
                     } catch (Exception e) {
                         log.error(
