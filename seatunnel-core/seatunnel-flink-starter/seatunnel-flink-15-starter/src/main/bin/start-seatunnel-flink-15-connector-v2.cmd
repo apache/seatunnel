@@ -27,7 +27,11 @@ cd /d "%PRG_DIR%" || (
   exit /b 1
 )
 
-set "APP_DIR=%~dp0"
+set "currentDir=%~dp0"
+set "currentDir=%currentDir:~0,-1%"
+for %%i in ("%currentDir%") do set "APP_DIR=%%~dpi"
+set "APP_DIR=%APP_DIR:~0,-1%"
+rem set "APP_DIR=%~dp0"
 set "CONF_DIR=%APP_DIR%\config"
 set "APP_JAR=%APP_DIR%\starter\seatunnel-flink-15-starter.jar"
 set "APP_MAIN=org.apache.seatunnel.core.starter.flink.FlinkStarter"
@@ -51,20 +55,21 @@ if exist "%CONF_DIR%\log4j2.properties" (
 )
 
 set "CLASS_PATH=%APP_DIR%\starter\logging\*;%APP_JAR%"
+set "full_java_cmd=java %JAVA_OPTS% -cp %CLASS_PATH% %APP_MAIN% %args%"
 
-for /f "delims=" %%i in ('java %JAVA_OPTS% -cp %CLASS_PATH% %APP_MAIN% %args%') do (
-  set "CMD=%%i"
-  setlocal disabledelayedexpansion
+for /f "delims=" %%i in ('echo !full_java_cmd!') do (
+  rem set "CMD=%%i"
+  rem setlocal disabledelayedexpansion
   if !errorlevel! equ 234 (
-    echo !CMD!
+    echo %full_java_cmd%
     endlocal
     exit /b 0
   ) else if !errorlevel! equ 0 (
-    echo Execute SeaTunnel Flink Job: !CMD!
+    echo Execute SeaTunnel Flink Job: %full_java_cmd%
     endlocal
-    call !CMD!
+    call %full_java_cmd%
   ) else (
-    echo !CMD!
+    echo %full_java_cmd%
     endlocal
     exit /b !errorlevel!
   )

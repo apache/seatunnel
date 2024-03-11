@@ -209,14 +209,19 @@ public class SparkStarter implements Starter {
         switch (local_os_type.toLowerCase()) {
             case "windows":
                 cmd_spark = "%SPARK_HOME%/bin/spark-submit.cmd";
+                break;
             case "linux":
                 cmd_spark = "${SPARK_HOME}/bin/spark-submit";
+                break;
             case "solaris":
                 cmd_spark = "${SPARK_HOME}/bin/spark-submit";
+                break;
             case "mac":
                 cmd_spark = "${SPARK_HOME}/bin/spark-submit";
+                break;
             case "unknown":
                 cmd_spark = "error";
+                break;
         }
 
         if (!(cmd_spark.equals("error"))) {
