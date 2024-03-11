@@ -22,6 +22,7 @@ import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 import org.apache.seatunnel.engine.e2e.SeaTunnelContainer;
 import org.apache.seatunnel.engine.server.rest.RestConstant;
 
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -32,13 +33,17 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerLoggerFactory;
 import org.testcontainers.utility.MountableFile;
 
+import io.restassured.response.Response;
+
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import static io.restassured.RestAssured.given;
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
@@ -52,6 +57,10 @@ public abstract class ClassLoaderITBase extends SeaTunnelContainer {
     private static final String colon = ":";
 
     abstract boolean cacheMode();
+
+    private static final Path config = Paths.get(SEATUNNEL_HOME, "config");
+
+    private static final Path binPath = Paths.get(SEATUNNEL_HOME, "bin", SERVER_SHELL);
 
     abstract String seatunnelConfigFileName();
 
@@ -74,16 +83,60 @@ public abstract class ClassLoaderITBase extends SeaTunnelContainer {
     @Test
     public void testFakeSourceToInMemorySinkForRestApi() throws IOException, InterruptedException {
         LOG.info("test classloader with cache mode: {}", cacheMode());
+        ContainerUtil.copyConnectorJarToContainer(
+                server,
+                CONF_FILE,
+                getConnectorModulePath(),
+                getConnectorNamePrefix(),
+                getConnectorType(),
+                SEATUNNEL_HOME);
+        Awaitility.await()
+                .atMost(2, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () -> {
+                            Response response =
+                                    given().get(
+                                                    http
+                                                            + server.getHost()
+                                                            + colon
+                                                            + "5801"
+                                                            + "/hazelcast/rest/cluster");
+                            response.then().statusCode(200);
+                            Assertions.assertEquals(
+                                    1, response.jsonPath().getList("members").size());
+                        });
         for (int i = 0; i < 10; i++) {
             // load in memory sink which already leak thread with classloader
-            given().body(FileUtils.readFileToStr(new File(PROJECT_ROOT_PATH + CONF_FILE).toPath()))
+            given().body(
+                            "{\n"
+                                    + "\t\"env\": {\n"
+                                    + "\t\t\"parallelism\": 10,\n"
+                                    + "\t\t\"job.mode\": \"BATCH\"\n"
+                                    + "\t},\n"
+                                    + "\t\"source\": [\n"
+                                    + "\t\t{\n"
+                                    + "\t\t\t\"plugin_name\": \"FakeSource\",\n"
+                                    + "\t\t\t\"result_table_name\": \"fake\",\n"
+                                    + "\t\t\t\"parallelism\": 10,\n"
+                                    + "\t\t\t\"schema\": {\n"
+                                    + "\t\t\t\t\"fields\": {\n"
+                                    + "\t\t\t\t\t\"name\": \"string\",\n"
+                                    + "\t\t\t\t\t\"age\": \"int\",\n"
+                                    + "\t\t\t\t\t\"score\": \"double\"\n"
+                                    + "\t\t\t\t}\n"
+                                    + "\t\t\t}\n"
+                                    + "\t\t}\n"
+                                    + "\t],\n"
+                                    + "\t\"transform\": [],\n"
+                                    + "\t\"sink\": [\n"
+                                    + "\t\t{\n"
+                                    + "\t\t\t\"plugin_name\": \"InMemory\",\n"
+                                    + "\t\t\t\"source_table_name\": \"fake\"\n"
+                                    + "\t\t}\n"
+                                    + "\t]\n"
+                                    + "}")
                     .header("Content-Type", "application/json; charset=utf-8")
-                    .post(
-                            http
-                                    + server.getHost()
-                                    + colon
-                                    + server.getFirstMappedPort()
-                                    + RestConstant.SUBMIT_JOB_URL)
+                    .post(http + server.getHost() + colon + "5801" + RestConstant.SUBMIT_JOB_URL)
                     .then()
                     .statusCode(200);
 
