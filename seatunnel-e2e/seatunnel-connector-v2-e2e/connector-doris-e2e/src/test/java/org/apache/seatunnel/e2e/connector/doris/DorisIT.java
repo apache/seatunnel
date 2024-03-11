@@ -126,7 +126,7 @@ public class DorisIT extends AbstractDorisIT {
             String sinkSql = String.format("select * from %s.%s order by F_ID", sinkDB, TABLE);
             List<String> columnList =
                     Arrays.stream(COLUMN_STRING.split(","))
-                            .map(x -> x.trim())
+                            .map(String::trim)
                             .collect(Collectors.toList());
             Statement sourceStatement =
                     conn.createStatement(
@@ -284,8 +284,8 @@ public class DorisIT extends AbstractDorisIT {
                                 GenerateTestData.genString(1),
                                 GenerateTestData.genString(11),
                                 GenerateTestData.genString(12),
-                                GenerateTestData.genDatetimeString(false),
                                 GenerateTestData.genDatetimeString(true),
+                                GenerateTestData.genDatetimeString(false),
                                 GenerateTestData.genDateString()
                             }));
         }

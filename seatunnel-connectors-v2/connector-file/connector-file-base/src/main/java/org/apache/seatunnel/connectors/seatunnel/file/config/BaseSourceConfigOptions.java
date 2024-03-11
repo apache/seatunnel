@@ -130,6 +130,20 @@ public class BaseSourceConfigOptions {
                     .noDefaultValue()
                     .withDescription("To be read sheet name,only valid for excel files");
 
+    public static final Option<String> XML_ROW_TAG =
+            Options.key("xml_row_tag")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Specifies the tag name of the data rows within the XML file, only valid for XML files.");
+
+    public static final Option<Boolean> XML_USE_ATTR_FORMAT =
+            Options.key("xml_use_attr_format")
+                    .booleanType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Specifies whether to process data using the tag attribute format, only valid for XML files.");
+
     public static final Option<String> FILE_FILTER_PATTERN =
             Options.key("file_filter_pattern")
                     .stringType()
