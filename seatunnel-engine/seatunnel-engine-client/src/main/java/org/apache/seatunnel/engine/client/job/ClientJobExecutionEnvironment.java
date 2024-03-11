@@ -153,12 +153,13 @@ public class ClientJobExecutionEnvironment extends AbstractJobEnvironment {
     }
 
     public ClientJobProxy execute() throws ExecutionException, InterruptedException {
+        LogicalDag logicalDag = getLogicalDag();
         JobImmutableInformation jobImmutableInformation =
                 new JobImmutableInformation(
                         Long.parseLong(jobConfig.getJobContext().getJobId()),
                         jobConfig.getName(),
                         isStartWithSavePoint,
-                        seaTunnelHazelcastClient.getSerializationService().toData(getLogicalDag()),
+                        seaTunnelHazelcastClient.getSerializationService().toData(logicalDag),
                         jobConfig,
                         new ArrayList<>(jarUrls),
                         new ArrayList<>(connectorJarIdentifiers));
