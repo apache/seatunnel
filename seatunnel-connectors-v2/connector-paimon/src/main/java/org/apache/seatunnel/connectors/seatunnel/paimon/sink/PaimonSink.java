@@ -26,9 +26,9 @@ import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.sink.SupportSaveMode;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.constants.PluginType;
@@ -58,7 +58,8 @@ public class PaimonSink
                         PaimonCommitInfo,
                         PaimonAggregatedCommitInfo>,
                 SupportSaveMode,
-                SupportLoadTable<Table> {
+                SupportLoadTable<Table>,
+                SupportMultiTableSink {
 
     private static final long serialVersionUID = 1L;
 
@@ -80,8 +81,7 @@ public class PaimonSink
         this.readonlyConfig = readonlyConfig;
         this.paimonSinkConfig = new PaimonSinkConfig(readonlyConfig);
         this.catalogTable = catalogTable;
-        TableSchema tableSchema = catalogTable.getTableSchema();
-        this.seaTunnelRowType = tableSchema.toPhysicalRowDataType();
+        this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
     }
 
     @Override

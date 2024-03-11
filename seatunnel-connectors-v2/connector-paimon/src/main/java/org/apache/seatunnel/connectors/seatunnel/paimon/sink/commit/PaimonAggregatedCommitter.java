@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.paimon.sink.commit;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSinkAggregatedCommitter;
 import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.paimon.utils.JobContextUtil;
@@ -43,7 +44,8 @@ import java.util.stream.Collectors;
 /** Paimon connector aggregated committer class */
 @Slf4j
 public class PaimonAggregatedCommitter
-        implements SinkAggregatedCommitter<PaimonCommitInfo, PaimonAggregatedCommitInfo> {
+        implements SinkAggregatedCommitter<PaimonCommitInfo, PaimonAggregatedCommitInfo>,
+                SupportMultiTableSinkAggregatedCommitter {
 
     private static final long serialVersionUID = 1L;
 

@@ -17,9 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.paimon.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
@@ -27,20 +25,21 @@ import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig;
-import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSinkConfig;
+
+import org.apache.commons.lang3.StringUtils;
 
 import com.google.auto.service.AutoService;
 
-import static org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig.DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig.TABLE;
-import static org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig.WAREHOUSE;
-
 @AutoService(Factory.class)
 public class PaimonSinkFactory implements TableSinkFactory {
+
+    public static final String REPLACE_TABLE_NAME_KEY = "${table_name}";
+
+    public static final String REPLACE_SCHEMA_NAME_KEY = "${schema_name}";
+
+    public static final String REPLACE_DATABASE_NAME_KEY = "${database_name}";
 
     @Override
     public String factoryIdentifier() {
@@ -59,30 +58,46 @@ public class PaimonSinkFactory implements TableSinkFactory {
 
     @Override
     public TableSink createSink(TableSinkFactoryContext context) {
-        Config pluginConfig = context.getOptions().toConfig();
-        CatalogTable catalogTable = renameCatalogTable(pluginConfig, context.getCatalogTable());
+        ReadonlyConfig readonlyConfig = context.getOptions();
+        CatalogTable catalogTable =
+                renameCatalogTable(new PaimonSinkConfig(readonlyConfig), context.getCatalogTable());
         return () -> new PaimonSink(context.getOptions(), catalogTable);
     }
 
-    private CatalogTable renameCatalogTable(Config pluginConfig, CatalogTable catalogTable) {
-        CheckResult result =
-                CheckConfigUtil.checkAllExists(
-                        pluginConfig, WAREHOUSE.key(), DATABASE.key(), TABLE.key());
-        if (!result.isSuccess()) {
-            throw new PaimonConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            factoryIdentifier(), PluginType.SINK, result.getMsg()));
-        }
+    private CatalogTable renameCatalogTable(
+            PaimonSinkConfig paimonSinkConfig, CatalogTable catalogTable) {
         TableIdentifier tableId = catalogTable.getTableId();
-        String tableName = pluginConfig.getString(TABLE.key());
-        String namespace = pluginConfig.getString(DATABASE.key());
+        String tableName;
+        String namespace;
+        if (StringUtils.isNotEmpty(paimonSinkConfig.getTable())) {
+            tableName = replaceName(paimonSinkConfig.getTable(), tableId);
+        } else {
+            tableName = tableId.getTableName();
+        }
+
+        if (StringUtils.isNotEmpty(paimonSinkConfig.getNamespace())) {
+            namespace = replaceName(paimonSinkConfig.getNamespace(), tableId);
+        } else {
+            namespace = tableId.getSchemaName();
+        }
 
         TableIdentifier newTableId =
                 TableIdentifier.of(
                         tableId.getCatalogName(), namespace, tableId.getSchemaName(), tableName);
 
         return CatalogTable.of(newTableId, catalogTable);
+    }
+
+    private String replaceName(String original, TableIdentifier tableId) {
+        if (tableId.getTableName() != null) {
+            original = original.replace(REPLACE_TABLE_NAME_KEY, tableId.getTableName());
+        }
+        if (tableId.getSchemaName() != null) {
+            original = original.replace(REPLACE_SCHEMA_NAME_KEY, tableId.getSchemaName());
+        }
+        if (tableId.getDatabaseName() != null) {
+            original = original.replace(REPLACE_DATABASE_NAME_KEY, tableId.getDatabaseName());
+        }
+        return original;
     }
 }
