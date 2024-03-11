@@ -168,8 +168,8 @@ public class JobExecutionIT {
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
             await().atMost(600000, TimeUnit.MILLISECONDS)
                     .untilAsserted(() -> Assertions.assertTrue(completableFuture.isDone()));
-            JobResult result = clientJobProxy.getJobResultCache();
-            Assertions.assertEquals("valid_job_name", jobConfig.getName());
+            String value = engineClient.getJobClient().listJobStatus(false);
+            Assertions.assertTrue(value.contains("\"jobName\":\"valid_job_name\""));
         }
     }
 
