@@ -65,8 +65,8 @@ It only supports hadoop version **2.9.X+**.
 | skip_header_row_number    | long    | no       | 0                   |
 | schema                    | config  | no       | -                   |
 | sheet_name                | string  | no       | -                   |
-| xml_row_tag               | string  | no       | -                   |
 | xml_use_attr_format       | boolean | no       | -                   |
+| xml_row_tag               | string  | no       | -                   |
 | file_filter_pattern       | string  | no       | -                   |
 | compress_codec            | string  | no       | none                |
 | common-options            |         | no       | -                   |
@@ -254,6 +254,65 @@ The schema of upstream data.
 Only need to be configured when file_format is excel.
 
 Reader the sheet of the workbook.
+
+### xml_use_attr_format [boolean]
+
+Only need to be configured when file_format is xml.
+
+Specifies Whether to process data using the tag attribute format.
+
+If set to `true`, the data will be processed using the `tag-attribute` format like the following:
+
+```xml
+<RECORDS>
+  <DATA id="1" name="John"/>
+  <DATA id="2" name="Ivan"/>
+  <DATA id="3" name="David"/>
+</RECORDS>
+```
+
+If set to `false`, the data will be processed using the `tag-element` format like the following:
+
+```xml
+<RECORDS>
+  <DATA>
+    <id>1</id>
+    <name>John</name>
+  </DATA>
+  <DATA>
+    <id>2</id>
+    <name>Ivan</name>
+  </DATA>
+  <DATA>
+    <id>3</id>
+    <name>David</name>
+  </DATA>
+</RECORDS>
+```
+
+### xml_row_tag [string]
+
+Only need to be configured when file_format is xml.
+
+Specifies the tag name of the data rows within the XML file.
+
+For example, the following XML data:
+
+```xml
+<RECORDS>
+	<DATA id="1" name="John"/>
+	<DATA id="2" name="Ivan"/>
+	<DATA id="3" name="David"/>
+</RECORDS>
+```
+
+The `xml_row_tag` should be set to `DATA`, and the connector will generate data as the following:
+
+| id | name  |
+|----|-------|
+| 1  | John  |
+| 2  | Ivan  |
+| 3  | David |
 
 ### file_filter_pattern [string]
 

@@ -57,9 +57,10 @@ By default, we use 2PC commit to ensure `exactly-once`
 | common-options                   | object  | no       | -                                          |                                                                                                                   |
 | max_rows_in_memory               | int     | no       | -                                          | Only used when file_format_type is excel.                                                                         |
 | sheet_name                       | string  | no       | Sheet${Random number}                      | Only used when file_format_type is excel.                                                                         |
+| xml_use_attr_format              | boolean | no       | -                                          | Only used when file_format is xml.                                                                                |
 | xml_root_tag                     | string  | no       | RECORDS                                    | Only used when file_format is xml.                                                                                |
 | xml_row_tag                      | string  | no       | RECORD                                     | Only used when file_format is xml.                                                                                |
-| xml_use_attr_format              | boolean | no       | -                                          | Only used when file_format is xml.                                                                                |
+
 
 ### host [string]
 
@@ -198,17 +199,68 @@ When File Format is Excel,The maximum number of data items that can be cached in
 
 Writer the sheet of the workbook
 
+### xml_use_attr_format [boolean]
+
+Specifies Whether to process data using the tag attribute format.
+
+If set to `true`, the data will be written using the `tag-attribute` format like the following:
+
+```xml
+<RECORDS>
+    <DATA id="1" name="John"/>
+    <DATA id="2" name="Ivan"/>
+    <DATA id="3" name="David"/>
+</RECORDS>
+```
+
+If set to `false`, the data will be written using the `tag-element` format like the following:
+
+```xml
+<RECORDS>
+  <DATA>
+    <id>1</id>
+    <name>John</name>
+  </DATA>
+  <DATA>
+    <id>2</id>
+    <name>Ivan</name>
+  </DATA>
+  <DATA>
+    <id>3</id>
+    <name>David</name>
+  </DATA>
+</RECORDS>
+```
+
 ### xml_root_tag [string]
 
 Specifies the tag name of the root element within the XML file.
+
+For example, set `xml_root_tag` to `RECORDS` and set `xml_row_tag` to `DATA`,
+the connector will generate data as the following:
+
+```xml
+<RECORDS>
+  <DATA>
+    <id>1</id>
+    <name>John</name>
+  </DATA>
+  <DATA>
+    <id>2</id>
+    <name>Ivan</name>
+  </DATA>
+  <DATA>
+    <id>3</id>
+    <name>David</name>
+  </DATA>
+</RECORDS>
+```
 
 ### xml_row_tag [string]
 
 Specifies the tag name of the data rows within the XML file.
 
-### xml_use_attr_format [boolean]
-
-Specifies Whether to process data using the tag attribute format.
+Use this parameter with [xml_root_tag](#xml_root_tag-string) to compose the data structure of the XML file.
 
 ## Example
 
