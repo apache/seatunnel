@@ -154,7 +154,7 @@ public class JobExecutionIT {
     }
 
     @Test
-    public void testValidJobName() throws ExecutionException, InterruptedException {
+    public void testValidJobNameInJobConfig() throws ExecutionException, InterruptedException {
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = TestUtils.getResource("valid_job_name.conf");
         JobConfig jobConfig = new JobConfig();
