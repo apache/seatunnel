@@ -94,6 +94,23 @@ public final class SeaTunnelRow implements Serializable {
         return newRow;
     }
 
+    private int getArrayNonEmptySize(Object objects) {
+        int size = 0;
+        if (null == objects) {
+            return size;
+        }
+        Object object = objects;
+        if (object instanceof Object[]) {
+            Object[] nonEmptyArrays = (Object[]) object;
+            for (int i = 0; i < nonEmptyArrays.length; i++) {
+                if (null != nonEmptyArrays[i]) {
+                    size += 1;
+                }
+            }
+        }
+        return size;
+    }
+
     public boolean isNullAt(int pos) {
         return this.fields[pos] == null;
     }
@@ -167,27 +184,27 @@ public final class SeaTunnelRow implements Serializable {
     }
 
     private int getBytesForArray(Object v, BasicType<?> dataType) {
+        int arrayNonEmptySize = getArrayNonEmptySize(v);
         switch (dataType.getSqlType()) {
             case STRING:
                 int s = 0;
                 for (String i : ((String[]) v)) {
-                    s += i.length();
+                    if (null != i) {
+                        s += i.length();
+                    }
                 }
                 return s;
             case BOOLEAN:
-                return ((Boolean[]) v).length;
             case TINYINT:
-                return ((Byte[]) v).length;
+                return arrayNonEmptySize;
             case SMALLINT:
-                return ((Short[]) v).length * 2;
+                return arrayNonEmptySize * 2;
             case INT:
-                return ((Integer[]) v).length * 4;
             case FLOAT:
-                return ((Float[]) v).length * 4;
+                return arrayNonEmptySize * 4;
             case BIGINT:
-                return ((Long[]) v).length * 8;
             case DOUBLE:
-                return ((Double[]) v).length * 8;
+                return arrayNonEmptySize * 8;
             case NULL:
             default:
                 return 0;
@@ -210,6 +227,7 @@ public final class SeaTunnelRow implements Serializable {
             return 0;
         }
         String clazz = v.getClass().getSimpleName();
+        int arrayNonEmptySize = getArrayNonEmptySize(v);
         switch (clazz) {
             case "String":
                 return ((String) v).length();
@@ -226,8 +244,6 @@ public final class SeaTunnelRow implements Serializable {
                 return 8;
             case "BigDecimal":
                 return 36;
-            case "byte[]":
-                return ((byte[]) v).length;
             case "LocalDate":
                 return 24;
             case "LocalTime":
@@ -242,20 +258,18 @@ public final class SeaTunnelRow implements Serializable {
                     }
                 }
                 return s;
+            case "byte[]":
             case "Boolean[]":
-                return ((Boolean[]) v).length;
             case "Byte[]":
-                return ((Byte[]) v).length;
+                return arrayNonEmptySize;
             case "Short[]":
-                return ((Short[]) v).length * 2;
+                return arrayNonEmptySize * 2;
             case "Integer[]":
-                return ((Integer[]) v).length * 4;
-            case "Long[]":
-                return ((Long[]) v).length * 8;
             case "Float[]":
-                return ((Float[]) v).length * 4;
+                return arrayNonEmptySize * 4;
+            case "Long[]":
             case "Double[]":
-                return ((Double[]) v).length * 8;
+                return arrayNonEmptySize * 8;
             case "HashMap":
             case "LinkedHashMap":
                 int size = 0;
