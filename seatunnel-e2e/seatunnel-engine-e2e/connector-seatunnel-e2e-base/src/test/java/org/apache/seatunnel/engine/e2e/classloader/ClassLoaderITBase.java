@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.e2e.classloader;
 import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 import org.apache.seatunnel.engine.e2e.SeaTunnelContainer;
+import org.apache.seatunnel.engine.server.rest.RestConstant;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -39,11 +40,16 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
+import static io.restassured.RestAssured.given;
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
 
 public abstract class ClassLoaderITBase extends SeaTunnelContainer {
 
     private static final String CONF_FILE = "/classloader/fake_to_inmemory.conf";
+
+    private static final String http = "http://";
+
+    private static final String colon = ":";
 
     abstract boolean cacheMode();
 
@@ -56,6 +62,31 @@ public abstract class ClassLoaderITBase extends SeaTunnelContainer {
             // load in memory sink which already leak thread with classloader
             Container.ExecResult execResult = executeJob(server, CONF_FILE);
             Assertions.assertEquals(0, execResult.getExitCode());
+            Assertions.assertTrue(containsDaemonThread());
+            if (cacheMode()) {
+                Assertions.assertEquals(3, getClassLoaderCount());
+            } else {
+                Assertions.assertEquals(2 + i, getClassLoaderCount());
+            }
+        }
+    }
+
+    @Test
+    public void testFakeSourceToInMemorySinkForRestApi() throws IOException, InterruptedException {
+        LOG.info("test classloader with cache mode: {}", cacheMode());
+        for (int i = 0; i < 10; i++) {
+            // load in memory sink which already leak thread with classloader
+            given().body(FileUtils.readFileToStr(new File(PROJECT_ROOT_PATH + CONF_FILE).toPath()))
+                    .header("Content-Type", "application/json; charset=utf-8")
+                    .post(
+                            http
+                                    + server.getHost()
+                                    + colon
+                                    + server.getFirstMappedPort()
+                                    + RestConstant.SUBMIT_JOB_URL)
+                    .then()
+                    .statusCode(200);
+
             Assertions.assertTrue(containsDaemonThread());
             if (cacheMode()) {
                 Assertions.assertEquals(3, getClassLoaderCount());

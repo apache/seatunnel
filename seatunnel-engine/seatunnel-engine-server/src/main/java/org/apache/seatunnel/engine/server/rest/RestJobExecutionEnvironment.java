@@ -39,7 +39,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 public class RestJobExecutionEnvironment extends AbstractJobEnvironment {
@@ -49,13 +48,17 @@ public class RestJobExecutionEnvironment extends AbstractJobEnvironment {
 
     private final Long jobId;
 
+    private final SeaTunnelServer seaTunnelServer;
+
     public RestJobExecutionEnvironment(
+            SeaTunnelServer seaTunnelServer,
             JobConfig jobConfig,
             Config seaTunnelJobConfig,
             Node node,
             boolean isStartWithSavePoint,
             Long jobId) {
         super(jobConfig, isStartWithSavePoint);
+        this.seaTunnelServer = seaTunnelServer;
         this.seaTunnelJobConfig = seaTunnelJobConfig;
         this.nodeEngine = node.getNodeEngine();
         this.jobConfig.setJobContext(
@@ -75,10 +78,6 @@ public class RestJobExecutionEnvironment extends AbstractJobEnvironment {
 
     @Override
     protected LogicalDag getLogicalDag() {
-        Map<String, Object> extensionServices =
-                nodeEngine.getNode().getNodeExtension().createExtensionServices();
-        SeaTunnelServer seaTunnelServer =
-                (SeaTunnelServer) extensionServices.get(Constant.SEATUNNEL_SERVICE_NAME);
         ImmutablePair<List<Action>, Set<URL>> immutablePair =
                 getJobConfigParser().parse(seaTunnelServer.getClassLoaderService());
         actions.addAll(immutablePair.getLeft());

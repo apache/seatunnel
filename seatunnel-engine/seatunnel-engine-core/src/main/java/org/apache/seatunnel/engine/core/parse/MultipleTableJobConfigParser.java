@@ -170,7 +170,7 @@ public class MultipleTableJobConfigParser {
 
         ClassLoader classLoader;
         if (classLoaderService == null) {
-            classLoader = new SeaTunnelChildFirstClassLoader(connectorJars);
+            classLoader = new SeaTunnelChildFirstClassLoader(connectorJars, parentClassLoader);
         } else {
             classLoader =
                     classLoaderService.getClassLoader(
