@@ -25,8 +25,7 @@ import java.util.List;
 
 public class SingleChoiceOption<T> extends Option<T> {
 
-    @Getter
-    private final List<T> optionValues;
+    @Getter private final List<T> optionValues;
 
     public SingleChoiceOption(
             String key, TypeReference<T> typeReference, List<T> optionValues, T defaultValue) {
