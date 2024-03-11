@@ -129,26 +129,26 @@ When an initial consistent snapshot is made for large databases, your establishe
 - `interactive_timeout`: The number of seconds the server waits for activity on an interactive connection before closing it. See [MySQL’s documentation](https://dev.mysql.com/doc/refman/8.0/en/server-system-variables.html#sysvar_interactive_timeout) for more details.
 - `wait_timeout`: The number of seconds the server waits for activity on a non-interactive connection before closing it. See [MySQL’s documentation](https://dev.mysql.com/doc/refman/8.0/en/server-system-variables.html#sysvar_wait_timeout) for more details.
 
-*For more database settings see [Debezium MySQL Connector](https://debezium.io/documentation/reference/1.6/connectors/mysql.html#setting-up-mysql)*
+*For more database settings see [Debezium MySQL Connector](https://github.com/debezium/debezium/blob/1.6/documentation/modules/ROOT/pages/connectors/mysql.adoc#set-up)*
 
 ## Data Type Mapping
 
-|                                     Mysql Data Type                                      | SeaTunnel Data Type |
-|------------------------------------------------------------------------------------------|---------------------|
-| BIT(1)<br/>TINYINT(1)                                                                    | BOOLEAN             |
-| TINYINT                                                                                  | TINYINT             |
-| TINYINT UNSIGNED<br/>SMALLINT                                                            | SMALLINT            |
-| SMALLINT UNSIGNED<br/>MEDIUMINT<br/>MEDIUMINT UNSIGNED<br/>INT<br/>INTEGER<br/>YEAR      | INT                 |
-| INT UNSIGNED<br/>INTEGER UNSIGNED<br/>BIGINT                                             | BIGINT              |
-| BIGINT UNSIGNED                                                                          | DECIMAL(20,0)       |
-| DECIMAL(p, s) <br/>DECIMAL(p, s) UNSIGNED <br/>NUMERIC(p, s) <br/>NUMERIC(p, s) UNSIGNED | DECIMAL(p,s)        |
-| FLOAT<br/>FLOAT UNSIGNED                                                                 | FLOAT               |
-| DOUBLE<br/>DOUBLE UNSIGNED<br/>REAL<br/>REAL UNSIGNED                                    | DOUBLE              |
-| CHAR<br/>VARCHAR<br/>TINYTEXT<br/>MEDIUMTEXT<br/>TEXT<br/>LONGTEXT<br/>ENUM<br/>JSON     | STRING              |
-| DATE                                                                                     | DATE                |
-| TIME                                                                                     | TIME                |
-| DATETIME<br/>TIMESTAMP                                                                   | TIMESTAMP           |
-| BINARY<br/>VARBINAR<br/>BIT(p)<br/>TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB         | BYTES               |
+|                                        Mysql Data Type                                         | SeaTunnel Data Type |
+|------------------------------------------------------------------------------------------------|---------------------|
+| BIT(1)<br/>TINYINT(1)                                                                          | BOOLEAN             |
+| TINYINT                                                                                        | TINYINT             |
+| TINYINT UNSIGNED<br/>SMALLINT                                                                  | SMALLINT            |
+| SMALLINT UNSIGNED<br/>MEDIUMINT<br/>MEDIUMINT UNSIGNED<br/>INT<br/>INTEGER<br/>YEAR            | INT                 |
+| INT UNSIGNED<br/>INTEGER UNSIGNED<br/>BIGINT                                                   | BIGINT              |
+| BIGINT UNSIGNED                                                                                | DECIMAL(20,0)       |
+| DECIMAL(p, s) <br/>DECIMAL(p, s) UNSIGNED <br/>NUMERIC(p, s) <br/>NUMERIC(p, s) UNSIGNED       | DECIMAL(p,s)        |
+| FLOAT<br/>FLOAT UNSIGNED                                                                       | FLOAT               |
+| DOUBLE<br/>DOUBLE UNSIGNED<br/>REAL<br/>REAL UNSIGNED                                          | DOUBLE              |
+| CHAR<br/>VARCHAR<br/>TINYTEXT<br/>MEDIUMTEXT<br/>TEXT<br/>LONGTEXT<br/>ENUM<br/>JSON<br/>ENUM  | STRING              |
+| DATE                                                                                           | DATE                |
+| TIME(s)                                                                                        | TIME(s)             |
+| DATETIME<br/>TIMESTAMP(s)                                                                      | TIMESTAMP(s)        |
+| BINARY<br/>VARBINAR<br/>BIT(p)<br/>TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB <br/>GEOMETRY | BYTES               |
 
 ## Source Options
 
@@ -179,7 +179,7 @@ When an initial consistent snapshot is made for large databases, your establishe
 | inverse-sampling.rate                          | Integer  | No       | 1000    | The inverse of the sampling rate used in the sample sharding strategy. For example, if this value is set to 1000, it means a 1/1000 sampling rate is applied during the sampling process. This option provides flexibility in controlling the granularity of the sampling, thus affecting the final number of shards. It's especially useful when dealing with very large datasets where a lower sampling rate is preferred. The default value is 1000.                                                                                                                                                              |
 | exactly_once                                   | Boolean  | No       | false   | Enable exactly once semantic.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | format                                         | Enum     | No       | DEFAULT | Optional output format for MySQL CDC, valid enumerations are `DEFAULT`、`COMPATIBLE_DEBEZIUM_JSON`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| debezium                                       | Config   | No       | -       | Pass-through [Debezium's properties](https://debezium.io/documentation/reference/1.6/connectors/mysql.html#mysql-connector-properties) to Debezium Embedded Engine which is used to capture data changes from MySQL server.                                                                                                                                                                                                                                                                                                                                                                                          |
+| debezium                                       | Config   | No       | -       | Pass-through [Debezium's properties](https://github.com/debezium/debezium/blob/1.6/documentation/modules/ROOT/pages/connectors/mysql.adoc#connector-properties) to Debezium Embedded Engine which is used to capture data changes from MySQL server.                                                                                                                                                                                                                                                                                                                                                                 |
 | common-options                                 |          | no       | -       | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 
 ## Task Example

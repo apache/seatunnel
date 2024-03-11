@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseFileSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.PartitionConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
@@ -70,6 +71,12 @@ public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfi
     private int maxRowsInMemory;
 
     private String sheetName;
+
+    private String xmlRootTag = BaseSinkConfig.XML_ROOT_TAG.defaultValue();
+
+    private String xmlRowTag = BaseSinkConfig.XML_ROW_TAG.defaultValue();
+
+    private Boolean xmlUseAttrFormat;
 
     public FileSinkConfig(@NonNull Config config, @NonNull SeaTunnelRowType seaTunnelRowTypeInfo) {
         super(config);
@@ -183,6 +190,26 @@ public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfi
 
         if (config.hasPath(BaseSinkConfig.SHEET_NAME.key())) {
             this.sheetName = config.getString(BaseSinkConfig.SHEET_NAME.key());
+        }
+
+        if (FileFormat.XML
+                .name()
+                .equalsIgnoreCase(config.getString(BaseSinkConfig.FILE_FORMAT_TYPE.key()))) {
+            if (!config.hasPath(BaseSinkConfig.XML_USE_ATTR_FORMAT.key())) {
+                throw new FileConnectorException(
+                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                        "User must define xml_use_attr_format when file_format_type is xml");
+            }
+
+            this.xmlUseAttrFormat = config.getBoolean(BaseSinkConfig.XML_USE_ATTR_FORMAT.key());
+
+            if (config.hasPath(BaseSinkConfig.XML_ROOT_TAG.key())) {
+                this.xmlRootTag = config.getString(BaseSinkConfig.XML_ROOT_TAG.key());
+            }
+
+            if (config.hasPath(BaseSinkConfig.XML_ROW_TAG.key())) {
+                this.xmlRowTag = config.getString(BaseSinkConfig.XML_ROW_TAG.key());
+            }
         }
     }
 }

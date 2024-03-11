@@ -30,19 +30,20 @@ Version Supported
 
 ## Sink Options
 
-|        Name        |  Type  | Required |        Default         |                                                                Description                                                                |
-|--------------------|--------|----------|------------------------|-------------------------------------------------------------------------------------------------------------------------------------------|
-| load-url           | String | Yes      | -                      | `SelectDB Cloud` warehouse http address, the format is `warehouse_ip:http_port`                                                           |
-| jdbc-url           | String | Yes      | -                      | `SelectDB Cloud` warehouse jdbc address, the format is `warehouse_ip:mysql_port`                                                          |
-| cluster-name       | String | Yes      | -                      | `SelectDB Cloud` cluster name                                                                                                             |
-| username           | String | Yes      | -                      | `SelectDB Cloud` user username                                                                                                            |
-| password           | String | Yes      | -                      | `SelectDB Cloud` user password                                                                                                            |
-| table.identifier   | String | Yes      | -                      | The name of `SelectDB Cloud` table, the format is `database.table`                                                                        |
-| sink.enable-delete | bool   | No       | false                  | Whether to enable deletion. This option requires SelectDB Cloud table to enable batch delete function, and only supports Unique model.    |
-| sink.max-retries   | int    | No       | 3                      | the max retry times if writing records to database failed                                                                                 |
-| sink.buffer-size   | int    | No       | 10 * 1024 * 1024 (1MB) | the buffer size to cache data for stream load.                                                                                            |
-| sink.buffer-count  | int    | No       | 10000                  | the buffer count to cache data for stream load.                                                                                           |
-| selectdb.config    | map    | yes      | -                      | This option is used to support operations such as `insert`, `delete`, and `update` when automatically generate sql,and supported formats. |
+|        Name        |  Type  | Required |        Default         |                                                                                                                                                                    Description                                                                                                                                                                    |
+|--------------------|--------|----------|------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| load-url           | String | Yes      | -                      | `SelectDB Cloud` warehouse http address, the format is `warehouse_ip:http_port`                                                                                                                                                                                                                                                                   |
+| jdbc-url           | String | Yes      | -                      | `SelectDB Cloud` warehouse jdbc address, the format is `warehouse_ip:mysql_port`                                                                                                                                                                                                                                                                  |
+| cluster-name       | String | Yes      | -                      | `SelectDB Cloud` cluster name                                                                                                                                                                                                                                                                                                                     |
+| username           | String | Yes      | -                      | `SelectDB Cloud` user username                                                                                                                                                                                                                                                                                                                    |
+| password           | String | Yes      | -                      | `SelectDB Cloud` user password                                                                                                                                                                                                                                                                                                                    |
+| sink.enable-2pc    | bool   | No       | true                   | Whether to enable two-phase commit (2pc), the default is true, to ensure Exactly-Once semantics. SelectDB uses cache files to load data. When the amount of data is large, cached data may become invalid (the default expiration time is 1 hour). If you encounter a large amount of data write loss, please configure sink.enable-2pc to false. |
+| table.identifier   | String | Yes      | -                      | The name of `SelectDB Cloud` table, the format is `database.table`                                                                                                                                                                                                                                                                                |
+| sink.enable-delete | bool   | No       | false                  | Whether to enable deletion. This option requires SelectDB Cloud table to enable batch delete function, and only supports Unique model.                                                                                                                                                                                                            |
+| sink.max-retries   | int    | No       | 3                      | the max retry times if writing records to database failed                                                                                                                                                                                                                                                                                         |
+| sink.buffer-size   | int    | No       | 10 * 1024 * 1024 (1MB) | the buffer size to cache data for stream load.                                                                                                                                                                                                                                                                                                    |
+| sink.buffer-count  | int    | No       | 10000                  | the buffer count to cache data for stream load.                                                                                                                                                                                                                                                                                                   |
+| selectdb.config    | map    | yes      | -                      | This option is used to support operations such as `insert`, `delete`, and `update` when automatically generate sql,and supported formats.                                                                                                                                                                                                         |
 
 ## Data Type Mapping
 
@@ -169,11 +170,4 @@ sink {
   }
 }
 ```
-
-## Changelog
-
-### next version
-
-- [Feature] Support SelectDB Cloud Sink Connector [3958](https://github.com/apache/seatunnel/pull/3958)
-- [Improve] Refactor some SelectDB Cloud Sink code as well as support copy into batch and async flush and cdc [4312](https://github.com/apache/seatunnel/pull/4312)
 

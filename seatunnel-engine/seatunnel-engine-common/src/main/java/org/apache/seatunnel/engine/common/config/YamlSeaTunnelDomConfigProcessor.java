@@ -143,6 +143,8 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                                 getTextContent(node)));
             } else if (ServerConfigOptions.CONNECTOR_JAR_STORAGE_CONFIG.key().equals(name)) {
                 engineConfig.setConnectorJarStorageConfig(parseConnectorJarStorageConfig(node));
+            } else if (ServerConfigOptions.CLASSLOADER_CACHE_MODE.key().equals(name)) {
+                engineConfig.setClassloaderCacheMode(getBooleanValue(getTextContent(node)));
             } else {
                 LOGGER.warning("Unrecognized element: " + name);
             }

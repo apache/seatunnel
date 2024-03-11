@@ -17,6 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iceberg;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.CommonConfig;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SinkConfig;
+
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.hive.HiveCatalog;
@@ -29,6 +33,8 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCatalogType.HIVE;
 
@@ -50,11 +56,19 @@ public class TestIcebergMetastore {
         String warehousePath = "/tmp/seatunnel/iceberg/hive/";
         new File(warehousePath).mkdirs();
 
+        Map<String, Object> configs = new HashMap<>();
+        Map<String, Object> catalogProps = new HashMap<>();
+        catalogProps.put("type", HIVE.getType());
+        catalogProps.put("warehouse", "file://" + warehousePath);
+        catalogProps.put("uri", METASTORE_URI);
+
+        configs.put(CommonConfig.KEY_CATALOG_NAME.key(), "seatunnel");
+        configs.put(CommonConfig.CATALOG_PROPS.key(), catalogProps);
+
         HiveCatalog catalog =
                 (HiveCatalog)
-                        new IcebergCatalogFactory(
-                                        "seatunnel", HIVE, "file://" + warehousePath, METASTORE_URI)
-                                .create();
+                        new IcebergCatalogLoader(new SinkConfig(ReadonlyConfig.fromMap(configs)))
+                                .loadCatalog();
         catalog.createNamespace(Namespace.of("test_database"));
         Assertions.assertTrue(catalog.namespaceExists(Namespace.of("test_database")));
     }

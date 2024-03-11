@@ -246,6 +246,27 @@ public class BaseSinkConfig {
                     .noDefaultValue()
                     .withDescription("To be written sheet name,only valid for excel files");
 
+    public static final Option<String> XML_ROOT_TAG =
+            Options.key("xml_root_tag")
+                    .stringType()
+                    .defaultValue("RECORDS")
+                    .withDescription(
+                            "Specifies the tag name of the root element within the XML file, only valid for xml files, default value is 'RECORDS'");
+
+    public static final Option<String> XML_ROW_TAG =
+            Options.key("xml_row_tag")
+                    .stringType()
+                    .defaultValue("RECORD")
+                    .withDescription(
+                            "Specifies the tag name of the data rows within the XML file, only valid for xml files, default value is 'RECORD'");
+
+    public static final Option<Boolean> XML_USE_ATTR_FORMAT =
+            Options.key("xml_use_attr_format")
+                    .booleanType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Specifies whether to process data using the tag attribute format, only valid for XML files.");
+
     public static final Option<Boolean> ENABLE_HEADER_WRITE =
             Options.key("enable_header_write")
                     .booleanType()

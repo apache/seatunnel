@@ -20,6 +20,7 @@ package org.apache.seatunnel.api.table.catalog;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
+import lombok.AllArgsConstructor;
 import lombok.Data;
 
 import java.io.Serializable;
@@ -32,6 +33,7 @@ import java.util.Map;
  * @see MetadataColumn
  */
 @Data
+@AllArgsConstructor
 @SuppressWarnings("PMD.AbstractClassShouldStartWithAbstractNamingRule")
 public abstract class Column implements Serializable {
 
@@ -44,7 +46,25 @@ public abstract class Column implements Serializable {
     // todo: use generic type
     protected final SeaTunnelDataType<?> dataType;
 
-    protected final Integer columnLength;
+    /**
+     * Designated column's specified column size.
+     *
+     * <p>For numeric data, this is the maximum precision. For character/binary data, this is the
+     * length in bytes.
+     *
+     * <p>Null is returned for data types where the scale is not applicable.
+     */
+    protected final Long columnLength;
+
+    /**
+     * Number of digits to right of the decimal point.
+     *
+     * <p>For decimal data, this is the maximum scale. For time/timestamp data, this is the maximum
+     * allowed precision of the fractional seconds component.
+     *
+     * <p>Null is returned for data types where the scale is not applicable.
+     */
+    protected final Integer scale;
 
     /** Does the column can be null */
     protected final boolean nullable;
@@ -55,24 +75,63 @@ public abstract class Column implements Serializable {
 
     protected final String comment;
 
-    /** Field type in the database * */
+    /**
+     * Field type in the database For example : varchar is varchar(50),DECIMAL is DECIMAL(20,5) ,
+     * int is int Each database can customize the sourceType according to its own characteristics*
+     */
     protected final String sourceType;
-
-    /** Unsigned bit * */
-    protected final boolean isUnsigned;
-
-    /** Whether to use the 0 bit * */
-    protected final boolean isZeroFill;
-
-    /** Bit length * */
-    protected final Long bitLen;
-
-    /** integer may be cross the border * */
-    protected final Long longColumnLength;
 
     /** your options * */
     protected final Map<String, Object> options;
 
+    // TODO Waiting for migration to complete before remove
+    @Deprecated protected boolean isUnsigned;
+    @Deprecated protected boolean isZeroFill;
+    @Deprecated protected Long bitLen;
+    @Deprecated protected Long longColumnLength;
+
+    protected Column(String name, SeaTunnelDataType<?> dataType, Long columnLength, Integer scale) {
+        this(name, dataType, columnLength, scale, true, null, null, null, null);
+    }
+
+    protected Column(
+            String name,
+            SeaTunnelDataType<?> dataType,
+            Long columnLength,
+            boolean nullable,
+            Object defaultValue,
+            String comment) {
+        this(name, dataType, columnLength, null, nullable, defaultValue, comment, null, null);
+    }
+
+    protected Column(
+            String name,
+            SeaTunnelDataType<?> dataType,
+            Long columnLength,
+            Integer scale,
+            boolean nullable,
+            Object defaultValue,
+            String comment,
+            String sourceType,
+            Map<String, Object> options) {
+        this.name = name;
+        this.dataType = dataType;
+        this.columnLength = columnLength;
+        this.scale = scale;
+        this.nullable = nullable;
+        this.defaultValue = defaultValue;
+        this.comment = comment;
+        this.sourceType = sourceType;
+        this.options = options;
+
+        // TODO Waiting for migration to complete before remove
+        this.bitLen = columnLength != null ? columnLength * 8 : 0;
+        this.longColumnLength = columnLength;
+        this.isUnsigned = false;
+        this.isZeroFill = false;
+    }
+
+    @Deprecated
     protected Column(
             String name,
             SeaTunnelDataType<?> dataType,
@@ -83,18 +142,13 @@ public abstract class Column implements Serializable {
         this(
                 name,
                 dataType,
-                columnLength,
+                columnLength == null ? null : columnLength.longValue(),
                 nullable,
                 defaultValue,
-                comment,
-                null,
-                false,
-                false,
-                null,
-                0L,
-                null);
+                comment);
     }
 
+    @Deprecated
     protected Column(
             String name,
             SeaTunnelDataType<?> dataType,
@@ -110,7 +164,8 @@ public abstract class Column implements Serializable {
             Map<String, Object> options) {
         this.name = name;
         this.dataType = dataType;
-        this.columnLength = columnLength;
+        this.columnLength = columnLength == null ? null : columnLength.longValue();
+        this.scale = null;
         this.nullable = nullable;
         this.defaultValue = defaultValue;
         this.comment = comment;

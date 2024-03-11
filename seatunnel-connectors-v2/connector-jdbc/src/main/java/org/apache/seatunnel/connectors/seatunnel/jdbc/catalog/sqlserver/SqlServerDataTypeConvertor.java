@@ -17,16 +17,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver;
 
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.DataTypeConvertor;
-import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.DecimalType;
-import org.apache.seatunnel.api.table.type.LocalTimeType;
-import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SqlType;
-import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlserver.SqlServerTypeConverter;
 
+import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.lang3.tuple.Pair;
 
 import com.google.auto.service.AutoService;
@@ -34,10 +33,13 @@ import lombok.NonNull;
 
 import java.util.Map;
 
+/** @deprecated instead by {@link SqlServerTypeConverter} */
+@Deprecated
 @AutoService(DataTypeConvertor.class)
 public class SqlServerDataTypeConvertor implements DataTypeConvertor<SqlServerType> {
     public static final String PRECISION = "precision";
     public static final String SCALE = "scale";
+    public static final String LENGTH = "length";
     public static final Integer DEFAULT_PRECISION = 10;
     public static final Integer DEFAULT_SCALE = 0;
 
@@ -53,57 +55,22 @@ public class SqlServerDataTypeConvertor implements DataTypeConvertor<SqlServerTy
             String field,
             @NonNull SqlServerType connectorDataType,
             Map<String, Object> dataTypeProperties) {
-        switch (connectorDataType) {
-            case BIT:
-                return BasicType.BOOLEAN_TYPE;
-            case TINYINT:
-            case SMALLINT:
-                return BasicType.SHORT_TYPE;
-            case INTEGER:
-            case INT_IDENTITY:
-                return BasicType.INT_TYPE;
-            case BIGINT:
-                return BasicType.LONG_TYPE;
-            case DECIMAL:
-            case NUMERIC:
-            case MONEY:
-            case SMALLMONEY:
-                int precision = (int) dataTypeProperties.getOrDefault(PRECISION, DEFAULT_PRECISION);
-                int scale = (int) dataTypeProperties.getOrDefault(SCALE, DEFAULT_SCALE);
-                return new DecimalType(precision, scale);
-            case REAL:
-                return BasicType.FLOAT_TYPE;
-            case FLOAT:
-                return BasicType.DOUBLE_TYPE;
-            case CHAR:
-            case NCHAR:
-            case VARCHAR:
-            case NTEXT:
-            case NVARCHAR:
-            case TEXT:
-            case XML:
-            case GUID:
-            case SQL_VARIANT:
-                return BasicType.STRING_TYPE;
-            case DATE:
-                return LocalTimeType.LOCAL_DATE_TYPE;
-            case TIME:
-                return LocalTimeType.LOCAL_TIME_TYPE;
-            case DATETIME:
-            case DATETIME2:
-            case SMALLDATETIME:
-            case DATETIMEOFFSET:
-                return LocalTimeType.LOCAL_DATE_TIME_TYPE;
-            case TIMESTAMP:
-            case BINARY:
-            case VARBINARY:
-            case IMAGE:
-                return PrimitiveByteArrayType.INSTANCE;
-            case UNKNOWN:
-            default:
-                throw CommonError.convertToSeaTunnelTypeError(
-                        DatabaseIdentifier.SQLSERVER, connectorDataType.toString(), field);
-        }
+        int precision =
+                Integer.parseInt(
+                        dataTypeProperties.getOrDefault(PRECISION, DEFAULT_PRECISION).toString());
+        long length = Long.parseLong(dataTypeProperties.getOrDefault(LENGTH, 0).toString());
+        int scale = (int) dataTypeProperties.getOrDefault(SCALE, DEFAULT_SCALE);
+        BasicTypeDefine typeDefine =
+                BasicTypeDefine.builder()
+                        .name(field)
+                        .columnType(connectorDataType.getSqlTypeName())
+                        .dataType(connectorDataType.getSqlTypeName())
+                        .length(length)
+                        .precision((long) precision)
+                        .scale(scale)
+                        .build();
+
+        return SqlServerTypeConverter.INSTANCE.convert(typeDefine).getDataType();
     }
 
     @Override
@@ -111,40 +78,20 @@ public class SqlServerDataTypeConvertor implements DataTypeConvertor<SqlServerTy
             String field,
             SeaTunnelDataType<?> seaTunnelDataType,
             Map<String, Object> dataTypeProperties) {
-        SqlType sqlType = seaTunnelDataType.getSqlType();
-        switch (sqlType) {
-            case STRING:
-                return SqlServerType.VARCHAR;
-            case BOOLEAN:
-                return SqlServerType.BIT;
-            case TINYINT:
-                return SqlServerType.TINYINT;
-            case SMALLINT:
-                return SqlServerType.SMALLINT;
-            case INT:
-                return SqlServerType.INTEGER;
-            case BIGINT:
-                return SqlServerType.BIGINT;
-            case FLOAT:
-                return SqlServerType.REAL;
-            case DOUBLE:
-                return SqlServerType.FLOAT;
-            case DECIMAL:
-                return SqlServerType.DECIMAL;
-            case BYTES:
-                return SqlServerType.BINARY;
-            case DATE:
-                return SqlServerType.DATE;
-            case TIME:
-                return SqlServerType.TIME;
-            case TIMESTAMP:
-                return SqlServerType.DATETIME2;
-            default:
-                throw CommonError.convertToConnectorTypeError(
-                        DatabaseIdentifier.SQLSERVER,
-                        seaTunnelDataType.getSqlType().toString(),
-                        field);
-        }
+        Long precision = MapUtils.getLong(dataTypeProperties, PRECISION);
+        Integer scale = MapUtils.getInteger(dataTypeProperties, SCALE);
+
+        Column column =
+                PhysicalColumn.builder()
+                        .name(field)
+                        .dataType(seaTunnelDataType)
+                        .columnLength(precision)
+                        .scale(scale)
+                        .nullable(true)
+                        .build();
+
+        BasicTypeDefine typeDefine = SqlServerTypeConverter.INSTANCE.reconvert(column);
+        return SqlServerType.parse(typeDefine.getColumnType()).getLeft();
     }
 
     @Override

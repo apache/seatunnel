@@ -48,7 +48,11 @@ public class Routing {
         try {
             this.port = Integer.parseInt(hostPort[1]);
         } catch (NumberFormatException e) {
-            logger.error(ErrorMessages.PARSE_NUMBER_FAILED_MESSAGE, "Doris BE's port", hostPort[1]);
+            logger.error(
+                    String.format(
+                            ErrorMessages.PARSE_NUMBER_FAILED_MESSAGE,
+                            "Doris BE's port",
+                            hostPort[1]));
             String errMsg =
                     String.format(ErrorMessages.PARSE_NUMBER_FAILED_MESSAGE, "routing", routing);
             throw new DorisConnectorException(DorisConnectorErrorCode.ROUTING_FAILED, errMsg, e);

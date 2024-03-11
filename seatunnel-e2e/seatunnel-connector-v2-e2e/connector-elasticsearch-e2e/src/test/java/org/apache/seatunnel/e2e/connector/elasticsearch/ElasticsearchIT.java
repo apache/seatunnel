@@ -20,8 +20,8 @@ package org.apache.seatunnel.e2e.connector.elasticsearch;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.catalog.ElasticSearchCatalog;
@@ -272,7 +272,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         configMap.put("tls_verify_hostname", false);
         configMap.put("index_type", "st");
         final ElasticSearchCatalog elasticSearchCatalog =
-                new ElasticSearchCatalog("Elasticsearch", "", ConfigFactory.parseMap(configMap));
+                new ElasticSearchCatalog("Elasticsearch", "", ReadonlyConfig.fromMap(configMap));
         elasticSearchCatalog.open();
         TablePath tablePath = TablePath.of("", "st_index3");
         // index exists

@@ -50,20 +50,20 @@ Read external data source data through JDBC.
 
 ## Data Type Mapping
 
-|                       SQLserver Data type                       |                                                                    Seatunnel Data type                                                                    |
-|-----------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------|
-| BIT                                                             | BOOLEAN                                                                                                                                                   |
-| TINYINT<br/>SMALLINT                                            | SHORT                                                                                                                                                     |
-| INTEGER                                                         | INT                                                                                                                                                       |
-| BIGINT                                                          | LONG                                                                                                                                                      |
-| DECIMAL<br />NUMERIC<br />MONEY<br />SMALLMONEY                 | DECIMAL((Get the designated column's specified column size)+1,<br/>(Gets the designated column's number of digits to right of the <br />decimal point.))) |
-| REAL                                                            | FLOAT                                                                                                                                                     |
-| FLOAT                                                           | DOUBLE                                                                                                                                                    |
-| CHAR<br />NCHAR<br />VARCHAR<br />NTEXT<br />NVARCHAR<br />TEXT | STRING                                                                                                                                                    |
-| DATE                                                            | LOCAL_DATE                                                                                                                                                |
-| TIME                                                            | LOCAL_TIME                                                                                                                                                |
-| DATETIME<br />DATETIME2<br />SMALLDATETIME<br />DATETIMEOFFSET  | LOCAL_DATE_TIME                                                                                                                                           |
-| TIMESTAMP<br />BINARY<br />VARBINARY<br />IMAGE<br />UNKNOWN    | Not supported yet                                                                                                                                         |
+|                         SQLserver Data type                          | Seatunnel Data type |
+|----------------------------------------------------------------------|---------------------|
+| BIT                                                                  | BOOLEAN             |
+| TINYINT<br/>SMALLINT                                                 | SMALLINT            |
+| INTEGER<br/>INT                                                      | INT                 |
+| BIGINT                                                               | BIGINT              |
+| NUMERIC(p,s)<br/>DECIMAL(p,s)<br/>MONEY<br/>SMALLMONEY               | DECIMAL(p,s)        |
+| FLOAT(1~24)<br/>REAL                                                 | FLOAT               |
+| DOUBLE<br/>FLOAT(>24)                                                | DOUBLE              |
+| CHAR<br/>NCHAR<br/>VARCHAR<br/>NTEXT<br/>NVARCHAR<br/>TEXT<br/>XML   | STRING              |
+| DATE                                                                 | DATE                |
+| TIME(s)                                                              | TIME(s)             |
+| DATETIME(s)<br/>DATETIME2(s)<br/>DATETIMEOFFSET(s)<br/>SMALLDATETIME | TIMESTAMP(s)        |
+| BINARY<br/>VARBINARY<br/>IMAGE                                       | BYTES               |
 
 ## Source Options
 

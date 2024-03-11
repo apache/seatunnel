@@ -20,9 +20,23 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.AbstractJdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+
 public class MysqlJdbcRowConverter extends AbstractJdbcRowConverter {
     @Override
     public String converterName() {
         return DatabaseIdentifier.MYSQL;
+    }
+
+    @Override
+    protected void writeTime(PreparedStatement statement, int index, LocalTime time)
+            throws SQLException {
+        // Write to time column using timestamp retains milliseconds
+        statement.setTimestamp(
+                index, java.sql.Timestamp.valueOf(LocalDateTime.of(LocalDate.now(), time)));
     }
 }

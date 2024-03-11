@@ -17,77 +17,27 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.postgres.utils;
 
-import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.DecimalType;
-import org.apache.seatunnel.api.table.type.LocalTimeType;
-import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresTypeConverter;
 
 import io.debezium.relational.Column;
-import io.debezium.relational.Table;
-
-import java.sql.Types;
-import java.util.List;
 
 public class PostgresTypeUtils {
     private PostgresTypeUtils() {}
 
     public static SeaTunnelDataType<?> convertFromColumn(Column column) {
-        switch (column.jdbcType()) {
-            case Types.CHAR:
-            case Types.VARCHAR:
-            case Types.NCHAR:
-            case Types.NVARCHAR:
-            case Types.STRUCT:
-            case Types.CLOB:
-            case Types.LONGVARCHAR:
-            case Types.LONGNVARCHAR:
-                return BasicType.STRING_TYPE;
-            case Types.BLOB:
-                return PrimitiveByteArrayType.INSTANCE;
-            case Types.INTEGER:
-                return BasicType.INT_TYPE;
-            case Types.SMALLINT:
-            case Types.TINYINT:
-                return BasicType.SHORT_TYPE;
-            case Types.BIGINT:
-                return BasicType.LONG_TYPE;
-            case Types.FLOAT:
-            case Types.REAL:
-                return BasicType.FLOAT_TYPE;
-            case Types.DOUBLE:
-                return BasicType.DOUBLE_TYPE;
-            case Types.NUMERIC:
-            case Types.DECIMAL:
-                return new DecimalType(column.length(), column.scale().orElse(0));
-            case Types.TIMESTAMP:
-                return LocalTimeType.LOCAL_DATE_TIME_TYPE;
-            case Types.DATE:
-                return LocalTimeType.LOCAL_DATE_TYPE;
-            case Types.TIME:
-                return LocalTimeType.LOCAL_TIME_TYPE;
-            case Types.BOOLEAN:
-            case Types.BIT:
-                return BasicType.BOOLEAN_TYPE;
-            default:
-                throw new UnsupportedOperationException(
-                        String.format(
-                                "Don't support SqlSever type '%s' yet, jdbcType:'%s'.",
-                                column.typeName(), column.jdbcType()));
-        }
-    }
-
-    public static SeaTunnelRowType convertFromTable(Table table) {
-
-        List<Column> columns = table.columns();
-        String[] fieldNames = columns.stream().map(Column::name).toArray(String[]::new);
-
-        SeaTunnelDataType<?>[] fieldTypes =
-                columns.stream()
-                        .map(PostgresTypeUtils::convertFromColumn)
-                        .toArray(SeaTunnelDataType[]::new);
-
-        return new SeaTunnelRowType(fieldNames, fieldTypes);
+        BasicTypeDefine typeDefine =
+                BasicTypeDefine.builder()
+                        .name(column.name())
+                        .columnType(column.typeName())
+                        .dataType(column.typeName())
+                        .length((long) column.length())
+                        .precision((long) column.length())
+                        .scale(column.scale().orElse(0))
+                        .build();
+        org.apache.seatunnel.api.table.catalog.Column seaTunnelColumn =
+                PostgresTypeConverter.INSTANCE.convert(typeDefine);
+        return seaTunnelColumn.getDataType();
     }
 }

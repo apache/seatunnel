@@ -23,10 +23,10 @@ import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
-import org.apache.seatunnel.api.table.type.DecimalType;
-import org.apache.seatunnel.api.table.type.SqlType;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeConverter;
 
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -55,14 +55,11 @@ public class MysqlCreateTableSqlBuilder {
 
     private List<ConstraintKey> constraintKeys;
 
-    private MysqlDataTypeConvertor mysqlDataTypeConvertor;
-
     private String fieldIde;
 
     private MysqlCreateTableSqlBuilder(String tableName) {
         checkNotNull(tableName, "tableName must not be null");
         this.tableName = tableName;
-        this.mysqlDataTypeConvertor = new MysqlDataTypeConvertor();
     }
 
     public static MysqlCreateTableSqlBuilder builder(
@@ -173,8 +170,8 @@ public class MysqlCreateTableSqlBuilder {
         if (StringUtils.equals(catalogName, DatabaseIdentifier.MYSQL)) {
             columnSqls.add(column.getSourceType());
         } else {
-            // Column name
-            getColumnName(column, columnSqls);
+            BasicTypeDefine<MysqlType> typeDefine = MySqlTypeConverter.INSTANCE.reconvert(column);
+            columnSqls.add(typeDefine.getColumnType());
         }
         // nullable
         if (column.isNullable()) {
@@ -188,94 +185,6 @@ public class MysqlCreateTableSqlBuilder {
         }
 
         return String.join(" ", columnSqls);
-    }
-
-    private void getColumnName(Column column, List<String> columnSqls) {
-        SqlType dataType = column.getDataType().getSqlType();
-        boolean isBytes = StringUtils.equals(dataType.name(), SqlType.BYTES.name());
-        Long columnLength = column.getLongColumnLength();
-        Long bitLen = column.getBitLen();
-        if (isBytes) {
-            getColumnNameBytes(columnSqls, bitLen);
-        } else {
-            getColumnNameNonBytes(column, columnSqls, columnLength);
-        }
-    }
-
-    private void getColumnNameNonBytes(Column column, List<String> columnSqls, Long columnLength) {
-        columnLength = columnLength == null ? Integer.MAX_VALUE : columnLength;
-        if (columnLength >= 16383 && columnLength <= 65535) {
-            columnSqls.add(MysqlType.TEXT.getName());
-        } else if (columnLength >= 65535 && columnLength <= 16777215) {
-            columnSqls.add(MysqlType.MEDIUMTEXT.getName());
-        } else if (columnLength > 16777215 || columnLength == -1) {
-            columnSqls.add(MysqlType.LONGTEXT.getName());
-        } else {
-            // Column type
-            final String name =
-                    mysqlDataTypeConvertor
-                            .toConnectorType(column.getName(), column.getDataType(), null)
-                            .getName();
-            if (columnLength == 0
-                    && StringUtils.equalsIgnoreCase(name, MysqlType.VARCHAR.getName())) {
-                columnSqls.add(MysqlType.LONGTEXT.getName());
-                return;
-            }
-            columnSqls.add(
-                    mysqlDataTypeConvertor
-                            .toConnectorType(column.getName(), column.getDataType(), null)
-                            .getName());
-
-            String fieSql = "";
-            List<String> list = new ArrayList<>();
-            list.add(MysqlType.VARCHAR.getName());
-            list.add(MysqlType.CHAR.getName());
-            list.add(MysqlType.BIGINT.getName());
-            list.add(MysqlType.INT.getName());
-            if (StringUtils.equals(name, MysqlType.DECIMAL.getName())) {
-                DecimalType decimalType = (DecimalType) column.getDataType();
-                fieSql =
-                        String.format(
-                                "(%d, %d)", decimalType.getPrecision(), decimalType.getScale());
-                columnSqls.add(fieSql);
-                return;
-            }
-            if (list.contains(name)) {
-                if (MysqlType.VARCHAR.getName().equals(name)) {
-                    fieSql = "(" + column.getLongColumnLength() + ")";
-                } else if (MysqlType.CHAR.getName().equals(name)) {
-                    fieSql = "(" + column.getLongColumnLength() + ")";
-                } else {
-                    // int and bigint
-                    fieSql =
-                            "("
-                                    + (column.getLongColumnLength().equals(0L)
-                                            ? 11
-                                            : column.getLongColumnLength())
-                                    + ")";
-                }
-                columnSqls.add(fieSql);
-            }
-        }
-    }
-
-    private void getColumnNameBytes(List<String> columnSqls, Long bitLen) {
-        bitLen = bitLen == null ? Integer.MAX_VALUE : bitLen;
-        if (bitLen > 0 && bitLen <= 64) {
-            columnSqls.add(MysqlType.BIT.getName());
-            columnSqls.add("(" + bitLen + ")");
-        } else {
-            bitLen = bitLen == -1 ? bitLen : bitLen >> 3;
-            if (bitLen >= 0 && bitLen <= 255) {
-                columnSqls.add(MysqlType.TINYBLOB.getName());
-            } else if (bitLen <= 16383) {
-                columnSqls.add(MysqlType.BLOB.getName());
-            } else if (bitLen <= 16777215) {
-                columnSqls.add(MysqlType.MEDIUMBLOB.getName());
-            } else {
-                columnSqls.add(MysqlType.LONGBLOB.getName());
-            }
-        }
     }
 
     private String buildPrimaryKeySql() {
