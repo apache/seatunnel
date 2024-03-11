@@ -96,12 +96,8 @@ public final class SeaTunnelRow implements Serializable {
 
     private int getArrayNonEmptySize(Object objects) {
         int size = 0;
-        if (null == objects) {
-            return size;
-        }
-        Object object = objects;
-        if (object instanceof Object[]) {
-            Object[] nonEmptyArrays = (Object[]) object;
+        if (objects instanceof Object[]) {
+            Object[] nonEmptyArrays = (Object[]) objects;
             for (int i = 0; i < nonEmptyArrays.length; i++) {
                 if (null != nonEmptyArrays[i]) {
                     size += 1;
