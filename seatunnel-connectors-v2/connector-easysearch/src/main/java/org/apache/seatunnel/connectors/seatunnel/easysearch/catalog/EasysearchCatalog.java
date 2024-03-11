@@ -153,7 +153,7 @@ public class EasysearchCatalog implements Catalog {
                                     fieldName,
                                     easySearchDataTypeConvertor.toSeaTunnelType(
                                             fieldName, fieldType),
-                                    null,
+                                    (Long) null,
                                     true,
                                     null,
                                     null);
