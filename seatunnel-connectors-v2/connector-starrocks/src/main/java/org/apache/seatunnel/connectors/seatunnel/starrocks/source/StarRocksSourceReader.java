@@ -126,7 +126,7 @@ public class StarRocksSourceReader implements SourceReader<SeaTunnelRow, StarRoc
                                     try {
                                         client.close();
                                     } catch (StarRocksConnectorException e) {
-                                        log.error("Failed to close reader:", e);
+                                        log.error("Failed to close reader: ", e);
                                     }
                                 }
                             });
