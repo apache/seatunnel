@@ -119,7 +119,7 @@ public class ZetaSQLType {
                         parRowType = (SeaTunnelRowType) filedTypeRes;
                     } else if (filedTypeRes instanceof MapType) {
                         //  for map type. only support it's the latest struct.
-                        if (i != deep - 1) {
+                        if (i != deep - 2) {
                             throw new IllegalArgumentException(
                                     "For now, we only support map struct is the latest struct in inner query function! Please modify your query!");
                         }
