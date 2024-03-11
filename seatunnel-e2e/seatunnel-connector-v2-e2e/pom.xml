@@ -64,6 +64,7 @@
         <module>connector-pulsar-e2e</module>
         <module>connector-paimon-e2e</module>
         <module>connector-kudu-e2e</module>
+        <module>connector-easysearch-e2e</module>
         <module>connector-cdc-postgres-e2e</module>
         <module>connector-cdc-oracle-e2e</module>
     </modules>
