@@ -82,8 +82,8 @@
             <scope>${spark.scope}</scope>
             <exclusions>
                 <exclusion>
-                    <artifactId>paranamer</artifactId>
                     <groupId>com.thoughtworks.paranamer</groupId>
+                    <artifactId>paranamer</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
