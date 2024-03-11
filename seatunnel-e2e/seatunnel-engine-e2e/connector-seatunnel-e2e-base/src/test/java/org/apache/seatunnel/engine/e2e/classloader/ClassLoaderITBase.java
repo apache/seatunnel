@@ -23,8 +23,9 @@ import org.apache.seatunnel.engine.e2e.SeaTunnelContainer;
 import org.apache.seatunnel.engine.server.rest.RestConstant;
 
 import org.awaitility.Awaitility;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
@@ -99,7 +100,7 @@ public abstract class ClassLoaderITBase extends SeaTunnelContainer {
                                                     http
                                                             + server.getHost()
                                                             + colon
-                                                            + "5801"
+                                                            + server.getFirstMappedPort()
                                                             + "/hazelcast/rest/cluster");
                             response.then().statusCode(200);
                             Assertions.assertEquals(
@@ -136,7 +137,12 @@ public abstract class ClassLoaderITBase extends SeaTunnelContainer {
                                     + "\t]\n"
                                     + "}")
                     .header("Content-Type", "application/json; charset=utf-8")
-                    .post(http + server.getHost() + colon + "5801" + RestConstant.SUBMIT_JOB_URL)
+                    .post(
+                            http
+                                    + server.getHost()
+                                    + colon
+                                    + server.getFirstMappedPort()
+                                    + RestConstant.SUBMIT_JOB_URL)
                     .then()
                     .statusCode(200);
 
@@ -163,7 +169,7 @@ public abstract class ClassLoaderITBase extends SeaTunnelContainer {
     }
 
     @Override
-    @BeforeAll
+    @BeforeEach
     public void startUp() throws Exception {
         server =
                 new GenericContainer<>(getDockerImage())
@@ -180,7 +186,7 @@ public abstract class ClassLoaderITBase extends SeaTunnelContainer {
                                                 "seatunnel-engine:" + JDK_DOCKER_IMAGE)))
                         .waitingFor(Wait.forListeningPort());
         copySeaTunnelStarterToContainer(server);
-        server.setPortBindings(Collections.singletonList("5801:5801"));
+        server.setExposedPorts(Collections.singletonList(5801));
 
         server.withCopyFileToContainer(
                 MountableFile.forHostPath(
@@ -231,5 +237,11 @@ public abstract class ClassLoaderITBase extends SeaTunnelContainer {
                         PROJECT_ROOT_PATH
                                 + "/seatunnel-e2e/seatunnel-engine-e2e/connector-seatunnel-e2e-base/src/test/resources/classloader/plugin-mapping.properties"),
                 Paths.get(SEATUNNEL_HOME, "connectors", "plugin-mapping.properties").toString());
+    }
+
+    @AfterEach
+    @Override
+    public void tearDown() throws Exception {
+        super.tearDown();
     }
 }
