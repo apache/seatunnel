@@ -95,7 +95,7 @@ public class JobExecutionIT {
                                     Assertions.assertTrue(
                                             objectCompletableFuture.isDone()
                                                     && JobStatus.FINISHED.equals(
-                                                    objectCompletableFuture.get())));
+                                                            objectCompletableFuture.get())));
         }
     }
 
@@ -126,7 +126,7 @@ public class JobExecutionIT {
                                     Assertions.assertTrue(
                                             objectCompletableFuture.isDone()
                                                     && JobStatus.CANCELED.equals(
-                                                    objectCompletableFuture.get())));
+                                                            objectCompletableFuture.get())));
         }
     }
 
@@ -152,6 +152,7 @@ public class JobExecutionIT {
             Assertions.assertTrue(result.getError().startsWith("java.lang.NumberFormatException"));
         }
     }
+
     @Test
     public void testValidJobName() throws ExecutionException, InterruptedException {
         Common.setDeployMode(DeployMode.CLIENT);
@@ -250,7 +251,7 @@ public class JobExecutionIT {
                                     Assertions.assertTrue(
                                             objectCompletableFuture.isDone()
                                                     && JobStatus.FAILED.equals(
-                                                    objectCompletableFuture.get())));
+                                                            objectCompletableFuture.get())));
         }
     }
 }
