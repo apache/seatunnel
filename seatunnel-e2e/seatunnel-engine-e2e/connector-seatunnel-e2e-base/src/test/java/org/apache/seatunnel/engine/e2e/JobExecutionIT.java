@@ -95,7 +95,7 @@ public class JobExecutionIT {
                                     Assertions.assertTrue(
                                             objectCompletableFuture.isDone()
                                                     && JobStatus.FINISHED.equals(
-                                                            objectCompletableFuture.get())));
+                                                    objectCompletableFuture.get())));
         }
     }
 
@@ -126,7 +126,7 @@ public class JobExecutionIT {
                                     Assertions.assertTrue(
                                             objectCompletableFuture.isDone()
                                                     && JobStatus.CANCELED.equals(
-                                                            objectCompletableFuture.get())));
+                                                    objectCompletableFuture.get())));
         }
     }
 
@@ -150,6 +150,25 @@ public class JobExecutionIT {
             JobResult result = clientJobProxy.getJobResultCache();
             Assertions.assertEquals(result.getStatus(), JobStatus.FAILED);
             Assertions.assertTrue(result.getError().startsWith("java.lang.NumberFormatException"));
+        }
+    }
+    @Test
+    public void testValidJobName() throws ExecutionException, InterruptedException {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath = TestUtils.getResource("valid_job_name.conf");
+        JobConfig jobConfig = new JobConfig();
+        ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+        clientConfig.setClusterName(TestUtils.getClusterName("JobExecutionIT"));
+        try (SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig)) {
+            ClientJobExecutionEnvironment jobExecutionEnv =
+                    engineClient.createExecutionContext(filePath, jobConfig, SEATUNNEL_CONFIG);
+            final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+            CompletableFuture<JobStatus> completableFuture =
+                    CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
+            await().atMost(600000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(() -> Assertions.assertTrue(completableFuture.isDone()));
+            JobResult result = clientJobProxy.getJobResultCache();
+            Assertions.assertEquals("valid_job_name", jobConfig.getName());
         }
     }
 
@@ -231,7 +250,7 @@ public class JobExecutionIT {
                                     Assertions.assertTrue(
                                             objectCompletableFuture.isDone()
                                                     && JobStatus.FAILED.equals(
-                                                            objectCompletableFuture.get())));
+                                                    objectCompletableFuture.get())));
         }
     }
 }
