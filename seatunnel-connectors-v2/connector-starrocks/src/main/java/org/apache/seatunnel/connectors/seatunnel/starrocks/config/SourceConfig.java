@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.config;
 
-import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
-
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
@@ -45,7 +43,14 @@ public class SourceConfig extends CommonConfig {
         this.keepAliveMin = config.get(SCAN_KEEP_ALIVE_MIN);
         this.queryTimeoutSec = config.get(SCAN_QUERY_TIMEOUT_SEC);
         this.memLimit = config.get(SCAN_MEM_LIMIT);
-        this.sourceOptionProps = config.get(STARROCKS_SCAN_CONFIG_PREFIX);
+
+        config.toMap()
+                .forEach(
+                        (key, value) -> {
+                            if (key.startsWith(STARROCKS_SCAN_CONFIG_PREFIX.key())) {
+                                this.sourceOptionProps.put(key.toLowerCase(), value);
+                            }
+                        });
     }
 
     public static final Option<Integer> MAX_RETRIES =
@@ -93,9 +98,9 @@ public class SourceConfig extends CommonConfig {
                     .defaultValue(DEFAULT_SCAN_MEM_LIMIT)
                     .withDescription("Memory byte limit for a single query");
 
-    public static final Option<Map<String, String>> STARROCKS_SCAN_CONFIG_PREFIX =
+    public static final Option<String> STARROCKS_SCAN_CONFIG_PREFIX =
             Options.key("scan.params.")
-                    .type(new TypeReference<Map<String, String>>() {})
+                    .stringType()
                     .noDefaultValue()
                     .withDescription("The parameter of the scan data from be");
 
