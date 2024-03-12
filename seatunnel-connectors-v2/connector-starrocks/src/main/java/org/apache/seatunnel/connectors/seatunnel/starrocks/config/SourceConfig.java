@@ -17,19 +17,16 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.config;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 
 import lombok.Getter;
-import lombok.NonNull;
 import lombok.Setter;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 @Setter
@@ -37,15 +34,6 @@ import java.util.Map;
 public class SourceConfig extends CommonConfig {
 
     private static final long DEFAULT_SCAN_MEM_LIMIT = 1024 * 1024 * 1024L;
-
-    public SourceConfig(
-            @NonNull List<String> nodeUrls,
-            @NonNull String username,
-            @NonNull String password,
-            @NonNull String database,
-            @NonNull String table) {
-        super(nodeUrls, username, password, database, table);
-    }
 
     public SourceConfig(ReadonlyConfig config) {
         super(config);
@@ -104,9 +92,9 @@ public class SourceConfig extends CommonConfig {
                     .defaultValue(DEFAULT_SCAN_MEM_LIMIT)
                     .withDescription("Memory byte limit for a single query");
 
-    public static final Option<String> STARROCKS_SCAN_CONFIG_PREFIX =
+    public static final Option<Map<String, String>> STARROCKS_SCAN_CONFIG_PREFIX =
             Options.key("scan.params.")
-                    .stringType()
+                    .type(new TypeReference<Map<String, String>>() {})
                     .noDefaultValue()
                     .withDescription("The parameter of the scan data from be");
 
@@ -119,56 +107,4 @@ public class SourceConfig extends CommonConfig {
     private int batchRows = SCAN_BATCH_ROWS.defaultValue();
     private int connectTimeoutMs = SCAN_CONNECT_TIMEOUT.defaultValue();
     private final Map<String, String> sourceOptionProps = new HashMap<>();
-
-    public static SourceConfig loadConfig(Config pluginConfig) {
-        SourceConfig sourceConfig =
-                new SourceConfig(
-                        pluginConfig.getStringList(NODE_URLS.key()),
-                        pluginConfig.getString(USERNAME.key()),
-                        pluginConfig.getString(PASSWORD.key()),
-                        pluginConfig.getString(DATABASE.key()),
-                        pluginConfig.getString(TABLE.key()));
-
-        if (pluginConfig.hasPath(MAX_RETRIES.key())) {
-            sourceConfig.setMaxRetries(pluginConfig.getInt(MAX_RETRIES.key()));
-        }
-        if (pluginConfig.hasPath(QUERY_TABLET_SIZE.key())) {
-            sourceConfig.setRequestTabletSize(pluginConfig.getInt(QUERY_TABLET_SIZE.key()));
-        }
-        if (pluginConfig.hasPath(SCAN_FILTER.key())) {
-            sourceConfig.setScanFilter(pluginConfig.getString(SCAN_FILTER.key()));
-        }
-        if (pluginConfig.hasPath(SCAN_CONNECT_TIMEOUT.key())) {
-            sourceConfig.setConnectTimeoutMs(pluginConfig.getInt(SCAN_CONNECT_TIMEOUT.key()));
-        }
-        if (pluginConfig.hasPath(SCAN_BATCH_ROWS.key())) {
-            sourceConfig.setBatchRows(pluginConfig.getInt(SCAN_BATCH_ROWS.key()));
-        }
-        if (pluginConfig.hasPath(SCAN_KEEP_ALIVE_MIN.key())) {
-            sourceConfig.setKeepAliveMin(pluginConfig.getInt(SCAN_KEEP_ALIVE_MIN.key()));
-        }
-        if (pluginConfig.hasPath(SCAN_QUERY_TIMEOUT_SEC.key())) {
-            sourceConfig.setQueryTimeoutSec(pluginConfig.getInt(SCAN_QUERY_TIMEOUT_SEC.key()));
-        }
-        if (pluginConfig.hasPath(SCAN_MEM_LIMIT.key())) {
-            sourceConfig.setMemLimit(pluginConfig.getLong(SCAN_MEM_LIMIT.key()));
-        }
-        parseSourceOptionProperties(pluginConfig, sourceConfig);
-        return sourceConfig;
-    }
-
-    private static void parseSourceOptionProperties(
-            Config pluginConfig, SourceConfig sourceConfig) {
-        Config sourceOptionConfig =
-                TypesafeConfigUtils.extractSubConfig(
-                        pluginConfig, STARROCKS_SCAN_CONFIG_PREFIX.key(), false);
-        sourceOptionConfig
-                .entrySet()
-                .forEach(
-                        entry -> {
-                            final String configKey = entry.getKey().toLowerCase();
-                            sourceConfig.sourceOptionProps.put(
-                                    configKey, (String) entry.getValue().unwrapped());
-                        });
-    }
 }
