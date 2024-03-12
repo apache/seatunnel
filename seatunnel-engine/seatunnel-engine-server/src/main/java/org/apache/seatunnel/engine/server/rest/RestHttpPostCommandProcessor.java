@@ -132,7 +132,7 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
                                 : null);
         JobImmutableInformation jobImmutableInformation = restJobExecutionEnvironment.build();
         Long jobId = jobImmutableInformation.getJobId();
-        if (seaTunnelServer == null) {
+        if (!seaTunnelServer.isMasterNode()) {
 
             NodeEngineUtil.sendOperationToMasterNode(
                             getNode().nodeEngine,
