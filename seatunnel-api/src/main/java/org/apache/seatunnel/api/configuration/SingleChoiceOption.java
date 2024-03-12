@@ -17,9 +17,8 @@
 
 package org.apache.seatunnel.api.configuration;
 
-
-import lombok.Getter;
 import com.fasterxml.jackson.core.type.TypeReference;
+import lombok.Getter;
 
 import java.util.List;
 
@@ -32,7 +31,6 @@ public class SingleChoiceOption<T> extends Option<T> {
             String key, TypeReference<T> typeReference, List<T> optionValues, T defaultValue) {
         super(key, typeReference, defaultValue);
         this.optionValues = optionValues;
-
     }
 
     @Override

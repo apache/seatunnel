@@ -18,7 +18,6 @@
 package org.apache.seatunnel.api.configuration;
 
 import com.fasterxml.jackson.core.type.TypeReference;
-
 import lombok.Getter;
 
 import java.util.ArrayList;
