@@ -58,8 +58,8 @@ public class SqlServerIncrementalSourceFactory implements TableSourceFactory {
                 .required(
                         JdbcSourceOptions.USERNAME,
                         JdbcSourceOptions.PASSWORD,
-                        CatalogOptions.TABLE_NAMES,
                         JdbcCatalogOptions.BASE_URL)
+                .exclusive(CatalogOptions.TABLE_NAMES, CatalogOptions.TABLE_PATTERN)
                 .optional(
                         JdbcSourceOptions.DATABASE_NAMES,
                         JdbcSourceOptions.SERVER_TIME_ZONE,

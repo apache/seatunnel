@@ -30,19 +30,18 @@ By default, we use 2PC commit to ensure `exactly-once`
 
 ## Options
 
-|           name            |  type  | required | default value  |
-|---------------------------|--------|----------|----------------|
-| table_name                | string | yes      | -              |
-| metastore_uri             | string | yes      | -              |
-| compress_codec            | string | no       | none           |
-| hdfs_site_path            | string | no       | -              |
-| hive_site_path            | string | no       | -              |
-| krb5_path                 | string | no       | /etc/krb5.conf |
-| kerberos_principal        | string | no       | -              |
-| kerberos_keytab_path      | string | no       | -              |
-| collection_delimiter_hive | string | no       | ,              |
-| map_keys_delimiter_hive   | string | no       | :              |
-| common-options            |        | no       | -              |
+|             name              |  type   | required | default value  |
+|-------------------------------|---------|----------|----------------|
+| table_name                    | string  | yes      | -              |
+| metastore_uri                 | string  | yes      | -              |
+| compress_codec                | string  | no       | none           |
+| hdfs_site_path                | string  | no       | -              |
+| hive_site_path                | string  | no       | -              |
+| krb5_path                     | string  | no       | /etc/krb5.conf |
+| kerberos_principal            | string  | no       | -              |
+| kerberos_keytab_path          | string  | no       | -              |
+| abort_drop_partition_metadata | boolean | no       | true           |
+| common-options                |         | no       | -              |
 
 ### table_name [string]
 
@@ -72,13 +71,9 @@ The principal of kerberos
 
 The keytab path of kerberos
 
-### collection_delimiter_hive [string]
+### abort_drop_partition_metadata [list]
 
-Hive specifies the separator between array and structural elements, which defaults ','
-
-### map_keys_delimiter_hive [string]
-
-HIVE sets the separator between the key and value of MAP, with the ':'
+Flag to decide whether to drop partition metadata from Hive Metastore during an abort operation. Note: this only affects the metadata in the metastore, the data in the partition will always be deleted(data generated during the synchronization process).
 
 ### common options
 

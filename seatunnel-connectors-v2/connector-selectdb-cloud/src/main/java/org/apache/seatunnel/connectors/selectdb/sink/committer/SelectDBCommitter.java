@@ -21,51 +21,24 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.connectors.selectdb.config.SelectDBConfig;
-import org.apache.seatunnel.connectors.selectdb.exception.SelectDBConnectorErrorCode;
-import org.apache.seatunnel.connectors.selectdb.exception.SelectDBConnectorException;
-import org.apache.seatunnel.connectors.selectdb.rest.BaseResponse;
-import org.apache.seatunnel.connectors.selectdb.rest.CopyIntoResp;
-import org.apache.seatunnel.connectors.selectdb.sink.writer.LoadStatus;
-import org.apache.seatunnel.connectors.selectdb.util.HttpPostBuilder;
-import org.apache.seatunnel.connectors.selectdb.util.HttpUtil;
-import org.apache.seatunnel.connectors.selectdb.util.ResponseUtil;
+import org.apache.seatunnel.connectors.selectdb.rest.CopySQLUtil;
 
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.util.EntityUtils;
-
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 @Slf4j
 public class SelectDBCommitter implements SinkCommitter<SelectDBCommitInfo> {
-    private static final String COMMIT_PATTERN = "http://%s/copy/query";
-    private static final int HTTP_TEMPORARY_REDIRECT = 200;
-    private final ObjectMapper objectMapper = new ObjectMapper();
-    private final CloseableHttpClient httpClient;
     private final SelectDBConfig selectdbConfig;
-    int maxRetry;
 
     public SelectDBCommitter(Config pluginConfig) {
-        this(
-                SelectDBConfig.loadConfig(pluginConfig),
-                SelectDBConfig.loadConfig(pluginConfig).getMaxRetries(),
-                new HttpUtil().getHttpClient());
+        this(SelectDBConfig.loadConfig(pluginConfig));
     }
 
-    public SelectDBCommitter(
-            SelectDBConfig selectdbConfig, int maxRetry, CloseableHttpClient client) {
+    public SelectDBCommitter(SelectDBConfig selectdbConfig) {
         this.selectdbConfig = selectdbConfig;
-        this.maxRetry = maxRetry;
-        this.httpClient = client;
     }
 
     @Override
@@ -78,95 +51,13 @@ public class SelectDBCommitter implements SinkCommitter<SelectDBCommitInfo> {
     }
 
     @Override
-    public void abort(List<SelectDBCommitInfo> commitInfos) throws IOException {}
+    public void abort(List<SelectDBCommitInfo> commitInfos) {}
 
     private void commitTransaction(SelectDBCommitInfo commitInfo) throws IOException {
-        long start = System.currentTimeMillis();
         String hostPort = commitInfo.getHostPort();
         String clusterName = commitInfo.getClusterName();
         String copySQL = commitInfo.getCopySQL();
         log.info("commit to cluster {} with copy sql: {}", clusterName, copySQL);
-
-        int statusCode = -1;
-        String reasonPhrase = null;
-        int retry = 0;
-        Map<String, String> params = new HashMap<>();
-        params.put("cluster", clusterName);
-        params.put("sql", copySQL);
-        boolean success = false;
-        CloseableHttpResponse response;
-        String loadResult = "";
-        while (retry++ <= maxRetry) {
-            HttpPostBuilder postBuilder = new HttpPostBuilder();
-            postBuilder
-                    .setUrl(String.format(COMMIT_PATTERN, hostPort))
-                    .baseAuth(selectdbConfig.getUsername(), selectdbConfig.getPassword())
-                    .setEntity(new StringEntity(objectMapper.writeValueAsString(params)));
-            try {
-                response = httpClient.execute(postBuilder.build());
-            } catch (IOException e) {
-                log.error("commit error : ", e);
-                continue;
-            }
-            statusCode = response.getStatusLine().getStatusCode();
-            reasonPhrase = response.getStatusLine().getReasonPhrase();
-            if (statusCode != HTTP_TEMPORARY_REDIRECT) {
-                log.warn(
-                        "commit failed with status {} {}, reason {}",
-                        statusCode,
-                        hostPort,
-                        reasonPhrase);
-            } else if (response.getEntity() != null) {
-                loadResult = EntityUtils.toString(response.getEntity());
-                success = handleCommitResponse(loadResult);
-                if (success) {
-                    log.info(
-                            "commit success cost {}ms, response is {}",
-                            System.currentTimeMillis() - start,
-                            loadResult);
-                    break;
-                } else {
-                    log.warn("commit failed, retry again");
-                }
-            }
-        }
-
-        if (!success) {
-            throw new SelectDBConnectorException(
-                    SelectDBConnectorErrorCode.COMMIT_FAILED,
-                    "commit failed with SQL: "
-                            + commitInfo.getCopySQL()
-                            + " Commit error with status: "
-                            + statusCode
-                            + ", Reason: "
-                            + reasonPhrase
-                            + ", Response: "
-                            + loadResult);
-        }
-    }
-
-    public boolean handleCommitResponse(String loadResult) throws IOException {
-        BaseResponse<CopyIntoResp> baseResponse =
-                objectMapper.readValue(
-                        loadResult, new TypeReference<BaseResponse<CopyIntoResp>>() {});
-        if (baseResponse.getCode() == LoadStatus.SUCCESS) {
-            CopyIntoResp dataResp = baseResponse.getData();
-            if (LoadStatus.FAIL.equals(dataResp.getDataCode())) {
-                log.error("copy into execute failed, reason:{}", loadResult);
-                return false;
-            } else {
-                Map<String, String> result = dataResp.getResult();
-                if (!result.get("state").equals("FINISHED")
-                        && !ResponseUtil.isCommitted(result.get("msg"))) {
-                    log.error("copy into load failed, reason:{}", loadResult);
-                    return false;
-                } else {
-                    return true;
-                }
-            }
-        } else {
-            log.error("commit failed, reason:{}", loadResult);
-            return false;
-        }
+        CopySQLUtil.copyFileToDatabase(selectdbConfig, clusterName, copySQL, hostPort);
     }
 }

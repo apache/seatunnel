@@ -62,7 +62,7 @@ sink {
 
 More information about config please check [config concept](../../concept/config.md)
 
-## Step 3: Run SeaTunnel Application
+## Step 4: Run SeaTunnel Application
 
 You could start the application by the following commands
 
