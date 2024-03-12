@@ -397,8 +397,8 @@ public class RowConverter {
                     MapType<?, ?> mapType = (MapType<?, ?>) seaTunnelRowType.getFieldType(i);
                     SeaTunnelDataType<?> keyType = mapType.getKeyType();
                     SeaTunnelDataType<?> valueType = mapType.getValueType();
-                    DataType paimonKeyType = RowTypeConverter.convert(keyType);
-                    DataType paimonValueType = RowTypeConverter.convert(valueType);
+                    DataType paimonKeyType = RowTypeConverter.reconvert(keyType);
+                    DataType paimonValueType = RowTypeConverter.reconvert(valueType);
                     Map<?, ?> field = (Map<?, ?>) seaTunnelRow.getField(i);
                     Object[] keys = field.keySet().toArray(new Object[0]);
                     Object[] values = field.values().toArray(new Object[0]);
@@ -415,13 +415,13 @@ public class RowConverter {
                             i,
                             paimonArray,
                             new InternalArraySerializer(
-                                    RowTypeConverter.convert(arrayType.getElementType())));
+                                    RowTypeConverter.reconvert(arrayType.getElementType())));
                     break;
                 case ROW:
                     SeaTunnelDataType<?> rowType = seaTunnelRowType.getFieldType(i);
                     Object row = seaTunnelRow.getField(i);
                     InternalRow paimonRow = convert((SeaTunnelRow) row, (SeaTunnelRowType) rowType);
-                    RowType paimonRowType = RowTypeConverter.convert((SeaTunnelRowType) rowType);
+                    RowType paimonRowType = RowTypeConverter.reconvert((SeaTunnelRowType) rowType);
                     binaryWriter.writeRow(i, paimonRow, new InternalRowSerializer(paimonRowType));
                     break;
                 default:
