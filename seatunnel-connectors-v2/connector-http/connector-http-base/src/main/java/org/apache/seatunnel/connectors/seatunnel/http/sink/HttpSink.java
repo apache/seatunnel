@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
@@ -36,7 +37,8 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-public class HttpSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
+public class HttpSink extends AbstractSimpleSink<SeaTunnelRow, Void>
+        implements SupportMultiTableSink {
     protected final HttpParameter httpParameter = new HttpParameter();
     protected SeaTunnelRowType seaTunnelRowType;
     protected Config pluginConfig;

@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.scan.IcebergScanContext;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.scan.IcebergScanSplitPlanner;
@@ -43,11 +44,13 @@ public class IcebergStreamSplitEnumerator extends AbstractSplitEnumerator {
             @NonNull SourceSplitEnumerator.Context<IcebergFileScanTaskSplit> context,
             @NonNull IcebergScanContext icebergScanContext,
             @NonNull SourceConfig sourceConfig,
-            IcebergSplitEnumeratorState restoreState) {
+            IcebergSplitEnumeratorState restoreState,
+            CatalogTable catalogTable) {
         super(
                 context,
                 sourceConfig,
-                restoreState != null ? restoreState.getPendingSplits() : Collections.emptyMap());
+                restoreState != null ? restoreState.getPendingSplits() : Collections.emptyMap(),
+                catalogTable);
         this.icebergScanContext = icebergScanContext;
         this.enumeratorPosition = new AtomicReference<>();
         if (restoreState != null) {

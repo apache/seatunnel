@@ -17,11 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils;
 
-import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.DecimalType;
-import org.apache.seatunnel.api.table.type.LocalTimeType;
-import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.connectors.seatunnel.common.source.TypeDefineUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeConverter;
 
 import io.debezium.relational.Column;
 import lombok.extern.slf4j.Slf4j;
@@ -30,141 +29,69 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class MySqlTypeUtils {
 
-    // ============================data types=====================
-
-    private static final String MYSQL_UNKNOWN = "UNKNOWN";
-    private static final String MYSQL_BIT = "BIT";
-
-    // -------------------------number----------------------------
-    private static final String MYSQL_TINYINT = "TINYINT";
-    private static final String MYSQL_TINYINT_UNSIGNED = "TINYINT UNSIGNED";
-    private static final String MYSQL_SMALLINT = "SMALLINT";
-    private static final String MYSQL_SMALLINT_UNSIGNED = "SMALLINT UNSIGNED";
-    private static final String MYSQL_MEDIUMINT = "MEDIUMINT";
-    private static final String MYSQL_MEDIUMINT_UNSIGNED = "MEDIUMINT UNSIGNED";
-    private static final String MYSQL_INT = "INT";
-    private static final String MYSQL_INT_UNSIGNED = "INT UNSIGNED";
-    private static final String MYSQL_INTEGER = "INTEGER";
-    private static final String MYSQL_INTEGER_UNSIGNED = "INTEGER UNSIGNED";
-    private static final String MYSQL_BIGINT = "BIGINT";
-    private static final String MYSQL_BIGINT_UNSIGNED = "BIGINT UNSIGNED";
-    private static final String MYSQL_DECIMAL = "DECIMAL";
-    private static final String MYSQL_DECIMAL_UNSIGNED = "DECIMAL UNSIGNED";
-    private static final String MYSQL_NUMERIC = "NUMERIC";
-    private static final String MYSQL_NUMERIC_UNSIGNED = "NUMERIC UNSIGNED";
-    private static final String MYSQL_FLOAT = "FLOAT";
-    private static final String MYSQL_FLOAT_UNSIGNED = "FLOAT UNSIGNED";
-    private static final String MYSQL_DOUBLE = "DOUBLE";
-    private static final String MYSQL_DOUBLE_UNSIGNED = "DOUBLE UNSIGNED";
-    private static final String MYSQL_REAL = "REAL";
-    private static final String MYSQL_REAL_UNSIGNED = "REAL UNSIGNED";
-
-    // -------------------------string----------------------------
-    private static final String MYSQL_CHAR = "CHAR";
-    private static final String MYSQL_VARCHAR = "VARCHAR";
-    private static final String MYSQL_TINYTEXT = "TINYTEXT";
-    private static final String MYSQL_MEDIUMTEXT = "MEDIUMTEXT";
-    private static final String MYSQL_TEXT = "TEXT";
-    private static final String MYSQL_LONGTEXT = "LONGTEXT";
-    private static final String MYSQL_JSON = "JSON";
-    private static final String MYSQL_ENUM = "ENUM";
-
-    // ------------------------------time-------------------------
-    private static final String MYSQL_DATE = "DATE";
-    private static final String MYSQL_DATETIME = "DATETIME";
-    private static final String MYSQL_TIME = "TIME";
-    private static final String MYSQL_TIMESTAMP = "TIMESTAMP";
-    private static final String MYSQL_YEAR = "YEAR";
-
-    // ------------------------------blob-------------------------
-    private static final String MYSQL_TINYBLOB = "TINYBLOB";
-    private static final String MYSQL_MEDIUMBLOB = "MEDIUMBLOB";
-    private static final String MYSQL_BLOB = "BLOB";
-    private static final String MYSQL_LONGBLOB = "LONGBLOB";
-    private static final String MYSQL_BINARY = "BINARY";
-    private static final String MYSQL_VARBINARY = "VARBINARY";
-    private static final String MYSQL_GEOMETRY = "GEOMETRY";
-
     public static SeaTunnelDataType<?> convertFromColumn(Column column) {
-        String typeName = column.typeName();
-        switch (typeName) {
-            case MYSQL_BIT:
-                return BasicType.BOOLEAN_TYPE;
-            case MYSQL_TINYINT:
-                return column.length() == 1 ? BasicType.BOOLEAN_TYPE : BasicType.INT_TYPE;
-            case MYSQL_TINYINT_UNSIGNED:
-            case MYSQL_SMALLINT:
-                return BasicType.SHORT_TYPE;
-            case MYSQL_SMALLINT_UNSIGNED:
-            case MYSQL_MEDIUMINT:
-            case MYSQL_MEDIUMINT_UNSIGNED:
-            case MYSQL_INT:
-            case MYSQL_INTEGER:
-            case MYSQL_YEAR:
-                return BasicType.INT_TYPE;
-            case MYSQL_INT_UNSIGNED:
-            case MYSQL_INTEGER_UNSIGNED:
-            case MYSQL_BIGINT:
-                return BasicType.LONG_TYPE;
-            case MYSQL_BIGINT_UNSIGNED:
-                return new DecimalType(20, 0);
-            case MYSQL_DECIMAL:
-            case MYSQL_DECIMAL_UNSIGNED:
-            case MYSQL_NUMERIC:
-            case MYSQL_NUMERIC_UNSIGNED:
-                return new DecimalType(column.length(), column.scale().orElse(0));
-            case MYSQL_FLOAT:
-                return BasicType.FLOAT_TYPE;
-            case MYSQL_FLOAT_UNSIGNED:
-                log.warn("{} will probably cause value overflow.", MYSQL_FLOAT_UNSIGNED);
-                return BasicType.FLOAT_TYPE;
-            case MYSQL_DOUBLE:
-            case MYSQL_REAL:
-                return BasicType.DOUBLE_TYPE;
-            case MYSQL_DOUBLE_UNSIGNED:
-            case MYSQL_REAL_UNSIGNED:
-                log.warn("{} will probably cause value overflow.", MYSQL_DOUBLE_UNSIGNED);
-                return BasicType.DOUBLE_TYPE;
-            case MYSQL_CHAR:
-            case MYSQL_TINYTEXT:
-            case MYSQL_MEDIUMTEXT:
-            case MYSQL_TEXT:
-            case MYSQL_VARCHAR:
-            case MYSQL_JSON:
-            case MYSQL_ENUM:
-                return BasicType.STRING_TYPE;
-            case MYSQL_LONGTEXT:
-                log.warn(
-                        "Type '{}' has a maximum precision of 536870911 in MySQL. "
-                                + "Due to limitations in the seatunnel type system, "
-                                + "the precision will be set to 2147483647.",
-                        MYSQL_LONGTEXT);
-                return BasicType.STRING_TYPE;
-            case MYSQL_DATE:
-                return LocalTimeType.LOCAL_DATE_TYPE;
-            case MYSQL_TIME:
-                return LocalTimeType.LOCAL_TIME_TYPE;
-            case MYSQL_DATETIME:
-            case MYSQL_TIMESTAMP:
-                return LocalTimeType.LOCAL_DATE_TIME_TYPE;
+        return convertToSeaTunnelColumn(column).getDataType();
+    }
 
-            case MYSQL_TINYBLOB:
-            case MYSQL_MEDIUMBLOB:
-            case MYSQL_BLOB:
-            case MYSQL_LONGBLOB:
-            case MYSQL_VARBINARY:
-            case MYSQL_BINARY:
-                return PrimitiveByteArrayType.INSTANCE;
-
-                // Doesn't support yet
-            case MYSQL_GEOMETRY:
-            case MYSQL_UNKNOWN:
+    public static org.apache.seatunnel.api.table.catalog.Column convertToSeaTunnelColumn(
+            io.debezium.relational.Column column) {
+        BasicTypeDefine.BasicTypeDefineBuilder builder =
+                BasicTypeDefine.builder()
+                        .name(column.name())
+                        .columnType(column.typeName())
+                        .dataType(column.typeName())
+                        .length((long) column.length())
+                        .precision((long) column.length())
+                        .scale(column.scale().orElse(0))
+                        .defaultValue(column.defaultValue());
+        switch (column.typeName().toUpperCase()) {
+            case MySqlTypeConverter.MYSQL_CHAR:
+            case MySqlTypeConverter.MYSQL_VARCHAR:
+                if (column.length() <= 0) {
+                    // set default length
+                    builder.columnType(MySqlTypeConverter.MYSQL_VARCHAR);
+                    builder.length(TypeDefineUtils.charTo4ByteLength(1L));
+                } else {
+                    // parse length from ddl sql
+                    builder.columnType(
+                            String.format(
+                                    "%s(%s)", MySqlTypeConverter.MYSQL_VARCHAR, column.length()));
+                    builder.length(TypeDefineUtils.charTo4ByteLength((long) column.length()));
+                }
+                break;
+            case MySqlTypeConverter.MYSQL_TIME:
+                if (column.length() <= 0) {
+                    builder.columnType(MySqlTypeConverter.MYSQL_TIME);
+                } else {
+                    builder.columnType(
+                            String.format(
+                                    "%s(%s)", MySqlTypeConverter.MYSQL_TIME, column.length()));
+                    builder.scale(column.length());
+                }
+                break;
+            case MySqlTypeConverter.MYSQL_TIMESTAMP:
+                if (column.length() <= 0) {
+                    builder.columnType(MySqlTypeConverter.MYSQL_TIMESTAMP);
+                } else {
+                    builder.columnType(
+                            String.format(
+                                    "%s(%s)", MySqlTypeConverter.MYSQL_TIMESTAMP, column.length()));
+                    builder.scale(column.length());
+                }
+                break;
+            case MySqlTypeConverter.MYSQL_DATETIME:
+                if (column.length() <= 0) {
+                    builder.columnType(MySqlTypeConverter.MYSQL_DATETIME);
+                } else {
+                    builder.columnType(
+                            String.format(
+                                    "%s(%s)", MySqlTypeConverter.MYSQL_DATETIME, column.length()));
+                    builder.scale(column.length());
+                }
+                break;
             default:
-                final String columnName = column.name();
-                throw new UnsupportedOperationException(
-                        String.format(
-                                "Doesn't support MySQL type '%s' on column '%s'  yet.",
-                                typeName, columnName));
+                break;
         }
+        return MySqlTypeConverter.INSTANCE.convert(builder.build());
     }
 }

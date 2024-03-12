@@ -20,10 +20,14 @@ package org.apache.seatunnel.engine.server.execution;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
+import java.net.URL;
+import java.util.Collection;
+
 @Data
 @AllArgsConstructor
 public class TaskGroupContext {
     private TaskGroup taskGroup;
 
     private ClassLoader classLoader;
+    private Collection<URL> jars;
 }

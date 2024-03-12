@@ -18,16 +18,13 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.tidb;
 
 import org.apache.seatunnel.api.table.catalog.DataTypeConvertor;
-import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.DecimalType;
-import org.apache.seatunnel.api.table.type.LocalTimeType;
-import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MysqlDataTypeConvertor;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
-
-import org.apache.commons.collections4.MapUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeConverter;
 
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableMap;
@@ -38,6 +35,8 @@ import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+/** @deprecated instead by {@link MySqlTypeConverter} */
+@Deprecated
 @AutoService(DataTypeConvertor.class)
 public class TiDBDataTypeConvertor implements DataTypeConvertor<MysqlType> {
 
@@ -47,6 +46,7 @@ public class TiDBDataTypeConvertor implements DataTypeConvertor<MysqlType> {
     public static final Integer DEFAULT_PRECISION = 10;
 
     public static final Integer DEFAULT_SCALE = 0;
+    private static final MysqlDataTypeConvertor MYSQL_CONVERTOR = new MysqlDataTypeConvertor();
 
     @Override
     public SeaTunnelDataType<?> toSeaTunnelType(String field, String connectorDataType) {
@@ -86,76 +86,15 @@ public class TiDBDataTypeConvertor implements DataTypeConvertor<MysqlType> {
     @Override
     public SeaTunnelDataType<?> toSeaTunnelType(
             String field, MysqlType mysqlType, Map<String, Object> dataTypeProperties) {
-        checkNotNull(mysqlType, "mysqlType can not be null");
-        int precision;
-        int scale;
-        switch (mysqlType) {
-            case NULL:
-                return BasicType.VOID_TYPE;
-            case BOOLEAN:
-                return BasicType.BOOLEAN_TYPE;
-            case BIT:
-                precision = (Integer) dataTypeProperties.get(TiDBDataTypeConvertor.PRECISION);
-                if (precision == 1) {
-                    return BasicType.BOOLEAN_TYPE;
-                } else {
-                    return PrimitiveByteArrayType.INSTANCE;
-                }
-            case TINYINT:
-                return BasicType.BYTE_TYPE;
-            case TINYINT_UNSIGNED:
-            case SMALLINT:
-                return BasicType.SHORT_TYPE;
-            case SMALLINT_UNSIGNED:
-            case INT:
-            case MEDIUMINT:
-            case MEDIUMINT_UNSIGNED:
-            case YEAR:
-                return BasicType.INT_TYPE;
-            case INT_UNSIGNED:
-            case BIGINT:
-                return BasicType.LONG_TYPE;
-            case FLOAT:
-            case FLOAT_UNSIGNED:
-                return BasicType.FLOAT_TYPE;
-            case DOUBLE:
-            case DOUBLE_UNSIGNED:
-                return BasicType.DOUBLE_TYPE;
-            case TIME:
-                return LocalTimeType.LOCAL_TIME_TYPE;
-            case DATE:
-                return LocalTimeType.LOCAL_DATE_TYPE;
-            case TIMESTAMP:
-            case DATETIME:
-                return LocalTimeType.LOCAL_DATE_TIME_TYPE;
-                // TODO: to confirm
-            case CHAR:
-            case VARCHAR:
-            case TINYTEXT:
-            case TEXT:
-            case MEDIUMTEXT:
-            case LONGTEXT:
-            case JSON:
-            case ENUM:
-                return BasicType.STRING_TYPE;
-            case BINARY:
-            case VARBINARY:
-            case TINYBLOB:
-            case BLOB:
-            case MEDIUMBLOB:
-            case LONGBLOB:
-            case GEOMETRY:
-                return PrimitiveByteArrayType.INSTANCE;
-            case BIGINT_UNSIGNED:
-            case DECIMAL:
-            case DECIMAL_UNSIGNED:
-                precision = MapUtils.getInteger(dataTypeProperties, PRECISION, DEFAULT_PRECISION);
-                scale = MapUtils.getInteger(dataTypeProperties, SCALE, DEFAULT_SCALE);
-                return new DecimalType(precision, scale);
-                // TODO: support 'SET' & 'YEAR' type
-            default:
+        try {
+            return MYSQL_CONVERTOR.toSeaTunnelType(field, mysqlType, dataTypeProperties);
+        } catch (SeaTunnelRuntimeException e) {
+            if (CommonErrorCode.CONVERT_TO_SEATUNNEL_TYPE_ERROR_SIMPLE.equals(
+                    e.getSeaTunnelErrorCode())) {
                 throw CommonError.convertToSeaTunnelTypeError(
-                        DatabaseIdentifier.TIDB, mysqlType.toString(), field);
+                        DatabaseIdentifier.TIDB, mysqlType.getName(), field);
+            }
+            throw e;
         }
     }
 
@@ -164,42 +103,15 @@ public class TiDBDataTypeConvertor implements DataTypeConvertor<MysqlType> {
             String field,
             SeaTunnelDataType<?> seaTunnelDataType,
             Map<String, Object> dataTypeProperties) {
-        SqlType sqlType = seaTunnelDataType.getSqlType();
-        // todo: verify
-        switch (sqlType) {
-            case MAP:
-            case ROW:
-            case STRING:
-                return MysqlType.VARCHAR;
-            case BOOLEAN:
-                return MysqlType.BOOLEAN;
-            case TINYINT:
-                return MysqlType.TINYINT;
-            case SMALLINT:
-                return MysqlType.SMALLINT;
-            case INT:
-                return MysqlType.INT;
-            case BIGINT:
-                return MysqlType.BIGINT;
-            case FLOAT:
-                return MysqlType.FLOAT;
-            case DOUBLE:
-                return MysqlType.DOUBLE;
-            case DECIMAL:
-                return MysqlType.DECIMAL;
-            case NULL:
-                return MysqlType.NULL;
-            case BYTES:
-                return MysqlType.BIT;
-            case DATE:
-                return MysqlType.DATE;
-            case TIME:
-                return MysqlType.TIME;
-            case TIMESTAMP:
-                return MysqlType.DATETIME;
-            default:
+        try {
+            return MYSQL_CONVERTOR.toConnectorType(field, seaTunnelDataType, dataTypeProperties);
+        } catch (SeaTunnelRuntimeException e) {
+            if (CommonErrorCode.CONVERT_TO_CONNECTOR_TYPE_ERROR_SIMPLE.equals(
+                    e.getSeaTunnelErrorCode())) {
                 throw CommonError.convertToConnectorTypeError(
-                        DatabaseIdentifier.TIDB, seaTunnelDataType.getSqlType().toString(), field);
+                        DatabaseIdentifier.TIDB, seaTunnelDataType.getSqlType().name(), field);
+            }
+            throw e;
         }
     }
 

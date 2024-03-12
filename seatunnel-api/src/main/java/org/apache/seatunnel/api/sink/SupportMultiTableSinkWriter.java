@@ -22,6 +22,10 @@ import java.util.Optional;
 /** The Sink Connector Writer which support multi table should implement this interface */
 public interface SupportMultiTableSinkWriter<T> extends SupportResourceShare<T> {
 
+    /**
+     * The primary key index of the table in SeaTunnelRow, use it to make sure the same key value
+     * will be written to the same sink writer
+     */
     default Optional<Integer> primaryKey() {
         return Optional.empty();
     }

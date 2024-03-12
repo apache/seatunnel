@@ -161,7 +161,7 @@ public class TextHeaderIT {
             log.info("========================clean test resource====================");
         } finally {
             if (engineClient != null) {
-                engineClient.shutdown();
+                engineClient.close();
             }
             if (node1 != null) {
                 node1.shutdown();

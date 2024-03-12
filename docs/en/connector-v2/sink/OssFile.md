@@ -32,6 +32,7 @@ By default, we use 2PC commit to ensure `exactly-once`
   - [x] orc
   - [x] json
   - [x] excel
+  - [x] xml
 
 ## Data Type Mapping
 
@@ -39,7 +40,7 @@ If write to `csv`, `text` file type, All column will be string.
 
 ### Orc File Type
 
-| SeaTunnel Data type  |     Orc Data type     |
+| SeaTunnel Data Type  |     Orc Data Type     |
 |----------------------|-----------------------|
 | STRING               | STRING                |
 | BOOLEAN              | BOOLEAN               |
@@ -61,7 +62,7 @@ If write to `csv`, `text` file type, All column will be string.
 
 ### Parquet File Type
 
-| SeaTunnel Data type  |   Parquet Data type   |
+| SeaTunnel Data Type  |   Parquet Data Type   |
 |----------------------|-----------------------|
 | STRING               | STRING                |
 | BOOLEAN              | BOOLEAN               |
@@ -83,7 +84,7 @@ If write to `csv`, `text` file type, All column will be string.
 
 ## Options
 
-|               name               |  type   | required |               default value                |                                                      remarks                                                      |
+|               Name               |  Type   | Required |                  Default                   |                                                    Description                                                    |
 |----------------------------------|---------|----------|--------------------------------------------|-------------------------------------------------------------------------------------------------------------------|
 | path                             | string  | yes      | The oss path to write file in.             |                                                                                                                   |
 | tmp_path                         | string  | no       | /tmp/seatunnel                             | The result file will write to a tmp path first and then use `mv` to submit tmp dir to target dir. Need a OSS dir. |
@@ -108,6 +109,9 @@ If write to `csv`, `text` file type, All column will be string.
 | common-options                   | object  | no       | -                                          |                                                                                                                   |
 | max_rows_in_memory               | int     | no       | -                                          | Only used when file_format_type is excel.                                                                         |
 | sheet_name                       | string  | no       | Sheet${Random number}                      | Only used when file_format_type is excel.                                                                         |
+| xml_root_tag                     | string  | no       | RECORDS                                    | Only used when file_format is xml.                                                                                |
+| xml_row_tag                      | string  | no       | RECORD                                     | Only used when file_format is xml.                                                                                |
+| xml_use_attr_format              | boolean | no       | -                                          | Only used when file_format is xml.                                                                                |
 
 ### path [string]
 
@@ -161,7 +165,7 @@ When the format in the `file_name_expression` parameter is `xxxx-${Now}` , `file
 
 We supported as the following file types:
 
-`text` `json` `csv` `orc` `parquet` `excel`
+`text` `json` `csv` `orc` `parquet` `excel` `xml`
 
 Please note that, The final file name will end with the file_format_type's suffix, the suffix of the text file is `txt`.
 
@@ -239,6 +243,18 @@ When File Format is Excel,The maximum number of data items that can be cached in
 ### sheet_name [string]
 
 Writer the sheet of the workbook
+
+### xml_root_tag [string]
+
+Specifies the tag name of the root element within the XML file.
+
+### xml_row_tag [string]
+
+Specifies the tag name of the data rows within the XML file.
+
+### xml_use_attr_format [boolean]
+
+Specifies Whether to process data using the tag attribute format.
 
 ## How to Create an Oss Data Synchronization Jobs
 

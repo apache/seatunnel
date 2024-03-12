@@ -21,6 +21,8 @@ import org.apache.seatunnel.api.common.metrics.Counter;
 import org.apache.seatunnel.api.common.metrics.Meter;
 import org.apache.seatunnel.api.common.metrics.MetricNames;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
+import org.apache.seatunnel.api.sink.MultiTableResourceManager;
+import org.apache.seatunnel.api.sink.SupportResourceShare;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.translation.flink.serialization.FlinkRowConverter;
@@ -28,6 +30,8 @@ import org.apache.seatunnel.translation.flink.serialization.FlinkRowConverter;
 import org.apache.flink.api.connector.sink.Sink;
 import org.apache.flink.api.connector.sink.SinkWriter;
 import org.apache.flink.types.Row;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.io.InvalidClassException;
@@ -44,6 +48,7 @@ import java.util.stream.Collectors;
  * @param <CommT> The generic type of commit message
  * @param <WriterStateT> The generic type of writer state
  */
+@Slf4j
 public class FlinkSinkWriter<InputT, CommT, WriterStateT>
         implements SinkWriter<InputT, CommitWrapper<CommT>, FlinkWriterState<WriterStateT>> {
 
@@ -59,6 +64,8 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
 
     private long checkpointId;
 
+    private MultiTableResourceManager resourceManager;
+
     FlinkSinkWriter(
             org.apache.seatunnel.api.sink.SinkWriter<SeaTunnelRow, CommT, WriterStateT> sinkWriter,
             long checkpointId,
@@ -70,6 +77,11 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
         this.sinkWriteCount = metricsContext.counter(MetricNames.SINK_WRITE_COUNT);
         this.sinkWriteBytes = metricsContext.counter(MetricNames.SINK_WRITE_BYTES);
         this.sinkWriterQPS = metricsContext.meter(MetricNames.SINK_WRITE_QPS);
+        if (sinkWriter instanceof SupportResourceShare) {
+            resourceManager =
+                    ((SupportResourceShare) sinkWriter).initMultiTableResourceManager(1, 1);
+            ((SupportResourceShare) sinkWriter).setMultiTableResourceManager(resourceManager, 0);
+        }
     }
 
     @Override
@@ -108,5 +120,12 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
     @Override
     public void close() throws Exception {
         sinkWriter.close();
+        try {
+            if (resourceManager != null) {
+                resourceManager.close();
+            }
+        } catch (Throwable e) {
+            log.error("close resourceManager error", e);
+        }
     }
 }

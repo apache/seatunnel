@@ -34,6 +34,8 @@ import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
@@ -50,6 +52,7 @@ import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
+@Slf4j
 public class CatalogUtils {
     public static String getFieldIde(String identifier, String fieldIde) {
         if (StringUtils.isBlank(fieldIde)) {
@@ -176,11 +179,23 @@ public class CatalogUtils {
         return new ArrayList<>(constraintKeyMap.values());
     }
 
-    public static TableSchema getTableSchema(DatabaseMetaData metadata, TablePath tablePath)
+    public static TableSchema getTableSchema(
+            DatabaseMetaData metadata, TablePath tablePath, JdbcDialectTypeMapper typeMapper)
             throws SQLException {
         Optional<PrimaryKey> primaryKey = getPrimaryKey(metadata, tablePath);
         List<ConstraintKey> constraintKeys = getConstraintKeys(metadata, tablePath);
-        List<Column> columns = JdbcColumnConverter.convert(metadata, tablePath);
+        List<Column> columns;
+        try {
+            columns =
+                    typeMapper.mappingColumn(
+                            metadata,
+                            tablePath.getDatabaseName(),
+                            tablePath.getSchemaName(),
+                            tablePath.getTableName(),
+                            null);
+        } catch (UnsupportedOperationException e) {
+            columns = JdbcColumnConverter.convert(metadata, tablePath);
+        }
         return TableSchema.builder()
                 .primaryKey(primaryKey.orElse(null))
                 .constraintKey(constraintKeys)
@@ -188,10 +203,11 @@ public class CatalogUtils {
                 .build();
     }
 
-    public static CatalogTable getCatalogTable(Connection connection, TablePath tablePath)
+    public static CatalogTable getCatalogTable(
+            Connection connection, TablePath tablePath, JdbcDialectTypeMapper typeMapper)
             throws SQLException {
         DatabaseMetaData metadata = connection.getMetaData();
-        TableSchema tableSchema = getTableSchema(metadata, tablePath);
+        TableSchema tableSchema = getTableSchema(metadata, tablePath, typeMapper);
         String catalogName = "jdbc_catalog";
         return CatalogTable.of(
                 TableIdentifier.of(
@@ -278,6 +294,14 @@ public class CatalogUtils {
         }
     }
 
+    /**
+     * @deprecated instead by {@link #getCatalogTable(Connection, String, JdbcDialectTypeMapper)}
+     * @param connection
+     * @param sqlQuery
+     * @return
+     * @throws SQLException
+     */
+    @Deprecated
     public static CatalogTable getCatalogTable(Connection connection, String sqlQuery)
             throws SQLException {
         ResultSetMetaData resultSetMetaData;

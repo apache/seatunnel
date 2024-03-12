@@ -17,6 +17,7 @@
 - [Elasticsearch] Support https protocol & compatible with opensearch
 - [Hbase] Add hbase sink connector #4049
 - [Clickhouse] Fix clickhouse old version compatibility #5326
+- [Easysearch] Support INFINI Easysearch #5933
 ### Formats
 - [Canal]Support read canal format message #3950
 - [Debezium]Support debezium canal format message #3981
@@ -165,6 +166,7 @@
 - [Core] [Shade] Add guava shade module (#4358)
 - [Core] [Spark] Support SeaTunnel Time Type (#5188)
 - [Core] [Flink] Support Decimal Type with configurable precision and scale (#5419)
+- [Core] [API] Support hocon style declare row type in generic type (#6187)
 
 ### Connector-V2
 
@@ -186,6 +188,8 @@
 - [Transform-V2] Add support CatalogTable for FilterFieldTransform (#4422)
 - [Transform-V2] Add catalog support for SQL Transform plugin (#4819)
 - [Connector-V2] [Assert] Support check the precision and scale of Decimal type (#6110)
+- [Connector-V2] [Assert] Support field type assert and field value equality assert for full data types (#6275)
+- [Connector-V2] [Iceberg] Support iceberg sink #6198
 
 ### Zeta(ST-Engine)
 

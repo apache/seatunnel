@@ -196,11 +196,7 @@ public class DorisCatalogUtil {
                 column.getName(),
                 fromSeaTunnelType(
                         column.getDataType(),
-                        Math.max(
-                                column.getColumnLength() == null ? 0 : column.getColumnLength(),
-                                column.getLongColumnLength() == null
-                                        ? 0
-                                        : column.getLongColumnLength())),
+                        column.getColumnLength() == null ? 0 : column.getColumnLength()),
                 column.isNullable() ? "NULL" : "NOT NULL");
     }
 
@@ -208,8 +204,12 @@ public class DorisCatalogUtil {
 
         String type = rs.getString(5).toUpperCase();
         int idx = type.indexOf("(");
+        int idx2 = type.indexOf("<");
         if (idx != -1) {
             type = type.substring(0, idx);
+        }
+        if (idx2 != -1) {
+            type = type.substring(0, idx2);
         }
 
         switch (type) {

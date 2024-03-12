@@ -18,7 +18,7 @@
 package org.apache.seatunnel.api.table.event;
 
 import org.apache.seatunnel.api.table.catalog.Column;
-import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 
 import lombok.Getter;
 import lombok.ToString;
@@ -29,27 +29,28 @@ public class AlterTableChangeColumnEvent extends AlterTableAddColumnEvent {
     private final String oldColumn;
 
     public AlterTableChangeColumnEvent(
-            TablePath tablePath,
+            TableIdentifier tableIdentifier,
             String oldColumn,
             Column column,
             boolean first,
             String afterColumn) {
-        super(tablePath, column, first, afterColumn);
+        super(tableIdentifier, column, first, afterColumn);
         this.oldColumn = oldColumn;
     }
 
     public static AlterTableChangeColumnEvent changeFirst(
-            TablePath tablePath, String oldColumn, Column column) {
-        return new AlterTableChangeColumnEvent(tablePath, oldColumn, column, true, null);
+            TableIdentifier tableIdentifier, String oldColumn, Column column) {
+        return new AlterTableChangeColumnEvent(tableIdentifier, oldColumn, column, true, null);
     }
 
     public static AlterTableChangeColumnEvent change(
-            TablePath tablePath, String oldColumn, Column column) {
-        return new AlterTableChangeColumnEvent(tablePath, oldColumn, column, false, null);
+            TableIdentifier tableIdentifier, String oldColumn, Column column) {
+        return new AlterTableChangeColumnEvent(tableIdentifier, oldColumn, column, false, null);
     }
 
     public static AlterTableChangeColumnEvent changeAfter(
-            TablePath tablePath, String oldColumn, Column column, String afterColumn) {
-        return new AlterTableChangeColumnEvent(tablePath, oldColumn, column, false, afterColumn);
+            TableIdentifier tableIdentifier, String oldColumn, Column column, String afterColumn) {
+        return new AlterTableChangeColumnEvent(
+                tableIdentifier, oldColumn, column, false, afterColumn);
     }
 }

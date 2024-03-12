@@ -69,6 +69,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
     private static final List<String> PG_CONFIG_FILE_LIST =
             Lists.newArrayList(
                     "/jdbc_postgres_source_and_sink.conf",
+                    "/jdbc_postgres_source_and_sink_copy_stmt.conf",
                     "/jdbc_postgres_source_and_sink_parallel.conf",
                     "/jdbc_postgres_source_and_sink_parallel_upper_lower.conf",
                     "/jdbc_postgres_source_and_sink_xa.conf");
@@ -76,6 +77,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
     private static final String PG_SOURCE_DDL =
             "CREATE TABLE IF NOT EXISTS pg_e2e_source_table (\n"
                     + "  gid SERIAL PRIMARY KEY,\n"
+                    + "  uuid_col UUID,\n"
                     + "  text_col TEXT,\n"
                     + "  varchar_col VARCHAR(255),\n"
                     + "  char_col CHAR(10),\n"
@@ -110,6 +112,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
     private static final String PG_SINK_DDL =
             "CREATE TABLE IF NOT EXISTS pg_e2e_sink_table (\n"
                     + "    gid SERIAL PRIMARY KEY,\n"
+                    + "    uuid_col UUID,\n"
                     + "    text_col TEXT,\n"
                     + "    varchar_col VARCHAR(255),\n"
                     + "    char_col CHAR(10),\n"
@@ -144,6 +147,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
     private static final String SOURCE_SQL =
             "select \n"
                     + "gid,\n"
+                    + "uuid_col, \n"
                     + "text_col,\n"
                     + "varchar_col,\n"
                     + "char_col,\n"
@@ -178,6 +182,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
     private static final String SINK_SQL =
             "select\n"
                     + "  gid,\n"
+                    + "uuid_col, \n"
                     + "   text_col,\n"
                     + "   varchar_col,\n"
                     + "   char_col,\n"
@@ -255,10 +260,19 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
     public void testAutoGenerateSQL(TestContainer container)
             throws IOException, InterruptedException {
         for (String CONFIG_FILE : PG_CONFIG_FILE_LIST) {
-            Container.ExecResult execResult = container.executeJob(CONFIG_FILE);
-            Assertions.assertEquals(0, execResult.getExitCode());
-            Assertions.assertIterableEquals(querySql(SOURCE_SQL), querySql(SINK_SQL));
-            executeSQL("truncate table pg_e2e_sink_table");
+            try {
+                Container.ExecResult execResult = container.executeJob(CONFIG_FILE);
+                Assertions.assertEquals(
+                        0,
+                        execResult.getExitCode(),
+                        CONFIG_FILE
+                                + " job run failed in "
+                                + container.getClass().getSimpleName()
+                                + ".");
+                Assertions.assertIterableEquals(querySql(SOURCE_SQL), querySql(SINK_SQL));
+            } finally {
+                executeSQL("truncate table pg_e2e_sink_table");
+            }
             log.info(CONFIG_FILE + " e2e test completed");
         }
     }
@@ -309,6 +323,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                 statement.addBatch(
                         "INSERT INTO\n"
                                 + "  pg_e2e_source_table (gid,\n"
+                                + "    uuid_col,\n"
                                 + "    text_col,\n"
                                 + "    varchar_col,\n"
                                 + "    char_col,\n"
@@ -345,6 +360,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                                 + "    '"
                                 + i
                                 + "',\n"
+                                + "    gen_random_uuid(),\n"
                                 + "    'Hello World',\n"
                                 + "    'Test',\n"
                                 + "    'Testing',\n"
@@ -444,9 +460,8 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
         }
     }
 
-    @TestTemplate
-    public void testCatalogForSaveMode(TestContainer container)
-            throws IOException, InterruptedException {
+    @Test
+    public void testCatalogForSaveMode() {
         String schema = "public";
         String databaseName = POSTGRESQL_CONTAINER.getDatabaseName();
         TablePath tablePathPG = TablePath.of(databaseName, "public", "pg_e2e_source_table");

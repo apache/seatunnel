@@ -96,8 +96,9 @@ public class PulsarSplitReaderThread extends Thread implements Closeable {
                         sourceReader.handleNoMoreElements(split.splitId(), message.getMessageId());
                         break;
                     }
+                } else {
+                    Thread.sleep(pollInterval);
                 }
-                Thread.sleep(pollInterval);
             }
         } catch (Throwable t) {
             LOG.error("Pulsar Consumer receive data error", t);

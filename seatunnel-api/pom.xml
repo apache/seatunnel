@@ -29,8 +29,6 @@
     <artifactId>seatunnel-api</artifactId>
     <name>SeaTunnel : Api</name>
 
-    <properties />
-
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>

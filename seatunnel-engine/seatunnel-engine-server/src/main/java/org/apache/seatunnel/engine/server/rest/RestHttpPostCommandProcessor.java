@@ -32,13 +32,14 @@ import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.log.Log4j2HttpPostCommandProcessor;
+import org.apache.seatunnel.engine.server.operation.CancelJobOperation;
+import org.apache.seatunnel.engine.server.operation.SavePointJobOperation;
+import org.apache.seatunnel.engine.server.operation.SubmitJobOperation;
+import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 import org.apache.seatunnel.engine.server.utils.RestUtil;
 
 import org.apache.commons.lang.StringUtils;
 
-import com.hazelcast.core.Hazelcast;
-import com.hazelcast.core.HazelcastInstance;
-import com.hazelcast.instance.impl.HazelcastInstanceProxy;
 import com.hazelcast.internal.ascii.TextCommandService;
 import com.hazelcast.internal.ascii.rest.HttpCommandProcessor;
 import com.hazelcast.internal.ascii.rest.HttpPostCommand;
@@ -102,20 +103,7 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
         SeaTunnelServer seaTunnelServer =
                 (SeaTunnelServer) extensionServices.get(Constant.SEATUNNEL_SERVICE_NAME);
         if (!seaTunnelServer.isMasterNode()) {
-            for (HazelcastInstance hazelcastInstance : Hazelcast.getAllHazelcastInstances()) {
-                seaTunnelServer =
-                        (SeaTunnelServer)
-                                ((HazelcastInstanceProxy) hazelcastInstance)
-                                        .getOriginal()
-                                        .node
-                                        .getNodeExtension()
-                                        .createExtensionServices()
-                                        .get(Constant.SEATUNNEL_SERVICE_NAME);
-
-                if (seaTunnelServer.isMasterNode()) {
-                    return seaTunnelServer;
-                }
-            }
+            return null;
         }
         return seaTunnelServer;
     }
@@ -136,8 +124,10 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
 
         boolean startWithSavePoint =
                 Boolean.parseBoolean(requestParams.get(RestConstant.IS_START_WITH_SAVE_POINT));
+        SeaTunnelServer seaTunnelServer = getSeaTunnelServer();
         RestJobExecutionEnvironment restJobExecutionEnvironment =
                 new RestJobExecutionEnvironment(
+                        seaTunnelServer,
                         jobConfig,
                         config,
                         textCommandService.getNode(),
@@ -146,14 +136,20 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
                                 ? Long.parseLong(requestParams.get(RestConstant.JOB_ID))
                                 : null);
         JobImmutableInformation jobImmutableInformation = restJobExecutionEnvironment.build();
+        Long jobId = jobImmutableInformation.getJobId();
+        if (seaTunnelServer == null) {
 
-        SeaTunnelServer seaTunnelServer = getSeaTunnelServer();
-        Long jobId =
-                submitJob(
-                        seaTunnelServer,
-                        jobImmutableInformation,
-                        jobConfig,
-                        restJobExecutionEnvironment);
+            NodeEngineUtil.sendOperationToMasterNode(
+                            getNode().nodeEngine,
+                            new SubmitJobOperation(
+                                    jobImmutableInformation.getJobId(),
+                                    getNode().nodeEngine.toData(jobImmutableInformation)))
+                    .join();
+
+        } else {
+
+            submitJob(seaTunnelServer, jobImmutableInformation, jobConfig);
+        }
 
         this.prepareResponse(
                 httpPostCommand,
@@ -174,12 +170,26 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
                     Boolean.parseBoolean(map.get(RestConstant.IS_STOP_WITH_SAVE_POINT).toString());
         }
 
-        CoordinatorService coordinatorService = getSeaTunnelServer().getCoordinatorService();
+        SeaTunnelServer seaTunnelServer = getSeaTunnelServer();
+        if (seaTunnelServer == null) {
+            if (isStopWithSavePoint) {
+                NodeEngineUtil.sendOperationToMasterNode(
+                                getNode().nodeEngine, new SavePointJobOperation(jobId))
+                        .join();
+            } else {
+                NodeEngineUtil.sendOperationToMasterNode(
+                                getNode().nodeEngine, new CancelJobOperation(jobId))
+                        .join();
+            }
 
-        if (isStopWithSavePoint) {
-            coordinatorService.savePoint(jobId);
         } else {
-            coordinatorService.cancelJob(jobId);
+            CoordinatorService coordinatorService = getSeaTunnelServer().getCoordinatorService();
+
+            if (isStopWithSavePoint) {
+                coordinatorService.savePoint(jobId);
+            } else {
+                coordinatorService.cancelJob(jobId);
+            }
         }
 
         this.prepareResponse(
@@ -215,11 +225,10 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
         return requestBodyJsonNode;
     }
 
-    private Long submitJob(
+    private void submitJob(
             SeaTunnelServer seaTunnelServer,
             JobImmutableInformation jobImmutableInformation,
-            JobConfig jobConfig,
-            RestJobExecutionEnvironment restJobExecutionEnvironment) {
+            JobConfig jobConfig) {
         CoordinatorService coordinatorService = seaTunnelServer.getCoordinatorService();
         Data data =
                 textCommandService
@@ -231,7 +240,5 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
                 coordinatorService.submitJob(
                         Long.parseLong(jobConfig.getJobContext().getJobId()), data);
         voidPassiveCompletableFuture.join();
-
-        return restJobExecutionEnvironment.getJobId();
     }
 }
