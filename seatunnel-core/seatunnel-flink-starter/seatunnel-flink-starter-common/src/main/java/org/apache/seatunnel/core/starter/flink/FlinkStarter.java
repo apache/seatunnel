@@ -64,10 +64,8 @@ public class FlinkStarter implements Starter {
         String cmd_flink = "";
 
         // Nothe that "flink.cmd” or "flink.bat" can be retrieved from lower version of flink (e.g.
-
-        // 1.0.9)
-        // We do not check if this file exists on the box, user needs to make sure this file exists
-        // or not.
+        // 1.0.9) ，We do not check if this file exists on the box, user needs to make sure this file
+        // exists or not.
         switch (local_os_type.toLowerCase()) {
             case "windows":
                 cmd_flink = "%FLINK_HOME%/bin/flink.cmd";
