@@ -168,8 +168,8 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
                             "previous schema changes in progress, schemaChangePhase: "
                                     + schemaChangePhase.get());
                 }
-                runningTask.triggerSchemaChangeBeforeCheckpoint().get();
                 schemaChangePhase.set(SchemaChangePhase.createBeforePhase());
+                runningTask.triggerSchemaChangeBeforeCheckpoint().get();
                 log.info("triggered schema-change-before checkpoint, stopping collect data");
             } else if (collector.captureSchemaChangeAfterCheckpointSignal()) {
                 if (schemaChangePhase.get() != null) {
@@ -177,8 +177,8 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
                             "previous schema changes in progress, schemaChangePhase: "
                                     + schemaChangePhase.get());
                 }
-                runningTask.triggerSchemaChangeAfterCheckpoint().get();
                 schemaChangePhase.set(SchemaChangePhase.createAfterPhase());
+                runningTask.triggerSchemaChangeAfterCheckpoint().get();
                 log.info("triggered schema-change-after checkpoint, stopping collect data");
             }
         } else {
@@ -284,25 +284,32 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
                 currentTaskLocation);
 
         CheckpointType checkpointType = ((CheckpointBarrier) barrier).getCheckpointType();
-        if (schemaChanging() && checkpointType.isSchemaChangeCheckpoint()) {
-            if (checkpointType.isSchemaChangeBeforeCheckpoint()
-                    && schemaChangePhase.get().isBeforePhase()) {
-                schemaChangePhase.get().setCheckpointId(barrier.getId());
-            } else if (checkpointType.isSchemaChangeAfterCheckpoint()
-                    && schemaChangePhase.get().isAfterPhase()) {
-                schemaChangePhase.get().setCheckpointId(barrier.getId());
+        if (checkpointType.isSchemaChangeCheckpoint()) {
+            if (schemaChanging()) {
+                if (checkpointType.isSchemaChangeBeforeCheckpoint()
+                        && schemaChangePhase.get().isBeforePhase()) {
+                    schemaChangePhase.get().setCheckpointId(barrier.getId());
+                } else if (checkpointType.isSchemaChangeAfterCheckpoint()
+                        && schemaChangePhase.get().isAfterPhase()) {
+                    schemaChangePhase.get().setCheckpointId(barrier.getId());
+                } else {
+                    throw new IllegalStateException(
+                            String.format(
+                                    "schema-change checkpoint[%s,%s] and phase[%s] is not matched",
+                                    barrier.getId(),
+                                    checkpointType,
+                                    schemaChangePhase.get().getPhase()));
+                }
+                log.info(
+                        "lock checkpoint[{}] waiting for complete..., phase: [{}]",
+                        barrier.getId(),
+                        schemaChangePhase.get().getPhase());
             } else {
                 throw new IllegalStateException(
                         String.format(
-                                "schema-change checkpoint[%s,%s] and phase[%s] is not matched",
-                                barrier.getId(),
-                                checkpointType,
-                                schemaChangePhase.get().getPhase()));
+                                "schema-change checkpoint[%s] and phase[%s] is not matched",
+                                barrier.getId(), checkpointType));
             }
-            log.info(
-                    "lock checkpoint[{}] waiting for complete..., phase: [{}]",
-                    barrier.getId(),
-                    schemaChangePhase.get().getPhase());
         }
     }
 
