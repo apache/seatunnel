@@ -74,9 +74,9 @@ public class CommonConfig implements Serializable {
 
     public CommonConfig(ReadonlyConfig config) {
         this.nodeUrls = config.get(NODE_URLS);
-        this.username = config.get(DATABASE);
-        this.password = config.get(TABLE);
-        this.database = config.get(USERNAME);
-        this.table = config.get(PASSWORD);
+        this.username = config.get(USERNAME);
+        this.password = config.get(PASSWORD);
+        this.database = config.get(DATABASE);
+        this.table = config.get(TABLE);
     }
 }
