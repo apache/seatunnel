@@ -69,7 +69,6 @@ public class PulsarCanalDecorator implements DeserializationSchema<SeaTunnelRow>
 
     public void deserialize(byte[] message, Collector<SeaTunnelRow> out, TablePath tablePath)
             throws IOException {
-
         deserializeMessage(message, out, tablePath);
     }
 

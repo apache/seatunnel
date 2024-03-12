@@ -124,13 +124,17 @@ public class CompatibleKafkaConnectDeserializationSchema
             for (int i = 0; i < arrayNode.size(); i++) {
                 SeaTunnelRow row = convertJsonNode(arrayNode.get(i));
                 row.setRowKind(rowKind);
-                row.setTableId(tablePath.toString());
+                if (tablePath != null && !tablePath.toString().isEmpty()) {
+                    row.setTableId(tablePath.toString());
+                }
                 out.collect(row);
             }
         } else {
             SeaTunnelRow row = convertJsonNode(payload);
             row.setRowKind(rowKind);
-            row.setTableId(tablePath.toString());
+            if (tablePath != null && !tablePath.toString().isEmpty()) {
+                row.setTableId(tablePath.toString());
+            }
             out.collect(row);
         }
     }

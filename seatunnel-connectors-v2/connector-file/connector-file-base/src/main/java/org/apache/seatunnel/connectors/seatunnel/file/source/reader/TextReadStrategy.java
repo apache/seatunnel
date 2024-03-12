@@ -22,7 +22,6 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
-import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -88,8 +87,7 @@ public class TextReadStrategy extends AbstractReadStrategy {
                             line -> {
                                 try {
                                     SeaTunnelRow seaTunnelRow =
-                                            deserializationSchema.deserialize(
-                                                    line.getBytes(), TablePath.of(tableId));
+                                            deserializationSchema.deserialize(line.getBytes());
                                     if (!readColumns.isEmpty()) {
                                         // need column projection
                                         Object[] fields;

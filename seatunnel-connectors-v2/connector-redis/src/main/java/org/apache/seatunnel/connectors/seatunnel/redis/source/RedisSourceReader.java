@@ -19,7 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.redis.source;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
-import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -87,9 +86,7 @@ public class RedisSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                                     deserializationSchema.getProducedType();
                             valuesMap.put(((SeaTunnelRowType) seaTunnelRowType).getFieldName(0), k);
                             deserializationSchema.deserialize(
-                                    JsonUtils.toJsonString(valuesMap).getBytes(),
-                                    output,
-                                    TablePath.of(""));
+                                    JsonUtils.toJsonString(valuesMap).getBytes(), output);
                         }
                     } else {
                         deserializationSchema.deserialize(value.getBytes(), output);
