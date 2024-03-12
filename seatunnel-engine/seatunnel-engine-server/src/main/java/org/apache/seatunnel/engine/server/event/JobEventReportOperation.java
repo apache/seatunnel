@@ -52,7 +52,7 @@ public class JobEventReportOperation extends Operation implements IdentifiedData
                 ObjectOutputStream objectOut = new ObjectOutputStream(byteOut)) {
             objectOut.writeObject(event);
             objectOut.flush();
-            out.write(byteOut.toByteArray());
+            out.writeByteArray(byteOut.toByteArray());
         }
     }
 
