@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.service.classloader;
+package org.apache.seatunnel.engine.core.classloader;
 
 import java.net.URL;
 import java.util.Collection;
