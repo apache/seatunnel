@@ -42,15 +42,12 @@ import org.apache.seatunnel.connectors.seatunnel.paimon.sink.state.PaimonSinkSta
 
 import org.apache.paimon.table.Table;
 
-import com.google.auto.service.AutoService;
-
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 
 import static org.apache.seatunnel.api.table.factory.FactoryUtil.discoverFactory;
 
-@AutoService(SeaTunnelSink.class)
 public class PaimonSink
         implements SeaTunnelSink<
                         SeaTunnelRow,

@@ -12,14 +12,14 @@ Apache Paimon数据连接器。支持cdc写以及自动建表。
 
 ## 连接器选项
 
-|        名称        |   类型   | 是否必须 |             默认值              |        描述         |
-|------------------|--------|------|------------------------------|-------------------|
-| warehouse        | String | Yes  | -                            | Paimon warehouse路 |
-| database         | String | Yes  | -                            | 数据库名称             |
-| table            | String | Yes  | -                            | 表名                |
-| hdfs_site_path   | String | No   | -                            |                   |
-| schema_save_mode | Enum   | no   | CREATE_SCHEMA_WHEN_NOT_EXIST | schema保存模式        |
-| data_save_mode   | Enum   | no   | APPEND_DATA                  | 数据保存模式            |
+|        名称        |   类型   | 是否必须 |             默认值              |         描述         |
+|------------------|--------|------|------------------------------|--------------------|
+| warehouse        | String | Yes  | -                            | Paimon warehouse路径 |
+| database         | String | Yes  | -                            | 数据库名称              |
+| table            | String | Yes  | -                            | 表名                 |
+| hdfs_site_path   | String | No   | -                            |                    |
+| schema_save_mode | Enum   | no   | CREATE_SCHEMA_WHEN_NOT_EXIST | schema保存模式         |
+| data_save_mode   | Enum   | no   | APPEND_DATA                  | 数据保存模式             |
 
 ## 示例
 

@@ -59,7 +59,7 @@ import static org.awaitility.Awaitility.given;
         value = {},
         type = {EngineType.SPARK, EngineType.FLINK},
         disabledReason =
-                "Spark and Flink engine can not auto create paimon table on worker node(e.g flink tm) by org.apache.seatunnel.connectors.seatunnel.paimon.sink.PaimonSink.PaimonSink which can lead error")
+                "Spark and Flink engine can not auto create paimon table on worker node in local file(e.g flink tm) by savemode feature which can lead error")
 @Slf4j
 public class PaimonSinkCDCIT extends TestSuiteBase implements TestResource {
     private static final String CATALOG_ROOT_DIR = "/tmp/";
@@ -190,7 +190,7 @@ public class PaimonSinkCDCIT extends TestSuiteBase implements TestResource {
                 "sh", "-c", "cd " + CATALOG_ROOT_DIR + " && tar -zxvf " + NAMESPACE_TAR);
         try {
             Process process = processBuilder.start();
-            // 等待命令执行完成
+            // wait command completed
             int exitCode = process.waitFor();
             if (exitCode == 0) {
                 log.info("Extract files successful.");
