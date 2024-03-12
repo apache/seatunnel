@@ -112,7 +112,7 @@ select
 c_row.c_inner_row.c_map_2.some_key.inner_map_key
 ```
 
-The map must be the latest struct, can query the nesting map.
+The map must be the latest struct, can't query the nesting map.
 
 ## Job Config Example
 
