@@ -7,7 +7,7 @@ sidebar_position: 3
 
 ## 步骤 1: 部署SeaTunnel及连接器
 
-在开始前，请确保您已经按照[部署](../../../en/start-v2/locally/deployment.md)中的描述下载并部署了SeaTunnel
+在开始前，请确保您已经按照[部署](deployment.md)中的描述下载并部署了SeaTunnel
 
 ## 步骤 2: 部署并配置Flink
 
@@ -65,14 +65,14 @@ sink {
 
 您可以通过以下命令启动应用程序
 
-flink版本`1.12.x`到`1.14.x`
+Flink版本`1.12.x`到`1.14.x`
 
 ```shell
 cd "apache-seatunnel-${version}"
 ./bin/start-seatunnel-flink-13-connector-v2.sh --config ./config/v2.streaming.conf.template
 ```
 
-flink版本`1.15.x`到`1.16.x`
+Flink版本`1.15.x`到`1.16.x`
 
 ```shell
 cd "apache-seatunnel-${version}"
