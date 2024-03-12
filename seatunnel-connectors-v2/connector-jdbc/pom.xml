@@ -192,7 +192,6 @@
     </dependencyManagement>
 
     <dependencies>
-
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-common</artifactId>

@@ -56,6 +56,7 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 | data_save_mode                            | Enum    | No       | APPEND_DATA                  |
 | custom_sql                                | String  | No       | -                            |
 | enable_upsert                             | Boolean | No       | true                         |
+| use_copy_statement                        | Boolean | No       | false                        |
 
 ### driver [string]
 
@@ -196,6 +197,12 @@ When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL
 ### enable_upsert [boolean]
 
 Enable upsert by primary_keys exist, If the task has no key duplicate data, setting this parameter to `false` can speed up data import
+
+### use_copy_statement [boolean]
+
+Use `COPY ${table} FROM STDIN` statement to import data. Only drivers with `getCopyAPI()` method connections are supported.  e.g.: Postgresql driver `org.postgresql.Driver`.
+
+NOTICE: `MAP`, `ARRAY`, `ROW` types are not supported.
 
 ## tips
 
