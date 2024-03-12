@@ -15,21 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.service.classloader;
-
-import org.apache.curator.shaded.com.google.common.collect.Lists;
+package org.apache.seatunnel.engine.core.classloader;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import com.google.common.collect.Lists;
+
 import java.net.MalformedURLException;
 import java.net.URL;
 
-public class ClassLoaderServiceTest extends AbstractClassLoaderServiceTest {
+public class ClassLoaderServiceCacheModeTest extends AbstractClassLoaderServiceTest {
 
     @Override
     boolean cacheMode() {
-        return false;
+        return true;
     }
 
     @Test
@@ -48,7 +48,7 @@ public class ClassLoaderServiceTest extends AbstractClassLoaderServiceTest {
         classLoaderService.releaseClassLoader(
                 3L,
                 Lists.newArrayList(new URL("file:///console.jar"), new URL("file:///fake.jar")));
-        Assertions.assertEquals(0, classLoaderService.queryClassLoaderCount());
+        Assertions.assertEquals(1, classLoaderService.queryClassLoaderCount());
     }
 
     @Test
@@ -59,7 +59,7 @@ public class ClassLoaderServiceTest extends AbstractClassLoaderServiceTest {
         classLoaderService.getClassLoader(
                 3L,
                 Lists.newArrayList(new URL("file:///console.jar"), new URL("file:///fake.jar")));
-        Assertions.assertEquals(2, classLoaderService.queryClassLoaderCount());
+        Assertions.assertEquals(1, classLoaderService.queryClassLoaderCount());
         classLoaderService.releaseClassLoader(
                 3L,
                 Lists.newArrayList(new URL("file:///console.jar"), new URL("file:///fake.jar")));
@@ -67,6 +67,6 @@ public class ClassLoaderServiceTest extends AbstractClassLoaderServiceTest {
         classLoaderService.releaseClassLoader(
                 2L,
                 Lists.newArrayList(new URL("file:///console.jar"), new URL("file:///fake.jar")));
-        Assertions.assertEquals(0, classLoaderService.queryClassLoaderCount());
+        Assertions.assertEquals(1, classLoaderService.queryClassLoaderCount());
     }
 }

@@ -23,14 +23,18 @@ import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.client.source.StarRocksBeReadClient;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.client.source.model.QueryPartition;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorException;
 
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Queue;
 
 @Slf4j
@@ -40,6 +44,7 @@ public class StarRocksSourceReader implements SourceReader<SeaTunnelRow, StarRoc
     private final SourceReader.Context context;
     private final SourceConfig sourceConfig;
     private final SeaTunnelRowType seaTunnelRowType;
+    private Map<String, StarRocksBeReadClient> clientsPools;
     private volatile boolean noMoreSplitsAssignment;
 
     public StarRocksSourceReader(
@@ -87,26 +92,45 @@ public class StarRocksSourceReader implements SourceReader<SeaTunnelRow, StarRoc
     }
 
     private void read(StarRocksSourceSplit split, Collector<SeaTunnelRow> output) {
-        StarRocksBeReadClient client =
-                new StarRocksBeReadClient(split.getPartition(), sourceConfig, seaTunnelRowType);
+
+        QueryPartition partition = split.getPartition();
+        String beAddress = partition.getBeAddress();
+        StarRocksBeReadClient client = null;
+        if (clientsPools.containsKey(beAddress)) {
+            client = clientsPools.get(beAddress);
+        } else {
+            client = new StarRocksBeReadClient(beAddress, sourceConfig);
+            clientsPools.put(beAddress, client);
+        }
         // open scanner to be
-        client.openScanner();
+        client.openScanner(partition, seaTunnelRowType);
         while (client.hasNext()) {
             SeaTunnelRow seaTunnelRow = client.getNext();
             output.collect(seaTunnelRow);
         }
-        // close client to be
-        if (client != null) {
-            client.close();
-        }
     }
 
     @Override
-    public void open() throws Exception {}
+    public void open() throws Exception {
+        clientsPools = new HashMap<>();
+    }
 
     @Override
     public void close() throws IOException {
-        // nothing to do
+        if (!clientsPools.isEmpty()) {
+            clientsPools
+                    .values()
+                    .forEach(
+                            client -> {
+                                if (client != null) {
+                                    try {
+                                        client.close();
+                                    } catch (StarRocksConnectorException e) {
+                                        log.error("Failed to close reader: ", e);
+                                    }
+                                }
+                            });
+        }
     }
 
     @Override
