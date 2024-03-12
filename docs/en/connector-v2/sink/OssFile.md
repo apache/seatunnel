@@ -113,7 +113,6 @@ If write to `csv`, `text` file type, All column will be string.
 | xml_root_tag                     | string  | no       | RECORDS                                    | Only used when file_format is xml.                                                                                |
 | xml_row_tag                      | string  | no       | RECORD                                     | Only used when file_format is xml.                                                                                |
 
-
 ### path [string]
 
 The target dir path is required.

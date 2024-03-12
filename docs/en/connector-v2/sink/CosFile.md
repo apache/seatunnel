@@ -62,7 +62,6 @@ By default, we use 2PC commit to ensure `exactly-once`
 | xml_root_tag                     | string  | no       | RECORDS                                    | Only used when file_format is xml.                                                                                |
 | xml_row_tag                      | string  | no       | RECORD                                     | Only used when file_format is xml.                                                                                |
 
-
 ### path [string]
 
 The target dir path is required.
@@ -232,7 +231,7 @@ If set to `false`, the data will be written using the `tag-element` format like 
 Specifies the tag name of the root element within the XML file.
 
 For example, set `xml_root_tag` to `RECORDS` and set `xml_row_tag` to `DATA`,
-the connector will generate data as the following: 
+the connector will generate data as the following:
 
 ```xml
 <RECORDS>

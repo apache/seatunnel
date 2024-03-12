@@ -38,6 +38,7 @@ import lombok.Getter;
 import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Paths;
@@ -76,27 +77,31 @@ public class XmlReadStrategyTest {
             Assertions.assertEquals(seaTunnelRow.getField(0).getClass(), Byte.class);
             Assertions.assertEquals(seaTunnelRow.getField(1).getClass(), Short.class);
             Assertions.assertEquals(seaTunnelRow.getField(2).getClass(), Integer.class);
-            Assertions.assertEquals(seaTunnelRow.getField(3).getClass(), Long.class);
+            Assertions.assertEquals(seaTunnelRow.getField(3).getClass(), BigInteger.class);
             Assertions.assertEquals(seaTunnelRow.getField(4).getClass(), String.class);
             Assertions.assertEquals(seaTunnelRow.getField(5).getClass(), Double.class);
             Assertions.assertEquals(seaTunnelRow.getField(6).getClass(), Float.class);
             Assertions.assertEquals(seaTunnelRow.getField(7).getClass(), BigDecimal.class);
             Assertions.assertEquals(seaTunnelRow.getField(8).getClass(), Boolean.class);
             Assertions.assertEquals(seaTunnelRow.getField(9).getClass(), LinkedHashMap.class);
-            Assertions.assertEquals(seaTunnelRow.getField(10).getClass(), String[].class);
+            Assertions.assertEquals(seaTunnelRow.getField(10).getClass(), BigInteger[].class);
             Assertions.assertEquals(seaTunnelRow.getField(11).getClass(), LocalDate.class);
             Assertions.assertEquals(seaTunnelRow.getField(12).getClass(), LocalDateTime.class);
             Assertions.assertEquals(seaTunnelRow.getField(13).getClass(), LocalTime.class);
             Assertions.assertEquals(seaTunnelRow.getField(14).getClass(), String.class);
 
-            Assertions.assertEquals(seaTunnelRow.getField(0), (byte) 1);
-            Assertions.assertEquals(seaTunnelRow.getField(1), (short) 22);
-            Assertions.assertEquals(seaTunnelRow.getField(2), 333);
-            Assertions.assertEquals(seaTunnelRow.getField(3), 4444L);
+            Assertions.assertEquals(seaTunnelRow.getField(0), (byte) 127);
+            Assertions.assertEquals(seaTunnelRow.getField(1), (short) 32767);
+            Assertions.assertEquals(seaTunnelRow.getField(2), 2147483647);
+            Assertions.assertEquals(
+                    seaTunnelRow.getField(3),
+                    new BigInteger("444444444444444444444444444444444444444444444444444"));
             Assertions.assertEquals(seaTunnelRow.getField(4), "DusayI");
-            Assertions.assertEquals(seaTunnelRow.getField(5), 5.555);
-            Assertions.assertEquals(seaTunnelRow.getField(6), (float) 6.666);
-            Assertions.assertEquals(seaTunnelRow.getField(7), new BigDecimal("7.78"));
+            Assertions.assertEquals(seaTunnelRow.getField(5), 5.5555555);
+            Assertions.assertEquals(seaTunnelRow.getField(6), (float) 6.6666);
+            Assertions.assertEquals(
+                    seaTunnelRow.getField(7),
+                    new BigDecimal("7.777777777777777777777777777777777777777"));
             Assertions.assertEquals(seaTunnelRow.getField(8), Boolean.FALSE);
             Assertions.assertEquals(
                     seaTunnelRow.getField(9),
@@ -107,7 +112,12 @@ public class XmlReadStrategyTest {
                         }
                     });
             Assertions.assertArrayEquals(
-                    (String[]) seaTunnelRow.getField(10), new String[] {"Ivan", "Dusayi"});
+                    (BigInteger[]) seaTunnelRow.getField(10),
+                    new BigInteger[] {
+                        new BigInteger("1111111111111111111111111111111111111111111"),
+                        new BigInteger(
+                                "2222222222222222222222222222222222222222222222222222222222222222222222222222")
+                    });
             Assertions.assertEquals(
                     seaTunnelRow.getField(11),
                     DateUtils.parse("2024-01-31", DateUtils.Formatter.YYYY_MM_DD));

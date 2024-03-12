@@ -20,5 +20,5 @@
 -->
 
 <RECORDS>
-	<RECORD c_bytes="1" c_short="22" c_int="333" c_bigint="4444" c_string="DusayI" c_double="5.555" c_float="6.666" c_decimal="7.78" c_boolean="false" c_map="{&quot;age&quot;: &quot;26&quot;, &quot;name&quot;: &quot;Ivan&quot;}" c_array="[&quot;Ivan&quot;, &quot;Dusayi&quot;]" c_date="2024-01-31" c_datetime="2024-01-31 16:00:48" c_time="16:00:48"/>
+	<RECORD c_bytes="127" c_short="32767" c_int="2147483647" c_bigint="444444444444444444444444444444444444444444444444444" c_string="DusayI" c_double="5.5555555" c_float="6.6666" c_decimal="7.777777777777777777777777777777777777777" c_boolean="false" c_map="{&quot;age&quot;: &quot;26&quot;, &quot;name&quot;: &quot;Ivan&quot;}" c_array="[1111111111111111111111111111111111111111111, 2222222222222222222222222222222222222222222222222222222222222222222222222222]" c_date="2024-01-31" c_datetime="2024-01-31 16:00:48" c_time="16:00:48"/>
 </RECORDS>

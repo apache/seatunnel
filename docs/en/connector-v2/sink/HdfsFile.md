@@ -68,7 +68,6 @@ Output data to hdfs file
 | xml_root_tag                     | string  | no       | RECORDS                                    | Only used when file_format is xml, specifies the tag name of the root element within the XML file.                                                                                                                                                                                                                                                                                                                                                                                       |
 | xml_row_tag                      | string  | no       | RECORD                                     | Only used when file_format is xml, specifies the tag name of the data rows within the XML file                                                                                                                                                                                                                                                                                                                                                                                           |
 
-
 ### Tips
 
 > If you use spark/flink, In order to use this connector, You must ensure your spark/flink cluster already integrated hadoop. The tested hadoop version is 2.x. If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you download and install SeaTunnel Engine. You can check the jar package under ${SEATUNNEL_HOME}/lib to confirm this.

@@ -292,7 +292,7 @@ Only need to be configured when file_format is xml.
 
 Specifies the tag name of the data rows within the XML file.
 
-For example, the following XML data: 
+For example, the following XML data:
 
 ```xml
 <RECORDS>

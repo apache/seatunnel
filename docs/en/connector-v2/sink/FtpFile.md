@@ -61,7 +61,6 @@ By default, we use 2PC commit to ensure `exactly-once`
 | xml_root_tag                     | string  | no       | RECORDS                                    | Only used when file_format is xml.                                                                                |
 | xml_row_tag                      | string  | no       | RECORD                                     | Only used when file_format is xml.                                                                                |
 
-
 ### host [string]
 
 The target ftp host is required

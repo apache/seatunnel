@@ -50,6 +50,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -204,25 +205,25 @@ public class XmlReadStrategy extends AbstractReadStrategy {
             case TIMESTAMP:
                 return DateTimeUtils.parse(fieldValue, datetimeFormat);
             case TINYINT:
-                return (byte) Double.parseDouble(fieldValue);
+                return Byte.parseByte(fieldValue);
             case SMALLINT:
-                return (short) Double.parseDouble(fieldValue);
+                return Short.parseShort(fieldValue);
             case INT:
-                return (int) Double.parseDouble(fieldValue);
+                return Integer.parseInt(fieldValue);
             case BIGINT:
-                return (long) Double.parseDouble(fieldValue);
+                return new BigInteger(fieldValue);
             case DOUBLE:
                 return Double.parseDouble(fieldValue);
             case FLOAT:
-                return (float) Double.parseDouble(fieldValue);
+                return Float.parseFloat(fieldValue);
             case DECIMAL:
-                return BigDecimal.valueOf(Double.parseDouble(fieldValue));
+                return new BigDecimal(fieldValue);
             case BOOLEAN:
                 return Boolean.parseBoolean(fieldValue);
             case BYTES:
                 return fieldValue.getBytes(StandardCharsets.UTF_8);
             case NULL:
-                return "";
+                return null;
             case ROW:
                 String[] context = fieldValue.split(delimiter);
                 SeaTunnelRowType ft = (SeaTunnelRowType) fieldType;
@@ -232,6 +233,12 @@ public class XmlReadStrategy extends AbstractReadStrategy {
                 return row;
             case MAP:
             case ARRAY:
+                Class<?> typeClass = fieldType.getTypeClass();
+                if (typeClass == Long[].class) {
+                    // This adaptation is used for cases
+                    // where bigint values may exceed the range of a long data type.
+                    return objectMapper.readValue(fieldValue, BigInteger[].class);
+                }
                 return objectMapper.readValue(fieldValue, fieldType.getTypeClass());
             default:
                 throw new FileConnectorException(
