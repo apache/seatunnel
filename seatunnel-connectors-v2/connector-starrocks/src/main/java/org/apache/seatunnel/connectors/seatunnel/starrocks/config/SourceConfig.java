@@ -45,6 +45,7 @@ public class SourceConfig extends CommonConfig {
         this.keepAliveMin = config.get(SCAN_KEEP_ALIVE_MIN);
         this.queryTimeoutSec = config.get(SCAN_QUERY_TIMEOUT_SEC);
         this.memLimit = config.get(SCAN_MEM_LIMIT);
+        this.sourceOptionProps = config.get(STARROCKS_SCAN_CONFIG_PREFIX);
     }
 
     public static final Option<Integer> MAX_RETRIES =
@@ -106,5 +107,5 @@ public class SourceConfig extends CommonConfig {
     private int keepAliveMin = SCAN_KEEP_ALIVE_MIN.defaultValue();
     private int batchRows = SCAN_BATCH_ROWS.defaultValue();
     private int connectTimeoutMs = SCAN_CONNECT_TIMEOUT.defaultValue();
-    private final Map<String, String> sourceOptionProps = new HashMap<>();
+    private Map<String, String> sourceOptionProps = new HashMap<>();
 }
