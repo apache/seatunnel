@@ -219,9 +219,7 @@ public class InfluxDBSourceSplitEnumerator
     }
 
     @Override
-    public void close() {
-        // nothing to do
-    }
+    public void close() {}
 
     @Override
     public void notifyCheckpointComplete(long checkpointId) {

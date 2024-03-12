@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.api.table.event;
 
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 
 import lombok.Getter;
@@ -27,10 +28,14 @@ import lombok.ToString;
 @ToString
 @RequiredArgsConstructor
 public abstract class TableEvent implements SchemaChangeEvent {
-    protected final TablePath tablePath;
+    protected final TableIdentifier tableIdentifier;
 
     @Override
-    public TablePath tablePath() {
-        return tablePath;
+    public TableIdentifier tableIdentifier() {
+        return tableIdentifier;
+    }
+
+    public TablePath getTablePath() {
+        return tablePath();
     }
 }

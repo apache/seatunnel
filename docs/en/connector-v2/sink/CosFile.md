@@ -29,6 +29,7 @@ By default, we use 2PC commit to ensure `exactly-once`
   - [x] orc
   - [x] json
   - [x] excel
+  - [x] xml
 
 ## Options
 
@@ -57,6 +58,9 @@ By default, we use 2PC commit to ensure `exactly-once`
 | common-options                   | object  | no       | -                                          |                                                                                                                   |
 | max_rows_in_memory               | int     | no       | -                                          | Only used when file_format is excel.                                                                              |
 | sheet_name                       | string  | no       | Sheet${Random number}                      | Only used when file_format is excel.                                                                              |
+| xml_root_tag                     | string  | no       | RECORDS                                    | Only used when file_format is xml.                                                                                |
+| xml_row_tag                      | string  | no       | RECORD                                     | Only used when file_format is xml.                                                                                |
+| xml_use_attr_format              | boolean | no       | -                                          | Only used when file_format is xml.                                                                                |
 
 ### path [string]
 
@@ -110,7 +114,7 @@ When the format in the `file_name_expression` parameter is `xxxx-${now}` , `file
 
 We supported as the following file types:
 
-`text` `json` `csv` `orc` `parquet` `excel`
+`text` `json` `csv` `orc` `parquet` `excel` `xml`
 
 Please note that, The final file name will end with the file_format's suffix, the suffix of the text file is `txt`.
 
@@ -188,6 +192,18 @@ When File Format is Excel,The maximum number of data items that can be cached in
 ### sheet_name [string]
 
 Writer the sheet of the workbook
+
+### xml_root_tag [string]
+
+Specifies the tag name of the root element within the XML file.
+
+### xml_row_tag [string]
+
+Specifies the tag name of the data rows within the XML file.
+
+### xml_use_attr_format [boolean]
+
+Specifies Whether to process data using the tag attribute format.
 
 ## Example
 
