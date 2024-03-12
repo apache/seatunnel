@@ -105,7 +105,7 @@ public enum FileFormat implements Serializable {
     },
     XML("xml") {
         @Override
-        public WriteStrategy getWriteStrategy(FileSinkConfig fileSinkConfig) {
+        public WriteStrategy getWriteStrategy(FileSinkConfig fileSinkConfig, String sinkName) {
             return new XmlWriteStrategy(fileSinkConfig);
         }
 
