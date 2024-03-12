@@ -40,7 +40,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorErrorCode.CLOSE_BE_READER_FAILED;
@@ -55,21 +55,12 @@ public class StarRocksBeReadClient implements Serializable {
     private String contextId;
     private int readerOffset = 0;
     private final SourceConfig sourceConfig;
-    private final SeaTunnelRowType seaTunnelRowType;
+    private SeaTunnelRowType seaTunnelRowType;
     private StarRocksRowBatchReader rowBatch;
-
-    private final List<Long> tabletIds;
-
-    private final String queryPlan;
     protected AtomicBoolean eos = new AtomicBoolean(false);
 
-    public StarRocksBeReadClient(
-            QueryPartition queryPartition,
-            SourceConfig sourceConfig,
-            SeaTunnelRowType seaTunnelRowType) {
+    public StarRocksBeReadClient(String beNodeInfo, SourceConfig sourceConfig) {
         this.sourceConfig = sourceConfig;
-        this.seaTunnelRowType = seaTunnelRowType;
-        String beNodeInfo = queryPartition.getBeAddress();
         log.debug("Parse StarRocks BE address: '{}'.", beNodeInfo);
         String[] hostPort = beNodeInfo.split(":");
         if (hostPort.length != 2) {
@@ -79,8 +70,6 @@ public class StarRocksBeReadClient implements Serializable {
         }
         this.ip = hostPort[0].trim();
         this.port = Integer.parseInt(hostPort[1].trim());
-        this.queryPlan = queryPartition.getQueryPlan();
-        this.tabletIds = new ArrayList<>(queryPartition.getTabletIds());
         TBinaryProtocol.Factory factory = new TBinaryProtocol.Factory();
         TSocket socket =
                 new TSocket(
@@ -101,10 +90,12 @@ public class StarRocksBeReadClient implements Serializable {
         client = new TStarrocksExternalService.Client(protocol);
     }
 
-    public void openScanner() {
+    public void openScanner(QueryPartition partition, SeaTunnelRowType seaTunnelRowType) {
+        this.seaTunnelRowType = seaTunnelRowType;
+        Set<Long> tabletIds = partition.getTabletIds();
         TScanOpenParams params = new TScanOpenParams();
-        params.setTablet_ids(tabletIds);
-        params.setOpaqued_query_plan(queryPlan);
+        params.setTablet_ids(new ArrayList<>(tabletIds));
+        params.setOpaqued_query_plan(partition.getQueryPlan());
         params.setCluster(DEFAULT_CLUSTER_NAME);
         params.setDatabase(sourceConfig.getDatabase());
         params.setTable(sourceConfig.getTable());
