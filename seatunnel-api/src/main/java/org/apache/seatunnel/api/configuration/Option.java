@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.api.configuration;
 
-import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.core.type.TypeReference;
 
 import lombok.Getter;
 
@@ -41,7 +41,7 @@ public class Option<T> {
 
     @Getter private final List<String> fallbackKeys;
 
-    public Option(String key, TypeReference<T> typeReference, T defaultValue) {
+    public Option(String key, TypeReference typeReference, T defaultValue) {
         this.key = key;
         this.typeReference = typeReference;
         this.defaultValue = defaultValue;

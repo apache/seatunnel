@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.api.configuration;
 
-import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
-
+//import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.commons.lang3.StringUtils;
 
 import lombok.NonNull;
@@ -30,7 +30,8 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 
-import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkArgument;
+//import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 
 public class Options {
 

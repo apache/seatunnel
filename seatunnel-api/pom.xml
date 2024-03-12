@@ -43,5 +43,10 @@
             <version>${project.version}</version>
             <classifier>optional</classifier>
         </dependency>
+        <dependency>
+            <groupId>org.apache.paimon</groupId>
+            <artifactId>paimon-bundle</artifactId>
+            <version>0.6.0-incubating</version>
+        </dependency>
     </dependencies>
 </project>
