@@ -48,6 +48,7 @@ import java.util.concurrent.TimeUnit;
 
 import static io.restassured.RestAssured.given;
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
+import static org.hamcrest.Matchers.equalTo;
 
 public abstract class ClassLoaderITBase extends SeaTunnelContainer {
 
@@ -103,7 +104,7 @@ public abstract class ClassLoaderITBase extends SeaTunnelContainer {
                                                             + server.getFirstMappedPort()
                                                             + "/hazelcast/rest/cluster");
                             response.then().statusCode(200);
-                            Thread.sleep(5000);
+                            Thread.sleep(10000);
                             Assertions.assertEquals(
                                     1, response.jsonPath().getList("members").size());
                         });
@@ -147,6 +148,21 @@ public abstract class ClassLoaderITBase extends SeaTunnelContainer {
                     .then()
                     .statusCode(200);
 
+            Awaitility.await()
+                    .atMost(2, TimeUnit.MINUTES)
+                    .untilAsserted(
+                            () ->
+                                    given().get(
+                                                    http
+                                                            + server.getHost()
+                                                            + colon
+                                                            + server.getFirstMappedPort()
+                                                            + RestConstant.FINISHED_JOBS_INFO
+                                                            + "/FINISHED")
+                                            .then()
+                                            .statusCode(200)
+                                            .body("[0].jobStatus", equalTo("FINISHED")));
+            Thread.sleep(5000);
             Assertions.assertTrue(containsDaemonThread());
             if (cacheMode()) {
                 Assertions.assertEquals(3, getClassLoaderCount());
