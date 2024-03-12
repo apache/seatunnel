@@ -200,7 +200,7 @@ public class PreviewActionTest {
         assertPreviewResult(
                 catalog,
                 Catalog.ActionType.CREATE_TABLE,
-                "CREATE TABLE \"testtable\" (\n" + "\"test\" NVARCHAR2(4000)\n" + ")",
+                "CREATE TABLE \"testtable\" (\n" + "\"test\" VARCHAR2(4000)\n" + ")",
                 Optional.of(CATALOG_TABLE));
 
         Catalog catalog2 =
@@ -287,7 +287,7 @@ public class PreviewActionTest {
         assertPreviewResult(
                 catalog,
                 Catalog.ActionType.CREATE_TABLE,
-                "CREATE TABLE \"testtable\" (\n" + "\"test\" NVARCHAR2(4000)\n" + ")",
+                "CREATE TABLE \"testtable\" (\n" + "\"test\" VARCHAR2(4000)\n" + ")",
                 Optional.of(CATALOG_TABLE));
     }
 
@@ -325,14 +325,12 @@ public class PreviewActionTest {
                 Catalog.ActionType.DROP_TABLE,
                 "DROP TABLE \"null\".\"testtable\"",
                 Optional.empty());
-        Assertions.assertThrows(
-                UnsupportedOperationException.class,
-                () ->
-                        assertPreviewResult(
-                                catalog,
-                                Catalog.ActionType.CREATE_TABLE,
-                                "CREATE TABLE \"testtable\" (\n" + "\"test\" CLOB\n" + ")",
-                                Optional.of(CATALOG_TABLE)));
+
+        assertPreviewResult(
+                catalog,
+                Catalog.ActionType.CREATE_TABLE,
+                "CREATE TABLE \"testtable\" (\n" + "\"test\" text\n" + ");",
+                Optional.of(CATALOG_TABLE));
     }
 
     @Test
