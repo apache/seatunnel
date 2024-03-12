@@ -44,11 +44,13 @@ public class SourceConfig extends CommonConfig {
         this.queryTimeoutSec = config.get(SCAN_QUERY_TIMEOUT_SEC);
         this.memLimit = config.get(SCAN_MEM_LIMIT);
 
+        String prefix = STARROCKS_SCAN_CONFIG_PREFIX.key();
         config.toMap()
                 .forEach(
                         (key, value) -> {
-                            if (key.startsWith(STARROCKS_SCAN_CONFIG_PREFIX.key())) {
-                                this.sourceOptionProps.put(key.toLowerCase(), value);
+                            if (key.startsWith(prefix)) {
+                                this.sourceOptionProps.put(
+                                        key.substring(prefix.length()).toLowerCase(), value);
                             }
                         });
     }
