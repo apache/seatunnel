@@ -19,7 +19,7 @@ delivers the query plan as a parameter to BE nodes, and then obtains data result
 
 ## Options
 
-|          name           |  type  | required |   default value   |
+| name                    | type   | required | default value     |
 |-------------------------|--------|----------|-------------------|
 | node_urls               | list   | yes      | -                 |
 | username                | string | yes      | -                 |
@@ -35,6 +35,8 @@ delivers the query plan as a parameter to BE nodes, and then obtains data result
 | scan_batch_rows         | int    | no       | 1024              |
 | scan_mem_limit          | long   | no       | 2147483648        |
 | max_retries             | int    | no       | 3                 |
+| scan.params.*           | string | no       | -                 |
+ 
 
 ### node_urls [list]
 
@@ -136,6 +138,10 @@ The maximum memory space allowed for a single query in the BE node, in bytes. Th
 
 number of retry requests sent to StarRocks
 
+### scan.params. [string]
+
+The parameter of the scan data from be
+
 ## Example
 
 ```
@@ -164,6 +170,7 @@ source {
        DATETIME_COL = TIMESTAMP
        DATE_COL = DATE
     }
+    scan.params.
   }
 }
 ```
