@@ -36,7 +36,6 @@ public class StarRocksSource
         implements SeaTunnelSource<SeaTunnelRow, StarRocksSourceSplit, StarRocksSourceState> {
 
     private SourceConfig sourceConfig;
-
     private CatalogTable catalogTable;
 
     @Override
