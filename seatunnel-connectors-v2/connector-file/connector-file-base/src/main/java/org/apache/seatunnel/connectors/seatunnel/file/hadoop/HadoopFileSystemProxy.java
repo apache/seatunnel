@@ -23,7 +23,6 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.CommonConfigurationKeys;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileStatus;
@@ -43,11 +42,6 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
-import static org.apache.parquet.avro.AvroReadSupport.READ_INT96_AS_FIXED;
-import static org.apache.parquet.avro.AvroSchemaConverter.ADD_LIST_ELEMENT_RECORDS;
-import static org.apache.parquet.avro.AvroWriteSupport.WRITE_FIXED_AS_INT96;
-import static org.apache.parquet.avro.AvroWriteSupport.WRITE_OLD_LIST_STRUCTURE;
-
 @Slf4j
 public class HadoopFileSystemProxy implements Serializable, Closeable {
 
@@ -64,30 +58,19 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
     }
 
     public boolean fileExist(@NonNull String filePath) throws IOException {
-        if (fileSystem == null) {
-            initialize();
-        }
-        Path fileName = new Path(filePath);
-        return fileSystem.exists(fileName);
+        return getFileSystem().exists(new Path(filePath));
     }
 
     public void createFile(@NonNull String filePath) throws IOException {
-        if (fileSystem == null) {
-            initialize();
-        }
-        Path path = new Path(filePath);
-        if (!fileSystem.createNewFile(path)) {
+        if (!getFileSystem().createNewFile(new Path(filePath))) {
             throw CommonError.fileOperationFailed("SeaTunnel", "create", filePath);
         }
     }
 
     public void deleteFile(@NonNull String filePath) throws IOException {
-        if (fileSystem == null) {
-            initialize();
-        }
         Path path = new Path(filePath);
-        if (fileSystem.exists(path)) {
-            if (!fileSystem.delete(path, true)) {
+        if (getFileSystem().exists(path)) {
+            if (!getFileSystem().delete(path, true)) {
                 throw CommonError.fileOperationFailed("SeaTunnel", "delete", filePath);
             }
         }
@@ -98,9 +81,6 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
             @NonNull String newFilePath,
             boolean removeWhenNewFilePathExist)
             throws IOException {
-        if (fileSystem == null) {
-            initialize();
-        }
         Path oldPath = new Path(oldFilePath);
         Path newPath = new Path(newFilePath);
 
@@ -116,7 +96,7 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
 
         if (removeWhenNewFilePathExist) {
             if (fileExist(newFilePath)) {
-                fileSystem.delete(newPath, true);
+                getFileSystem().delete(newPath, true);
                 log.info("Delete already file: {}", newPath);
             }
         }
@@ -124,7 +104,7 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
             createDir(newPath.getParent().toString());
         }
 
-        if (fileSystem.rename(oldPath, newPath)) {
+        if (getFileSystem().rename(oldPath, newPath)) {
             log.info("rename file :[" + oldPath + "] to [" + newPath + "] finish");
         } else {
             throw CommonError.fileOperationFailed(
@@ -133,26 +113,20 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
     }
 
     public void createDir(@NonNull String filePath) throws IOException {
-        if (fileSystem == null) {
-            initialize();
-        }
         Path dfs = new Path(filePath);
-        if (!fileSystem.mkdirs(dfs)) {
+        if (!getFileSystem().mkdirs(dfs)) {
             throw CommonError.fileOperationFailed("SeaTunnel", "create", filePath);
         }
     }
 
     public List<LocatedFileStatus> listFile(String path) throws IOException {
-        if (fileSystem == null) {
-            initialize();
-        }
         List<LocatedFileStatus> fileList = new ArrayList<>();
         if (!fileExist(path)) {
             return fileList;
         }
         Path fileName = new Path(path);
         RemoteIterator<LocatedFileStatus> locatedFileStatusRemoteIterator =
-                fileSystem.listFiles(fileName, false);
+                getFileSystem().listFiles(fileName, false);
         while (locatedFileStatusRemoteIterator.hasNext()) {
             fileList.add(locatedFileStatusRemoteIterator.next());
         }
@@ -160,15 +134,12 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
     }
 
     public List<Path> getAllSubFiles(@NonNull String filePath) throws IOException {
-        if (fileSystem == null) {
-            initialize();
-        }
         List<Path> pathList = new ArrayList<>();
         if (!fileExist(filePath)) {
             return pathList;
         }
         Path fileName = new Path(filePath);
-        FileStatus[] status = fileSystem.listStatus(fileName);
+        FileStatus[] status = getFileSystem().listStatus(fileName);
         if (status != null) {
             for (FileStatus fileStatus : status) {
                 if (fileStatus.isDirectory()) {
@@ -180,31 +151,26 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
     }
 
     public FileStatus[] listStatus(String filePath) throws IOException {
-        if (fileSystem == null) {
-            initialize();
-        }
-        return fileSystem.listStatus(new Path(filePath));
+        return getFileSystem().listStatus(new Path(filePath));
     }
 
     public FileStatus getFileStatus(String filePath) throws IOException {
-        if (fileSystem == null) {
-            initialize();
-        }
-        return fileSystem.getFileStatus(new Path(filePath));
+        return getFileSystem().getFileStatus(new Path(filePath));
     }
 
     public FSDataOutputStream getOutputStream(String filePath) throws IOException {
-        if (fileSystem == null) {
-            initialize();
-        }
-        return fileSystem.create(new Path(filePath), true);
+        return getFileSystem().create(new Path(filePath), true);
     }
 
     public FSDataInputStream getInputStream(String filePath) throws IOException {
+        return getFileSystem().open(new Path(filePath));
+    }
+
+    public FileSystem getFileSystem() {
         if (fileSystem == null) {
             initialize();
         }
-        return fileSystem.open(new Path(filePath));
+        return fileSystem;
     }
 
     @SneakyThrows
@@ -258,16 +224,7 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
     }
 
     private Configuration createConfiguration() {
-        Configuration configuration = new Configuration();
-        configuration.setBoolean(READ_INT96_AS_FIXED, true);
-        configuration.setBoolean(WRITE_FIXED_AS_INT96, true);
-        configuration.setBoolean(ADD_LIST_ELEMENT_RECORDS, false);
-        configuration.setBoolean(WRITE_OLD_LIST_STRUCTURE, true);
-        configuration.set(CommonConfigurationKeys.FS_DEFAULT_NAME_KEY, hadoopConf.getHdfsNameKey());
-        configuration.setBoolean(
-                String.format("fs.%s.impl.disable.cache", hadoopConf.getSchema()), true);
-        configuration.set(
-                String.format("fs.%s.impl", hadoopConf.getSchema()), hadoopConf.getFsHdfsImpl());
+        Configuration configuration = hadoopConf.toConfiguration();
         hadoopConf.setExtraOptionsForConfiguration(configuration);
         return configuration;
     }

@@ -122,6 +122,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
                                 .compress(compressFormat.getOrcCompression())
                                 // use orc version 0.12
                                 .version(OrcFile.Version.V_0_12)
+                                .fileSystem(hadoopFileSystemProxy.getFileSystem())
                                 .overwrite(true);
                 Writer newWriter = OrcFile.createWriter(path, options);
                 this.beingWrittenWriter.put(filePath, newWriter);
