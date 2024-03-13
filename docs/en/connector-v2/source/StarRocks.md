@@ -19,7 +19,7 @@ delivers the query plan as a parameter to BE nodes, and then obtains data result
 
 ## Options
 
-| name                    | type   | required | default value     |
+|          name           |  type  | required |   default value   |
 |-------------------------|--------|----------|-------------------|
 | node_urls               | list   | yes      | -                 |
 | username                | string | yes      | -                 |
@@ -36,7 +36,6 @@ delivers the query plan as a parameter to BE nodes, and then obtains data result
 | scan_mem_limit          | long   | no       | 2147483648        |
 | max_retries             | int    | no       | 3                 |
 | scan.params.*           | string | no       | -                 |
- 
 
 ### node_urls [list]
 
@@ -170,7 +169,8 @@ source {
        DATETIME_COL = TIMESTAMP
        DATE_COL = DATE
     }
-    scan.params.
+    scan.params.scanner_thread_pool_thread_num = "3"
+    
   }
 }
 ```
