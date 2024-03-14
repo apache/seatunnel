@@ -59,6 +59,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | xml_use_attr_format       | boolean | no       | -                   |
 | file_filter_pattern       | string  | no       | -                   |
 | compress_codec            | string  | no       | none                |
+| encoding                  | string  | no       | UTF-8               |
 | common-options            |         | no       | -                   |
 
 ### host [string]
@@ -257,6 +258,11 @@ The compress codec of files and the details that supported as the following show
 - csv: `lzo` `none`
 - orc/parquet:  
   automatically recognizes the compression type, no additional settings required.
+
+### encoding [string]
+
+Only used when file_format_type is json,text,csv,xml.
+The encoding of the file to read. This param will be parsed by `Charset.forName(encoding)`.
 
 ### common options
 

@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -49,6 +50,7 @@ import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -72,6 +74,7 @@ public class XmlReadStrategy extends AbstractReadStrategy {
     private DateUtils.Formatter dateFormat;
     private DateTimeUtils.Formatter datetimeFormat;
     private TimeUtils.Formatter timeFormat;
+    private String encoding = BaseSourceConfigOptions.ENCODING.defaultValue();
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -88,7 +91,10 @@ public class XmlReadStrategy extends AbstractReadStrategy {
         SAXReader saxReader = new SAXReader();
         Document document;
         try {
-            document = saxReader.read(hadoopFileSystemProxy.getInputStream(path));
+            document =
+                    saxReader.read(
+                            new InputStreamReader(
+                                    hadoopFileSystemProxy.getInputStream(path), encoding));
         } catch (DocumentException e) {
             throw new FileConnectorException(
                     FileConnectorErrorCode.FILE_READ_FAILED, "Failed to read xml file: " + path, e);
@@ -210,13 +216,13 @@ public class XmlReadStrategy extends AbstractReadStrategy {
             case INT:
                 return (int) Double.parseDouble(fieldValue);
             case BIGINT:
-                return (long) Double.parseDouble(fieldValue);
+                return new BigDecimal(fieldValue).longValue();
             case DOUBLE:
                 return Double.parseDouble(fieldValue);
             case FLOAT:
                 return (float) Double.parseDouble(fieldValue);
             case DECIMAL:
-                return BigDecimal.valueOf(Double.parseDouble(fieldValue));
+                return new BigDecimal(fieldValue);
             case BOOLEAN:
                 return Boolean.parseBoolean(fieldValue);
             case BYTES:
@@ -270,6 +276,10 @@ public class XmlReadStrategy extends AbstractReadStrategy {
         this.datetimeFormat =
                 getComplexDateConfigValue(
                         BaseSourceConfigOptions.DATETIME_FORMAT, DateTimeUtils.Formatter::parse);
+        this.encoding =
+                ReadonlyConfig.fromConfig(pluginConfig)
+                        .getOptional(BaseSourceConfigOptions.ENCODING)
+                        .orElse(StandardCharsets.UTF_8.name());
     }
 
     /**
