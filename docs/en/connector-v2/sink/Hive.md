@@ -30,16 +30,18 @@ By default, we use 2PC commit to ensure `exactly-once`
 
 ## Options
 
-|         name         |  type  | required | default value |
-|----------------------|--------|----------|---------------|
-| table_name           | string | yes      | -             |
-| metastore_uri        | string | yes      | -             |
-| compress_codec       | string | no       | none          |
-| hdfs_site_path       | string | no       | -             |
-| hive_site_path       | string | no       | -             |
-| kerberos_principal   | string | no       | -             |
-| kerberos_keytab_path | string | no       | -             |
-| common-options       |        | no       | -             |
+|             name              |  type   | required | default value  |
+|-------------------------------|---------|----------|----------------|
+| table_name                    | string  | yes      | -              |
+| metastore_uri                 | string  | yes      | -              |
+| compress_codec                | string  | no       | none           |
+| hdfs_site_path                | string  | no       | -              |
+| hive_site_path                | string  | no       | -              |
+| krb5_path                     | string  | no       | /etc/krb5.conf |
+| kerberos_principal            | string  | no       | -              |
+| kerberos_keytab_path          | string  | no       | -              |
+| abort_drop_partition_metadata | boolean | no       | true           |
+| common-options                |         | no       | -              |
 
 ### table_name [string]
 
@@ -55,6 +57,10 @@ The path of `hdfs-site.xml`, used to load ha configuration of namenodes
 
 ### hive_site_path [string]
 
+### krb5_path [string]
+
+The path of `krb5.conf`, used to authentication kerberos
+
 The path of `hive-site.xml`, used to authentication hive metastore
 
 ### kerberos_principal [string]
@@ -64,6 +70,10 @@ The principal of kerberos
 ### kerberos_keytab_path [string]
 
 The keytab path of kerberos
+
+### abort_drop_partition_metadata [list]
+
+Flag to decide whether to drop partition metadata from Hive Metastore during an abort operation. Note: this only affects the metadata in the metastore, the data in the partition will always be deleted(data generated during the synchronization process).
 
 ### common options
 
@@ -135,7 +145,6 @@ The job config file can like this:
 
 ```
 env {
-  # You can set flink configuration here
   parallelism = 3
   job.name="test_hive_source_to_hive"
 }

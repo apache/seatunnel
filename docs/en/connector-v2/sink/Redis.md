@@ -20,9 +20,11 @@ Used to write data to Redis.
 | data_type      | string | yes                   | -             |
 | user           | string | no                    | -             |
 | auth           | string | no                    | -             |
+| db_num         | int    | no                    | 0             |
 | mode           | string | no                    | single        |
 | nodes          | list   | yes when mode=cluster | -             |
 | format         | string | no                    | json          |
+| expire         | long   | no                    | -1            |
 | common-options |        | no                    | -             |
 
 ### host [string]
@@ -90,6 +92,10 @@ redis authentication user, you need it when you connect to an encrypted cluster
 
 Redis authentication password, you need it when you connect to an encrypted cluster
 
+### db_num [int]
+
+Redis database index ID. It is connected to db 0 by default
+
 ### mode [string]
 
 redis mode, `single` or `cluster`, default is `single`
@@ -119,6 +125,10 @@ Connector will generate data as the following and write it to redis:
 {"code":  200, "data":  "get success", "success":  "true"}
 
 ```
+
+### expire [long]
+
+Set redis expiration time, the unit is second. The default value is -1, keys do not automatically expire by default.
 
 ### common options
 

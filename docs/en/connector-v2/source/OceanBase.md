@@ -36,56 +36,61 @@ Read external data source data through JDBC.
 
 ### Mysql Mode
 
-|                                                          Mysql Data type                                                          |                                                                 SeaTunnel Data type                                                                 |
-|-----------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
-| BIT(1)<br/>INT UNSIGNED                                                                                                           | BOOLEAN                                                                                                                                             |
-| TINYINT<br/>TINYINT UNSIGNED<br/>SMALLINT<br/>SMALLINT UNSIGNED<br/>MEDIUMINT<br/>MEDIUMINT UNSIGNED<br/>INT<br/>INTEGER<br/>YEAR | INT                                                                                                                                                 |
-| INT UNSIGNED<br/>INTEGER UNSIGNED<br/>BIGINT                                                                                      | BIGINT                                                                                                                                              |
-| BIGINT UNSIGNED                                                                                                                   | DECIMAL(20,0)                                                                                                                                       |
-| DECIMAL(x,y)(Get the designated column's specified column size.<38)                                                               | DECIMAL(x,y)                                                                                                                                        |
-| DECIMAL(x,y)(Get the designated column's specified column size.>38)                                                               | DECIMAL(38,18)                                                                                                                                      |
-| DECIMAL UNSIGNED                                                                                                                  | DECIMAL((Get the designated column's specified column size)+1,<br/>(Gets the designated column's number of digits to right of the decimal point.))) |
-| FLOAT<br/>FLOAT UNSIGNED                                                                                                          | FLOAT                                                                                                                                               |
-| DOUBLE<br/>DOUBLE UNSIGNED                                                                                                        | DOUBLE                                                                                                                                              |
-| CHAR<br/>VARCHAR<br/>TINYTEXT<br/>MEDIUMTEXT<br/>TEXT<br/>LONGTEXT<br/>JSON                                                       | STRING                                                                                                                                              |
-| DATE                                                                                                                              | DATE                                                                                                                                                |
-| TIME                                                                                                                              | TIME                                                                                                                                                |
-| DATETIME<br/>TIMESTAMP                                                                                                            | TIMESTAMP                                                                                                                                           |
-| TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB<br/>BINARY<br/>VARBINAR<br/>BIT(n)                                                  | BYTES                                                                                                                                               |
-| GEOMETRY<br/>UNKNOWN                                                                                                              | Not supported yet                                                                                                                                   |
+|                                        Mysql Data type                                        |                                                                 SeaTunnel Data type                                                                 |
+|-----------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
+| BIT(1)<br/>TINYINT(1)                                                                         | BOOLEAN                                                                                                                                             |
+| TINYINT                                                                                       | BYTE                                                                                                                                                |
+| TINYINT<br/>TINYINT UNSIGNED                                                                  | SMALLINT                                                                                                                                            |
+| SMALLINT UNSIGNED<br/>MEDIUMINT<br/>MEDIUMINT UNSIGNED<br/>INT<br/>INTEGER<br/>YEAR           | INT                                                                                                                                                 |
+| INT UNSIGNED<br/>INTEGER UNSIGNED<br/>BIGINT                                                  | BIGINT                                                                                                                                              |
+| BIGINT UNSIGNED                                                                               | DECIMAL(20,0)                                                                                                                                       |
+| DECIMAL(x,y)(Get the designated column's specified column size.<38)                           | DECIMAL(x,y)                                                                                                                                        |
+| DECIMAL(x,y)(Get the designated column's specified column size.>38)                           | DECIMAL(38,18)                                                                                                                                      |
+| DECIMAL UNSIGNED                                                                              | DECIMAL((Get the designated column's specified column size)+1,<br/>(Gets the designated column's number of digits to right of the decimal point.))) |
+| FLOAT<br/>FLOAT UNSIGNED                                                                      | FLOAT                                                                                                                                               |
+| DOUBLE<br/>DOUBLE UNSIGNED                                                                    | DOUBLE                                                                                                                                              |
+| CHAR<br/>VARCHAR<br/>TINYTEXT<br/>MEDIUMTEXT<br/>TEXT<br/>LONGTEXT<br/>JSON<br/>ENUM          | STRING                                                                                                                                              |
+| DATE                                                                                          | DATE                                                                                                                                                |
+| TIME                                                                                          | TIME                                                                                                                                                |
+| DATETIME<br/>TIMESTAMP                                                                        | TIMESTAMP                                                                                                                                           |
+| TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB<br/>BINARY<br/>VARBINAR<br/>BIT(n)<br/>GEOMETRY | BYTES                                                                                                                                               |
 
 ### Oracle Mode
 
-|                     Oracle Data type                      | SeaTunnel Data type |
-|-----------------------------------------------------------|---------------------|
-| Number(p), p <= 9                                         | INT                 |
-| Number(p), p <= 18                                        | BIGINT              |
-| Number(p), p > 18                                         | DECIMAL(38,18)      |
-| REAL<br/> BINARY_FLOAT                                    | FLOAT               |
-| BINARY_DOUBLE                                             | DOUBLE              |
-| CHAR<br/>NCHAR<br/>NVARCHAR2<br/>NCLOB<br/>CLOB<br/>ROWID | STRING              |
-| DATE                                                      | DATE                |
-| TIMESTAMP<br/>TIMESTAMP WITH LOCAL TIME ZONE              | TIMESTAMP           |
-| BLOB<br/>RAW<br/>LONG RAW<br/>BFILE                       | BYTES               |
-| UNKNOWN                                                   | Not supported yet   |
+|                                          Oracle Data type                                           | SeaTunnel Data type |
+|-----------------------------------------------------------------------------------------------------|---------------------|
+| Integer                                                                                             | DECIMAL(38,0)       |
+| Number(p), p <= 9                                                                                   | INT                 |
+| Number(p), p <= 18                                                                                  | BIGINT              |
+| Number(p), p > 18                                                                                   | DECIMAL(38,18)      |
+| Number(p,s)                                                                                         | DECIMAL(p,s)        |
+| Float                                                                                               | DECIMAL(38,18)      |
+| REAL<br/> BINARY_FLOAT                                                                              | FLOAT               |
+| BINARY_DOUBLE                                                                                       | DOUBLE              |
+| CHAR<br/>NCHAR<br/>VARCHAR<br/>VARCHAR2<br/>NVARCHAR2<br/>NCLOB<br/>CLOB<br/>LONG<br/>XML<br/>ROWID | STRING              |
+| DATE                                                                                                | TIMESTAMP           |
+| TIMESTAMP<br/>TIMESTAMP WITH LOCAL TIME ZONE                                                        | TIMESTAMP           |
+| BLOB<br/>RAW<br/>LONG RAW<br/>BFILE                                                                 | BYTES               |
+| UNKNOWN                                                                                             | Not supported yet   |
 
 ## Source Options
 
-|             Name             |  Type  | Required |     Default     |                                                                                                                              Description                                                                                                                              |
-|------------------------------|--------|----------|-----------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| url                          | String | Yes      | -               | The URL of the JDBC connection. Refer to a case: jdbc:oceanbase://localhost:2883/test                                                                                                                                                                                 |
-| driver                       | String | Yes      | -               | The jdbc class name used to connect to the remote data source, should be `com.oceanbase.jdbc.Driver`.                                                                                                                                                                 |
-| user                         | String | No       | -               | Connection instance user name                                                                                                                                                                                                                                         |
-| password                     | String | No       | -               | Connection instance password                                                                                                                                                                                                                                          |
-| compatible_mode              | String | Yes      | -               | The compatible mode of OceanBase, can be 'mysql' or 'oracle'.                                                                                                                                                                                                         |
-| query                        | String | Yes      | -               | Query statement                                                                                                                                                                                                                                                       |
-| connection_check_timeout_sec | Int    | No       | 30              | The time in seconds to wait for the database operation used to validate the connection to complete                                                                                                                                                                    |
-| partition_column             | String | No       | -               | The column name for parallelism's partition, only support numeric type column and string type column.                                                                                                                                                                 |
-| partition_lower_bound        | Long   | No       | -               | The partition_column min value for scan, if not set SeaTunnel will query database get min value.                                                                                                                                                                      |
-| partition_upper_bound        | Long   | No       | -               | The partition_column max value for scan, if not set SeaTunnel will query database get max value.                                                                                                                                                                      |
-| partition_num                | Int    | No       | job parallelism | The number of partition count, only support positive integer. Default value is job parallelism.                                                                                                                                                                       |
-| fetch_size                   | Int    | No       | 0               | For queries that return a large number of objects, you can configure <br/> the row fetch size used in the query to improve performance by <br/> reducing the number database hits required to satisfy the selection criteria.<br/> Zero means use jdbc default value. |
-| common-options               |        | No       | -               | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details                                                                                                                                                               |
+|             Name             |    Type    | Required |     Default     |                                                                                                                              Description                                                                                                                              |
+|------------------------------|------------|----------|-----------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| url                          | String     | Yes      | -               | The URL of the JDBC connection. Refer to a case: jdbc:oceanbase://localhost:2883/test                                                                                                                                                                                 |
+| driver                       | String     | Yes      | -               | The jdbc class name used to connect to the remote data source, should be `com.oceanbase.jdbc.Driver`.                                                                                                                                                                 |
+| user                         | String     | No       | -               | Connection instance user name                                                                                                                                                                                                                                         |
+| password                     | String     | No       | -               | Connection instance password                                                                                                                                                                                                                                          |
+| compatible_mode              | String     | Yes      | -               | The compatible mode of OceanBase, can be 'mysql' or 'oracle'.                                                                                                                                                                                                         |
+| query                        | String     | Yes      | -               | Query statement                                                                                                                                                                                                                                                       |
+| connection_check_timeout_sec | Int        | No       | 30              | The time in seconds to wait for the database operation used to validate the connection to complete                                                                                                                                                                    |
+| partition_column             | String     | No       | -               | The column name for parallelism's partition, only support numeric type column and string type column.                                                                                                                                                                 |
+| partition_lower_bound        | BigDecimal | No       | -               | The partition_column min value for scan, if not set SeaTunnel will query database get min value.                                                                                                                                                                      |
+| partition_upper_bound        | BigDecimal | No       | -               | The partition_column max value for scan, if not set SeaTunnel will query database get max value.                                                                                                                                                                      |
+| partition_num                | Int        | No       | job parallelism | The number of partition count, only support positive integer. Default value is job parallelism.                                                                                                                                                                       |
+| fetch_size                   | Int        | No       | 0               | For queries that return a large number of objects, you can configure <br/> the row fetch size used in the query to improve performance by <br/> reducing the number database hits required to satisfy the selection criteria.<br/> Zero means use jdbc default value. |
+| properties                   | Map        | No       | -               | Additional connection configuration parameters,when properties and URL have the same parameters, the priority is determined by the <br/>specific implementation of the driver. For example, in MySQL, properties take precedence over the URL.                        |
+| common-options               |            | No       | -               | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details                                                                                                                                                               |
 
 ### Tips
 
@@ -97,7 +102,7 @@ Read external data source data through JDBC.
 
 ```
 env {
-  execution.parallelism = 2
+  parallelism = 2
   job.mode = "BATCH"
 }
 
@@ -127,6 +132,10 @@ sink {
 > Read your query table in parallel with the shard field you configured and the shard data. You can do this if you want to read the whole table
 
 ```
+env {
+  parallelism = 10
+  job.mode = "BATCH"
+}
 source {
   Jdbc {
     driver = "com.oceanbase.jdbc.Driver"
@@ -140,6 +149,9 @@ source {
     # Number of fragments
     partition_num = 10
   }
+}
+sink {
+  Console {}
 }
 ```
 

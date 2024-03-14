@@ -22,7 +22,6 @@ import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksCo
 import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorException;
 
 import com.google.common.base.Strings;
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -30,10 +29,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public class StarRocksSinkManager {
@@ -42,18 +37,14 @@ public class StarRocksSinkManager {
     private final List<byte[]> batchList;
 
     private final StarRocksStreamLoadVisitor starrocksStreamLoadVisitor;
-    private ScheduledExecutorService scheduler;
-    private ScheduledFuture<?> scheduledFuture;
     private volatile boolean initialize;
     private volatile Exception flushException;
     private int batchRowCount = 0;
     private long batchBytesSize = 0;
-    private final Integer batchIntervalMs;
 
     public StarRocksSinkManager(SinkConfig sinkConfig, List<String> fileNames) {
         this.sinkConfig = sinkConfig;
         this.batchList = new ArrayList<>();
-        this.batchIntervalMs = sinkConfig.getBatchIntervalMs();
         starrocksStreamLoadVisitor = new StarRocksStreamLoadVisitor(sinkConfig, fileNames);
     }
 
@@ -62,26 +53,6 @@ public class StarRocksSinkManager {
             return;
         }
         initialize = true;
-
-        if (batchIntervalMs != null) {
-            scheduler =
-                    Executors.newSingleThreadScheduledExecutor(
-                            new ThreadFactoryBuilder()
-                                    .setNameFormat("StarRocks-sink-output-%s")
-                                    .build());
-            scheduledFuture =
-                    scheduler.scheduleAtFixedRate(
-                            () -> {
-                                try {
-                                    flush();
-                                } catch (IOException e) {
-                                    flushException = e;
-                                }
-                            },
-                            batchIntervalMs,
-                            batchIntervalMs,
-                            TimeUnit.MILLISECONDS);
-        }
     }
 
     public synchronized void write(String record) throws IOException {
@@ -98,11 +69,6 @@ public class StarRocksSinkManager {
     }
 
     public synchronized void close() throws IOException {
-        if (scheduledFuture != null) {
-            scheduledFuture.cancel(false);
-            scheduler.shutdown();
-        }
-
         flush();
     }
 

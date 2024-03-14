@@ -23,6 +23,8 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
 import java.sql.ResultSetMetaData;
@@ -103,10 +105,8 @@ public class SapHanaTypeMapper implements JdbcDialectTypeMapper {
                 return BasicType.STRING_TYPE;
             default:
                 final String jdbcColumnName = metadata.getColumnName(colIndex);
-                throw new UnsupportedOperationException(
-                        String.format(
-                                "Doesn't support SapHana type '%s' on column '%s'  yet.",
-                                typeName, jdbcColumnName));
+                throw CommonError.convertToSeaTunnelTypeError(
+                        DatabaseIdentifier.SAP_HANA, typeName, jdbcColumnName);
         }
     }
 }

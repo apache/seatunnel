@@ -14,7 +14,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 
 :::
 
-## Key features
+## Key Features
 
 - [x] [exactly-once](../../concept/connector-v2-features.md)
 
@@ -27,33 +27,40 @@ By default, we use 2PC commit to ensure `exactly-once`
   - [x] orc
   - [x] json
   - [x] excel
+  - [x] xml
 
 ## Options
 
-|               name               |  type   | required |               default value                |                          remarks                          |
-|----------------------------------|---------|----------|--------------------------------------------|-----------------------------------------------------------|
-| path                             | string  | yes      | -                                          |                                                           |
-| custom_filename                  | boolean | no       | false                                      | Whether you need custom the filename                      |
-| file_name_expression             | string  | no       | "${transactionId}"                         | Only used when custom_filename is true                    |
-| filename_time_format             | string  | no       | "yyyy.MM.dd"                               | Only used when custom_filename is true                    |
-| file_format_type                 | string  | no       | "csv"                                      |                                                           |
-| field_delimiter                  | string  | no       | '\001'                                     | Only used when file_format_type is text                   |
-| row_delimiter                    | string  | no       | "\n"                                       | Only used when file_format_type is text                   |
-| have_partition                   | boolean | no       | false                                      | Whether you need processing partitions.                   |
-| partition_by                     | array   | no       | -                                          | Only used then have_partition is true                     |
-| partition_dir_expression         | string  | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | Only used then have_partition is true                     |
-| is_partition_field_write_in_file | boolean | no       | false                                      | Only used then have_partition is true                     |
-| sink_columns                     | array   | no       |                                            | When this parameter is empty, all fields are sink columns |
-| is_enable_transaction            | boolean | no       | true                                       |                                                           |
-| batch_size                       | int     | no       | 1000000                                    |                                                           |
-| compress_codec                   | string  | no       | none                                       |                                                           |
-| common-options                   | object  | no       | -                                          |                                                           |
-| max_rows_in_memory               | int     | no       | -                                          | Only used when file_format_type is excel.                 |
-| sheet_name                       | string  | no       | Sheet${Random number}                      | Only used when file_format_type is excel.                 |
+|               Name               |  Type   | Required |                  Default                   |                                            Description                                            |
+|----------------------------------|---------|----------|--------------------------------------------|---------------------------------------------------------------------------------------------------|
+| path                             | string  | yes      | -                                          |                                                                                                   |
+| tmp_path                         | string  | no       | /tmp/seatunnel                             | The result file will write to a tmp path first and then use `mv` to submit tmp dir to target dir. |
+| custom_filename                  | boolean | no       | false                                      | Whether you need custom the filename                                                              |
+| file_name_expression             | string  | no       | "${transactionId}"                         | Only used when custom_filename is true                                                            |
+| filename_time_format             | string  | no       | "yyyy.MM.dd"                               | Only used when custom_filename is true                                                            |
+| file_format_type                 | string  | no       | "csv"                                      |                                                                                                   |
+| field_delimiter                  | string  | no       | '\001'                                     | Only used when file_format_type is text                                                           |
+| row_delimiter                    | string  | no       | "\n"                                       | Only used when file_format_type is text                                                           |
+| have_partition                   | boolean | no       | false                                      | Whether you need processing partitions.                                                           |
+| partition_by                     | array   | no       | -                                          | Only used then have_partition is true                                                             |
+| partition_dir_expression         | string  | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | Only used then have_partition is true                                                             |
+| is_partition_field_write_in_file | boolean | no       | false                                      | Only used then have_partition is true                                                             |
+| sink_columns                     | array   | no       |                                            | When this parameter is empty, all fields are sink columns                                         |
+| is_enable_transaction            | boolean | no       | true                                       |                                                                                                   |
+| batch_size                       | int     | no       | 1000000                                    |                                                                                                   |
+| compress_codec                   | string  | no       | none                                       |                                                                                                   |
+| common-options                   | object  | no       | -                                          |                                                                                                   |
+| max_rows_in_memory               | int     | no       | -                                          | Only used when file_format_type is excel.                                                         |
+| sheet_name                       | string  | no       | Sheet${Random number}                      | Only used when file_format_type is excel.                                                         |
+| xml_root_tag                     | string  | no       | RECORDS                                    | Only used when file_format is xml.                                                                |
+| xml_row_tag                      | string  | no       | RECORD                                     | Only used when file_format is xml.                                                                |
+| xml_use_attr_format              | boolean | no       | -                                          | Only used when file_format is xml.                                                                |
+| enable_header_write              | boolean | no       | false                                      | Only used when file_format_type is text,csv.<br/> false:don't write header,true:write header.     |
+| encoding                         | string  | no       | "UTF-8"                                    | Only used when file_format_type is json,text,csv,xml.                                             |
 
 ### path [string]
 
-The target dir path is required.
+The target dir path is required, you can inject the upstream CatalogTable into the path by using: `${database_name}`, `${table_name}` and `${schema_name}`.
 
 ### custom_filename [boolean]
 
@@ -87,7 +94,7 @@ When the format in the `file_name_expression` parameter is `xxxx-${now}` , `file
 
 We supported as the following file types:
 
-`text` `json` `csv` `orc` `parquet` `excel`
+`text` `json` `csv` `orc` `parquet` `excel` `xml`
 
 Please note that, The final file name will end with the file_format_type's suffix, the suffix of the text file is `txt`.
 
@@ -166,6 +173,27 @@ When File Format is Excel,The maximum number of data items that can be cached in
 
 Writer the sheet of the workbook
 
+### xml_root_tag [string]
+
+Specifies the tag name of the root element within the XML file.
+
+### xml_row_tag [string]
+
+Specifies the tag name of the data rows within the XML file.
+
+### xml_use_attr_format [boolean]
+
+Specifies Whether to process data using the tag attribute format.
+
+### enable_header_write [boolean]
+
+Only used when file_format_type is text,csv.false:don't write header,true:write header.
+
+### encoding [string]
+
+Only used when file_format_type is json,text,csv,xml.
+The encoding of the file to write. This param will be parsed by `Charset.forName(encoding)`.
+
 ## Example
 
 For orc file format simple config
@@ -175,6 +203,18 @@ For orc file format simple config
 LocalFile {
     path = "/tmp/hive/warehouse/test2"
     file_format_type = "orc"
+}
+
+```
+
+For json, text, csv or xml file format with `encoding`
+
+```hocon
+
+LocalFile {
+    path = "/tmp/hive/warehouse/test2"
+    file_format_type = "text"
+    encoding = "gbk"
 }
 
 ```
@@ -228,6 +268,18 @@ LocalFile {
     filename_time_format="yyyy.MM.dd"
     is_enable_transaction=true
   }
+
+```
+
+For extract source metadata from upstream, you can use `${database_name}`, `${table_name}` and `${schema_name}` in the path.
+
+```bash
+
+LocalFile {
+    path = "/tmp/hive/warehouse/${table_name}"
+    file_format_type = "parquet"
+    sink_columns = ["name","age"]
+}
 
 ```
 

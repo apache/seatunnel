@@ -28,7 +28,6 @@ import lombok.Data;
 import java.io.Serializable;
 
 @Data
-@SuppressWarnings("checkstyle:MagicNumber")
 public class InfluxDBConfig implements Serializable {
 
     public static final Option<String> USERNAME =

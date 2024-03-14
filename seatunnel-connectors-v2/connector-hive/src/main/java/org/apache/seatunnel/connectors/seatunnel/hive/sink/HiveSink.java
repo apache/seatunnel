@@ -27,7 +27,7 @@ import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.hdfs.sink.BaseHdfsFileSink;
@@ -44,7 +44,6 @@ import org.apache.hadoop.hive.metastore.api.Table;
 
 import com.google.auto.service.AutoService;
 
-import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
@@ -160,7 +159,7 @@ public class HiveSink extends BaseHdfsFileSink {
                             ConfigValueFactory.fromAnyRef(FileFormat.ORC.toString()));
         } else {
             throw new HiveConnectorException(
-                    CommonErrorCode.ILLEGAL_ARGUMENT,
+                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                     "Hive connector only support [text parquet orc] table now");
         }
         pluginConfig =
@@ -204,8 +203,8 @@ public class HiveSink extends BaseHdfsFileSink {
 
     @Override
     public Optional<SinkAggregatedCommitter<FileCommitInfo, FileAggregatedCommitInfo>>
-            createAggregatedCommitter() throws IOException {
+            createAggregatedCommitter() {
         return Optional.of(
-                new HiveSinkAggregatedCommitter(pluginConfig, dbName, tableName, fileSystemUtils));
+                new HiveSinkAggregatedCommitter(pluginConfig, dbName, tableName, hadoopConf));
     }
 }

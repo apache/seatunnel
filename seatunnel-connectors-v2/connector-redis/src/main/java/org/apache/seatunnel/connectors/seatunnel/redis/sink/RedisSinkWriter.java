@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.redis.sink;
 
 import org.apache.seatunnel.api.serialization.SerializationSchema;
+import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
@@ -32,7 +33,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
-public class RedisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
+public class RedisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
+        implements SupportMultiTableSinkWriter<Void> {
     private final SeaTunnelRowType seaTunnelRowType;
     private final RedisParameters redisParameters;
     private final SerializationSchema serializationSchema;
@@ -59,7 +61,8 @@ public class RedisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         } else {
             key = keyField;
         }
-        redisDataType.set(jedis, key, data);
+        long expire = redisParameters.getExpire();
+        redisDataType.set(jedis, key, data, expire);
     }
 
     @Override

@@ -2,11 +2,25 @@
 
 > JDBC Vertica Source Connector
 
+## Description
+
+Read external data source data through JDBC.
+
 ## Support Those Engines
 
 > Spark<br/>
 > Flink<br/>
 > SeaTunnel Zeta<br/>
+
+## Using Dependency
+
+### For Spark/Flink Engine
+
+> 1. You need to ensure that the [jdbc driver jar package](https://www.vertica.com/download/vertica/client-drivers/) has been placed in directory `${SEATUNNEL_HOME}/plugins/`.
+
+### For SeaTunnel Zeta Engine
+
+> 1. You need to ensure that the [jdbc driver jar package](https://www.vertica.com/download/vertica/client-drivers/) has been placed in directory `${SEATUNNEL_HOME}/lib/`.
 
 ## Key Features
 
@@ -19,24 +33,15 @@
 
 > supports query SQL and can achieve projection effect.
 
-## Description
-
-Read external data source data through JDBC.
-
 ## Supported DataSource Info
 
 | Datasource |                    Supported versions                    |         Driver          |                  Url                  |                                Maven                                 |
 |------------|----------------------------------------------------------|-------------------------|---------------------------------------|----------------------------------------------------------------------|
 | Vertica    | Different dependency version has different driver class. | com.vertica.jdbc.Driver | jdbc:vertica://localhost:5433/vertica | [Download](https://www.vertica.com/download/vertica/client-drivers/) |
 
-## Database Dependency
-
-> Please download the support list corresponding to 'Maven' and copy it to the '$SEATNUNNEL_HOME/plugins/jdbc/lib/' working directory<br/>
-> For example Vertica datasource: cp vertica-jdbc-xxx.jar $SEATNUNNEL_HOME/plugins/jdbc/lib/
-
 ## Data Type Mapping
 
-|                                                        Vertical Data type                                                         |                                                                 SeaTunnel Data type                                                                 |
+|                                                        Vertical Data Type                                                         |                                                                 SeaTunnel Data Type                                                                 |
 |-----------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
 | BIT                                                                                                                               | BOOLEAN                                                                                                                                             |
 | TINYINT<br/>TINYINT UNSIGNED<br/>SMALLINT<br/>SMALLINT UNSIGNED<br/>MEDIUMINT<br/>MEDIUMINT UNSIGNED<br/>INT<br/>INTEGER<br/>YEAR | INT                                                                                                                                                 |
@@ -56,20 +61,21 @@ Read external data source data through JDBC.
 
 ## Source Options
 
-|             Name             |  Type  | Required |     Default     |                                                                                                                            Description                                                                                                                            |
-|------------------------------|--------|----------|-----------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| url                          | String | Yes      | -               | The URL of the JDBC connection. Refer to a case: jdbc:vertica://localhost:5433/vertica                                                                                                                                                                            |
-| driver                       | String | Yes      | -               | The jdbc class name used to connect to the remote data source,<br/> if you use Vertica the value is `com.vertica.jdbc.Driver`.                                                                                                                                    |
-| user                         | String | No       | -               | Connection instance user name                                                                                                                                                                                                                                     |
-| password                     | String | No       | -               | Connection instance password                                                                                                                                                                                                                                      |
-| query                        | String | Yes      | -               | Query statement                                                                                                                                                                                                                                                   |
-| connection_check_timeout_sec | Int    | No       | 30              | The time in seconds to wait for the database operation used to validate the connection to complete                                                                                                                                                                |
-| partition_column             | String | No       | -               | The column name for parallelism's partition, only support numeric type,Only support numeric type primary key, and only can config one column.                                                                                                                     |
-| partition_lower_bound        | Long   | No       | -               | The partition_column min value for scan, if not set SeaTunnel will query database get min value.                                                                                                                                                                  |
-| partition_upper_bound        | Long   | No       | -               | The partition_column max value for scan, if not set SeaTunnel will query database get max value.                                                                                                                                                                  |
-| partition_num                | Int    | No       | job parallelism | The number of partition count, only support positive integer. default value is job parallelism                                                                                                                                                                    |
-| fetch_size                   | Int    | No       | 0               | For queries that return a large number of objects,you can configure<br/> the row fetch size used in the query toimprove performance by<br/> reducing the number database hits required to satisfy the selection criteria.<br/> Zero means use jdbc default value. |
-| common-options               |        | No       | -               | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details                                                                                                                                                           |
+|             Name             |    Type    | Required |     Default     |                                                                                                                            Description                                                                                                                            |
+|------------------------------|------------|----------|-----------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| url                          | String     | Yes      | -               | The URL of the JDBC connection. Refer to a case: jdbc:vertica://localhost:5433/vertica                                                                                                                                                                            |
+| driver                       | String     | Yes      | -               | The jdbc class name used to connect to the remote data source,<br/> if you use Vertica the value is `com.vertica.jdbc.Driver`.                                                                                                                                    |
+| user                         | String     | No       | -               | Connection instance user name                                                                                                                                                                                                                                     |
+| password                     | String     | No       | -               | Connection instance password                                                                                                                                                                                                                                      |
+| query                        | String     | Yes      | -               | Query statement                                                                                                                                                                                                                                                   |
+| connection_check_timeout_sec | Int        | No       | 30              | The time in seconds to wait for the database operation used to validate the connection to complete                                                                                                                                                                |
+| partition_column             | String     | No       | -               | The column name for parallelism's partition, only support numeric type,Only support numeric type primary key, and only can config one column.                                                                                                                     |
+| partition_lower_bound        | BigDecimal | No       | -               | The partition_column min value for scan, if not set SeaTunnel will query database get min value.                                                                                                                                                                  |
+| partition_upper_bound        | BigDecimal | No       | -               | The partition_column max value for scan, if not set SeaTunnel will query database get max value.                                                                                                                                                                  |
+| partition_num                | Int        | No       | job parallelism | The number of partition count, only support positive integer. default value is job parallelism                                                                                                                                                                    |
+| fetch_size                   | Int        | No       | 0               | For queries that return a large number of objects,you can configure<br/> the row fetch size used in the query toimprove performance by<br/> reducing the number database hits required to satisfy the selection criteria.<br/> Zero means use jdbc default value. |
+| properties                   | Map        | No       | -               | Additional connection configuration parameters,when properties and URL have the same parameters, the priority is determined by the <br/>specific implementation of the driver. For example, in MySQL, properties take precedence over the URL.                    |
+| common-options               |            | No       | -               | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details                                                                                                                                                           |
 
 ### Tips
 
@@ -84,8 +90,7 @@ Read external data source data through JDBC.
 ```
 # Defining the runtime environment
 env {
-  # You can set flink configuration here
-  execution.parallelism = 2
+  parallelism = 2
   job.mode = "BATCH"
 }
 source{

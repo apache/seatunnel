@@ -20,7 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.file.sink.util;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
@@ -104,7 +105,7 @@ public class ExcelGenerator {
         for (Integer i : sinkColumnsIndexInRow) {
             Cell cell = excelRow.createCell(i);
             Object value = seaTunnelRow.getField(i);
-            setCellValue(fieldTypes[i], value, cell);
+            setCellValue(fieldTypes[i], seaTunnelRowType.getFieldName(i), value, cell);
         }
         this.row += 1;
     }
@@ -114,7 +115,8 @@ public class ExcelGenerator {
         wb.close();
     }
 
-    private void setCellValue(SeaTunnelDataType<?> type, Object value, Cell cell) {
+    private void setCellValue(
+            SeaTunnelDataType<?> type, String fieldName, Object value, Cell cell) {
         if (value == null) {
             cell.setBlank();
         } else {
@@ -172,7 +174,11 @@ public class ExcelGenerator {
                     Object[] fields = ((SeaTunnelRow) value).getFields();
                     String[] strings = new String[fields.length];
                     for (int i = 0; i < fields.length; i++) {
-                        strings[i] = convert(fields[i], ((SeaTunnelRowType) type).getFieldType(i));
+                        strings[i] =
+                                convert(
+                                        ((SeaTunnelRowType) type).getFieldName(i),
+                                        fields[i],
+                                        ((SeaTunnelRowType) type).getFieldType(i));
                     }
                     cell.setCellValue(String.join(fieldDelimiter, strings));
                     cell.setCellStyle(stringCellStyle);
@@ -186,14 +192,13 @@ public class ExcelGenerator {
                     setTimestampColumn(value, cell);
                     break;
                 default:
-                    throw new FileConnectorException(
-                            CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                            String.format("[%s] type not support ", type.getSqlType()));
+                    throw CommonError.unsupportedDataType(
+                            "Excel", type.getSqlType().toString(), fieldName);
             }
         }
     }
 
-    private String convert(Object field, SeaTunnelDataType<?> fieldType) {
+    private String convert(String fieldName, Object field, SeaTunnelDataType<?> fieldType) {
         if (field == null) {
             return "";
         }
@@ -225,13 +230,16 @@ public class ExcelGenerator {
                 Object[] fields = ((SeaTunnelRow) field).getFields();
                 String[] strings = new String[fields.length];
                 for (int i = 0; i < fields.length; i++) {
-                    strings[i] = convert(fields[i], ((SeaTunnelRowType) fieldType).getFieldType(i));
+                    strings[i] =
+                            convert(
+                                    ((SeaTunnelRowType) fieldType).getFieldName(i),
+                                    fields[i],
+                                    ((SeaTunnelRowType) fieldType).getFieldType(i));
                 }
                 return String.join(fieldDelimiter, strings);
             default:
-                throw new FileConnectorException(
-                        CommonErrorCode.FILE_OPERATION_FAILED,
-                        "SeaTunnel format text not supported for parsing this type");
+                throw CommonError.unsupportedDataType(
+                        "Excel", fieldType.getSqlType().toString(), fieldName);
         }
     }
 
@@ -251,7 +259,8 @@ public class ExcelGenerator {
             cell.setCellStyle(timeCellStyle);
         } else {
             throw new FileConnectorException(
-                    CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Time series type expected for field");
+                    CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
+                    "Time series type expected for field");
         }
     }
 

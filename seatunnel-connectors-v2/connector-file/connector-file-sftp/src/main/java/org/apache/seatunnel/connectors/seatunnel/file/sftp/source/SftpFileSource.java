@@ -23,17 +23,18 @@ import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.sftp.config.SftpConf;
-import org.apache.seatunnel.connectors.seatunnel.file.sftp.config.SftpConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.sftp.config.SftpConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.source.BaseFileSource;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategyFactory;
 
@@ -53,12 +54,12 @@ public class SftpFileSource extends BaseFileSource {
         CheckResult result =
                 CheckConfigUtil.checkAllExists(
                         pluginConfig,
-                        SftpConfig.FILE_PATH.key(),
-                        SftpConfig.FILE_FORMAT_TYPE.key(),
-                        SftpConfig.SFTP_HOST.key(),
-                        SftpConfig.SFTP_PORT.key(),
-                        SftpConfig.SFTP_USERNAME.key(),
-                        SftpConfig.SFTP_PASSWORD.key());
+                        SftpConfigOptions.FILE_PATH.key(),
+                        SftpConfigOptions.FILE_FORMAT_TYPE.key(),
+                        SftpConfigOptions.SFTP_HOST.key(),
+                        SftpConfigOptions.SFTP_PORT.key(),
+                        SftpConfigOptions.SFTP_USER.key(),
+                        SftpConfigOptions.SFTP_PASSWORD.key());
         if (!result.isSuccess()) {
             throw new FileConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
@@ -68,19 +69,23 @@ public class SftpFileSource extends BaseFileSource {
         }
         FileFormat fileFormat =
                 FileFormat.valueOf(
-                        pluginConfig.getString(SftpConfig.FILE_FORMAT_TYPE.key()).toUpperCase());
+                        pluginConfig
+                                .getString(SftpConfigOptions.FILE_FORMAT_TYPE.key())
+                                .toUpperCase());
         if (fileFormat == FileFormat.ORC || fileFormat == FileFormat.PARQUET) {
             throw new FileConnectorException(
-                    CommonErrorCode.ILLEGAL_ARGUMENT,
-                    "Sftp file source connector only support read [text, csv, json] files");
+                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                    "Sftp file source connector only support read [text, csv, json, xml] files");
         }
-        readStrategy =
-                ReadStrategyFactory.of(pluginConfig.getString(SftpConfig.FILE_FORMAT_TYPE.key()));
-        readStrategy.setPluginConfig(pluginConfig);
-        String path = pluginConfig.getString(SftpConfig.FILE_PATH.key());
+        String path = pluginConfig.getString(SftpConfigOptions.FILE_PATH.key());
         hadoopConf = SftpConf.buildWithConfig(pluginConfig);
+        readStrategy =
+                ReadStrategyFactory.of(
+                        pluginConfig.getString(SftpConfigOptions.FILE_FORMAT_TYPE.key()));
+        readStrategy.setPluginConfig(pluginConfig);
+        readStrategy.init(hadoopConf);
         try {
-            filePaths = readStrategy.getFileNamesByPath(hadoopConf, path);
+            filePaths = readStrategy.getFileNamesByPath(path);
         } catch (IOException e) {
             String errorMsg = String.format("Get file list from this path [%s] failed", path);
             throw new FileConnectorException(
@@ -88,12 +93,13 @@ public class SftpFileSource extends BaseFileSource {
         }
         // support user-defined schema
         // only json csv text type support user-defined schema now
-        if (pluginConfig.hasPath(CatalogTableUtil.SCHEMA.key())) {
+        if (pluginConfig.hasPath(TableSchemaOptions.SCHEMA.key())) {
             switch (fileFormat) {
                 case CSV:
                 case TEXT:
                 case JSON:
                 case EXCEL:
+                case XML:
                     SeaTunnelRowType userDefinedSchema =
                             CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
                     readStrategy.setSeaTunnelRowTypeInfo(userDefinedSchema);
@@ -102,22 +108,27 @@ public class SftpFileSource extends BaseFileSource {
                 case ORC:
                 case PARQUET:
                     throw new FileConnectorException(
-                            CommonErrorCode.UNSUPPORTED_OPERATION,
+                            CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                             "SeaTunnel does not support user-defined schema for [parquet, orc] files");
                 default:
                     // never got in there
                     throw new FileConnectorException(
-                            CommonErrorCode.ILLEGAL_ARGUMENT,
+                            CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                             "SeaTunnel does not supported this file format");
             }
         } else {
+            if (filePaths.isEmpty()) {
+                // When the directory is empty, distribute default behavior schema
+                rowType = CatalogTableUtil.buildSimpleTextSchema();
+                return;
+            }
             try {
-                rowType = readStrategy.getSeaTunnelRowTypeInfo(hadoopConf, filePaths.get(0));
+                rowType = readStrategy.getSeaTunnelRowTypeInfo(filePaths.get(0));
             } catch (FileConnectorException e) {
                 String errorMsg =
                         String.format("Get table schema from file [%s] failed", filePaths.get(0));
                 throw new FileConnectorException(
-                        CommonErrorCode.TABLE_SCHEMA_GET_FAILED, errorMsg, e);
+                        CommonErrorCodeDeprecated.TABLE_SCHEMA_GET_FAILED, errorMsg, e);
             }
         }
     }

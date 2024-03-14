@@ -23,7 +23,7 @@ import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
-import org.apache.seatunnel.connectors.seatunnel.file.cos.config.CosConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.cos.config.CosConfigOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -37,22 +37,24 @@ public class CosFileSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(CosConfig.FILE_PATH)
-                .required(CosConfig.BUCKET)
-                .required(CosConfig.SECRET_ID)
-                .required(CosConfig.SECRET_KEY)
-                .required(CosConfig.REGION)
+                .required(CosConfigOptions.FILE_PATH)
+                .required(CosConfigOptions.BUCKET)
+                .required(CosConfigOptions.SECRET_ID)
+                .required(CosConfigOptions.SECRET_KEY)
+                .required(CosConfigOptions.REGION)
                 .optional(BaseSinkConfig.FILE_FORMAT_TYPE)
                 .conditional(
                         BaseSinkConfig.FILE_FORMAT_TYPE,
                         FileFormat.TEXT,
                         BaseSinkConfig.ROW_DELIMITER,
                         BaseSinkConfig.FIELD_DELIMITER,
-                        BaseSinkConfig.TXT_COMPRESS)
+                        BaseSinkConfig.TXT_COMPRESS,
+                        BaseSinkConfig.ENABLE_HEADER_WRITE)
                 .conditional(
                         BaseSinkConfig.FILE_FORMAT_TYPE,
                         FileFormat.CSV,
-                        BaseSinkConfig.TXT_COMPRESS)
+                        BaseSinkConfig.TXT_COMPRESS,
+                        BaseSinkConfig.ENABLE_HEADER_WRITE)
                 .conditional(
                         BaseSinkConfig.FILE_FORMAT_TYPE,
                         FileFormat.JSON,
@@ -65,6 +67,10 @@ public class CosFileSinkFactory implements TableSinkFactory {
                         BaseSinkConfig.FILE_FORMAT_TYPE,
                         FileFormat.PARQUET,
                         BaseSinkConfig.PARQUET_COMPRESS)
+                .conditional(
+                        BaseSinkConfig.FILE_FORMAT_TYPE,
+                        FileFormat.XML,
+                        BaseSinkConfig.XML_USE_ATTR_FORMAT)
                 .optional(BaseSinkConfig.CUSTOM_FILENAME)
                 .conditional(
                         BaseSinkConfig.CUSTOM_FILENAME,

@@ -23,7 +23,7 @@ import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
-import org.apache.seatunnel.connectors.seatunnel.file.ftp.config.FtpConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.ftp.config.FtpConfigOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -37,22 +37,24 @@ public class FtpFileSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(FtpConfig.FILE_PATH)
-                .required(FtpConfig.FTP_HOST)
-                .required(FtpConfig.FTP_PORT)
-                .required(FtpConfig.FTP_USERNAME)
-                .required(FtpConfig.FTP_PASSWORD)
+                .required(FtpConfigOptions.FILE_PATH)
+                .required(FtpConfigOptions.FTP_HOST)
+                .required(FtpConfigOptions.FTP_PORT)
+                .required(FtpConfigOptions.FTP_USERNAME)
+                .required(FtpConfigOptions.FTP_PASSWORD)
                 .optional(BaseSinkConfig.FILE_FORMAT_TYPE)
                 .conditional(
                         BaseSinkConfig.FILE_FORMAT_TYPE,
                         FileFormat.TEXT,
                         BaseSinkConfig.ROW_DELIMITER,
                         BaseSinkConfig.FIELD_DELIMITER,
-                        BaseSinkConfig.TXT_COMPRESS)
+                        BaseSinkConfig.TXT_COMPRESS,
+                        BaseSinkConfig.ENABLE_HEADER_WRITE)
                 .conditional(
                         BaseSinkConfig.FILE_FORMAT_TYPE,
                         FileFormat.CSV,
-                        BaseSinkConfig.TXT_COMPRESS)
+                        BaseSinkConfig.TXT_COMPRESS,
+                        BaseSinkConfig.ENABLE_HEADER_WRITE)
                 .conditional(
                         BaseSinkConfig.FILE_FORMAT_TYPE,
                         FileFormat.JSON,
@@ -65,6 +67,10 @@ public class FtpFileSinkFactory implements TableSinkFactory {
                         BaseSinkConfig.FILE_FORMAT_TYPE,
                         FileFormat.PARQUET,
                         BaseSinkConfig.PARQUET_COMPRESS)
+                .conditional(
+                        BaseSinkConfig.FILE_FORMAT_TYPE,
+                        FileFormat.XML,
+                        BaseSinkConfig.XML_USE_ATTR_FORMAT)
                 .optional(BaseSinkConfig.CUSTOM_FILENAME)
                 .conditional(
                         BaseSinkConfig.CUSTOM_FILENAME,
@@ -83,6 +89,7 @@ public class FtpFileSinkFactory implements TableSinkFactory {
                 .optional(BaseSinkConfig.DATE_FORMAT)
                 .optional(BaseSinkConfig.DATETIME_FORMAT)
                 .optional(BaseSinkConfig.TIME_FORMAT)
+                .optional(FtpConfigOptions.FTP_CONNECTION_MODE)
                 .build();
     }
 }

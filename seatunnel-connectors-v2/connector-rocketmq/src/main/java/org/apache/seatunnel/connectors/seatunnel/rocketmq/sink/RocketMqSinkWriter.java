@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.rocketmq.sink;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.rocketmq.exception.RocketMqConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.rocketmq.serialize.DefaultSeaTunnelRowSerializer;
@@ -49,6 +49,9 @@ public class RocketMqSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                     new RocketMqNoTransactionSender(
                             producerMetadata.getConfiguration(), producerMetadata.isSync());
         }
+        // Set `rocketmq.client.logUseSlf4j` to `true` to avoid create many
+        // `AsyncAppender-Dispatcher-Thread`
+        System.setProperty("rocketmq.client.logUseSlf4j", "true");
     }
 
     @Override
@@ -64,7 +67,7 @@ public class RocketMqSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                 this.rocketMqProducerSender.close();
             } catch (Exception e) {
                 throw new RocketMqConnectorException(
-                        CommonErrorCode.WRITER_OPERATION_FAILED,
+                        CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED,
                         "Close RocketMq sink writer error",
                         e);
             }
@@ -91,7 +94,7 @@ public class RocketMqSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         for (String partitionKeyField : partitionKeyFields) {
             if (!rowTypeFieldNames.contains(partitionKeyField)) {
                 throw new RocketMqConnectorException(
-                        CommonErrorCode.ILLEGAL_ARGUMENT,
+                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                         String.format(
                                 "Partition key field not found: %s, rowType: %s",
                                 partitionKeyField, rowTypeFieldNames));

@@ -17,8 +17,7 @@
 
 package org.apache.seatunnel.core.starter.utils;
 
-import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.core.starter.command.AbstractCommandArgs;
 
 import lombok.NonNull;
@@ -64,8 +63,7 @@ public class FileUtils {
      */
     public static void checkConfigExist(Path configFile) {
         if (!configFile.toFile().exists()) {
-            String message = "Can't find config file: " + configFile;
-            throw new SeaTunnelRuntimeException(CommonErrorCode.FILE_OPERATION_FAILED, message);
+            throw CommonError.fileNotExistFailed("SeaTunnel", "read", configFile.toString());
         }
     }
 

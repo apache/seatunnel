@@ -72,7 +72,9 @@
         <module>connector-selectdb-cloud</module>
         <module>connector-hbase</module>
         <module>connector-rocketmq</module>
+        <module>connector-amazonsqs</module>
         <module>connector-paimon</module>
+        <module>connector-easysearch</module>
     </modules>
 
     <dependencyManagement>

@@ -17,15 +17,27 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.s3.sink;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
+
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
-import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3Config;
+import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3ConfigOptions;
 
 import com.google.auto.service.AutoService;
+
+import static org.apache.seatunnel.api.sink.SinkReplaceNameConstant.REPLACE_DATABASE_NAME_KEY;
+import static org.apache.seatunnel.api.sink.SinkReplaceNameConstant.REPLACE_SCHEMA_NAME_KEY;
+import static org.apache.seatunnel.api.sink.SinkReplaceNameConstant.REPLACE_TABLE_NAME_KEY;
 
 @AutoService(Factory.class)
 public class S3FileSinkFactory implements TableSinkFactory {
@@ -37,27 +49,31 @@ public class S3FileSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(S3Config.FILE_PATH)
-                .required(S3Config.S3_BUCKET)
-                .required(S3Config.FS_S3A_ENDPOINT)
-                .required(S3Config.S3A_AWS_CREDENTIALS_PROVIDER)
+                .required(S3ConfigOptions.FILE_PATH)
+                .required(S3ConfigOptions.S3_BUCKET)
+                .required(S3ConfigOptions.FS_S3A_ENDPOINT)
+                .required(S3ConfigOptions.S3A_AWS_CREDENTIALS_PROVIDER)
+                .required(S3ConfigOptions.SCHEMA_SAVE_MODE)
+                .required(S3ConfigOptions.DATA_SAVE_MODE)
                 .conditional(
-                        S3Config.S3A_AWS_CREDENTIALS_PROVIDER,
-                        S3Config.S3aAwsCredentialsProvider.SimpleAWSCredentialsProvider,
-                        S3Config.S3_ACCESS_KEY,
-                        S3Config.S3_SECRET_KEY)
-                .optional(S3Config.S3_PROPERTIES)
+                        S3ConfigOptions.S3A_AWS_CREDENTIALS_PROVIDER,
+                        S3ConfigOptions.S3aAwsCredentialsProvider.SimpleAWSCredentialsProvider,
+                        S3ConfigOptions.S3_ACCESS_KEY,
+                        S3ConfigOptions.S3_SECRET_KEY)
+                .optional(S3ConfigOptions.S3_PROPERTIES)
                 .optional(BaseSinkConfig.FILE_FORMAT_TYPE)
                 .conditional(
                         BaseSinkConfig.FILE_FORMAT_TYPE,
                         FileFormat.TEXT,
                         BaseSinkConfig.ROW_DELIMITER,
                         BaseSinkConfig.FIELD_DELIMITER,
-                        BaseSinkConfig.TXT_COMPRESS)
+                        BaseSinkConfig.TXT_COMPRESS,
+                        BaseSinkConfig.ENABLE_HEADER_WRITE)
                 .conditional(
                         BaseSinkConfig.FILE_FORMAT_TYPE,
                         FileFormat.CSV,
-                        BaseSinkConfig.TXT_COMPRESS)
+                        BaseSinkConfig.TXT_COMPRESS,
+                        BaseSinkConfig.ENABLE_HEADER_WRITE)
                 .conditional(
                         BaseSinkConfig.FILE_FORMAT_TYPE,
                         FileFormat.JSON,
@@ -70,6 +86,10 @@ public class S3FileSinkFactory implements TableSinkFactory {
                         BaseSinkConfig.FILE_FORMAT_TYPE,
                         FileFormat.PARQUET,
                         BaseSinkConfig.PARQUET_COMPRESS)
+                .conditional(
+                        BaseSinkConfig.FILE_FORMAT_TYPE,
+                        FileFormat.XML,
+                        BaseSinkConfig.XML_USE_ATTR_FORMAT)
                 .optional(BaseSinkConfig.CUSTOM_FILENAME)
                 .conditional(
                         BaseSinkConfig.CUSTOM_FILENAME,
@@ -89,5 +109,30 @@ public class S3FileSinkFactory implements TableSinkFactory {
                 .optional(BaseSinkConfig.DATETIME_FORMAT)
                 .optional(BaseSinkConfig.TIME_FORMAT)
                 .build();
+    }
+
+    @Override
+    public TableSink createSink(TableSinkFactoryContext context) {
+        final CatalogTable catalogTable = context.getCatalogTable();
+        final ReadonlyConfig options = context.getOptions();
+        // get source table relevant information
+        TableIdentifier tableId = catalogTable.getTableId();
+        String sourceDatabaseName =
+                tableId.getDatabaseName() == null ? "" : tableId.getDatabaseName();
+        String sourceSchemaName = tableId.getSchemaName() == null ? "" : tableId.getSchemaName();
+        String sourceTableName = tableId.getTableName() == null ? "" : tableId.getTableName();
+        // get sink path
+        String path = options.get(S3ConfigOptions.FILE_PATH);
+        // to replace
+        path = path.replace(REPLACE_DATABASE_NAME_KEY, sourceDatabaseName);
+        path = path.replace(REPLACE_SCHEMA_NAME_KEY, sourceSchemaName);
+        path = path.replace(REPLACE_TABLE_NAME_KEY, sourceTableName);
+        // rebuild
+        Config config = options.toConfig();
+        config =
+                config.withValue(
+                        S3ConfigOptions.FILE_PATH.key(), ConfigValueFactory.fromAnyRef(path));
+        ReadonlyConfig finalConfig = ReadonlyConfig.fromConfig(config);
+        return () -> new S3FileSink(catalogTable, finalConfig);
     }
 }

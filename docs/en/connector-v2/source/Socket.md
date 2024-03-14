@@ -2,9 +2,11 @@
 
 > Socket source connector
 
-## Description
+## Support Those Engines
 
-Used to read data from Socket.
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
 
 ## Key features
 
@@ -15,47 +17,53 @@ Used to read data from Socket.
 - [ ] [parallelism](../../concept/connector-v2-features.md)
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
 
+## Description
+
+Used to read data from Socket.
+
+## Data Type Mapping
+
+The File does not have a specific type list, and we can indicate which SeaTunnel data type the corresponding data needs to be converted to by specifying the Schema in the config.
+
+| SeaTunnel Data type |
+|---------------------|
+| STRING              |
+| SHORT               |
+| INT                 |
+| BIGINT              |
+| BOOLEAN             |
+| DOUBLE              |
+| DECIMAL             |
+| FLOAT               |
+| DATE                |
+| TIME                |
+| TIMESTAMP           |
+| BYTES               |
+| ARRAY               |
+| MAP                 |
+
 ## Options
 
-|      name      |  type   | required | default value |
-|----------------|---------|----------|---------------|
-| host           | String  | Yes      |               |
-| port           | Integer | Yes      |               |
-| common-options |         | no       | -             |
+|      Name      |  Type   | Required | Default |                                               Description                                                |
+|----------------|---------|----------|---------|----------------------------------------------------------------------------------------------------------|
+| host           | String  | Yes      | _       | socket server host                                                                                       |
+| port           | Integer | Yes      | _       | socket server port                                                                                       |
+| common-options |         | no       | -       | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details. |
 
-### host [string]
-
-socket server host
-
-### port [integer]
-
-socket server port
-
-### common options
-
-Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
-
-## Example
-
-simple:
-
-```hocon
-Socket {
-        host = "localhost"
-        port = 9999
-    }
-```
-
-test:
+## How to Create a Socket Data Synchronization Jobs
 
 * Configuring the SeaTunnel config file
 
-```hocon
+The following example demonstrates how to create a data synchronization job that reads data from Socket and prints it on the local client:
+
+```bash
+# Set the basic configuration of the task to be performed
 env {
-  execution.parallelism = 1
-  job.mode = "STREAMING"
+  parallelism = 1
+  job.mode = "BATCH"
 }
 
+# Create a source to connect to socket
 source {
     Socket {
         host = "localhost"
@@ -63,10 +71,12 @@ source {
     }
 }
 
+# Console printing of the read socket data
 sink {
-  Console {}
+  Console {
+    parallelism = 1
+  }
 }
-
 ```
 
 * Start a port listening
@@ -95,14 +105,4 @@ spark
 [flink]
 [spark]
 ```
-
-## Changelog
-
-### 2.2.0-beta 2022-09-26
-
-- Add Socket Source Connector
-
-### Next Version
-
-- `host` and `port` become required ([3317](https://github.com/apache/seatunnel/pull/3317))
 

@@ -2,17 +2,11 @@
 
 > Local file source connector
 
-## Description
+## Support Those Engines
 
-Read data from local file system.
-
-:::tip
-
-If you use spark/flink, In order to use this connector, You must ensure your spark/flink cluster already integrated hadoop. The tested hadoop version is 2.x.
-
-If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you download and install SeaTunnel Engine. You can check the jar package under ${SEATUNNEL_HOME}/lib to confirm this.
-
-:::
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
 
 ## Key features
 
@@ -32,88 +26,52 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
   - [x] orc
   - [x] json
   - [x] excel
+  - [x] xml
+
+## Description
+
+Read data from local file system.
+
+:::tip
+
+If you use spark/flink, In order to use this connector, You must ensure your spark/flink cluster already integrated hadoop. The tested hadoop version is 2.x.
+
+If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you download and install SeaTunnel Engine. You can check the jar package under ${SEATUNNEL_HOME}/lib to confirm this.
+
+:::
 
 ## Options
 
-|           name            |  type   | required |    default value    |
-|---------------------------|---------|----------|---------------------|
-| path                      | string  | yes      | -                   |
-| file_format_type          | string  | yes      | -                   |
-| read_columns              | list    | no       | -                   |
-| delimiter                 | string  | no       | \001                |
-| parse_partition_from_path | boolean | no       | true                |
-| date_format               | string  | no       | yyyy-MM-dd          |
-| datetime_format           | string  | no       | yyyy-MM-dd HH:mm:ss |
-| time_format               | string  | no       | HH:mm:ss            |
-| skip_header_row_number    | long    | no       | 0                   |
-| schema                    | config  | no       | -                   |
-| common-options            |         | no       | -                   |
-| sheet_name                | string  | no       | -                   |
-| file_filter_pattern       | string  | no       | -                   |
+|           name            |  type   | required |            default value             |
+|---------------------------|---------|----------|--------------------------------------|
+| path                      | string  | yes      | -                                    |
+| file_format_type          | string  | yes      | -                                    |
+| read_columns              | list    | no       | -                                    |
+| delimiter/field_delimiter | string  | no       | \001                                 |
+| parse_partition_from_path | boolean | no       | true                                 |
+| date_format               | string  | no       | yyyy-MM-dd                           |
+| datetime_format           | string  | no       | yyyy-MM-dd HH:mm:ss                  |
+| time_format               | string  | no       | HH:mm:ss                             |
+| skip_header_row_number    | long    | no       | 0                                    |
+| schema                    | config  | no       | -                                    |
+| sheet_name                | string  | no       | -                                    |
+| xml_row_tag               | string  | no       | -                                    |
+| xml_use_attr_format       | boolean | no       | -                                    |
+| file_filter_pattern       | string  | no       | -                                    |
+| compress_codec            | string  | no       | none                                 |
+| encoding                  | string  | no       | UTF-8                                |
+| common-options            |         | no       | -                                    |
+| tables_configs            | list    | no       | used to define a multiple table task |
 
 ### path [string]
 
 The source file path.
 
-### delimiter [string]
-
-Field delimiter, used to tell connector how to slice and dice fields when reading text files
-
-default `\001`, the same as hive's default delimiter
-
-### parse_partition_from_path [boolean]
-
-Control whether parse the partition keys and values from file path
-
-For example if you read a file from path `file://hadoop-cluster/tmp/seatunnel/parquet/name=tyrantlucifer/age=26`
-
-Every record data from file will be added these two fields:
-
-|     name      | age |
-|---------------|-----|
-| tyrantlucifer | 26  |
-
-Tips: **Do not define partition fields in schema option**
-
-### date_format [string]
-
-Date type format, used to tell connector how to convert string to date, supported as the following formats:
-
-`yyyy-MM-dd` `yyyy.MM.dd` `yyyy/MM/dd`
-
-default `yyyy-MM-dd`
-
-### datetime_format [string]
-
-Datetime type format, used to tell connector how to convert string to datetime, supported as the following formats:
-
-`yyyy-MM-dd HH:mm:ss` `yyyy.MM.dd HH:mm:ss` `yyyy/MM/dd HH:mm:ss` `yyyyMMddHHmmss`
-
-default `yyyy-MM-dd HH:mm:ss`
-
-### time_format [string]
-
-Time type format, used to tell connector how to convert string to time, supported as the following formats:
-
-`HH:mm:ss` `HH:mm:ss.SSS`
-
-default `HH:mm:ss`
-
-### skip_header_row_number [long]
-
-Skip the first few lines, but only for the txt and csv.
-
-For example, set like following:
-
-`skip_header_row_number = 2`
-
-then SeaTunnel will skip the first 2 lines from source files
-
 ### file_format_type [string]
 
 File type, supported as the following file types:
 
-`text` `csv` `parquet` `orc` `json` `excel`
+`text` `csv` `parquet` `orc` `json` `excel` `xml`
 
 If you assign file type to `json`, you should also assign schema option to tell connector how to parse data to the row you want.
 
@@ -174,13 +132,13 @@ If you do not assign data schema connector will treat the upstream data as the f
 |-----------------------|
 | tyrantlucifer#26#male |
 
-If you assign data schema, you should also assign the option `delimiter` too except CSV file type
+If you assign data schema, you should also assign the option `field_delimiter` too except CSV file type
 
 you should assign schema and delimiter as the following:
 
 ```hocon
 
-delimiter = "#"
+field_delimiter = "#"
 schema {
     fields {
         name = string
@@ -197,40 +155,124 @@ connector will generate data as the following:
 |---------------|-----|--------|
 | tyrantlucifer | 26  | male   |
 
+### read_columns [list]
+
+The read column list of the data source, user can use it to implement field projection.
+
+### delimiter/field_delimiter [string]
+
+**delimiter** parameter will deprecate after version 2.3.5, please use **field_delimiter** instead.
+
+Only need to be configured when file_format is text.
+
+Field delimiter, used to tell connector how to slice and dice fields.
+
+default `\001`, the same as hive's default delimiter
+
+### parse_partition_from_path [boolean]
+
+Control whether parse the partition keys and values from file path
+
+For example if you read a file from path `file://hadoop-cluster/tmp/seatunnel/parquet/name=tyrantlucifer/age=26`
+
+Every record data from file will be added these two fields:
+
+|     name      | age |
+|---------------|-----|
+| tyrantlucifer | 26  |
+
+Tips: **Do not define partition fields in schema option**
+
+### date_format [string]
+
+Date type format, used to tell connector how to convert string to date, supported as the following formats:
+
+`yyyy-MM-dd` `yyyy.MM.dd` `yyyy/MM/dd`
+
+default `yyyy-MM-dd`
+
+### datetime_format [string]
+
+Datetime type format, used to tell connector how to convert string to datetime, supported as the following formats:
+
+`yyyy-MM-dd HH:mm:ss` `yyyy.MM.dd HH:mm:ss` `yyyy/MM/dd HH:mm:ss` `yyyyMMddHHmmss`
+
+default `yyyy-MM-dd HH:mm:ss`
+
+### time_format [string]
+
+Time type format, used to tell connector how to convert string to time, supported as the following formats:
+
+`HH:mm:ss` `HH:mm:ss.SSS`
+
+default `HH:mm:ss`
+
+### skip_header_row_number [long]
+
+Skip the first few lines, but only for the txt and csv.
+
+For example, set like following:
+
+`skip_header_row_number = 2`
+
+then SeaTunnel will skip the first 2 lines from source files
+
 ### schema [config]
+
+Only need to be configured when the file_format_type are text, json, excel, xml or csv ( Or other format we can't read the schema from metadata).
 
 #### fields [Config]
 
 The schema information of upstream data.
 
-### read_columns [list]
-
-The read column list of the data source, user can use it to implement field projection.
-
-The file type supported column projection as the following shown:
-
-- text
-- json
-- csv
-- orc
-- parquet
-- excel
-
-**Tips: If the user wants to use this feature when reading `text` `json` `csv` files, the schema option must be configured**
-
-### common options
-
-Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
-
 ### sheet_name [string]
 
-Reader the sheet of the workbook,Only used when file_format_type is excel.
+Only need to be configured when file_format is excel.
+
+Reader the sheet of the workbook.
+
+### xml_row_tag [string]
+
+Only need to be configured when file_format is xml.
+
+Specifies the tag name of the data rows within the XML file.
+
+### xml_use_attr_format [boolean]
+
+Only need to be configured when file_format is xml.
+
+Specifies Whether to process data using the tag attribute format.
 
 ### file_filter_pattern [string]
 
 Filter pattern, which used for filtering files.
 
+### compress_codec [string]
+
+The compress codec of files and the details that supported as the following shown:
+
+- txt: `lzo` `none`
+- json: `lzo` `none`
+- csv: `lzo` `none`
+- orc/parquet:  
+  automatically recognizes the compression type, no additional settings required.
+
+### encoding [string]
+
+Only used when file_format_type is json,text,csv,xml.
+The encoding of the file to read. This param will be parsed by `Charset.forName(encoding)`.
+
+### common options
+
+Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
+
+### tables_configs
+
+Used to define a multiple table task, when you have multiple tables to read, you can use this option to define multiple tables.
+
 ## Example
+
+### One Table
 
 ```hocon
 
@@ -252,6 +294,71 @@ LocalFile {
   }
   path = "/apps/hive/demo/student"
   file_format_type = "json"
+}
+
+```
+
+For json, text or csv file format with `encoding`
+
+```hocon
+
+LocalFile {
+    path = "/tmp/hive/warehouse/test2"
+    file_format_type = "text"
+    encoding = "gbk"
+}
+
+```
+
+### Multiple Table
+
+```hocon
+
+LocalFile {
+  tables_configs = [
+    {
+      schema {
+        table = "student"
+      }
+      path = "/apps/hive/demo/student"
+      file_format_type = "parquet"
+    },
+    {
+      schema {
+        table = "teacher"
+      }
+      path = "/apps/hive/demo/teacher"
+      file_format_type = "parquet"
+    }
+  ]
+}
+
+```
+
+```hocon
+
+LocalFile {
+  tables_configs = [
+    {
+      schema {
+        fields {
+          name = string
+          age = int
+        }
+      }
+      path = "/apps/hive/demo/student"
+      file_format_type = "json"
+    },
+    {
+      schema {
+        fields {
+          name = string
+          age = int
+        }
+      }
+      path = "/apps/hive/demo/teacher"
+      file_format_type = "json"
+    }
 }
 
 ```

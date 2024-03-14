@@ -39,10 +39,10 @@ public class PostgresDialectFactory implements JdbcDialectFactory {
     }
 
     @Override
-    public JdbcDialect create(@Nonnull String compatibleMode) {
+    public JdbcDialect create(@Nonnull String compatibleMode, String fieldIde) {
         if ("postgresLow".equalsIgnoreCase(compatibleMode)) {
-            return new PostgresLowDialect();
+            return new PostgresLowDialect(fieldIde);
         }
-        return new PostgresDialect();
+        return new PostgresDialect(fieldIde);
     }
 }

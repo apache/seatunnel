@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.config;
 
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
 
 public enum ClickhouseFileCopyMethod {
@@ -42,6 +42,7 @@ public enum ClickhouseFileCopyMethod {
             }
         }
         throw new ClickhouseConnectorException(
-                CommonErrorCode.ILLEGAL_ARGUMENT, "Unknown ClickhouseFileCopyMethod: " + name);
+                CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                "Unknown ClickhouseFileCopyMethod: " + name);
     }
 }

@@ -18,6 +18,7 @@
 package org.apache.seatunnel.core.starter.flink.utils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 
 import org.apache.seatunnel.common.config.CheckResult;
 
@@ -29,6 +30,7 @@ import org.apache.flink.configuration.PipelineOptions;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
@@ -38,7 +40,7 @@ public final class EnvironmentUtil {
 
     public static void setRestartStrategy(Config config, ExecutionConfig executionConfig) {
         try {
-            if (config.hasPath(ConfigKeyName.RESTART_STRATEGY)) {
+            if (hasPathAndWaring(config, ConfigKeyName.RESTART_STRATEGY)) {
                 String restartStrategy = config.getString(ConfigKeyName.RESTART_STRATEGY);
                 switch (restartStrategy.toLowerCase()) {
                     case "no":
@@ -73,7 +75,7 @@ public final class EnvironmentUtil {
     }
 
     public static CheckResult checkRestartStrategy(Config config) {
-        if (config.hasPath(ConfigKeyName.RESTART_STRATEGY)) {
+        if (hasPathAndWaring(config, ConfigKeyName.RESTART_STRATEGY)) {
             String restartStrategy = config.getString(ConfigKeyName.RESTART_STRATEGY);
             switch (restartStrategy.toLowerCase()) {
                 case "fixed-delay":
@@ -116,5 +118,48 @@ public final class EnvironmentUtil {
                         PipelineOptions.CLASSPATHS.key(), pipeline.getString("classpaths"));
             }
         }
+        String prefixConf = "flink.";
+        String filterPrefixConf = "flink.table.exec";
+        if (!config.isEmpty()) {
+            for (Map.Entry<String, ConfigValue> entryConfKey : config.entrySet()) {
+                String confKey = entryConfKey.getKey().trim();
+                // filters out the parameters prefixed with 'flink.table.exec'
+                if (confKey.startsWith(prefixConf) && !confKey.startsWith(filterPrefixConf)) {
+                    configuration.setString(
+                            confKey.replaceFirst(prefixConf, ""),
+                            entryConfKey.getValue().unwrapped().toString());
+                }
+            }
+        }
+    }
+
+    public static void initTableEnvironmentConfiguration(
+            Config config, Configuration configuration) {
+        /**
+         * flink table configuration items are prefixed with 'table.exec'. reference: {@link
+         * org.apache.flink.table.api.config.ExecutionConfigOptions}
+         */
+        String prefixConf = "flink.table.exec";
+        String replacePrefix = "flink.";
+        if (!config.isEmpty()) {
+            for (Map.Entry<String, ConfigValue> entryConfKey : config.entrySet()) {
+                String confKey = entryConfKey.getKey().trim();
+                if (confKey.startsWith(prefixConf)) {
+                    configuration.setString(
+                            confKey.replaceFirst(replacePrefix, ""),
+                            entryConfKey.getValue().unwrapped().toString());
+                }
+            }
+        }
+    }
+
+    public static boolean hasPathAndWaring(Config config, String configKey) {
+        if (config.hasPath(configKey)) {
+            log.warn(
+                    "the parameter '{}' will be deprecated, please use the 'flink.' prefix with the flink official configuration item to set it",
+                    configKey);
+            return true;
+        }
+        return false;
     }
 }

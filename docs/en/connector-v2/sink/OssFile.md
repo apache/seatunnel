@@ -2,20 +2,22 @@
 
 > Oss file sink connector
 
-## Description
+## Support Those Engines
 
-Output data to oss file system.
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
 
-:::tip
+## Usage Dependency
 
-If you use spark/flink, In order to use this connector, You must ensure your spark/flink cluster already integrated hadoop. The tested hadoop version is 2.x.
+### For Spark/Flink Engine
 
-If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you download and install SeaTunnel Engine. You can check the jar package under ${SEATUNNEL_HOME}/lib to confirm this.
+1. You must ensure your spark/flink cluster already integrated hadoop. The tested hadoop version is 2.x.
+2. You must ensure `hadoop-aliyun-xx.jar`, `aliyun-sdk-oss-xx.jar` and `jdom-xx.jar` in `${SEATUNNEL_HOME}/plugins/` dir and the version of `hadoop-aliyun` jar need equals your hadoop version which used in spark/flink and `aliyun-sdk-oss-xx.jar` and `jdom-xx.jar` version needs to be the version corresponding to the `hadoop-aliyun` version. Eg: `hadoop-aliyun-3.1.4.jar` dependency `aliyun-sdk-oss-3.4.1.jar` and `jdom-1.1.jar`.
 
-We made some trade-offs in order to support more file types, so we used the HDFS protocol for internal access to OSS and this connector need some hadoop dependencies.
-It only supports hadoop version **2.9.X+**.
+### For SeaTunnel Zeta Engine
 
-:::
+1. You must ensure `seatunnel-hadoop3-3.1.4-uber.jar`, `aliyun-sdk-oss-3.4.1.jar`, `hadoop-aliyun-3.1.4.jar` and `jdom-1.1.jar` in `${SEATUNNEL_HOME}/lib/` dir.
 
 ## Key features
 
@@ -30,33 +32,87 @@ By default, we use 2PC commit to ensure `exactly-once`
   - [x] orc
   - [x] json
   - [x] excel
+  - [x] xml
+
+## Data Type Mapping
+
+If write to `csv`, `text` file type, All column will be string.
+
+### Orc File Type
+
+| SeaTunnel Data Type  |     Orc Data Type     |
+|----------------------|-----------------------|
+| STRING               | STRING                |
+| BOOLEAN              | BOOLEAN               |
+| TINYINT              | BYTE                  |
+| SMALLINT             | SHORT                 |
+| INT                  | INT                   |
+| BIGINT               | LONG                  |
+| FLOAT                | FLOAT                 |
+| FLOAT                | FLOAT                 |
+| DOUBLE               | DOUBLE                |
+| DECIMAL              | DECIMAL               |
+| BYTES                | BINARY                |
+| DATE                 | DATE                  |
+| TIME <br/> TIMESTAMP | TIMESTAMP             |
+| ROW                  | STRUCT                |
+| NULL                 | UNSUPPORTED DATA TYPE |
+| ARRAY                | LIST                  |
+| Map                  | Map                   |
+
+### Parquet File Type
+
+| SeaTunnel Data Type  |   Parquet Data Type   |
+|----------------------|-----------------------|
+| STRING               | STRING                |
+| BOOLEAN              | BOOLEAN               |
+| TINYINT              | INT_8                 |
+| SMALLINT             | INT_16                |
+| INT                  | INT32                 |
+| BIGINT               | INT64                 |
+| FLOAT                | FLOAT                 |
+| FLOAT                | FLOAT                 |
+| DOUBLE               | DOUBLE                |
+| DECIMAL              | DECIMAL               |
+| BYTES                | BINARY                |
+| DATE                 | DATE                  |
+| TIME <br/> TIMESTAMP | TIMESTAMP_MILLIS      |
+| ROW                  | GroupType             |
+| NULL                 | UNSUPPORTED DATA TYPE |
+| ARRAY                | LIST                  |
+| Map                  | Map                   |
 
 ## Options
 
-|               name               |  type   | required |               default value                |                          remarks                          |
-|----------------------------------|---------|----------|--------------------------------------------|-----------------------------------------------------------|
-| path                             | string  | yes      | -                                          |                                                           |
-| bucket                           | string  | yes      | -                                          |                                                           |
-| access_key                       | string  | yes      | -                                          |                                                           |
-| access_secret                    | string  | yes      | -                                          |                                                           |
-| endpoint                         | string  | yes      | -                                          |                                                           |
-| custom_filename                  | boolean | no       | false                                      | Whether you need custom the filename                      |
-| file_name_expression             | string  | no       | "${transactionId}"                         | Only used when custom_filename is true                    |
-| filename_time_format             | string  | no       | "yyyy.MM.dd"                               | Only used when custom_filename is true                    |
-| file_format_type                 | string  | no       | "csv"                                      |                                                           |
-| field_delimiter                  | string  | no       | '\001'                                     | Only used when file_format_type is text                   |
-| row_delimiter                    | string  | no       | "\n"                                       | Only used when file_format_type is text                   |
-| have_partition                   | boolean | no       | false                                      | Whether you need processing partitions.                   |
-| partition_by                     | array   | no       | -                                          | Only used then have_partition is true                     |
-| partition_dir_expression         | string  | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | Only used then have_partition is true                     |
-| is_partition_field_write_in_file | boolean | no       | false                                      | Only used then have_partition is true                     |
-| sink_columns                     | array   | no       |                                            | When this parameter is empty, all fields are sink columns |
-| is_enable_transaction            | boolean | no       | true                                       |                                                           |
-| batch_size                       | int     | no       | 1000000                                    |                                                           |
-| compress_codec                   | string  | no       | none                                       |                                                           |
-| common-options                   | object  | no       | -                                          |                                                           |
-| max_rows_in_memory               | int     | no       | -                                          | Only used when file_format_type is excel.                 |
-| sheet_name                       | string  | no       | Sheet${Random number}                      | Only used when file_format_type is excel.                 |
+|               Name               |  Type   | Required |                  Default                   |                                                    Description                                                    |
+|----------------------------------|---------|----------|--------------------------------------------|-------------------------------------------------------------------------------------------------------------------|
+| path                             | string  | yes      | The oss path to write file in.             |                                                                                                                   |
+| tmp_path                         | string  | no       | /tmp/seatunnel                             | The result file will write to a tmp path first and then use `mv` to submit tmp dir to target dir. Need a OSS dir. |
+| bucket                           | string  | yes      | -                                          |                                                                                                                   |
+| access_key                       | string  | yes      | -                                          |                                                                                                                   |
+| access_secret                    | string  | yes      | -                                          |                                                                                                                   |
+| endpoint                         | string  | yes      | -                                          |                                                                                                                   |
+| custom_filename                  | boolean | no       | false                                      | Whether you need custom the filename                                                                              |
+| file_name_expression             | string  | no       | "${transactionId}"                         | Only used when custom_filename is true                                                                            |
+| filename_time_format             | string  | no       | "yyyy.MM.dd"                               | Only used when custom_filename is true                                                                            |
+| file_format_type                 | string  | no       | "csv"                                      |                                                                                                                   |
+| field_delimiter                  | string  | no       | '\001'                                     | Only used when file_format_type is text                                                                           |
+| row_delimiter                    | string  | no       | "\n"                                       | Only used when file_format_type is text                                                                           |
+| have_partition                   | boolean | no       | false                                      | Whether you need processing partitions.                                                                           |
+| partition_by                     | array   | no       | -                                          | Only used then have_partition is true                                                                             |
+| partition_dir_expression         | string  | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | Only used then have_partition is true                                                                             |
+| is_partition_field_write_in_file | boolean | no       | false                                      | Only used then have_partition is true                                                                             |
+| sink_columns                     | array   | no       |                                            | When this parameter is empty, all fields are sink columns                                                         |
+| is_enable_transaction            | boolean | no       | true                                       |                                                                                                                   |
+| batch_size                       | int     | no       | 1000000                                    |                                                                                                                   |
+| compress_codec                   | string  | no       | none                                       |                                                                                                                   |
+| common-options                   | object  | no       | -                                          |                                                                                                                   |
+| max_rows_in_memory               | int     | no       | -                                          | Only used when file_format_type is excel.                                                                         |
+| sheet_name                       | string  | no       | Sheet${Random number}                      | Only used when file_format_type is excel.                                                                         |
+| xml_root_tag                     | string  | no       | RECORDS                                    | Only used when file_format is xml.                                                                                |
+| xml_row_tag                      | string  | no       | RECORD                                     | Only used when file_format is xml.                                                                                |
+| xml_use_attr_format              | boolean | no       | -                                          | Only used when file_format is xml.                                                                                |
+| encoding                         | string  | no       | "UTF-8"                                    | Only used when file_format_type is json,text,csv,xml.                                                             |
 
 ### path [string]
 
@@ -91,11 +147,11 @@ Only used when `custom_filename` is `true`
 
 Please note that, If `is_enable_transaction` is `true`, we will auto add `${transactionId}_` in the head of the file.
 
-### filename_time_format [string]
+### filename_time_format [String]
 
 Only used when `custom_filename` is `true`
 
-When the format in the `file_name_expression` parameter is `xxxx-${now}` , `filename_time_format` can specify the time format of the path, and the default value is `yyyy.MM.dd` . The commonly used time formats are listed as follows:
+When the format in the `file_name_expression` parameter is `xxxx-${Now}` , `filename_time_format` can specify the time format of the path, and the default value is `yyyy.MM.dd` . The commonly used time formats are listed as follows:
 
 | Symbol |    Description     |
 |--------|--------------------|
@@ -110,7 +166,7 @@ When the format in the `file_name_expression` parameter is `xxxx-${now}` , `file
 
 We supported as the following file types:
 
-`text` `json` `csv` `orc` `parquet` `excel`
+`text` `json` `csv` `orc` `parquet` `excel` `xml`
 
 Please note that, The final file name will end with the file_format_type's suffix, the suffix of the text file is `txt`.
 
@@ -189,12 +245,50 @@ When File Format is Excel,The maximum number of data items that can be cached in
 
 Writer the sheet of the workbook
 
-## Example
+### xml_root_tag [string]
+
+Specifies the tag name of the root element within the XML file.
+
+### xml_row_tag [string]
+
+Specifies the tag name of the data rows within the XML file.
+
+### xml_use_attr_format [boolean]
+
+Specifies Whether to process data using the tag attribute format.
+
+### encoding [string]
+
+Only used when file_format_type is json,text,csv,xml.
+The encoding of the file to write. This param will be parsed by `Charset.forName(encoding)`.
+
+## How to Create an Oss Data Synchronization Jobs
+
+The following example demonstrates how to create a data synchronization job that reads data from Fake Source and writes it to the Oss:
 
 For text file format with `have_partition` and `custom_filename` and `sink_columns`
 
-```hocon
+```bash
+# Set the basic configuration of the task to be performed
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
 
+# Create a source to product data
+source {
+  FakeSource {
+    schema = {
+      fields {
+        name = string
+        age = int
+      }
+    }
+  }
+}
+
+# write data to Oss
+sink {
   OssFile {
     path="/seatunnel/sink"
     bucket = "oss://tyrantlucifer-image-bed"
@@ -214,13 +308,32 @@ For text file format with `have_partition` and `custom_filename` and `sink_colum
     sink_columns = ["name","age"]
     is_enable_transaction = true
   }
-
+}
 ```
 
 For parquet file format with `have_partition` and `sink_columns`
 
-```hocon
+```bash
+# Set the basic configuration of the task to be performed
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
 
+# Create a source to product data
+source {
+  FakeSource {
+    schema = {
+      fields {
+        name = string
+        age = int
+      }
+    }
+  }
+}
+
+# Write data to Oss
+sink {
   OssFile {
     path = "/seatunnel/sink"
     bucket = "oss://tyrantlucifer-image-bed"
@@ -234,13 +347,32 @@ For parquet file format with `have_partition` and `sink_columns`
     file_format_type = "parquet"
     sink_columns = ["name","age"]
   }
-
+}
 ```
 
 For orc file format simple config
 
 ```bash
+# Set the basic configuration of the task to be performed
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
 
+# Create a source to product data
+source {
+  FakeSource {
+    schema = {
+      fields {
+        name = string
+        age = int
+      }
+    }
+  }
+}
+
+# Write data to Oss
+sink {
   OssFile {
     path="/seatunnel/sink"
     bucket = "oss://tyrantlucifer-image-bed"
@@ -249,6 +381,123 @@ For orc file format simple config
     endpoint = "oss-cn-beijing.aliyuncs.com"
     file_format_type = "orc"
   }
+}
+```
+
+### Multiple Table
+
+For extract source metadata from upstream, you can use `${database_name}`, `${table_name}` and `${schema_name}` in the path.
+
+```bash
+
+env {
+  parallelism = 1
+  spark.app.name = "SeaTunnel"
+  spark.executor.instances = 2
+  spark.executor.cores = 1
+  spark.executor.memory = "1g"
+  spark.master = local
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    tables_configs = [
+       {
+        schema = {
+          table = "fake1"
+          fields {
+            c_map = "map<string, string>"
+            c_array = "array<int>"
+            c_string = string
+            c_boolean = boolean
+            c_tinyint = tinyint
+            c_smallint = smallint
+            c_int = int
+            c_bigint = bigint
+            c_float = float
+            c_double = double
+            c_bytes = bytes
+            c_date = date
+            c_decimal = "decimal(38, 18)"
+            c_timestamp = timestamp
+            c_row = {
+              c_map = "map<string, string>"
+              c_array = "array<int>"
+              c_string = string
+              c_boolean = boolean
+              c_tinyint = tinyint
+              c_smallint = smallint
+              c_int = int
+              c_bigint = bigint
+              c_float = float
+              c_double = double
+              c_bytes = bytes
+              c_date = date
+              c_decimal = "decimal(38, 18)"
+              c_timestamp = timestamp
+            }
+          }
+        }
+       },
+       {
+       schema = {
+         table = "fake2"
+         fields {
+           c_map = "map<string, string>"
+           c_array = "array<int>"
+           c_string = string
+           c_boolean = boolean
+           c_tinyint = tinyint
+           c_smallint = smallint
+           c_int = int
+           c_bigint = bigint
+           c_float = float
+           c_double = double
+           c_bytes = bytes
+           c_date = date
+           c_decimal = "decimal(38, 18)"
+           c_timestamp = timestamp
+           c_row = {
+             c_map = "map<string, string>"
+             c_array = "array<int>"
+             c_string = string
+             c_boolean = boolean
+             c_tinyint = tinyint
+             c_smallint = smallint
+             c_int = int
+             c_bigint = bigint
+             c_float = float
+             c_double = double
+             c_bytes = bytes
+             c_date = date
+             c_decimal = "decimal(38, 18)"
+             c_timestamp = timestamp
+           }
+         }
+       }
+      }
+    ]
+  }
+}
+
+sink {
+  OssFile {
+    bucket = "oss://whale-ops"
+    access_key = "xxxxxxxxxxxxxxxxxxx"
+    access_secret = "xxxxxxxxxxxxxxxxxxx"
+    endpoint = "https://oss-accelerate.aliyuncs.com"
+    path = "/tmp/fake_empty/text/${table_name}"
+    row_delimiter = "\n"
+    partition_dir_expression = "${k0}=${v0}"
+    is_partition_field_write_in_file = true
+    file_name_expression = "${transactionId}_${now}"
+    file_format_type = "text"
+    filename_time_format = "yyyy.MM.dd"
+    is_enable_transaction = true
+    compress_codec = "lzo"
+  }
+}
 
 ```
 
@@ -272,4 +521,8 @@ For orc file format simple config
   - When restore writer from states getting transaction directly failed
 - [Improve] Support setting batch size for every file ([3625](https://github.com/apache/seatunnel/pull/3625))
 - [Improve] Support file compress ([3899](https://github.com/apache/seatunnel/pull/3899))
+
+### Tips
+
+> 1.[SeaTunnel Deployment Document](../../start-v2/locally/deployment.md).
 

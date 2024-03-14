@@ -17,11 +17,10 @@
 
 package org.apache.seatunnel.engine.server.dag.execution;
 
-import org.apache.seatunnel.api.table.type.MultipleRowType;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SqlType;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
-import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
+import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.actions.ShuffleAction;
@@ -37,6 +36,7 @@ import org.apache.seatunnel.engine.core.dag.actions.UnknownActionException;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalEdge;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalVertex;
+import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 
 import lombok.NonNull;
@@ -54,24 +54,24 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 
 @Slf4j
 public class ExecutionPlanGenerator {
     private final LogicalDag logicalPlan;
     private final JobImmutableInformation jobImmutableInformation;
-    private final CheckpointConfig checkpointConfig;
+    private final EngineConfig engineConfig;
     private final IdGenerator idGenerator = new IdGenerator();
 
     public ExecutionPlanGenerator(
             @NonNull LogicalDag logicalPlan,
             @NonNull JobImmutableInformation jobImmutableInformation,
-            @NonNull CheckpointConfig checkpointConfig) {
+            @NonNull EngineConfig engineConfig) {
         checkArgument(
                 logicalPlan.getEdges().size() > 0, "ExecutionPlan Builder must have LogicalPlan.");
         this.logicalPlan = logicalPlan;
         this.jobImmutableInformation = jobImmutableInformation;
-        this.checkpointConfig = checkpointConfig;
+        this.engineConfig = engineConfig;
     }
 
     public ExecutionPlan generate() {
@@ -108,6 +108,7 @@ public class ExecutionPlanGenerator {
                             new ArrayList<>(),
                             ((SinkAction<?, ?, ?, ?>) action).getSink(),
                             action.getJarUrls(),
+                            action.getConnectorJarIdentifiers(),
                             (SinkConfig) action.getConfig());
         } else if (action instanceof SourceAction) {
             newAction =
@@ -115,20 +116,23 @@ public class ExecutionPlanGenerator {
                             id,
                             action.getName(),
                             ((SourceAction<?, ?, ?>) action).getSource(),
-                            action.getJarUrls());
+                            action.getJarUrls(),
+                            action.getConnectorJarIdentifiers());
         } else if (action instanceof TransformAction) {
             newAction =
                     new TransformAction(
                             id,
                             action.getName(),
                             ((TransformAction) action).getTransform(),
-                            action.getJarUrls());
+                            action.getJarUrls(),
+                            action.getConnectorJarIdentifiers());
         } else if (action instanceof TransformChainAction) {
             newAction =
                     new TransformChainAction(
                             id,
                             action.getName(),
                             action.getJarUrls(),
+                            action.getConnectorJarIdentifiers(),
                             ((TransformChainAction<?>) action).getTransforms());
         } else {
             throw new UnknownActionException(action);
@@ -215,9 +219,24 @@ public class ExecutionPlanGenerator {
             return executionEdges;
         }
         ExecutionVertex sourceExecutionVertex = sourceExecutionVertices.stream().findFirst().get();
-        SourceAction sourceAction = (SourceAction) sourceExecutionVertex.getAction();
-        SeaTunnelDataType sourceProducedType = sourceAction.getSource().getProducedType();
-        if (!SqlType.MULTIPLE_ROW.equals(sourceProducedType.getSqlType())) {
+        Action sourceAction = sourceExecutionVertex.getAction();
+        List<CatalogTable> producedCatalogTables = new ArrayList<>();
+        if (sourceAction instanceof SourceAction) {
+            try {
+                producedCatalogTables =
+                        ((SourceAction<?, ?, ?>) sourceAction)
+                                .getSource()
+                                .getProducedCatalogTables();
+            } catch (UnsupportedOperationException e) {
+            }
+        } else if (sourceAction instanceof TransformChainAction) {
+            return executionEdges;
+        } else {
+            throw new SeaTunnelException(
+                    "source action must be SourceAction or TransformChainAction");
+        }
+        if (producedCatalogTables.size() <= 1
+                || targetVerticesMap.get(sourceExecutionVertex.getVertexId()).size() <= 1) {
             return executionEdges;
         }
 
@@ -234,8 +253,11 @@ public class ExecutionPlanGenerator {
                 ShuffleMultipleRowStrategy.builder()
                         .jobId(jobImmutableInformation.getJobId())
                         .inputPartitions(sourceAction.getParallelism())
-                        .inputRowType(MultipleRowType.class.cast(sourceProducedType))
-                        .queueEmptyQueueTtl((int) (checkpointConfig.getCheckpointInterval() * 3))
+                        .catalogTables(producedCatalogTables)
+                        .queueEmptyQueueTtl(
+                                (int)
+                                        (engineConfig.getCheckpointConfig().getCheckpointInterval()
+                                                * 3))
                         .build();
         ShuffleConfig shuffleConfig =
                 ShuffleConfig.builder().shuffleStrategy(shuffleStrategy).build();
@@ -348,6 +370,7 @@ public class ExecutionPlanGenerator {
             List<SeaTunnelTransform> transforms = new ArrayList<>(transformChainedVertices.size());
             List<String> names = new ArrayList<>(transformChainedVertices.size());
             Set<URL> jars = new HashSet<>();
+            Set<ConnectorJarIdentifier> identifiers = new HashSet<>();
 
             transformChainedVertices.stream()
                     .peek(
@@ -360,13 +383,14 @@ public class ExecutionPlanGenerator {
                             action -> {
                                 transforms.add(action.getTransform());
                                 jars.addAll(action.getJarUrls());
+                                identifiers.addAll(action.getConnectorJarIdentifiers());
                                 names.add(action.getName());
                             });
             String transformChainActionName =
                     String.format("TransformChain[%s]", String.join("->", names));
             TransformChainAction transformChainAction =
                     new TransformChainAction(
-                            newVertexId, transformChainActionName, jars, transforms);
+                            newVertexId, transformChainActionName, jars, identifiers, transforms);
             transformChainAction.setParallelism(currentVertex.getAction().getParallelism());
 
             ExecutionVertex executionVertex =
@@ -423,7 +447,7 @@ public class ExecutionPlanGenerator {
                 new PipelineGenerator(executionVertices, new ArrayList<>(executionEdges));
         List<Pipeline> pipelines = pipelineGenerator.generatePipelines();
 
-        long actionCount = 0;
+        Set<String> duplicatedActionNames = new HashSet<>();
         Set<String> actionNames = new HashSet<>();
         for (Pipeline pipeline : pipelines) {
             Integer pipelineId = pipeline.getId();
@@ -431,11 +455,15 @@ public class ExecutionPlanGenerator {
                 Action action = vertex.getAction();
                 String actionName = String.format("pipeline-%s [%s]", pipelineId, action.getName());
                 action.setName(actionName);
+                if (actionNames.contains(actionName)) {
+                    duplicatedActionNames.add(actionName);
+                }
                 actionNames.add(actionName);
-                actionCount++;
             }
         }
-        checkArgument(actionNames.size() == actionCount, "Action name is duplicated");
+        checkArgument(
+                duplicatedActionNames.isEmpty(),
+                "Action name is duplicated: " + duplicatedActionNames);
 
         return pipelines;
     }

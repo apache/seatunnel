@@ -49,6 +49,7 @@ public class SeaTunnelConfig {
         hazelcastConfig
                 .getHotRestartPersistenceConfig()
                 .setBaseDir(new File(seatunnelHome(), "recovery").getAbsoluteFile());
+        System.setProperty("hazelcast.compat.classloading.cache.disabled", "true");
     }
 
     /**

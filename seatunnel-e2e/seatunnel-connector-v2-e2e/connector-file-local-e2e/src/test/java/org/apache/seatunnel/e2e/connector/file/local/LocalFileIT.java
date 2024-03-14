@@ -28,7 +28,14 @@ import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
 import org.junit.jupiter.api.TestTemplate;
 
+import io.airlift.compress.lzo.LzopCodec;
+
+import java.io.File;
 import java.io.IOException;
+import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 @DisabledOnContainer(
         value = {TestContainerId.SPARK_2_4},
@@ -46,13 +53,44 @@ public class LocalFileIT extends TestSuiteBase {
                         container);
 
                 ContainerUtil.copyFileIntoContainers(
+                        "/json/e2e_gbk.json",
+                        "/seatunnel/read/encoding/json/e2e_gbk.json",
+                        container);
+
+                Path jsonLzo = convertToLzoFile(ContainerUtil.getResourcesFile("/json/e2e.json"));
+                ContainerUtil.copyFileIntoContainers(
+                        jsonLzo, "/seatunnel/read/lzo_json/e2e.json", container);
+
+                ContainerUtil.copyFileIntoContainers(
                         "/text/e2e.txt",
                         "/seatunnel/read/text/name=tyrantlucifer/hobby=coding/e2e.txt",
                         container);
 
                 ContainerUtil.copyFileIntoContainers(
+                        "/text/e2e_gbk.txt",
+                        "/seatunnel/read/encoding/text/e2e_gbk.txt",
+                        container);
+
+                ContainerUtil.copyFileIntoContainers(
+                        "/text/e2e_delimiter.txt",
+                        "/seatunnel/read/text_delimiter/e2e.txt",
+                        container);
+
+                ContainerUtil.copyFileIntoContainers(
+                        "/text/e2e_time_format.txt",
+                        "/seatunnel/read/text_time_format/e2e.txt",
+                        container);
+
+                Path txtLzo = convertToLzoFile(ContainerUtil.getResourcesFile("/text/e2e.txt"));
+                ContainerUtil.copyFileIntoContainers(
+                        txtLzo, "/seatunnel/read/lzo_text/e2e.txt", container);
+                ContainerUtil.copyFileIntoContainers(
                         "/excel/e2e.xlsx",
                         "/seatunnel/read/excel/name=tyrantlucifer/hobby=coding/e2e.xlsx",
+                        container);
+                ContainerUtil.copyFileIntoContainers(
+                        "/excel/e2e.xls",
+                        "/seatunnel/read/excel/name=tyrantlucifer/hobby=coding/e2e.xls",
                         container);
 
                 ContainerUtil.copyFileIntoContainers(
@@ -69,6 +107,7 @@ public class LocalFileIT extends TestSuiteBase {
                         "/excel/e2e.xlsx",
                         "/seatunnel/read/excel_filter/name=tyrantlucifer/hobby=coding/e2e_filter.xlsx",
                         container);
+                container.execInContainer("mkdir", "-p", "/tmp/fake_empty");
             };
 
     @TestTemplate
@@ -81,16 +120,30 @@ public class LocalFileIT extends TestSuiteBase {
         helper.execute("/excel/local_excel_projection_to_assert.conf");
         // test write local text file
         helper.execute("/text/fake_to_local_file_text.conf");
+        helper.execute("/text/local_file_text_lzo_to_assert.conf");
+        helper.execute("/text/local_file_delimiter_assert.conf");
+        helper.execute("/text/local_file_time_format_assert.conf");
         // test read skip header
         helper.execute("/text/local_file_text_skip_headers.conf");
         // test read local text file
         helper.execute("/text/local_file_text_to_assert.conf");
         // test read local text file with projection
         helper.execute("/text/local_file_text_projection_to_assert.conf");
+        // test read local csv file with assigning encoding
+        helper.execute("/text/fake_to_local_file_with_encoding.conf");
+        // test read local csv file with assigning encoding
+        helper.execute("/text/local_file_text_to_console_with_encoding.conf");
+
         // test write local json file
         helper.execute("/json/fake_to_local_file_json.conf");
         // test read local json file
         helper.execute("/json/local_file_json_to_assert.conf");
+        helper.execute("/json/local_file_json_lzo_to_console.conf");
+        // test read local json file with assigning encoding
+        helper.execute("/json/fake_to_local_file_json_with_encoding.conf");
+        // test write local json file with assigning encoding
+        helper.execute("/json/local_file_json_to_console_with_encoding.conf");
+
         // test write local orc file
         helper.execute("/orc/fake_to_local_file_orc.conf");
         // test read local orc file
@@ -105,5 +158,18 @@ public class LocalFileIT extends TestSuiteBase {
         helper.execute("/parquet/local_file_parquet_projection_to_assert.conf");
         // test read filtered local file
         helper.execute("/excel/local_filter_excel_to_assert.conf");
+
+        // test read empty directory
+        helper.execute("/json/local_file_to_console.conf");
+        helper.execute("/parquet/local_file_to_console.conf");
+    }
+
+    private Path convertToLzoFile(File file) throws IOException {
+        LzopCodec lzo = new LzopCodec();
+        Path path = Paths.get(file.getAbsolutePath() + ".lzo");
+        OutputStream outputStream = lzo.createOutputStream(Files.newOutputStream(path));
+        outputStream.write(Files.readAllBytes(file.toPath()));
+        outputStream.close();
+        return path;
     }
 }

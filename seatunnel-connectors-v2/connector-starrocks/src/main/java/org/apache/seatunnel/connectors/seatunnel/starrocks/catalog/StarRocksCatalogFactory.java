@@ -22,13 +22,15 @@ import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.config.CommonConfig;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRocksOptions;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRocksSinkOptions;
 
 import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
 public class StarRocksCatalogFactory implements CatalogFactory {
-    public static final String IDENTIFIER = "StarRocks";
+    public static final String IDENTIFIER = CommonConfig.CONNECTOR_IDENTITY;
 
     @Override
     public Catalog createCatalog(String catalogName, ReadonlyConfig options) {
@@ -36,7 +38,8 @@ public class StarRocksCatalogFactory implements CatalogFactory {
                 catalogName,
                 options.get(StarRocksOptions.USERNAME),
                 options.get(StarRocksOptions.PASSWORD),
-                options.get(StarRocksOptions.BASE_URL));
+                options.get(StarRocksOptions.BASE_URL),
+                options.get(StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE));
     }
 
     @Override

@@ -24,7 +24,7 @@ The following is an example of the configuration file, which is the same as the 
 
 ```hocon
 env {
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "BATCH"
 }
 
@@ -62,28 +62,28 @@ sink {
 
 More information about config please check [config concept](../../concept/config.md)
 
-## Step 3: Run SeaTunnel Application
+## Step 4: Run SeaTunnel Application
 
 You could start the application by the following commands
 
 spark 2.4.x
 
 ```bash
-cd "apache-seatunnel-incubating-${version}"
+cd "apache-seatunnel-${version}"
 ./bin/start-seatunnel-spark-2-connector-v2.sh \
 --master local[4] \
 --deploy-mode client \
---config ./config/seatunnel.streaming.conf.template
+--config ./config/v2.streaming.conf.template
 ```
 
 spark3.x.x
 
 ```shell
-cd "apache-seatunnel-incubating-${version}"
+cd "apache-seatunnel-${version}"
 ./bin/start-seatunnel-spark-3-connector-v2.sh \
 --master local[4] \
 --deploy-mode client \
---config ./config/seatunnel.streaming.conf.template
+--config ./config/v2.streaming.conf.template
 ```
 
 **See The Output**: When you run the command, you could see its output in your console. You can think this

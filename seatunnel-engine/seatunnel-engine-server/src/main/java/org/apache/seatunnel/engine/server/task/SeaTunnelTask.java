@@ -29,6 +29,7 @@ import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.core.dag.actions.TransformChainAction;
 import org.apache.seatunnel.engine.core.dag.actions.UnknownActionException;
+import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
@@ -136,7 +137,6 @@ public abstract class SeaTunnelTask extends AbstractTask {
                 .whenComplete((s, e) -> closeCalled = true);
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     protected void stateProcess() throws Exception {
         switch (currState) {
             case INIT:
@@ -289,6 +289,11 @@ public abstract class SeaTunnelTask extends AbstractTask {
     @Override
     public Set<URL> getJarsUrl() {
         return getFlowInfo((action, set) -> set.addAll(action.getJarUrls()));
+    }
+
+    @Override
+    public Set<ConnectorJarIdentifier> getConnectorPluginJars() {
+        return getFlowInfo((action, set) -> set.addAll(action.getConnectorJarIdentifiers()));
     }
 
     public Set<ActionStateKey> getActionStateKeys() {

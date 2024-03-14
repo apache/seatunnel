@@ -44,7 +44,7 @@
 
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-flink-13-starter</artifactId>
+            <artifactId>seatunnel-flink-15-starter</artifactId>
             <version>${project.version}</version>
         </dependency>
 
@@ -72,39 +72,46 @@
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-java</artifactId>
-            <version>${flink.1.13.6.version}</version>
+            <version>${flink.1.15.3.version}</version>
             <scope>${flink.scope}</scope>
         </dependency>
+
         <dependency>
             <groupId>org.apache.flink</groupId>
-            <artifactId>flink-table-planner_${scala.binary.version}</artifactId>
-            <version>${flink.1.13.6.version}</version>
-            <scope>${flink.scope}</scope>
+            <artifactId>flink-streaming-java</artifactId>
+            <version>${flink.1.15.3.version}</version>
         </dependency>
+
         <dependency>
             <groupId>org.apache.flink</groupId>
-            <artifactId>flink-table-planner-blink_${scala.binary.version}</artifactId>
-            <version>${flink.1.13.6.version}</version>
-            <scope>${flink.scope}</scope>
+            <artifactId>flink-table-api-java</artifactId>
+            <version>${flink.1.15.3.version}</version>
         </dependency>
+
         <dependency>
             <groupId>org.apache.flink</groupId>
-            <artifactId>flink-streaming-java_${scala.binary.version}</artifactId>
-            <version>${flink.1.13.6.version}</version>
-            <scope>${flink.scope}</scope>
+            <artifactId>flink-table-api-java-bridge</artifactId>
+            <version>${flink.1.15.3.version}</version>
         </dependency>
+
         <dependency>
             <groupId>org.apache.flink</groupId>
-            <artifactId>flink-clients_${scala.binary.version}</artifactId>
-            <version>${flink.1.13.6.version}</version>
-            <scope>${flink.scope}</scope>
+            <artifactId>flink-table-planner-loader</artifactId>
+            <version>${flink.1.15.3.version}</version>
         </dependency>
+
         <dependency>
             <groupId>org.apache.flink</groupId>
-            <artifactId>flink-runtime-web_${scala.binary.version}</artifactId>
-            <version>${flink.1.13.6.version}</version>
-            <scope>${flink.scope}</scope>
+            <artifactId>flink-table-runtime</artifactId>
+            <version>${flink.1.15.3.version}</version>
         </dependency>
+
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-clients</artifactId>
+            <version>${flink.1.15.3.version}</version>
+        </dependency>
+
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>mockwebserver</artifactId>

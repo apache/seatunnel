@@ -185,6 +185,12 @@ public class BaseSinkConfig {
                     .defaultValue(FileFormat.CSV)
                     .withDescription("File format type, e.g. csv, orc, parquet, text");
 
+    public static final Option<String> ENCODING =
+            Options.key("encoding")
+                    .stringType()
+                    .defaultValue("UTF-8")
+                    .withDescription("The encoding of output file, e.g. UTF-8, ISO-8859-1....");
+
     public static final Option<List<String>> SINK_COLUMNS =
             Options.key("sink_columns")
                     .listType()
@@ -209,6 +215,19 @@ public class BaseSinkConfig {
                     .noDefaultValue()
                     .withDescription("The path of hdfs-site.xml");
 
+    public static final Option<String> REMOTE_USER =
+            Options.key("remote_user")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("The remote user name of hdfs");
+
+    public static final Option<String> KRB5_PATH =
+            Options.key("krb5_path")
+                    .stringType()
+                    .defaultValue("/etc/krb5.conf")
+                    .withDescription(
+                            "When use kerberos, we should set krb5 path file path such as '/seatunnel/krb5.conf' or use the default path '/etc/krb5.conf");
+
     public static final Option<String> KERBEROS_PRINCIPAL =
             Options.key("kerberos_principal")
                     .stringType()
@@ -232,4 +251,31 @@ public class BaseSinkConfig {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("To be written sheet name,only valid for excel files");
+
+    public static final Option<String> XML_ROOT_TAG =
+            Options.key("xml_root_tag")
+                    .stringType()
+                    .defaultValue("RECORDS")
+                    .withDescription(
+                            "Specifies the tag name of the root element within the XML file, only valid for xml files, default value is 'RECORDS'");
+
+    public static final Option<String> XML_ROW_TAG =
+            Options.key("xml_row_tag")
+                    .stringType()
+                    .defaultValue("RECORD")
+                    .withDescription(
+                            "Specifies the tag name of the data rows within the XML file, only valid for xml files, default value is 'RECORD'");
+
+    public static final Option<Boolean> XML_USE_ATTR_FORMAT =
+            Options.key("xml_use_attr_format")
+                    .booleanType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Specifies whether to process data using the tag attribute format, only valid for XML files.");
+
+    public static final Option<Boolean> ENABLE_HEADER_WRITE =
+            Options.key("enable_header_write")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("false:dont write header,true:write header");
 }

@@ -20,6 +20,7 @@ package org.apache.seatunnel.plugin.discovery;
 import java.net.URL;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Plugins discovery interface, used to find plugin. Each plugin type should have its own
@@ -52,6 +53,24 @@ public interface PluginDiscovery<T> {
      * @return plugin instance. If not found, throw IllegalArgumentException.
      */
     T createPluginInstance(PluginIdentifier pluginIdentifier, Collection<URL> pluginJars);
+
+    /**
+     * Get plugin instance by plugin identifier.
+     *
+     * @param pluginIdentifier plugin identifier.
+     * @return plugin instance. If not found, return Optional.empty().
+     */
+    Optional<T> createOptionalPluginInstance(PluginIdentifier pluginIdentifier);
+
+    /**
+     * Get plugin instance by plugin identifier.
+     *
+     * @param pluginIdentifier plugin identifier.
+     * @param pluginJars used to help plugin load
+     * @return plugin instance. If not found, return Optional.empty().
+     */
+    Optional<T> createOptionalPluginInstance(
+            PluginIdentifier pluginIdentifier, Collection<URL> pluginJars);
 
     /**
      * Get all plugin instances.

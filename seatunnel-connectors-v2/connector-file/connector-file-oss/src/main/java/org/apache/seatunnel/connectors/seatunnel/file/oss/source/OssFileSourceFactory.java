@@ -19,16 +19,20 @@ package org.apache.seatunnel.connectors.seatunnel.file.oss.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
+import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
+import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
-import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssConfigOptions;
 
 import com.google.auto.service.AutoService;
 
+import java.io.Serializable;
 import java.util.Arrays;
 
 @AutoService(Factory.class)
@@ -39,28 +43,47 @@ public class OssFileSourceFactory implements TableSourceFactory {
     }
 
     @Override
+    public <T, SplitT extends SourceSplit, StateT extends Serializable>
+            TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
+        return () -> (SeaTunnelSource<T, SplitT, StateT>) new OssFileSource(context.getOptions());
+    }
+
+    @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(OssConfig.FILE_PATH)
-                .required(OssConfig.BUCKET)
-                .required(OssConfig.ACCESS_KEY)
-                .required(OssConfig.ACCESS_SECRET)
-                .required(OssConfig.ENDPOINT)
-                .required(BaseSourceConfig.FILE_FORMAT_TYPE)
+                .optional(
+                        org.apache.seatunnel.connectors.seatunnel.file.config
+                                .BaseSourceConfigOptions.TABLE_CONFIGS)
+                .optional(OssConfigOptions.FILE_PATH)
+                .optional(OssConfigOptions.BUCKET)
+                .optional(OssConfigOptions.ACCESS_KEY)
+                .optional(OssConfigOptions.ACCESS_SECRET)
+                .optional(OssConfigOptions.ENDPOINT)
+                .optional(BaseSourceConfigOptions.FILE_FORMAT_TYPE)
                 .conditional(
-                        BaseSourceConfig.FILE_FORMAT_TYPE,
+                        BaseSourceConfigOptions.FILE_FORMAT_TYPE,
                         FileFormat.TEXT,
-                        BaseSourceConfig.DELIMITER)
+                        BaseSourceConfigOptions.FIELD_DELIMITER)
                 .conditional(
-                        BaseSourceConfig.FILE_FORMAT_TYPE,
+                        BaseSourceConfigOptions.FILE_FORMAT_TYPE,
+                        FileFormat.XML,
+                        BaseSourceConfigOptions.XML_ROW_TAG,
+                        BaseSourceConfigOptions.XML_USE_ATTR_FORMAT)
+                .conditional(
+                        BaseSourceConfigOptions.FILE_FORMAT_TYPE,
                         Arrays.asList(
-                                FileFormat.TEXT, FileFormat.JSON, FileFormat.EXCEL, FileFormat.CSV),
-                        CatalogTableUtil.SCHEMA)
-                .optional(BaseSourceConfig.PARSE_PARTITION_FROM_PATH)
-                .optional(BaseSourceConfig.DATE_FORMAT)
-                .optional(BaseSourceConfig.DATETIME_FORMAT)
-                .optional(BaseSourceConfig.TIME_FORMAT)
-                .optional(BaseSourceConfig.FILE_FILTER_PATTERN)
+                                FileFormat.TEXT,
+                                FileFormat.JSON,
+                                FileFormat.EXCEL,
+                                FileFormat.CSV,
+                                FileFormat.XML),
+                        TableSchemaOptions.SCHEMA)
+                .optional(BaseSourceConfigOptions.PARSE_PARTITION_FROM_PATH)
+                .optional(BaseSourceConfigOptions.DATE_FORMAT)
+                .optional(BaseSourceConfigOptions.DATETIME_FORMAT)
+                .optional(BaseSourceConfigOptions.TIME_FORMAT)
+                .optional(BaseSourceConfigOptions.FILE_FILTER_PATTERN)
+                .optional(BaseSourceConfigOptions.COMPRESS_CODEC)
                 .build();
     }
 
