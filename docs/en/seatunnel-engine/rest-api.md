@@ -111,14 +111,6 @@ network:
 }
 ```
 
-When we can't get the job info, the response will be:
-
-```json
-{
-  "jobId" : ""
-}
-```
-
 </details>
 
 ------------------------------------------------------------------------------------------

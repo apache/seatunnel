@@ -31,6 +31,7 @@ import org.apache.seatunnel.core.starter.spark.args.SparkCommandArgs;
 import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
 import org.apache.seatunnel.core.starter.utils.CompressionUtils;
 import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
+import org.apache.seatunnel.core.starter.utils.SystemUtil;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginDiscovery;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginDiscovery;
@@ -80,6 +81,7 @@ public class SparkStarter implements Starter {
         this.commandArgs = commandArgs;
     }
 
+    @SuppressWarnings("checkstyle:RegexpSingleline")
     public static void main(String[] args) throws IOException {
         SparkStarter starter = getInstance(args);
         List<String> command = starter.buildCommands();
@@ -195,7 +197,40 @@ public class SparkStarter implements Starter {
     /** build final spark-submit commands */
     protected List<String> buildFinal() {
         List<String> commands = new ArrayList<>();
-        commands.add("${SPARK_HOME}/bin/spark-submit");
+        String local_os_type = "";
+
+        SystemUtil my_system_util = new SystemUtil();
+        local_os_type = my_system_util.GetOsType();
+        // debug
+        // System.out.println("OS type:"+local_os_type);
+
+        String cmd_spark = "";
+
+        switch (local_os_type.toLowerCase()) {
+            case "windows":
+                cmd_spark = "%SPARK_HOME%/bin/spark-submit.cmd";
+                break;
+            case "linux":
+                cmd_spark = "${SPARK_HOME}/bin/spark-submit";
+                break;
+            case "solaris":
+                cmd_spark = "${SPARK_HOME}/bin/spark-submit";
+                break;
+            case "mac":
+                cmd_spark = "${SPARK_HOME}/bin/spark-submit";
+                break;
+            case "unknown":
+                cmd_spark = "error";
+                break;
+        }
+
+        if (!(cmd_spark.equals("error"))) {
+            commands.add(cmd_spark);
+        } else {
+            System.out.println("Error: Can not determine OS type, abort run !");
+            System.exit(-1);
+        }
+
         appendOption(commands, "--class", SeaTunnelSpark.class.getName());
         appendOption(commands, "--name", this.commandArgs.getJobName());
         appendOption(commands, "--master", this.commandArgs.getMaster());
@@ -217,6 +252,9 @@ public class SparkStarter implements Starter {
         if (this.commandArgs.isCheckConfig()) {
             commands.add("--check");
         }
+
+        // debug
+        // System.out.println("Whole spark job command string:" + commands.toString());
         return commands;
     }
 
