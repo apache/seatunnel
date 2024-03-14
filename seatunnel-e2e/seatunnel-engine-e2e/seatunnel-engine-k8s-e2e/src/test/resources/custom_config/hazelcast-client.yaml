@@ -19,5 +19,4 @@ hazelcast-client:
   cluster-name: seatunnel
   network:
     cluster-members:
-      - seatunnel-0.seatunnel.default.svc.cluster.local:5801
-      - seatunnel-1.seatunnel.default.svc.cluster.local:5801
+      - seatunnel.default.svc.cluster.local
