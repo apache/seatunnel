@@ -735,6 +735,8 @@ kubectl delete -f seatunnel.yaml
 ## Zeta Cluster Mode
 When we say Zeta cluster mode, it means it will has multiple node as the server(worker) node. They are in same hazelcast cluster, they can connect, send message with each other.
 
+Refer Document: https://docs.hazelcast.com/hazelcast/5.0/deploy/configuring-kubernetes
+
 If we create the zeta cluster on k8s, there has 2 things you need notice:
 1. create a headless service
 2. update the hazelcast.yaml
@@ -749,7 +751,7 @@ hazelcast:
       kubernetes:
         enabled: true
         service-dns: <you created headless service name>
-        # this service port must has (default is 5701) and must be consistent with your setup
+        # this service port must has (hazelcast default port is 5701) and must be consistent with your setup
         service-port: 5801
     port:
       auto-increment: false
@@ -761,12 +763,8 @@ hazelcast:
 ```yaml
 hazelcast-client:
   network:
-    join:
-      multicast:
-        enabled: false
-      kubernetes:
-        enabled: true
-        service-dns: <you created headless service name>
+    cluster-members:
+      - <you created headless service name>
   ... <other configurations>
 ```
 
