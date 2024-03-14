@@ -27,6 +27,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRow
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.BufferReducedBatchStatementExecutor;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.BufferedBatchStatementExecutor;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.CopyManagerBatchStatementExecutor;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.FieldNamedPreparedStatement;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.InsertOrUpdateBatchStatementExecutor;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.JdbcBatchStatementExecutor;
@@ -63,7 +64,13 @@ public class JdbcOutputFormatBuilder {
                                 jdbcSinkConfig.getDatabase() + "." + jdbcSinkConfig.getTable()));
 
         final List<String> primaryKeys = jdbcSinkConfig.getPrimaryKeys();
-        if (StringUtils.isNotBlank(jdbcSinkConfig.getSimpleSql())) {
+        if (jdbcSinkConfig.isUseCopyStatement()) {
+            statementExecutorFactory =
+                    () ->
+                            createCopyInBufferStatementExecutor(
+                                    createCopyInBatchStatementExecutor(
+                                            dialect, table, tableSchema));
+        } else if (StringUtils.isNotBlank(jdbcSinkConfig.getSimpleSql())) {
             statementExecutorFactory =
                     () ->
                             createSimpleBufferedExecutor(
@@ -183,6 +190,22 @@ public class JdbcOutputFormatBuilder {
         }
         return createInsertOrUpdateExecutor(
                 dialect, database, table, tableSchema, pkNames, isPrimaryKeyUpdated);
+    }
+
+    private static JdbcBatchStatementExecutor<SeaTunnelRow> createCopyInBufferStatementExecutor(
+            CopyManagerBatchStatementExecutor copyManagerBatchStatementExecutor) {
+        return new BufferedBatchStatementExecutor(
+                copyManagerBatchStatementExecutor, Function.identity());
+    }
+
+    private static CopyManagerBatchStatementExecutor createCopyInBatchStatementExecutor(
+            JdbcDialect dialect, String table, TableSchema tableSchema) {
+        String columns =
+                Arrays.stream(tableSchema.getFieldNames())
+                        .map(dialect::quoteIdentifier)
+                        .collect(Collectors.joining(",", "(", ")"));
+        String copyInSql = String.format("COPY %s %s FROM STDIN WITH CSV", table, columns);
+        return new CopyManagerBatchStatementExecutor(copyInSql, tableSchema);
     }
 
     private static JdbcBatchStatementExecutor<SeaTunnelRow> createInsertOnlyExecutor(

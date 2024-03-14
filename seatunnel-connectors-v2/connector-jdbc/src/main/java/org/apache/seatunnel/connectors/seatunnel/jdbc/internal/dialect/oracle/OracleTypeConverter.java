@@ -330,12 +330,12 @@ public class OracleTypeConverter implements TypeConverter<BasicTypeDefine> {
             case STRING:
                 if (column.getColumnLength() == null || column.getColumnLength() <= 0) {
                     builder.columnType(
-                            String.format("%s(%s)", ORACLE_NVARCHAR2, MAX_VARCHAR_LENGTH));
-                    builder.dataType(ORACLE_NVARCHAR2);
+                            String.format("%s(%s)", ORACLE_VARCHAR2, MAX_VARCHAR_LENGTH));
+                    builder.dataType(ORACLE_VARCHAR2);
                 } else if (column.getColumnLength() <= MAX_VARCHAR_LENGTH) {
                     builder.columnType(
-                            String.format("%s(%s)", ORACLE_NVARCHAR2, column.getColumnLength()));
-                    builder.dataType(ORACLE_NVARCHAR2);
+                            String.format("%s(%s)", ORACLE_VARCHAR2, column.getColumnLength()));
+                    builder.dataType(ORACLE_VARCHAR2);
                 } else {
                     builder.columnType(ORACLE_CLOB);
                     builder.dataType(ORACLE_CLOB);

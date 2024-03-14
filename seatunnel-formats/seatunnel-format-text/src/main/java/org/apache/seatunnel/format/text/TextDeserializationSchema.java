@@ -28,6 +28,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
+import org.apache.seatunnel.common.utils.EncodingUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
 import org.apache.seatunnel.format.text.constant.TextFormatConstant;
 import org.apache.seatunnel.format.text.exception.SeaTunnelTextFormatException;
@@ -38,6 +39,7 @@ import lombok.NonNull;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -48,18 +50,21 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
     private final DateUtils.Formatter dateFormatter;
     private final DateTimeUtils.Formatter dateTimeFormatter;
     private final TimeUtils.Formatter timeFormatter;
+    private final String encoding;
 
     private TextDeserializationSchema(
             @NonNull SeaTunnelRowType seaTunnelRowType,
             String[] separators,
             DateUtils.Formatter dateFormatter,
             DateTimeUtils.Formatter dateTimeFormatter,
-            TimeUtils.Formatter timeFormatter) {
+            TimeUtils.Formatter timeFormatter,
+            String encoding) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.separators = separators;
         this.dateFormatter = dateFormatter;
         this.dateTimeFormatter = dateTimeFormatter;
         this.timeFormatter = timeFormatter;
+        this.encoding = encoding;
     }
 
     public static Builder builder() {
@@ -73,6 +78,7 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
         private DateTimeUtils.Formatter dateTimeFormatter =
                 DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS;
         private TimeUtils.Formatter timeFormatter = TimeUtils.Formatter.HH_MM_SS;
+        private String encoding = StandardCharsets.UTF_8.name();
 
         private Builder() {}
 
@@ -106,9 +112,19 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
             return this;
         }
 
+        public Builder encoding(String encoding) {
+            this.encoding = encoding;
+            return this;
+        }
+
         public TextDeserializationSchema build() {
             return new TextDeserializationSchema(
-                    seaTunnelRowType, separators, dateFormatter, dateTimeFormatter, timeFormatter);
+                    seaTunnelRowType,
+                    separators,
+                    dateFormatter,
+                    dateTimeFormatter,
+                    timeFormatter,
+                    encoding);
         }
     }
 
@@ -117,7 +133,7 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
         if (message == null || message.length == 0) {
             return null;
         }
-        String content = new String(message);
+        String content = new String(message, EncodingUtils.tryParseCharset(encoding));
         Map<Integer, String> splitsMap = splitLineBySeaTunnelRowType(content, seaTunnelRowType, 0);
         Object[] objects = new Object[seaTunnelRowType.getTotalFields()];
         for (int i = 0; i < objects.length; i++) {
@@ -228,7 +244,7 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
             case NULL:
                 return null;
             case BYTES:
-                return field.getBytes();
+                return field.getBytes(StandardCharsets.UTF_8);
             case DATE:
                 return DateUtils.parse(field, dateFormatter);
             case TIME:
