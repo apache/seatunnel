@@ -30,6 +30,7 @@ import io.debezium.pipeline.DataChangeEvent;
 import io.debezium.pipeline.EventDispatcher;
 import io.debezium.pipeline.source.spi.EventMetadataProvider;
 import io.debezium.pipeline.spi.ChangeEventCreator;
+import io.debezium.pipeline.spi.Partition;
 import io.debezium.relational.TableId;
 import io.debezium.relational.history.HistoryRecord;
 import io.debezium.schema.DataCollectionFilters;
@@ -48,7 +49,7 @@ import java.util.Map;
  *     this is useful for downstream to deserialize the {@link HistoryRecord} back.
  * </pre>
  */
-public class JdbcSourceEventDispatcher extends EventDispatcher<TableId> {
+public class JdbcSourceEventDispatcher<P extends Partition> extends EventDispatcher<P, TableId> {
 
     private final ChangeEventQueue<DataChangeEvent> queue;
 

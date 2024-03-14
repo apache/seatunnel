@@ -29,6 +29,11 @@ import io.debezium.util.Collect;
 import java.time.Instant;
 import java.util.Map;
 
+/**
+ * Copied from Debezium 1.9.8.Final
+ *
+ * <p>Line 37 : change {@link PostgresEventMetadataProvider} access modifier to public.
+ */
 public class PostgresEventMetadataProvider implements EventMetadataProvider {
 
     @Override
@@ -59,11 +64,13 @@ public class PostgresEventMetadataProvider implements EventMetadataProvider {
         if (source == null) {
             return null;
         }
-        Long xmin = sourceInfo.getInt64(SourceInfo.XMIN_KEY);
+        final Long xmin = sourceInfo.getInt64(SourceInfo.XMIN_KEY);
+        final Long lsn = sourceInfo.getInt64(SourceInfo.LSN_KEY);
+        if (lsn == null) {
+            return null;
+        }
 
-        Map<String, String> r =
-                Collect.hashMapOf(
-                        SourceInfo.LSN_KEY, Long.toString(sourceInfo.getInt64(SourceInfo.LSN_KEY)));
+        Map<String, String> r = Collect.hashMapOf(SourceInfo.LSN_KEY, Long.toString(lsn));
         if (xmin != null) {
             r.put(SourceInfo.XMIN_KEY, Long.toString(xmin));
         }
@@ -80,6 +87,10 @@ public class PostgresEventMetadataProvider implements EventMetadataProvider {
         if (source == null) {
             return null;
         }
-        return Long.toString(sourceInfo.getInt64(SourceInfo.TXID_KEY));
+        Long txId = sourceInfo.getInt64(SourceInfo.TXID_KEY);
+        if (txId == null) {
+            return null;
+        }
+        return Long.toString(txId);
     }
 }

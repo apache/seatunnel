@@ -31,6 +31,7 @@ import io.debezium.config.CommonConnectorConfig;
 import io.debezium.data.Envelope;
 import io.debezium.pipeline.ErrorHandler;
 import io.debezium.pipeline.spi.OffsetContext;
+import io.debezium.pipeline.spi.Partition;
 import io.debezium.relational.RelationalDatabaseSchema;
 import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
@@ -43,7 +44,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /** The context for fetch task that fetching data of snapshot split from JDBC data source. */
-public abstract class JdbcSourceFetchTaskContext implements FetchTask.Context {
+public abstract class JdbcSourceFetchTaskContext<P extends Partition> implements FetchTask.Context {
 
     protected final JdbcSourceConfig sourceConfig;
     protected final JdbcDataSourceDialect dataSourceDialect;
@@ -173,7 +174,9 @@ public abstract class JdbcSourceFetchTaskContext implements FetchTask.Context {
 
     public abstract ErrorHandler getErrorHandler();
 
-    public abstract JdbcSourceEventDispatcher getDispatcher();
+    public abstract JdbcSourceEventDispatcher<P> getDispatcher();
 
     public abstract OffsetContext getOffsetContext();
+
+    public abstract P getPartition();
 }

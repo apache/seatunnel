@@ -41,6 +41,7 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.utils.TableDiscove
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 import io.debezium.connector.postgresql.PostgresConnectorConfig;
+import io.debezium.connector.postgresql.PostgresPartition;
 import io.debezium.connector.postgresql.connection.PostgresConnection;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.RelationalDatabaseConnectorConfig;
@@ -55,8 +56,7 @@ import java.util.Optional;
 
 import static org.apache.seatunnel.connectors.seatunnel.cdc.postgres.utils.PostgresConnectionUtils.newPostgresValueConverterBuilder;
 
-public class PostgresDialect implements JdbcDataSourceDialect {
-
+public class PostgresDialect implements JdbcDataSourceDialect<PostgresPartition> {
     private static final long serialVersionUID = 1L;
     private final PostgresSourceConfig sourceConfig;
 
@@ -88,7 +88,9 @@ public class PostgresDialect implements JdbcDataSourceDialect {
                 (PostgresConnectorConfig) sourceConfig.getDbzConnectorConfig();
         return new PostgresConnection(
                 conf.getJdbcConfig(),
-                newPostgresValueConverterBuilder(conf, sourceConfig.getServerTimeZone()));
+                newPostgresValueConverterBuilder(
+                        conf, "postgres-dialect", sourceConfig.getServerTimeZone()),
+                "postgres-dialect");
     }
 
     @Override
@@ -132,7 +134,9 @@ public class PostgresDialect implements JdbcDataSourceDialect {
                         dbzConnectorConfig.getJdbcConfig(),
                         newPostgresValueConverterBuilder(
                                 (PostgresConnectorConfig) dbzConnectorConfig,
-                                taskSourceConfig.getServerTimeZone()));
+                                "postgres-source-fetch-task",
+                                taskSourceConfig.getServerTimeZone()),
+                        "postgres-source-fetch-task");
 
         List<TableChanges.TableChange> tableChangeList = new ArrayList<>();
         // TODO: support save table schema

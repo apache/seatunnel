@@ -34,9 +34,9 @@ public class PostgresConnectionUtils {
      * PostgresConnectorConfig is protected.
      */
     public static PostgresConnection.PostgresValueConverterBuilder newPostgresValueConverterBuilder(
-            PostgresConnectorConfig config, ZoneId zoneId) {
+            PostgresConnectorConfig config, String connectionUsage, ZoneId zoneId) {
         try (PostgresConnection heartbeatConnection =
-                new PostgresConnection(config.getJdbcConfig())) {
+                new PostgresConnection(config.getJdbcConfig(), connectionUsage)) {
             final Charset databaseCharset = heartbeatConnection.getDatabaseCharset();
             return (typeRegistry) ->
                     CustomPostgresValueConverter.of(config, databaseCharset, typeRegistry, zoneId);
@@ -44,9 +44,9 @@ public class PostgresConnectionUtils {
     }
 
     public static PostgresConnection.PostgresValueConverterBuilder newPostgresValueConverterBuilder(
-            PostgresConnectorConfig config, String serverTimezone) {
+            PostgresConnectorConfig config, String connectionUsage, String serverTimezone) {
         try (PostgresConnection heartbeatConnection =
-                new PostgresConnection(config.getJdbcConfig())) {
+                new PostgresConnection(config.getJdbcConfig(), connectionUsage)) {
             final Charset databaseCharset = heartbeatConnection.getDatabaseCharset();
             return (typeRegistry) ->
                     CustomPostgresValueConverter.of(

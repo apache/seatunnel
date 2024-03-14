@@ -94,7 +94,7 @@ public class MongodbFetchTaskContext implements FetchTask.Context {
         // use the configuration queue size.
         final int queueSize =
                 sourceSplitBase.isSnapshotSplit() && isExactlyOnce()
-                        ? Integer.MAX_VALUE
+                        ? 4096
                         : sourceConfig.getBatchSize();
         this.changeEventQueue =
                 new ChangeEventQueue.Builder<DataChangeEvent>()

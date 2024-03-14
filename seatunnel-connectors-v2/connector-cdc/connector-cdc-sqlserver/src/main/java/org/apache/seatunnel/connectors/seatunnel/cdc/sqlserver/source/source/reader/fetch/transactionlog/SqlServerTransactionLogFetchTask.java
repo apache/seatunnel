@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source.reader.fetch.transactionlog;
 
 import org.apache.seatunnel.connectors.cdc.base.relational.JdbcSourceEventDispatcher;
+import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.external.FetchTask;
 import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
@@ -30,17 +31,18 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.debezium.DebeziumException;
+import io.debezium.connector.sqlserver.Lsn;
 import io.debezium.connector.sqlserver.SqlServerConnection;
 import io.debezium.connector.sqlserver.SqlServerConnectorConfig;
 import io.debezium.connector.sqlserver.SqlServerDatabaseSchema;
 import io.debezium.connector.sqlserver.SqlServerOffsetContext;
+import io.debezium.connector.sqlserver.SqlServerPartition;
 import io.debezium.connector.sqlserver.SqlServerStreamingChangeEventSource;
 import io.debezium.pipeline.ErrorHandler;
 import io.debezium.pipeline.source.spi.ChangeEventSource;
 import io.debezium.util.Clock;
 
 import static org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source.offset.LsnOffset.NO_STOPPING_OFFSET;
-import static org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.utils.SqlServerUtils.getLsnPosition;
 
 public class SqlServerTransactionLogFetchTask implements FetchTask<SourceSplitBase> {
     private final IncrementalSplit split;
@@ -70,7 +72,9 @@ public class SqlServerTransactionLogFetchTask implements FetchTask<SourceSplitBa
                 new TransactionLogSplitChangeEventSourceContext();
 
         transactionLogSplitReadTask.execute(
-                changeEventSourceContext, sourceFetchContext.getOffsetContext());
+                changeEventSourceContext,
+                sourceFetchContext.getPartition(),
+                sourceFetchContext.getOffsetContext());
     }
 
     @Override
@@ -97,7 +101,7 @@ public class SqlServerTransactionLogFetchTask implements FetchTask<SourceSplitBa
         private static final Logger LOG =
                 LoggerFactory.getLogger(TransactionLogSplitReadTask.class);
         private final IncrementalSplit lsnSplit;
-        private final JdbcSourceEventDispatcher dispatcher;
+        private final JdbcSourceEventDispatcher<SqlServerPartition> dispatcher;
         private final ErrorHandler errorHandler;
         private ChangeEventSourceContext context;
 
@@ -105,7 +109,7 @@ public class SqlServerTransactionLogFetchTask implements FetchTask<SourceSplitBa
                 SqlServerConnectorConfig connectorConfig,
                 SqlServerConnection connection,
                 SqlServerConnection metadataConnection,
-                JdbcSourceEventDispatcher dispatcher,
+                JdbcSourceEventDispatcher<SqlServerPartition> dispatcher,
                 ErrorHandler errorHandler,
                 SqlServerDatabaseSchema schema,
                 IncrementalSplit lsnSplit) {
@@ -123,25 +127,25 @@ public class SqlServerTransactionLogFetchTask implements FetchTask<SourceSplitBa
         }
 
         @Override
-        public void afterHandleLsn(SqlServerOffsetContext offsetContext) {
+        public void afterHandleLsn(SqlServerPartition partition, Lsn toLsn) {
             // check do we need to stop for fetch binlog for snapshot split.
             if (isBoundedRead()) {
-                final LsnOffset currentRedoLogOffset = getLsnPosition(offsetContext.getOffset());
-                // reach the high watermark, the binlog fetcher should be finished
-                if (currentRedoLogOffset.isAtOrAfter(lsnSplit.getStopOffset())) {
-                    // send binlog end event
+                LsnOffset currentLsnOffset = new LsnOffset(null, toLsn, null);
+                Offset endingOffset = lsnSplit.getStopOffset();
+                if (currentLsnOffset.isAtOrAfter(endingOffset)) {
+                    // send streaming end event
                     try {
                         dispatcher.dispatchWatermarkEvent(
-                                offsetContext.getPartition(),
+                                partition.getSourcePartition(),
                                 lsnSplit,
-                                currentRedoLogOffset,
+                                currentLsnOffset,
                                 WatermarkKind.END);
                     } catch (InterruptedException e) {
                         LOG.error("Send signal event error.", e);
                         errorHandler.setProducerThrowable(
                                 new DebeziumException("Error processing binlog signal event", e));
                     }
-                    // tell fetcher the binlog task finished
+                    // tell fetcher the streaming task finished
                     ((SqlServerSnapshotFetchTask.SnapshotBinlogSplitChangeEventSourceContext)
                                     context)
                             .finished();
@@ -154,10 +158,13 @@ public class SqlServerTransactionLogFetchTask implements FetchTask<SourceSplitBa
         }
 
         @Override
-        public void execute(ChangeEventSourceContext context, SqlServerOffsetContext offsetContext)
+        public void execute(
+                ChangeEventSourceContext context,
+                SqlServerPartition partition,
+                SqlServerOffsetContext offsetContext)
                 throws InterruptedException {
             this.context = context;
-            super.execute(context, offsetContext);
+            super.execute(context, partition, offsetContext);
         }
     }
 

@@ -25,7 +25,7 @@
     <artifactId>seatunnel-format-compatible-connect-json</artifactId>
     <name>SeaTunnel : Formats : Compatible Kafka Connect Json</name>
     <properties>
-        <debezium.version>1.6.4.Final</debezium.version>
+        <debezium.version>1.9.8.Final</debezium.version>
     </properties>
 
     <dependencies>

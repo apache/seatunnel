@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
+import org.apache.seatunnel.connectors.cdc.base.relational.connection.JdbcConnectionFactory;
 import org.apache.seatunnel.connectors.cdc.base.relational.connection.JdbcConnectionPoolFactory;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.splitter.ChunkSplitter;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.external.FetchTask;
@@ -38,6 +39,8 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlSchema;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.TableDiscoveryUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
+import io.debezium.connector.mysql.MySqlPartition;
+import io.debezium.jdbc.JdbcConfiguration;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.TableId;
 import io.debezium.relational.history.TableChanges;
@@ -50,8 +53,8 @@ import java.util.Optional;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlConnectionUtils.isTableIdCaseSensitive;
 
 /** The {@link JdbcDataSourceDialect} implementation for MySQL datasource. */
-public class MySqlDialect implements JdbcDataSourceDialect {
-
+public class MySqlDialect implements JdbcDataSourceDialect<MySqlPartition> {
+    private static final String QUOTED_CHARACTER = "`";
     private static final long serialVersionUID = 1L;
     private final MySqlSourceConfig sourceConfig;
     private transient MySqlSchema mySqlSchema;
@@ -65,6 +68,21 @@ public class MySqlDialect implements JdbcDataSourceDialect {
     @Override
     public String getName() {
         return DatabaseIdentifier.MYSQL;
+    }
+
+    public JdbcConnection openJdbcConnection(JdbcSourceConfig sourceConfig) {
+        JdbcConnection jdbc =
+                new JdbcConnection(
+                        JdbcConfiguration.adapt(sourceConfig.getDbzConfiguration()),
+                        new JdbcConnectionFactory(sourceConfig, getPooledDataSourceFactory()),
+                        QUOTED_CHARACTER,
+                        QUOTED_CHARACTER);
+        try {
+            jdbc.connect();
+        } catch (Exception e) {
+            throw new SeaTunnelException(e);
+        }
+        return jdbc;
     }
 
     @Override

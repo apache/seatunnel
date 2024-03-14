@@ -38,6 +38,7 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.utils.OracleConnecti
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.utils.OracleSchema;
 
 import io.debezium.connector.oracle.OracleConnection;
+import io.debezium.connector.oracle.OraclePartition;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.TableId;
 import io.debezium.relational.history.TableChanges.TableChange;
@@ -49,7 +50,7 @@ import java.util.Optional;
 
 import static org.apache.seatunnel.connectors.seatunnel.cdc.oracle.utils.OracleConnectionUtils.createOracleConnection;
 
-public class OracleDialect implements JdbcDataSourceDialect {
+public class OracleDialect implements JdbcDataSourceDialect<OraclePartition> {
 
     private static final long serialVersionUID = 1L;
     private final OracleSourceConfigFactory configFactory;
@@ -98,11 +99,9 @@ public class OracleDialect implements JdbcDataSourceDialect {
     @Override
     public List<TableId> discoverDataCollections(JdbcSourceConfig sourceConfig) {
         OracleSourceConfig oracleSourceConfig = (OracleSourceConfig) sourceConfig;
-        String database = oracleSourceConfig.getDbzConnectorConfig().getDatabaseName();
-
         try (JdbcConnection jdbcConnection = openJdbcConnection(sourceConfig)) {
             return OracleConnectionUtils.listTables(
-                    jdbcConnection, database, oracleSourceConfig.getTableFilters());
+                    jdbcConnection, oracleSourceConfig.getTableFilters());
         } catch (SQLException e) {
             throw new SeaTunnelException("Error to discover tables: " + e.getMessage(), e);
         }

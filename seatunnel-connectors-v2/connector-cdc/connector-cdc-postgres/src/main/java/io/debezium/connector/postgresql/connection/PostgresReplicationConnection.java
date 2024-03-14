@@ -1,12 +1,22 @@
 /*
- * Copyright Debezium Authors.
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- * Licensed under the Apache Software License version 2.0, available at http://www.apache.org/licenses/LICENSE-2.0
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package io.debezium.connector.postgresql.connection;
 
-import org.apache.commons.collections4.CollectionUtils;
 import org.apache.kafka.connect.errors.ConnectException;
 
 import org.postgresql.core.BaseConnection;
@@ -18,11 +28,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.debezium.DebeziumException;
-import io.debezium.config.Configuration;
 import io.debezium.connector.postgresql.PostgresConnectorConfig;
 import io.debezium.connector.postgresql.PostgresSchema;
 import io.debezium.connector.postgresql.TypeRegistry;
 import io.debezium.connector.postgresql.spi.SlotCreationResult;
+import io.debezium.jdbc.JdbcConfiguration;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.jdbc.JdbcConnectionException;
 import io.debezium.relational.RelationalTableFilters;
@@ -31,36 +41,39 @@ import io.debezium.util.Clock;
 import io.debezium.util.Metronome;
 
 import java.nio.ByteBuffer;
+import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.SQLWarning;
 import java.sql.Statement;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashSet;
-import java.util.List;
+import java.util.LinkedHashSet;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static java.lang.Math.toIntExact;
 
 /**
- * Implementation of a {@link ReplicationConnection} for Postgresql. Note that replication
- * connections in PG cannot execute regular statements but only a limited number of
- * replication-related commands.
+ * Copied from Debezium 1.9.8.Final
  *
- * @author Horia Chiorean (hchiorea@redhat.com)
+ * <p>The {@link ReplicationConnection} created from {@code createReplicationStream} will hang when
+ * the wal logs only contain the keepAliveMessage. Support to set an ending Lsn to stop hanging.
+ *
+ * <p>Line 83, 711~713 : add endingPos and its setter.
+ *
+ * <p>Line 571~576, 595~600: ReplicationStream from {@code createReplicationStream} will stop when
+ * endingPos reached.
  */
 public class PostgresReplicationConnection extends JdbcConnection implements ReplicationConnection {
 
-    private static final String TABLE_INCLUDE_LIST = "table.include.list";
     private static Logger LOGGER = LoggerFactory.getLogger(PostgresReplicationConnection.class);
 
     private final String slotName;
@@ -69,15 +82,18 @@ public class PostgresReplicationConnection extends JdbcConnection implements Rep
     private final PostgresConnectorConfig.AutoCreateMode publicationAutocreateMode;
     private final PostgresConnectorConfig.LogicalDecoder plugin;
     private final boolean dropSlotOnClose;
-    private final PostgresConnectorConfig originalConfig;
+    private final PostgresConnectorConfig connectorConfig;
     private final Duration statusUpdateInterval;
     private final MessageDecoder messageDecoder;
+    private final PostgresConnection jdbcConnection;
     private final TypeRegistry typeRegistry;
     private final Properties streamParams;
 
     private Lsn defaultStartingPos;
     private SlotCreationResult slotCreationInfo;
     private boolean hasInitedSlot;
+
+    private Lsn endingPos;
 
     /**
      * Creates a new replication connection with the given params.
@@ -96,6 +112,7 @@ public class PostgresReplicationConnection extends JdbcConnection implements Rep
      * @param statusUpdateInterval the interval at which the replication connection should
      *     periodically send status
      * @param doSnapshot whether the connector is doing snapshot
+     * @param jdbcConnection general PostgreSQL JDBC connection
      * @param typeRegistry registry with PostgreSQL types
      * @param streamParams additional parameters to pass to the replication stream
      * @param schema the schema; must not be null
@@ -111,16 +128,19 @@ public class PostgresReplicationConnection extends JdbcConnection implements Rep
             boolean dropSlotOnClose,
             boolean doSnapshot,
             Duration statusUpdateInterval,
+            PostgresConnection jdbcConnection,
             TypeRegistry typeRegistry,
             Properties streamParams,
             PostgresSchema schema) {
         super(
-                config.getJdbcConfig(),
+                addDefaultSettings(config.getJdbcConfig()),
                 PostgresConnection.FACTORY,
                 null,
-                PostgresReplicationConnection::defaultSettings);
+                null,
+                "\"",
+                "\"");
 
-        this.originalConfig = config;
+        this.connectorConfig = config;
         this.slotName = slotName;
         this.publicationName = publicationName;
         this.tableFilter = tableFilter;
@@ -128,16 +148,33 @@ public class PostgresReplicationConnection extends JdbcConnection implements Rep
         this.plugin = plugin;
         this.dropSlotOnClose = dropSlotOnClose;
         this.statusUpdateInterval = statusUpdateInterval;
-        this.messageDecoder = plugin.messageDecoder(new MessageDecoderContext(config, schema));
+        this.messageDecoder =
+                plugin.messageDecoder(new MessageDecoderContext(config, schema), jdbcConnection);
+        this.jdbcConnection = jdbcConnection;
         this.typeRegistry = typeRegistry;
         this.streamParams = streamParams;
         this.slotCreationInfo = null;
         this.hasInitedSlot = false;
     }
 
+    private static JdbcConfiguration addDefaultSettings(JdbcConfiguration configuration) {
+        // first copy the parent's default settings...
+        // then set some additional replication specific settings
+        return JdbcConfiguration.adapt(
+                PostgresConnection.addDefaultSettings(
+                                configuration, PostgresConnection.CONNECTION_STREAMING)
+                        .edit()
+                        .with("replication", "database")
+                        .with(
+                                "preferQueryMode",
+                                "simple") // replication protocol only supports simple query mode
+                        .build());
+    }
+
     private ServerInfo.ReplicationSlot getSlotInfo() throws SQLException, InterruptedException {
         try (PostgresConnection connection =
-                new PostgresConnection(originalConfig.getJdbcConfig())) {
+                new PostgresConnection(
+                        connectorConfig.getJdbcConfig(), PostgresConnection.CONNECTION_SLOT_INFO)) {
             return connection.readReplicationSlotInfo(slotName, plugin.getPostgresPluginName());
         }
     }
@@ -145,21 +182,22 @@ public class PostgresReplicationConnection extends JdbcConnection implements Rep
     protected void initPublication() {
         String createPublicationStmt;
         String tableFilterString = null;
-        String tableListStr = this.originalConfig.getConfig().asMap().get(TABLE_INCLUDE_LIST);
-        final List<String> configTableList =
-                new ArrayList<>(Arrays.asList(tableListStr.split(",")));
-        configTableList.removeAll(this.getPublicationExistedTableList());
         if (PostgresConnectorConfig.LogicalDecoder.PGOUTPUT.equals(plugin)) {
             LOGGER.info("Initializing PgOutput logical decoder publication");
             try {
+                // Unless the autocommit is disabled the SELECT publication query will stay running
+                Connection conn = pgConnection();
+                conn.setAutoCommit(false);
+
                 String selectPublication =
                         String.format(
                                 "SELECT COUNT(1) FROM pg_publication WHERE pubname = '%s'",
                                 publicationName);
-                try (Statement stmt = pgConnection().createStatement();
+                try (Statement stmt = conn.createStatement();
                         ResultSet rs = stmt.executeQuery(selectPublication)) {
                     if (rs.next()) {
                         Long count = rs.getLong(1);
+                        // Close eagerly as the transaction might stay running
                         if (count == 0L) {
                             LOGGER.info(
                                     "Creating new publication '{}' for plugin '{}'",
@@ -181,126 +219,92 @@ public class PostgresReplicationConnection extends JdbcConnection implements Rep
                                     stmt.execute(createPublicationStmt);
                                     break;
                                 case FILTERED:
-                                    try {
-                                        Set<TableId> tablesToCapture =
-                                                determineCapturedTables(configTableList);
-                                        tableFilterString =
-                                                tablesToCapture.stream()
-                                                        .map(TableId::toDoubleQuotedString)
-                                                        .collect(Collectors.joining(", "));
-                                        if (tableFilterString.isEmpty()) {
-                                            throw new DebeziumException(
-                                                    String.format(
-                                                            "No table filters found for filtered publication %s",
-                                                            publicationName));
-                                        }
-                                        createPublicationStmt =
-                                                String.format(
-                                                        "CREATE PUBLICATION %s FOR TABLE %s;",
-                                                        publicationName, tableFilterString);
-                                        LOGGER.info(
-                                                "Creating Publication with statement '{}'",
-                                                createPublicationStmt);
-                                        // Publication doesn't exist, create it but restrict to the
-                                        // tableFilter.
-                                        stmt.execute(createPublicationStmt);
-                                    } catch (Exception e) {
-                                        throw new ConnectException(
-                                                String.format(
-                                                        "Unable to create filtered publication %s for %s",
-                                                        publicationName, tableFilterString),
-                                                e);
-                                    }
+                                    createOrUpdatePublicationModeFilterted(
+                                            tableFilterString, stmt, false);
                                     break;
                             }
                         } else {
-                            if (CollectionUtils.isNotEmpty(configTableList)) {
-                                switch (publicationAutocreateMode) {
-                                    case DISABLED:
-                                        throw new ConnectException(
-                                                "Publication autocreation is disabled, please create one and restart the connector.");
-                                    case ALL_TABLES:
-                                        break;
-                                    case FILTERED:
-                                        try {
-                                            Set<TableId> tablesToCapture =
-                                                    determineCapturedTables(configTableList);
-                                            tableFilterString =
-                                                    tablesToCapture.stream()
-                                                            .map(TableId::toDoubleQuotedString)
-                                                            .collect(Collectors.joining(", "));
-                                            if (tableFilterString.isEmpty()) {
-                                                throw new DebeziumException(
-                                                        String.format(
-                                                                "No table filters found for filtered publication %s",
-                                                                publicationName));
-                                            }
-                                            createPublicationStmt =
-                                                    String.format(
-                                                            "ALTER PUBLICATION %s ADD TABLE %s;",
-                                                            publicationName, tableFilterString);
-                                            LOGGER.info(
-                                                    "ALTER PUBLICATION with statement '{}'",
-                                                    createPublicationStmt);
-                                            // Publication doesn't exist, create it but restrict to
-                                            // the tableFilter.
-                                            stmt.execute(createPublicationStmt);
-                                        } catch (Exception e) {
-                                            throw new ConnectException(
-                                                    String.format(
-                                                            "Unable to create filtered publication %s for %s",
-                                                            publicationName, tableFilterString),
-                                                    e);
-                                        }
-                                        break;
-                                }
+                            switch (publicationAutocreateMode) {
+                                case FILTERED:
+                                    createOrUpdatePublicationModeFilterted(
+                                            tableFilterString, stmt, true);
+                                    break;
+                                default:
+                                    LOGGER.trace(
+                                            "A logical publication named '{}' for plugin '{}' and database '{}' is already active on the server "
+                                                    + "and will be used by the plugin",
+                                            publicationName,
+                                            plugin,
+                                            database());
                             }
                         }
                     }
                 }
+                conn.commit();
+                conn.setAutoCommit(true);
             } catch (SQLException e) {
                 throw new JdbcConnectionException(e);
             }
-
-            // This is what ties the publication definition to the replication stream
-            streamParams.put("proto_version", 1);
-            streamParams.put("publication_names", publicationName);
         }
     }
 
-    private List<String> getPublicationExistedTableList() {
-        List<String> tableList = new ArrayList<>();
+    private void createOrUpdatePublicationModeFilterted(
+            String tableFilterString, Statement stmt, boolean isUpdate) {
+        String createOrUpdatePublicationStmt;
         try {
-            String selectPublication =
-                    String.format(
-                            "SELECT * FROM pg_publication_tables WHERE pubname = '%s'; ",
-                            publicationName);
-            try (Statement stmt = pgConnection().createStatement();
-                    ResultSet rs = stmt.executeQuery(selectPublication)) {
-                while (rs.next()) {
-                    String schemaName = rs.getString("schemaname");
-                    String tableName = rs.getString("tablename");
-                    tableList.add(schemaName + "." + tableName);
-                }
+            Set<TableId> tablesToCapture = determineCapturedTables();
+            tableFilterString =
+                    tablesToCapture.stream()
+                            .map(TableId::toDoubleQuotedString)
+                            .collect(Collectors.joining(", "));
+            if (tableFilterString.isEmpty()) {
+                throw new DebeziumException(
+                        String.format(
+                                "No table filters found for filtered publication %s",
+                                publicationName));
             }
-        } catch (SQLException e) {
-            throw new JdbcConnectionException(e);
+            createOrUpdatePublicationStmt =
+                    isUpdate
+                            ? String.format(
+                                    "ALTER PUBLICATION %s SET TABLE %s;",
+                                    publicationName, tableFilterString)
+                            : String.format(
+                                    "CREATE PUBLICATION %s FOR TABLE %s;",
+                                    publicationName, tableFilterString);
+            LOGGER.info(
+                    isUpdate
+                            ? "Updating Publication with statement '{}'"
+                            : "Creating Publication with statement '{}'",
+                    createOrUpdatePublicationStmt);
+            stmt.execute(createOrUpdatePublicationStmt);
+        } catch (Exception e) {
+            throw new ConnectException(
+                    String.format(
+                            "Unable to %s filtered publication %s for %s",
+                            isUpdate ? "update" : "create", publicationName, tableFilterString),
+                    e);
         }
-        return tableList;
     }
 
-    private Set<TableId> determineCapturedTables(List<String> tableList) {
-        Set<TableId> tableIdSet = new HashSet<>();
-        if (CollectionUtils.isEmpty(tableList)) {
-            return tableIdSet;
+    private Set<TableId> determineCapturedTables() throws Exception {
+        Set<TableId> allTableIds = jdbcConnection.getAllTableIds(connectorConfig.databaseName());
+
+        Set<TableId> capturedTables = new HashSet<>();
+
+        for (TableId tableId : allTableIds) {
+            if (tableFilter.dataCollectionFilter().isIncluded(tableId)) {
+                LOGGER.trace("Adding table {} to the list of captured tables", tableId);
+                capturedTables.add(tableId);
+            } else {
+                LOGGER.trace(
+                        "Ignoring table {} as it's not included in the filter configuration",
+                        tableId);
+            }
         }
-        tableList.forEach(
-                tableNameStr -> {
-                    String schemaName = tableNameStr.split("\\.")[0];
-                    String tableName = tableNameStr.split("\\.")[1];
-                    tableIdSet.add(new TableId("", schemaName, tableName));
-                });
-        return tableIdSet;
+
+        return capturedTables.stream()
+                .sorted()
+                .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
     protected void initReplicationSlot() throws SQLException, InterruptedException {
@@ -398,8 +402,8 @@ public class PostgresReplicationConnection extends JdbcConnection implements Rep
             LOGGER.debug("starting streaming from LSN '{}'", lsn);
         }
 
-        int maxRetries = config().getInteger(PostgresConnectorConfig.MAX_RETRIES);
-        int delay = config().getInteger(PostgresConnectorConfig.RETRY_DELAY_MS);
+        final int maxRetries = connectorConfig.maxRetries();
+        final Duration delay = connectorConfig.retryDelay();
         int tryCount = 0;
         while (true) {
             try {
@@ -418,8 +422,7 @@ public class PostgresReplicationConnection extends JdbcConnection implements Rep
                             delay,
                             tryCount,
                             maxRetries);
-                    final Metronome metronome =
-                            Metronome.sleeper(Duration.ofMillis(delay), Clock.SYSTEM);
+                    final Metronome metronome = Metronome.sleeper(delay, Clock.SYSTEM);
                     metronome.pause();
                 }
             }
@@ -463,7 +466,7 @@ public class PostgresReplicationConnection extends JdbcConnection implements Rep
         try (Statement stmt = pgConnection().createStatement()) {
             String createCommand =
                     String.format(
-                            "CREATE_REPLICATION_SLOT %s %s LOGICAL %s",
+                            "CREATE_REPLICATION_SLOT \"%s\" %s LOGICAL %s",
                             slotName, tempPart, plugin.getPostgresPluginName());
             LOGGER.info("Creating replication slot with command {}", createCommand);
             stmt.execute(createCommand);
@@ -578,6 +581,12 @@ public class PostgresReplicationConnection extends JdbcConnection implements Rep
                         "Streaming requested from LSN {}, received LSN {}",
                         startLsn,
                         lastReceiveLsn);
+                if (reachEnd(lastReceivedLsn)) {
+                    lastReceivedLsn = Lsn.valueOf(stream.getLastReceiveLSN());
+                    LOGGER.trace("Received message at LSN {}", lastReceivedLsn);
+                    processor.process(new ReplicationMessage.NoopMessage(null, null));
+                    return;
+                }
                 if (messageDecoder.shouldMessageBeSkipped(
                         read, lastReceiveLsn, startLsn, walPosition)) {
                     return;
@@ -595,6 +604,13 @@ public class PostgresReplicationConnection extends JdbcConnection implements Rep
                         "Streaming requested from LSN {}, received LSN {}",
                         startLsn,
                         lastReceiveLsn);
+
+                if (reachEnd(lastReceiveLsn)) {
+                    lastReceivedLsn = Lsn.valueOf(stream.getLastReceiveLSN());
+                    LOGGER.trace("Received message at LSN {}", lastReceivedLsn);
+                    processor.process(new ReplicationMessage.NoopMessage(null, null));
+                    return true;
+                }
 
                 if (read == null) {
                     return false;
@@ -693,12 +709,29 @@ public class PostgresReplicationConnection extends JdbcConnection implements Rep
             public Lsn startLsn() {
                 return startLsn;
             }
+
+            private boolean reachEnd(Lsn receivedLsn) {
+                if (receivedLsn == null) {
+                    return false;
+                }
+                return endingPos != null
+                        && (!endingPos.isNonStopping())
+                        && endingPos.compareTo(receivedLsn) < 0;
+            }
         };
+    }
+
+    public void setEndingPos(Lsn endingPos) {
+        this.endingPos = endingPos;
     }
 
     private PGReplicationStream startPgReplicationStream(
             final Lsn lsn,
-            Function<ChainedLogicalStreamBuilder, ChainedLogicalStreamBuilder> configurator)
+            BiFunction<
+                            ChainedLogicalStreamBuilder,
+                            Function<Integer, Boolean>,
+                            ChainedLogicalStreamBuilder>
+                    configurator)
             throws SQLException {
         assert lsn != null;
         ChainedLogicalStreamBuilder streamBuilder =
@@ -706,10 +739,10 @@ public class PostgresReplicationConnection extends JdbcConnection implements Rep
                         .getReplicationAPI()
                         .replicationStream()
                         .logical()
-                        .withSlotName(slotName)
+                        .withSlotName("\"" + slotName + "\"")
                         .withStartPosition(lsn.asLogSequenceNumber())
                         .withSlotOptions(streamParams);
-        streamBuilder = configurator.apply(streamBuilder);
+        streamBuilder = configurator.apply(streamBuilder, this::hasMinimumVersion);
 
         if (statusUpdateInterval != null && statusUpdateInterval.toMillis() > 0) {
             streamBuilder.withStatusInterval(
@@ -726,6 +759,14 @@ public class PostgresReplicationConnection extends JdbcConnection implements Rep
         }
         stream.forceUpdateStatus();
         return stream;
+    }
+
+    private Boolean hasMinimumVersion(int version) {
+        try {
+            return pgConnection().haveMinimumServerVersion(version);
+        } catch (SQLException e) {
+            throw new DebeziumException(e);
+        }
     }
 
     @Override
@@ -751,7 +792,9 @@ public class PostgresReplicationConnection extends JdbcConnection implements Rep
             // we're dropping the replication slot via a regular - i.e. not a replication -
             // connection
             try (PostgresConnection connection =
-                    new PostgresConnection(originalConfig.getJdbcConfig())) {
+                    new PostgresConnection(
+                            connectorConfig.getJdbcConfig(),
+                            PostgresConnection.CONNECTION_DROP_SLOT)) {
                 connection.dropReplicationSlot(slotName);
             } catch (Throwable e) {
                 LOGGER.error("Unexpected error while dropping replication slot", e);
@@ -766,16 +809,6 @@ public class PostgresReplicationConnection extends JdbcConnection implements Rep
         connection(false);
     }
 
-    protected static void defaultSettings(Configuration.Builder builder) {
-        // first copy the parent's default settings...
-        PostgresConnection.defaultSettings(builder);
-        // then set some additional replication specific settings
-        builder.with("replication", "database")
-                .with(
-                        "preferQueryMode",
-                        "simple"); // replication protocol only supports simple query mode
-    }
-
     protected static class ReplicationConnectionBuilder implements Builder {
 
         private final PostgresConnectorConfig config;
@@ -783,16 +816,16 @@ public class PostgresReplicationConnection extends JdbcConnection implements Rep
         private String publicationName = DEFAULT_PUBLICATION_NAME;
         private RelationalTableFilters tableFilter;
         private PostgresConnectorConfig.AutoCreateMode publicationAutocreateMode =
-                PostgresConnectorConfig.AutoCreateMode.FILTERED;
+                PostgresConnectorConfig.AutoCreateMode.ALL_TABLES;
         private PostgresConnectorConfig.LogicalDecoder plugin =
                 PostgresConnectorConfig.LogicalDecoder.DECODERBUFS;
-        private PostgresConnectorConfig.TruncateHandlingMode truncateHandlingMode;
         private boolean dropSlotOnClose = DEFAULT_DROP_SLOT_ON_CLOSE;
         private Duration statusUpdateIntervalVal;
         private boolean doSnapshot;
         private TypeRegistry typeRegistry;
         private PostgresSchema schema;
         private Properties slotStreamParams = new Properties();
+        private PostgresConnection jdbcConnection;
 
         protected ReplicationConnectionBuilder(PostgresConnectorConfig config) {
             assert config != null;
@@ -801,12 +834,6 @@ public class PostgresReplicationConnection extends JdbcConnection implements Rep
 
         @Override
         public ReplicationConnectionBuilder withSlot(final String slotName) {
-            assert slotName != null;
-            this.slotName = slotName;
-            return this;
-        }
-
-        public ReplicationConnectionBuilder withC(final String slotName) {
             assert slotName != null;
             this.slotName = slotName;
             return this;
@@ -839,14 +866,6 @@ public class PostgresReplicationConnection extends JdbcConnection implements Rep
                 final PostgresConnectorConfig.LogicalDecoder plugin) {
             assert plugin != null;
             this.plugin = plugin;
-            return this;
-        }
-
-        @Override
-        public Builder withTruncateHandlingMode(
-                PostgresConnectorConfig.TruncateHandlingMode truncateHandlingMode) {
-            assert truncateHandlingMode != null;
-            this.truncateHandlingMode = truncateHandlingMode;
             return this;
         }
 
@@ -889,6 +908,12 @@ public class PostgresReplicationConnection extends JdbcConnection implements Rep
         }
 
         @Override
+        public Builder jdbcMetadataConnection(PostgresConnection jdbcConnection) {
+            this.jdbcConnection = jdbcConnection;
+            return this;
+        }
+
+        @Override
         public ReplicationConnection build() {
             assert plugin != null : "Decoding plugin name is not set";
             return new PostgresReplicationConnection(
@@ -901,6 +926,7 @@ public class PostgresReplicationConnection extends JdbcConnection implements Rep
                     dropSlotOnClose,
                     doSnapshot,
                     statusUpdateIntervalVal,
+                    jdbcConnection,
                     typeRegistry,
                     slotStreamParams,
                     schema);

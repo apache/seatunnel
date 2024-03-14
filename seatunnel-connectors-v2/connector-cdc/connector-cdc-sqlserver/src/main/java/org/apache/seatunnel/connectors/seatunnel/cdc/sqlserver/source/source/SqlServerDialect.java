@@ -38,6 +38,7 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.utils.SqlS
 import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.utils.TableDiscoveryUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
+import io.debezium.connector.sqlserver.SqlServerPartition;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.TableId;
 import io.debezium.relational.history.TableChanges;
@@ -50,7 +51,7 @@ import java.util.Optional;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.utils.SqlServerConnectionUtils.createSqlServerConnection;
 
 /** The {@link JdbcDataSourceDialect} implementation for MySQL datasource. */
-public class SqlServerDialect implements JdbcDataSourceDialect {
+public class SqlServerDialect implements JdbcDataSourceDialect<SqlServerPartition> {
 
     private static final long serialVersionUID = 1L;
     private final SqlServerSourceConfig sourceConfig;
@@ -77,7 +78,7 @@ public class SqlServerDialect implements JdbcDataSourceDialect {
 
     @Override
     public JdbcConnection openJdbcConnection(JdbcSourceConfig sourceConfig) {
-        return createSqlServerConnection(sourceConfig.getDbzConfiguration());
+        return createSqlServerConnection(sourceConfig.getDbzConnectorConfig());
     }
 
     @Override
@@ -112,8 +113,7 @@ public class SqlServerDialect implements JdbcDataSourceDialect {
     @Override
     public SqlServerSourceFetchTaskContext createFetchTaskContext(
             SourceSplitBase sourceSplitBase, JdbcSourceConfig taskSourceConfig) {
-
-        return new SqlServerSourceFetchTaskContext(taskSourceConfig, this);
+        return new SqlServerSourceFetchTaskContext((SqlServerSourceConfig) taskSourceConfig, this);
     }
 
     @Override

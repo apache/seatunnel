@@ -37,7 +37,7 @@ public class LsnOffset extends Offset {
         return new LsnOffset(Lsn.valueOf(commitLsn), null, null);
     }
 
-    private LsnOffset(Lsn commitLsn, Lsn changeLsn, Long eventSerialNo) {
+    public LsnOffset(Lsn commitLsn, Lsn changeLsn, Long eventSerialNo) {
         Map<String, String> offsetMap = new HashMap<>();
 
         if (commitLsn != null && commitLsn.isAvailable()) {

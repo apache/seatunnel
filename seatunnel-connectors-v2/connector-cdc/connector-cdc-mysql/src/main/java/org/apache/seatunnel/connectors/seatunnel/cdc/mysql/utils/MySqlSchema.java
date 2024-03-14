@@ -24,6 +24,7 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceCon
 import io.debezium.connector.mysql.MySqlConnectorConfig;
 import io.debezium.connector.mysql.MySqlDatabaseSchema;
 import io.debezium.connector.mysql.MySqlOffsetContext;
+import io.debezium.connector.mysql.MySqlPartition;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
@@ -38,7 +39,7 @@ import java.util.List;
 import java.util.Map;
 
 /** A component used to get schema by table path. */
-public class MySqlSchema {
+public class MySqlSchema implements AutoCloseable {
     private static final String SHOW_CREATE_TABLE = "SHOW CREATE TABLE ";
     private static final String DESC_TABLE = "DESC ";
 
@@ -84,9 +85,15 @@ public class MySqlSchema {
                             final String ddl = rs.getString(2);
                             final MySqlOffsetContext offsetContext =
                                     MySqlOffsetContext.initial(connectorConfig);
+                            final MySqlPartition partition =
+                                    new MySqlPartition(connectorConfig.getLogicalName());
                             List<SchemaChangeEvent> schemaChangeEvents =
                                     databaseSchema.parseSnapshotDdl(
-                                            ddl, tableId.catalog(), offsetContext, Instant.now());
+                                            partition,
+                                            ddl,
+                                            tableId.catalog(),
+                                            offsetContext,
+                                            Instant.now());
                             for (SchemaChangeEvent schemaChangeEvent : schemaChangeEvents) {
                                 for (TableChange tableChange :
                                         schemaChangeEvent.getTableChanges()) {
@@ -112,5 +119,10 @@ public class MySqlSchema {
         }
 
         return tableChangeMap.get(tableId);
+    }
+
+    @Override
+    public void close() throws Exception {
+        databaseSchema.close();
     }
 }

@@ -19,9 +19,7 @@ package org.apache.seatunnel.connectors.cdc.base.dialect;
 
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
-import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
-import org.apache.seatunnel.connectors.cdc.base.relational.connection.JdbcConnectionFactory;
 import org.apache.seatunnel.connectors.cdc.base.relational.connection.JdbcConnectionPoolFactory;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.external.FetchTask;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.external.JdbcSourceFetchTaskContext;
@@ -31,6 +29,7 @@ import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.tuple.Pair;
 
 import io.debezium.jdbc.JdbcConnection;
+import io.debezium.pipeline.spi.Partition;
 import io.debezium.relational.TableId;
 import io.debezium.relational.history.TableChanges;
 
@@ -45,7 +44,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-public interface JdbcDataSourceDialect extends DataSourceDialect<JdbcSourceConfig> {
+public interface JdbcDataSourceDialect<P extends Partition>
+        extends DataSourceDialect<JdbcSourceConfig> {
 
     /** Discovers the list of table to capture. */
     @Override
@@ -57,18 +57,7 @@ public interface JdbcDataSourceDialect extends DataSourceDialect<JdbcSourceConfi
      * @param sourceConfig a basic source configuration.
      * @return a utility that simplifies using a JDBC connection.
      */
-    default JdbcConnection openJdbcConnection(JdbcSourceConfig sourceConfig) {
-        JdbcConnection jdbc =
-                new JdbcConnection(
-                        sourceConfig.getDbzConfiguration(),
-                        new JdbcConnectionFactory(sourceConfig, getPooledDataSourceFactory()));
-        try {
-            jdbc.connect();
-        } catch (Exception e) {
-            throw new SeaTunnelException(e);
-        }
-        return jdbc;
-    }
+    JdbcConnection openJdbcConnection(JdbcSourceConfig sourceConfig);
 
     /** Get a connection pool factory to create connection pool. */
     JdbcConnectionPoolFactory getPooledDataSourceFactory();
@@ -80,7 +69,7 @@ public interface JdbcDataSourceDialect extends DataSourceDialect<JdbcSourceConfi
     FetchTask<SourceSplitBase> createFetchTask(SourceSplitBase sourceSplitBase);
 
     @Override
-    JdbcSourceFetchTaskContext createFetchTaskContext(
+    JdbcSourceFetchTaskContext<P> createFetchTaskContext(
             SourceSplitBase sourceSplitBase, JdbcSourceConfig taskSourceConfig);
 
     default Optional<PrimaryKey> getPrimaryKey(JdbcConnection jdbcConnection, TableId tableId)

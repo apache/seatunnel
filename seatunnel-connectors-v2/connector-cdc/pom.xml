@@ -39,7 +39,7 @@
     </modules>
 
     <properties>
-        <debezium.version>1.6.4.Final</debezium.version>
+        <debezium.version>1.9.8.Final</debezium.version>
         <antlr.version>4.8</antlr.version>
     </properties>
 
