@@ -64,7 +64,8 @@ public class TestSQLIT extends TestSuiteBase {
     @TestTemplate
     @DisabledOnContainer(
             value = {},
-            type = {EngineType.SPARK})
+            type = {EngineType.SPARK},
+            disabledReason = "Spark translation has some issue on map convert")
     public void testInnerQuery(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult innerQuerySql =
                 container.executeJob("/sql_transform/inner_query.conf");

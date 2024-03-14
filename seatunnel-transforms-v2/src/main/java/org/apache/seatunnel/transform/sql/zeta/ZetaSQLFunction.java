@@ -203,11 +203,11 @@ public class ZetaSQLFunction {
         }
         if (expression instanceof Column) {
             Column columnExp = (Column) expression;
-            try {
-                String columnName = columnExp.getColumnName();
-                int idx = inputRowType.indexOf(columnName);
-                return inputFields[idx];
-            } catch (IllegalArgumentException e) {
+            String columnName = columnExp.getColumnName();
+            int index = inputRowType.indexOf(columnName, false);
+            if (index != -1) {
+                return inputFields[index];
+            } else {
                 String fullyQualifiedName = columnExp.getFullyQualifiedName();
                 String[] columnNames = fullyQualifiedName.split("\\.");
                 int deep = columnNames.length;
@@ -219,7 +219,11 @@ public class ZetaSQLFunction {
                         return ((Map) res).get(columnNames[i]);
                     }
                     parRowValues = (SeaTunnelRow) res;
-                    int idx = ((SeaTunnelRowType) parDataType).indexOf(columnNames[i]);
+                    int idx = ((SeaTunnelRowType) parDataType).indexOf(columnNames[i], false);
+                    if (idx == -1) {
+                        throw new IllegalArgumentException(
+                                String.format("can't find field [%s]", fullyQualifiedName));
+                    }
                     parDataType = ((SeaTunnelRowType) parDataType).getFieldType(idx);
                     res = parRowValues.getFields()[idx];
                 }

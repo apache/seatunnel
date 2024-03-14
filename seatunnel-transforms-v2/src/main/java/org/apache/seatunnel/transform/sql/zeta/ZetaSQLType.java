@@ -103,18 +103,24 @@ public class ZetaSQLType {
         }
         if (expression instanceof Column) {
             Column columnExp = (Column) expression;
-            try {
-                String columnName = columnExp.getColumnName();
-                return inputRowType.getFieldType(inputRowType.indexOf(columnName));
-            } catch (IllegalArgumentException e) {
-                // fullback logical to handel a.b.c query.
+            String columnName = columnExp.getColumnName();
+            int index = inputRowType.indexOf(columnName, false);
+            if (index != -1) {
+                return inputRowType.getFieldType(index);
+            } else {
+                // fullback logical to handel struct query.
                 String fullyQualifiedName = columnExp.getFullyQualifiedName();
                 String[] columnNames = fullyQualifiedName.split("\\.");
                 int deep = columnNames.length;
                 SeaTunnelRowType parRowType = inputRowType;
                 SeaTunnelDataType<?> filedTypeRes = null;
                 for (int i = 0; i < deep; i++) {
-                    filedTypeRes = parRowType.getFieldType(parRowType.indexOf(columnNames[i]));
+                    int idx = parRowType.indexOf(columnNames[i], false);
+                    if (idx == -1) {
+                        throw new IllegalArgumentException(
+                                String.format("can't find field [%s]", fullyQualifiedName));
+                    }
+                    filedTypeRes = parRowType.getFieldType(idx);
                     if (filedTypeRes instanceof SeaTunnelRowType) {
                         parRowType = (SeaTunnelRowType) filedTypeRes;
                     } else if (filedTypeRes instanceof MapType) {
