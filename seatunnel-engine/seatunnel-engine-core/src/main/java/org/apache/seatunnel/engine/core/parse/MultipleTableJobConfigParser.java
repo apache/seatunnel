@@ -46,7 +46,6 @@ import org.apache.seatunnel.core.starter.execution.PluginUtil;
 import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.exception.JobDefineCheckException;
-import org.apache.seatunnel.engine.common.loader.ClassLoaderUtil;
 import org.apache.seatunnel.engine.common.loader.SeaTunnelChildFirstClassLoader;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
@@ -209,7 +208,6 @@ public class MultipleTableJobConfigParser {
                 classLoaderService.releaseClassLoader(
                         Long.parseLong(jobConfig.getJobContext().getJobId()), connectorJars);
             }
-            ClassLoaderUtil.recycleClassLoaderFromThread(classLoader);
         }
     }
 
