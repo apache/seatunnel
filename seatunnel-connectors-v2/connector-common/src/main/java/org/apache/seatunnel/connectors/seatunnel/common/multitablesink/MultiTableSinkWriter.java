@@ -75,9 +75,9 @@ public class MultiTableSinkWriter
             BlockingQueue<SeaTunnelRow> queue = new LinkedBlockingQueue<>(1024);
             Map<String, SinkWriter<SeaTunnelRow, ?, ?>> tableIdWriterMap = new HashMap<>();
             Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkIdentifierMap = new HashMap<>();
-            int finalI = i;
+            int queueIndex = i;
             sinkWriters.entrySet().stream()
-                    .filter(entry -> entry.getKey().getIndex() % queueSize == finalI)
+                    .filter(entry -> entry.getKey().getIndex() % queueSize == queueIndex)
                     .forEach(
                             entry -> {
                                 tableIdWriterMap.put(
@@ -202,14 +202,16 @@ public class MultiTableSinkWriter
         MultiTableCommitInfo multiTableCommitInfo = new MultiTableCommitInfo(new HashMap<>());
         List<Future<?>> futures = new ArrayList<>();
         for (int i = 0; i < sinkWritersWithIndex.size(); i++) {
-            int finalI = i;
+            int subWriterIndex = i;
             futures.add(
                     executorService.submit(
                             () -> {
-                                synchronized (runnable.get(finalI)) {
+                                synchronized (runnable.get(subWriterIndex)) {
                                     for (Map.Entry<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>>
                                             sinkWriterEntry :
-                                                    sinkWritersWithIndex.get(finalI).entrySet()) {
+                                                    sinkWritersWithIndex
+                                                            .get(subWriterIndex)
+                                                            .entrySet()) {
                                         Optional<?> commit;
                                         try {
                                             commit = sinkWriterEntry.getValue().prepareCommit();
