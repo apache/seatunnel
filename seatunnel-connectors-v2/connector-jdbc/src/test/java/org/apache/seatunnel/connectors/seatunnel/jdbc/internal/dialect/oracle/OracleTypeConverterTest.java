@@ -660,8 +660,8 @@ public class OracleTypeConverterTest {
 
         BasicTypeDefine typeDefine = OracleTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
-        Assertions.assertEquals("NVARCHAR2(4000)", typeDefine.getColumnType());
-        Assertions.assertEquals(OracleTypeConverter.ORACLE_NVARCHAR2, typeDefine.getDataType());
+        Assertions.assertEquals("VARCHAR2(4000)", typeDefine.getColumnType());
+        Assertions.assertEquals(OracleTypeConverter.ORACLE_VARCHAR2, typeDefine.getDataType());
 
         column =
                 PhysicalColumn.builder()
@@ -674,9 +674,9 @@ public class OracleTypeConverterTest {
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(
                 String.format(
-                        "%s(%s)", OracleTypeConverter.ORACLE_NVARCHAR2, column.getColumnLength()),
+                        "%s(%s)", OracleTypeConverter.ORACLE_VARCHAR2, column.getColumnLength()),
                 typeDefine.getColumnType());
-        Assertions.assertEquals(OracleTypeConverter.ORACLE_NVARCHAR2, typeDefine.getDataType());
+        Assertions.assertEquals(OracleTypeConverter.ORACLE_VARCHAR2, typeDefine.getDataType());
 
         column =
                 PhysicalColumn.builder()
@@ -689,9 +689,9 @@ public class OracleTypeConverterTest {
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(
                 String.format(
-                        "%s(%s)", OracleTypeConverter.ORACLE_NVARCHAR2, column.getColumnLength()),
+                        "%s(%s)", OracleTypeConverter.ORACLE_VARCHAR2, column.getColumnLength()),
                 typeDefine.getColumnType());
-        Assertions.assertEquals(OracleTypeConverter.ORACLE_NVARCHAR2, typeDefine.getDataType());
+        Assertions.assertEquals(OracleTypeConverter.ORACLE_VARCHAR2, typeDefine.getDataType());
 
         column =
                 PhysicalColumn.builder()

@@ -54,10 +54,8 @@ public class OracleIncrementalSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return JdbcSourceOptions.getBaseRule()
-                .required(
-                        JdbcSourceOptions.USERNAME,
-                        JdbcSourceOptions.PASSWORD,
-                        CatalogOptions.TABLE_NAMES)
+                .required(JdbcSourceOptions.USERNAME, JdbcSourceOptions.PASSWORD)
+                .exclusive(CatalogOptions.TABLE_NAMES, CatalogOptions.TABLE_PATTERN)
                 .bundled(JdbcSourceOptions.HOSTNAME, JdbcSourceOptions.PORT)
                 .optional(
                         JdbcCatalogOptions.BASE_URL,

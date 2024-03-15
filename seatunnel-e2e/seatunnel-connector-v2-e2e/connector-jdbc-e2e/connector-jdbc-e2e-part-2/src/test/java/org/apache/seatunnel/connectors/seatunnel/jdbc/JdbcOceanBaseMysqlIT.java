@@ -27,6 +27,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
+import org.testcontainers.images.PullPolicy;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import com.google.common.collect.Lists;
@@ -283,6 +284,7 @@ public class JdbcOceanBaseMysqlIT extends JdbcOceanBaseITBase {
                 .withNetwork(NETWORK)
                 .withNetworkAliases(HOSTNAME)
                 .withExposedPorts(PORT)
+                .withImagePullPolicy(PullPolicy.alwaysPull())
                 .waitingFor(Wait.forLogMessage(".*boot success!.*", 1))
                 .withStartupTimeout(Duration.ofMinutes(5))
                 .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)));

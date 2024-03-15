@@ -51,6 +51,13 @@ public class BaseSourceConfigOptions {
                     .withDescription(
                             "The separator between columns in a row of data. Only needed by `text` file format");
 
+    public static final Option<String> ENCODING =
+            Options.key("encoding")
+                    .stringType()
+                    .defaultValue("UTF-8")
+                    .withDescription(
+                            "The encoding of the file to read, e.g. UTF-8, ISO-8859-1....");
+
     public static final Option<DateUtils.Formatter> DATE_FORMAT =
             Options.key("date_format")
                     .enumType(DateUtils.Formatter.class)
@@ -129,6 +136,20 @@ public class BaseSourceConfigOptions {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("To be read sheet name,only valid for excel files");
+
+    public static final Option<String> XML_ROW_TAG =
+            Options.key("xml_row_tag")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Specifies the tag name of the data rows within the XML file, only valid for XML files.");
+
+    public static final Option<Boolean> XML_USE_ATTR_FORMAT =
+            Options.key("xml_use_attr_format")
+                    .booleanType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Specifies whether to process data using the tag attribute format, only valid for XML files.");
 
     public static final Option<String> FILE_FILTER_PATTERN =
             Options.key("file_filter_pattern")
