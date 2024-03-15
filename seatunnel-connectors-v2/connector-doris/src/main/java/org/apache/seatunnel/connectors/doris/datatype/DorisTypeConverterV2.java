@@ -24,7 +24,6 @@ import org.apache.seatunnel.api.table.converter.TypeConverter;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.DecimalArrayType;
 import org.apache.seatunnel.api.table.type.DecimalType;
-import org.apache.seatunnel.api.table.type.LocalTimeArrayType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -163,10 +162,10 @@ public class DorisTypeConverterV2 extends AbstractDorisTypeConverter {
             builder.dataType(decimalArray);
         } else if (columnInterType.equalsIgnoreCase(DORIS_ARRAY_DATE_INTER)
                 || columnInterType.equalsIgnoreCase(DORIS_ARRAY_DATEV2_INTER)) {
-            builder.dataType(LocalTimeArrayType.LOCAL_DATE_ARRAY_TYPE);
+            builder.dataType(ArrayType.LOCAL_DATE_ARRAY_TYPE);
         } else if (columnInterType.equalsIgnoreCase(DORIS_ARRAY_DATETIME_INTER)
                 || columnInterType.equalsIgnoreCase(DORIS_ARRAY_DATETIMEV2_INTER)) {
-            builder.dataType(LocalTimeArrayType.LOCAL_DATE_TIME_ARRAY_TYPE);
+            builder.dataType(ArrayType.LOCAL_DATE_TIME_ARRAY_TYPE);
         } else if (columnInterType.equalsIgnoreCase(DORIS_LARGEINT)) {
             DecimalArrayType decimalArray = new DecimalArrayType(new DecimalType(20, 0));
             builder.dataType(decimalArray);

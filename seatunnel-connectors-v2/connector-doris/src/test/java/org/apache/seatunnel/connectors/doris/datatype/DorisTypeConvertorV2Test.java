@@ -24,7 +24,6 @@ import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalArrayType;
 import org.apache.seatunnel.api.table.type.DecimalType;
-import org.apache.seatunnel.api.table.type.LocalTimeArrayType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
@@ -430,7 +429,7 @@ public class DorisTypeConvertorV2Test {
                         .build();
         column = DorisTypeConverterV2.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(LocalTimeArrayType.LOCAL_DATE_ARRAY_TYPE, column.getDataType());
+        Assertions.assertEquals(ArrayType.LOCAL_DATE_ARRAY_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
 
         typeDefine =
@@ -441,8 +440,7 @@ public class DorisTypeConvertorV2Test {
                         .build();
         column = DorisTypeConverterV2.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(
-                LocalTimeArrayType.LOCAL_DATE_TIME_ARRAY_TYPE, column.getDataType());
+        Assertions.assertEquals(ArrayType.LOCAL_DATE_TIME_ARRAY_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
     }
 
@@ -1074,7 +1072,7 @@ public class DorisTypeConvertorV2Test {
         column =
                 PhysicalColumn.builder()
                         .name("test")
-                        .dataType(LocalTimeArrayType.LOCAL_DATE_ARRAY_TYPE)
+                        .dataType(ArrayType.LOCAL_DATE_ARRAY_TYPE)
                         .build();
 
         typeDefine = DorisTypeConverterV2.INSTANCE.reconvert(column);
@@ -1086,7 +1084,7 @@ public class DorisTypeConvertorV2Test {
         column =
                 PhysicalColumn.builder()
                         .name("test")
-                        .dataType(LocalTimeArrayType.LOCAL_DATE_TIME_ARRAY_TYPE)
+                        .dataType(ArrayType.LOCAL_DATE_TIME_ARRAY_TYPE)
                         .build();
 
         typeDefine = DorisTypeConverterV2.INSTANCE.reconvert(column);
