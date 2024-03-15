@@ -24,7 +24,6 @@ import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalArrayType;
 import org.apache.seatunnel.api.table.type.DecimalType;
-import org.apache.seatunnel.api.table.type.LocalTimeArrayType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
@@ -834,7 +833,7 @@ public class DorisTypeConvertorV1Test {
         column =
                 PhysicalColumn.builder()
                         .name("test")
-                        .dataType(LocalTimeArrayType.LOCAL_DATE_ARRAY_TYPE)
+                        .dataType(ArrayType.LOCAL_DATE_ARRAY_TYPE)
                         .build();
 
         typeDefine = DorisTypeConverterV2.INSTANCE.reconvert(column);
@@ -846,7 +845,7 @@ public class DorisTypeConvertorV1Test {
         column =
                 PhysicalColumn.builder()
                         .name("test")
-                        .dataType(LocalTimeArrayType.LOCAL_DATE_TIME_ARRAY_TYPE)
+                        .dataType(ArrayType.LOCAL_DATE_TIME_ARRAY_TYPE)
                         .build();
 
         typeDefine = DorisTypeConverterV2.INSTANCE.reconvert(column);
