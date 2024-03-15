@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.transform.sql.zeta;
 
+import net.sf.jsqlparser.expression.SignedExpression;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
@@ -86,6 +87,9 @@ public class ZetaSQLType {
     public SeaTunnelDataType<?> getExpressionType(Expression expression) {
         if (expression instanceof NullValue) {
             return BasicType.VOID_TYPE;
+        }
+        if (expression instanceof SignedExpression) {
+            return getExpressionType(((SignedExpression) expression).getExpression());
         }
         if (expression instanceof DoubleValue) {
             return BasicType.DOUBLE_TYPE;

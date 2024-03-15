@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.transform.sql.zeta;
 
+import net.sf.jsqlparser.expression.SignedExpression;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -183,6 +184,26 @@ public class ZetaSQLFunction {
     public Object computeForValue(Expression expression, Object[] inputFields) {
         if (expression instanceof NullValue) {
             return null;
+        }
+        if (expression instanceof SignedExpression) {
+            SignedExpression signedExpression = (SignedExpression) expression;
+            if (signedExpression.getSign() == '-') {
+                Object value = computeForValue(signedExpression.getExpression(), inputFields);
+                if (value instanceof Integer) {
+                    return -((Integer) value);
+                }
+                if (value instanceof Long) {
+                    return -((Long) value);
+                }
+                if (value instanceof Double) {
+                    return -((Double) value);
+                }
+                if (value instanceof Number) {
+                    return -((Number) value).doubleValue();
+                }
+            } else {
+                return computeForValue(signedExpression, inputFields);
+            }
         }
         if (expression instanceof DoubleValue) {
             return ((DoubleValue) expression).getValue();
