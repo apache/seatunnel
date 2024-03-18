@@ -96,15 +96,7 @@ public class PaimonSinkWriter
             SeaTunnelRowType seaTunnelRowType,
             List<PaimonSinkState> states,
             JobContext jobContext) {
-        this.table = table;
-        this.tableWriteBuilder =
-                JobContextUtil.isBatchJob(jobContext)
-                        ? this.table.newBatchWriteBuilder().withOverwrite()
-                        : this.table.newStreamWriteBuilder();
-        this.tableWrite = tableWriteBuilder.newWrite();
-        this.seaTunnelRowType = seaTunnelRowType;
-        this.context = context;
-        this.jobContext = jobContext;
+        this(context, table, seaTunnelRowType, jobContext);
         if (Objects.isNull(states) || states.isEmpty()) {
             return;
         }

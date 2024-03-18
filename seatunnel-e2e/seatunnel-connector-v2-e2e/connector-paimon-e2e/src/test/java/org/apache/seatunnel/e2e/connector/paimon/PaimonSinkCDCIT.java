@@ -25,6 +25,8 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
+import org.apache.commons.lang3.StringUtils;
+import org.apache.paimon.CoreOptions;
 import org.apache.paimon.catalog.Catalog;
 import org.apache.paimon.catalog.CatalogContext;
 import org.apache.paimon.catalog.CatalogFactory;
@@ -52,6 +54,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import static org.awaitility.Awaitility.given;
 
@@ -148,6 +151,163 @@ public class PaimonSinkCDCIT extends TestSuiteBase implements TestResource {
                                                     "A_100", paimonRecord.getName());
                                         }
                                         if (paimonRecord.getPkId() == 200) {
+                                            Assertions.assertEquals("C", paimonRecord.getName());
+                                        }
+                                    });
+                        });
+
+        cleanPaimonTable(container);
+    }
+
+    @TestTemplate
+    public void testFakeCDCSinkPaimonWithMultipleBucket(TestContainer container) throws Exception {
+        Container.ExecResult execResult = container.executeJob("/fake_cdc_sink_paimon_case3.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+
+        given().ignoreExceptions()
+                .await()
+                .atLeast(100L, TimeUnit.MILLISECONDS)
+                .atMost(30L, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            // copy paimon to local
+                            container.executeExtraCommands(containerExtendedFactory);
+                            Table table = getTable(TARGET_DATABASE, TARGET_TABLE);
+                            String bucket = table.options().get(CoreOptions.BUCKET.key());
+                            Assertions.assertTrue(StringUtils.isNoneBlank(bucket));
+                            Assertions.assertEquals(2, Integer.valueOf(bucket));
+                            List<PaimonRecord> paimonRecords =
+                                    loadPaimonData(TARGET_DATABASE, TARGET_TABLE);
+                            Assertions.assertEquals(2, paimonRecords.size());
+                            paimonRecords.forEach(
+                                    paimonRecord -> {
+                                        if (paimonRecord.getPkId() == 1) {
+                                            Assertions.assertEquals("A_1", paimonRecord.getName());
+                                        }
+                                        if (paimonRecord.getPkId() == 3) {
+                                            Assertions.assertEquals("C", paimonRecord.getName());
+                                        }
+                                    });
+                        });
+
+        cleanPaimonTable(container);
+    }
+
+    @TestTemplate
+    public void testFakeCDCSinkPaimonWithPartition(TestContainer container) throws Exception {
+        Container.ExecResult execResult = container.executeJob("/fake_cdc_sink_paimon_case4.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+
+        given().ignoreExceptions()
+                .await()
+                .atLeast(100L, TimeUnit.MILLISECONDS)
+                .atMost(30L, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            // copy paimon to local
+                            container.executeExtraCommands(containerExtendedFactory);
+                            Table table = getTable(TARGET_DATABASE, TARGET_TABLE);
+                            List<String> partitionKeys = table.partitionKeys();
+                            List<String> primaryKeys = table.primaryKeys();
+                            Assertions.assertTrue(partitionKeys.contains("dt"));
+                            Assertions.assertEquals(2, primaryKeys.size());
+                            Assertions.assertTrue(primaryKeys.contains("pk_id"));
+                            Assertions.assertTrue(primaryKeys.contains("dt"));
+                            ReadBuilder readBuilder = table.newReadBuilder();
+                            TableScan.Plan plan = readBuilder.newScan().plan();
+                            TableRead tableRead = readBuilder.newRead();
+                            List<PaimonRecord> result = new ArrayList<>();
+                            try (RecordReader<InternalRow> reader = tableRead.createReader(plan)) {
+                                reader.forEachRemaining(
+                                        row -> {
+                                            result.add(
+                                                    new PaimonRecord(
+                                                            row.getLong(0),
+                                                            row.getString(1).toString(),
+                                                            row.getString(2).toString()));
+                                            log.info(
+                                                    "key_id:"
+                                                            + row.getLong(0)
+                                                            + ", name:"
+                                                            + row.getString(1)
+                                                            + ", dt:"
+                                                            + row.getString(2));
+                                        });
+                            }
+                            Assertions.assertEquals(2, result.size());
+                            List<PaimonRecord> filterRecords =
+                                    result.stream()
+                                            .filter(record -> record.pkId == 1)
+                                            .collect(Collectors.toList());
+                            Assertions.assertEquals(1, filterRecords.size());
+                            PaimonRecord paimonRecord = filterRecords.get(0);
+                            Assertions.assertEquals("A_1", paimonRecord.getName());
+                            Assertions.assertEquals("2024-03-20", paimonRecord.getDt());
+                        });
+
+        cleanPaimonTable(container);
+    }
+
+    @TestTemplate
+    public void testFakeCDCSinkPaimonWithParquet(TestContainer container) throws Exception {
+        Container.ExecResult execResult = container.executeJob("/fake_cdc_sink_paimon_case5.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+
+        given().ignoreExceptions()
+                .await()
+                .atLeast(100L, TimeUnit.MILLISECONDS)
+                .atMost(30L, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            // copy paimon to local
+                            container.executeExtraCommands(containerExtendedFactory);
+                            Table table = getTable(TARGET_DATABASE, TARGET_TABLE);
+                            String fileFormat = table.options().get(CoreOptions.FILE_FORMAT.key());
+                            Assertions.assertTrue(StringUtils.isNoneBlank(fileFormat));
+                            Assertions.assertEquals("parquet", fileFormat);
+                            List<PaimonRecord> paimonRecords =
+                                    loadPaimonData(TARGET_DATABASE, TARGET_TABLE);
+                            Assertions.assertEquals(2, paimonRecords.size());
+                            paimonRecords.forEach(
+                                    paimonRecord -> {
+                                        if (paimonRecord.getPkId() == 1) {
+                                            Assertions.assertEquals("A_1", paimonRecord.getName());
+                                        }
+                                        if (paimonRecord.getPkId() == 3) {
+                                            Assertions.assertEquals("C", paimonRecord.getName());
+                                        }
+                                    });
+                        });
+
+        cleanPaimonTable(container);
+    }
+
+    @TestTemplate
+    public void testFakeCDCSinkPaimonWithAvro(TestContainer container) throws Exception {
+        Container.ExecResult execResult = container.executeJob("/fake_cdc_sink_paimon_case6.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+
+        given().ignoreExceptions()
+                .await()
+                .atLeast(100L, TimeUnit.MILLISECONDS)
+                .atMost(30L, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            // copy paimon to local
+                            container.executeExtraCommands(containerExtendedFactory);
+                            Table table = getTable(TARGET_DATABASE, TARGET_TABLE);
+                            String fileFormat = table.options().get(CoreOptions.FILE_FORMAT.key());
+                            Assertions.assertTrue(StringUtils.isNoneBlank(fileFormat));
+                            Assertions.assertEquals("avro", fileFormat);
+                            List<PaimonRecord> paimonRecords =
+                                    loadPaimonData(TARGET_DATABASE, TARGET_TABLE);
+                            Assertions.assertEquals(2, paimonRecords.size());
+                            paimonRecords.forEach(
+                                    paimonRecord -> {
+                                        if (paimonRecord.getPkId() == 1) {
+                                            Assertions.assertEquals("A_1", paimonRecord.getName());
+                                        }
+                                        if (paimonRecord.getPkId() == 3) {
                                             Assertions.assertEquals("C", paimonRecord.getName());
                                         }
                                     });
@@ -256,5 +416,11 @@ public class PaimonSinkCDCIT extends TestSuiteBase implements TestResource {
     public class PaimonRecord {
         private Long pkId;
         private String name;
+        private String dt;
+
+        public PaimonRecord(Long pkId, String name) {
+            this.pkId = pkId;
+            this.name = name;
+        }
     }
 }
