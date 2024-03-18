@@ -30,7 +30,9 @@ import org.apache.seatunnel.api.table.catalog.exception.DatabaseAlreadyExistExce
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
 import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistException;
 import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsRestClient;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsType;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.ElasticsearchClusterInfo;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.IndexDocsCount;
 
@@ -143,10 +145,8 @@ public class ElasticSearchCatalog implements Catalog {
             throws CatalogException, TableNotExistException {
         // Get the index mapping?
         checkNotNull(tablePath, "tablePath cannot be null");
-        ElasticSearchDataTypeConvertor elasticSearchDataTypeConvertor =
-                new ElasticSearchDataTypeConvertor();
         TableSchema.Builder builder = TableSchema.builder();
-        Map<String, String> fieldTypeMapping =
+        Map<String, BasicTypeDefine<EsType>> fieldTypeMapping =
                 esRestClient.getFieldTypeMapping(tablePath.getTableName(), Collections.emptyList());
         buildColumnsWithErrorCheck(
                 tablePath,
@@ -156,8 +156,9 @@ public class ElasticSearchCatalog implements Catalog {
                     // todo: we need to add a new type TEXT or add length in STRING type
                     return PhysicalColumn.of(
                             nameAndType.getKey(),
-                            elasticSearchDataTypeConvertor.toSeaTunnelType(
-                                    nameAndType.getKey(), nameAndType.getValue()),
+                            ElasticSearchTypeConverter.INSTANCE
+                                    .convert(nameAndType.getValue())
+                                    .getDataType(),
                             (Long) null,
                             true,
                             null,
