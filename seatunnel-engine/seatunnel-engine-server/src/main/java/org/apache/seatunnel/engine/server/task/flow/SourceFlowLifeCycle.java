@@ -197,6 +197,8 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
                                     currentTaskLocation, enumeratorTaskLocation),
                             enumeratorTaskAddress)
                     .get();
+
+            runningTask.tryClose();
         } catch (Exception e) {
             log.warn("source close failed {}", e);
             throw new RuntimeException(e);

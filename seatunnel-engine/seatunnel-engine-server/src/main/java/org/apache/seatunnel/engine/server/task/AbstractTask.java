@@ -127,6 +127,11 @@ public abstract class AbstractTask implements Task {
         }
     }
 
+    public void tryClose() {
+        prepareCloseStatus = true;
+        closeCall();
+    }
+
     public void closeCall() {
         closeCalled = true;
     }
