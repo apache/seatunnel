@@ -28,6 +28,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
@@ -93,25 +94,29 @@ public abstract class AbstractTestContainer implements TestContainer {
                 container, this.startModuleFullPath, SEATUNNEL_HOME);
     }
 
-    protected Container.ExecResult executeJob(GenericContainer<?> container, String confFile)
+    protected Container.ExecResult executeJob(GenericContainer<?> container, String... confFiles)
             throws IOException, InterruptedException {
-        final String confInContainerPath = copyConfigFileToContainer(container, confFile);
-        // copy connectors
-        copyConnectorJarToContainer(
-                container,
-                confFile,
-                getConnectorModulePath(),
-                getConnectorNamePrefix(),
-                getConnectorType(),
-                SEATUNNEL_HOME);
-        final List<String> command = new ArrayList<>();
-        String binPath = Paths.get(SEATUNNEL_HOME, "bin", getStartShellName()).toString();
-        // base command
-        command.add(adaptPathForWin(binPath));
-        command.add("--config");
-        command.add(adaptPathForWin(confInContainerPath));
-        command.addAll(getExtraStartShellCommands());
-        return executeCommand(container, command);
+        List<List<String>> allJobCommand = new ArrayList<>();
+        for (String confFile : confFiles) {
+            final String confInContainerPath = copyConfigFileToContainer(container, confFile);
+            // copy connectors
+            copyConnectorJarToContainer(
+                    container,
+                    confFile,
+                    getConnectorModulePath(),
+                    getConnectorNamePrefix(),
+                    getConnectorType(),
+                    SEATUNNEL_HOME);
+            final List<String> command = new ArrayList<>();
+            String binPath = Paths.get(SEATUNNEL_HOME, "bin", getStartShellName()).toString();
+            // base command
+            command.add(adaptPathForWin(binPath));
+            command.add("--config");
+            command.add(adaptPathForWin(confInContainerPath));
+            command.addAll(getExtraStartShellCommands());
+            allJobCommand.add(command);
+        }
+        return executeCommand(container, allJobCommand);
     }
 
     protected Container.ExecResult savepointJob(GenericContainer<?> container, String jobId)
@@ -123,7 +128,7 @@ public abstract class AbstractTestContainer implements TestContainer {
         command.add(getSavePointCommand());
         command.add(jobId);
         command.addAll(getExtraStartShellCommands());
-        return executeCommand(container, command);
+        return executeCommand(container, Collections.singletonList(command));
     }
 
     protected Container.ExecResult restoreJob(
@@ -147,13 +152,18 @@ public abstract class AbstractTestContainer implements TestContainer {
         command.add(getRestoreCommand());
         command.add(jobId);
         command.addAll(getExtraStartShellCommands());
-        return executeCommand(container, command);
+        return executeCommand(container, Collections.singletonList(command));
     }
 
     protected Container.ExecResult executeCommand(
-            GenericContainer<?> container, List<String> command)
+            GenericContainer<?> container, List<List<String>> commands)
             throws IOException, InterruptedException {
-        String commandStr = String.join(" ", command);
+        List<String> singleJobCommand = new ArrayList<>();
+        for (List<String> command : commands) {
+            String singleJobCommandStr = String.join(" ", command);
+            singleJobCommand.add(singleJobCommandStr);
+        }
+        String commandStr = String.join(" && ", singleJobCommand);
         LOG.info(
                 "Execute command in container[{}] "
                         + "\n==================== Shell Command start ====================\n"

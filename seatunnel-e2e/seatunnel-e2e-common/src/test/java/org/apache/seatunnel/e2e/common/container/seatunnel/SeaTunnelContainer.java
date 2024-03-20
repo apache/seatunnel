@@ -166,7 +166,7 @@ public class SeaTunnelContainer extends AbstractTestContainer {
     }
 
     @Override
-    public Container.ExecResult executeJob(String confFile)
+    public Container.ExecResult executeJob(String... confFile)
             throws IOException, InterruptedException {
         log.info("test in container: {}", identifier());
         List<String> beforeThreads = ContainerUtil.getJVMThreadNames(server);

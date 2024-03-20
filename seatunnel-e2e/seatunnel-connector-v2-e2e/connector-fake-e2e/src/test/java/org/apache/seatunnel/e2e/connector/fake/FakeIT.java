@@ -40,6 +40,6 @@ public class FakeIT extends TestSuiteBase {
         Assertions.assertEquals(0, fakeWithTemplate.getExitCode());
         Container.ExecResult fakeComplex =
                 container.executeJob("/fake_generic_row_type_to_assert.conf");
-        Assertions.assertEquals(0, fakeWithTemplate.getExitCode());
+        Assertions.assertEquals(0, fakeComplex.getExitCode());
     }
 }
