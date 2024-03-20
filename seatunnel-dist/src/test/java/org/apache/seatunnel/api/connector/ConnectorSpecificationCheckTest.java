@@ -39,7 +39,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.ServiceConfigurationError;
 import java.util.ServiceLoader;
 
 @Slf4j
@@ -54,17 +53,8 @@ public class ConnectorSpecificationCheckTest {
         Map<String, String> sourceWithSPI = new HashMap<>();
         Iterator<SeaTunnelSource> sourceIterator = sources.iterator();
         while (sourceIterator.hasNext()) {
-            try {
-                SeaTunnelSource source = sourceIterator.next();
-                sourceWithSPI.put(source.getPluginName(), source.getClass().getName());
-            } catch (ServiceConfigurationError e) {
-                // skip OssFileSource, because we have two of it
-                if (!e.getMessage()
-                        .contains(
-                                "org.apache.seatunnel.connectors.seatunnel.file.oss.source.OssFileSource")) {
-                    throw e;
-                }
-            }
+            SeaTunnelSource source = sourceIterator.next();
+            sourceWithSPI.put(source.getPluginName(), source.getClass().getName());
         }
         List<TableSourceFactory> sourceFactories =
                 FactoryUtil.discoverFactories(
