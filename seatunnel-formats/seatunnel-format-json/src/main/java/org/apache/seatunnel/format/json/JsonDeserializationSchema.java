@@ -75,7 +75,7 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
         this.ignoreParseErrors = ignoreParseErrors;
         this.runtimeConverter =
                 new JsonToRowConverters(failOnMissingField, ignoreParseErrors)
-                        .createConverter(checkNotNull(rowType));
+                        .createRowConverter(checkNotNull(rowType));
 
         if (hasDecimalType(rowType)) {
             objectMapper.enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS);

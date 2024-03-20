@@ -136,10 +136,11 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                     response.getCode(),
                     response.getContent());
         } else {
-            log.error(
-                    "http client execute exception, http response status code:[{}], content:[{}]",
-                    response.getCode(),
-                    response.getContent());
+            String msg =
+                    String.format(
+                            "http client execute exception, http response status code:[%s], content:[%s]",
+                            response.getCode(), response.getContent());
+            throw new HttpConnectorException(HttpConnectorErrorCode.REQUEST_FAILED, msg);
         }
     }
 
@@ -166,12 +167,11 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                     updateRequestParam(info);
                     pollAndCollectData(output);
                     pageIndex += 1;
+                    Thread.sleep(10);
                 }
             } else {
                 pollAndCollectData(output);
             }
-        } catch (Exception e) {
-            log.error(e.getMessage(), e);
         } finally {
             if (Boundedness.BOUNDED.equals(context.getBoundedness()) && noMoreElementFlag) {
                 // signal to the source that we have reached the end of the data.
@@ -189,7 +189,7 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         if (contentJson != null) {
             data = JsonUtils.stringToJsonNode(getPartOfJson(data)).toString();
         }
-        if (jsonField != null) {
+        if (jsonField != null && contentJson == null) {
             this.initJsonPath(jsonField);
             data = JsonUtils.toJsonNode(parseToMap(decodeJSON(data), jsonField)).toString();
         }
