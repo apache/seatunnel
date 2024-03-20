@@ -196,11 +196,14 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
             for (int i = 0; i < rowType.getTotalFields(); i++) {
                 String fieldName = rowType.getFieldName(i);
                 SeaTunnelDataType<?> fieldDataType = rowType.getFieldType(i);
-                if (collect.get(fieldName) != null) {
+                Object value = collect.get(fieldName);
+                if (value != null) {
                     seaTunnelFields[i] =
                             convertValue(
                                     fieldDataType,
-                                    mapper.writeValueAsString(collect.get(fieldName)));
+                                    (value instanceof List || value instanceof Map)
+                                            ? mapper.writeValueAsString(value)
+                                            : value.toString());
                 }
             }
             return new SeaTunnelRow(seaTunnelFields);
