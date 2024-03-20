@@ -19,11 +19,11 @@ package org.apache.seatunnel.connectors.seatunnel.paimon.utils;
 
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.paimon.data.PaimonTypeMapper;
 
 import org.apache.paimon.schema.Schema;
+import org.apache.paimon.types.DataField;
 import org.apache.paimon.types.DataType;
 
 import java.util.List;
@@ -62,7 +62,14 @@ public class SchemaUtil {
         return paiSchemaBuilder.build();
     }
 
-    public static SeaTunnelDataType<?> toSeaTunnelType(DataType dataType) {
-        return PaimonTypeMapper.INSTANCE.convert(dataType).getDataType();
+    public static Column toSeaTunnelType(DataType dataType) {
+        return PaimonTypeMapper.INSTANCE.convert(dataType);
+    }
+
+    public static DataField getDataField(List<DataField> fields, String fieldName) {
+        return fields.parallelStream()
+                .filter(field -> field.name().equals(fieldName))
+                .findFirst()
+                .get();
     }
 }

@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.paimon.catalog;
 
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
@@ -27,7 +27,6 @@ import org.apache.seatunnel.api.table.catalog.exception.DatabaseAlreadyExistExce
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
 import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistException;
 import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.paimon.utils.SchemaUtil;
 
@@ -182,18 +181,8 @@ public class PaimonCatalog implements Catalog, PaimonTable {
         TableSchema.Builder builder = TableSchema.builder();
         dataFields.forEach(
                 dataField -> {
-                    String name = dataField.name();
-                    SeaTunnelDataType<?> seaTunnelType =
-                            SchemaUtil.toSeaTunnelType(dataField.type());
-                    PhysicalColumn physicalColumn =
-                            PhysicalColumn.of(
-                                    name,
-                                    seaTunnelType,
-                                    (Long) null,
-                                    true,
-                                    null,
-                                    dataField.description());
-                    builder.column(physicalColumn);
+                    Column column = SchemaUtil.toSeaTunnelType(dataField.type());
+                    builder.column(column);
                 });
 
         List<String> partitionKeys = schema.partitionKeys();

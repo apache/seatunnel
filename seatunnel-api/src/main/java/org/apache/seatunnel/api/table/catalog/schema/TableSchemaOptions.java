@@ -86,6 +86,12 @@ public class TableSchemaOptions {
                         .noDefaultValue()
                         .withDescription("SeaTunnel Schema Column Type");
 
+        public static final Option<Integer> COLUMN_SCALE =
+                Options.key("columnScale")
+                        .intType()
+                        .noDefaultValue()
+                        .withDescription("SeaTunnel Schema Column scale");
+
         public static final Option<Integer> COLUMN_LENGTH =
                 Options.key("columnLength")
                         .intType()
