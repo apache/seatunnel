@@ -83,7 +83,7 @@ public class CompatibleKafkaConnectDeserializationSchema
         // Runtime converter
         this.runtimeConverter =
                 new JsonToRowConverters(failOnMissingField, ignoreParseErrors)
-                        .createConverter(checkNotNull(seaTunnelRowType));
+                        .createRowConverter(checkNotNull(seaTunnelRowType));
     }
 
     @Override
