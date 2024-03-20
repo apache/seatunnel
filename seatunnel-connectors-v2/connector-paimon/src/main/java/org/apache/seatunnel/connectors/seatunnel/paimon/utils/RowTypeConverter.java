@@ -43,6 +43,7 @@ import org.apache.paimon.types.LocalZonedTimestampType;
 import org.apache.paimon.types.MapType;
 import org.apache.paimon.types.RowType;
 import org.apache.paimon.types.SmallIntType;
+import org.apache.paimon.types.TimeType;
 import org.apache.paimon.types.TimestampType;
 import org.apache.paimon.types.TinyIntType;
 import org.apache.paimon.types.VarBinaryType;
@@ -71,12 +72,92 @@ public class RowTypeConverter {
     }
 
     /**
+     * Convert Paimon row type {@link DataType} to SeaTunnel row type {@link SeaTunnelDataType}
+     *
+     * @param dataType Paimon data type
+     * @return SeaTunnel data type {@link SeaTunnelDataType}
+     */
+    public static SeaTunnelDataType convert(DataType dataType) {
+        SeaTunnelDataType<?> seaTunnelDataType;
+        PaimonToSeaTunnelTypeVisitor paimonToSeaTunnelTypeVisitor =
+                PaimonToSeaTunnelTypeVisitor.INSTANCE;
+        switch (dataType.getTypeRoot()) {
+            case CHAR:
+                seaTunnelDataType = paimonToSeaTunnelTypeVisitor.visit((CharType) dataType);
+                break;
+            case VARCHAR:
+                seaTunnelDataType = paimonToSeaTunnelTypeVisitor.visit((VarCharType) dataType);
+                break;
+            case BOOLEAN:
+                seaTunnelDataType = paimonToSeaTunnelTypeVisitor.visit((BooleanType) dataType);
+                break;
+            case BINARY:
+                seaTunnelDataType = paimonToSeaTunnelTypeVisitor.visit((BinaryType) dataType);
+                break;
+            case VARBINARY:
+                seaTunnelDataType = paimonToSeaTunnelTypeVisitor.visit((VarBinaryType) dataType);
+                break;
+            case DECIMAL:
+                seaTunnelDataType = paimonToSeaTunnelTypeVisitor.visit((DecimalType) dataType);
+                break;
+            case TINYINT:
+                seaTunnelDataType = paimonToSeaTunnelTypeVisitor.visit((TinyIntType) dataType);
+                break;
+            case SMALLINT:
+                seaTunnelDataType = paimonToSeaTunnelTypeVisitor.visit((SmallIntType) dataType);
+                break;
+            case INTEGER:
+                seaTunnelDataType = paimonToSeaTunnelTypeVisitor.visit((IntType) dataType);
+                break;
+            case BIGINT:
+                seaTunnelDataType = paimonToSeaTunnelTypeVisitor.visit((BigIntType) dataType);
+                break;
+            case FLOAT:
+                seaTunnelDataType = paimonToSeaTunnelTypeVisitor.visit((FloatType) dataType);
+                break;
+            case DOUBLE:
+                seaTunnelDataType = paimonToSeaTunnelTypeVisitor.visit((DoubleType) dataType);
+                break;
+            case DATE:
+                seaTunnelDataType = paimonToSeaTunnelTypeVisitor.visit((DateType) dataType);
+                break;
+            case TIME_WITHOUT_TIME_ZONE:
+                seaTunnelDataType = paimonToSeaTunnelTypeVisitor.visit((TimeType) dataType);
+                break;
+            case TIMESTAMP_WITHOUT_TIME_ZONE:
+                seaTunnelDataType = paimonToSeaTunnelTypeVisitor.visit((TimestampType) dataType);
+                break;
+            case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
+                seaTunnelDataType =
+                        paimonToSeaTunnelTypeVisitor.visit((LocalZonedTimestampType) dataType);
+                break;
+            case ARRAY:
+                seaTunnelDataType = paimonToSeaTunnelTypeVisitor.visit((ArrayType) dataType);
+                break;
+            case MAP:
+                seaTunnelDataType = paimonToSeaTunnelTypeVisitor.visit((MapType) dataType);
+                break;
+            case ROW:
+                seaTunnelDataType = paimonToSeaTunnelTypeVisitor.visit((RowType) dataType);
+                break;
+            default:
+                String errorMsg =
+                        String.format(
+                                "Paimon dataType not support this genericType [%s]",
+                                dataType.asSQLString());
+                throw new PaimonConnectorException(
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE, errorMsg);
+        }
+        return seaTunnelDataType;
+    }
+
+    /**
      * Convert SeaTunnel row type {@link SeaTunnelRowType} to Paimon row type {@link RowType}
      *
      * @param seaTunnelRowType SeaTunnel row type {@link SeaTunnelRowType}
      * @return Paimon row type {@link RowType}
      */
-    public static RowType convert(SeaTunnelRowType seaTunnelRowType) {
+    public static RowType reconvert(SeaTunnelRowType seaTunnelRowType) {
         SeaTunnelDataType<?>[] fieldTypes = seaTunnelRowType.getFieldTypes();
         DataType[] dataTypes =
                 Arrays.stream(fieldTypes)
@@ -96,7 +177,7 @@ public class RowTypeConverter {
      * @param dataType SeaTunnel data type {@link SeaTunnelDataType}
      * @return Paimon data type {@link DataType}
      */
-    public static DataType convert(SeaTunnelDataType<?> dataType) {
+    public static DataType reconvert(SeaTunnelDataType<?> dataType) {
         return SeaTunnelTypeToPaimonVisitor.INSTANCE.visit(dataType);
     }
 

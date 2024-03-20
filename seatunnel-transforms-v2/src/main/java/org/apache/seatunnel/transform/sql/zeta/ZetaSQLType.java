@@ -39,6 +39,7 @@ import net.sf.jsqlparser.expression.Function;
 import net.sf.jsqlparser.expression.LongValue;
 import net.sf.jsqlparser.expression.NullValue;
 import net.sf.jsqlparser.expression.Parenthesis;
+import net.sf.jsqlparser.expression.SignedExpression;
 import net.sf.jsqlparser.expression.StringValue;
 import net.sf.jsqlparser.expression.TimeKeyExpression;
 import net.sf.jsqlparser.expression.WhenClause;
@@ -87,6 +88,9 @@ public class ZetaSQLType {
     public SeaTunnelDataType<?> getExpressionType(Expression expression) {
         if (expression instanceof NullValue) {
             return BasicType.VOID_TYPE;
+        }
+        if (expression instanceof SignedExpression) {
+            return getExpressionType(((SignedExpression) expression).getExpression());
         }
         if (expression instanceof DoubleValue) {
             return BasicType.DOUBLE_TYPE;
