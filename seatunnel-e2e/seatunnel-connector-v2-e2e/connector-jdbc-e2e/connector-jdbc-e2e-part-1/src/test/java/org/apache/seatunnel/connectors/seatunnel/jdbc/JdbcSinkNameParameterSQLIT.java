@@ -17,12 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -33,6 +33,8 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.sql.Connection;
@@ -86,7 +88,8 @@ public class JdbcSinkNameParameterSQLIT extends TestSuiteBase implements TestRes
     @TestTemplate
     public void testSinkNamedParameterSQL(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/jdbc_sink_name_parameter_sql.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/jdbc_sink_name_parameter_sql.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
