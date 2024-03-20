@@ -15,27 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.sink;
+package org.apache.seatunnel.api.table.catalog;
 
-import org.apache.seatunnel.api.table.catalog.Catalog;
-import org.apache.seatunnel.api.table.catalog.TablePath;
+public class InfoPreviewResult extends PreviewResult {
+    private final String info;
 
-public interface SaveModeHandler extends AutoCloseable {
+    public String getInfo() {
+        return info;
+    }
 
-    void handleSchemaSaveMode();
+    public InfoPreviewResult(String info) {
+        super(Type.INFO);
+        this.info = info;
+    }
 
-    void handleDataSaveMode();
-
-    SchemaSaveMode getSchemaSaveMode();
-
-    DataSaveMode getDataSaveMode();
-
-    TablePath getHandleTablePath();
-
-    Catalog getHandleCatalog();
-
-    default void handleSaveMode() {
-        handleSchemaSaveMode();
-        handleDataSaveMode();
+    @Override
+    public String toString() {
+        return info;
     }
 }

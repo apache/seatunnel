@@ -15,27 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.sink;
+package org.apache.seatunnel.api.table.catalog;
 
-import org.apache.seatunnel.api.table.catalog.Catalog;
-import org.apache.seatunnel.api.table.catalog.TablePath;
+/** The result of a SQL preview action in {@link Catalog#previewAction}. */
+public abstract class PreviewResult {
 
-public interface SaveModeHandler extends AutoCloseable {
+    private final Type type;
 
-    void handleSchemaSaveMode();
+    public PreviewResult(Type type) {
+        this.type = type;
+    }
 
-    void handleDataSaveMode();
+    public Type getType() {
+        return type;
+    }
 
-    SchemaSaveMode getSchemaSaveMode();
-
-    DataSaveMode getDataSaveMode();
-
-    TablePath getHandleTablePath();
-
-    Catalog getHandleCatalog();
-
-    default void handleSaveMode() {
-        handleSchemaSaveMode();
-        handleDataSaveMode();
+    public enum Type {
+        SQL,
+        INFO,
+        OTHER
     }
 }

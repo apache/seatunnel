@@ -187,6 +187,13 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
     }
 
     @Override
+    protected String getCreateTableSql(TablePath tablePath, CatalogTable table) {
+        PostgresCreateTableSqlBuilder postgresCreateTableSqlBuilder =
+                new PostgresCreateTableSqlBuilder(table);
+        return postgresCreateTableSqlBuilder.build(tablePath);
+    }
+
+    @Override
     protected String getDropTableSql(TablePath tablePath) {
         return "DROP TABLE \""
                 + tablePath.getSchemaName()

@@ -17,25 +17,24 @@
 
 package org.apache.seatunnel.api.sink;
 
-import org.apache.seatunnel.api.table.catalog.Catalog;
-import org.apache.seatunnel.api.table.catalog.TablePath;
+import lombok.extern.slf4j.Slf4j;
 
-public interface SaveModeHandler extends AutoCloseable {
+@Slf4j
+public class SaveModeExecuteWrapper {
 
-    void handleSchemaSaveMode();
-
-    void handleDataSaveMode();
-
-    SchemaSaveMode getSchemaSaveMode();
-
-    DataSaveMode getDataSaveMode();
-
-    TablePath getHandleTablePath();
-
-    Catalog getHandleCatalog();
-
-    default void handleSaveMode() {
-        handleSchemaSaveMode();
-        handleDataSaveMode();
+    public SaveModeExecuteWrapper(SaveModeHandler handler) {
+        this.handler = handler;
     }
+
+    public void execute() {
+        log.info(
+                "Executing save mode for table: {}, with SchemaSaveMode: {}, DataSaveMode: {} using Catalog: {}",
+                handler.getHandleTablePath(),
+                handler.getSchemaSaveMode(),
+                handler.getDataSaveMode(),
+                handler.getHandleCatalog().name());
+        handler.handleSaveMode();
+    }
+
+    private final SaveModeHandler handler;
 }
