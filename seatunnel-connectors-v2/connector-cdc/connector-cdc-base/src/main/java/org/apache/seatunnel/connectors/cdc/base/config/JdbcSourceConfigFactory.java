@@ -54,7 +54,8 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
     protected int fetchSize = SourceOptions.SNAPSHOT_FETCH_SIZE.defaultValue();
     protected String serverTimeZone = JdbcSourceOptions.SERVER_TIME_ZONE.defaultValue();
     protected long connectTimeoutMillis = JdbcSourceOptions.CONNECT_TIMEOUT_MS.defaultValue();
-    protected long connectIdleTimeoutMillis = JdbcSourceOptions.CONNECTION_IDLE_TIMEOUT_MS.defaultValue();
+    protected long connectIdleTimeoutMillis =
+            JdbcSourceOptions.CONNECTION_IDLE_TIMEOUT_MS.defaultValue();
     protected int connectMaxRetries = JdbcSourceOptions.CONNECT_MAX_RETRIES.defaultValue();
     protected int connectionPoolSize = JdbcSourceOptions.CONNECTION_POOL_SIZE.defaultValue();
     @Setter protected boolean exactlyOnce = JdbcSourceOptions.EXACTLY_ONCE.defaultValue();
@@ -191,7 +192,8 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
     }
 
     /**
-     * The connection in the connection pool will be released if it remains idle for the specified time, default:10min.
+     * The connection in the connection pool will be released if it remains idle for the specified
+     * time, default:10min.
      */
     public JdbcSourceConfigFactory connectIdleTimeoutMillis(long connectIdleTimeoutMillis) {
         this.connectIdleTimeoutMillis = connectIdleTimeoutMillis;

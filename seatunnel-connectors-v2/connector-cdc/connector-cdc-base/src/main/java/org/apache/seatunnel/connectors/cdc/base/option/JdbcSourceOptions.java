@@ -91,7 +91,8 @@ public class JdbcSourceOptions extends SourceOptions {
             Options.key("connection.idle.timeout.ms")
                     .longType()
                     .defaultValue(600000L)
-                    .withDescription("The connection in the connection pool will be released if it remains idle for the specified time, default:10min.");
+                    .withDescription(
+                            "The connection in the connection pool will be released if it remains idle for the specified time, default:10min.");
 
     public static final Option<Integer> CONNECTION_POOL_SIZE =
             Options.key("connection.pool.size")
