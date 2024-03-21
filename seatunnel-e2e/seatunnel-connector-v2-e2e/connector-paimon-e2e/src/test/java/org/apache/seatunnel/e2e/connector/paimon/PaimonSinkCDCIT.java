@@ -41,7 +41,9 @@ import org.apache.paimon.table.source.ReadBuilder;
 import org.apache.paimon.table.source.TableRead;
 import org.apache.paimon.table.source.TableScan;
 import org.apache.paimon.types.DataField;
+import org.apache.paimon.types.DateType;
 import org.apache.paimon.types.TimestampType;
+import org.apache.paimon.utils.DateTimeUtils;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -55,6 +57,7 @@ import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -373,6 +376,57 @@ public class PaimonSinkCDCIT extends TestSuiteBase implements TestResource {
                         });
     }
 
+    @TestTemplate
+    public void testFakeSinkPaimonWithDate(TestContainer container) throws Exception {
+        Container.ExecResult execResult = container.executeJob("/fake_cdc_sink_paimon_case8.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+
+        given().ignoreExceptions()
+                .await()
+                .atLeast(100L, TimeUnit.MILLISECONDS)
+                .atMost(30L, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            // copy paimon to local
+                            container.executeExtraCommands(containerExtendedFactory);
+                            FileStoreTable table =
+                                    (FileStoreTable) getTable("seatunnel_namespace8", TARGET_TABLE);
+                            List<DataField> fields = table.schema().fields();
+                            for (DataField field : fields) {
+                                if (field.name().equalsIgnoreCase("one_date")) {
+                                    Assertions.assertTrue(field.type() instanceof DateType);
+                                }
+                            }
+                            ReadBuilder readBuilder = table.newReadBuilder();
+                            TableScan.Plan plan = readBuilder.newScan().plan();
+                            TableRead tableRead = readBuilder.newRead();
+                            List<PaimonRecord> result = new ArrayList<>();
+                            try (RecordReader<InternalRow> reader = tableRead.createReader(plan)) {
+                                reader.forEachRemaining(
+                                        row ->
+                                                result.add(
+                                                        new PaimonRecord(
+                                                                row.getLong(0),
+                                                                row.getString(1).toString(),
+                                                                row.getInt(2))));
+                            }
+                            Assertions.assertEquals(3, result.size());
+                            for (PaimonRecord paimonRecord : result) {
+                                if (paimonRecord.getPkId() == 1) {
+                                    Assertions.assertEquals(
+                                            paimonRecord.oneDate,
+                                            DateTimeUtils.toInternal(
+                                                    LocalDate.parse("2024-03-20")));
+                                } else {
+                                    Assertions.assertEquals(
+                                            paimonRecord.oneDate,
+                                            DateTimeUtils.toInternal(
+                                                    LocalDate.parse("2024-03-10")));
+                                }
+                            }
+                        });
+    }
+
     protected final ContainerExtendedFactory containerExtendedFactory =
             container -> {
                 FileUtils.deleteFile(CATALOG_ROOT_DIR + NAMESPACE_TAR);
@@ -468,6 +522,7 @@ public class PaimonSinkCDCIT extends TestSuiteBase implements TestResource {
         private Timestamp twoTime;
         private Timestamp threeTime;
         private Timestamp fourTime;
+        private Integer oneDate;
 
         public PaimonRecord(Long pkId, String name) {
             this.pkId = pkId;
@@ -477,6 +532,11 @@ public class PaimonSinkCDCIT extends TestSuiteBase implements TestResource {
         public PaimonRecord(Long pkId, String name, String dt) {
             this(pkId, name);
             this.dt = dt;
+        }
+
+        public PaimonRecord(Long pkId, String name, Integer oneDate) {
+            this(pkId, name);
+            this.oneDate = oneDate;
         }
 
         public PaimonRecord(
