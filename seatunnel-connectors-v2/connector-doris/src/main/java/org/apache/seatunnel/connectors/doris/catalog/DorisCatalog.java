@@ -42,6 +42,7 @@ import org.apache.seatunnel.connectors.doris.datatype.DorisTypeConverterFactory;
 import org.apache.seatunnel.connectors.doris.datatype.DorisTypeConverterV2;
 import org.apache.seatunnel.connectors.doris.util.DorisCatalogUtil;
 
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 
 import org.slf4j.Logger;
@@ -250,7 +251,38 @@ public class DorisCatalog implements Catalog {
             ps.setString(2, tablePath.getTableName());
             ResultSet rs = ps.executeQuery();
             Map<String, String> options = connectorOptions();
-            buildTableSchemaWithErrorCheck(tablePath, rs, builder, options);
+            buildTableSchemaWithErrorCheck(
+                    tablePath, rs, builder, options, Collections.emptyList());
+            return CatalogTable.of(
+                    TableIdentifier.of(
+                            catalogName, tablePath.getDatabaseName(), tablePath.getTableName()),
+                    builder.build(),
+                    options,
+                    Collections.emptyList(),
+                    "",
+                    catalogName);
+        } catch (SeaTunnelRuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new CatalogException(
+                    String.format("Failed getting table %s", tablePath.getFullName()), e);
+        }
+    }
+
+    @Override
+    public CatalogTable getTable(TablePath tablePath, List<String> fieldNames)
+            throws CatalogException, TableNotExistException {
+
+        if (!tableExists(tablePath)) {
+            throw new TableNotExistException(catalogName, tablePath);
+        }
+        TableSchema.Builder builder = TableSchema.builder();
+        try (PreparedStatement ps = conn.prepareStatement(DorisCatalogUtil.TABLE_SCHEMA_QUERY)) {
+            ps.setString(1, tablePath.getDatabaseName());
+            ps.setString(2, tablePath.getTableName());
+            ResultSet rs = ps.executeQuery();
+            Map<String, String> options = connectorOptions();
+            buildTableSchemaWithErrorCheck(tablePath, rs, builder, options, fieldNames);
             return CatalogTable.of(
                     TableIdentifier.of(
                             catalogName, tablePath.getDatabaseName(), tablePath.getTableName()),
@@ -271,25 +303,28 @@ public class DorisCatalog implements Catalog {
             TablePath tablePath,
             ResultSet resultSet,
             TableSchema.Builder builder,
-            Map<String, String> options)
+            Map<String, String> options,
+            List<String> fieldNames)
             throws SQLException {
         Map<String, String> unsupported = new LinkedHashMap<>();
         List<String> keyList = new ArrayList<>();
         while (resultSet.next()) {
             try {
-                builder.column(buildColumn(resultSet));
-                String columnKey = resultSet.getString("COLUMN_KEY");
                 String columName = resultSet.getString("COLUMN_NAME");
-                if ("UNI".equalsIgnoreCase(columnKey)) {
-                    keyList.add(columName);
-                } else if ("DUP".equalsIgnoreCase(columnKey)) {
-                    String dupKey = options.getOrDefault(DUP_KEY, "");
-                    if (StringUtils.isBlank(dupKey)) {
-                        dupKey = columName;
-                    } else {
-                        dupKey = dupKey + "," + columName;
+                if (CollectionUtils.isEmpty(fieldNames) || fieldNames.contains(columName)) {
+                    String columnKey = resultSet.getString("COLUMN_KEY");
+                    builder.column(buildColumn(resultSet));
+                    if ("UNI".equalsIgnoreCase(columnKey)) {
+                        keyList.add(columName);
+                    } else if ("DUP".equalsIgnoreCase(columnKey)) {
+                        String dupKey = options.getOrDefault(DUP_KEY, "");
+                        if (StringUtils.isBlank(dupKey)) {
+                            dupKey = columName;
+                        } else {
+                            dupKey = dupKey + "," + columName;
+                        }
+                        options.put(DUP_KEY, dupKey);
                     }
-                    options.put(DUP_KEY, dupKey);
                 }
             } catch (SeaTunnelRuntimeException e) {
                 if (e.getSeaTunnelErrorCode()
