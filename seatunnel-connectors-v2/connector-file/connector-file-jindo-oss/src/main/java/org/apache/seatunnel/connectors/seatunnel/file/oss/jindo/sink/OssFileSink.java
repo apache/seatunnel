@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.oss.sink;
+package org.apache.seatunnel.connectors.seatunnel.file.oss.jindo.sink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -26,9 +26,9 @@ import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
-import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssConf;
-import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssConfigOptions;
-import org.apache.seatunnel.connectors.seatunnel.file.oss.exception.OssJindoConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.file.oss.jindo.config.OssConf;
+import org.apache.seatunnel.connectors.seatunnel.file.oss.jindo.config.OssConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.oss.jindo.exception.OssJindoConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.BaseFileSink;
 
 import com.google.auto.service.AutoService;

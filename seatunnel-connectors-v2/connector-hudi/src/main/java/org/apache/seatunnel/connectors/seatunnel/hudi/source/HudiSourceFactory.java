@@ -19,12 +19,13 @@ package org.apache.seatunnel.connectors.seatunnel.hudi.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSourceConfig;
 
 import com.google.auto.service.AutoService;
 
-@AutoService(SeaTunnelSource.class)
+@AutoService(Factory.class)
 public class HudiSourceFactory implements TableSourceFactory {
 
     @Override
