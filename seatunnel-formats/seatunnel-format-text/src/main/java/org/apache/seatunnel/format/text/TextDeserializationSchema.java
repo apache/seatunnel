@@ -280,13 +280,14 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
                 Map<Integer, String> splitsMap =
                         splitLineBySeaTunnelRowType(field, (SeaTunnelRowType) fieldType, level + 1);
                 Object[] objects = new Object[splitsMap.size()];
+                String[] eleFieldNames = ((SeaTunnelRowType) fieldType).getFieldNames();
                 for (int i = 0; i < objects.length; i++) {
                     objects[i] =
                             convert(
                                     splitsMap.get(i),
                                     ((SeaTunnelRowType) fieldType).getFieldType(i),
                                     level + 1,
-                                    fieldName);
+                                    fieldName + "." + eleFieldNames[i]);
                 }
                 return new SeaTunnelRow(objects);
             default:
