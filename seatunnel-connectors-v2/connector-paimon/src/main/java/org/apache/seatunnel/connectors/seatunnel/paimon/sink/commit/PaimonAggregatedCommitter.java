@@ -20,8 +20,10 @@ package org.apache.seatunnel.connectors.seatunnel.paimon.sink.commit;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkAggregatedCommitter;
+import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonHadoopConfiguration;
 import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.paimon.security.PaimonSecurityContext;
 import org.apache.seatunnel.connectors.seatunnel.paimon.utils.JobContextUtil;
 
 import org.apache.paimon.operation.Lock;
@@ -55,12 +57,16 @@ public class PaimonAggregatedCommitter
 
     private final JobContext jobContext;
 
-    public PaimonAggregatedCommitter(Table table, JobContext jobContext) {
+    public PaimonAggregatedCommitter(
+            Table table,
+            JobContext jobContext,
+            PaimonHadoopConfiguration paimonHadoopConfiguration) {
         this.jobContext = jobContext;
         this.tableWriteBuilder =
                 JobContextUtil.isBatchJob(jobContext)
                         ? table.newBatchWriteBuilder()
                         : table.newStreamWriteBuilder();
+        PaimonSecurityContext.shoudEnableKerberos(paimonHadoopConfiguration);
     }
 
     @Override
@@ -73,14 +79,18 @@ public class PaimonAggregatedCommitter
                             .flatMap(List::stream)
                             .flatMap(List::stream)
                             .collect(Collectors.toList());
-            if (JobContextUtil.isBatchJob(jobContext)) {
-                log.debug("Trying to commit states batch mode");
-                ((BatchTableCommit) tableCommit).commit(fileCommittables);
-            } else {
-                log.debug("Trying to commit states streaming mode");
-                ((StreamTableCommit) tableCommit)
-                        .commit(Objects.hash(fileCommittables), fileCommittables);
-            }
+            PaimonSecurityContext.runSecured(
+                    () -> {
+                        if (JobContextUtil.isBatchJob(jobContext)) {
+                            log.debug("Trying to commit states batch mode");
+                            ((BatchTableCommit) tableCommit).commit(fileCommittables);
+                        } else {
+                            log.debug("Trying to commit states streaming mode");
+                            ((StreamTableCommit) tableCommit)
+                                    .commit(Objects.hash(fileCommittables), fileCommittables);
+                        }
+                        return null;
+                    });
         } catch (Exception e) {
             throw new PaimonConnectorException(
                     PaimonConnectorErrorCode.TABLE_WRITE_COMMIT_FAILED,

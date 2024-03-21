@@ -32,7 +32,6 @@ import org.apache.paimon.catalog.CatalogContext;
 import org.apache.paimon.catalog.CatalogFactory;
 import org.apache.paimon.catalog.Identifier;
 import org.apache.paimon.data.InternalRow;
-import org.apache.paimon.data.Timestamp;
 import org.apache.paimon.options.Options;
 import org.apache.paimon.reader.RecordReader;
 import org.apache.paimon.table.FileStoreTable;
@@ -51,9 +50,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -509,48 +505,5 @@ public class PaimonSinkCDCIT extends TestSuiteBase implements TestResource {
         options.set("warehouse", "file://" + CATALOG_DIR);
         Catalog catalog = CatalogFactory.createCatalog(CatalogContext.create(options));
         return catalog;
-    }
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public class PaimonRecord {
-        private Long pkId;
-        private String name;
-        private String dt;
-        private Timestamp oneTime;
-        private Timestamp twoTime;
-        private Timestamp threeTime;
-        private Timestamp fourTime;
-        private Integer oneDate;
-
-        public PaimonRecord(Long pkId, String name) {
-            this.pkId = pkId;
-            this.name = name;
-        }
-
-        public PaimonRecord(Long pkId, String name, String dt) {
-            this(pkId, name);
-            this.dt = dt;
-        }
-
-        public PaimonRecord(Long pkId, String name, Integer oneDate) {
-            this(pkId, name);
-            this.oneDate = oneDate;
-        }
-
-        public PaimonRecord(
-                Long pkId,
-                String name,
-                Timestamp oneTime,
-                Timestamp twoTime,
-                Timestamp threeTime,
-                Timestamp fourTime) {
-            this(pkId, name);
-            this.oneTime = oneTime;
-            this.twoTime = twoTime;
-            this.threeTime = threeTime;
-            this.fourTime = fourTime;
-        }
     }
 }
