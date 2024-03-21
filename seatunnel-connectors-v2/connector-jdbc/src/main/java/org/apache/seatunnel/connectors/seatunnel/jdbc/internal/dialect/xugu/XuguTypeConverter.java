@@ -44,6 +44,7 @@ public class XuguTypeConverter implements  TypeConverter<BasicTypeDefine> {
     // ============================data types=====================
     // -------------------------number----------------------------
     private static final String XUGU_NUMERIC = "NUMERIC";
+    private static final String XUGU_NUMBER = "NUMBER";
     public static final String XUGU_DECIMAL = "DECIMAL";
     private static final String XUGU_INTEGER = "INTEGER";
     private static final String XUGU_INT = "INT";
@@ -65,6 +66,7 @@ public class XuguTypeConverter implements  TypeConverter<BasicTypeDefine> {
     private static final String XUGU_TIME = "TIME";
     private static final String XUGU_TIMESTAMP = "TIMESTAMP";
     private static final String XUGU_DATETIME = "DATETIME";
+    private static final String XUGU_DATETIME_WITH_TIME_ZONE = "DATETIME WITH TIME ZONE";
     private static final String XUGU_TIME_WITH_TIME_ZONE = "TIME WITH TIME ZONE";
     private static final String XUGU_TIMESTAMP_WITH_TIME_ZONE = "TIMESTAMP WITH TIME ZONE";
 
@@ -75,6 +77,7 @@ public class XuguTypeConverter implements  TypeConverter<BasicTypeDefine> {
     // ---------------------------other---------------------------
     private static final String XUGU_GUID = "GUID";
     private static final String XUGU_BOOLEAN = "BOOLEAN";
+    private static final String XUGU_BOOL = "BOOL";
     private static final String XUGU_JSON = "JSON";
 
     public static final int MAX_PRECISION = 38;
@@ -83,6 +86,7 @@ public class XuguTypeConverter implements  TypeConverter<BasicTypeDefine> {
     public static final int DEFAULT_SCALE = 18;
     public static final int TIMESTAMP_DEFAULT_SCALE = 3;
     public static final int MAX_TIMESTAMP_SCALE = 6;
+    public static final int MAX_TIME_SCALE = 6;
     public static final long MAX_VARCHAR_LENGTH = 60000;
     public static final long POWER_2_16 = (long) Math.pow(2, 16);
     public static final long BYTES_2GB = (long) Math.pow(2, 31);
@@ -110,6 +114,7 @@ public class XuguTypeConverter implements  TypeConverter<BasicTypeDefine> {
         }
         switch (xuguDataType) {
             case XUGU_BOOLEAN:
+            case XUGU_BOOL:
                 builder.dataType(BasicType.BOOLEAN_TYPE);
                 break;
             case XUGU_TINYINT:
@@ -131,6 +136,7 @@ public class XuguTypeConverter implements  TypeConverter<BasicTypeDefine> {
             case XUGU_DOUBLE:
                 builder.dataType(BasicType.DOUBLE_TYPE);
                 break;
+            case XUGU_NUMBER:
             case XUGU_DECIMAL:
             case XUGU_NUMERIC:
                 Preconditions.checkArgument(typeDefine.getPrecision() > 0);
@@ -187,11 +193,35 @@ public class XuguTypeConverter implements  TypeConverter<BasicTypeDefine> {
                 builder.dataType(LocalTimeType.LOCAL_DATE_TYPE);
                 break;
             case XUGU_TIME:
+                if (typeDefine.getScale() == null) {
+                    builder.sourceType(XUGU_TIME);
+                } else {
+                    builder.sourceType(String.format("%s(%s)", XUGU_TIME, typeDefine.getScale()));
+                }
+                builder.dataType(LocalTimeType.LOCAL_TIME_TYPE);
+                builder.scale(typeDefine.getScale());
+                break;
             case XUGU_TIME_WITH_TIME_ZONE:
+                if (typeDefine.getScale() == null) {
+                    builder.sourceType(XUGU_TIME_WITH_TIME_ZONE);
+                } else {
+                    builder.sourceType(
+                            String.format("TIME(%s) WITH TIME ZONE", typeDefine.getScale()));
+                }
                 builder.dataType(LocalTimeType.LOCAL_TIME_TYPE);
                 builder.scale(typeDefine.getScale());
                 break;
             case XUGU_DATETIME:
+                builder.dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE);
+                builder.scale(typeDefine.getScale());
+                break;
+            case XUGU_DATETIME_WITH_TIME_ZONE:
+                if (typeDefine.getScale() == null) {
+                    builder.sourceType(XUGU_DATETIME_WITH_TIME_ZONE);
+                } else {
+                    builder.sourceType(
+                            String.format("DATETIME(%s) WITH TIME ZONE", typeDefine.getScale()));
+                }
                 builder.dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE);
                 builder.scale(typeDefine.getScale());
                 break;
@@ -203,7 +233,7 @@ public class XuguTypeConverter implements  TypeConverter<BasicTypeDefine> {
                 } else {
                     builder.scale(typeDefine.getScale());
                 }
-            break;
+                break;
             default:
                 throw CommonError.convertToSeaTunnelTypeError(
                         DatabaseIdentifier.XUGU, xuguDataType, typeDefine.getName());
@@ -337,6 +367,27 @@ public class XuguTypeConverter implements  TypeConverter<BasicTypeDefine> {
             case DATE:
                 builder.columnType(XUGU_DATE);
                 builder.dataType(XUGU_DATE);
+                break;
+            case TIME:
+                builder.dataType(XUGU_TIME);
+                if (column.getScale() != null && column.getScale() > 0) {
+                    Integer timeScale = column.getScale();
+                    if (timeScale > MAX_TIME_SCALE) {
+                        timeScale = MAX_TIME_SCALE;
+                        log.warn(
+                                "The time column {} type time({}) is out of range, "
+                                        + "which exceeds the maximum scale of {}, "
+                                        + "it will be converted to time({})",
+                                column.getName(),
+                                column.getScale(),
+                                MAX_SCALE,
+                                timeScale);
+                    }
+                    builder.columnType(String.format("%s(%s)", XUGU_TIME, timeScale));
+                    builder.scale(timeScale);
+                } else {
+                    builder.columnType(XUGU_TIME);
+                }
                 break;
             case TIMESTAMP:
                 if (column.getScale() == null || column.getScale() <= 0) {
