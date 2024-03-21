@@ -87,6 +87,12 @@ public class JdbcSourceOptions extends SourceOptions {
                     .withDescription(
                             "The maximum time that the connector should wait after trying to connect to the database server before timing out.");
 
+    public static final Option<Long> CONNECTION_IDLE_TIMEOUT_MS =
+            Options.key("connection.idle.timeout.ms")
+                    .longType()
+                    .defaultValue(600000L)
+                    .withDescription("The connection in the connection pool will be released if it remains idle for the specified time, default:10min.");
+
     public static final Option<Integer> CONNECTION_POOL_SIZE =
             Options.key("connection.pool.size")
                     .intType()

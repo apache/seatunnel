@@ -54,6 +54,7 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
     protected int fetchSize = SourceOptions.SNAPSHOT_FETCH_SIZE.defaultValue();
     protected String serverTimeZone = JdbcSourceOptions.SERVER_TIME_ZONE.defaultValue();
     protected long connectTimeoutMillis = JdbcSourceOptions.CONNECT_TIMEOUT_MS.defaultValue();
+    protected long connectIdleTimeoutMillis = JdbcSourceOptions.CONNECTION_IDLE_TIMEOUT_MS.defaultValue();
     protected int connectMaxRetries = JdbcSourceOptions.CONNECT_MAX_RETRIES.defaultValue();
     protected int connectionPoolSize = JdbcSourceOptions.CONNECTION_POOL_SIZE.defaultValue();
     @Setter protected boolean exactlyOnce = JdbcSourceOptions.EXACTLY_ONCE.defaultValue();
@@ -189,6 +190,14 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
         return this;
     }
 
+    /**
+     * The connection in the connection pool will be released if it remains idle for the specified time, default:10min.
+     */
+    public JdbcSourceConfigFactory connectIdleTimeoutMillis(long connectIdleTimeoutMillis) {
+        this.connectIdleTimeoutMillis = connectIdleTimeoutMillis;
+        return this;
+    }
+
     /** The connection pool size. */
     public JdbcSourceConfigFactory connectionPoolSize(int connectionPoolSize) {
         this.connectionPoolSize = connectionPoolSize;
@@ -242,6 +251,7 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
         this.fetchSize = config.get(SourceOptions.SNAPSHOT_FETCH_SIZE);
         this.serverTimeZone = config.get(JdbcSourceOptions.SERVER_TIME_ZONE);
         this.connectTimeoutMillis = config.get(JdbcSourceOptions.CONNECT_TIMEOUT_MS);
+        this.connectIdleTimeoutMillis = config.get(JdbcSourceOptions.CONNECTION_IDLE_TIMEOUT_MS);
         this.connectMaxRetries = config.get(JdbcSourceOptions.CONNECT_MAX_RETRIES);
         this.connectionPoolSize = config.get(JdbcSourceOptions.CONNECTION_POOL_SIZE);
         this.exactlyOnce = config.get(JdbcSourceOptions.EXACTLY_ONCE);
