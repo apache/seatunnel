@@ -15,20 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.e2e;
+package org.apache.seatunnel.connectors.cdc.base.source.event;
 
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.Test;
-import org.testcontainers.containers.Container;
+import org.apache.seatunnel.api.source.SourceEvent;
 
-import java.io.IOException;
+import io.debezium.relational.TableId;
+import lombok.AllArgsConstructor;
+import lombok.Data;
 
-@Disabled
-public class ConnectorPackageServiceIT extends ConnectorPackageServiceContainer {
-    @Test
-    public void testFakeSourceToConsoleSink() throws IOException, InterruptedException {
-        Container.ExecResult execResult = executeSeaTunnelJob("/fakesource_to_console.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
-    }
+import java.util.List;
+
+@Data
+@AllArgsConstructor
+public class CompletedSnapshotPhaseEvent implements SourceEvent {
+    private static final long serialVersionUID = 1L;
+
+    private List<TableId> tableIds;
 }

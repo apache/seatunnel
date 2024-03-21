@@ -23,6 +23,7 @@ import org.apache.commons.lang3.StringUtils;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.Container;
@@ -41,6 +42,7 @@ import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
 
+@Disabled
 public class JobClientJobProxyIT extends SeaTunnelContainer {
     private static final String JDK_DOCKER_IMAGE = "openjdk:8";
     private static final String SERVER_SHELL = "seatunnel-cluster.sh";

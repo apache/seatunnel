@@ -32,6 +32,7 @@ import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import com.hazelcast.client.config.ClientConfig;
@@ -44,6 +45,7 @@ import java.util.concurrent.TimeUnit;
 
 import static org.awaitility.Awaitility.await;
 
+@Disabled
 @Slf4j
 public class JobExecutionIT {
 

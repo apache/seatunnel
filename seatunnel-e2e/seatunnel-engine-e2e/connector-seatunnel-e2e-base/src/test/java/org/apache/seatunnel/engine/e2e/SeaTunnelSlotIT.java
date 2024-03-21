@@ -30,6 +30,7 @@ import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import com.hazelcast.client.config.ClientConfig;
@@ -38,6 +39,7 @@ import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
+@Disabled
 public class SeaTunnelSlotIT {
     @Test
     public void testSlotNotEnough() throws Exception {

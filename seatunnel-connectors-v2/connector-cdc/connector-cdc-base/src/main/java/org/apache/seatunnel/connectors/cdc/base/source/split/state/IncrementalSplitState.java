@@ -24,6 +24,7 @@ import io.debezium.relational.TableId;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.Comparator;
 import java.util.List;
 
 /** The state of split to describe the change log of table(s). */
@@ -39,11 +40,23 @@ public class IncrementalSplitState extends SourceSplitStateBase {
     /** Obtained by configuration, may not end */
     private Offset stopOffset;
 
+    private Offset maxSnapshotSplitsHighWatermark;
+    private boolean enterPureIncrementPhase;
+
     public IncrementalSplitState(IncrementalSplit split) {
         super(split);
         this.tableIds = split.getTableIds();
         this.startupOffset = split.getStartupOffset();
         this.stopOffset = split.getStopOffset();
+        this.maxSnapshotSplitsHighWatermark =
+                split.getCompletedSnapshotSplitInfos().stream()
+                        .filter(e -> e.getWatermark() != null)
+                        .max(Comparator.comparing(o -> o.getWatermark().getHighWatermark()))
+                        .map(e -> e.getWatermark().getHighWatermark())
+                        .orElse(null);
+        this.enterPureIncrementPhase =
+                maxSnapshotSplitsHighWatermark == null
+                        || maxSnapshotSplitsHighWatermark.compareTo(startupOffset) == 0;
     }
 
     @Override
@@ -55,5 +68,20 @@ public class IncrementalSplitState extends SourceSplitStateBase {
                 getStartupOffset(),
                 getStopOffset(),
                 incrementalSplit.getCompletedSnapshotSplitInfos());
+    }
+
+    public boolean markEnterPureIncrementPhaseIfNeed(Offset currentRecordPosition) {
+        if (enterPureIncrementPhase) {
+            return false;
+        }
+
+        if (maxSnapshotSplitsHighWatermark != null
+                && currentRecordPosition.isAfter(maxSnapshotSplitsHighWatermark)) {
+            split.asIncrementalSplit().getCompletedSnapshotSplitInfos().clear();
+            this.enterPureIncrementPhase = true;
+            return true;
+        }
+
+        return false;
     }
 }
