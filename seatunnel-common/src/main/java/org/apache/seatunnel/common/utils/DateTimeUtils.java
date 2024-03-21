@@ -28,14 +28,14 @@ import java.time.format.SignStyle;
 import java.time.temporal.TemporalAccessor;
 import java.time.temporal.TemporalQueries;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 import static java.time.temporal.ChronoField.DAY_OF_MONTH;
-import static java.time.temporal.ChronoField.HOUR_OF_DAY;
-import static java.time.temporal.ChronoField.MINUTE_OF_HOUR;
 import static java.time.temporal.ChronoField.MONTH_OF_YEAR;
-import static java.time.temporal.ChronoField.SECOND_OF_MINUTE;
 import static java.time.temporal.ChronoField.YEAR;
 
 public class DateTimeUtils {
@@ -73,21 +73,29 @@ public class DateTimeUtils {
                 DateTimeFormatter.ofPattern(Formatter.YYYY_MM_DD_HH_MM_SS_SSSSSSSSS_ISO8601.value));
     }
 
-    public static final Pattern[] PATTERN_ARRAY =
-            new Pattern[] {
-                Pattern.compile("\\d{4}-\\d{2}-\\d{2}\\s\\d{2}:\\d{2}:\\d{2}.*"),
-                Pattern.compile("\\d{4}年\\d{2}月\\d{2}日\\s\\d{2}时\\d{2}分\\d{2}秒"),
-                Pattern.compile("\\d{4}/\\d{2}/\\d{2}\\s\\d{2}:\\d{2}.*"),
-                Pattern.compile("\\d{4}\\.\\d{2}\\.\\d{2}\\s\\d{2}:\\d{2}.*"),
-                Pattern.compile("\\d{14}"),
-                Pattern.compile("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}.*"),
-            };
+    // if the datatime string length is 19, find the DateTimeFormatter from this map
+    public static final Map<Pattern, DateTimeFormatter> YYYY_MM_DD_HH_MM_SS_19_FORMATTER_MAP =
+            new LinkedHashMap<>();
+    public static Set<Map.Entry<Pattern, DateTimeFormatter>>
+            YYYY_MM_DD_HH_MM_SS_19_FORMATTER_MAP_ENTRY_SET = new LinkedHashSet<>();
 
-    public static final Map<Pattern, DateTimeFormatter> DATE_TIME_FORMATTER_MAP = new HashMap();
+    // if the datatime string length bigger than 19, find the DateTimeFormatter from this map
+    public static final Map<Pattern, DateTimeFormatter> YYYY_MM_DD_HH_MM_SS_M19_FORMATTER_MAP =
+            new LinkedHashMap<>();
+    public static Set<Map.Entry<Pattern, DateTimeFormatter>>
+            YYYY_MM_DD_HH_MM_SS_M19_FORMATTER_MAP_ENTRY_SET = new LinkedHashSet<>();
+
+    // if the datatime string length is 14, use this formatter
+    public static final DateTimeFormatter YYYY_MM_DD_HH_MM_SS_14_FORMATTER =
+            DateTimeFormatter.ofPattern(Formatter.YYYY_MM_DD_HH_MM_SS_NO_SPLIT.value);
 
     static {
-        DATE_TIME_FORMATTER_MAP.put(
-                PATTERN_ARRAY[0],
+        YYYY_MM_DD_HH_MM_SS_19_FORMATTER_MAP.put(
+                Pattern.compile("\\d{4}-\\d{2}-\\d{2}\\s\\d{2}:\\d{2}:\\d{2}"),
+                DateTimeFormatter.ofPattern(Formatter.YYYY_MM_DD_HH_MM_SS.value));
+
+        YYYY_MM_DD_HH_MM_SS_M19_FORMATTER_MAP.put(
+                Pattern.compile("\\d{4}-\\d{2}-\\d{2}\\s\\d{2}:\\d{2}.*"),
                 new DateTimeFormatterBuilder()
                         .parseCaseInsensitive()
                         .append(DateTimeFormatter.ISO_LOCAL_DATE)
@@ -95,33 +103,20 @@ public class DateTimeUtils {
                         .append(DateTimeFormatter.ISO_LOCAL_TIME)
                         .toFormatter());
 
-        DATE_TIME_FORMATTER_MAP.put(
-                PATTERN_ARRAY[1],
-                new DateTimeFormatterBuilder()
-                        .parseCaseInsensitive()
-                        .append(
-                                new DateTimeFormatterBuilder()
-                                        .appendValue(YEAR, 4, 10, SignStyle.EXCEEDS_PAD)
-                                        .appendLiteral("年")
-                                        .appendValue(MONTH_OF_YEAR, 2)
-                                        .appendLiteral("月")
-                                        .appendValue(DAY_OF_MONTH, 2)
-                                        .appendLiteral("日")
-                                        .toFormatter())
-                        .appendLiteral(' ')
-                        .append(
-                                new DateTimeFormatterBuilder()
-                                        .appendValue(HOUR_OF_DAY, 2)
-                                        .appendLiteral("时")
-                                        .appendValue(MINUTE_OF_HOUR, 2)
-                                        .appendLiteral("分")
-                                        .appendValue(SECOND_OF_MINUTE, 2)
-                                        .appendLiteral("秒")
-                                        .toFormatter())
-                        .toFormatter());
+        YYYY_MM_DD_HH_MM_SS_19_FORMATTER_MAP.put(
+                Pattern.compile("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}"),
+                DateTimeFormatter.ofPattern(Formatter.YYYY_MM_DD_HH_MM_SS_ISO8601.value));
 
-        DATE_TIME_FORMATTER_MAP.put(
-                PATTERN_ARRAY[2],
+        YYYY_MM_DD_HH_MM_SS_M19_FORMATTER_MAP.put(
+                Pattern.compile("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}.*"),
+                DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+
+        YYYY_MM_DD_HH_MM_SS_19_FORMATTER_MAP.put(
+                Pattern.compile("\\d{4}/\\d{2}/\\d{2}\\s\\d{2}:\\d{2}:\\d{2}"),
+                DateTimeFormatter.ofPattern(Formatter.YYYY_MM_DD_HH_MM_SS_SLASH.value));
+
+        YYYY_MM_DD_HH_MM_SS_M19_FORMATTER_MAP.put(
+                Pattern.compile("\\d{4}/\\d{2}/\\d{2}\\s\\d{2}:\\d{2}.*"),
                 new DateTimeFormatterBuilder()
                         .parseCaseInsensitive()
                         .append(
@@ -136,8 +131,12 @@ public class DateTimeUtils {
                         .append(DateTimeFormatter.ISO_LOCAL_TIME)
                         .toFormatter());
 
-        DATE_TIME_FORMATTER_MAP.put(
-                PATTERN_ARRAY[3],
+        YYYY_MM_DD_HH_MM_SS_19_FORMATTER_MAP.put(
+                Pattern.compile("\\d{4}\\.\\d{2}\\.\\d{2}\\s\\d{2}:\\d{2}:\\d{2}"),
+                DateTimeFormatter.ofPattern(Formatter.YYYY_MM_DD_HH_MM_SS_SPOT.value));
+
+        YYYY_MM_DD_HH_MM_SS_M19_FORMATTER_MAP.put(
+                Pattern.compile("\\d{4}\\.\\d{2}\\.\\d{2}\\s\\d{2}:\\d{2}.*"),
                 new DateTimeFormatterBuilder()
                         .parseCaseInsensitive()
                         .append(
@@ -152,25 +151,14 @@ public class DateTimeUtils {
                         .append(DateTimeFormatter.ISO_LOCAL_TIME)
                         .toFormatter());
 
-        DATE_TIME_FORMATTER_MAP.put(
-                PATTERN_ARRAY[4],
-                new DateTimeFormatterBuilder()
-                        .parseCaseInsensitive()
-                        .append(
-                                new DateTimeFormatterBuilder()
-                                        .appendValue(YEAR, 4, 10, SignStyle.EXCEEDS_PAD)
-                                        .appendValue(MONTH_OF_YEAR, 2)
-                                        .appendValue(DAY_OF_MONTH, 2)
-                                        .toFormatter())
-                        .append(
-                                new DateTimeFormatterBuilder()
-                                        .appendValue(HOUR_OF_DAY, 2)
-                                        .appendValue(MINUTE_OF_HOUR, 2)
-                                        .appendValue(SECOND_OF_MINUTE, 2)
-                                        .toFormatter())
-                        .toFormatter());
+        YYYY_MM_DD_HH_MM_SS_M19_FORMATTER_MAP.put(
+                Pattern.compile("\\d{4}年\\d{2}月\\d{2}日\\s\\d{2}时\\d{2}分\\d{2}秒"),
+                DateTimeFormatter.ofPattern("yyyy年MM月dd日 HH时mm分ss秒"));
 
-        DATE_TIME_FORMATTER_MAP.put(PATTERN_ARRAY[5], DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+        YYYY_MM_DD_HH_MM_SS_19_FORMATTER_MAP_ENTRY_SET.addAll(
+                YYYY_MM_DD_HH_MM_SS_19_FORMATTER_MAP.entrySet());
+        YYYY_MM_DD_HH_MM_SS_M19_FORMATTER_MAP_ENTRY_SET.addAll(
+                YYYY_MM_DD_HH_MM_SS_M19_FORMATTER_MAP.entrySet());
     }
 
     /**
@@ -178,14 +166,25 @@ public class DateTimeUtils {
      * it.
      *
      * @param dateTime eg: 2020-02-03 12:12:10.101
-     * @return the DateTimeFormatter matched, will return null when not matched any pattern in
-     *     {@link #PATTERN_ARRAY}
+     * @return the DateTimeFormatter matched, will return null when not matched any pattern
      */
     public static DateTimeFormatter matchDateTimeFormatter(String dateTime) {
-        for (int j = 0; j < PATTERN_ARRAY.length; j++) {
-            if (PATTERN_ARRAY[j].matcher(dateTime).matches()) {
-                return DATE_TIME_FORMATTER_MAP.get(PATTERN_ARRAY[j]);
+        if (dateTime.length() == 19) {
+            for (Map.Entry<Pattern, DateTimeFormatter> entry :
+                    YYYY_MM_DD_HH_MM_SS_19_FORMATTER_MAP_ENTRY_SET) {
+                if (entry.getKey().matcher(dateTime).matches()) {
+                    return entry.getValue();
+                }
             }
+        } else if (dateTime.length() > 19) {
+            for (Map.Entry<Pattern, DateTimeFormatter> entry :
+                    YYYY_MM_DD_HH_MM_SS_M19_FORMATTER_MAP_ENTRY_SET) {
+                if (entry.getKey().matcher(dateTime).matches()) {
+                    return entry.getValue();
+                }
+            }
+        } else if (dateTime.length() == 14) {
+            return YYYY_MM_DD_HH_MM_SS_14_FORMATTER;
         }
         return null;
     }
@@ -195,6 +194,30 @@ public class DateTimeUtils {
         LocalTime localTime = parsedTimestamp.query(TemporalQueries.localTime());
         LocalDate localDate = parsedTimestamp.query(TemporalQueries.localDate());
         return LocalDateTime.of(localDate, localTime);
+    }
+
+    /**
+     * gave a datetime string and return {@link LocalDateTime}
+     *
+     * <p>Due to the need to determine the rules of the formatter through regular expressions, there
+     * will be a certain performance loss. When tested on 8c16g macos, the most significant
+     * performance decrease compared to directly passing the formatter is
+     * 'Pattern.compile("\\d{4}\\.\\d{2}\\.\\d{2}\\s\\d{2}:\\d{2}.*")' has increased from 4.5
+     * seconds to 10 seconds in a scenario where 1000w calculations are performed.
+     *
+     * <p>Analysis shows that there are two main reasons: one is that the regular expression
+     * position in the map is 4, before this, three regular expression matches are required.
+     *
+     * <p>Another reason is to support the length of non fixed millisecond bits (minimum 0, maximum
+     * 9), we used {@link DateTimeFormatter#ISO_LOCAL_TIME}, which also increases the time for time
+     * conversion.
+     *
+     * @param dateTime eg: 2020-02-03 12:12:10.101
+     * @return {@link LocalDateTime}
+     */
+    public static LocalDateTime parse(String dateTime) {
+        DateTimeFormatter dateTimeFormatter = matchDateTimeFormatter(dateTime);
+        return LocalDateTime.parse(dateTime, dateTimeFormatter);
     }
 
     public static LocalDateTime parse(String dateTime, Formatter formatter) {
@@ -250,5 +273,67 @@ public class DateTimeUtils {
             String errorMsg = String.format("Illegal format [%s]", format);
             throw new IllegalArgumentException(errorMsg);
         }
+    }
+
+    public static void main(String[] args) {
+        String datetimeStr = "2020-10-10 10:10:10";
+        DateTimeFormatter dateTimeFormatter = matchDateTimeFormatter(datetimeStr);
+        String datetimeStr1 = "20201010101010";
+        DateTimeFormatter dateTimeFormatter1 = matchDateTimeFormatter(datetimeStr1);
+        String datetimeStr2 = "2020.10.10 10:10:10.100";
+        DateTimeFormatter dateTimeFormatter2 = matchDateTimeFormatter(datetimeStr2);
+        String datetimeStr3 = "2020.10.10 10:10:10";
+        DateTimeFormatter dateTimeFormatter3 = matchDateTimeFormatter(datetimeStr3);
+        long t1 = System.currentTimeMillis();
+        for (int i = 0; i < 10000000; i++) {
+            parse(datetimeStr, dateTimeFormatter);
+        }
+        long t2 = System.currentTimeMillis();
+        System.out.println((t2 - t1) + "");
+
+        for (int i = 0; i < 10000000; i++) {
+            parse(datetimeStr);
+        }
+        long t3 = System.currentTimeMillis();
+        System.out.println((t3 - t2) + "");
+
+        long t4 = System.currentTimeMillis();
+        for (int i = 0; i < 10000000; i++) {
+            parse(datetimeStr1, dateTimeFormatter1);
+        }
+        long t5 = System.currentTimeMillis();
+        System.out.println((t5 - t4) + "");
+
+        for (int i = 0; i < 10000000; i++) {
+            parse(datetimeStr1);
+        }
+        long t6 = System.currentTimeMillis();
+        System.out.println((t6 - t5) + "");
+
+        long t7 = System.currentTimeMillis();
+        for (int i = 0; i < 10000000; i++) {
+            parse(datetimeStr2, dateTimeFormatter2);
+        }
+        long t8 = System.currentTimeMillis();
+        System.out.println((t8 - t7) + "");
+
+        for (int i = 0; i < 10000000; i++) {
+            parse(datetimeStr2);
+        }
+        long t9 = System.currentTimeMillis();
+        System.out.println((t9 - t8) + "");
+
+        long t10 = System.currentTimeMillis();
+        for (int i = 0; i < 10000000; i++) {
+            parse(datetimeStr3, dateTimeFormatter3);
+        }
+        long t11 = System.currentTimeMillis();
+        System.out.println((t11 - t10) + "");
+
+        for (int i = 0; i < 10000000; i++) {
+            parse(datetimeStr3);
+        }
+        long t12 = System.currentTimeMillis();
+        System.out.println((t12 - t11) + "");
     }
 }

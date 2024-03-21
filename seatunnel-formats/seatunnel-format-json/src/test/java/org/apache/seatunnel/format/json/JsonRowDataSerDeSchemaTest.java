@@ -100,6 +100,9 @@ public class JsonRowDataSerDeSchemaTest {
         root.putObject("map").put("element", 123);
         root.putObject("multiSet").put("element", 2);
         root.putObject("map2map").putObject("inner_map").put("key", 234);
+        ObjectNode rowFieldNodes = root.deepCopy();
+        rowFieldNodes.put("date", "1990-10-14T12:12:43.123");
+        root.putIfAbsent("row", rowFieldNodes);
 
         byte[] serializedJson = objectMapper.writeValueAsBytes(root);
 
@@ -117,7 +120,8 @@ public class JsonRowDataSerDeSchemaTest {
                             "timestamp9",
                             "map",
                             "multiSet",
-                            "map2map"
+                            "map2map",
+                            "row"
                         },
                         new SeaTunnelDataType[] {
                             BOOLEAN_TYPE,
@@ -131,13 +135,42 @@ public class JsonRowDataSerDeSchemaTest {
                             LocalTimeType.LOCAL_DATE_TIME_TYPE,
                             new MapType(STRING_TYPE, LONG_TYPE),
                             new MapType(STRING_TYPE, INT_TYPE),
-                            new MapType(STRING_TYPE, new MapType(STRING_TYPE, INT_TYPE))
+                            new MapType(STRING_TYPE, new MapType(STRING_TYPE, INT_TYPE)),
+                            new SeaTunnelRowType(
+                                    new String[] {
+                                        "bool",
+                                        "int",
+                                        "longValue",
+                                        "float",
+                                        "name",
+                                        "date",
+                                        "time",
+                                        "timestamp3",
+                                        "timestamp9",
+                                        "map",
+                                        "multiSet",
+                                        "map2map"
+                                    },
+                                    new SeaTunnelDataType[] {
+                                        BOOLEAN_TYPE,
+                                        INT_TYPE,
+                                        LONG_TYPE,
+                                        FLOAT_TYPE,
+                                        STRING_TYPE,
+                                        LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                                        LocalTimeType.LOCAL_TIME_TYPE,
+                                        LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                                        LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                                        new MapType(STRING_TYPE, LONG_TYPE),
+                                        new MapType(STRING_TYPE, INT_TYPE),
+                                        new MapType(STRING_TYPE, new MapType(STRING_TYPE, INT_TYPE))
+                                    })
                         });
 
         JsonDeserializationSchema deserializationSchema =
                 new JsonDeserializationSchema(false, false, schema);
 
-        SeaTunnelRow expected = new SeaTunnelRow(12);
+        SeaTunnelRow expected = new SeaTunnelRow(13);
         expected.setField(0, true);
         expected.setField(1, intValue);
         expected.setField(2, longValue);
@@ -150,6 +183,22 @@ public class JsonRowDataSerDeSchemaTest {
         expected.setField(9, map);
         expected.setField(10, multiSet);
         expected.setField(11, nestedMap);
+
+        SeaTunnelRow rowFieldRow = new SeaTunnelRow(12);
+        rowFieldRow.setField(0, true);
+        rowFieldRow.setField(1, intValue);
+        rowFieldRow.setField(2, longValue);
+        rowFieldRow.setField(3, floatValue);
+        rowFieldRow.setField(4, name);
+        rowFieldRow.setField(5, timestamp3.toLocalDateTime());
+        rowFieldRow.setField(6, time);
+        rowFieldRow.setField(7, timestamp3.toLocalDateTime());
+        rowFieldRow.setField(8, timestamp9.toLocalDateTime());
+        rowFieldRow.setField(9, map);
+        rowFieldRow.setField(10, multiSet);
+        rowFieldRow.setField(11, nestedMap);
+
+        expected.setField(12, rowFieldRow);
 
         SeaTunnelRow seaTunnelRow = deserializationSchema.deserialize(serializedJson);
         assertEquals(expected, seaTunnelRow);
