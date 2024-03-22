@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.api.connector;
 
+import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.factory.FactoryUtil;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
@@ -33,14 +34,28 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.ServiceLoader;
 
 @Slf4j
 public class ConnectorSpecificationCheckTest {
 
     @Test
     public void testAllConnectorImplementFactoryWithUpToDateMethod() throws ClassNotFoundException {
+
+        ServiceLoader<SeaTunnelSource> sources =
+                ServiceLoader.load(
+                        SeaTunnelSource.class, Thread.currentThread().getContextClassLoader());
+        Map<String, String> sourceWithSPI = new HashMap<>();
+        Iterator<SeaTunnelSource> sourceIterator = sources.iterator();
+        while (sourceIterator.hasNext()) {
+            SeaTunnelSource source = sourceIterator.next();
+            sourceWithSPI.put(source.getPluginName(), source.getClass().getName());
+        }
         List<TableSourceFactory> sourceFactories =
                 FactoryUtil.discoverFactories(
                         Thread.currentThread().getContextClassLoader(), TableSourceFactory.class);
@@ -57,6 +72,10 @@ public class ConnectorSpecificationCheckTest {
                                     TableSourceFactoryContext.class)
                             .isPresent()
                     && !blockList.contains(factory.getClass().getSimpleName())) {
+                Assertions.assertFalse(
+                        sourceWithSPI.containsKey(factory.factoryIdentifier()),
+                        "Please remove `@AutoService(SeaTunnelSource.class)` annotation in "
+                                + sourceWithSPI.get(factory.factoryIdentifier()));
                 Class<? extends SeaTunnelSource> sourceClass = factory.getSourceClass();
                 Optional<Method> prepare =
                         ReflectionUtils.getDeclaredMethod(sourceClass, "prepare");
@@ -84,12 +103,25 @@ public class ConnectorSpecificationCheckTest {
         List<TableSinkFactory> sinkFactories =
                 FactoryUtil.discoverFactories(
                         Thread.currentThread().getContextClassLoader(), TableSinkFactory.class);
+        ServiceLoader<SeaTunnelSink> sinks =
+                ServiceLoader.load(
+                        SeaTunnelSink.class, Thread.currentThread().getContextClassLoader());
+        Map<String, String> sinkWithSPI = new HashMap<>();
+        Iterator<SeaTunnelSink> sinkIterator = sinks.iterator();
+        while (sinkIterator.hasNext()) {
+            SeaTunnelSink sink = sinkIterator.next();
+            sinkWithSPI.put(sink.getPluginName(), sink.getClass().getName());
+        }
         for (TableSinkFactory factory : sinkFactories) {
             String factoryName = factory.getClass().getSimpleName();
             if (ReflectionUtils.getDeclaredMethod(
                                     factory.getClass(), "createSink", TableSinkFactoryContext.class)
                             .isPresent()
                     && !blockList.contains(factoryName)) {
+                Assertions.assertFalse(
+                        sinkWithSPI.containsKey(factory.factoryIdentifier()),
+                        "Please remove `@AutoService(SeaTunnelSink.class)` annotation in "
+                                + sinkWithSPI.get(factory.factoryIdentifier()));
                 Class<? extends SeaTunnelSource> sinkClass =
                         (Class<? extends SeaTunnelSource>)
                                 Class.forName(
