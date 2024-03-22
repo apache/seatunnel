@@ -15,22 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.oss.exception;
+package org.apache.seatunnel.api.sink;
 
-import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
-import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import lombok.extern.slf4j.Slf4j;
 
-public class OssJindoConnectorException extends SeaTunnelRuntimeException {
-    public OssJindoConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage) {
-        super(seaTunnelErrorCode, errorMessage);
+@Slf4j
+public class SaveModeExecuteWrapper {
+
+    public SaveModeExecuteWrapper(SaveModeHandler handler) {
+        this.handler = handler;
     }
 
-    public OssJindoConnectorException(
-            SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
-        super(seaTunnelErrorCode, errorMessage, cause);
+    public void execute() {
+        log.info(
+                "Executing save mode for table: {}, with SchemaSaveMode: {}, DataSaveMode: {} using Catalog: {}",
+                handler.getHandleTablePath(),
+                handler.getSchemaSaveMode(),
+                handler.getDataSaveMode(),
+                handler.getHandleCatalog().name());
+        handler.handleSaveMode();
     }
 
-    public OssJindoConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, Throwable cause) {
-        super(seaTunnelErrorCode, cause);
-    }
+    private final SaveModeHandler handler;
 }

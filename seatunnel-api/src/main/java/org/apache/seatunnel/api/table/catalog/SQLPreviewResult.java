@@ -15,18 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.test;
+package org.apache.seatunnel.api.table.catalog;
 
-import org.apache.seatunnel.connectors.seatunnel.file.oss.jindo.sink.OssFileSinkFactory;
-import org.apache.seatunnel.connectors.seatunnel.file.oss.jindo.source.OssFileSourceFactory;
+public class SQLPreviewResult extends PreviewResult {
 
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
+    private final String sql;
 
-public class OssJindoFactoryTest {
-    @Test
-    public void testOptionRule() {
-        Assertions.assertNotNull((new OssFileSourceFactory()).optionRule());
-        Assertions.assertNotNull((new OssFileSinkFactory()).optionRule());
+    public String getSql() {
+        return sql;
+    }
+
+    public SQLPreviewResult(String sql) {
+        super(Type.SQL);
+        this.sql = sql;
+    }
+
+    @Override
+    public String toString() {
+        return sql;
     }
 }

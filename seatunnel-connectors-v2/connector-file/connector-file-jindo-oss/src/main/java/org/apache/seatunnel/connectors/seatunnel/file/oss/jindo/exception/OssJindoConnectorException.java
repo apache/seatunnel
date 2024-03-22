@@ -15,18 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.test;
+package org.apache.seatunnel.connectors.seatunnel.file.oss.jindo.exception;
 
-import org.apache.seatunnel.connectors.seatunnel.file.oss.jindo.sink.OssFileSinkFactory;
-import org.apache.seatunnel.connectors.seatunnel.file.oss.jindo.source.OssFileSourceFactory;
+import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
+public class OssJindoConnectorException extends SeaTunnelRuntimeException {
+    public OssJindoConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage) {
+        super(seaTunnelErrorCode, errorMessage);
+    }
 
-public class OssJindoFactoryTest {
-    @Test
-    public void testOptionRule() {
-        Assertions.assertNotNull((new OssFileSourceFactory()).optionRule());
-        Assertions.assertNotNull((new OssFileSinkFactory()).optionRule());
+    public OssJindoConnectorException(
+            SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
+        super(seaTunnelErrorCode, errorMessage, cause);
+    }
+
+    public OssJindoConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, Throwable cause) {
+        super(seaTunnelErrorCode, cause);
     }
 }
