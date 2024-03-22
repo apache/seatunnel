@@ -17,12 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.xugu;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.connectors.seatunnel.common.source.TypeDefineUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleTypeConverter;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;

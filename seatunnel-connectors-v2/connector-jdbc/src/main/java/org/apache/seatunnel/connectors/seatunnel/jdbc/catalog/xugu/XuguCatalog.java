@@ -17,16 +17,18 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.xugu;
 
-import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.ConstraintKey;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.xugu.XuguTypeConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.xugu.XuguTypeMapper;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -36,16 +38,13 @@ import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.xugu.XuguDataTypeConvertor.XUGU_ROWID;
-
 @Slf4j
 public class XuguCatalog extends AbstractJdbcCatalog {
-
-    private static final XuguDataTypeConvertor DATA_TYPE_CONVERTOR = new XuguDataTypeConvertor();
 
     protected static List<String> EXCLUDED_SCHEMAS =
             Collections.unmodifiableList(Arrays.asList("GUEST", "SYSAUDITOR", "SYSSSO"));
@@ -159,55 +158,25 @@ public class XuguCatalog extends AbstractJdbcCatalog {
         String typeName = resultSet.getString("TYPE_NAME");
         String fullTypeName = resultSet.getString("FULL_TYPE_NAME");
         long columnLength = resultSet.getLong("COLUMN_LENGTH");
-        long columnPrecision = resultSet.getLong("COLUMN_PRECISION");
-        long columnScale = resultSet.getLong("COLUMN_SCALE");
+        Long columnPrecision = resultSet.getObject("COLUMN_PRECISION", Long.class);
+        Integer columnScale = resultSet.getObject("COLUMN_SCALE", Integer.class);
         String columnComment = resultSet.getString("COLUMN_COMMENT");
         Object defaultValue = resultSet.getObject("DEFAULT_VALUE");
         boolean isNullable = resultSet.getString("IS_NULLABLE").equals("YES");
 
-        SeaTunnelDataType<?> type =
-                fromJdbcType(columnName, typeName, columnPrecision, columnScale);
-        long bitLen = 0;
-        switch (typeName) {
-            case XUGU_LONG:
-            case XUGU_ROWID:
-            case XUGU_NCLOB:
-            case XUGU_CLOB:
-                columnLength = -1;
-                break;
-            case XUGU_RAW:
-                bitLen = 2000 * 8;
-                break;
-            case XUGU_BLOB:
-            case XUGU_LONG_RAW:
-            case XUGU_BFILE:
-                bitLen = -1;
-                break;
-            default:
-                break;
-        }
-
-        return PhysicalColumn.of(
-                columnName,
-                type,
-                0,
-                isNullable,
-                defaultValue,
-                columnComment,
-                fullTypeName,
-                false,
-                false,
-                bitLen,
-                null,
-                columnLength);
-    }
-
-    private SeaTunnelDataType<?> fromJdbcType(
-            String columnName, String typeName, long precision, long scale) {
-        Map<String, Object> dataTypeProperties = new HashMap<>();
-        dataTypeProperties.put(XuguDataTypeConvertor.PRECISION, precision);
-        dataTypeProperties.put(XuguDataTypeConvertor.SCALE, scale);
-        return DATA_TYPE_CONVERTOR.toSeaTunnelType(columnName, typeName, dataTypeProperties);
+        BasicTypeDefine typeDefine =
+                BasicTypeDefine.builder()
+                        .name(columnName)
+                        .columnType(fullTypeName)
+                        .dataType(typeName)
+                        .length(columnLength)
+                        .precision(columnPrecision)
+                        .scale(columnScale)
+                        .nullable(isNullable)
+                        .defaultValue(defaultValue)
+                        .comment(columnComment)
+                        .build();
+        return XuguTypeConverter.INSTANCE.convert(typeDefine);
     }
 
     @Override
@@ -242,7 +211,7 @@ public class XuguCatalog extends AbstractJdbcCatalog {
     @Override
     public CatalogTable getTable(String sqlQuery) throws SQLException {
         Connection defaultConnection = getConnection(defaultUrl);
-        return CatalogUtils.getCatalogTable(defaultConnection, sqlQuery, new XuguTypeConverter());
+        return CatalogUtils.getCatalogTable(defaultConnection, sqlQuery, new XuguTypeMapper());
     }
 
     @Override
@@ -255,7 +224,7 @@ public class XuguCatalog extends AbstractJdbcCatalog {
     @Override
     protected String getExistDataSql(TablePath tablePath) {
         return String.format(
-                "select * from \"%s\".\"%s\" WHERE rownum = 1",
+                "SELECT * FROM \"%s\".\"%s\" WHERE ROWNUM = 1",
                 tablePath.getSchemaName(), tablePath.getTableName());
     }
 

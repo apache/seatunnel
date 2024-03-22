@@ -17,10 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.xugu;
 
-import com.google.auto.service.AutoService;
-import com.google.common.base.Preconditions;
-import com.mysql.cj.MysqlType;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
@@ -32,15 +28,14 @@ import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.connectors.seatunnel.common.source.TypeDefineUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleTypeConverter;
 
-import java.sql.ResultSetMetaData;
-import java.sql.SQLException;
+import com.google.auto.service.AutoService;
+import com.google.common.base.Preconditions;
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @AutoService(TypeConverter.class)
-public class XuguTypeConverter implements  TypeConverter<BasicTypeDefine> {
+public class XuguTypeConverter implements TypeConverter<BasicTypeDefine> {
     // ============================data types=====================
     // -------------------------number----------------------------
     private static final String XUGU_NUMERIC = "NUMERIC";
@@ -86,7 +81,7 @@ public class XuguTypeConverter implements  TypeConverter<BasicTypeDefine> {
     public static final int DEFAULT_SCALE = 18;
     public static final int TIMESTAMP_DEFAULT_SCALE = 3;
     public static final int MAX_TIMESTAMP_SCALE = 6;
-    public static final int MAX_TIME_SCALE = 6;
+    public static final int MAX_TIME_SCALE = 3;
     public static final long MAX_VARCHAR_LENGTH = 60000;
     public static final long POWER_2_16 = (long) Math.pow(2, 16);
     public static final long BYTES_2GB = (long) Math.pow(2, 31);
@@ -193,35 +188,12 @@ public class XuguTypeConverter implements  TypeConverter<BasicTypeDefine> {
                 builder.dataType(LocalTimeType.LOCAL_DATE_TYPE);
                 break;
             case XUGU_TIME:
-                if (typeDefine.getScale() == null) {
-                    builder.sourceType(XUGU_TIME);
-                } else {
-                    builder.sourceType(String.format("%s(%s)", XUGU_TIME, typeDefine.getScale()));
-                }
-                builder.dataType(LocalTimeType.LOCAL_TIME_TYPE);
-                builder.scale(typeDefine.getScale());
-                break;
             case XUGU_TIME_WITH_TIME_ZONE:
-                if (typeDefine.getScale() == null) {
-                    builder.sourceType(XUGU_TIME_WITH_TIME_ZONE);
-                } else {
-                    builder.sourceType(
-                            String.format("TIME(%s) WITH TIME ZONE", typeDefine.getScale()));
-                }
                 builder.dataType(LocalTimeType.LOCAL_TIME_TYPE);
                 builder.scale(typeDefine.getScale());
                 break;
             case XUGU_DATETIME:
-                builder.dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE);
-                builder.scale(typeDefine.getScale());
-                break;
             case XUGU_DATETIME_WITH_TIME_ZONE:
-                if (typeDefine.getScale() == null) {
-                    builder.sourceType(XUGU_DATETIME_WITH_TIME_ZONE);
-                } else {
-                    builder.sourceType(
-                            String.format("DATETIME(%s) WITH TIME ZONE", typeDefine.getScale()));
-                }
                 builder.dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE);
                 builder.scale(typeDefine.getScale());
                 break;
@@ -352,8 +324,7 @@ public class XuguTypeConverter implements  TypeConverter<BasicTypeDefine> {
                 break;
             case STRING:
                 if (column.getColumnLength() == null || column.getColumnLength() <= 0) {
-                    builder.columnType(
-                            String.format("%s(%s)", XUGU_VARCHAR, MAX_VARCHAR_LENGTH));
+                    builder.columnType(String.format("%s(%s)", XUGU_VARCHAR, MAX_VARCHAR_LENGTH));
                     builder.dataType(XUGU_VARCHAR);
                 } else if (column.getColumnLength() <= MAX_VARCHAR_LENGTH) {
                     builder.columnType(

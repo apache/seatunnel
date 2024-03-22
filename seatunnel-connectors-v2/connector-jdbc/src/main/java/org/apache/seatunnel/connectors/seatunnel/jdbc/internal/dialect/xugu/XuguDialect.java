@@ -17,19 +17,21 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.xugu;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.SQLUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleTypeMapper;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
 
-import java.sql.*;
+import org.apache.commons.lang3.StringUtils;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -172,43 +174,6 @@ public class XuguDialect implements JdbcDialect {
     }
 
     @Override
-    public Long approximateRowCntStatement(Connection connection, JdbcSourceTable table)
-            throws SQLException {
-
-        // 1. If no query is configured, use TABLE STATUS.
-        // 2. If a query is configured but does not contain a WHERE clause and tablePath is
-        // configured, use TABLE STATUS.
-        // 3. If a query is configured with a WHERE clause, or a query statement is configured but
-        // tablePath is not, use COUNT(*).
-
-        boolean useTableStats =
-                StringUtils.isBlank(table.getQuery())
-                        || (!table.getQuery().toLowerCase().contains("where")
-                        && table.getTablePath() != null);
-        if (useTableStats) {
-            TablePath tablePath = table.getTablePath();
-            String rowCountQuery =
-                    String.format(
-                            "SELECT COUNT(ROWNUM) FROM '%s' ",
-                            tablePath.getSchemaAndTableName());
-
-            try (Statement stmt = connection.createStatement()) {
-                log.info("Split Chunk, approximateRowCntStatement: {}", rowCountQuery);
-                try (ResultSet rs = stmt.executeQuery(rowCountQuery)) {
-                    if (!rs.next()) {
-                        throw new SQLException(
-                                String.format(
-                                        "No result returned after running query [%s]",
-                                        rowCountQuery));
-                    }
-                    return rs.getLong(1);
-                }
-            }
-        }
-        return SQLUtils.countForSubquery(connection, table.getQuery());
-    }
-
-    @Override
     public Object queryNextChunkMax(
             Connection connection,
             JdbcSourceTable table,
@@ -255,5 +220,12 @@ public class XuguDialect implements JdbcDialect {
                 return rs.getObject(1);
             }
         }
+    }
+
+    @Override
+    public ResultSetMetaData getResultSetMetaData(Connection conn, String query)
+            throws SQLException {
+        PreparedStatement ps = conn.prepareStatement(query);
+        return ps.executeQuery().getMetaData();
     }
 }

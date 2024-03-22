@@ -21,10 +21,9 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.api.table.type.DecimalType;
-import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.xugu.XuguTypeConverter;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -36,14 +35,12 @@ public class XuguCreateTableSqlBuilder {
 
     private List<Column> columns;
     private PrimaryKey primaryKey;
-    private XuguDataTypeConvertor xuguDataTypeConvertor;
     private String sourceCatalogName;
     private String fieldIde;
 
     public XuguCreateTableSqlBuilder(CatalogTable catalogTable) {
         this.columns = catalogTable.getTableSchema().getColumns();
         this.primaryKey = catalogTable.getTableSchema().getPrimaryKey();
-        this.xuguDataTypeConvertor = new XuguDataTypeConvertor();
         this.sourceCatalogName = catalogTable.getCatalogName();
         this.fieldIde = catalogTable.getOptions().get("fieldIde");
     }
@@ -94,7 +91,7 @@ public class XuguCreateTableSqlBuilder {
         String columnType =
                 StringUtils.equalsIgnoreCase(DatabaseIdentifier.XUGU, sourceCatalogName)
                         ? column.getSourceType()
-                        : buildColumnType(column);
+                        : XuguTypeConverter.INSTANCE.reconvert(column).getColumnType();
         columnSql.append(columnType);
 
         if (!column.isNullable()) {
@@ -102,39 +99,6 @@ public class XuguCreateTableSqlBuilder {
         }
 
         return columnSql.toString();
-    }
-
-    private String buildColumnType(Column column) {
-        SqlType sqlType = column.getDataType().getSqlType();
-        Long columnLength = column.getLongColumnLength();
-        Long bitLen = column.getBitLen();
-        switch (sqlType) {
-            case BYTES:
-                return "BLOB";
-            case STRING:
-                if (columnLength > 0 && columnLength < 4000) {
-                    return "VARCHAR(" + columnLength + ")";
-                } else {
-                    return "CLOB";
-                }
-            default:
-                String type =
-                        xuguDataTypeConvertor.toConnectorType(
-                                column.getName(), column.getDataType(), null);
-                if (type.equals("NUMERIC")) {
-                    if (column.getDataType() instanceof DecimalType) {
-                        DecimalType decimalType = (DecimalType) column.getDataType();
-                        return "NUMERIC("
-                                + decimalType.getPrecision()
-                                + ","
-                                + decimalType.getScale()
-                                + ")";
-                    } else {
-                        return "NUMERIC";
-                    }
-                }
-                return type;
-        }
     }
 
     private String buildPrimaryKeySql(PrimaryKey primaryKey) {

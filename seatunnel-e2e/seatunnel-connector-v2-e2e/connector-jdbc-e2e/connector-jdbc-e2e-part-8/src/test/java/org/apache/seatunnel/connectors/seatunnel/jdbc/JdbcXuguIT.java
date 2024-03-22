@@ -17,13 +17,16 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
-import com.google.common.collect.Lists;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.tuple.Pair;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+
+import org.apache.commons.lang3.tuple.Pair;
+
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.utility.DockerLoggerFactory;
+
+import com.google.common.collect.Lists;
+import lombok.extern.slf4j.Slf4j;
 
 import java.math.BigDecimal;
 import java.sql.Date;
@@ -46,6 +49,7 @@ public class JdbcXuguIT extends AbstractJdbcIT {
     private static final String XUGU_DATABASE = "SYSTEM";
     private static final String XUGU_SOURCE = "e2e_table_source";
     private static final String XUGU_SINK = "e2e_table_sink";
+    private static final String CATALOG_DATABASE = "catalog_database";
     private static final String XUGU_USERNAME = "SYSDBA";
     private static final String XUGU_PASSWORD = "SYSDBA";
     private static final int XUGU_PORT = 5138;
@@ -55,9 +59,7 @@ public class JdbcXuguIT extends AbstractJdbcIT {
 
     private static final List<String> CONFIG_FILE =
             Lists.newArrayList(
-                    "/jdbc_xugu_source_and_sink.conf"
-                    //                    "/jdbc_xugu_source_and_upset_sink.conf"
-                    );
+                    "/jdbc_xugu_source_and_upset_sink.conf", "/jdbc_xugu_source_and_sink.conf");
     private static final String CREATE_SQL =
             "create table if not exists %s"
                     + "(\n"
@@ -117,6 +119,8 @@ public class JdbcXuguIT extends AbstractJdbcIT {
                 .configFile(CONFIG_FILE)
                 .insertSql(insertSql)
                 .testData(testDataSet)
+                .catalogDatabase(CATALOG_DATABASE)
+                .catalogTable(XUGU_SINK)
                 .build();
     }
 
@@ -125,7 +129,7 @@ public class JdbcXuguIT extends AbstractJdbcIT {
 
     @Override
     String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/xugudb/xugu-jdbc/12.1.12/xugu-jdbc-12.1.12.jar";
+        return "https://repo1.maven.org/maven2/com/xugudb/xugu-jdbc/12.2.0/xugu-jdbc-12.2.0.jar";
     }
 
     @Override
