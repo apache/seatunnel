@@ -51,16 +51,21 @@ public class IncrementalSplitStateTest {
         snapshotSplits =
                 Stream.of(
                                 createCompletedSnapshotSplitInfo(
-                                        "test1", new TestOffset(1), new TestOffset(50)),
+                                        "test1", new TestOffset(100), new TestOffset(100)),
                                 createCompletedSnapshotSplitInfo(
-                                        "test2", new TestOffset(50), new TestOffset(100)))
+                                        "test2", new TestOffset(100), new TestOffset(100)))
                         .collect(Collectors.toList());
         split = createIncrementalSplit(startupOffset, snapshotSplits);
         splitState = new IncrementalSplitState(split);
         Assertions.assertEquals(startupOffset, splitState.getMaxSnapshotSplitsHighWatermark());
-        Assertions.assertTrue(splitState.isEnterPureIncrementPhase());
-        Assertions.assertFalse(splitState.markEnterPureIncrementPhaseIfNeed(null));
+        Assertions.assertFalse(splitState.isEnterPureIncrementPhase());
+        Assertions.assertFalse(splitState.markEnterPureIncrementPhaseIfNeed(new TestOffset(99)));
+        Assertions.assertFalse(splitState.isEnterPureIncrementPhase());
         Assertions.assertFalse(snapshotSplits.isEmpty());
+        Assertions.assertTrue(splitState.markEnterPureIncrementPhaseIfNeed(new TestOffset(100)));
+        Assertions.assertTrue(snapshotSplits.isEmpty());
+        Assertions.assertFalse(splitState.markEnterPureIncrementPhaseIfNeed(new TestOffset(100)));
+        Assertions.assertFalse(splitState.markEnterPureIncrementPhaseIfNeed(new TestOffset(101)));
 
         startupOffset = new TestOffset(100);
         snapshotSplits =
@@ -75,13 +80,12 @@ public class IncrementalSplitStateTest {
         Assertions.assertEquals(
                 new TestOffset(200), splitState.getMaxSnapshotSplitsHighWatermark());
         Assertions.assertFalse(splitState.isEnterPureIncrementPhase());
-        Assertions.assertFalse(splitState.markEnterPureIncrementPhaseIfNeed(new TestOffset(200)));
-        Assertions.assertFalse(snapshotSplits.isEmpty());
         Assertions.assertTrue(splitState.markEnterPureIncrementPhaseIfNeed(new TestOffset(201)));
         Assertions.assertTrue(splitState.isEnterPureIncrementPhase());
         Assertions.assertTrue(snapshotSplits.isEmpty());
-        Assertions.assertFalse(splitState.markEnterPureIncrementPhaseIfNeed(new TestOffset(201)));
+        Assertions.assertFalse(splitState.markEnterPureIncrementPhaseIfNeed(new TestOffset(200)));
         Assertions.assertTrue(splitState.isEnterPureIncrementPhase());
+        Assertions.assertFalse(splitState.markEnterPureIncrementPhaseIfNeed(new TestOffset(201)));
         Assertions.assertFalse(splitState.markEnterPureIncrementPhaseIfNeed(new TestOffset(202)));
     }
 

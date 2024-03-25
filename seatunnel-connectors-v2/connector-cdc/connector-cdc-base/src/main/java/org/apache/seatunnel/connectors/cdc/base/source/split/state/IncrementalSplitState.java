@@ -48,15 +48,18 @@ public class IncrementalSplitState extends SourceSplitStateBase {
         this.tableIds = split.getTableIds();
         this.startupOffset = split.getStartupOffset();
         this.stopOffset = split.getStopOffset();
-        this.maxSnapshotSplitsHighWatermark =
-                split.getCompletedSnapshotSplitInfos().stream()
-                        .filter(e -> e.getWatermark() != null)
-                        .max(Comparator.comparing(o -> o.getWatermark().getHighWatermark()))
-                        .map(e -> e.getWatermark().getHighWatermark())
-                        .orElse(null);
-        this.enterPureIncrementPhase =
-                maxSnapshotSplitsHighWatermark == null
-                        || maxSnapshotSplitsHighWatermark.compareTo(startupOffset) == 0;
+        if (split.getCompletedSnapshotSplitInfos().isEmpty()) {
+            this.maxSnapshotSplitsHighWatermark = null;
+            this.enterPureIncrementPhase = true;
+        } else {
+            this.maxSnapshotSplitsHighWatermark =
+                    split.getCompletedSnapshotSplitInfos().stream()
+                            .filter(e -> e.getWatermark() != null)
+                            .max(Comparator.comparing(o -> o.getWatermark().getHighWatermark()))
+                            .map(e -> e.getWatermark().getHighWatermark())
+                            .get();
+            this.enterPureIncrementPhase = false;
+        }
     }
 
     @Override
@@ -75,8 +78,7 @@ public class IncrementalSplitState extends SourceSplitStateBase {
             return false;
         }
 
-        if (maxSnapshotSplitsHighWatermark != null
-                && currentRecordPosition.isAfter(maxSnapshotSplitsHighWatermark)) {
+        if (currentRecordPosition.isAtOrAfter(maxSnapshotSplitsHighWatermark)) {
             split.asIncrementalSplit().getCompletedSnapshotSplitInfos().clear();
             this.enterPureIncrementPhase = true;
             return true;
