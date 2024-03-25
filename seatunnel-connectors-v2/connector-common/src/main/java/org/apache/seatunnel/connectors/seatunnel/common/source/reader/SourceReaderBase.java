@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.common.source.reader;
 
-import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceReader;
@@ -64,7 +63,7 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
     private RecordsWithSplitIds<E> currentFetch;
     private SplitContext<T, SplitStateT> currentSplitContext;
     private Collector<T> currentSplitOutput;
-    private boolean noMoreSplitsAssignment;
+    private volatile boolean noMoreSplitsAssignment;
 
     public SourceReaderBase(
             BlockingQueue<RecordsWithSplitIds<E>> elementsQueue,
@@ -91,12 +90,11 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
         if (recordsWithSplitId == null) {
             recordsWithSplitId = getNextFetch(output);
             if (recordsWithSplitId == null) {
-                if (Boundedness.BOUNDED.equals(context.getBoundedness())
-                        && noMoreSplitsAssignment
+                if (noMoreSplitsAssignment
                         && splitFetcherManager.maybeShutdownFinishedFetchers()
                         && elementsQueue.isEmpty()) {
                     context.signalNoMoreElement();
-                    log.info("Send NoMoreElement event");
+                    log.info("Reader {} send NoMoreElement event", context.getIndexOfSubtask());
                 }
                 return;
             }
@@ -136,7 +134,7 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
 
     @Override
     public void handleNoMoreSplits() {
-        log.info("Reader received NoMoreSplits event.");
+        log.info("Reader {} received NoMoreSplits event.", context.getIndexOfSubtask());
         noMoreSplitsAssignment = true;
     }
 
@@ -147,7 +145,7 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
 
     @Override
     public void close() {
-        log.info("Closing Source Reader.");
+        log.info("Closing Source Reader {}.", context.getIndexOfSubtask());
         try {
             splitFetcherManager.close(options.getSourceReaderCloseTimeout());
         } catch (Exception e) {

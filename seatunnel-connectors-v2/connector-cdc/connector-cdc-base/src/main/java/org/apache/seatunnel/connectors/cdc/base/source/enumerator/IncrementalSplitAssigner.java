@@ -116,6 +116,10 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
         return allTables;
     }
 
+    public boolean waitingForAssignedSplits() {
+        return !(splitAssigned && noMoreSplits());
+    }
+
     @Override
     public boolean waitingForCompletedSplits() {
         return false;
