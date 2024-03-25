@@ -111,6 +111,9 @@ public abstract class AbstractJdbcRowConverter implements JdbcRowConverter {
                             CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                             "Unexpected value: " + seaTunnelDataType);
             }
+            if (rs.wasNull()) {
+                fields[fieldIndex] = null;
+            }
         }
         return new SeaTunnelRow(fields);
     }
