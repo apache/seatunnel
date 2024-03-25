@@ -105,7 +105,7 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
         long columnLength = resultSet.getLong("max_length");
         String comment = resultSet.getString("comment");
         Object defaultValue = resultSet.getObject("default_value");
-        boolean isNullable = resultSet.getBoolean("is_nullable");
+        boolean isNullable = resultSet.getString("is_nullable").equals("YES");
 
         BasicTypeDefine typeDefine =
                 BasicTypeDefine.builder()
