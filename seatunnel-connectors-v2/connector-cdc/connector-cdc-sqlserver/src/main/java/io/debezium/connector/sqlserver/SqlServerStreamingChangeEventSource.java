@@ -162,8 +162,6 @@ public class SqlServerStreamingChangeEventSource
             // otherwise we might skip an incomplete transaction after restart
             boolean shouldIncreaseFromLsn = offsetContext.isSnapshotCompleted();
             while (context.isRunning()) {
-                dispatcher.dispatchHeartbeatEvent(offsetContext);
-
                 commitTransaction();
                 afterHandleLsn(offsetContext);
                 final Lsn toLsn =

@@ -38,7 +38,7 @@ import java.util.stream.Stream;
 public class IncrementalSplitStateTest {
 
     @Test
-    public void testMarkEnterPureIncrementPhase() {
+    public void testMarkEnterPureIncrementPhaseIfNeed() {
         Offset startupOffset = new TestOffset(100);
         List<CompletedSnapshotSplitInfo> snapshotSplits = Collections.emptyList();
         IncrementalSplit split = createIncrementalSplit(startupOffset, snapshotSplits);
@@ -87,6 +87,46 @@ public class IncrementalSplitStateTest {
         Assertions.assertTrue(splitState.isEnterPureIncrementPhase());
         Assertions.assertFalse(splitState.markEnterPureIncrementPhaseIfNeed(new TestOffset(201)));
         Assertions.assertFalse(splitState.markEnterPureIncrementPhaseIfNeed(new TestOffset(202)));
+    }
+
+    @Test
+    public void testAutoEnterPureIncrementPhaseIfAllowed() {
+        Offset startupOffset = new TestOffset(100);
+        List<CompletedSnapshotSplitInfo> snapshotSplits = Collections.emptyList();
+        IncrementalSplit split = createIncrementalSplit(startupOffset, snapshotSplits);
+        IncrementalSplitState splitState = new IncrementalSplitState(split);
+        Assertions.assertTrue(splitState.isEnterPureIncrementPhase());
+        Assertions.assertFalse(splitState.autoEnterPureIncrementPhaseIfAllowed());
+
+        startupOffset = new TestOffset(100);
+        snapshotSplits =
+                Stream.of(
+                                createCompletedSnapshotSplitInfo(
+                                        "test1", new TestOffset(100), new TestOffset(100)),
+                                createCompletedSnapshotSplitInfo(
+                                        "test2", new TestOffset(100), new TestOffset(100)))
+                        .collect(Collectors.toList());
+        split = createIncrementalSplit(startupOffset, snapshotSplits);
+        splitState = new IncrementalSplitState(split);
+
+        Assertions.assertFalse(splitState.isEnterPureIncrementPhase());
+        Assertions.assertTrue(splitState.autoEnterPureIncrementPhaseIfAllowed());
+        Assertions.assertTrue(splitState.isEnterPureIncrementPhase());
+        Assertions.assertFalse(splitState.autoEnterPureIncrementPhaseIfAllowed());
+        Assertions.assertTrue(splitState.isEnterPureIncrementPhase());
+
+        startupOffset = new TestOffset(100);
+        snapshotSplits =
+                Stream.of(
+                                createCompletedSnapshotSplitInfo(
+                                        "test1", new TestOffset(100), new TestOffset(100)),
+                                createCompletedSnapshotSplitInfo(
+                                        "test2", new TestOffset(100), new TestOffset(101)))
+                        .collect(Collectors.toList());
+        split = createIncrementalSplit(startupOffset, snapshotSplits);
+        splitState = new IncrementalSplitState(split);
+        Assertions.assertFalse(splitState.isEnterPureIncrementPhase());
+        Assertions.assertFalse(splitState.autoEnterPureIncrementPhaseIfAllowed());
     }
 
     private static IncrementalSplit createIncrementalSplit(

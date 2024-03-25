@@ -144,6 +144,9 @@ public class IncrementalSourceRecordEmitter<T>
             SourceRecord element, SourceSplitStateBase splitState) {
         if (splitState.isIncrementalSplitState()) {
             IncrementalSplitState incrementalSplitState = splitState.asIncrementalSplitState();
+            if (incrementalSplitState.isEnterPureIncrementPhase()) {
+                return;
+            }
             Offset position = getOffsetPosition(element);
             if (incrementalSplitState.markEnterPureIncrementPhaseIfNeed(position)) {
                 log.info(

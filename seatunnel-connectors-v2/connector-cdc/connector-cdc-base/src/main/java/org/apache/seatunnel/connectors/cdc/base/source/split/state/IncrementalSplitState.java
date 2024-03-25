@@ -41,13 +41,14 @@ public class IncrementalSplitState extends SourceSplitStateBase {
     private Offset stopOffset;
 
     private Offset maxSnapshotSplitsHighWatermark;
-    private boolean enterPureIncrementPhase;
+    private volatile boolean enterPureIncrementPhase;
 
     public IncrementalSplitState(IncrementalSplit split) {
         super(split);
         this.tableIds = split.getTableIds();
         this.startupOffset = split.getStartupOffset();
         this.stopOffset = split.getStopOffset();
+
         if (split.getCompletedSnapshotSplitInfos().isEmpty()) {
             this.maxSnapshotSplitsHighWatermark = null;
             this.enterPureIncrementPhase = true;
@@ -73,7 +74,7 @@ public class IncrementalSplitState extends SourceSplitStateBase {
                 incrementalSplit.getCompletedSnapshotSplitInfos());
     }
 
-    public boolean markEnterPureIncrementPhaseIfNeed(Offset currentRecordPosition) {
+    public synchronized boolean markEnterPureIncrementPhaseIfNeed(Offset currentRecordPosition) {
         if (enterPureIncrementPhase) {
             return false;
         }
@@ -84,6 +85,16 @@ public class IncrementalSplitState extends SourceSplitStateBase {
             return true;
         }
 
+        return false;
+    }
+
+    public synchronized boolean autoEnterPureIncrementPhaseIfAllowed() {
+        if (!enterPureIncrementPhase
+                && maxSnapshotSplitsHighWatermark.compareTo(startupOffset) == 0) {
+            split.asIncrementalSplit().getCompletedSnapshotSplitInfos().clear();
+            enterPureIncrementPhase = true;
+            return true;
+        }
         return false;
     }
 }
