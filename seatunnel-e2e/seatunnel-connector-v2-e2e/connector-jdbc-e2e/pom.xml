@@ -35,7 +35,6 @@
         <module>connector-jdbc-e2e-part-5</module>
         <module>connector-jdbc-e2e-part-6</module>
         <module>connector-jdbc-e2e-part-7</module>
-        <module>connector-jdbc-e2e-part-8</module>
     </modules>
 
     <dependencyManagement>

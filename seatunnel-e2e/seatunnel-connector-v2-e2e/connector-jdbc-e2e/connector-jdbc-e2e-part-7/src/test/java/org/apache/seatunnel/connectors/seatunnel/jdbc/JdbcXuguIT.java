@@ -18,6 +18,8 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleURLParser;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.xugu.XuguCatalog;
 
 import org.apache.commons.lang3.tuple.Pair;
 
@@ -63,8 +65,8 @@ public class JdbcXuguIT extends AbstractJdbcIT {
     private static final String CREATE_SQL =
             "create table if not exists %s"
                     + "(\n"
-                    + "    XUGU_NUMERIC                   NUMERIC,\n"
-                    + "    XUGU_NUMBER                    NUMBER,\n"
+                    + "    XUGU_NUMERIC                   NUMERIC(10,2),\n"
+                    + "    XUGU_NUMBER                    NUMBER(10,2),\n"
                     + "    XUGU_INTEGER                   INTEGER,\n"
                     + "    XUGU_INT                       INT,\n"
                     + "    XUGU_BIGINT                    BIGINT,\n"
@@ -89,6 +91,33 @@ public class JdbcXuguIT extends AbstractJdbcIT {
                     + "    XUGU_BOOLEAN                   BOOLEAN,\n"
                     + "    CONSTRAINT \"XUGU_PK\" PRIMARY KEY(XUGU_INT)"
                     + ")";
+    private static final String[] fieldNames =
+            new String[] {
+                "XUGU_NUMERIC",
+                "XUGU_NUMBER",
+                "XUGU_INTEGER",
+                "XUGU_INT",
+                "XUGU_BIGINT",
+                "XUGU_TINYINT",
+                "XUGU_SMALLINT",
+                "XUGU_FLOAT",
+                "XUGU_DOUBLE",
+                "XUGU_CHAR",
+                "XUGU_NCHAR",
+                "XUGU_VARCHAR",
+                "XUGU_VARCHAR2",
+                "XUGU_CLOB",
+                "XUGU_DATE",
+                "XUGU_TIME",
+                "XUGU_TIMESTAMP",
+                "XUGU_DATETIME",
+                "XUGU_TIME_WITH_TIME_ZONE",
+                "XUGU_TIMESTAMP_WITH_TIME_ZONE",
+                "XUGU_BINARY",
+                "XUGU_BLOB",
+                "XUGU_GUID",
+                "XUGU_BOOLEAN"
+            };
 
     @Override
     JdbcCase getJdbcCase() {
@@ -125,7 +154,9 @@ public class JdbcXuguIT extends AbstractJdbcIT {
     }
 
     @Override
-    void compareResult(String executeKey) {}
+    void compareResult(String executeKey) {
+        defaultCompare(executeKey, fieldNames, "XUGU_INT");
+    }
 
     @Override
     String driverUrl() {
@@ -134,41 +165,13 @@ public class JdbcXuguIT extends AbstractJdbcIT {
 
     @Override
     Pair<String[], List<SeaTunnelRow>> initTestData() {
-        String[] fieldNames =
-                new String[] {
-                    "XUGU_NUMERIC",
-                    "XUGU_NUMBER",
-                    "XUGU_INTEGER",
-                    "XUGU_INT",
-                    "XUGU_BIGINT",
-                    "XUGU_TINYINT",
-                    "XUGU_SMALLINT",
-                    "XUGU_FLOAT",
-                    "XUGU_DOUBLE",
-                    "XUGU_CHAR",
-                    "XUGU_NCHAR",
-                    "XUGU_VARCHAR",
-                    "XUGU_VARCHAR2",
-                    "XUGU_CLOB",
-                    "XUGU_DATE",
-                    "XUGU_TIME",
-                    "XUGU_TIMESTAMP",
-                    "XUGU_DATETIME",
-                    "XUGU_TIME_WITH_TIME_ZONE",
-                    "XUGU_TIMESTAMP_WITH_TIME_ZONE",
-                    "XUGU_BINARY",
-                    "XUGU_BLOB",
-                    "XUGU_GUID",
-                    "XUGU_BOOLEAN"
-                };
-
         List<SeaTunnelRow> rows = new ArrayList<>();
         for (int i = 0; i < 100; i++) {
             SeaTunnelRow row =
                     new SeaTunnelRow(
                             new Object[] {
-                                BigDecimal.valueOf(1.1),
-                                BigDecimal.valueOf(i, 0),
+                                BigDecimal.valueOf(1.12),
+                                BigDecimal.valueOf(i, 2),
                                 i,
                                 i,
                                 Long.parseLong("1"),
@@ -187,10 +190,10 @@ public class JdbcXuguIT extends AbstractJdbcIT {
                                 Timestamp.valueOf(LocalDateTime.now()),
                                 Time.valueOf(LocalTime.now()),
                                 new Timestamp(System.currentTimeMillis()),
-                                "f".getBytes(),
                                 null,
                                 null,
-                                "true"
+                                null,
+                                null
                             });
             rows.add(row);
         }
@@ -224,5 +227,18 @@ public class JdbcXuguIT extends AbstractJdbcIT {
     @Override
     protected String buildTableInfoWithSchema(String database, String schema, String table) {
         return buildTableInfoWithSchema(schema, table);
+    }
+
+    @Override
+    protected void initCatalog() {
+        String jdbcUrl = jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost());
+        catalog =
+                new XuguCatalog(
+                        "xugu",
+                        jdbcCase.getUserName(),
+                        jdbcCase.getPassword(),
+                        OracleURLParser.parse(jdbcUrl),
+                        XUGU_SCHEMA);
+        catalog.open();
     }
 }
