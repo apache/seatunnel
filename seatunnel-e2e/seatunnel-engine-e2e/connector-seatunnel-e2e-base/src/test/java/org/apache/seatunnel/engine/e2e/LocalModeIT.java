@@ -23,7 +23,6 @@ import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import com.hazelcast.client.config.ClientConfig;
@@ -33,7 +32,6 @@ import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import java.util.Collections;
 import java.util.Map;
 
-@Disabled
 public class LocalModeIT {
 
     SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();

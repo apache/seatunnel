@@ -28,7 +28,6 @@ import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.commons.collections4.CollectionUtils;
 
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 
@@ -43,7 +42,6 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.awaitility.Awaitility.await;
 
-@Disabled
 @Slf4j
 @DisabledOnContainer(
         value = {},

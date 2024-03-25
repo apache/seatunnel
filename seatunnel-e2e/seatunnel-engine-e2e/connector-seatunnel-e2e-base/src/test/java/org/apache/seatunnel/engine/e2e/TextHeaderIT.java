@@ -33,7 +33,6 @@ import org.apache.seatunnel.format.text.constant.TextFormatConstant;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.shaded.org.apache.commons.lang3.tuple.ImmutablePair;
 
@@ -57,7 +56,6 @@ import java.util.concurrent.TimeUnit;
  * Cluster fault tolerance test. Test the job recovery capability and data consistency assurance
  * capability in case of cluster node failure
  */
-@Disabled
 @Slf4j
 public class TextHeaderIT {
 

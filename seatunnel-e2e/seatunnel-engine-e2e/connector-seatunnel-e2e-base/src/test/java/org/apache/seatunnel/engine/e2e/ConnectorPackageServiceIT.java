@@ -18,13 +18,11 @@
 package org.apache.seatunnel.engine.e2e;
 
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.Container;
 
 import java.io.IOException;
 
-@Disabled
 public class ConnectorPackageServiceIT extends ConnectorPackageServiceContainer {
     @Test
     public void testFakeSourceToConsoleSink() throws IOException, InterruptedException {

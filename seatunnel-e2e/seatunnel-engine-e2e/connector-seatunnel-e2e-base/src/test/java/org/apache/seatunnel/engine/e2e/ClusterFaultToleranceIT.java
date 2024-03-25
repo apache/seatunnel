@@ -56,7 +56,6 @@ import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.ch
  * Cluster fault tolerance test. Test the job recovery capability and data consistency assurance
  * capability in case of cluster node failure
  */
-@Disabled
 @Slf4j
 public class ClusterFaultToleranceIT {
 

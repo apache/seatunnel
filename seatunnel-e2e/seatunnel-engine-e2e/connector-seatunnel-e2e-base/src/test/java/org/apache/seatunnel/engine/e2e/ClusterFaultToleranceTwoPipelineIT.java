@@ -54,7 +54,6 @@ import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.ch
  * Cluster fault tolerance test. Test the job which have two pipelines can recovery capability and
  * data consistency assurance capability in case of cluster node failure
  */
-@Disabled
 @Slf4j
 public class ClusterFaultToleranceTwoPipelineIT {
 
