@@ -193,6 +193,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         // wait for index refresh
         Thread.sleep(2000);
         List<String> source = new ArrayList<>(esFieldType.keySet());
+        log.info("test-source:{}", source);
         HashMap<String, Object> rangeParam = new HashMap<>();
         rangeParam.put("gte", 10);
         rangeParam.put("lte", 20);
@@ -209,9 +210,11 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                             x.remove("_index");
                             x.remove("_type");
                             x.remove("_id");
+                            // I don’t know if converting the test cases in this way complies with
+                            // the CI specification
                             x.replace(
                                     "c_timestamp",
-                                    LocalDateTime.parse(String.valueOf(x.get("c_timestamp")))
+                                    LocalDateTime.parse(x.get("c_timestamp").toString())
                                             .toInstant(ZoneOffset.UTC)
                                             .toEpochMilli());
                         });
