@@ -136,6 +136,17 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         Assertions.assertIterableEquals(mapTestDatasetForDSL(), sinkData);
     }
 
+    @TestTemplate
+    public void testElasticsearchWithoutSchema(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/elasticsearch/elasticsearch_source_and_sink.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        List<String> sinkData = readSinkDataWithOutSchema();
+        // for DSL is: {"range":{"c_int":{"gte":10,"lte":20}}}
+        Assertions.assertIterableEquals(mapTestDatasetForDSL(), sinkData);
+    }
+
     private List<String> generateTestDataSet() throws JsonProcessingException {
         String[] fields =
                 new String[] {
@@ -182,6 +193,48 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
             documents.add(objectMapper.writeValueAsString(doc));
         }
         return documents;
+    }
+
+    private List<String> readSinkDataWithOutSchema() throws InterruptedException {
+        Map<String, String> esFieldType =
+                esRestClient.getFieldTypeMapping("st_index2", Lists.newArrayList());
+
+        // wait for index refresh
+        Thread.sleep(2000);
+        List<String> source = new ArrayList<>(esFieldType.keySet());
+        log.info("test-source:{}", source);
+        HashMap<String, Object> rangeParam = new HashMap<>();
+        rangeParam.put("gte", 10);
+        rangeParam.put("lte", 20);
+        HashMap<String, Object> range = new HashMap<>();
+        range.put("c_int", rangeParam);
+        Map<String, Object> query = new HashMap<>();
+        query.put("range", range);
+        ScrollResult scrollResult =
+                esRestClient.searchByScroll("st_index2", source, query, "1m", 1000);
+        scrollResult
+                .getDocs()
+                .forEach(
+                        x -> {
+                            x.remove("_index");
+                            x.remove("_type");
+                            x.remove("_id");
+                            // I don’t know if converting the test cases in this way complies with
+                            // the CI specification
+                            x.replace(
+                                    "c_timestamp",
+                                    LocalDateTime.parse(x.get("c_timestamp").toString())
+                                            .toInstant(ZoneOffset.UTC)
+                                            .toEpochMilli());
+                        });
+        List<String> docs =
+                scrollResult.getDocs().stream()
+                        .sorted(
+                                Comparator.comparingInt(
+                                        o -> Integer.valueOf(o.get("c_int").toString())))
+                        .map(JsonUtils::toJsonString)
+                        .collect(Collectors.toList());
+        return docs;
     }
 
     private List<String> readSinkData() throws InterruptedException {
