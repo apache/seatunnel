@@ -227,6 +227,7 @@ there are some reference value for params above.
 | Kingbase   | com.kingbase8.Driver                                | jdbc:kingbase8://localhost:54321/db_test                               | https://repo1.maven.org/maven2/cn/com/kingbase/kingbase8/8.6.0/kingbase8-8.6.0.jar                          |
 | OceanBase  | com.oceanbase.jdbc.Driver                           | jdbc:oceanbase://localhost:2881                                        | https://repo1.maven.org/maven2/com/oceanbase/oceanbase-client/2.4.3/oceanbase-client-2.4.3.jar              |
 | Hive       | org.apache.hive.jdbc.HiveDriver                     | jdbc:hive2://localhost:10000                                           | https://repo1.maven.org/maven2/org/apache/hive/hive-jdbc/3.1.3/hive-jdbc-3.1.3-standalone.jar               |
+| OpenGauss  | org.opengauss.Driver                                | jdbc:opengauss://localhost:8080/test                                   | https://mvnrepository.com/artifact/org.opengauss/opengauss-jdbc/5.0.0-og                                    |
 
 ## Example
 

@@ -85,6 +85,7 @@
             <properties>
                 <mysql.version>8.0.27</mysql.version>
                 <postgresql.version>42.4.3</postgresql.version>
+                <opengauss.version>5.0.0-og</opengauss.version>
                 <postgis.jdbc.version>2.5.1</postgis.jdbc.version>
                 <dm-jdbc.version>8.1.2.141</dm-jdbc.version>
                 <sqlserver.version>9.2.1.jre8</sqlserver.version>
@@ -567,6 +568,12 @@
                     <groupId>org.postgresql</groupId>
                     <artifactId>postgresql</artifactId>
                     <version>${postgresql.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.opengauss</groupId>
+                    <artifactId>opengauss-jdbc</artifactId>
+                    <version>${opengauss.version}</version>
                     <scope>provided</scope>
                 </dependency>
                 <dependency>
