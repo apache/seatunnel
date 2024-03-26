@@ -113,6 +113,12 @@ public class SinkExecuteProcessor
                                         CommonOptions.PARALLELISM.key(),
                                         CommonOptions.PARALLELISM.defaultValue());
             }
+            if (sinkConfig.hasPath(CommonOptions.PARTITION_BALANCE.key())) {
+                boolean needBalance = sinkConfig.getBoolean(CommonOptions.PARTITION_BALANCE.key());
+                if (needBalance) {
+                    dataset = dataset.repartition(parallelism);
+                }
+            }
             dataset.sparkSession().read().option(CommonOptions.PARALLELISM.key(), parallelism);
             Optional<? extends Factory> factory = plugins.get(i);
             boolean fallBack = !factory.isPresent() || isFallback(factory.get());

@@ -131,6 +131,12 @@ public class SinkExecuteProcessor
                     }
                 }
             }
+            if (sinkConfig.hasPath(CommonOptions.PARTITION_BALANCE.key())) {
+                Boolean needBalance = sinkConfig.getBoolean(CommonOptions.PARTITION_BALANCE.key());
+                if (needBalance) {
+                    stream = stream.shuffle();
+                }
+            }
             DataStreamSink<Row> dataStreamSink =
                     stream.getDataStream()
                             .sinkTo(
