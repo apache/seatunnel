@@ -44,8 +44,6 @@ import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.commit.IcebergAggr
 import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.commit.IcebergCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.state.IcebergSinkState;
 
-import com.google.auto.service.AutoService;
-
 import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
@@ -54,7 +52,6 @@ import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.api.table.factory.FactoryUtil.discoverFactory;
 
-@AutoService(SeaTunnelSink.class)
 public class IcebergSink
         implements SeaTunnelSink<
                         SeaTunnelRow,

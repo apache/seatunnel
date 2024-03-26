@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.config.CommonConfig;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRocksOptions;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRocksSinkOptions;
@@ -42,7 +43,7 @@ import static org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRoc
 public class StarRocksSinkFactory implements TableSinkFactory {
     @Override
     public String factoryIdentifier() {
-        return "StarRocks";
+        return CommonConfig.CONNECTOR_IDENTITY;
     }
 
     @Override

@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.common.utils.EncodingUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
@@ -33,6 +34,7 @@ import org.dom4j.io.XMLWriter;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.AbstractMap;
 import java.util.List;
@@ -139,7 +141,8 @@ public class XmlWriter {
         this.format.setNewLineAfterDeclaration(true);
         this.format.setSuppressDeclaration(false);
         this.format.setExpandEmptyElements(false);
-        this.format.setEncoding(StandardCharsets.UTF_8.name());
         this.format.setIndent("\t");
+        Charset charset = EncodingUtils.tryParseCharset(fileSinkConfig.getEncoding());
+        this.format.setEncoding(charset.name());
     }
 }

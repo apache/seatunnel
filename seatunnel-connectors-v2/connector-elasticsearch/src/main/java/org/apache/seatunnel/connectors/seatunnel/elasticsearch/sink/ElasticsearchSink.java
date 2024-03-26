@@ -35,15 +35,12 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.state.Elasticsear
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.state.ElasticsearchCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.state.ElasticsearchSinkState;
 
-import com.google.auto.service.AutoService;
-
 import java.util.Optional;
 
 import static org.apache.seatunnel.api.table.factory.FactoryUtil.discoverFactory;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SinkConfig.MAX_BATCH_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SinkConfig.MAX_RETRY_COUNT;
 
-@AutoService(SeaTunnelSink.class)
 public class ElasticsearchSink
         implements SeaTunnelSink<
                         SeaTunnelRow,

@@ -26,26 +26,9 @@ import org.junit.jupiter.api.Test;
 import java.util.HashMap;
 import java.util.Map;
 
-import static org.apache.seatunnel.common.config.TypesafeConfigUtils.extractSubConfig;
 import static org.apache.seatunnel.common.config.TypesafeConfigUtils.hasSubConfig;
 
 public class TypesafeConfigUtilsTest {
-
-    @Test
-    public void testExtractSubConfig() {
-        Config config = getConfig();
-        Config subConfig = extractSubConfig(config, "test.", true);
-        Map<String, String> configMap = new HashMap<>();
-        configMap.put("test.t0", "v0");
-        configMap.put("test.t1", "v1");
-        Assertions.assertEquals(ConfigFactory.parseMap(configMap), subConfig);
-
-        subConfig = extractSubConfig(config, "test.", false);
-        configMap = new HashMap<>();
-        configMap.put("t0", "v0");
-        configMap.put("t1", "v1");
-        Assertions.assertEquals(ConfigFactory.parseMap(configMap), subConfig);
-    }
 
     @Test
     public void testHasSubConfig() {

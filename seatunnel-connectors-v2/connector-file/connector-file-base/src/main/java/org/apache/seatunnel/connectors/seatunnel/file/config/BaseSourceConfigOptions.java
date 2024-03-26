@@ -51,6 +51,13 @@ public class BaseSourceConfigOptions {
                     .withDescription(
                             "The separator between columns in a row of data. Only needed by `text` file format");
 
+    public static final Option<String> ENCODING =
+            Options.key("encoding")
+                    .stringType()
+                    .defaultValue("UTF-8")
+                    .withDescription(
+                            "The encoding of the file to read, e.g. UTF-8, ISO-8859-1....");
+
     public static final Option<DateUtils.Formatter> DATE_FORMAT =
             Options.key("date_format")
                     .enumType(DateUtils.Formatter.class)
