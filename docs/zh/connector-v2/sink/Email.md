@@ -14,7 +14,7 @@
 
 ## 选项
 
-|            名称            |   类型   | 是否必须 | 默认值 |
+| 名称                       | 类型     | 是否必须 | 默认值 |
 |--------------------------|--------|------|-----|
 | email_from_address       | string | 是    | -   |
 | email_to_address         | string | 是    | -   |
@@ -60,7 +60,7 @@
 
 ### common options
 
-Sink插件常用参数，请参考 [Sink常用选项](common-options.md) 了解详情.
+Sink插件常用参数，请参考 [Sink常用选项](../../transform-v2/common-options.md) 了解详情.
 
 ## 示例
 

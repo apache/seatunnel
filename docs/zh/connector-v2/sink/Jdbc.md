@@ -27,7 +27,7 @@
 
 ## Options
 
-|                    名称                     |   类型    | 是否必须 |             默认值              |
+| 名称                                        | 类型      | 是否必须 | 默认值                          |
 |-------------------------------------------|---------|------|------------------------------|
 | url                                       | String  | 是    | -                            |
 | driver                                    | String  | 是    | -                            |
@@ -170,7 +170,7 @@ Tip: 如果目标数据库有SCHEMA的概念，则表参数必须写成`xxx.xxx`
 
 ### common options
 
-Sink插件常用参数，请参考 [Sink常用选项](common-options.md) 了解详情
+Sink插件常用参数，请参考 [Sink常用选项](../../transform-v2/common-options.md) 了解详情
 
 ### schema_save_mode [Enum]
 
@@ -207,14 +207,15 @@ Sink插件常用参数，请参考 [Sink常用选项](common-options.md) 了解�
 
 在 is_exactly_once = "true" 的情况下，使用 Xa 事务。这需要数据库支持，有些数据库需要一些设置：<br/>
 1 postgres 需要设置 `max_prepared_transactions > 1` 例如 `ALTER SYSTEM set max_prepared_transactions to 10` <br/>
-2 mysql 版本需要 >= `8.0.29` 并且非 root 用户需要授予 `XA_RECOVER_ADMIN` 权限。例如:将 test_db.* 上的 XA_RECOVER_ADMIN 授予 `'user1'@'%'`<br/>
+2 mysql 版本需要 >= `8.0.29` 并且非 root 用户需要授予 `XA_RECOVER_ADMIN` 权限。例如:将 test_db.* 上的 XA_RECOVER_ADMIN
+授予 `'user1'@'%'`<br/>
 3 mysql可以尝试在url中添加 `rewriteBatchedStatements=true` 参数以获得更好的性能<br/>
 
 ## 附录
 
 上面的params有些许参考价值
 
-|    数据源     |                    driver                    |                                url                                 |             xa_data_source_class_name              |                                                    maven                                                    |
+| 数据源        | driver                                       | url                                                                | xa_data_source_class_name                          | maven                                                                                                       |
 |------------|----------------------------------------------|--------------------------------------------------------------------|----------------------------------------------------|-------------------------------------------------------------------------------------------------------------|
 | MySQL      | com.mysql.cj.jdbc.Driver                     | jdbc:mysql://localhost:3306/test                                   | com.mysql.cj.jdbc.MysqlXADataSource                | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                               |
 | PostgreSQL | org.postgresql.Driver                        | jdbc:postgresql://localhost:5432/postgres                          | org.postgresql.xa.PGXADataSource                   | https://mvnrepository.com/artifact/org.postgresql/postgresql                                                |
