@@ -151,6 +151,12 @@ public interface JdbcOptions {
                     .defaultValue(false)
                     .withDescription("support upsert by insert only");
 
+    Option<Boolean> USE_COPY_STATEMENT =
+            Options.key("use_copy_statement")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("support copy in statement (postgresql)");
+
     /** source config */
     Option<String> PARTITION_COLUMN =
             Options.key("partition_column")

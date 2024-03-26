@@ -109,6 +109,40 @@ public class RestApiIT {
     }
 
     @Test
+    public void testGetAnNotExistJobById() {
+        Arrays.asList(node2, node1)
+                .forEach(
+                        instance -> {
+                            given().get(
+                                            HOST
+                                                    + instance.getCluster()
+                                                            .getLocalMember()
+                                                            .getAddress()
+                                                            .getPort()
+                                                    + RestConstant.RUNNING_JOB_URL
+                                                    + "/"
+                                                    + 123)
+                                    .then()
+                                    .statusCode(200)
+                                    .body("jobId", equalTo("123"));
+                        });
+        Arrays.asList(node2, node1)
+                .forEach(
+                        instance -> {
+                            given().get(
+                                            HOST
+                                                    + instance.getCluster()
+                                                            .getLocalMember()
+                                                            .getAddress()
+                                                            .getPort()
+                                                    + RestConstant.RUNNING_JOB_URL
+                                                    + "/")
+                                    .then()
+                                    .statusCode(500);
+                        });
+    }
+
+    @Test
     public void testGetRunningJobs() {
         Arrays.asList(node2, node1)
                 .forEach(

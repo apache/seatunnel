@@ -33,6 +33,8 @@ import org.apache.seatunnel.format.text.exception.SeaTunnelTextFormatException;
 
 import lombok.NonNull;
 
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -46,18 +48,21 @@ public class TextSerializationSchema implements SerializationSchema {
     private final DateUtils.Formatter dateFormatter;
     private final DateTimeUtils.Formatter dateTimeFormatter;
     private final TimeUtils.Formatter timeFormatter;
+    private final Charset charset;
 
     private TextSerializationSchema(
             @NonNull SeaTunnelRowType seaTunnelRowType,
             String[] separators,
             DateUtils.Formatter dateFormatter,
             DateTimeUtils.Formatter dateTimeFormatter,
-            TimeUtils.Formatter timeFormatter) {
+            TimeUtils.Formatter timeFormatter,
+            Charset charset) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.separators = separators;
         this.dateFormatter = dateFormatter;
         this.dateTimeFormatter = dateTimeFormatter;
         this.timeFormatter = timeFormatter;
+        this.charset = charset;
     }
 
     public static Builder builder() {
@@ -71,6 +76,7 @@ public class TextSerializationSchema implements SerializationSchema {
         private DateTimeUtils.Formatter dateTimeFormatter =
                 DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS;
         private TimeUtils.Formatter timeFormatter = TimeUtils.Formatter.HH_MM_SS;
+        private Charset charset = StandardCharsets.UTF_8;
 
         private Builder() {}
 
@@ -104,9 +110,19 @@ public class TextSerializationSchema implements SerializationSchema {
             return this;
         }
 
+        public Builder charset(Charset charset) {
+            this.charset = charset;
+            return this;
+        }
+
         public TextSerializationSchema build() {
             return new TextSerializationSchema(
-                    seaTunnelRowType, separators, dateFormatter, dateTimeFormatter, timeFormatter);
+                    seaTunnelRowType,
+                    separators,
+                    dateFormatter,
+                    dateTimeFormatter,
+                    timeFormatter,
+                    charset);
         }
     }
 
@@ -121,7 +137,7 @@ public class TextSerializationSchema implements SerializationSchema {
         for (int i = 0; i < fields.length; i++) {
             strings[i] = convert(fields[i], seaTunnelRowType.getFieldType(i), 0);
         }
-        return String.join(separators[0], strings).getBytes();
+        return String.join(separators[0], strings).getBytes(charset);
     }
 
     private String convert(Object field, SeaTunnelDataType<?> fieldType, int level) {
@@ -132,13 +148,15 @@ public class TextSerializationSchema implements SerializationSchema {
             case DOUBLE:
             case FLOAT:
             case INT:
-            case STRING:
             case BOOLEAN:
             case TINYINT:
             case SMALLINT:
             case BIGINT:
             case DECIMAL:
                 return field.toString();
+            case STRING:
+                byte[] bytes = field.toString().getBytes(StandardCharsets.UTF_8);
+                return new String(bytes, StandardCharsets.UTF_8);
             case DATE:
                 return DateUtils.toString((LocalDate) field, dateFormatter);
             case TIME:
@@ -148,7 +166,7 @@ public class TextSerializationSchema implements SerializationSchema {
             case NULL:
                 return "";
             case BYTES:
-                return new String((byte[]) field);
+                return new String((byte[]) field, StandardCharsets.UTF_8);
             case ARRAY:
                 BasicType<?> elementType = ((ArrayType<?, ?>) fieldType).getElementType();
                 return Arrays.stream((Object[]) field)

@@ -362,6 +362,8 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - name: free disk space
+        run: tools/github/free_disk_space.sh
       - name: run updated modules integration test (part-3)
         if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
         run: |

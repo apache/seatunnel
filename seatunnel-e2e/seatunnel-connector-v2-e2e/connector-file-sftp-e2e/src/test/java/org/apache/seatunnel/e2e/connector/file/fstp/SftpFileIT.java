@@ -93,6 +93,11 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
                 "/home/seatunnel/tmp/seatunnel/read/excel_filter/name=tyrantlucifer/hobby=coding/e2e_filter.xlsx",
                 sftpContainer);
 
+        ContainerUtil.copyFileIntoContainers(
+                "/xml/e2e.xml",
+                "/home/seatunnel/tmp/seatunnel/read/xml/name=tyrantlucifer/hobby=coding/e2e.xml",
+                sftpContainer);
+
         sftpContainer.execInContainer("sh", "-c", "chown -R seatunnel /home/seatunnel/tmp/");
     }
 
@@ -120,6 +125,10 @@ public class SftpFileIT extends TestSuiteBase implements TestResource {
         helper.execute("/json/fake_to_sftp_file_json.conf");
         // test read sftp json file
         helper.execute("/json/sftp_file_json_to_assert.conf");
+        // test write sftp xml file
+        helper.execute("/xml/fake_to_sftp_file_xml.conf");
+        // test read sftp xml file
+        helper.execute("/xml/sftp_file_xml_to_assert.conf");
     }
 
     @AfterAll

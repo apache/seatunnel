@@ -22,19 +22,26 @@ import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 
+import java.io.Serializable;
 import java.util.List;
 
 /**
  * Utility class to store configuration options, used by {@link SeaTunnelSource} and {@link
  * SeaTunnelSink}.
  */
-public class PaimonConfig {
+public class PaimonConfig implements Serializable {
 
     public static final Option<String> WAREHOUSE =
             Options.key("warehouse")
                     .stringType()
                     .noDefaultValue()
                     .withDescription("The warehouse path of paimon");
+
+    public static final Option<String> CATALOG_NAME =
+            Options.key("catalog_name")
+                    .stringType()
+                    .defaultValue("paimon")
+                    .withDescription(" the iceberg catalog name");
 
     public static final Option<String> DATABASE =
             Options.key("database")

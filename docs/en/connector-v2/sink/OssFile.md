@@ -32,6 +32,7 @@ By default, we use 2PC commit to ensure `exactly-once`
   - [x] orc
   - [x] json
   - [x] excel
+  - [x] xml
 
 ## Data Type Mapping
 
@@ -108,6 +109,10 @@ If write to `csv`, `text` file type, All column will be string.
 | common-options                   | object  | no       | -                                          |                                                                                                                   |
 | max_rows_in_memory               | int     | no       | -                                          | Only used when file_format_type is excel.                                                                         |
 | sheet_name                       | string  | no       | Sheet${Random number}                      | Only used when file_format_type is excel.                                                                         |
+| xml_root_tag                     | string  | no       | RECORDS                                    | Only used when file_format is xml.                                                                                |
+| xml_row_tag                      | string  | no       | RECORD                                     | Only used when file_format is xml.                                                                                |
+| xml_use_attr_format              | boolean | no       | -                                          | Only used when file_format is xml.                                                                                |
+| encoding                         | string  | no       | "UTF-8"                                    | Only used when file_format_type is json,text,csv,xml.                                                             |
 
 ### path [string]
 
@@ -161,7 +166,7 @@ When the format in the `file_name_expression` parameter is `xxxx-${Now}` , `file
 
 We supported as the following file types:
 
-`text` `json` `csv` `orc` `parquet` `excel`
+`text` `json` `csv` `orc` `parquet` `excel` `xml`
 
 Please note that, The final file name will end with the file_format_type's suffix, the suffix of the text file is `txt`.
 
@@ -239,6 +244,23 @@ When File Format is Excel,The maximum number of data items that can be cached in
 ### sheet_name [string]
 
 Writer the sheet of the workbook
+
+### xml_root_tag [string]
+
+Specifies the tag name of the root element within the XML file.
+
+### xml_row_tag [string]
+
+Specifies the tag name of the data rows within the XML file.
+
+### xml_use_attr_format [boolean]
+
+Specifies Whether to process data using the tag attribute format.
+
+### encoding [string]
+
+Only used when file_format_type is json,text,csv,xml.
+The encoding of the file to write. This param will be parsed by `Charset.forName(encoding)`.
 
 ## How to Create an Oss Data Synchronization Jobs
 

@@ -25,8 +25,8 @@ import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.ThreadShareMode;
 import org.apache.seatunnel.engine.common.exception.JobNotFoundException;
-import org.apache.seatunnel.engine.common.loader.ClassLoaderUtil;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
+import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.server.exception.TaskGroupContextNotFoundException;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
@@ -42,7 +42,6 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.execution.TaskTracker;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
-import org.apache.seatunnel.engine.server.service.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.server.service.jar.ServerConnectorPackageClient;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
@@ -919,9 +918,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
 
         private void recycleClassLoader(TaskGroupLocation taskGroupLocation) {
             TaskGroupContext context = executionContexts.get(taskGroupLocation);
-            ClassLoader classLoader = context.getClassLoader();
             executionContexts.get(taskGroupLocation).setClassLoader(null);
-            ClassLoaderUtil.recycleClassLoaderFromThread(classLoader);
             classLoaderService.releaseClassLoader(taskGroupLocation.getJobId(), context.getJars());
         }
 
