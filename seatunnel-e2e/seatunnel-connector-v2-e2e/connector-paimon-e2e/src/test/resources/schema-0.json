@@ -58,13 +58,17 @@
   }, {
     "id" : 12,
     "name" : "c_date",
-    "type" : "TIMESTAMP(3)"
+    "type" : "DATE"
   }, {
     "id" : 13,
+    "name" : "c_time",
+    "type" : "TIME"
+  }, {
+    "id" : 14,
     "name" : "c_timestamp",
     "type" : "TIMESTAMP(6)"
   } ],
-  "highestFieldId" : 13,
+  "highestFieldId" : 14,
   "partitionKeys" : [ ],
   "primaryKeys" : [ ],
   "options" : { }

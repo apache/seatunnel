@@ -39,6 +39,7 @@ import org.apache.paimon.data.Timestamp;
 import org.apache.paimon.data.serializer.InternalArraySerializer;
 import org.apache.paimon.data.serializer.InternalMapSerializer;
 import org.apache.paimon.types.DataTypes;
+import org.apache.paimon.utils.DateTimeUtils;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -48,6 +49,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -76,6 +78,7 @@ public class RowConverterTest {
                             "c_bytes",
                             "c_boolean",
                             "c_date",
+                            "c_time",
                             "c_timestamp",
                             "c_map",
                             "c_array"
@@ -92,6 +95,7 @@ public class RowConverterTest {
                             PrimitiveByteArrayType.INSTANCE,
                             BasicType.BOOLEAN_TYPE,
                             LocalTimeType.LOCAL_DATE_TYPE,
+                            LocalTimeType.LOCAL_TIME_TYPE,
                             LocalTimeType.LOCAL_DATE_TIME_TYPE,
                             new MapType<>(BasicType.STRING_TYPE, BasicType.STRING_TYPE),
                             ArrayType.STRING_ARRAY_TYPE
@@ -107,11 +111,12 @@ public class RowConverterTest {
         byte[] bytes = new byte[] {1, 2, 3, 4};
         boolean booleanValue = false;
         LocalDate date = LocalDate.of(1996, 3, 16);
+        LocalTime time = LocalTime.of(4, 16, 20);
         LocalDateTime timestamp = LocalDateTime.of(1996, 3, 16, 4, 16, 20);
         Map<String, String> map = new HashMap<>();
         map.put("name", "paimon");
         String[] strings = new String[] {"paimon", "seatunnel"};
-        Object[] objects = new Object[14];
+        Object[] objects = new Object[15];
         objects[0] = tinyint;
         objects[1] = smallint;
         objects[2] = intNum;
@@ -123,11 +128,12 @@ public class RowConverterTest {
         objects[8] = bytes;
         objects[9] = booleanValue;
         objects[10] = date;
-        objects[11] = timestamp;
-        objects[12] = map;
-        objects[13] = strings;
+        objects[11] = time;
+        objects[12] = timestamp;
+        objects[13] = map;
+        objects[14] = strings;
         seaTunnelRow = new SeaTunnelRow(objects);
-        BinaryRow binaryRow = new BinaryRow(14);
+        BinaryRow binaryRow = new BinaryRow(15);
         BinaryRowWriter binaryRowWriter = new BinaryRowWriter(binaryRow);
         binaryRowWriter.writeByte(0, tinyint);
         binaryRowWriter.writeShort(1, smallint);
@@ -139,9 +145,12 @@ public class RowConverterTest {
         binaryRowWriter.writeString(7, BinaryString.fromString(string));
         binaryRowWriter.writeBinary(8, bytes);
         binaryRowWriter.writeBoolean(9, booleanValue);
-        binaryRowWriter.writeTimestamp(
-                10, Timestamp.fromLocalDateTime(LocalDateTime.of(date, LocalTime.of(0, 0, 0))), 3);
-        binaryRowWriter.writeTimestamp(11, Timestamp.fromLocalDateTime(timestamp), 6);
+        binaryRowWriter.writeInt(
+                10,
+                DateTimeUtils.parseDate(date.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))));
+        binaryRowWriter.writeInt(
+                11, DateTimeUtils.parseTime(time.format(DateTimeFormatter.ofPattern("HH:mm:ss"))));
+        binaryRowWriter.writeTimestamp(12, Timestamp.fromLocalDateTime(timestamp), 6);
         BinaryArray binaryArray = new BinaryArray();
         BinaryArrayWriter binaryArrayWriter =
                 new BinaryArrayWriter(
@@ -158,7 +167,7 @@ public class RowConverterTest {
         binaryArrayWriter1.complete();
         BinaryMap binaryMap = BinaryMap.valueOf(binaryArray, binaryArray1);
         binaryRowWriter.writeMap(
-                12, binaryMap, new InternalMapSerializer(DataTypes.STRING(), DataTypes.STRING()));
+                13, binaryMap, new InternalMapSerializer(DataTypes.STRING(), DataTypes.STRING()));
         BinaryArray binaryArray2 = new BinaryArray();
         BinaryArrayWriter binaryArrayWriter2 =
                 new BinaryArrayWriter(
@@ -169,7 +178,7 @@ public class RowConverterTest {
         binaryArrayWriter2.writeString(1, BinaryString.fromString("seatunnel"));
         binaryArrayWriter2.complete();
         binaryRowWriter.writeArray(
-                13, binaryArray2, new InternalArraySerializer(DataTypes.STRING()));
+                14, binaryArray2, new InternalArraySerializer(DataTypes.STRING()));
         internalRow = binaryRow;
     }
 

@@ -220,6 +220,8 @@ public class RowTypeConverter {
                     return DataTypes.BOOLEAN();
                 case DATE:
                     return DataTypes.DATE();
+                case TIME:
+                    return DataTypes.TIME();
                 case TIMESTAMP:
                     return DataTypes.TIMESTAMP(6);
                 case MAP:
@@ -322,8 +324,12 @@ public class RowTypeConverter {
 
         @Override
         public SeaTunnelDataType<?> visit(DateType dateType) {
-            // TODO the data type in flink is int, so it should be converted to LocalDate
             return LocalTimeType.LOCAL_DATE_TYPE;
+        }
+
+        @Override
+        public SeaTunnelDataType<?> visit(TimeType timeType) {
+            return LocalTimeType.LOCAL_TIME_TYPE;
         }
 
         @Override
