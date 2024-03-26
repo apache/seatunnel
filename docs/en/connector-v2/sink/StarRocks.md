@@ -48,40 +48,6 @@ We use templates to automatically create starrocks tables,
 which will create corresponding table creation statements based on the type of upstream data and schema type,
 and the default template can be modified according to the situation. Only work on multi-table mode at now.
 
-### table [string]
-
-Use `database` and this `table-name` auto-generate sql and receive upstream input datas write to database.
-
-This option is mutually exclusive with `query` and has a higher priority.
-
-The table parameter can fill in the name of an unwilling table, which will eventually be used as the table name of the creation table, and supports variables (`${table_name}`, `${schema_name}`). Replacement rules: `${schema_name}` will replace the SCHEMA name passed to the target side, and `${table_name}` will replace the name of the table passed to the table at the target side.
-
-for example:
-1. test_${schema_name}_${table_name}_test
-2. sink_sinktable
-3. ss_${table_name}
-
-### schema_save_mode[Enum]
-
-Before the synchronous task is turned on, different treatment schemes are selected for the existing surface structure of the target side.  
-Option introduction：  
-`RECREATE_SCHEMA` ：Will create when the table does not exist, delete and rebuild when the table is saved        
-`CREATE_SCHEMA_WHEN_NOT_EXIST` ：Will Created when the table does not exist, skipped when the table is saved        
-`ERROR_WHEN_SCHEMA_NOT_EXIST` ：Error will be reported when the table does not exist
-
-### data_save_mode[Enum]
-
-Before the synchronous task is turned on, different processing schemes are selected for data existing data on the target side.  
-Option introduction：  
-`DROP_DATA`： Preserve database structure and delete data  
-`APPEND_DATA`：Preserve database structure, preserve data  
-`CUSTOM_PROCESSING`：User defined processing  
-`ERROR_WHEN_DATA_EXISTS`：When there is data, an error is reported
-
-### custom_sql[String]
-
-When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.
-
 ```sql
 CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}`
 (
@@ -118,6 +84,40 @@ You can use the following placeholders
   description of StarRocks
 - rowtype_primary_key: Used to get the primary key in the upstream schema (maybe a list)
 - rowtype_unique_key: Used to get the unique key in the upstream schema (maybe a list)
+
+### table [string]
+
+Use `database` and this `table-name` auto-generate sql and receive upstream input datas write to database.
+
+This option is mutually exclusive with `query` and has a higher priority.
+
+The table parameter can fill in the name of an unwilling table, which will eventually be used as the table name of the creation table, and supports variables (`${table_name}`, `${schema_name}`). Replacement rules: `${schema_name}` will replace the SCHEMA name passed to the target side, and `${table_name}` will replace the name of the table passed to the table at the target side.
+
+for example:
+1. test_${schema_name}_${table_name}_test
+2. sink_sinktable
+3. ss_${table_name}
+
+### schema_save_mode[Enum]
+
+Before the synchronous task is turned on, different treatment schemes are selected for the existing surface structure of the target side.  
+Option introduction：  
+`RECREATE_SCHEMA` ：Will create when the table does not exist, delete and rebuild when the table is saved        
+`CREATE_SCHEMA_WHEN_NOT_EXIST` ：Will Created when the table does not exist, skipped when the table is saved        
+`ERROR_WHEN_SCHEMA_NOT_EXIST` ：Error will be reported when the table does not exist
+
+### data_save_mode[Enum]
+
+Before the synchronous task is turned on, different processing schemes are selected for data existing data on the target side.  
+Option introduction：  
+`DROP_DATA`： Preserve database structure and delete data  
+`APPEND_DATA`：Preserve database structure, preserve data  
+`CUSTOM_PROCESSING`：User defined processing  
+`ERROR_WHEN_DATA_EXISTS`：When there is data, an error is reported
+
+### custom_sql[String]
+
+When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.
 
 ## Data Type Mapping
 
