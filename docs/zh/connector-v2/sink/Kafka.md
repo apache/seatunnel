@@ -24,13 +24,13 @@
 为了使用 Kafka 连接器，需要以下依赖项
 可以通过 install-plugin.sh 或从 Maven 中央存储库下载
 
-|  数据源  | 支持版本 |                                                 Maven                                                 |
+| 数据源   | 支持版本 | Maven                                                                                                 |
 |-------|------|-------------------------------------------------------------------------------------------------------|
 | Kafka | 通用   | [下载](https://mvnrepository.com/artifact/org.apache.seatunnel/seatunnel-connectors-v2/connector-kafka) |
 
 ## 接收器选项
 
-|          名称          |   类型   | 是否需要 | 默认值  |                                                                                                                                                                                                                    描述                                                                                                                                                                                                                     |
+| 名称                   | 类型     | 是否需要 | 默认值  | 描述                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 |----------------------|--------|------|------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | topic                | String | Yes  | -    | When the table is used as sink, the topic name is the topic to write data to.                                                                                                                                                                                                                                                                                                                                                             |
 | bootstrap.servers    | String | Yes  | -    | Comma separated list of Kafka brokers.                                                                                                                                                                                                                                                                                                                                                                                                    |
@@ -42,7 +42,7 @@
 | transaction_prefix   | String | 否    | -    | If semantic is specified as EXACTLY_ONCE, the producer will write all messages in a Kafka transaction,kafka distinguishes different transactions by different transactionId. This parameter is prefix of  kafka  transactionId, make sure different job use different prefix.                                                                                                                                                             |
 | format               | String | 否    | json | Data format. The default format is json. Optional text format, canal-json, debezium-json and avro.If you use json or text format. The default field separator is ", ". If you customize the delimiter, add the "field_delimiter" option.If you use canal format, please refer to [canal-json](../formats/canal-json.md) for details.If you use debezium format, please refer to [debezium-json](../formats/debezium-json.md) for details. |
 | field_delimiter      | String | 否    | ,    | 自定义数据格式的字段分隔符                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| common-options       |        | 否    | -    | Sink插件常用参数，请参考 [Sink常用选项 ](common-options.md) 了解详情                                                                                                                                                                                                                                                                                                                                                                                        |
+| common-options       |        | 否    | -    | Sink插件常用参数，请参考 [Sink常用选项 ](../../transform-v2/common-options.md) 了解详情                                                                                                                                                                                                                                                                                                                                                                     |
 
 ## 参数解释
 
@@ -56,7 +56,7 @@
 
    例如，上游数据如下：
 
-| name | age |     data      |
+| name | age | data          |
 |------|-----|---------------|
 | Jack | 16  | data-example1 |
 | Mary | 23  | data-example2 |
@@ -75,7 +75,7 @@ NON 不提供任何保证：如果 Kafka 代理出现问题，消息可能会丢
 
 上游数据如下：
 
-| name | age |     data      |
+| name | age | data          |
 |------|-----|---------------|
 | Jack | 16  | data-example1 |
 | Mary | 23  | data-example2 |
@@ -90,7 +90,8 @@ NON 不提供任何保证：如果 Kafka 代理出现问题，消息可能会丢
 例如总共有5个分区，config中的assign_partitions字段如下：例如总共有5个分区，config中的assign_partitions字段如下：
 assign_partitions = ["shoe", "clothing"]
 那么包含`shoe`的消息将被发送到分区0，因为`shoe`在assign_partitions中被订阅为`0`，而包含`clothing`的消息将被发送到分区`1`。
-对于其他消息，将使用哈希算法将它们分成剩余的分区。这个函数通过 `MessageContentPartitioner` 类实现了 `org.apache.kafka.clients. Producer.Partitioner` 接口。
+对于其他消息，将使用哈希算法将它们分成剩余的分区。这个函数通过 `MessageContentPartitioner`
+类实现了 `org.apache.kafka.clients. Producer.Partitioner` 接口。
 如果我们需要自定义分区，我们也需要实现这个接口。
 
 ## 任务示例
