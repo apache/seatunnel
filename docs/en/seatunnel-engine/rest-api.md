@@ -10,28 +10,27 @@ completed jobs. The monitoring API is a REST-ful API that accepts HTTP requests 
 
 ## Overview
 
-The monitoring API is backed by a web server that runs as part of the node, each node member can provide rest api
-capability.
+The monitoring API is backed by a web server that runs as part of the node, each node member can provide rest api capability.
 By default, this server listens at port 5801, which can be configured in hazelcast.yaml like :
 
 ```yaml
 network:
-  rest-api:
-    enabled: true
-    endpoint-groups:
-      CLUSTER_WRITE:
-        enabled: true
-      DATA:
-        enabled: true
-  join:
-    tcp-ip:
+    rest-api:
       enabled: true
-      member-list:
-        - localhost
-  port:
-    auto-increment: true
-    port-count: 100
-    port: 5801
+      endpoint-groups:
+        CLUSTER_WRITE:
+          enabled: true
+        DATA:
+          enabled: true
+    join:
+      tcp-ip:
+        enabled: true
+        member-list:
+          - localhost
+    port:
+      auto-increment: true
+      port-count: 100
+      port: 5801
 ```
 
 ## API reference
@@ -122,7 +121,7 @@ When we can't get the job info, the response will be:
 
 ```json
 {
-  "jobId": ""
+  "jobId" : ""
 }
 ```
 
@@ -174,51 +173,51 @@ When we can't get the job info, the response will be:
 ```json
 [
   {
-    "processors": "8",
-    "physical.memory.total": "16.0G",
-    "physical.memory.free": "16.3M",
-    "swap.space.total": "0",
-    "swap.space.free": "0",
-    "heap.memory.used": "135.7M",
-    "heap.memory.free": "440.8M",
-    "heap.memory.total": "576.5M",
-    "heap.memory.max": "3.6G",
-    "heap.memory.used/total": "23.54%",
-    "heap.memory.used/max": "3.73%",
-    "minor.gc.count": "6",
-    "minor.gc.time": "110ms",
-    "major.gc.count": "2",
-    "major.gc.time": "73ms",
-    "load.process": "24.78%",
-    "load.system": "60.00%",
-    "load.systemAverage": "2.07",
-    "thread.count": "117",
-    "thread.peakCount": "118",
-    "cluster.timeDiff": "0",
-    "event.q.size": "0",
-    "executor.q.async.size": "0",
-    "executor.q.client.size": "0",
-    "executor.q.client.query.size": "0",
-    "executor.q.client.blocking.size": "0",
-    "executor.q.query.size": "0",
-    "executor.q.scheduled.size": "0",
-    "executor.q.io.size": "0",
-    "executor.q.system.size": "0",
-    "executor.q.operations.size": "0",
-    "executor.q.priorityOperation.size": "0",
-    "operations.completed.count": "10",
-    "executor.q.mapLoad.size": "0",
-    "executor.q.mapLoadAllKeys.size": "0",
-    "executor.q.cluster.size": "0",
-    "executor.q.response.size": "0",
-    "operations.running.count": "0",
-    "operations.pending.invocations.percentage": "0.00%",
-    "operations.pending.invocations.count": "0",
-    "proxy.count": "8",
-    "clientEndpoint.count": "0",
-    "connection.active.count": "2",
-    "client.connection.count": "0",
-    "connection.count": "0"
+    "processors":"8",
+    "physical.memory.total":"16.0G",
+    "physical.memory.free":"16.3M",
+    "swap.space.total":"0",
+    "swap.space.free":"0",
+    "heap.memory.used":"135.7M",
+    "heap.memory.free":"440.8M",
+    "heap.memory.total":"576.5M",
+    "heap.memory.max":"3.6G",
+    "heap.memory.used/total":"23.54%",
+    "heap.memory.used/max":"3.73%",
+    "minor.gc.count":"6",
+    "minor.gc.time":"110ms",
+    "major.gc.count":"2",
+    "major.gc.time":"73ms",
+    "load.process":"24.78%",
+    "load.system":"60.00%",
+    "load.systemAverage":"2.07",
+    "thread.count":"117",
+    "thread.peakCount":"118",
+    "cluster.timeDiff":"0",
+    "event.q.size":"0",
+    "executor.q.async.size":"0",
+    "executor.q.client.size":"0",
+    "executor.q.client.query.size":"0",
+    "executor.q.client.blocking.size":"0",
+    "executor.q.query.size":"0",
+    "executor.q.scheduled.size":"0",
+    "executor.q.io.size":"0",
+    "executor.q.system.size":"0",
+    "executor.q.operations.size":"0",
+    "executor.q.priorityOperation.size":"0",
+    "operations.completed.count":"10",
+    "executor.q.mapLoad.size":"0",
+    "executor.q.mapLoadAllKeys.size":"0",
+    "executor.q.cluster.size":"0",
+    "executor.q.response.size":"0",
+    "operations.running.count":"0",
+    "operations.pending.invocations.percentage":"0.00%",
+    "operations.pending.invocations.count":"0",
+    "proxy.count":"8",
+    "clientEndpoint.count":"0",
+    "connection.active.count":"2",
+    "client.connection.count":"0",
+    "connection.count":"0"
   }
 ]
 ```
@@ -244,33 +243,31 @@ When we can't get the job info, the response will be:
 
 ```json
 {
-  "env": {
-    "job.mode": "batch"
-  },
-  "source": [
-    {
-      "plugin_name": "FakeSource",
-      "result_table_name": "fake",
-      "row.num": 100,
-      "schema": {
-        "fields": {
-          "name": "string",
-          "age": "int",
-          "card": "int"
+    "env": {
+        "job.mode": "batch"
+    },
+    "source": [
+        {
+            "plugin_name": "FakeSource",
+            "result_table_name": "fake",
+            "row.num": 100,
+            "schema": {
+                "fields": {
+                    "name": "string",
+                    "age": "int",
+                    "card": "int"
+                }
+            }
         }
-      }
-    }
-  ],
-  "transform": [
-  ],
-  "sink": [
-    {
-      "plugin_name": "Console",
-      "source_table_name": [
-        "fake"
-      ]
-    }
-  ]
+    ],
+    "transform": [
+    ],
+    "sink": [
+        {
+            "plugin_name": "Console",
+            "source_table_name": ["fake"]
+        }
+    ]
 }
 ```
 
@@ -278,8 +275,8 @@ When we can't get the job info, the response will be:
 
 ```json
 {
-  "jobId": 733584788375666689,
-  "jobName": "rest_api_test"
+    "jobId": 733584788375666689,
+    "jobName": "rest_api_test"
 }
 ```
 
@@ -296,16 +293,8 @@ When we can't get the job info, the response will be:
 
 ```json
 {
-  "jobId": 733584788375666689,
-  "isStopWithSavePoint": false
-  #
-  if
-  job
-  is
-  stopped
-  with
-  save
-  point
+    "jobId": 733584788375666689,
+    "isStopWithSavePoint": false # if job is stopped with save point
 }
 ```
 
@@ -313,7 +302,7 @@ When we can't get the job info, the response will be:
 
 ```json
 {
-  "jobId": 733584788375666689
+"jobId": 733584788375666689
 }
 ```
 
@@ -331,39 +320,39 @@ For more information about customize encryption, please refer to the documentati
 
 ```json
 {
-  "env": {
-    "parallelism": 1,
-    "shade.identifier": "base64"
-  },
-  "source": [
-    {
-      "plugin_name": "MySQL-CDC",
-      "schema": {
-        "fields": {
-          "name": "string",
-          "age": "int"
+    "env": {
+        "parallelism": 1,
+        "shade.identifier":"base64"
+    },
+    "source": [
+        {
+            "plugin_name": "MySQL-CDC",
+            "schema" : {
+                "fields": {
+                    "name": "string",
+                    "age": "int"
+                }
+            },
+            "result_table_name": "fake",
+            "parallelism": 1,
+            "hostname": "127.0.0.1",
+            "username": "seatunnel",
+            "password": "seatunnel_password",
+            "table-name": "inventory_vwyw0n"
         }
-      },
-      "result_table_name": "fake",
-      "parallelism": 1,
-      "hostname": "127.0.0.1",
-      "username": "seatunnel",
-      "password": "seatunnel_password",
-      "table-name": "inventory_vwyw0n"
-    }
-  ],
-  "transform": [
-  ],
-  "sink": [
-    {
-      "plugin_name": "Clickhouse",
-      "host": "localhost:8123",
-      "database": "default",
-      "table": "fake_all",
-      "username": "seatunnel",
-      "password": "seatunnel_password"
-    }
-  ]
+    ],
+    "transform": [
+    ],
+    "sink": [
+        {
+            "plugin_name": "Clickhouse",
+            "host": "localhost:8123",
+            "database": "default",
+            "table": "fake_all",
+            "username": "seatunnel",
+            "password": "seatunnel_password"
+        }
+    ]
 }
 ```
 
@@ -371,38 +360,38 @@ For more information about customize encryption, please refer to the documentati
 
 ```json
 {
-  "env": {
-    "parallelism": 1,
-    "shade.identifier": "base64"
-  },
-  "source": [
-    {
-      "plugin_name": "MySQL-CDC",
-      "schema": {
-        "fields": {
-          "name": "string",
-          "age": "int"
+    "env": {
+        "parallelism": 1,
+        "shade.identifier": "base64"
+    },
+    "source": [
+        {
+            "plugin_name": "MySQL-CDC",
+            "schema": {
+                "fields": {
+                    "name": "string",
+                    "age": "int"
+                }
+            },
+            "result_table_name": "fake",
+            "parallelism": 1,
+            "hostname": "127.0.0.1",
+            "username": "c2VhdHVubmVs",
+            "password": "c2VhdHVubmVsX3Bhc3N3b3Jk",
+            "table-name": "inventory_vwyw0n"
         }
-      },
-      "result_table_name": "fake",
-      "parallelism": 1,
-      "hostname": "127.0.0.1",
-      "username": "c2VhdHVubmVs",
-      "password": "c2VhdHVubmVsX3Bhc3N3b3Jk",
-      "table-name": "inventory_vwyw0n"
-    }
-  ],
-  "transform": [],
-  "sink": [
-    {
-      "plugin_name": "Clickhouse",
-      "host": "localhost:8123",
-      "database": "default",
-      "table": "fake_all",
-      "username": "c2VhdHVubmVs",
-      "password": "c2VhdHVubmVsX3Bhc3N3b3Jk"
-    }
-  ]
+    ],
+    "transform": [],
+    "sink": [
+        {
+            "plugin_name": "Clickhouse",
+            "host": "localhost:8123",
+            "database": "default",
+            "table": "fake_all",
+            "username": "c2VhdHVubmVs",
+            "password": "c2VhdHVubmVsX3Bhc3N3b3Jk"
+        }
+    ]
 }
 ```
 
