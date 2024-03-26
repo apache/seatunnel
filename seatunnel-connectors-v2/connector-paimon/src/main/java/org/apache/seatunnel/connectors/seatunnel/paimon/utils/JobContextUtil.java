@@ -15,22 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.oss.exception;
+package org.apache.seatunnel.connectors.seatunnel.paimon.utils;
 
-import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
-import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.api.common.JobContext;
+import org.apache.seatunnel.common.constants.JobMode;
 
-public class OssJindoConnectorException extends SeaTunnelRuntimeException {
-    public OssJindoConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage) {
-        super(seaTunnelErrorCode, errorMessage);
-    }
+import lombok.extern.slf4j.Slf4j;
 
-    public OssJindoConnectorException(
-            SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
-        super(seaTunnelErrorCode, errorMessage, cause);
-    }
+/** Job env util */
+@Slf4j
+public class JobContextUtil {
 
-    public OssJindoConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, Throwable cause) {
-        super(seaTunnelErrorCode, cause);
+    public static boolean isBatchJob(JobContext jobContext) {
+        return jobContext.getJobMode().equals(JobMode.BATCH);
     }
 }

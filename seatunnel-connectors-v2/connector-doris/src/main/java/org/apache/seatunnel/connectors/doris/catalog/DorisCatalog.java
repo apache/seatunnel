@@ -20,7 +20,9 @@ package org.apache.seatunnel.connectors.doris.catalog;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.PreviewResult;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
+import org.apache.seatunnel.api.table.catalog.SQLPreviewResult;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
@@ -49,6 +51,9 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+
+import static com.google.common.base.Preconditions.checkArgument;
 
 public class DorisCatalog implements Catalog {
 
@@ -339,8 +344,7 @@ public class DorisCatalog implements Catalog {
             throws TableNotExistException, CatalogException {
         try {
             if (ignoreIfNotExists) {
-                conn.createStatement()
-                        .execute(String.format("TRUNCATE TABLE  %s", tablePath.getFullName()));
+                conn.createStatement().execute(DorisCatalogUtil.getTruncateTableQuery(tablePath));
             }
         } catch (Exception e) {
             throw new CatalogException(
@@ -357,6 +361,29 @@ public class DorisCatalog implements Catalog {
             return resultSet.next();
         } catch (SQLException e) {
             throw new CatalogException(String.format("Failed executeSql error %s", sql), e);
+        }
+    }
+
+    @Override
+    public PreviewResult previewAction(
+            ActionType actionType, TablePath tablePath, Optional<CatalogTable> catalogTable) {
+        if (actionType == ActionType.CREATE_TABLE) {
+            checkArgument(catalogTable.isPresent(), "CatalogTable cannot be null");
+            return new SQLPreviewResult(
+                    DorisCatalogUtil.getCreateTableStatement(
+                            dorisConfig.getCreateTableTemplate(), tablePath, catalogTable.get()));
+        } else if (actionType == ActionType.DROP_TABLE) {
+            return new SQLPreviewResult(DorisCatalogUtil.getDropTableQuery(tablePath, true));
+        } else if (actionType == ActionType.TRUNCATE_TABLE) {
+            return new SQLPreviewResult(DorisCatalogUtil.getTruncateTableQuery(tablePath));
+        } else if (actionType == ActionType.CREATE_DATABASE) {
+            return new SQLPreviewResult(
+                    DorisCatalogUtil.getCreateDatabaseQuery(tablePath.getDatabaseName(), true));
+        } else if (actionType == ActionType.DROP_DATABASE) {
+            return new SQLPreviewResult(
+                    DorisCatalogUtil.getDropDatabaseQuery(tablePath.getDatabaseName(), true));
+        } else {
+            throw new UnsupportedOperationException("Unsupported action type: " + actionType);
         }
     }
 }

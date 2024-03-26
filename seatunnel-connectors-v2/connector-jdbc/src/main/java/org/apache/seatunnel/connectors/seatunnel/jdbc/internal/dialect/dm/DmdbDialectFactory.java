@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dm;
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectFactory;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
 
 import com.google.auto.service.AutoService;
 
@@ -33,6 +34,11 @@ public class DmdbDialectFactory implements JdbcDialectFactory {
 
     @Override
     public JdbcDialect create() {
-        return new DmdbDialect();
+        return create(null, FieldIdeEnum.ORIGINAL.getValue());
+    }
+
+    @Override
+    public JdbcDialect create(String compatibleMode, String fieldIde) {
+        return new DmdbDialect(fieldIde);
     }
 }

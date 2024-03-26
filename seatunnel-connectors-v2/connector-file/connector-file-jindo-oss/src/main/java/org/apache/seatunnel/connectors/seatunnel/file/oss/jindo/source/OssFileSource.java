@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.oss.source;
+package org.apache.seatunnel.connectors.seatunnel.file.oss.jindo.source;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -33,9 +33,9 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssConf;
-import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssConfigOptions;
-import org.apache.seatunnel.connectors.seatunnel.file.oss.exception.OssJindoConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.file.oss.jindo.config.OssConf;
+import org.apache.seatunnel.connectors.seatunnel.file.oss.jindo.config.OssConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.oss.jindo.exception.OssJindoConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.source.BaseFileSource;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategyFactory;
 

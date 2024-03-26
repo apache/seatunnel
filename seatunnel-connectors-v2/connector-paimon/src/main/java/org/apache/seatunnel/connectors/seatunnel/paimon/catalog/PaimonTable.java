@@ -15,21 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.common.loader;
+package org.apache.seatunnel.connectors.seatunnel.paimon.catalog;
 
-import lombok.extern.slf4j.Slf4j;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
+import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 
-@Slf4j
-public class ClassLoaderUtil {
+import org.apache.paimon.table.Table;
 
-    public static void recycleClassLoaderFromThread(ClassLoader classLoader) {
-        log.info("recycle classloader " + classLoader);
-        Thread.getAllStackTraces().keySet().stream()
-                .filter(thread -> thread.getContextClassLoader() == classLoader)
-                .forEach(
-                        thread -> {
-                            log.info("recycle classloader for thread " + thread.getName());
-                            thread.setContextClassLoader(null);
-                        });
-    }
+public interface PaimonTable {
+    Table getPaimonTable(TablePath tablePath) throws CatalogException, TableNotExistException;
 }

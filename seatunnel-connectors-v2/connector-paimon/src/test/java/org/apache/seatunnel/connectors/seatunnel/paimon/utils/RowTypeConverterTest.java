@@ -103,7 +103,7 @@ public class RowTypeConverterTest {
 
     @Test
     public void seaTunnelToPaimon() {
-        RowType convert = RowTypeConverter.convert(seaTunnelRowType);
+        RowType convert = RowTypeConverter.reconvert(seaTunnelRowType);
         Assertions.assertEquals(convert, rowType);
     }
 }

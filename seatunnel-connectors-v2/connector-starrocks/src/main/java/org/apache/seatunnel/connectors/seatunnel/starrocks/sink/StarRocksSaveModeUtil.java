@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.starrocks.sink;
 
 import org.apache.seatunnel.api.sink.SaveModeConstants;
 import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -37,7 +38,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 public class StarRocksSaveModeUtil {
 
-    public static String fillingCreateSql(
+    public static String getCreateTableSql(
             String template, String database, String table, TableSchema tableSchema) {
         String primaryKey = "";
         if (tableSchema.getPrimaryKey() != null) {
@@ -177,5 +178,33 @@ public class StarRocksSaveModeUtil {
             default:
         }
         throw new IllegalArgumentException("Unsupported SeaTunnel's data type: " + dataType);
+    }
+
+    public static String getCreateDatabaseSql(String database, boolean ignoreIfExists) {
+        if (ignoreIfExists) {
+            return "CREATE DATABASE IF NOT EXISTS `" + database + "`";
+        } else {
+            return "CREATE DATABASE `" + database + "`";
+        }
+    }
+
+    public static String getDropDatabaseSql(String database, boolean ignoreIfNotExists) {
+        if (ignoreIfNotExists) {
+            return "DROP DATABASE IF EXISTS `" + database + "`";
+        } else {
+            return "DROP DATABASE `" + database + "`";
+        }
+    }
+
+    public static String getDropTableSql(TablePath tablePath, boolean ignoreIfNotExists) {
+        if (ignoreIfNotExists) {
+            return "DROP TABLE IF EXISTS " + tablePath.getFullName();
+        } else {
+            return "DROP TABLE " + tablePath.getFullName();
+        }
+    }
+
+    public static String getTruncateTableSql(TablePath tablePath) {
+        return "TRUNCATE TABLE " + tablePath.getFullName();
     }
 }

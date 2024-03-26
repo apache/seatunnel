@@ -29,14 +29,12 @@ import org.apache.seatunnel.connectors.doris.source.reader.DorisSourceReader;
 import org.apache.seatunnel.connectors.doris.source.split.DorisSourceSplit;
 import org.apache.seatunnel.connectors.doris.source.split.DorisSourceSplitEnumerator;
 
-import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Collections;
 import java.util.List;
 
 @Slf4j
-@AutoService(SeaTunnelSource.class)
 public class DorisSource
         implements SeaTunnelSource<SeaTunnelRow, DorisSourceSplit, DorisSourceState> {
 

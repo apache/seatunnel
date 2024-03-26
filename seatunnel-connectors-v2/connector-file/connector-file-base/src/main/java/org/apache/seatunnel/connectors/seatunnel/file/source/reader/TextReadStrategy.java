@@ -57,6 +57,7 @@ public class TextReadStrategy extends AbstractReadStrategy {
     private TimeUtils.Formatter timeFormat = BaseSourceConfigOptions.TIME_FORMAT.defaultValue();
     private CompressFormat compressFormat = BaseSourceConfigOptions.COMPRESS_CODEC.defaultValue();
     private int[] indexes;
+    private String encoding = BaseSourceConfigOptions.ENCODING.defaultValue();
 
     @Override
     public void read(String path, String tableId, Collector<SeaTunnelRow> output)
@@ -80,14 +81,15 @@ public class TextReadStrategy extends AbstractReadStrategy {
         }
 
         try (BufferedReader reader =
-                new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
+                new BufferedReader(new InputStreamReader(inputStream, encoding))) {
             reader.lines()
                     .skip(skipHeaderNumber)
                     .forEach(
                             line -> {
                                 try {
                                     SeaTunnelRow seaTunnelRow =
-                                            deserializationSchema.deserialize(line.getBytes());
+                                            deserializationSchema.deserialize(
+                                                    line.getBytes(StandardCharsets.UTF_8));
                                     if (!readColumns.isEmpty()) {
                                         // need column projection
                                         Object[] fields;
@@ -160,6 +162,10 @@ public class TextReadStrategy extends AbstractReadStrategy {
         Optional<String> fieldDelimiterOptional =
                 ReadonlyConfig.fromConfig(pluginConfig)
                         .getOptional(BaseSourceConfigOptions.FIELD_DELIMITER);
+        encoding =
+                ReadonlyConfig.fromConfig(pluginConfig)
+                        .getOptional(BaseSourceConfigOptions.ENCODING)
+                        .orElse(StandardCharsets.UTF_8.name());
         if (fieldDelimiterOptional.isPresent()) {
             fieldDelimiter = fieldDelimiterOptional.get();
         } else {

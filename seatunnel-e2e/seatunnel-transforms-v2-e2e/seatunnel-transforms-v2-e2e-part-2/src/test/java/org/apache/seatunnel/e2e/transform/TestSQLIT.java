@@ -17,7 +17,9 @@
 
 package org.apache.seatunnel.e2e.transform;
 
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestTemplate;
@@ -57,5 +59,16 @@ public class TestSQLIT extends TestSuiteBase {
         Assertions.assertEquals(0, sqlAllColumns.getExitCode());
         Container.ExecResult caseWhenSql = container.executeJob("/sql_transform/case_when.conf");
         Assertions.assertEquals(0, caseWhenSql.getExitCode());
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK},
+            disabledReason = "Spark translation has some issue on map convert")
+    public void testInnerQuery(TestContainer container) throws IOException, InterruptedException {
+        Container.ExecResult innerQuerySql =
+                container.executeJob("/sql_transform/inner_query.conf");
+        Assertions.assertEquals(0, innerQuerySql.getExitCode());
     }
 }
