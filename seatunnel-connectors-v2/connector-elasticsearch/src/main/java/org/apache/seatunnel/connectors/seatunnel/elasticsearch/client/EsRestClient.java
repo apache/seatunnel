@@ -556,6 +556,8 @@ public class EsRestClient {
                             if (fieldProperty.has("type")) {
                                 allElasticSearchFieldTypeInfoMap.put(
                                         fieldName, fieldProperty.get("type").asText());
+                            } else {
+                                allElasticSearchFieldTypeInfoMap.put(fieldName, "text");
                             }
                         });
         if (CollectionUtils.isEmpty(source)) {
