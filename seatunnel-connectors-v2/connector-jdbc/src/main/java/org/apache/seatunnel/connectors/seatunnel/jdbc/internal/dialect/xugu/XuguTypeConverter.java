@@ -82,7 +82,8 @@ public class XuguTypeConverter implements TypeConverter<BasicTypeDefine> {
     public static final int TIMESTAMP_DEFAULT_SCALE = 3;
     public static final int MAX_TIMESTAMP_SCALE = 6;
     public static final int MAX_TIME_SCALE = 3;
-    public static final long MAX_VARCHAR_LENGTH = 60000;
+    //XUGU_CHAR XUGU_VARCHAR XUGU_VARCHAR2 max logical byte of 64K ,character length of 32767
+    public static final long MAX_VARCHAR_LENGTH = 32767;
     public static final long POWER_2_16 = (long) Math.pow(2, 16);
     public static final long BYTES_2GB = (long) Math.pow(2, 31);
     public static final long MAX_VARBINARY_LENGTH = POWER_2_16 - 4;
