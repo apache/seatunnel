@@ -59,6 +59,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | xml_use_attr_format       | boolean | no       | -                                    |
 | file_filter_pattern       | string  | no       | -                                    |
 | compress_codec            | string  | no       | none                                 |
+| encoding                  | string  | no       | UTF-8                                |
 | common-options            |         | no       | -                                    |
 | tables_configs            | list    | no       | used to define a multiple table task |
 
@@ -256,6 +257,11 @@ The compress codec of files and the details that supported as the following show
 - orc/parquet:  
   automatically recognizes the compression type, no additional settings required.
 
+### encoding [string]
+
+Only used when file_format_type is json,text,csv,xml.
+The encoding of the file to read. This param will be parsed by `Charset.forName(encoding)`.
+
 ### common options
 
 Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
@@ -288,6 +294,18 @@ LocalFile {
   }
   path = "/apps/hive/demo/student"
   file_format_type = "json"
+}
+
+```
+
+For json, text or csv file format with `encoding`
+
+```hocon
+
+LocalFile {
+    path = "/tmp/hive/warehouse/test2"
+    file_format_type = "text"
+    encoding = "gbk"
 }
 
 ```
