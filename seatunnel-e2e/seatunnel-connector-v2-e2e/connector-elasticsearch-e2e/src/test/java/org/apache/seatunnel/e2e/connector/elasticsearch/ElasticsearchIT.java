@@ -220,9 +220,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                             x.remove("_id");
                             // I don’t know if converting the test cases in this way complies with
                             // the CI specification
-                            x.replace(
-                                    "c_timestamp",
-                                    Long.valueOf(x.get("c_timestamp").toString()));
+                            x.replace("c_timestamp", Long.valueOf(x.get("c_timestamp").toString()));
                         });
         List<String> docs =
                 scrollResult.getDocs().stream()
