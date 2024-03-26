@@ -197,8 +197,12 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
     }
 
     private List<String> readSinkDataWithOutSchema() throws InterruptedException {
+        Map<String, String> esFieldType =
+                esRestClient.getFieldTypeMapping("st_index2", Lists.newArrayList());
+
         // wait for index refresh
         Thread.sleep(2000);
+        List<String> source = new ArrayList<>(esFieldType.keySet());
         HashMap<String, Object> rangeParam = new HashMap<>();
         rangeParam.put("gte", 10);
         rangeParam.put("lte", 20);
@@ -206,7 +210,8 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         range.put("c_int", rangeParam);
         Map<String, Object> query = new HashMap<>();
         query.put("range", range);
-        ScrollResult scrollResult = esRestClient.searchByScroll("st_index2", query, "1m", 1000);
+        ScrollResult scrollResult =
+                esRestClient.searchByScroll("st_index2", source, query, "1m", 1000);
         scrollResult
                 .getDocs()
                 .forEach(
