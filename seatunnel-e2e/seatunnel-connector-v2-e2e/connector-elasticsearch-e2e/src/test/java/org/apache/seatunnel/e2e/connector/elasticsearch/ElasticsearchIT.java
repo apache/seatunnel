@@ -210,7 +210,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         Map<String, Object> query = new HashMap<>();
         query.put("range", range);
         ScrollResult scrollResult =
-                esRestClient.searchByScroll("st_index2", source, query, "1m", 1000);
+                esRestClient.searchByScroll("st_index", source, query, "1m", 1000);
         scrollResult
                 .getDocs()
                 .forEach(
