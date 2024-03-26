@@ -48,10 +48,12 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.text.DateFormat;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -218,6 +220,11 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                             x.remove("_index");
                             x.remove("_type");
                             x.remove("_id");
+                            x.replace(
+                                    "c_timestamp",
+                                    LocalDateTime.parse(String.valueOf(x.get("c_timestamp")))
+                                            .toInstant(ZoneOffset.UTC)
+                                            .toEpochMilli());
                         });
         List<String> docs =
                 scrollResult.getDocs().stream()
