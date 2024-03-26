@@ -30,7 +30,7 @@ public class SingleChoiceOption<T> extends Option<T> {
     public SingleChoiceOption(
             String key, TypeReference<T> typeReference, List<T> optionValues, T defaultValue) {
         super(key, typeReference, defaultValue);
-        this.optionValues = optionValues;
+        this.optionValues = Collections.unmodifiableList(optionValues);
     }
 
     @Override
