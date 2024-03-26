@@ -17,7 +17,9 @@
 
 package org.apache.seatunnel.common.constants;
 
-public enum JobMode {
+import java.io.Serializable;
+
+public enum JobMode implements Serializable {
     BATCH,
     STREAMING
 }

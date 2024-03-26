@@ -32,11 +32,16 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Hashtable;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
+import java.util.Random;
 import java.util.Set;
 import java.util.SortedMap;
+import java.util.Stack;
 import java.util.TreeMap;
+import java.util.Vector;
 import java.util.concurrent.ConcurrentHashMap;
 
 /** Todo: move to common module */
@@ -87,6 +92,11 @@ public class ProtoStuffSerializer implements Serializer {
         WRAPPERS.add(Float[].class);
         WRAPPERS.add(Double[].class);
         WRAPPERS.add(String[].class);
+        WRAPPERS.add(Queue.class);
+        WRAPPERS.add(LinkedList.class);
+        WRAPPERS.add(Stack.class);
+        WRAPPERS.add(Vector.class);
+        WRAPPERS.add(Random.class);
     }
 
     @Override
