@@ -66,4 +66,10 @@ public class PaimonConfig implements Serializable {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("The file path of hdfs-site.xml");
+
+    public static final Option<String> PROJECTION =
+            Options.key("projection")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Decides which columns of the paimon table to read");
 }

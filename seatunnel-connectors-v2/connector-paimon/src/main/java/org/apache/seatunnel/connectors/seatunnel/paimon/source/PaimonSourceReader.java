@@ -47,10 +47,14 @@ public class PaimonSourceReader implements SourceReader<SeaTunnelRow, PaimonSour
     private final SeaTunnelRowType seaTunnelRowType;
     private volatile boolean noMoreSplit;
 
-    public PaimonSourceReader(Context context, Table table, SeaTunnelRowType seaTunnelRowType) {
+    private int[] projection;
+
+    public PaimonSourceReader(
+            Context context, Table table, SeaTunnelRowType seaTunnelRowType, int[] projection) {
         this.context = context;
         this.table = table;
         this.seaTunnelRowType = seaTunnelRowType;
+        this.projection = projection;
     }
 
     @Override
@@ -70,7 +74,10 @@ public class PaimonSourceReader implements SourceReader<SeaTunnelRow, PaimonSour
             if (Objects.nonNull(split)) {
                 // read logic
                 try (final RecordReader<InternalRow> reader =
-                        table.newReadBuilder().newRead().createReader(split.getSplit())) {
+                        table.newReadBuilder()
+                                .withProjection(projection)
+                                .newRead()
+                                .createReader(split.getSplit())) {
                     final RecordReaderIterator<InternalRow> rowIterator =
                             new RecordReaderIterator<>(reader);
                     while (rowIterator.hasNext()) {
