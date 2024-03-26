@@ -140,8 +140,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
     public void testElasticsearchWithoutSchema(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
-                container.executeJob(
-                        "/elasticsearch/elasticsearch_source_without_schema_and_sink.conf");
+                container.executeJob("/elasticsearch/elasticsearch_source_and_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
         List<String> sinkData = readSinkDataWithOutSchema();
         // for DSL is: {"range":{"c_int":{"gte":10,"lte":20}}}
@@ -211,7 +210,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         Map<String, Object> query = new HashMap<>();
         query.put("range", range);
         ScrollResult scrollResult =
-                esRestClient.searchByScroll("st_index", source, query, "1m", 1000);
+                esRestClient.searchByScroll("st_index2", source, query, "1m", 1000);
         scrollResult
                 .getDocs()
                 .forEach(
@@ -223,9 +222,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                             // the CI specification
                             x.replace(
                                     "c_timestamp",
-                                    LocalDateTime.parse(x.get("c_timestamp").toString())
-                                            .toInstant(ZoneOffset.UTC)
-                                            .toEpochMilli());
+                                    Long.valueOf(x.get("c_timestamp").toString()));
                         });
         List<String> docs =
                 scrollResult.getDocs().stream()
