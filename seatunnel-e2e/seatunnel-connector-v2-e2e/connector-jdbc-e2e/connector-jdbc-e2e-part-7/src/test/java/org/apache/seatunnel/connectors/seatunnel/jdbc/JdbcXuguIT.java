@@ -52,6 +52,7 @@ public class JdbcXuguIT extends AbstractJdbcIT {
     private static final String XUGU_SOURCE = "e2e_table_source";
     private static final String XUGU_SINK = "e2e_table_sink";
     private static final String CATALOG_DATABASE = "catalog_database";
+    private static final String CATALOG_TABLE = "e2e_table_catalog";
     private static final String XUGU_USERNAME = "SYSDBA";
     private static final String XUGU_PASSWORD = "SYSDBA";
     private static final int XUGU_PORT = 5138;
@@ -144,12 +145,13 @@ public class JdbcXuguIT extends AbstractJdbcIT {
                 .database(XUGU_DATABASE)
                 .sourceTable(XUGU_SOURCE)
                 .sinkTable(XUGU_SINK)
+                .catalogDatabase(CATALOG_DATABASE)
+                .catalogSchema(XUGU_SCHEMA)
+                .catalogTable(CATALOG_TABLE)
                 .createSql(CREATE_SQL)
                 .configFile(CONFIG_FILE)
                 .insertSql(insertSql)
                 .testData(testDataSet)
-                .catalogDatabase(CATALOG_DATABASE)
-                .catalogTable(XUGU_SINK)
                 .build();
     }
 
