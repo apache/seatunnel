@@ -79,7 +79,7 @@ Example:
 
 ```yaml
 jar-storage:
-   connector-jar-storage-enable：true
+   connector-jar-storage-enable: true
    connector-jar-storage-mode: SHARED
    connector-jar-storage-path: ""
    connector-jar-cleanup-task-interval: 3600
