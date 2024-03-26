@@ -53,22 +53,8 @@ public class ClickhouseFileSinkAggCommitter
     }
 
     @Override
-    public List<CKFileAggCommitInfo> commit(List<CKFileAggCommitInfo> aggregatedCommitInfo)
-            throws IOException {
-        aggregatedCommitInfo.forEach(
-                commitInfo ->
-                        commitInfo
-                                .getDetachedFiles()
-                                .forEach(
-                                        (shard, files) -> {
-                                            try {
-                                                this.attachFileToClickhouse(shard, files);
-                                            } catch (ClickHouseException e) {
-                                                throw new SeaTunnelException(
-                                                        "failed commit file to clickhouse", e);
-                                            }
-                                        }));
-        return new ArrayList<>();
+    public List<CKFileAggCommitInfo> commit(List<CKFileAggCommitInfo> aggregatedCommitInfo) throws IOException {
+        return null;
     }
 
     @Override
@@ -110,22 +96,6 @@ public class ClickhouseFileSinkAggCommitter
     public void close() throws IOException {
         if (proxy != null) {
             proxy.close();
-        }
-    }
-
-    private void attachFileToClickhouse(Shard shard, List<String> clickhouseLocalFiles)
-            throws ClickHouseException {
-        ClickHouseRequest<?> request = getProxy().getClickhouseConnection(shard);
-        for (String clickhouseLocalFile : clickhouseLocalFiles) {
-            ClickHouseResponse response =
-                    request.query(
-                                    String.format(
-                                            "ALTER TABLE %s ATTACH PART '%s'",
-                                            clickhouseTable.getLocalTableName(),
-                                            clickhouseLocalFile.substring(
-                                                    clickhouseLocalFile.lastIndexOf("/") + 1)))
-                            .executeAndWait();
-            response.close();
         }
     }
 }
