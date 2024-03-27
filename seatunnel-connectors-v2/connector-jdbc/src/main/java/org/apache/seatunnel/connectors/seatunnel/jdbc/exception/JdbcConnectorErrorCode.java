@@ -30,7 +30,8 @@ public enum JdbcConnectorErrorCode implements SeaTunnelErrorCode {
     NO_SUITABLE_DIALECT_FACTORY("JDBC-06", "No suitable dialect factory found"),
     DONT_SUPPORT_SINK("JDBC-07", "The jdbc type don't support sink"),
     KERBEROS_AUTHENTICATION_FAILED("JDBC-08", "Kerberos authentication failed"),
-    NO_SUPPORT_OPERATION_FAILED("JDBC-09", "The jdbc driver not support operation.");
+    NO_SUPPORT_OPERATION_FAILED("JDBC-09", "The jdbc driver not support operation."),
+    DATA_TYPE_CAST_FAILED("JDBC-10", "Data type cast failed");
     private final String code;
 
     private final String description;

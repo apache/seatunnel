@@ -31,7 +31,6 @@ import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.connectors.doris.config.DorisConfig;
 
 import com.google.auto.service.AutoService;
-import com.mysql.cj.MysqlType;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Locale;
@@ -120,10 +119,7 @@ public class DorisTypeConverterV2 extends AbstractDorisTypeConverter {
 
     private SeaTunnelDataType turnColumnTypeToSeaTunnelType(String columnType, String columnName) {
         BasicTypeDefine keyBasicTypeDefine =
-                BasicTypeDefine.<MysqlType>builder()
-                        .columnType(columnType)
-                        .name(columnName)
-                        .build();
+                BasicTypeDefine.builder().columnType(columnType).name(columnName).build();
         if (columnType.toUpperCase(Locale.ROOT).startsWith(DORIS_ARRAY_DECIMAL_PRE)) {
             int[] precisionAndScale = getPrecisionAndScale(columnType);
             keyBasicTypeDefine.setPrecision(Long.valueOf(precisionAndScale[0]));

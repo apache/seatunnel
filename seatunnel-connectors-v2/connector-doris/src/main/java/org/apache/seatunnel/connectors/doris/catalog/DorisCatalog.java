@@ -39,6 +39,7 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.doris.config.DorisConfig;
 import org.apache.seatunnel.connectors.doris.config.DorisOptions;
 import org.apache.seatunnel.connectors.doris.datatype.DorisTypeConverterFactory;
+import org.apache.seatunnel.connectors.doris.datatype.DorisTypeConverterV2;
 import org.apache.seatunnel.connectors.doris.util.DorisCatalogUtil;
 
 import org.apache.commons.lang3.StringUtils;
@@ -454,7 +455,11 @@ public class DorisCatalog implements Catalog {
             checkArgument(catalogTable.isPresent(), "CatalogTable cannot be null");
             return new SQLPreviewResult(
                     DorisCatalogUtil.getCreateTableStatement(
-                            dorisConfig.getCreateTableTemplate(), tablePath, catalogTable.get()));
+                            dorisConfig.getCreateTableTemplate(),
+                            tablePath,
+                            catalogTable.get(),
+                            // used for test when typeConverter is null
+                            typeConverter != null ? typeConverter : DorisTypeConverterV2.INSTANCE));
         } else if (actionType == ActionType.DROP_TABLE) {
             return new SQLPreviewResult(DorisCatalogUtil.getDropTableQuery(tablePath, true));
         } else if (actionType == ActionType.TRUNCATE_TABLE) {
