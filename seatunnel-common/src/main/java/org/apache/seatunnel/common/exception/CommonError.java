@@ -109,13 +109,6 @@ public class CommonError {
         return new SeaTunnelRuntimeException(UNSUPPORTED_ENCODING, params);
     }
 
-    public static SeaTunnelRuntimeException unsupportedVersion(String identifier, String version) {
-        Map<String, String> params = new HashMap<>();
-        params.put("identifier", identifier);
-        params.put("version", version);
-        return new SeaTunnelRuntimeException(VERSION_NOT_SUPPORTED, params);
-    }
-
     public static SeaTunnelRuntimeException convertToSeaTunnelTypeError(
             String connector, PluginType pluginType, String dataType, String field) {
         Map<String, String> params = new HashMap<>();

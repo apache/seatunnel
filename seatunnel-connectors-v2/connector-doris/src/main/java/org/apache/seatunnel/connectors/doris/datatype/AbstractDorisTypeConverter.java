@@ -211,7 +211,7 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
             return;
         }
 
-        if (column.getColumnLength() < 65533) {
+        if (column.getColumnLength() <= 65533) {
             builder.columnType(String.format("%s(%s)", DORIS_VARCHAR, column.getColumnLength()));
             builder.dataType(DORIS_VARCHAR);
             return;
