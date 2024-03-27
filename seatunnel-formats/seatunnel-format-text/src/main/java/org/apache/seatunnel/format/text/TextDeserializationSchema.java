@@ -41,6 +41,7 @@ import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 public class TextDeserializationSchema implements DeserializationSchema<SeaTunnelRow> {
@@ -145,7 +146,7 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
 
     private Map<Integer, String> splitLineBySeaTunnelRowType(
             String line, SeaTunnelRowType seaTunnelRowType, int level) {
-        String[] splits = line.split(separators[level], -1);
+        String[] splits = separateLine(line, separators[level]);
         LinkedHashMap<Integer, String> splitsMap = new LinkedHashMap<>();
         SeaTunnelDataType<?>[] fieldTypes = seaTunnelRowType.getFieldTypes();
         for (int i = 0; i < splits.length; i++) {
@@ -158,6 +159,50 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
             }
         }
         return splitsMap;
+    }
+
+    private  String[] separateLine(String line, String separator) {
+        List<String> fields = new ArrayList<>();
+        StringBuilder currentField = new StringBuilder();
+        boolean insideQuotedField = false;
+
+        for (int i = 0; i < line.length(); i++) {
+            char currentChar = line.charAt(i);
+
+            if (insideQuotedField) {
+                if (currentChar == '\"') {
+                    // Check if the next character is also a double-quote (escaped quote)
+                    if (i + 1 < line.length() && line.charAt(i + 1) == '\"') {
+                        // It's an escaped quote, add a single quote to the field
+                        currentField.append('\"');
+                        i++; // Skip the next character, which is the escaped quote
+                    } else {
+                        // It's the end of the quoted field
+                        insideQuotedField = false;
+                    }
+                } else {
+                    // It's just a regular character within a quoted field
+                    currentField.append(currentChar);
+                }
+            } else {
+                if (currentChar == '\"') {
+                    // Beginning of a quoted field
+                    insideQuotedField = true;
+                } else if (String.valueOf(currentChar).equals(separator)) {
+                    // It's the field delimiter, add the current field to the list
+                    fields.add(currentField.toString());
+                    currentField.setLength(0); // Reset the StringBuilder for the next field
+                } else {
+                    // It's just a regular character outside a quoted field
+                    currentField.append(currentChar);
+                }
+            }
+        }
+
+        // Add the last field to the list (if not already added)
+        fields.add(currentField.toString());
+
+        return fields.toArray(new String[0]);
     }
 
     private Object convert(String field, SeaTunnelDataType<?> fieldType, int level) {
