@@ -26,7 +26,6 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.common.exception.CommonError;
-import org.apache.seatunnel.connectors.seatunnel.common.source.TypeDefineUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 import com.google.auto.service.AutoService;
@@ -82,11 +81,10 @@ public class XuguTypeConverter implements TypeConverter<BasicTypeDefine> {
     public static final int TIMESTAMP_DEFAULT_SCALE = 3;
     public static final int MAX_TIMESTAMP_SCALE = 6;
     public static final int MAX_TIME_SCALE = 3;
-    // XUGU_VARCHAR XUGU_VARCHAR2 max logical byte of 64K ,character length of 32767
-    public static final long MAX_VARCHAR_LENGTH = 32767;
+    public static final long MAX_VARCHAR_LENGTH = 20000;
     public static final long POWER_2_16 = (long) Math.pow(2, 16);
     public static final long BYTES_2GB = (long) Math.pow(2, 31);
-    public static final long MAX_VARBINARY_LENGTH = POWER_2_16 - 4;
+    public static final long MAX_BINARY_LENGTH = POWER_2_16 - 4;
     public static final XuguTypeConverter INSTANCE = new XuguTypeConverter();
 
     @Override
@@ -105,9 +103,6 @@ public class XuguTypeConverter implements TypeConverter<BasicTypeDefine> {
                         .comment(typeDefine.getComment());
 
         String xuguDataType = typeDefine.getDataType().toUpperCase();
-        if (typeDefine.isUnsigned() && !(xuguDataType.endsWith(" UNSIGNED"))) {
-            xuguDataType = xuguDataType + " UNSIGNED";
-        }
         switch (xuguDataType) {
             case XUGU_BOOLEAN:
             case XUGU_BOOL:
@@ -158,12 +153,8 @@ public class XuguTypeConverter implements TypeConverter<BasicTypeDefine> {
             case XUGU_NCHAR:
             case XUGU_VARCHAR:
             case XUGU_VARCHAR2:
-                if (typeDefine.getLength() == null || typeDefine.getLength() <= 0) {
-                    builder.columnLength(TypeDefineUtils.charTo4ByteLength(1L));
-                } else {
-                    builder.columnLength(typeDefine.getLength());
-                }
                 builder.dataType(BasicType.STRING_TYPE);
+                builder.columnLength(typeDefine.getLength());
                 break;
             case XUGU_CLOB:
                 builder.dataType(BasicType.STRING_TYPE);
@@ -174,12 +165,8 @@ public class XuguTypeConverter implements TypeConverter<BasicTypeDefine> {
                 builder.dataType(BasicType.STRING_TYPE);
                 break;
             case XUGU_BINARY:
-                if (typeDefine.getLength() == null || typeDefine.getLength() <= 0) {
-                    builder.columnLength(1L);
-                } else {
-                    builder.columnLength(typeDefine.getLength());
-                }
                 builder.dataType(PrimitiveByteArrayType.INSTANCE);
+                builder.columnLength(MAX_BINARY_LENGTH);
                 break;
             case XUGU_BLOB:
                 builder.dataType(PrimitiveByteArrayType.INSTANCE);
@@ -314,9 +301,8 @@ public class XuguTypeConverter implements TypeConverter<BasicTypeDefine> {
                 if (column.getColumnLength() == null || column.getColumnLength() <= 0) {
                     builder.columnType(XUGU_BLOB);
                     builder.dataType(XUGU_BLOB);
-                } else if (column.getColumnLength() <= MAX_VARBINARY_LENGTH) {
-                    builder.columnType(
-                            String.format("%s(%s)", XUGU_BINARY, column.getColumnLength()));
+                } else if (column.getColumnLength() <= MAX_BINARY_LENGTH) {
+                    builder.columnType(XUGU_BINARY);
                     builder.dataType(XUGU_BINARY);
                 } else {
                     builder.columnType(XUGU_BLOB);
