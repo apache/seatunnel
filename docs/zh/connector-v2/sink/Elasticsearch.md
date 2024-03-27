@@ -102,7 +102,7 @@ PEM 或 JKS 信任存储的路径。运行 SeaTunnel 的操作系统用户必须
 
 ### common options
 
-Sink插件常用参数，请参考 [Sink常用选项](../../transform-v2/common-options.md) 了解详情
+Sink插件常用参数，请参考 [Sink常用选项](common-options.md) 了解详情
 
 ### schema_save_mode
 
