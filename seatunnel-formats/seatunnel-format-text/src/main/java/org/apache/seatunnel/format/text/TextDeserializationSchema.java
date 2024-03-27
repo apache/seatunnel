@@ -161,7 +161,7 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
         return splitsMap;
     }
 
-    private  String[] separateLine(String line, String separator) {
+    private String[] separateLine(String line, String separator) {
         List<String> fields = new ArrayList<>();
         StringBuilder currentField = new StringBuilder();
         boolean insideQuotedField = false;
