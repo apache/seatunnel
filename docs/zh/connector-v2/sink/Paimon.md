@@ -17,6 +17,7 @@ Apache Paimon数据连接器。支持cdc写以及自动建表。
 | warehouse                   | 字符串 | 是    | -                            | Paimon warehouse路径                                                                                |
 | database                    | 字符串 | 是    | -                            | 数据库名称                                                                                             |
 | table                       | 字符串 | 是    | -                            | 表名                                                                                                |
+| hdfs_site_path              | 字符串 | 否    | -                            | hdfs-site.xml文件路径                                                                                 |
 | schema_save_mode            | 枚举  | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST | Schema保存模式                                                                                        |
 | data_save_mode              | 枚举  | 否    | APPEND_DATA                  | 数据保存模式                                                                                            |
 | paimon.table.primary-keys   | 字符串 | 否    | -                            | 主键字段列表，联合主键使用逗号分隔(注意：分区字段需要包含在主键字段中)                                                              |
