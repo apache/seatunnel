@@ -148,6 +148,12 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testHbaseSource(TestContainer container) throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeJob("/hbase-to-assert.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    @TestTemplate
     public void testHbaseSinkWithArray(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/fake-to-hbase-array.conf");
