@@ -30,7 +30,7 @@ import com.google.auto.service.AutoService;
 public class PaimonCatalogFactory implements CatalogFactory {
     @Override
     public Catalog createCatalog(String catalogName, ReadonlyConfig readonlyConfig) {
-        return new PaimonCatalog(catalogName, readonlyConfig);
+        return new PaimonCatalog(catalogName, new PaimonSinkConfig(readonlyConfig));
     }
 
     @Override
@@ -48,7 +48,10 @@ public class PaimonCatalogFactory implements CatalogFactory {
                 .optional(
                         PaimonSinkConfig.HDFS_SITE_PATH,
                         PaimonSinkConfig.SCHEMA_SAVE_MODE,
-                        PaimonSinkConfig.DATA_SAVE_MODE)
+                        PaimonSinkConfig.DATA_SAVE_MODE,
+                        PaimonSinkConfig.PRIMARY_KEYS,
+                        PaimonSinkConfig.PARTITION_KEYS,
+                        PaimonSinkConfig.WRITE_PROPS)
                 .build();
     }
 }
