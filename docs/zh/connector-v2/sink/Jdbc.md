@@ -170,7 +170,7 @@ Tip: 如果目标数据库有SCHEMA的概念，则表参数必须写成`xxx.xxx`
 
 ### common options
 
-Sink插件常用参数，请参考 [Sink常用选项](../../transform-v2/common-options.md) 了解详情
+Sink插件常用参数，请参考 [Sink常用选项](common-options.md) 了解详情
 
 ### schema_save_mode [Enum]
 
