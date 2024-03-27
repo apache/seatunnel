@@ -50,6 +50,7 @@ sink {
 ```
 
 Then you will get the following data:
+
 ```json
 {"blockNumber":19525949,"timestamp":"2024-03-27T13:28:45.605Z"}
 ```
