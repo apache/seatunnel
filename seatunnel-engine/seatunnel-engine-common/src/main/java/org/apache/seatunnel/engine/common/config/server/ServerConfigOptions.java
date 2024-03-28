@@ -203,4 +203,8 @@ public class ServerConfigOptions {
                     .defaultValue(false)
                     .withDescription(
                             "Whether to use classloader cache mode. With cache mode, all jobs share the same classloader if the jars are the same");
+
+    public static final String EVENT_REPORT_HTTP = "event-report-http";
+    public static final String EVENT_REPORT_HTTP_URL = "url";
+    public static final String EVENT_REPORT_HTTP_HEADERS = "headers";
 }
