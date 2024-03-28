@@ -368,15 +368,23 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
                                 Assertions.assertEquals(column.getColumnLength(), 255L);
                             }
                             if (column.getName().equals("DECIMAL_TEST")) {
-                                Assertions.assertEquals(((DecimalType)column.getDataType()).getPrecision(), 18L);
-                                Assertions.assertEquals(((DecimalType)column.getDataType()).getScale(), 2L);
+                                Assertions.assertEquals(
+                                        ((DecimalType)column.getDataType()).getPrecision(),
+                                        18L);
+                                Assertions.assertEquals(
+                                        ((DecimalType)column.getDataType()).getScale(),
+                                        2L);
                             }
                             if (column.getName().equals("NCHAR_TEST")) {
                                 Assertions.assertEquals(column.getColumnLength(), 2L);
                             }
                             if (column.getName().equals("NUMERIC_TEST")) {
-                                Assertions.assertEquals(((DecimalType)column.getDataType()).getPrecision(), 18L);
-                                Assertions.assertEquals(((DecimalType)column.getDataType()).getScale(), 2L);
+                                Assertions.assertEquals(
+                                        ((DecimalType)column.getDataType()).getPrecision(),
+                                        18L);
+                                Assertions.assertEquals(
+                                        ((DecimalType)column.getDataType()).getScale(),
+                                        2L);
                             }
                             if (column.getName().equals("NVARCHAR_TEST")) {
                                 Assertions.assertEquals(column.getColumnLength(), 32L);
