@@ -39,17 +39,26 @@ public class ArrayType<T, E> implements SeaTunnelDataType<T> {
     public static final ArrayType<Double[], Double> DOUBLE_ARRAY_TYPE =
             new ArrayType<>(Double[].class, BasicType.DOUBLE_TYPE);
 
+    public static final ArrayType<LocalTimeType[], LocalTimeType> LOCAL_DATE_ARRAY_TYPE =
+            new ArrayType(LocalTimeType[].class, LocalTimeType.LOCAL_DATE_TYPE);
+
+    public static final ArrayType<LocalTimeType[], LocalTimeType> LOCAL_TIME_ARRAY_TYPE =
+            new ArrayType(LocalTimeType[].class, LocalTimeType.LOCAL_TIME_TYPE);
+
+    public static final ArrayType<LocalTimeType[], LocalTimeType> LOCAL_DATE_TIME_ARRAY_TYPE =
+            new ArrayType(LocalTimeType[].class, LocalTimeType.LOCAL_DATE_TIME_TYPE);
+
     // --------------------------------------------------------------------------------------------
 
     private final Class<T> arrayClass;
-    private final BasicType<E> elementType;
+    private final SeaTunnelDataType<E> elementType;
 
-    private ArrayType(Class<T> arrayClass, BasicType<E> elementType) {
+    protected ArrayType(Class<T> arrayClass, SeaTunnelDataType<E> elementType) {
         this.arrayClass = arrayClass;
         this.elementType = elementType;
     }
 
-    public BasicType<E> getElementType() {
+    public SeaTunnelDataType<E> getElementType() {
         return elementType;
     }
 

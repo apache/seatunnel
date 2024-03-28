@@ -48,7 +48,11 @@ public enum CommonErrorCode implements SeaTunnelErrorCode {
             "<identifier> <operation> file '<fileName>' failed, because it not existed."),
     WRITE_SEATUNNEL_ROW_ERROR(
             "COMMON-23",
-            "<connector> write SeaTunnelRow failed, the SeaTunnelRow value is '<seaTunnelRow>'.");
+            "<connector> write SeaTunnelRow failed, the SeaTunnelRow value is '<seaTunnelRow>'."),
+
+    PRIMARY_KEY_IS_NECESSARY("COMMON-24", "primary key is necessary"),
+
+    VERSION_NOT_SUPPORTED("COMMON-25", "<identifier> <version> is unsupported.");
 
     private final String code;
     private final String description;
