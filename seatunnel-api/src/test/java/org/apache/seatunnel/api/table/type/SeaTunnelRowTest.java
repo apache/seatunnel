@@ -104,4 +104,23 @@ public class SeaTunnelRowTest {
         SeaTunnelRow row = new SeaTunnelRow(new Object[] {map});
         Assertions.assertEquals(8, row.getBytesSize());
     }
+
+    @Test
+    void testArrayEmptyElement() {
+        String[] stringElements = {"key", null, "value"};
+        SeaTunnelRow stringRow = new SeaTunnelRow(new Object[] {stringElements});
+        Assertions.assertEquals(8, stringRow.getBytesSize());
+
+        Double[] doubleElements = {null, 10.0, 12.0};
+        SeaTunnelRow doubleRow = new SeaTunnelRow(new Object[] {doubleElements});
+        Assertions.assertEquals(16, doubleRow.getBytesSize());
+
+        String str = "seatunnel";
+        SeaTunnelRow strRow = new SeaTunnelRow(new Object[] {str});
+        Assertions.assertEquals(9, strRow.getBytesSize());
+
+        String nonStr = null;
+        SeaTunnelRow nonStrRow = new SeaTunnelRow(new Object[] {nonStr});
+        Assertions.assertEquals(0, nonStrRow.getBytesSize());
+    }
 }
