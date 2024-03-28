@@ -62,7 +62,7 @@ public class JdbcXuguIT extends AbstractJdbcIT {
 
     private static final List<String> CONFIG_FILE =
             Lists.newArrayList(
-                    "/jdbc_xugu_source_and_upset_sink.conf", "/jdbc_xugu_source_and_sink.conf");
+                    "/jdbc_xugu_source_and_upsert_sink.conf", "/jdbc_xugu_source_and_sink.conf");
     private static final String CREATE_SQL =
             "create table if not exists %s"
                     + "(\n"

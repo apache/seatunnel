@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.connectors.seatunnel.common.source.TypeDefineUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 import com.google.auto.service.AutoService;
@@ -151,10 +152,21 @@ public class XuguTypeConverter implements TypeConverter<BasicTypeDefine> {
 
             case XUGU_CHAR:
             case XUGU_NCHAR:
+                builder.dataType(BasicType.STRING_TYPE);
+                if (typeDefine.getLength() == null || typeDefine.getLength() <= 0) {
+                    builder.columnLength(TypeDefineUtils.charTo4ByteLength(1L));
+                } else {
+                    builder.columnLength(typeDefine.getLength());
+                }
+                break;
             case XUGU_VARCHAR:
             case XUGU_VARCHAR2:
                 builder.dataType(BasicType.STRING_TYPE);
-                builder.columnLength(typeDefine.getLength());
+                if (typeDefine.getLength() == null || typeDefine.getLength() <= 0) {
+                    builder.columnLength(TypeDefineUtils.charTo4ByteLength(MAX_VARCHAR_LENGTH));
+                } else {
+                    builder.columnLength(typeDefine.getLength());
+                }
                 break;
             case XUGU_CLOB:
                 builder.dataType(BasicType.STRING_TYPE);

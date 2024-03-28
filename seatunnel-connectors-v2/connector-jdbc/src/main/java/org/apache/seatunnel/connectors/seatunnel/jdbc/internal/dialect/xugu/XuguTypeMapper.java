@@ -43,7 +43,7 @@ public class XuguTypeMapper implements JdbcDialectTypeMapper {
         int isNullable = metadata.isNullable(colIndex);
         long precision = metadata.getPrecision(colIndex);
         int scale = metadata.getScale(colIndex);
-        if (Arrays.asList("CHAR", "VARCHAR", "VARCHAR2").contains(nativeType)) {
+        if (Arrays.asList("CHAR", "NCHAR", "VARCHAR", "VARCHAR2").contains(nativeType)) {
             long octetByteLength = TypeDefineUtils.charTo4ByteLength(precision);
             precision = octetByteLength;
         }
