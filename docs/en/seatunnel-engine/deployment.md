@@ -197,6 +197,8 @@ map:
            clusterName: seatunnel-cluster
            storage.type: hdfs
            fs.defaultFS: hdfs://localhost:9000
+           // if you need hdfs-site config, you can config like this:
+           hdfs_site_path: /path/to/your/hdfs_site_path
 ```
 
 If there is no HDFS and your cluster only have one node, you can config to use local file like this:

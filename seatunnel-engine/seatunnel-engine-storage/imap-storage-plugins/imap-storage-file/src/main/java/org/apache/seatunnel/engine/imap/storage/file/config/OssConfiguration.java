@@ -36,11 +36,11 @@ public class OssConfiguration extends AbstractConfiguration {
     private static final String OSS_KEY = "fs.oss.";
 
     @Override
-    public Configuration buildConfiguration(Map<String, Object> config)
+    public Configuration buildConfiguration(Map<String, String> config)
             throws IMapStorageException {
         checkConfiguration(config, OSS_BUCKET_KEY);
         Configuration hadoopConf = new Configuration();
-        hadoopConf.set(FS_DEFAULT_NAME_KEY, String.valueOf(config.get(OSS_BUCKET_KEY)));
+        hadoopConf.set(FS_DEFAULT_NAME_KEY, config.get(OSS_BUCKET_KEY));
         hadoopConf.set(OSS_IMPL_KEY, HDFS_OSS_IMPL);
         setExtraConfiguration(hadoopConf, config, OSS_KEY);
         return hadoopConf;

@@ -24,6 +24,7 @@ import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorag
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.security.UserGroupInformation;
 
 import java.io.IOException;
@@ -44,10 +45,12 @@ public class HdfsConfiguration extends AbstractConfiguration {
 
     private static final String KERBEROS_KEY = "kerberos";
 
-    /** ********* Hdfs constants ************* */
+    /** ******** Hdfs constants ************* */
     private static final String HDFS_IMPL = "org.apache.hadoop.hdfs.DistributedFileSystem";
 
     private static final String HDFS_IMPL_KEY = "fs.hdfs.impl";
+
+    private static final String HDFS_SITE_PATH = "hdfs_site_path";
 
     private static final String SEATUNNEL_HADOOP_PREFIX = "seatunnel.hadoop.";
 
@@ -71,6 +74,9 @@ public class HdfsConfiguration extends AbstractConfiguration {
                 authenticateKerberos(kerberosPrincipal, kerberosKeytabFilePath, hadoopConf);
             }
         }
+        if (config.containsKey(HDFS_SITE_PATH)) {
+            hadoopConf.addResource(new Path(config.get(HDFS_SITE_PATH)));
+        }
         //  support other hdfs optional config keys
         config.entrySet().stream()
                 .filter(entry -> entry.getKey().startsWith(SEATUNNEL_HADOOP_PREFIX))
@@ -80,6 +86,7 @@ public class HdfsConfiguration extends AbstractConfiguration {
                             String value = entry.getValue();
                             hadoopConf.set(key, value);
                         });
+
         return hadoopConf;
     }
 

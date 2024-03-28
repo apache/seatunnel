@@ -39,16 +39,16 @@ public class S3Configuration extends AbstractConfiguration {
     private static final String FS_KEY = "fs.";
 
     @Override
-    public Configuration buildConfiguration(Map<String, Object> config)
+    public Configuration buildConfiguration(Map<String, String> config)
             throws IMapStorageException {
         checkConfiguration(config, S3_BUCKET_KEY);
         String protocol = DEFAULT_PROTOCOL;
-        if (config.get(S3_BUCKET_KEY).toString().startsWith(S3A_PROTOCOL)) {
+        if (config.get(S3_BUCKET_KEY).startsWith(S3A_PROTOCOL)) {
             protocol = S3A_PROTOCOL;
         }
         String fsImpl = protocol.equals(S3A_PROTOCOL) ? HDFS_S3A_IMPL : HDFS_S3N_IMPL;
         Configuration hadoopConf = new Configuration();
-        hadoopConf.set(FS_DEFAULT_NAME_KEY, config.get(S3_BUCKET_KEY).toString());
+        hadoopConf.set(FS_DEFAULT_NAME_KEY, config.get(S3_BUCKET_KEY));
         hadoopConf.set(formatKey(protocol, HDFS_IMPL_KEY), fsImpl);
         setExtraConfiguration(hadoopConf, config, FS_KEY + protocol + SPLIT_CHAR);
         return hadoopConf;

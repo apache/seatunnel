@@ -144,6 +144,8 @@ seatunnel:
           // if you used kerberos, you can config like this:
           kerberosPrincipal: your-kerberos-principal
           kerberosKeytabFilePath: your-kerberos-keytab
+          // if you need hdfs-site config, you can config like this:
+          hdfs_site_path: /path/to/your/hdfs_site_path
 ```
 
 if HDFS is in HA mode , you can config like this:
