@@ -101,10 +101,17 @@ public abstract class AbstractTestSparkContainer extends AbstractTestContainer {
         extendedFactory.extend(master);
     }
 
+    @Override
     public Container.ExecResult executeJob(String confFile)
             throws IOException, InterruptedException {
+        return executeJob(confFile, null);
+    }
+
+    @Override
+    public Container.ExecResult executeJob(String confFile, List<String> variables)
+            throws IOException, InterruptedException {
         log.info("test in container: {}", identifier());
-        return executeJob(master, confFile);
+        return executeJob(master, confFile, variables);
     }
 
     @Override
