@@ -63,7 +63,7 @@ public class CompatibleKafkaConnectDeserializationSchema
     private transient Method keyConverterMethod;
     private transient Method valueConverterMethod;
     private final SeaTunnelRowType seaTunnelRowType;
-    private final JsonToRowConverters.JsonToRowConverter runtimeConverter;
+    private final JsonToRowConverters.JsonToObjectConverter runtimeConverter;
     private final boolean keySchemaEnable;
     private final boolean valueSchemaEnable;
     /** Object mapper for parsing the JSON. */
@@ -83,7 +83,7 @@ public class CompatibleKafkaConnectDeserializationSchema
         // Runtime converter
         this.runtimeConverter =
                 new JsonToRowConverters(failOnMissingField, ignoreParseErrors)
-                        .createConverter(checkNotNull(seaTunnelRowType));
+                        .createRowConverter(checkNotNull(seaTunnelRowType));
     }
 
     @Override
@@ -130,7 +130,7 @@ public class CompatibleKafkaConnectDeserializationSchema
         try {
             org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode jsonData =
                     objectMapper.readTree(jsonNode.toString());
-            return (SeaTunnelRow) runtimeConverter.convert(jsonData);
+            return (SeaTunnelRow) runtimeConverter.convert(jsonData, null);
         } catch (Throwable t) {
             throw CommonError.jsonOperationError(FORMAT, jsonNode.toString(), t);
         }

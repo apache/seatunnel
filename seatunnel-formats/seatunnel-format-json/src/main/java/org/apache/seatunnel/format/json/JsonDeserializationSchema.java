@@ -58,7 +58,7 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
     /**
      * Runtime converter that converts {@link JsonNode}s into objects of internal data structures.
      */
-    private final JsonToRowConverters.JsonToRowConverter runtimeConverter;
+    private final JsonToRowConverters.JsonToObjectConverter runtimeConverter;
 
     /** Object mapper for parsing the JSON. */
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -75,7 +75,7 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
         this.ignoreParseErrors = ignoreParseErrors;
         this.runtimeConverter =
                 new JsonToRowConverters(failOnMissingField, ignoreParseErrors)
-                        .createConverter(checkNotNull(rowType));
+                        .createRowConverter(checkNotNull(rowType));
 
         if (hasDecimalType(rowType)) {
             objectMapper.enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS);
@@ -132,7 +132,7 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
             return null;
         }
         try {
-            return (SeaTunnelRow) runtimeConverter.convert(jsonNode);
+            return (SeaTunnelRow) runtimeConverter.convert(jsonNode, null);
         } catch (RuntimeException e) {
             if (ignoreParseErrors) {
                 return null;
@@ -146,7 +146,7 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
     }
 
     public SeaTunnelRow convertToRowData(JsonNode message) {
-        return (SeaTunnelRow) runtimeConverter.convert(message);
+        return (SeaTunnelRow) runtimeConverter.convert(message, null);
     }
 
     private JsonNode convertBytes(byte[] message) {

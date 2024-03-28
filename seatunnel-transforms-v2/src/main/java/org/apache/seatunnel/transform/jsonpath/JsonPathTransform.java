@@ -53,7 +53,7 @@ public class JsonPathTransform extends MultipleFieldOutputTransform {
     private final JsonPathTransformConfig config;
     private final SeaTunnelRowType seaTunnelRowType;
 
-    private JsonToRowConverters.JsonToRowConverter[] converters;
+    private JsonToRowConverters.JsonToObjectConverter[] converters;
     private SeaTunnelRowType outputSeaTunnelRowType;
 
     private int[] srcFieldIndexArr;
@@ -83,7 +83,7 @@ public class JsonPathTransform extends MultipleFieldOutputTransform {
                 this.config.getColumnConfigs().stream()
                         .map(ColumnConfig::getDestType)
                         .map(jsonToRowConverters::createConverter)
-                        .toArray(JsonToRowConverters.JsonToRowConverter[]::new);
+                        .toArray(JsonToRowConverters.JsonToObjectConverter[]::new);
     }
 
     private void initOutputSeaTunnelRowType() {
@@ -136,7 +136,7 @@ public class JsonPathTransform extends MultipleFieldOutputTransform {
             SeaTunnelDataType<?> inputDataType,
             Object value,
             ColumnConfig columnConfig,
-            JsonToRowConverters.JsonToRowConverter converter) {
+            JsonToRowConverters.JsonToObjectConverter converter) {
         if (value == null) {
             return null;
         }
@@ -166,7 +166,7 @@ public class JsonPathTransform extends MultipleFieldOutputTransform {
             }
             Object result = JSON_PATH_CACHE.get(columnConfig.getPath()).read(jsonString);
             JsonNode jsonNode = JsonUtils.toJsonNode(result);
-            return converter.convert(jsonNode);
+            return converter.convert(jsonNode, null);
         } catch (JsonPathException e) {
             throw new TransformException(JSON_PATH_COMPILE_ERROR, e.getMessage());
         }
