@@ -89,10 +89,10 @@ public class StarRocksSinkFactory implements TableSinkFactory {
         String sinkDatabaseName = sinkConfig.getDatabase();
         String sinkTableName = sinkConfig.getTable();
         // to replace
-        if (StringUtils.isNotBlank(sourceDatabaseName)) {
-            sinkDatabaseName =
-                    sinkDatabaseName.replace(REPLACE_DATABASE_NAME_KEY, sourceDatabaseName);
-        }
+        sinkDatabaseName =
+                sinkDatabaseName.replace(
+                        REPLACE_DATABASE_NAME_KEY,
+                        sourceDatabaseName != null ? sourceDatabaseName : "");
         String finalTableName = this.replaceFullTableName(sinkTableName, tableId);
         // rebuild TableIdentifier and catalogTable
         TableIdentifier newTableId =
