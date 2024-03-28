@@ -26,13 +26,13 @@ import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
-import org.apache.seatunnel.connectors.seatunnel.file.factory.BaseMultipleTableFinkSinkFactory;
+import org.apache.seatunnel.connectors.seatunnel.file.factory.BaseMultipleTableFileSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssConfigOptions;
 
 import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
-public class OssFileSinkFactory extends BaseMultipleTableFinkSinkFactory {
+public class OssFileSinkFactory extends BaseMultipleTableFileSinkFactory {
     @Override
     public String factoryIdentifier() {
         return FileSystemType.OSS.getFileSystemPluginName();
