@@ -99,6 +99,9 @@ public class LocalFileIT extends TestSuiteBase {
                         container);
 
                 ContainerUtil.copyFileIntoContainers(
+                        "/orc/orc_for_cast.orc", "/seatunnel/read/orc_cast/e2e.orc", container);
+
+                ContainerUtil.copyFileIntoContainers(
                         "/parquet/e2e.parquet",
                         "/seatunnel/read/parquet/name=tyrantlucifer/hobby=coding/e2e.parquet",
                         container);
@@ -150,6 +153,8 @@ public class LocalFileIT extends TestSuiteBase {
         helper.execute("/orc/local_file_orc_to_assert.conf");
         // test read local orc file with projection
         helper.execute("/orc/local_file_orc_projection_to_assert.conf");
+        // test read local orc file with projection and type cast
+        helper.execute("/orc/local_file_orc_to_assert_with_time_and_cast.conf");
         // test write local parquet file
         helper.execute("/parquet/fake_to_local_file_parquet.conf");
         // test read local parquet file
