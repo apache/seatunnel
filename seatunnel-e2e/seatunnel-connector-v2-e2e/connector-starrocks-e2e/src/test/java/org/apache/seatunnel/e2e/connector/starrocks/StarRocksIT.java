@@ -110,6 +110,31 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                     + "\"storage_format\" = \"DEFAULT\""
                     + ")";
 
+    private static final String DDL_FAKE_SINK_TABLE =
+            "create table "
+                    + DATABASE
+                    + "."
+                    + "fake_table_sink"
+                    + " (\n"
+                    + "  id     BIGINT,\n"
+                    + "  c_string   STRING,\n"
+                    + "  c_boolean    BOOLEAN,\n"
+                    + "  c_tinyint    TINYINT,\n"
+                    + "  c_int        INT,\n"
+                    + "  c_bigint     BIGINT,\n"
+                    + "  c_float      FLOAT,\n"
+                    + "  c_double     DOUBLE,\n"
+                    + "  c_decimal    Decimal(2, 1),\n"
+                    + "  c_date       DATE\n"
+                    + ")ENGINE=OLAP\n"
+                    + "DUPLICATE KEY(`id`)\n"
+                    + "DISTRIBUTED BY HASH(`id`) BUCKETS 1\n"
+                    + "PROPERTIES (\n"
+                    + "\"replication_num\" = \"1\",\n"
+                    + "\"in_memory\" = \"false\","
+                    + "\"storage_format\" = \"DEFAULT\""
+                    + ")";
+
     private static final String INIT_DATA_SQL =
             "insert into "
                     + DATABASE
@@ -253,6 +278,13 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
         }
     }
 
+    @TestTemplate
+    public void testSinkWithCatalogTableNameOnly(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeJob("/fake-to-starrocks.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
     private void initializeJdbcConnection()
             throws SQLException, ClassNotFoundException, MalformedURLException,
                     InstantiationException, IllegalAccessException {
@@ -274,7 +306,7 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
             // create source table
             statement.execute(DDL_SOURCE);
             // create sink table
-            // statement.execute(DDL_SINK);
+            statement.execute(DDL_FAKE_SINK_TABLE);
         } catch (SQLException e) {
             throw new RuntimeException("Initializing table failed!", e);
         }
