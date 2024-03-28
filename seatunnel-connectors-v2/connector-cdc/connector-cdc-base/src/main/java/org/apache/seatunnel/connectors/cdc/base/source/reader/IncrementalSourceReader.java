@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
+import org.apache.seatunnel.connectors.cdc.base.source.event.CompletedSnapshotPhaseEvent;
 import org.apache.seatunnel.connectors.cdc.base.source.event.CompletedSnapshotSplitsReportEvent;
 import org.apache.seatunnel.connectors.cdc.base.source.event.SnapshotSplitWatermark;
 import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
@@ -207,7 +208,19 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
                 debeziumDeserializationSchema.restoreCheckpointProducedType(
                         incrementalSplit.getCheckpointDataType());
             }
-            return new IncrementalSplitState(split.asIncrementalSplit());
+            IncrementalSplitState splitState = new IncrementalSplitState(incrementalSplit);
+            if (splitState.autoEnterPureIncrementPhaseIfAllowed()) {
+                log.info(
+                        "The incremental split[{}] startup position {} is equal the maxSnapshotSplitsHighWatermark {}, auto enter pure increment phase.",
+                        incrementalSplit.splitId(),
+                        splitState.getStartupOffset(),
+                        splitState.getMaxSnapshotSplitsHighWatermark());
+                log.info("Clean the IncrementalSplit#completedSnapshotSplitInfos to empty.");
+                CompletedSnapshotPhaseEvent event =
+                        new CompletedSnapshotPhaseEvent(splitState.getTableIds());
+                context.sendSourceEventToEnumerator(event);
+            }
+            return splitState;
         }
     }
 

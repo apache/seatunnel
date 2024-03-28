@@ -181,6 +181,7 @@ public class SqlServerStreamingChangeEventSource
                         && shouldIncreaseFromLsn) {
                     LOGGER.debug("No change in the database");
                     metronome.pause();
+                    dispatcher.dispatchHeartbeatEvent(offsetContext);
                     continue;
                 }
 
