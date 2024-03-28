@@ -26,10 +26,14 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.catalog.ElasticSearchCatalog;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsRestClient;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.BulkResponse;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.ScrollResult;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.util.ContainerUtil;
+
+import org.apache.commons.io.IOUtils;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -48,6 +52,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -78,7 +83,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
     public void startUp() throws Exception {
         container =
                 new ElasticsearchContainer(
-                                DockerImageName.parse("elasticsearch:8.0.0")
+                                DockerImageName.parse("elasticsearch:8.9.0")
                                         .asCompatibleSubstituteFor(
                                                 "docker.elastic.co/elasticsearch/elasticsearch"))
                         .withNetwork(NETWORK)
@@ -89,7 +94,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                         .withStartupTimeout(Duration.ofMinutes(5))
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
-                                        DockerLoggerFactory.getLogger("elasticsearch:8.0.0")));
+                                        DockerLoggerFactory.getLogger("elasticsearch:8.9.0")));
         Startables.deepStart(Stream.of(container)).join();
         log.info("Elasticsearch container started");
         esRestClient =
@@ -105,6 +110,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                         Optional.empty());
         testDataset = generateTestDataSet();
         createIndexDocs();
+        createIndexWithFullType();
     }
 
     /** create a index,and bulk some documents */
@@ -125,6 +131,31 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         esRestClient.bulk(requestBody.toString());
     }
 
+    private void createIndexWithFullType() throws IOException, InterruptedException {
+        String mapping =
+                IOUtils.toString(
+                        ContainerUtil.getResourcesFile(
+                                        "/elasticsearch/st_index_full_type_mapping.json")
+                                .toURI(),
+                        StandardCharsets.UTF_8);
+        esRestClient.createIndex("st_index_full_type", mapping);
+        BulkResponse response =
+                esRestClient.bulk(
+                        "{ \"index\" : { \"_index\" : \"st_index_full_type\", \"_id\" : \"1\" } }\n"
+                                + IOUtils.toString(
+                                                ContainerUtil.getResourcesFile(
+                                                                "/elasticsearch/st_index_full_type_data.json")
+                                                        .toURI(),
+                                                StandardCharsets.UTF_8)
+                                        .replace("\n", "")
+                                + "\n");
+        Assertions.assertFalse(response.isErrors(), response.getResponse());
+        // waiting index refresh
+        Thread.sleep(2000L);
+        Assertions.assertEquals(
+                2, esRestClient.getIndexDocsCount("st_index_full_type").get(0).getDocsCount());
+    }
+
     @TestTemplate
     public void testElasticsearch(TestContainer container)
             throws IOException, InterruptedException {
@@ -134,6 +165,18 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         List<String> sinkData = readSinkData();
         // for DSL is: {"range":{"c_int":{"gte":10,"lte":20}}}
         Assertions.assertIterableEquals(mapTestDatasetForDSL(), sinkData);
+    }
+
+    @TestTemplate
+    public void testElasticsearchWithFullType(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/elasticsearch/elasticsearch_source_and_sink_full_type.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Thread.sleep(2000L);
+        Assertions.assertEquals(
+                1,
+                esRestClient.getIndexDocsCount("st_index_full_type_target").get(0).getDocsCount());
     }
 
     private List<String> generateTestDataSet() throws JsonProcessingException {

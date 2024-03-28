@@ -17,11 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.catalog;
 
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.DataTypeConvertor;
-import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SqlType;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsType;
 
 import com.google.auto.service.AutoService;
 
@@ -29,21 +30,10 @@ import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+/** @deprecated instead by {@link ElasticSearchTypeConverter} */
+@Deprecated
 @AutoService(DataTypeConvertor.class)
 public class ElasticSearchDataTypeConvertor implements DataTypeConvertor<String> {
-
-    public static final String STRING = "string";
-    public static final String KEYWORD = "keyword";
-    public static final String TEXT = "text";
-    public static final String BOOLEAN = "boolean";
-    public static final String BYTE = "byte";
-    public static final String SHORT = "short";
-    public static final String INTEGER = "integer";
-    public static final String LONG = "long";
-    public static final String FLOAT = "float";
-    public static final String HALF_FLOAT = "half_float";
-    public static final String DOUBLE = "double";
-    public static final String DATE = "date";
 
     @Override
     public SeaTunnelDataType<?> toSeaTunnelType(String field, String connectorDataType) {
@@ -54,34 +44,14 @@ public class ElasticSearchDataTypeConvertor implements DataTypeConvertor<String>
     public SeaTunnelDataType<?> toSeaTunnelType(
             String field, String connectorDataType, Map<String, Object> dataTypeProperties) {
         checkNotNull(connectorDataType, "connectorDataType can not be null");
-        switch (connectorDataType) {
-            case STRING:
-                return BasicType.STRING_TYPE;
-            case KEYWORD:
-                return BasicType.STRING_TYPE;
-            case TEXT:
-                return BasicType.STRING_TYPE;
-            case BOOLEAN:
-                return BasicType.BOOLEAN_TYPE;
-            case BYTE:
-                return BasicType.BYTE_TYPE;
-            case SHORT:
-                return BasicType.SHORT_TYPE;
-            case INTEGER:
-                return BasicType.INT_TYPE;
-            case LONG:
-                return BasicType.LONG_TYPE;
-            case FLOAT:
-                return BasicType.FLOAT_TYPE;
-            case HALF_FLOAT:
-                return BasicType.FLOAT_TYPE;
-            case DOUBLE:
-                return BasicType.DOUBLE_TYPE;
-            case DATE:
-                return LocalTimeType.LOCAL_DATE_TIME_TYPE;
-            default:
-                return BasicType.STRING_TYPE;
-        }
+        BasicTypeDefine<EsType> typeDefine =
+                BasicTypeDefine.<EsType>builder()
+                        .name(field)
+                        .columnType(connectorDataType)
+                        .dataType(connectorDataType)
+                        .build();
+
+        return ElasticSearchTypeConverter.INSTANCE.convert(typeDefine).getDataType();
     }
 
     @Override
@@ -90,29 +60,14 @@ public class ElasticSearchDataTypeConvertor implements DataTypeConvertor<String>
             SeaTunnelDataType<?> seaTunnelDataType,
             Map<String, Object> dataTypeProperties) {
         checkNotNull(seaTunnelDataType, "seaTunnelDataType can not be null");
-        SqlType sqlType = seaTunnelDataType.getSqlType();
-        switch (sqlType) {
-            case STRING:
-                return STRING;
-            case BOOLEAN:
-                return BOOLEAN;
-            case BYTES:
-                return BYTE;
-            case TINYINT:
-                return SHORT;
-            case INT:
-                return INTEGER;
-            case BIGINT:
-                return LONG;
-            case FLOAT:
-                return FLOAT;
-            case DOUBLE:
-                return DOUBLE;
-            case TIMESTAMP:
-                return DATE;
-            default:
-                return STRING;
-        }
+        Column column =
+                PhysicalColumn.builder()
+                        .name(field)
+                        .dataType(seaTunnelDataType)
+                        .nullable(true)
+                        .build();
+        BasicTypeDefine<EsType> typeDefine = ElasticSearchTypeConverter.INSTANCE.reconvert(column);
+        return typeDefine.getColumnType();
     }
 
     @Override

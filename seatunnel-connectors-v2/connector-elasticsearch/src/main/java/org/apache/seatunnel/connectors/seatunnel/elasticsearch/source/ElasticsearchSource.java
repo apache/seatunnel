@@ -30,10 +30,12 @@ import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.catalog.ElasticSearchDataTypeConvertor;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.catalog.ElasticSearchTypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsRestClient;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsType;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SourceConfig;
 
 import java.util.Arrays;
@@ -62,16 +64,14 @@ public class ElasticsearchSource
         } else {
             source = config.get(SourceConfig.SOURCE);
             EsRestClient esRestClient = EsRestClient.createInstance(config);
-            Map<String, String> esFieldType =
+            Map<String, BasicTypeDefine<EsType>> esFieldType =
                     esRestClient.getFieldTypeMapping(config.get(SourceConfig.INDEX), source);
             esRestClient.close();
             SeaTunnelDataType<?>[] fieldTypes = new SeaTunnelDataType[source.size()];
-            ElasticSearchDataTypeConvertor elasticSearchDataTypeConvertor =
-                    new ElasticSearchDataTypeConvertor();
             for (int i = 0; i < source.size(); i++) {
-                String esType = esFieldType.get(source.get(i));
+                BasicTypeDefine<EsType> esType = esFieldType.get(source.get(i));
                 SeaTunnelDataType<?> seaTunnelDataType =
-                        elasticSearchDataTypeConvertor.toSeaTunnelType(source.get(i), esType);
+                        ElasticSearchTypeConverter.INSTANCE.convert(esType).getDataType();
                 fieldTypes[i] = seaTunnelDataType;
             }
             TableSchema.Builder builder = TableSchema.builder();

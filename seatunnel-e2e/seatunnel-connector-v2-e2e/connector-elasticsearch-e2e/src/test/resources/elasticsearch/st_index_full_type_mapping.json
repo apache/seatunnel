@@ -1,0 +1,162 @@
+{
+  "mappings": {
+    "properties": {
+      "aggregate_metric_double": {
+        "type": "aggregate_metric_double",
+        "metrics": [
+          "min",
+          "max",
+          "sum",
+          "value_count"
+        ],
+        "default_metric": "max"
+      },
+      "alias": {
+        "type": "alias",
+        "path": "aggregate_metric_double"
+      },
+      "binary": {
+        "type": "binary"
+      },
+      "byte": {
+        "type": "byte"
+      },
+      "boolean": {
+        "type": "boolean"
+      },
+      "completion": {
+        "type": "completion"
+      },
+      "date": {
+        "type": "date"
+      },
+      "date_nanos": {
+        "type": "date_nanos"
+      },
+      "dense_vector": {
+        "type": "dense_vector",
+        "dims": 3
+      },
+      "double": {
+        "type": "double"
+      },
+      "flattened": {
+        "type": "flattened"
+      },
+      "float": {
+        "type": "float"
+      },
+      "geo_point": {
+        "type": "geo_point"
+      },
+      "geo_shape": {
+        "type": "geo_shape"
+      },
+      "point": {
+        "type": "point"
+      },
+      "integer_range": {
+        "type": "integer_range"
+      },
+      "float_range": {
+        "type": "float_range"
+      },
+      "long_range": {
+        "type": "long_range"
+      },
+      "double_range": {
+        "type": "double_range"
+      },
+      "date_range": {
+        "type": "date_range"
+      },
+      "ip_range": {
+        "type": "ip_range"
+      },
+      "half_float": {
+        "type": "half_float"
+      },
+      "scaled_float": {
+        "type": "scaled_float",
+        "scaling_factor": 100
+      },
+      "histogram": {
+        "type": "histogram"
+      },
+      "integer": {
+        "type": "integer"
+      },
+      "ip": {
+        "type": "ip"
+      },
+      "join": {
+        "type": "join",
+        "relations": {
+          "question": "answer"
+        }
+      },
+      "keyword": {
+        "type": "keyword"
+      },
+      "long": {
+        "type": "long"
+      },
+      "nested": {
+        "type": "nested"
+      },
+      "object": {
+        "properties": {
+          "age": {
+            "type": "integer"
+          },
+          "name": {
+            "properties": {
+              "first": {
+                "type": "text"
+              },
+              "last": {
+                "type": "text"
+              }
+            }
+          }
+        }
+      },
+      "percolator": {
+        "type": "percolator"
+      },
+      "rank_feature": {
+        "type": "rank_feature"
+      },
+      "rank_features": {
+        "type": "rank_features"
+      },
+      "shape": {
+        "type": "shape"
+      },
+      "search_as_you_type": {
+        "type": "search_as_you_type"
+      },
+      "short": {
+        "type": "short"
+      },
+      "text": {
+        "type": "text"
+      },
+      "match_only_text": {
+        "type": "text"
+      },
+      "name": {
+        "type": "text",
+        "fields": {
+          "length": {
+            "type": "token_count",
+            "analyzer": "standard"
+          }
+        }
+      },
+      "version": {
+        "type": "version"
+      }
+    }
+  }
+}
