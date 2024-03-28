@@ -202,10 +202,8 @@ public class SourceRecordUtils {
         String databaseName = sourceStruct.getString(AbstractSourceInfo.DATABASE_NAME_KEY);
         String tableName = sourceStruct.getString(AbstractSourceInfo.TABLE_NAME_KEY);
         String schemaName = null;
-        try {
+        if (sourceStruct.schema().field(AbstractSourceInfo.SCHEMA_NAME_KEY) != null) {
             schemaName = sourceStruct.getString(AbstractSourceInfo.SCHEMA_NAME_KEY);
-        } catch (Throwable e) {
-            // ignore
         }
         return TablePath.of(databaseName, schemaName, tableName);
     }
