@@ -472,62 +472,75 @@ public class JsonRowDataSerDeSchemaTest {
 
         JsonToRowConverters converters = new JsonToRowConverters(true, false);
 
-        JsonToRowConverters.JsonToRowConverter stringConverter =
+        JsonToRowConverters.JsonToObjectConverter stringConverter =
                 converters.createConverter(stringKeyMapType);
-        JsonToRowConverters.JsonToRowConverter booleanConverter =
+        JsonToRowConverters.JsonToObjectConverter booleanConverter =
                 converters.createConverter(booleanKeyMapType);
-        JsonToRowConverters.JsonToRowConverter tinyintConverter =
+        JsonToRowConverters.JsonToObjectConverter tinyintConverter =
                 converters.createConverter(tinyintKeyMapType);
-        JsonToRowConverters.JsonToRowConverter smallintConverter =
+        JsonToRowConverters.JsonToObjectConverter smallintConverter =
                 converters.createConverter(smallintKeyMapType);
-        JsonToRowConverters.JsonToRowConverter intConverter =
+        JsonToRowConverters.JsonToObjectConverter intConverter =
                 converters.createConverter(intKeyMapType);
-        JsonToRowConverters.JsonToRowConverter bigintConverter =
+        JsonToRowConverters.JsonToObjectConverter bigintConverter =
                 converters.createConverter(bigintKeyMapType);
-        JsonToRowConverters.JsonToRowConverter floatConverter =
+        JsonToRowConverters.JsonToObjectConverter floatConverter =
                 converters.createConverter(floatKeyMapType);
-        JsonToRowConverters.JsonToRowConverter doubleConverter =
+        JsonToRowConverters.JsonToObjectConverter doubleConverter =
                 converters.createConverter(doubleKeyMapType);
-        JsonToRowConverters.JsonToRowConverter dateConverter =
+        JsonToRowConverters.JsonToObjectConverter dateConverter =
                 converters.createConverter(dateKeyMapType);
-        JsonToRowConverters.JsonToRowConverter timeConverter =
+        JsonToRowConverters.JsonToObjectConverter timeConverter =
                 converters.createConverter(timeKeyMapType);
-        JsonToRowConverters.JsonToRowConverter timestampConverter =
+        JsonToRowConverters.JsonToObjectConverter timestampConverter =
                 converters.createConverter(timestampKeyMapType);
-        JsonToRowConverters.JsonToRowConverter decimalConverter =
+        JsonToRowConverters.JsonToObjectConverter decimalConverter =
                 converters.createConverter(decimalKeyMapType);
 
-        assertMapKeyType("{\"abc\": \"xxx\"}", stringConverter, "abc");
-        assertMapKeyType("{\"false\": \"xxx\"}", booleanConverter, false);
-        assertMapKeyType("{\"1\": \"xxx\"}", tinyintConverter, (byte) 1);
-        assertMapKeyType("{\"12\": \"xxx\"}", smallintConverter, (short) 12);
-        assertMapKeyType("{\"123\": \"xxx\"}", intConverter, 123);
-        assertMapKeyType("{\"12345\": \"xxx\"}", bigintConverter, 12345L);
-        assertMapKeyType("{\"1.0001\": \"xxx\"}", floatConverter, 1.0001f);
-        assertMapKeyType("{\"999.9999\": \"xxx\"}", doubleConverter, 999.9999);
-        assertMapKeyType("{\"9999.23\": \"xxx\"}", decimalConverter, BigDecimal.valueOf(9999.23));
+        assertMapKeyType("{\"abc\": \"xxx\"}", stringConverter, "abc", "stringConverter");
+        assertMapKeyType("{\"false\": \"xxx\"}", booleanConverter, false, "booleanConverter");
+        assertMapKeyType("{\"1\": \"xxx\"}", tinyintConverter, (byte) 1, "tinyintConverter");
+        assertMapKeyType("{\"12\": \"xxx\"}", smallintConverter, (short) 12, "smallintConverter");
+        assertMapKeyType("{\"123\": \"xxx\"}", intConverter, 123, "intConverter");
+        assertMapKeyType("{\"12345\": \"xxx\"}", bigintConverter, 12345L, "bigintConverter");
+        assertMapKeyType("{\"1.0001\": \"xxx\"}", floatConverter, 1.0001f, "floatConverter");
+        assertMapKeyType("{\"999.9999\": \"xxx\"}", doubleConverter, 999.9999, "doubleConverter");
+        assertMapKeyType(
+                "{\"9999.23\": \"xxx\"}",
+                decimalConverter,
+                BigDecimal.valueOf(9999.23),
+                "decimalConverter");
 
         LocalDate date =
                 DateTimeFormatter.ISO_LOCAL_DATE
                         .parse("2024-01-26")
                         .query(TemporalQueries.localDate());
-        assertMapKeyType("{\"2024-01-26\": \"xxx\"}", dateConverter, date);
+        assertMapKeyType(
+                "{\"2024-01-26\": \"xxx\"}", dateConverter, date, "iso_local_date_string_map");
 
         LocalTime time =
                 JsonToRowConverters.TIME_FORMAT
                         .parse("12:00:12.001")
                         .query(TemporalQueries.localTime());
-        assertMapKeyType("{\"12:00:12.001\": \"xxx\"}", timeConverter, time);
+        assertMapKeyType(
+                "{\"12:00:12.001\": \"xxx\"}", timeConverter, time, "time_format_string_map");
 
         LocalDateTime timestamp = LocalDateTime.of(date, time);
-        assertMapKeyType("{\"2024-01-26T12:00:12.001\": \"xxx\"}", timestampConverter, timestamp);
+        assertMapKeyType(
+                "{\"2024-01-26T12:00:12.001\": \"xxx\"}",
+                timestampConverter,
+                timestamp,
+                "timestamp_string_map");
     }
 
     private void assertMapKeyType(
-            String payload, JsonToRowConverters.JsonToRowConverter converter, Object expect)
+            String payload,
+            JsonToRowConverters.JsonToObjectConverter converter,
+            Object expect,
+            String fieldName)
             throws JsonProcessingException {
         JsonNode keyMapNode = JsonUtils.stringToJsonNode(payload);
-        Map<?, ?> keyMap = (Map<?, ?>) converter.convert(keyMapNode);
+        Map<?, ?> keyMap = (Map<?, ?>) converter.convert(keyMapNode, fieldName);
         assertEquals(expect, keyMap.keySet().iterator().next());
     }
 }

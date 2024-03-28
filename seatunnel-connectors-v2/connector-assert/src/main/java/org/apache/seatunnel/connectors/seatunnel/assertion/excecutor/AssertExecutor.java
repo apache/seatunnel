@@ -76,12 +76,12 @@ public class AssertExecutor {
 
         SeaTunnelDataType<?> type = rowType.getFieldType(index);
         Object value = rowData.getField(index);
-
+        String fieldName = rowType.getFieldName(index);
         Boolean typeChecked = checkType(value, assertFieldRule.getFieldType());
         if (Boolean.FALSE.equals(typeChecked)) {
             return Boolean.FALSE;
         }
-        Boolean valueChecked = checkValue(value, type, assertFieldRule.getFieldRules());
+        Boolean valueChecked = checkValue(value, type, assertFieldRule.getFieldRules(), fieldName);
         if (Boolean.FALSE.equals(valueChecked)) {
             return Boolean.FALSE;
         }
@@ -91,10 +91,11 @@ public class AssertExecutor {
     private Boolean checkValue(
             Object value,
             SeaTunnelDataType<?> type,
-            List<AssertFieldRule.AssertRule> fieldValueRules) {
+            List<AssertFieldRule.AssertRule> fieldValueRules,
+            String fieldName) {
         Optional<AssertFieldRule.AssertRule> failValueRule =
                 fieldValueRules.stream()
-                        .filter(valueRule -> !pass(value, type, valueRule))
+                        .filter(valueRule -> !pass(value, type, valueRule, fieldName))
                         .findFirst();
         if (failValueRule.isPresent()) {
             return Boolean.FALSE;
@@ -104,7 +105,10 @@ public class AssertExecutor {
     }
 
     private boolean pass(
-            Object value, SeaTunnelDataType<?> type, AssertFieldRule.AssertRule valueRule) {
+            Object value,
+            SeaTunnelDataType<?> type,
+            AssertFieldRule.AssertRule valueRule,
+            String fieldName) {
         AssertFieldRule.AssertRuleType ruleType = valueRule.getRuleType();
         boolean isPass = true;
         if (ruleType != null) {
@@ -112,7 +116,7 @@ public class AssertExecutor {
         }
 
         if (Objects.nonNull(value) && valueRule.getEqualTo() != null) {
-            isPass = isPass && compareValue(value, type, valueRule);
+            isPass = isPass && compareValue(value, type, valueRule, fieldName);
         }
         return isPass;
     }
@@ -156,17 +160,21 @@ public class AssertExecutor {
     }
 
     private boolean compareValue(
-            Object value, SeaTunnelDataType<?> type, AssertFieldRule.AssertRule valueRule) {
+            Object value,
+            SeaTunnelDataType<?> type,
+            AssertFieldRule.AssertRule valueRule,
+            String fieldName) {
         Object config = valueRule.getEqualTo();
         String confJsonStr = JsonUtils.toJsonString(config);
 
         JsonToRowConverters converters = new JsonToRowConverters(true, false);
-        JsonToRowConverters.JsonToRowConverter converter = converters.createConverter(type);
+        JsonToRowConverters.JsonToObjectConverter converter = converters.createConverter(type);
 
         Object confValue;
         try {
             confValue =
-                    converter.convert(JsonUtils.stringToJsonNode(JsonUtils.toJsonString(config)));
+                    converter.convert(
+                            JsonUtils.stringToJsonNode(JsonUtils.toJsonString(config)), fieldName);
         } catch (IOException e) {
             throw CommonError.jsonOperationError("Assert", confJsonStr, e);
         }
