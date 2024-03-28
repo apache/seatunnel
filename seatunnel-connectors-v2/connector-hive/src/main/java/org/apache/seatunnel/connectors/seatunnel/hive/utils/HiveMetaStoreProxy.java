@@ -29,6 +29,7 @@ import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorExc
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.metastore.HiveMetaStoreClient;
+import org.apache.hadoop.hive.metastore.api.AlreadyExistsException;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.thrift.TException;
@@ -131,7 +132,11 @@ public class HiveMetaStoreProxy {
             @NonNull String dbName, @NonNull String tableName, List<String> partitions)
             throws TException {
         for (String partition : partitions) {
-            hiveMetaStoreClient.appendPartition(dbName, tableName, partition);
+            try {
+                hiveMetaStoreClient.appendPartition(dbName, tableName, partition);
+            } catch (AlreadyExistsException e) {
+                log.warn("The partition {} are already exists", partition);
+            }
         }
     }
 
