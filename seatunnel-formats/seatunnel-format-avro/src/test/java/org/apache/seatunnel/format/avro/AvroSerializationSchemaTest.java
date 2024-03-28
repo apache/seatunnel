@@ -38,13 +38,14 @@ import java.util.Map;
 
 class AvroSerializationSchemaTest {
 
-    private LocalDate localDate = LocalDate.of(2023, 1, 1);
-    private BigDecimal bigDecimal = new BigDecimal("61592600349703735722.724745739637773662");
-    private LocalDateTime localDateTime = LocalDateTime.of(2023, 1, 1, 6, 30, 40);
+    private static final LocalDate localDate = LocalDate.of(2023, 1, 1);
+    private static final BigDecimal bigDecimal =
+            new BigDecimal("61592600349703735722.724745739637773662");
+    private static final LocalDateTime localDateTime = LocalDateTime.of(2023, 1, 1, 6, 30, 40);
 
     private SeaTunnelRow buildSeaTunnelRow() {
         SeaTunnelRow subSeaTunnelRow = new SeaTunnelRow(14);
-        Map<String, String> map = new HashMap<String, String>();
+        Map<String, String> map = new HashMap<>();
         map.put("k1", "v1");
         map.put("k2", "v2");
         String[] strArray = new String[] {"l1", "l2"};
@@ -116,7 +117,6 @@ class AvroSerializationSchemaTest {
             new DecimalType(38, 18),
             LocalTimeType.LOCAL_DATE_TIME_TYPE
         };
-        SeaTunnelRowType subRow = new SeaTunnelRowType(subField, subFieldTypes);
 
         String[] fieldNames = {
             "c_map",
@@ -150,10 +150,9 @@ class AvroSerializationSchemaTest {
             LocalTimeType.LOCAL_DATE_TYPE,
             new DecimalType(38, 18),
             LocalTimeType.LOCAL_DATE_TIME_TYPE,
-            subRow
+            new SeaTunnelRowType(subField, subFieldTypes)
         };
-        SeaTunnelRowType rowType = new SeaTunnelRowType(fieldNames, fieldTypes);
-        return rowType;
+        return new SeaTunnelRowType(fieldNames, fieldTypes);
     }
 
     @Test

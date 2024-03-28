@@ -103,7 +103,6 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
     // ---------------------------Canal Format Parameter---------------------------------------
 
     private static final String CANAL_KAFKA_SINK_TOPIC = "test-canal-sink";
-    private static final String CANAL_MYSQL_DATABASE = "canal";
     private static final String CANAL_DATA_PATH = "/canal/canal_data.txt";
     private static final String CANAL_KAFKA_SOURCE_TOPIC = "test-cdc_mds";
 
@@ -330,6 +329,21 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
                 .atMost(3, TimeUnit.MINUTES)
                 .untilAsserted(this::initLocalDataToKafka);
         Thread.sleep(20 * 1000);
+    }
+
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "The multi-catalog does not currently support the Spark Flink engine")
+    @TestTemplate
+    public void testMultiFormatCheck(TestContainer container)
+            throws IOException, InterruptedException {
+        LOG.info(
+                "====================== Multi Source Format Canal and Ogg Check  ======================");
+        Container.ExecResult execCanalResultKafka =
+                container.executeJob("/multiFormatIT/kafka_multi_source_to_assert.conf");
+        Assertions.assertEquals(
+                0, execCanalResultKafka.getExitCode(), execCanalResultKafka.getStderr());
     }
 
     @TestTemplate

@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -42,7 +43,6 @@ import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Collections;
@@ -88,7 +88,14 @@ public class CompatibleKafkaConnectDeserializationSchema
 
     @Override
     public SeaTunnelRow deserialize(byte[] message) throws IOException {
-        throw new UnsupportedEncodingException();
+        throw new UnsupportedOperationException(
+                "Please invoke DeserializationSchema#deserialize(byte[], Collector<SeaTunnelRow>) instead.");
+    }
+
+    @Override
+    public SeaTunnelRow deserialize(byte[] message, TablePath tablePath) throws IOException {
+        throw new UnsupportedOperationException(
+                "Please invoke DeserializationSchema#deserialize(byte[],TablePath, Collector<SeaTunnelRow>) instead.");
     }
 
     /**
@@ -98,9 +105,13 @@ public class CompatibleKafkaConnectDeserializationSchema
      * @param out
      * @throws Exception
      */
-    public void deserialize(ConsumerRecord<byte[], byte[]> msg, Collector<SeaTunnelRow> out)
+    public void deserialize(
+            ConsumerRecord<byte[], byte[]> msg, Collector<SeaTunnelRow> out, TablePath tablePath)
             throws InvocationTargetException, IllegalAccessException {
         tryInitConverter();
+        if (msg == null) {
+            return;
+        }
         SinkRecord record = convertToSinkRecord(msg);
         RowKind rowKind = RowKind.INSERT;
         JsonNode jsonNode =
@@ -113,11 +124,17 @@ public class CompatibleKafkaConnectDeserializationSchema
             for (int i = 0; i < arrayNode.size(); i++) {
                 SeaTunnelRow row = convertJsonNode(arrayNode.get(i));
                 row.setRowKind(rowKind);
+                if (tablePath != null && !tablePath.toString().isEmpty()) {
+                    row.setTableId(tablePath.toString());
+                }
                 out.collect(row);
             }
         } else {
             SeaTunnelRow row = convertJsonNode(payload);
             row.setRowKind(rowKind);
+            if (tablePath != null && !tablePath.toString().isEmpty()) {
+                row.setTableId(tablePath.toString());
+            }
             out.collect(row);
         }
     }

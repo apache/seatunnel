@@ -28,6 +28,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.NullNode;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.CompositeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -104,6 +105,15 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
             return null;
         }
         return convertJsonNode(convertBytes(message));
+    }
+
+    @Override
+    public SeaTunnelRow deserialize(byte[] message, TablePath tablePath) throws IOException {
+        SeaTunnelRow seaTunnelRow = deserialize(message);
+        if (tablePath != null && !tablePath.toString().isEmpty()) {
+            seaTunnelRow.setTableId(tablePath.toString());
+        }
+        return seaTunnelRow;
     }
 
     public SeaTunnelRow deserialize(String message) throws IOException {
