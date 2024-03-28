@@ -51,7 +51,8 @@ public class PaimonCatalogFactory implements CatalogFactory {
                         PaimonSinkConfig.DATA_SAVE_MODE,
                         PaimonSinkConfig.PRIMARY_KEYS,
                         PaimonSinkConfig.PARTITION_KEYS,
-                        PaimonSinkConfig.WRITE_PROPS)
+                        PaimonSinkConfig.WRITE_PROPS,
+                        PaimonSinkConfig.HADOOP_CONF)
                 .build();
     }
 }

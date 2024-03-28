@@ -32,9 +32,11 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonHadoopConfiguration;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.paimon.handler.PaimonSaveModeHandler;
+import org.apache.seatunnel.connectors.seatunnel.paimon.security.PaimonSecurityContext;
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.commit.PaimonAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.commit.PaimonAggregatedCommitter;
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.commit.PaimonCommitInfo;
@@ -74,11 +76,14 @@ public class PaimonSink
 
     private CatalogTable catalogTable;
 
+    private PaimonHadoopConfiguration paimonHadoopConfiguration;
+
     public PaimonSink(ReadonlyConfig readonlyConfig, CatalogTable catalogTable) {
         this.readonlyConfig = readonlyConfig;
         this.paimonSinkConfig = new PaimonSinkConfig(readonlyConfig);
         this.catalogTable = catalogTable;
         this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
+        this.paimonHadoopConfiguration = PaimonSecurityContext.loadHadoopConfig(paimonSinkConfig);
     }
 
     @Override
@@ -89,19 +94,22 @@ public class PaimonSink
     @Override
     public SinkWriter<SeaTunnelRow, PaimonCommitInfo, PaimonSinkState> createWriter(
             SinkWriter.Context context) throws IOException {
-        return new PaimonSinkWriter(context, table, seaTunnelRowType, jobContext);
+        return new PaimonSinkWriter(
+                context, table, seaTunnelRowType, jobContext, paimonHadoopConfiguration);
     }
 
     @Override
     public Optional<SinkAggregatedCommitter<PaimonCommitInfo, PaimonAggregatedCommitInfo>>
             createAggregatedCommitter() throws IOException {
-        return Optional.of(new PaimonAggregatedCommitter(table, jobContext));
+        return Optional.of(
+                new PaimonAggregatedCommitter(table, jobContext, paimonHadoopConfiguration));
     }
 
     @Override
     public SinkWriter<SeaTunnelRow, PaimonCommitInfo, PaimonSinkState> restoreWriter(
             SinkWriter.Context context, List<PaimonSinkState> states) throws IOException {
-        return new PaimonSinkWriter(context, table, seaTunnelRowType, states, jobContext);
+        return new PaimonSinkWriter(
+                context, table, seaTunnelRowType, states, jobContext, paimonHadoopConfiguration);
     }
 
     @Override

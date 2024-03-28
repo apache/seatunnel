@@ -17,26 +17,19 @@
 
 package org.apache.seatunnel.connectors.seatunnel.paimon.config;
 
-import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
-import org.apache.seatunnel.shade.com.google.common.collect.ImmutableList;
-
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
 
-import lombok.Data;
+import lombok.Getter;
 
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static java.util.stream.Collectors.toList;
-import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
-
-@Data
+@Getter
 public class PaimonSinkConfig extends PaimonConfig {
     public static final Option<SchemaSaveMode> SCHEMA_SAVE_MODE =
             Options.key("schema_save_mode")
@@ -71,41 +64,18 @@ public class PaimonSinkConfig extends PaimonConfig {
                     .withDescription(
                             "Properties passed through to paimon table initialization, such as 'file.format', 'bucket'(org.apache.paimon.CoreOptions)");
 
-    private String catalogName;
-    private String warehouse;
-    private String namespace;
-    private String table;
-    private String hdfsSitePath;
     private SchemaSaveMode schemaSaveMode;
     private DataSaveMode dataSaveMode;
-    private Integer bucket;
     private List<String> primaryKeys;
     private List<String> partitionKeys;
     private Map<String, String> writeProps;
 
     public PaimonSinkConfig(ReadonlyConfig readonlyConfig) {
-        this.catalogName = checkArgumentNotNull(readonlyConfig.get(CATALOG_NAME));
-        this.warehouse = checkArgumentNotNull(readonlyConfig.get(WAREHOUSE));
-        this.namespace = checkArgumentNotNull(readonlyConfig.get(DATABASE));
-        this.table = checkArgumentNotNull(readonlyConfig.get(TABLE));
-        this.hdfsSitePath = readonlyConfig.get(HDFS_SITE_PATH);
+        super(readonlyConfig);
         this.schemaSaveMode = readonlyConfig.get(SCHEMA_SAVE_MODE);
         this.dataSaveMode = readonlyConfig.get(DATA_SAVE_MODE);
         this.primaryKeys = stringToList(readonlyConfig.get(PRIMARY_KEYS), ",");
         this.partitionKeys = stringToList(readonlyConfig.get(PARTITION_KEYS), ",");
         this.writeProps = readonlyConfig.get(WRITE_PROPS);
-    }
-
-    protected <T> T checkArgumentNotNull(T argument) {
-        checkNotNull(argument);
-        return argument;
-    }
-
-    @VisibleForTesting
-    public static List<String> stringToList(String value, String regex) {
-        if (value == null || value.isEmpty()) {
-            return ImmutableList.of();
-        }
-        return Arrays.stream(value.split(regex)).map(String::trim).collect(toList());
     }
 }

@@ -47,11 +47,11 @@ import org.apache.paimon.types.DataType;
 import org.apache.paimon.types.DataTypes;
 import org.apache.paimon.types.RowType;
 import org.apache.paimon.types.TimestampType;
+import org.apache.paimon.utils.DateTimeUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -283,7 +283,8 @@ public class RowConverter {
                     objects[i] = rowData.getBinary(i);
                     break;
                 case DATE:
-                    objects[i] = rowData.getTimestamp(i, 3).toLocalDateTime().toLocalDate();
+                    int dateInt = rowData.getInt(i);
+                    objects[i] = DateTimeUtils.toLocalDate(dateInt);
                     break;
                 case TIMESTAMP:
                     // Now SeaTunnel not supported assigned the timezone for timestamp,
@@ -391,9 +392,8 @@ public class RowConverter {
                     break;
                 case DATE:
                     LocalDate date = (LocalDate) seaTunnelRow.getField(i);
-                    LocalTime time = LocalTime.of(0, 0, 0);
-                    binaryWriter.writeTimestamp(
-                            i, Timestamp.fromLocalDateTime(date.atTime(time)), 3);
+                    BinaryWriter.createValueSetter(DataTypes.DATE())
+                            .setValue(binaryWriter, i, DateTimeUtils.toInternal(date));
                     break;
                 case TIMESTAMP:
                     String fieldName = seaTunnelRowType.getFieldName(i);
