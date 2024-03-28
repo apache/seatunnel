@@ -28,9 +28,9 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
+import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
 import org.apache.commons.lang3.StringUtils;
@@ -397,7 +397,8 @@ public class JsonToRowConverters implements Serializable {
                                         }
                                         value.put(
                                                 keyConverter.convert(keyNode, fieldName + ".key"),
-                                                valueConverter.convert(entry.getValue(), fieldName + ".value"));
+                                                valueConverter.convert(
+                                                        entry.getValue(), fieldName + ".value"));
                                     }
                                 });
                 return value;
