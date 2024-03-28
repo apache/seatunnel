@@ -58,7 +58,8 @@ public class OracleSourceConfig extends JdbcSourceConfig {
             long connectTimeoutMillis,
             int connectMaxRetries,
             int connectionPoolSize,
-            boolean exactlyOnce) {
+            boolean exactlyOnce,
+            long connectIdleTimeoutMillis) {
         super(
                 startupConfig,
                 stopConfig,
@@ -81,7 +82,8 @@ public class OracleSourceConfig extends JdbcSourceConfig {
                 connectTimeoutMillis,
                 connectMaxRetries,
                 connectionPoolSize,
-                exactlyOnce);
+                exactlyOnce,
+                connectIdleTimeoutMillis);
     }
 
     @Override

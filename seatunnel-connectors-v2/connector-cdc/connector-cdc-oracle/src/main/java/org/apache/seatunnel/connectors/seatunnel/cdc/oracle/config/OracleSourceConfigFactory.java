@@ -152,7 +152,8 @@ public class OracleSourceConfigFactory extends JdbcSourceConfigFactory {
                 connectTimeoutMillis,
                 connectMaxRetries,
                 connectionPoolSize,
-                exactlyOnce);
+                exactlyOnce,
+                connectIdleTimeoutMillis);
     }
 
     private void validateConfig() throws IllegalArgumentException {

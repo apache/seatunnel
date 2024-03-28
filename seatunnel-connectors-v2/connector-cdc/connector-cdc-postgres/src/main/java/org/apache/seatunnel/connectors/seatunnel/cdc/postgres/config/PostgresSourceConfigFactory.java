@@ -131,6 +131,7 @@ public class PostgresSourceConfigFactory extends JdbcSourceConfigFactory {
                 connectTimeoutMillis,
                 connectMaxRetries,
                 connectionPoolSize,
-                exactlyOnce);
+                exactlyOnce,
+                connectIdleTimeoutMillis);
     }
 }

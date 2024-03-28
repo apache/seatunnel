@@ -42,6 +42,7 @@ public abstract class JdbcSourceConfig extends BaseSourceConfig {
     protected final long connectTimeoutMillis;
     protected final int connectMaxRetries;
     protected final int connectionPoolSize;
+    protected final long connectIdleTimeoutMillis;
 
     public JdbcSourceConfig(
             StartupConfig startupConfig,
@@ -65,7 +66,8 @@ public abstract class JdbcSourceConfig extends BaseSourceConfig {
             long connectTimeoutMillis,
             int connectMaxRetries,
             int connectionPoolSize,
-            boolean exactlyOnce) {
+            boolean exactlyOnce,
+            long connectIdleTimeoutMillis) {
         super(
                 startupConfig,
                 stopConfig,
@@ -89,6 +91,7 @@ public abstract class JdbcSourceConfig extends BaseSourceConfig {
         this.connectTimeoutMillis = connectTimeoutMillis;
         this.connectMaxRetries = connectMaxRetries;
         this.connectionPoolSize = connectionPoolSize;
+        this.connectIdleTimeoutMillis = connectIdleTimeoutMillis;
     }
 
     public abstract RelationalDatabaseConnectorConfig getDbzConnectorConfig();
@@ -143,5 +146,9 @@ public abstract class JdbcSourceConfig extends BaseSourceConfig {
 
     public int getConnectionPoolSize() {
         return connectionPoolSize;
+    }
+
+    public long getConnectIdleTimeoutMillis() {
+        return connectIdleTimeoutMillis;
     }
 }

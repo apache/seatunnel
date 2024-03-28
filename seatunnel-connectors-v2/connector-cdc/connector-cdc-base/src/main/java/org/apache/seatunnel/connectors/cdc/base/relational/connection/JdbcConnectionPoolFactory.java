@@ -44,6 +44,7 @@ public abstract class JdbcConnectionPoolFactory {
         config.setMaximumPoolSize(sourceConfig.getConnectionPoolSize());
         config.setConnectionTimeout(sourceConfig.getConnectTimeoutMillis());
         config.addDataSourceProperty(SERVER_TIMEZONE_KEY, sourceConfig.getServerTimeZone());
+        config.setIdleTimeout(sourceConfig.getConnectIdleTimeoutMillis());
 
         // optional optimization configurations for pooled DataSource
         config.addDataSourceProperty("cachePrepStmts", "true");
