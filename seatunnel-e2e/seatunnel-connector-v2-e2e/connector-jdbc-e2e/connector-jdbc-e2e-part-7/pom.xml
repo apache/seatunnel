@@ -91,6 +91,11 @@
             <artifactId>vertica-jdbc</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>com.xugudb</groupId>
+            <artifactId>xugu-jdbc</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
 </project>

@@ -203,6 +203,7 @@
                 <include>com.teradata.jdbc:terajdbc4:jar</include>
                 <include>com.amazon.redshift:redshift-jdbc42:jar</include>
                 <include>net.snowflake.snowflake-jdbc:jar</include>
+                <include>com.xugudb:xugu-jdbc:jar</include>
             </includes>
             <outputFileNameMapping>${artifact.file.name}</outputFileNameMapping>
             <outputDirectory>/lib</outputDirectory>
