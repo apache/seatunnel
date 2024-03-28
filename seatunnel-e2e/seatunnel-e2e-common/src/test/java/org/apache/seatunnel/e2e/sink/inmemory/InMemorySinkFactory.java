@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.e2e.sink.inmemory;
 
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -31,6 +33,11 @@ public class InMemorySinkFactory
         implements TableSinkFactory<
                 SeaTunnelRow, InMemoryState, InMemoryCommitInfo, InMemoryAggregatedCommitInfo> {
 
+    public static final Option<Boolean> THROW_EXCEPTION =
+            Options.key("throw_exception").booleanType().defaultValue(false);
+    public static final Option<Boolean> CHECKPOINT_SLEEP =
+            Options.key("checkpoint_sleep").booleanType().defaultValue(false);
+
     @Override
     public String factoryIdentifier() {
         return "InMemory";
@@ -38,12 +45,12 @@ public class InMemorySinkFactory
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().build();
+        return OptionRule.builder().optional(THROW_EXCEPTION, CHECKPOINT_SLEEP).build();
     }
 
     @Override
     public TableSink<SeaTunnelRow, InMemoryState, InMemoryCommitInfo, InMemoryAggregatedCommitInfo>
             createSink(TableSinkFactoryContext context) {
-        return InMemorySink::new;
+        return () -> new InMemorySink(context.getOptions());
     }
 }

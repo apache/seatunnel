@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.e2e.sink.inmemory;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
@@ -35,6 +36,13 @@ public class InMemorySink
                         InMemoryCommitInfo,
                         InMemoryAggregatedCommitInfo>,
                 SupportMultiTableSink {
+
+    private ReadonlyConfig config;
+
+    public InMemorySink(ReadonlyConfig config) {
+        this.config = config;
+    }
+
     @Override
     public String getPluginName() {
         return "InMemorySink";
@@ -43,7 +51,7 @@ public class InMemorySink
     @Override
     public SinkWriter<SeaTunnelRow, InMemoryCommitInfo, InMemoryState> createWriter(
             SinkWriter.Context context) throws IOException {
-        return new InMemorySinkWriter();
+        return new InMemorySinkWriter(config);
     }
 
     @Override
