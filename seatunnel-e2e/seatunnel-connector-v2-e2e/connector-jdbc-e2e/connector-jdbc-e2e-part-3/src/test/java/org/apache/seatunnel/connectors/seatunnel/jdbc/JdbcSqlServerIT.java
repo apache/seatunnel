@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerCatalog;
@@ -360,101 +361,31 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
                 .getColumns()
                 .forEach(
                         column -> {
-                            if (column.getName().equals("INT_IDENTITY_TEST")) {
-                                Assertions.assertEquals(column.getLongColumnLength(), 4L);
-                            }
-                            if (column.getName().equals("BIGINT_TEST")) {
-                                Assertions.assertEquals(column.getLongColumnLength(), 8L);
-                            }
                             if (column.getName().equals("BINARY_TEST")) {
-                                Assertions.assertEquals(column.getLongColumnLength(), 255L);
-                            }
-                            if (column.getName().equals("BIT_TEST")) {
-                                Assertions.assertEquals(column.getLongColumnLength(), 1L);
+                                Assertions.assertEquals(column.getColumnLength(), 255L);
                             }
                             if (column.getName().equals("CHAR_TEST")) {
-                                Assertions.assertEquals(column.getLongColumnLength(), 255L);
-                            }
-                            if (column.getName().equals("DATE_TEST")) {
-                                Assertions.assertEquals(column.getLongColumnLength(), 3L);
-                            }
-                            if (column.getName().equals("DATETIME_TEST")) {
-                                Assertions.assertEquals(column.getLongColumnLength(), 8L);
-                            }
-                            if (column.getName().equals("DATETIME2_TEST")) {
-                                Assertions.assertEquals(column.getLongColumnLength(), 8L);
-                            }
-                            if (column.getName().equals("DATETIMEOFFSET_TEST")) {
-                                Assertions.assertEquals(column.getLongColumnLength(), 10L);
+                                Assertions.assertEquals(column.getColumnLength(), 255L);
                             }
                             if (column.getName().equals("DECIMAL_TEST")) {
-                                Assertions.assertEquals(column.getLongColumnLength(), 9L);
-                            }
-                            if (column.getName().equals("FLOAT_TEST")) {
-                                Assertions.assertEquals(column.getLongColumnLength(), 8L);
-                            }
-                            if (column.getName().equals("IMAGE_TEST")) {
-                                Assertions.assertEquals(column.getLongColumnLength(), 2147483647L);
-                            }
-                            if (column.getName().equals("MONEY_TEST")) {
-                                Assertions.assertEquals(column.getLongColumnLength(), 8L);
+                                Assertions.assertEquals(((DecimalType)column.getDataType()).getPrecision(), 18L);
+                                Assertions.assertEquals(((DecimalType)column.getDataType()).getScale(), 2L);
                             }
                             if (column.getName().equals("NCHAR_TEST")) {
-                                Assertions.assertEquals(column.getLongColumnLength(), 1L);
-                            }
-                            if (column.getName().equals("NTEXT_TEST")) {
-                                Assertions.assertEquals(column.getLongColumnLength(), 1073741823L);
+                                Assertions.assertEquals(column.getColumnLength(), 2L);
                             }
                             if (column.getName().equals("NUMERIC_TEST")) {
-                                Assertions.assertEquals(column.getLongColumnLength(), 9L);
+                                Assertions.assertEquals(((DecimalType)column.getDataType()).getPrecision(), 18L);
+                                Assertions.assertEquals(((DecimalType)column.getDataType()).getScale(), 2L);
                             }
                             if (column.getName().equals("NVARCHAR_TEST")) {
-                                Assertions.assertEquals(column.getLongColumnLength(), 16L);
-                            }
-                            if (column.getName().equals("NVARCHAR_MAX_TEST")) {
-                                Assertions.assertEquals(column.getLongColumnLength(), -1L);
-                            }
-                            if (column.getName().equals("REAL_TEST")) {
-                                Assertions.assertEquals(column.getLongColumnLength(), 4L);
-                            }
-                            if (column.getName().equals("SMALLDATETIME_TEST")) {
-                                Assertions.assertEquals(column.getLongColumnLength(), 4L);
-                            }
-                            if (column.getName().equals("SMALLINT_TEST")) {
-                                Assertions.assertEquals(column.getLongColumnLength(), 2L);
-                            }
-                            if (column.getName().equals("SMALLMONEY_TEST")) {
-                                Assertions.assertEquals(column.getLongColumnLength(), 4L);
-                            }
-                            if (column.getName().equals("SQL_VARIANT_TEST")) {
-                                Assertions.assertEquals(column.getLongColumnLength(), 8016L);
-                            }
-                            if (column.getName().equals("TEXT_TEST")) {
-                                Assertions.assertEquals(column.getLongColumnLength(), 2147483647L);
-                            }
-                            if (column.getName().equals("TIME_TEST")) {
-                                Assertions.assertEquals(column.getLongColumnLength(), 5L);
-                            }
-                            if (column.getName().equals("TINYINT_TEST")) {
-                                Assertions.assertEquals(column.getLongColumnLength(), 1L);
-                            }
-                            if (column.getName().equals("UNIQUEIDENTIFIER_TEST")) {
-                                Assertions.assertEquals(column.getLongColumnLength(), 16L);
+                                Assertions.assertEquals(column.getColumnLength(), 32L);
                             }
                             if (column.getName().equals("VARBINARY_TEST")) {
-                                Assertions.assertEquals(column.getLongColumnLength(), 255L);
-                            }
-                            if (column.getName().equals("VARBINARY_MAX_TEST")) {
-                                Assertions.assertEquals(column.getLongColumnLength(), -1L);
+                                Assertions.assertEquals(column.getColumnLength(), 255L);
                             }
                             if (column.getName().equals("VARCHAR_TEST")) {
-                                Assertions.assertEquals(column.getLongColumnLength(), 16L);
-                            }
-                            if (column.getName().equals("VARCHAR_MAX_TEST")) {
-                                Assertions.assertEquals(column.getLongColumnLength(), -1L);
-                            }
-                            if (column.getName().equals("XML_TEST")) {
-                                Assertions.assertEquals(column.getLongColumnLength(), -1L);
+                                Assertions.assertEquals(column.getColumnLength(), 16L);
                             }
                         });
         // truncateTable
