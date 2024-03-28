@@ -31,7 +31,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregated
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.state.FileSinkState;
 
-public abstract class BaseMultipleTableFinkSinkFactory
+public abstract class BaseMultipleTableFileSinkFactory
         implements TableSinkFactory<
                 SeaTunnelRow, FileSinkState, FileCommitInfo, FileAggregatedCommitInfo> {
 
