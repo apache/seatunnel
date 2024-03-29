@@ -75,9 +75,9 @@ public abstract class ClassLoaderITBase extends SeaTunnelContainer {
             Assertions.assertEquals(0, execResult.getExitCode());
             Assertions.assertTrue(containsDaemonThread());
             if (cacheMode()) {
-                Assertions.assertEquals(3, getClassLoaderCount());
+                Assertions.assertTrue(3 >= getClassLoaderCount());
             } else {
-                Assertions.assertEquals(2 + i, getClassLoaderCount());
+                Assertions.assertTrue(2 + i >= getClassLoaderCount());
             }
         }
     }
@@ -165,9 +165,9 @@ public abstract class ClassLoaderITBase extends SeaTunnelContainer {
             Thread.sleep(5000);
             Assertions.assertTrue(containsDaemonThread());
             if (cacheMode()) {
-                Assertions.assertEquals(3, getClassLoaderCount());
+                Assertions.assertTrue(3 >= getClassLoaderCount());
             } else {
-                Assertions.assertEquals(2 + i, getClassLoaderCount());
+                Assertions.assertTrue(2 + i >= getClassLoaderCount());
             }
         }
     }

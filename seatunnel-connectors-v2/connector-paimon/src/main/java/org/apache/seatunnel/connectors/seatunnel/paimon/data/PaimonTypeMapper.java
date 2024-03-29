@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.paimon.data;
 
 import org.apache.seatunnel.api.table.catalog.Column;
-import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.converter.TypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.PaimonSink;
 import org.apache.seatunnel.connectors.seatunnel.paimon.utils.RowTypeConverter;
@@ -40,11 +39,11 @@ public class PaimonTypeMapper implements TypeConverter<DataType> {
 
     @Override
     public Column convert(DataType dataType) {
-        return PhysicalColumn.builder().dataType(RowTypeConverter.convert(dataType)).build();
+        return RowTypeConverter.convert(dataType);
     }
 
     @Override
     public DataType reconvert(Column column) {
-        return RowTypeConverter.reconvert(column.getDataType());
+        return RowTypeConverter.reconvert(column);
     }
 }

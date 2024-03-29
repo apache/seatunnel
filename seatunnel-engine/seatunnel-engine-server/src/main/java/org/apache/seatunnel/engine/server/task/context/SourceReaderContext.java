@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.task.context;
 
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
+import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceReader;
@@ -32,16 +33,19 @@ public class SourceReaderContext implements SourceReader.Context {
     private final SourceFlowLifeCycle<?, ?> sourceActionLifeCycle;
 
     private final MetricsContext metricsContext;
+    private final EventListener eventListener;
 
     public SourceReaderContext(
             int index,
             Boundedness boundedness,
             SourceFlowLifeCycle<?, ?> sourceActionLifeCycle,
-            MetricsContext metricsContext) {
+            MetricsContext metricsContext,
+            EventListener eventListener) {
         this.index = index;
         this.boundedness = boundedness;
         this.sourceActionLifeCycle = sourceActionLifeCycle;
         this.metricsContext = metricsContext;
+        this.eventListener = eventListener;
     }
 
     @Override
@@ -72,5 +76,10 @@ public class SourceReaderContext implements SourceReader.Context {
     @Override
     public MetricsContext getMetricsContext() {
         return metricsContext;
+    }
+
+    @Override
+    public EventListener getEventListener() {
+        return eventListener;
     }
 }

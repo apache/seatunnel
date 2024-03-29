@@ -27,6 +27,7 @@ import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
+import org.apache.seatunnel.engine.server.event.JobEventListener;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.context.SeaTunnelSplitEnumeratorContext;
@@ -102,7 +103,10 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
                         + source.getName());
         enumeratorContext =
                 new SeaTunnelSplitEnumeratorContext<>(
-                        this.source.getParallelism(), this, getMetricsContext());
+                        this.source.getParallelism(),
+                        this,
+                        getMetricsContext(),
+                        new JobEventListener(taskLocation, getExecutionContext()));
         enumeratorStateSerializer = this.source.getSource().getEnumeratorStateSerializer();
         splitSerializer = this.source.getSource().getSplitSerializer();
         taskMemberMapping = new ConcurrentHashMap<>();
