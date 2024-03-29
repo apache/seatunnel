@@ -26,7 +26,6 @@ import org.apache.commons.collections4.map.SingletonMap;
 
 import java.util.HashMap;
 import java.util.Map;
-import org.apache.seatunnel.common.Constants;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.CONVERT_TO_CONNECTOR_TYPE_ERROR;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.CONVERT_TO_CONNECTOR_TYPE_ERROR_SIMPLE;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.CONVERT_TO_SEATUNNEL_TYPE_ERROR;
@@ -49,39 +48,51 @@ import static org.apache.seatunnel.common.exception.CommonErrorCode.WRITE_SEATUN
  */
 public class CommonError {
 
+    private static final String IDENTIFIER = "identifier";
+
+    private static final String OPERATION = "operation";
+
+    private static final String FILE_NAME = "fileName";
+
+    private static final String DATA_TYPE = "dataType";
+
+    private static final String FIELD = "field";
+
+    private static final String CONNECTOR = "connector";
+
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     public static SeaTunnelRuntimeException fileOperationFailed(
             String identifier, String operation, String fileName, Throwable cause) {
         Map<String, String> params = new HashMap<>();
-        params.put(Constants.IDENTIFIER, identifier);
-        params.put(Constants.OPERATION, operation);
-        params.put(Constants.FILE_NAME, fileName);
+        params.put(IDENTIFIER, identifier);
+        params.put(OPERATION, operation);
+        params.put(FILE_NAME, fileName);
         return new SeaTunnelRuntimeException(FILE_OPERATION_FAILED, params, cause);
     }
 
     public static SeaTunnelRuntimeException fileOperationFailed(
             String identifier, String operation, String fileName) {
         Map<String, String> params = new HashMap<>();
-        params.put(Constants.IDENTIFIER, identifier);
-        params.put(Constants.OPERATION, operation);
-        params.put(Constants.FILE_NAME, fileName);
+        params.put(IDENTIFIER, identifier);
+        params.put(OPERATION, operation);
+        params.put(FILE_NAME, fileName);
         return new SeaTunnelRuntimeException(FILE_OPERATION_FAILED, params);
     }
 
     public static SeaTunnelRuntimeException fileNotExistFailed(
             String identifier, String operation, String fileName) {
         Map<String, String> params = new HashMap<>();
-        params.put(Constants.IDENTIFIER, identifier);
-        params.put(Constants.OPERATION, operation);
-        params.put(Constants.FILE_NAME, fileName);
+        params.put(IDENTIFIER, identifier);
+        params.put(OPERATION, operation);
+        params.put(FILE_NAME, fileName);
         return new SeaTunnelRuntimeException(FILE_NOT_EXISTED, params);
     }
 
     public static SeaTunnelRuntimeException writeSeaTunnelRowFailed(
             String connector, String row, Throwable cause) {
         Map<String, String> params = new HashMap<>();
-        params.put(Constants.CONNECTOR, connector);
+        params.put(CONNECTOR, connector);
         params.put("seaTunnelRow", row);
         return new SeaTunnelRuntimeException(WRITE_SEATUNNEL_ROW_ERROR, params, cause);
     }
@@ -89,9 +100,9 @@ public class CommonError {
     public static SeaTunnelRuntimeException unsupportedDataType(
             String identifier, String dataType, String field) {
         Map<String, String> params = new HashMap<>();
-        params.put(Constants.IDENTIFIER, identifier);
-        params.put(Constants.DATA_TYPE, dataType);
-        params.put(Constants.FIELD, field);
+        params.put(IDENTIFIER, identifier);
+        params.put(DATA_TYPE, dataType);
+        params.put(FIELD, field);
         return new SeaTunnelRuntimeException(UNSUPPORTED_DATA_TYPE, params);
     }
 
@@ -103,38 +114,38 @@ public class CommonError {
     public static SeaTunnelRuntimeException convertToSeaTunnelTypeError(
             String connector, PluginType pluginType, String dataType, String field) {
         Map<String, String> params = new HashMap<>();
-        params.put(Constants.CONNECTOR, connector);
+        params.put(CONNECTOR, connector);
         params.put("type", pluginType.getType());
-        params.put(Constants.DATA_TYPE, dataType);
-        params.put(Constants.FIELD, field);
+        params.put(DATA_TYPE, dataType);
+        params.put(FIELD, field);
         return new SeaTunnelRuntimeException(CONVERT_TO_SEATUNNEL_TYPE_ERROR, params);
     }
 
     public static SeaTunnelRuntimeException convertToSeaTunnelTypeError(
             String identifier, String dataType, String field) {
         Map<String, String> params = new HashMap<>();
-        params.put(Constants.IDENTIFIER, identifier);
-        params.put(Constants.DATA_TYPE, dataType);
-        params.put(Constants.FIELD, field);
+        params.put(IDENTIFIER, identifier);
+        params.put(DATA_TYPE, dataType);
+        params.put(FIELD, field);
         return new SeaTunnelRuntimeException(CONVERT_TO_SEATUNNEL_TYPE_ERROR_SIMPLE, params);
     }
 
     public static SeaTunnelRuntimeException convertToConnectorTypeError(
             String connector, PluginType pluginType, String dataType, String field) {
         Map<String, String> params = new HashMap<>();
-        params.put(Constants.CONNECTOR, connector);
+        params.put(CONNECTOR, connector);
         params.put("type", pluginType.getType());
-        params.put(Constants.DATA_TYPE, dataType);
-        params.put(Constants.FIELD, field);
+        params.put(DATA_TYPE, dataType);
+        params.put(FIELD, field);
         return new SeaTunnelRuntimeException(CONVERT_TO_CONNECTOR_TYPE_ERROR, params);
     }
 
     public static SeaTunnelRuntimeException convertToConnectorTypeError(
             String identifier, String dataType, String field) {
         Map<String, String> params = new HashMap<>();
-        params.put(Constants.IDENTIFIER, identifier);
-        params.put(Constants.DATA_TYPE, dataType);
-        params.put(Constants.FIELD, field);
+        params.put(IDENTIFIER, identifier);
+        params.put(DATA_TYPE, dataType);
+        params.put(FIELD, field);
         return new SeaTunnelRuntimeException(CONVERT_TO_CONNECTOR_TYPE_ERROR_SIMPLE, params);
     }
 
@@ -173,7 +184,7 @@ public class CommonError {
     public static SeaTunnelRuntimeException jsonOperationError(
             String identifier, String payload, Throwable cause) {
         Map<String, String> params = new HashMap<>();
-        params.put(Constants.IDENTIFIER, identifier);
+        params.put(IDENTIFIER, identifier);
         params.put("payload", payload);
         SeaTunnelErrorCode code = JSON_OPERATION_FAILED;
 

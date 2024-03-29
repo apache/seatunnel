@@ -43,19 +43,6 @@ public final class Constants {
 
     public static final String NOW = "now";
 
-    public static final String IDENTIFIER = "identifier";
-
-    public static final String OPERATION = "operation";
-
-    public static final String FILE_NAME = "fileName";
-
-    public static final String DATA_TYPE = "dataType";
-
-    public static final String FIELD = "field";
-
-    public static final String CONNECTOR = "connector";
-
-
     public static final String ST_LOGO =
             "                                                         \n"
                     + " _____               _____                             _ \n"
