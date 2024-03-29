@@ -22,11 +22,12 @@ import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-public class CsvLineSplitor implements TextLineSplitor {
+public class CsvLineSplitor implements TextLineSplitor, Serializable {
     private CSVFormat format;
 
     @Override

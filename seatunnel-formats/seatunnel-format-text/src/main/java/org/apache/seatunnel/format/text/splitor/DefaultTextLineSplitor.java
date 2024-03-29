@@ -17,7 +17,9 @@
 
 package org.apache.seatunnel.format.text.splitor;
 
-public class DefaultTextLineSplitor implements TextLineSplitor {
+import java.io.Serializable;
+
+public class DefaultTextLineSplitor implements TextLineSplitor, Serializable {
 
     @Override
     public String[] spliteLine(String line, String seperator) {
