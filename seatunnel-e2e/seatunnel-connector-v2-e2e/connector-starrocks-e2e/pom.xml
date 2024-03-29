@@ -48,11 +48,5 @@
             <version>${mysql.version}</version>
             <scope>test</scope>
         </dependency>
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>kafka</artifactId>
-            <version>${testcontainer.version}</version>
-            <scope>test</scope>
-        </dependency>
     </dependencies>
 </project>
