@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.oss.sink;
+package org.apache.seatunnel.connectors.seatunnel.file.oss.jindo.sink;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -23,7 +23,7 @@ import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
-import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.oss.jindo.config.OssConfigOptions;
 
 import com.google.auto.service.AutoService;
 

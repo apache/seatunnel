@@ -39,6 +39,7 @@ public class CoordinatedMicroBatchPartitionReader extends ParallelMicroBatchPart
     public CoordinatedMicroBatchPartitionReader(
             SeaTunnelSource<SeaTunnelRow, ?, ?> source,
             Integer parallelism,
+            String jobId,
             Integer subtaskId,
             Integer checkpointId,
             Integer checkpointInterval,
@@ -49,6 +50,7 @@ public class CoordinatedMicroBatchPartitionReader extends ParallelMicroBatchPart
         super(
                 source,
                 parallelism,
+                jobId,
                 subtaskId,
                 checkpointId,
                 checkpointInterval,
@@ -125,7 +127,7 @@ public class CoordinatedMicroBatchPartitionReader extends ParallelMicroBatchPart
 
     @Override
     protected BaseSourceFunction<SeaTunnelRow> createInternalSource() {
-        return new InternalCoordinatedSource<>(source, null, parallelism);
+        return new InternalCoordinatedSource<>(source, null, parallelism, jobId);
     }
 
     public class InternalCoordinatedSource<SplitT extends SourceSplit, StateT extends Serializable>
@@ -134,8 +136,9 @@ public class CoordinatedMicroBatchPartitionReader extends ParallelMicroBatchPart
         public InternalCoordinatedSource(
                 SeaTunnelSource<SeaTunnelRow, SplitT, StateT> source,
                 Map<Integer, List<byte[]>> restoredState,
-                int parallelism) {
-            super(source, restoredState, parallelism);
+                int parallelism,
+                String jobId) {
+            super(source, restoredState, parallelism, jobId);
         }
 
         @Override

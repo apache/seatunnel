@@ -53,7 +53,10 @@ public class PaimonSinkFactory implements TableSinkFactory {
                 .optional(
                         PaimonConfig.HDFS_SITE_PATH,
                         PaimonSinkConfig.SCHEMA_SAVE_MODE,
-                        PaimonSinkConfig.DATA_SAVE_MODE)
+                        PaimonSinkConfig.DATA_SAVE_MODE,
+                        PaimonSinkConfig.PRIMARY_KEYS,
+                        PaimonSinkConfig.PARTITION_KEYS,
+                        PaimonSinkConfig.WRITE_PROPS)
                 .build();
     }
 

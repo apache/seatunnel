@@ -18,14 +18,16 @@
 package org.apache.seatunnel.connectors.seatunnel.paimon.utils;
 
 import org.apache.seatunnel.api.table.catalog.Column;
-import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.paimon.data.PaimonTypeMapper;
 
 import org.apache.paimon.schema.Schema;
+import org.apache.paimon.types.DataField;
 import org.apache.paimon.types.DataType;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 /** The util seatunnel schema to paimon schema */
@@ -35,20 +37,39 @@ public class SchemaUtil {
         return PaimonTypeMapper.INSTANCE.reconvert(column);
     }
 
-    public static Schema toPaimonSchema(TableSchema tableSchema) {
+    public static Schema toPaimonSchema(
+            TableSchema tableSchema, PaimonSinkConfig paimonSinkConfig) {
         Schema.Builder paiSchemaBuilder = Schema.newBuilder();
         for (int i = 0; i < tableSchema.getColumns().size(); i++) {
             Column column = tableSchema.getColumns().get(i);
             paiSchemaBuilder.column(column.getName(), toPaimonType(column));
         }
-        PrimaryKey primaryKey = tableSchema.getPrimaryKey();
-        if (Objects.nonNull(primaryKey) && primaryKey.getColumnNames().size() > 0) {
-            paiSchemaBuilder.primaryKey(primaryKey.getColumnNames());
+        List<String> primaryKeys = paimonSinkConfig.getPrimaryKeys();
+        if (primaryKeys.isEmpty() && Objects.nonNull(tableSchema.getPrimaryKey())) {
+            primaryKeys = tableSchema.getPrimaryKey().getColumnNames();
+        }
+        if (!primaryKeys.isEmpty()) {
+            paiSchemaBuilder.primaryKey(primaryKeys);
+        }
+        List<String> partitionKeys = paimonSinkConfig.getPartitionKeys();
+        if (!partitionKeys.isEmpty()) {
+            paiSchemaBuilder.partitionKeys(partitionKeys);
+        }
+        Map<String, String> writeProps = paimonSinkConfig.getWriteProps();
+        if (!writeProps.isEmpty()) {
+            paiSchemaBuilder.options(writeProps);
         }
         return paiSchemaBuilder.build();
     }
 
-    public static SeaTunnelDataType<?> toSeaTunnelType(DataType dataType) {
-        return PaimonTypeMapper.INSTANCE.convert(dataType).getDataType();
+    public static Column toSeaTunnelType(DataType dataType) {
+        return PaimonTypeMapper.INSTANCE.convert(dataType);
+    }
+
+    public static DataField getDataField(List<DataField> fields, String fieldName) {
+        return fields.parallelStream()
+                .filter(field -> field.name().equals(fieldName))
+                .findFirst()
+                .get();
     }
 }

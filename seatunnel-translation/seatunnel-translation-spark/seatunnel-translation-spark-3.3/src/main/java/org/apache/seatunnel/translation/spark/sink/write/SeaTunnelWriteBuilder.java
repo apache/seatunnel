@@ -29,16 +29,19 @@ public class SeaTunnelWriteBuilder<StateT, CommitInfoT, AggregatedCommitInfoT>
 
     private final SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink;
     private final CatalogTable catalogTable;
+    private final String jobId;
 
     public SeaTunnelWriteBuilder(
             SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
-            CatalogTable catalogTable) {
+            CatalogTable catalogTable,
+            String jobId) {
         this.sink = sink;
         this.catalogTable = catalogTable;
+        this.jobId = jobId;
     }
 
     @Override
     public Write build() {
-        return new SeaTunnelWrite<>(sink, catalogTable);
+        return new SeaTunnelWrite<>(sink, catalogTable, jobId);
     }
 }

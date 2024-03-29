@@ -15,22 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.oss.exception;
+package org.apache.seatunnel.api.source.event;
 
-import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
-import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.api.event.EventType;
+import org.apache.seatunnel.api.event.LifecycleEvent;
 
-public class OssJindoConnectorException extends SeaTunnelRuntimeException {
-    public OssJindoConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage) {
-        super(seaTunnelErrorCode, errorMessage);
-    }
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
 
-    public OssJindoConnectorException(
-            SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
-        super(seaTunnelErrorCode, errorMessage, cause);
-    }
+@Getter
+@Setter
+@ToString
+@AllArgsConstructor
+public class EnumeratorCloseEvent implements LifecycleEvent {
+    private long createdTime;
+    private String jobId;
+    private EventType eventType = EventType.LIFECYCLE_ENUMERATOR_CLOSE;
 
-    public OssJindoConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, Throwable cause) {
-        super(seaTunnelErrorCode, cause);
+    public EnumeratorCloseEvent() {
+        this.createdTime = System.currentTimeMillis();
     }
 }

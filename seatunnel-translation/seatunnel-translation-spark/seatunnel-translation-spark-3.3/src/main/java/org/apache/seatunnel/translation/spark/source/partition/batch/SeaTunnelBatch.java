@@ -33,14 +33,17 @@ public class SeaTunnelBatch implements Batch {
     private final SeaTunnelSource<SeaTunnelRow, ?, ?> source;
 
     private final int parallelism;
+    private final String jobId;
     private final Map<String, String> envOptions;
 
     public SeaTunnelBatch(
             SeaTunnelSource<SeaTunnelRow, ?, ?> source,
             int parallelism,
+            String jobId,
             Map<String, String> envOptions) {
         this.source = source;
         this.parallelism = parallelism;
+        this.jobId = jobId;
         this.envOptions = envOptions;
     }
 
@@ -61,6 +64,6 @@ public class SeaTunnelBatch implements Batch {
 
     @Override
     public PartitionReaderFactory createReaderFactory() {
-        return new SeaTunnelBatchPartitionReaderFactory(source, parallelism, envOptions);
+        return new SeaTunnelBatchPartitionReaderFactory(source, parallelism, jobId, envOptions);
     }
 }
