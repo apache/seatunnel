@@ -145,5 +145,4 @@ public class TextFormatSchemaTest {
         Assertions.assertEquals(seaTunnelRow.getField(2), "tyrantlucifer");
         Assertions.assertEquals(data, content);
     }
-
 }
