@@ -17,7 +17,12 @@
 
 package org.apache.seatunnel.format.text;
 
-import org.apache.seatunnel.api.table.type.*;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.DecimalType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.format.text.splitor.CsvLineSplitor;
 
 import org.junit.jupiter.api.Assertions;
