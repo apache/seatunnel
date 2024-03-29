@@ -92,103 +92,33 @@ public class JsonToRowConverters implements Serializable {
             case ROW:
                 return createRowConverter((SeaTunnelRowType) type);
             case NULL:
-                return new JsonToRowConverter() {
-                    @Override
-                    public Object convert(JsonNode jsonNode) {
-                        return null;
-                    }
-                };
+                return (JsonToRowConverter) jsonNode -> null;
             case BOOLEAN:
-                return new JsonToRowConverter() {
-                    @Override
-                    public Object convert(JsonNode jsonNode) {
-                        return convertToBoolean(jsonNode);
-                    }
-                };
+                return (JsonToRowConverter) (JsonNode jsonNode) -> convertToBoolean(jsonNode);
             case TINYINT:
-                return new JsonToRowConverter() {
-                    @Override
-                    public Object convert(JsonNode jsonNode) {
-                        return Byte.parseByte(jsonNode.asText().trim());
-                    }
-                };
+                return (JsonToRowConverter) (JsonNode jsonNode) -> Byte.parseByte(jsonNode.asText().trim());
             case SMALLINT:
-                return new JsonToRowConverter() {
-                    @Override
-                    public Object convert(JsonNode jsonNode) {
-                        return Short.parseShort(jsonNode.asText().trim());
-                    }
-                };
+                return (JsonToRowConverter) (JsonNode jsonNode) -> Short.parseShort(jsonNode.asText().trim());
             case INT:
-                return new JsonToRowConverter() {
-                    @Override
-                    public Object convert(JsonNode jsonNode) {
-                        return convertToInt(jsonNode);
-                    }
-                };
+                return (JsonToRowConverter) (JsonNode jsonNode) -> convertToInt(jsonNode);
             case BIGINT:
-                return new JsonToRowConverter() {
-                    @Override
-                    public Object convert(JsonNode jsonNode) {
-                        return convertToLong(jsonNode);
-                    }
-                };
+                return (JsonToRowConverter) (JsonNode jsonNode) -> convertToLong(jsonNode);
             case DATE:
-                return new JsonToRowConverter() {
-                    @Override
-                    public Object convert(JsonNode jsonNode) {
-                        return convertToLocalDate(jsonNode);
-                    }
-                };
+                return (JsonToRowConverter) (JsonNode jsonNode) -> convertToLocalDate(jsonNode);
             case TIME:
-                return new JsonToRowConverter() {
-                    @Override
-                    public Object convert(JsonNode jsonNode) {
-                        return convertToLocalTime(jsonNode);
-                    }
-                };
+                return (JsonToRowConverter) (JsonNode jsonNode) -> convertToLocalTime(jsonNode);
             case TIMESTAMP:
-                return new JsonToRowConverter() {
-                    @Override
-                    public Object convert(JsonNode jsonNode) {
-                        return convertToLocalDateTime(jsonNode);
-                    }
-                };
+                return (JsonToRowConverter) (JsonNode jsonNode) -> convertToLocalDateTime(jsonNode);
             case FLOAT:
-                return new JsonToRowConverter() {
-                    @Override
-                    public Object convert(JsonNode jsonNode) {
-                        return convertToFloat(jsonNode);
-                    }
-                };
+                return (JsonToRowConverter) (JsonNode jsonNode) -> convertToFloat(jsonNode);
             case DOUBLE:
-                return new JsonToRowConverter() {
-                    @Override
-                    public Object convert(JsonNode jsonNode) {
-                        return convertToDouble(jsonNode);
-                    }
-                };
+                return (JsonToRowConverter) (JsonNode jsonNode) -> convertToDouble(jsonNode);
             case STRING:
-                return new JsonToRowConverter() {
-                    @Override
-                    public Object convert(JsonNode jsonNode) {
-                        return convertToString(jsonNode);
-                    }
-                };
+                return (JsonToRowConverter) (JsonNode jsonNode) -> convertToString(jsonNode);
             case BYTES:
-                return new JsonToRowConverter() {
-                    @Override
-                    public Object convert(JsonNode jsonNode) {
-                        return convertToBytes(jsonNode);
-                    }
-                };
+                return (JsonToRowConverter) (JsonNode jsonNode) -> convertToBytes(jsonNode);
             case DECIMAL:
-                return new JsonToRowConverter() {
-                    @Override
-                    public Object convert(JsonNode jsonNode) {
-                        return convertToBigDecimal(jsonNode);
-                    }
-                };
+                return (JsonToRowConverter) (JsonNode jsonNode) -> convertToBigDecimal(jsonNode);
             case ARRAY:
                 return createArrayConverter((ArrayType<?, ?>) type);
             case MAP:
