@@ -61,6 +61,22 @@ public class CommonError {
 
     private static final String CONNECTOR = "connector";
 
+    private static final String CATALOG_NAME = "catalogName";
+
+    private static final String TABLE_NAME = "tableName";
+
+    private static final String FIELD_WITH_DATA_TYPES = "fieldWithDataTypes";
+
+    private static final String TABLE_UNSUPPORTED_TYPES = "tableUnsupportedTypes";
+
+    private static final String SEA_TUNNEL_ROW = "seaTunnelRow";
+
+    private static final String TYPE = "type";
+
+    private static final String PAYLOAD = "payload";
+
+    private static final String ENCODING = "encoding";
+
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     public static SeaTunnelRuntimeException fileOperationFailed(
@@ -94,7 +110,7 @@ public class CommonError {
             String connector, String row, Throwable cause) {
         Map<String, String> params = new HashMap<>();
         params.put(CONNECTOR, connector);
-        params.put("seaTunnelRow", row);
+        params.put(SEA_TUNNEL_ROW, row);
         return new SeaTunnelRuntimeException(WRITE_SEATUNNEL_ROW_ERROR, params, cause);
     }
 
@@ -108,7 +124,7 @@ public class CommonError {
     }
 
     public static SeaTunnelRuntimeException unsupportedEncoding(String encoding) {
-        Map<String, String> params = new SingletonMap<>("encoding", encoding);
+        Map<String, String> params = new SingletonMap<>(ENCODING, encoding);
         return new SeaTunnelRuntimeException(UNSUPPORTED_ENCODING, params);
     }
 
@@ -116,7 +132,7 @@ public class CommonError {
             String connector, PluginType pluginType, String dataType, String field) {
         Map<String, String> params = new HashMap<>();
         params.put(CONNECTOR, connector);
-        params.put("type", pluginType.getType());
+        params.put(TYPE, pluginType.getType());
         params.put(DATA_TYPE, dataType);
         params.put(FIELD, field);
         return new SeaTunnelRuntimeException(CONVERT_TO_SEATUNNEL_TYPE_ERROR, params);
@@ -135,7 +151,7 @@ public class CommonError {
             String connector, PluginType pluginType, String dataType, String field) {
         Map<String, String> params = new HashMap<>();
         params.put(CONNECTOR, connector);
-        params.put("type", pluginType.getType());
+        params.put(TYPE, pluginType.getType());
         params.put(DATA_TYPE, dataType);
         params.put(FIELD, field);
         return new SeaTunnelRuntimeException(CONVERT_TO_CONNECTOR_TYPE_ERROR, params);
@@ -153,10 +169,10 @@ public class CommonError {
     public static SeaTunnelRuntimeException getCatalogTableWithUnsupportedType(
             String catalogName, String tableName, Map<String, String> fieldWithDataTypes) {
         Map<String, String> params = new HashMap<>();
-        params.put("catalogName", catalogName);
-        params.put("tableName", tableName);
+        params.put(CATALOG_NAME, catalogName);
+        params.put(TABLE_NAME, tableName);
         try {
-            params.put("fieldWithDataTypes", OBJECT_MAPPER.writeValueAsString(fieldWithDataTypes));
+            params.put(FIELD_WITH_DATA_TYPES, OBJECT_MAPPER.writeValueAsString(fieldWithDataTypes));
         } catch (JsonProcessingException e) {
             throw new RuntimeException(e);
         }
@@ -166,10 +182,10 @@ public class CommonError {
     public static SeaTunnelRuntimeException getCatalogTablesWithUnsupportedType(
             String catalogName, Map<String, Map<String, String>> tableUnsupportedTypes) {
         Map<String, String> params = new HashMap<>();
-        params.put("catalogName", catalogName);
+        params.put(CATALOG_NAME, catalogName);
         try {
             params.put(
-                    "tableUnsupportedTypes",
+                    TABLE_UNSUPPORTED_TYPES,
                     OBJECT_MAPPER.writeValueAsString(tableUnsupportedTypes));
         } catch (JsonProcessingException e) {
             throw new RuntimeException(e);
@@ -186,7 +202,7 @@ public class CommonError {
             String identifier, String payload, Throwable cause) {
         Map<String, String> params = new HashMap<>();
         params.put(IDENTIFIER, identifier);
-        params.put("payload", payload);
+        params.put(PAYLOAD, payload);
         SeaTunnelErrorCode code = JSON_OPERATION_FAILED;
 
         if (cause != null) {
