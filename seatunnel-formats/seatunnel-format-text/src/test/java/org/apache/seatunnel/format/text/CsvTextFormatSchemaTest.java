@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.format.text;
 
+import org.apache.seatunnel.api.table.type.*;
 import org.apache.seatunnel.format.text.splitor.CsvLineSplitor;
 
 import org.junit.jupiter.api.Assertions;
