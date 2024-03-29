@@ -38,6 +38,8 @@ import org.apache.seatunnel.format.text.constant.TextFormatConstant;
 
 import io.airlift.compress.lzo.LzopCodec;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.seatunnel.format.text.splitor.CsvLineSplitor;
+import org.apache.seatunnel.format.text.splitor.TextLineSplitor;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -56,6 +58,7 @@ public class TextReadStrategy extends AbstractReadStrategy {
             BaseSourceConfigOptions.DATETIME_FORMAT.defaultValue();
     private TimeUtils.Formatter timeFormat = BaseSourceConfigOptions.TIME_FORMAT.defaultValue();
     private CompressFormat compressFormat = BaseSourceConfigOptions.COMPRESS_CODEC.defaultValue();
+    private TextLineSplitor textLineSplitor;
     private int[] indexes;
     private String encoding = BaseSourceConfigOptions.ENCODING.defaultValue();
 
@@ -145,7 +148,8 @@ public class TextReadStrategy extends AbstractReadStrategy {
                         .delimiter(TextFormatConstant.PLACEHOLDER)
                         .dateFormatter(dateFormat)
                         .dateTimeFormatter(datetimeFormat)
-                        .timeFormatter(timeFormat);
+                        .timeFormatter(timeFormat)
+                        .textLineSplitor(textLineSplitor);
         if (isMergePartition) {
             deserializationSchema =
                     builder.seaTunnelRowType(this.seaTunnelRowTypeWithPartition).build();
@@ -184,7 +188,8 @@ public class TextReadStrategy extends AbstractReadStrategy {
                         .delimiter(fieldDelimiter)
                         .dateFormatter(dateFormat)
                         .dateTimeFormatter(datetimeFormat)
-                        .timeFormatter(timeFormat);
+                        .timeFormatter(timeFormat)
+                        .textLineSplitor(textLineSplitor);
         if (isMergePartition) {
             deserializationSchema =
                     builder.seaTunnelRowType(userDefinedRowTypeWithPartition).build();
@@ -232,5 +237,11 @@ public class TextReadStrategy extends AbstractReadStrategy {
                     pluginConfig.getString(BaseSourceConfigOptions.COMPRESS_CODEC.key());
             compressFormat = CompressFormat.valueOf(compressCodec.toUpperCase());
         }
+        if (FileFormat.CSV.equals(
+                FileFormat.valueOf(pluginConfig
+                        .getString(BaseSourceConfigOptions.FILE_FORMAT_TYPE.key())
+                        .toUpperCase()))){
+            textLineSplitor = new CsvLineSplitor();
+        };
     }
 }

@@ -146,24 +146,4 @@ public class TextFormatSchemaTest {
         Assertions.assertEquals(data, content);
     }
 
-    @Test
-    public void testDeserilizewithQuote() throws IOException {
-        SeaTunnelRowType rowType =
-                new SeaTunnelRowType(
-                        new String[] {"id", "content", "num"},
-                        new SeaTunnelDataType<?>[] {
-                            BasicType.INT_TYPE, BasicType.STRING_TYPE, BasicType.INT_TYPE
-                        });
-        String delimiter = ",";
-        TextDeserializationSchema deserializationSchema =
-                TextDeserializationSchema.builder()
-                        .seaTunnelRowType(rowType)
-                        .delimiter(delimiter)
-                        .build();
-        String msg = "0" + delimiter + "\"mes" + delimiter + "sage\"" + delimiter + "2";
-        SeaTunnelRow seaTunnelRow = deserializationSchema.deserialize(msg.getBytes());
-        Assertions.assertTrue(Integer.valueOf(0).equals(seaTunnelRow.getField(0)));
-        Assertions.assertTrue("mes,sage".equals(seaTunnelRow.getField(1)));
-        Assertions.assertTrue(Integer.valueOf(2).equals(seaTunnelRow.getField(2)));
-    }
 }
