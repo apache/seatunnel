@@ -94,31 +94,31 @@ public class JsonToRowConverters implements Serializable {
             case NULL:
                 return jsonNode -> null;
             case BOOLEAN:
-                return (JsonNode jsonNode) -> convertToBoolean(jsonNode);
+                return this::convertToBoolean;
             case TINYINT:
                 return (JsonNode jsonNode) -> Byte.parseByte(jsonNode.asText().trim());
             case SMALLINT:
                 return (JsonNode jsonNode) -> Short.parseShort(jsonNode.asText().trim());
             case INT:
-                return (JsonNode jsonNode) -> convertToInt(jsonNode);
+                return this::convertToInt;
             case BIGINT:
-                return (JsonNode jsonNode) -> convertToLong(jsonNode);
+                return this::convertToLong;
             case DATE:
-                return (JsonNode jsonNode) -> convertToLocalDate(jsonNode);
+                return this::convertToLocalDate;
             case TIME:
-                return (JsonNode jsonNode) -> convertToLocalTime(jsonNode);
+                return this::convertToLocalTime;
             case TIMESTAMP:
-                return (JsonNode jsonNode) -> convertToLocalDateTime(jsonNode);
+                return this::convertToLocalDateTime;
             case FLOAT:
-                return (JsonNode jsonNode) -> convertToFloat(jsonNode);
+                return this::convertToFloat;
             case DOUBLE:
-                return (JsonNode jsonNode) -> convertToDouble(jsonNode);
+                return this::convertToDouble;
             case STRING:
-                return (JsonNode jsonNode) -> convertToString(jsonNode);
+                return this::convertToString;
             case BYTES:
-                return (JsonNode jsonNode) -> convertToBytes(jsonNode);
+                return this::convertToBytes;
             case DECIMAL:
-                return (JsonNode jsonNode) -> convertToBigDecimal(jsonNode);
+                return this::convertToBigDecimal;
             case ARRAY:
                 return createArrayConverter((ArrayType<?, ?>) type);
             case MAP:
