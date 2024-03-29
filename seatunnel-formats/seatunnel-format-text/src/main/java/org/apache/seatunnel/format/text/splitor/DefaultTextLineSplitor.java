@@ -21,6 +21,6 @@ public class DefaultTextLineSplitor implements TextLineSplitor {
 
     @Override
     public String[] spliteLine(String line, String seperator) {
-        return line.split(seperator , -1);
+        return line.split(seperator, -1);
     }
 }

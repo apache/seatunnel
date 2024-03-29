@@ -31,19 +31,18 @@ import org.apache.seatunnel.common.utils.EncodingUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
 import org.apache.seatunnel.format.text.constant.TextFormatConstant;
 import org.apache.seatunnel.format.text.exception.SeaTunnelTextFormatException;
+import org.apache.seatunnel.format.text.splitor.DefaultTextLineSplitor;
+import org.apache.seatunnel.format.text.splitor.TextLineSplitor;
 
 import org.apache.commons.lang3.StringUtils;
 
 import lombok.NonNull;
-import org.apache.seatunnel.format.text.splitor.DefaultTextLineSplitor;
-import org.apache.seatunnel.format.text.splitor.TextLineSplitor;
 
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 

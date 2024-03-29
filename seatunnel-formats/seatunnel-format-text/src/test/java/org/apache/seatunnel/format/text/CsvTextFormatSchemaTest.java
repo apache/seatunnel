@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.format.text;
 
-import org.apache.seatunnel.api.table.type.*;
 import org.apache.seatunnel.format.text.splitor.CsvLineSplitor;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -26,7 +26,6 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-
 
 public class CsvTextFormatSchemaTest {
     public String content =
@@ -50,35 +49,35 @@ public class CsvTextFormatSchemaTest {
     public void initSeaTunnelRowType() {
         seaTunnelRowType =
                 new SeaTunnelRowType(
-                        new String[]{
-                                "string_field",
-                                "boolean_field",
-                                "tinyint_field",
-                                "smallint_field",
-                                "int_field",
-                                "bigint_field",
-                                "float_field",
-                                "double_field",
-                                "decimal_field",
-                                "null_field",
-                                "date_field",
-                                "time_field",
-                                "timestamp_field"
+                        new String[] {
+                            "string_field",
+                            "boolean_field",
+                            "tinyint_field",
+                            "smallint_field",
+                            "int_field",
+                            "bigint_field",
+                            "float_field",
+                            "double_field",
+                            "decimal_field",
+                            "null_field",
+                            "date_field",
+                            "time_field",
+                            "timestamp_field"
                         },
-                        new SeaTunnelDataType<?>[]{
-                                BasicType.STRING_TYPE,
-                                BasicType.BOOLEAN_TYPE,
-                                BasicType.BYTE_TYPE,
-                                BasicType.SHORT_TYPE,
-                                BasicType.INT_TYPE,
-                                BasicType.LONG_TYPE,
-                                BasicType.FLOAT_TYPE,
-                                BasicType.DOUBLE_TYPE,
-                                new DecimalType(30, 8),
-                                BasicType.VOID_TYPE,
-                                LocalTimeType.LOCAL_DATE_TYPE,
-                                LocalTimeType.LOCAL_TIME_TYPE,
-                                LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                        new SeaTunnelDataType<?>[] {
+                            BasicType.STRING_TYPE,
+                            BasicType.BOOLEAN_TYPE,
+                            BasicType.BYTE_TYPE,
+                            BasicType.SHORT_TYPE,
+                            BasicType.INT_TYPE,
+                            BasicType.LONG_TYPE,
+                            BasicType.FLOAT_TYPE,
+                            BasicType.DOUBLE_TYPE,
+                            new DecimalType(30, 8),
+                            BasicType.VOID_TYPE,
+                            LocalTimeType.LOCAL_DATE_TYPE,
+                            LocalTimeType.LOCAL_TIME_TYPE,
+                            LocalTimeType.LOCAL_DATE_TIME_TYPE,
                         });
     }
 
@@ -114,15 +113,12 @@ public class CsvTextFormatSchemaTest {
 
     @Test
     public void testDeserilizewithQuote() throws IOException {
-        SeaTunnelRowType rowType = new SeaTunnelRowType(new String[]{
-                "id",
-                "content",
-                "num"
-        }, new SeaTunnelDataType<?>[]{
-                BasicType.INT_TYPE,
-                BasicType.STRING_TYPE,
-                BasicType.INT_TYPE
-        });
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"id", "content", "num"},
+                        new SeaTunnelDataType<?>[] {
+                            BasicType.INT_TYPE, BasicType.STRING_TYPE, BasicType.INT_TYPE
+                        });
         String delimiter = ",";
         TextDeserializationSchema deserializationSchema =
                 TextDeserializationSchema.builder()
@@ -130,13 +126,7 @@ public class CsvTextFormatSchemaTest {
                         .delimiter(delimiter)
                         .textLineSplitor(new CsvLineSplitor())
                         .build();
-        String msg = "0"
-                + delimiter
-                + "\"mes"
-                + delimiter
-                + "sage\""
-                + delimiter
-                + "2";
+        String msg = "0" + delimiter + "\"mes" + delimiter + "sage\"" + delimiter + "2";
         SeaTunnelRow seaTunnelRow = deserializationSchema.deserialize(msg.getBytes());
         Assertions.assertTrue(Integer.valueOf(0).equals(seaTunnelRow.getField(0)));
         Assertions.assertTrue("mes,sage".equals(seaTunnelRow.getField(1)));

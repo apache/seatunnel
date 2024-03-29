@@ -35,11 +35,11 @@ import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErr
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.format.text.TextDeserializationSchema;
 import org.apache.seatunnel.format.text.constant.TextFormatConstant;
+import org.apache.seatunnel.format.text.splitor.CsvLineSplitor;
+import org.apache.seatunnel.format.text.splitor.TextLineSplitor;
 
 import io.airlift.compress.lzo.LzopCodec;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.seatunnel.format.text.splitor.CsvLineSplitor;
-import org.apache.seatunnel.format.text.splitor.TextLineSplitor;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -238,10 +238,12 @@ public class TextReadStrategy extends AbstractReadStrategy {
             compressFormat = CompressFormat.valueOf(compressCodec.toUpperCase());
         }
         if (FileFormat.CSV.equals(
-                FileFormat.valueOf(pluginConfig
-                        .getString(BaseSourceConfigOptions.FILE_FORMAT_TYPE.key())
-                        .toUpperCase()))){
+                FileFormat.valueOf(
+                        pluginConfig
+                                .getString(BaseSourceConfigOptions.FILE_FORMAT_TYPE.key())
+                                .toUpperCase()))) {
             textLineSplitor = new CsvLineSplitor();
-        };
+        }
+        ;
     }
 }

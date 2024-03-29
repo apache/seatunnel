@@ -61,5 +61,4 @@ public class CsvLineSplitor implements TextLineSplitor {
             }
         }
     }
-
 }
