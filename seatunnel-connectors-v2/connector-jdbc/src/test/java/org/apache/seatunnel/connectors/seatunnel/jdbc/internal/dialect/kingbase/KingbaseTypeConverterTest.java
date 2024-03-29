@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.kingbase;
 
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
@@ -31,13 +31,13 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class PostgresTypeConverterTest {
+public class KingbaseTypeConverterTest {
     @Test
     public void testConvertUnsupported() {
         BasicTypeDefine<Object> typeDefine =
                 BasicTypeDefine.builder().name("test").columnType("aaa").dataType("aaa").build();
         try {
-            PostgresTypeConverter.INSTANCE.convert(typeDefine);
+            KingbaseTypeConverter.INSTANCE.convert(typeDefine);
             Assertions.fail();
         } catch (SeaTunnelRuntimeException e) {
             // ignore
@@ -57,7 +57,7 @@ public class PostgresTypeConverterTest {
                         null,
                         null);
         try {
-            PostgresTypeConverter.INSTANCE.reconvert(column);
+            KingbaseTypeConverter.INSTANCE.reconvert(column);
             Assertions.fail();
         } catch (SeaTunnelRuntimeException e) {
             // ignore
@@ -77,7 +77,7 @@ public class PostgresTypeConverterTest {
                         .defaultValue("1")
                         .comment("test")
                         .build();
-        Column column = PostgresTypeConverter.INSTANCE.convert(typeDefine);
+        Column column = KingbaseTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.BOOLEAN_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType().toLowerCase());
@@ -90,7 +90,7 @@ public class PostgresTypeConverterTest {
     public void testConvertSmallint() {
         BasicTypeDefine<Object> typeDefine =
                 BasicTypeDefine.builder().name("test").columnType("int2").dataType("int2").build();
-        Column column = PostgresTypeConverter.INSTANCE.convert(typeDefine);
+        Column column = KingbaseTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.SHORT_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType().toLowerCase());
@@ -100,7 +100,7 @@ public class PostgresTypeConverterTest {
     public void testConvertInt() {
         BasicTypeDefine<Object> typeDefine =
                 BasicTypeDefine.builder().name("test").columnType("int4").dataType("int4").build();
-        Column column = PostgresTypeConverter.INSTANCE.convert(typeDefine);
+        Column column = KingbaseTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.INT_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType().toLowerCase());
@@ -110,7 +110,7 @@ public class PostgresTypeConverterTest {
     public void testConvertBigint() {
         BasicTypeDefine<Object> typeDefine =
                 BasicTypeDefine.builder().name("test").columnType("int8").dataType("int8").build();
-        Column column = PostgresTypeConverter.INSTANCE.convert(typeDefine);
+        Column column = KingbaseTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.LONG_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType().toLowerCase());
@@ -124,7 +124,7 @@ public class PostgresTypeConverterTest {
                         .columnType("float4")
                         .dataType("float4")
                         .build();
-        Column column = PostgresTypeConverter.INSTANCE.convert(typeDefine);
+        Column column = KingbaseTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.FLOAT_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType().toLowerCase());
@@ -138,7 +138,7 @@ public class PostgresTypeConverterTest {
                         .columnType("float8")
                         .dataType("float8")
                         .build();
-        Column column = PostgresTypeConverter.INSTANCE.convert(typeDefine);
+        Column column = KingbaseTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.DOUBLE_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType().toLowerCase());
@@ -154,7 +154,7 @@ public class PostgresTypeConverterTest {
                         .precision(38L)
                         .scale(2)
                         .build();
-        Column column = PostgresTypeConverter.INSTANCE.convert(typeDefine);
+        Column column = KingbaseTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(new DecimalType(38, 2), column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
@@ -165,7 +165,7 @@ public class PostgresTypeConverterTest {
                         .columnType("numeric")
                         .dataType("numeric")
                         .build();
-        column = PostgresTypeConverter.INSTANCE.convert(typeDefine);
+        column = KingbaseTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(new DecimalType(38, 18), column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
@@ -179,7 +179,7 @@ public class PostgresTypeConverterTest {
                         .columnType("bpchar")
                         .dataType("bpchar")
                         .build();
-        Column column = PostgresTypeConverter.INSTANCE.convert(typeDefine);
+        Column column = KingbaseTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
         Assertions.assertEquals(4, column.getColumnLength());
@@ -192,7 +192,7 @@ public class PostgresTypeConverterTest {
                         .dataType("bpchar")
                         .length(10L)
                         .build();
-        column = PostgresTypeConverter.INSTANCE.convert(typeDefine);
+        column = KingbaseTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
         Assertions.assertEquals(40, column.getColumnLength());
@@ -207,7 +207,7 @@ public class PostgresTypeConverterTest {
                         .columnType("varchar")
                         .dataType("varchar")
                         .build();
-        Column column = PostgresTypeConverter.INSTANCE.convert(typeDefine);
+        Column column = KingbaseTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
         Assertions.assertEquals(null, column.getColumnLength());
@@ -220,7 +220,7 @@ public class PostgresTypeConverterTest {
                         .dataType("varchar")
                         .length(10L)
                         .build();
-        column = PostgresTypeConverter.INSTANCE.convert(typeDefine);
+        column = KingbaseTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
         Assertions.assertEquals(40, column.getColumnLength());
@@ -231,7 +231,7 @@ public class PostgresTypeConverterTest {
     public void testConvertOtherString() {
         BasicTypeDefine<Object> typeDefine =
                 BasicTypeDefine.builder().name("test").columnType("text").dataType("text").build();
-        Column column = PostgresTypeConverter.INSTANCE.convert(typeDefine);
+        Column column = KingbaseTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
         Assertions.assertEquals(null, column.getColumnLength());
@@ -239,7 +239,7 @@ public class PostgresTypeConverterTest {
 
         typeDefine =
                 BasicTypeDefine.builder().name("test").columnType("json").dataType("json").build();
-        column = PostgresTypeConverter.INSTANCE.convert(typeDefine);
+        column = KingbaseTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
         Assertions.assertEquals(null, column.getColumnLength());
@@ -251,7 +251,7 @@ public class PostgresTypeConverterTest {
                         .columnType("jsonb")
                         .dataType("jsonb")
                         .build();
-        column = PostgresTypeConverter.INSTANCE.convert(typeDefine);
+        column = KingbaseTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
         Assertions.assertEquals(null, column.getColumnLength());
@@ -259,7 +259,7 @@ public class PostgresTypeConverterTest {
 
         typeDefine =
                 BasicTypeDefine.builder().name("test").columnType("xml").dataType("xml").build();
-        column = PostgresTypeConverter.INSTANCE.convert(typeDefine);
+        column = KingbaseTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
         Assertions.assertEquals(null, column.getColumnLength());
@@ -274,7 +274,7 @@ public class PostgresTypeConverterTest {
                         .columnType("bytea")
                         .dataType("bytea")
                         .build();
-        Column column = PostgresTypeConverter.INSTANCE.convert(typeDefine);
+        Column column = KingbaseTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(PrimitiveByteArrayType.INSTANCE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType().toLowerCase());
@@ -284,7 +284,7 @@ public class PostgresTypeConverterTest {
     public void testConvertDate() {
         BasicTypeDefine<Object> typeDefine =
                 BasicTypeDefine.builder().name("test").columnType("date").dataType("date").build();
-        Column column = PostgresTypeConverter.INSTANCE.convert(typeDefine);
+        Column column = KingbaseTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(LocalTimeType.LOCAL_DATE_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType().toLowerCase());
@@ -294,7 +294,7 @@ public class PostgresTypeConverterTest {
     public void testConvertTime() {
         BasicTypeDefine<Object> typeDefine =
                 BasicTypeDefine.builder().name("test").columnType("time").dataType("time").build();
-        Column column = PostgresTypeConverter.INSTANCE.convert(typeDefine);
+        Column column = KingbaseTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(LocalTimeType.LOCAL_TIME_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getScale(), column.getScale());
@@ -307,7 +307,7 @@ public class PostgresTypeConverterTest {
                         .dataType("time")
                         .length(3L)
                         .build();
-        column = PostgresTypeConverter.INSTANCE.convert(typeDefine);
+        column = KingbaseTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(LocalTimeType.LOCAL_TIME_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getScale(), column.getScale());
@@ -319,7 +319,7 @@ public class PostgresTypeConverterTest {
                         .columnType("timetz")
                         .dataType("timetz")
                         .build();
-        column = PostgresTypeConverter.INSTANCE.convert(typeDefine);
+        column = KingbaseTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(LocalTimeType.LOCAL_TIME_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getScale(), column.getScale());
@@ -332,7 +332,7 @@ public class PostgresTypeConverterTest {
                         .dataType("timetz")
                         .length(3L)
                         .build();
-        column = PostgresTypeConverter.INSTANCE.convert(typeDefine);
+        column = KingbaseTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(LocalTimeType.LOCAL_TIME_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getScale(), column.getScale());
@@ -347,7 +347,7 @@ public class PostgresTypeConverterTest {
                         .columnType("timestamp")
                         .dataType("timestamp")
                         .build();
-        Column column = PostgresTypeConverter.INSTANCE.convert(typeDefine);
+        Column column = KingbaseTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(LocalTimeType.LOCAL_DATE_TIME_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getScale(), column.getScale());
@@ -360,7 +360,7 @@ public class PostgresTypeConverterTest {
                         .dataType("timestamp")
                         .length(3L)
                         .build();
-        column = PostgresTypeConverter.INSTANCE.convert(typeDefine);
+        column = KingbaseTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(LocalTimeType.LOCAL_DATE_TIME_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getScale(), column.getScale());
@@ -372,7 +372,7 @@ public class PostgresTypeConverterTest {
                         .columnType("timestamptz")
                         .dataType("timestamptz")
                         .build();
-        column = PostgresTypeConverter.INSTANCE.convert(typeDefine);
+        column = KingbaseTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(LocalTimeType.LOCAL_DATE_TIME_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getScale(), column.getScale());
@@ -385,11 +385,61 @@ public class PostgresTypeConverterTest {
                         .dataType("timestamptz")
                         .length(3L)
                         .build();
-        column = PostgresTypeConverter.INSTANCE.convert(typeDefine);
+        column = KingbaseTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(LocalTimeType.LOCAL_DATE_TIME_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getScale(), column.getScale());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType().toLowerCase());
+    }
+
+    @Test
+    public void testConvertTinyint() {
+        BasicTypeDefine<Object> typeDefine =
+                BasicTypeDefine.builder()
+                        .name("test")
+                        .columnType("TINYINT")
+                        .dataType("TINYINT")
+                        .build();
+        Column column = KingbaseTypeConverter.INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(typeDefine.getName(), column.getName());
+        Assertions.assertEquals(BasicType.BYTE_TYPE, column.getDataType());
+        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType().toUpperCase());
+    }
+
+    @Test
+    public void testConvertMoney() {
+        BasicTypeDefine<Object> typeDefine =
+                BasicTypeDefine.builder()
+                        .name("test")
+                        .columnType("MONEY")
+                        .dataType("MONEY")
+                        .build();
+        Column column = KingbaseTypeConverter.INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(typeDefine.getName(), column.getName());
+        Assertions.assertEquals(new DecimalType(30, 2), column.getDataType());
+        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType().toUpperCase());
+    }
+
+    @Test
+    public void testConvertBlob() {
+        BasicTypeDefine<Object> typeDefine =
+                BasicTypeDefine.builder().name("test").columnType("BLOB").dataType("BLOB").build();
+        Column column = KingbaseTypeConverter.INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(typeDefine.getName(), column.getName());
+        Assertions.assertEquals(PrimitiveByteArrayType.INSTANCE, column.getDataType());
+        Assertions.assertEquals(1024 * 1024 * 1024, column.getColumnLength());
+        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType().toUpperCase());
+    }
+
+    @Test
+    public void testConvertClob() {
+        BasicTypeDefine<Object> typeDefine =
+                BasicTypeDefine.builder().name("test").columnType("CLOB").dataType("CLOB").build();
+        Column column = KingbaseTypeConverter.INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(typeDefine.getName(), column.getName());
+        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+        Assertions.assertEquals(1024 * 1024 * 1024, column.getColumnLength());
+        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType().toUpperCase());
     }
 
     @Test
@@ -400,7 +450,7 @@ public class PostgresTypeConverterTest {
                         .columnType("_bool")
                         .dataType("_bool")
                         .build();
-        Column column = PostgresTypeConverter.INSTANCE.convert(typeDefine);
+        Column column = KingbaseTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(ArrayType.BOOLEAN_ARRAY_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType().toLowerCase());
@@ -411,7 +461,7 @@ public class PostgresTypeConverterTest {
                         .columnType("_int2")
                         .dataType("_int2")
                         .build();
-        column = PostgresTypeConverter.INSTANCE.convert(typeDefine);
+        column = KingbaseTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(ArrayType.SHORT_ARRAY_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType().toLowerCase());
@@ -422,7 +472,7 @@ public class PostgresTypeConverterTest {
                         .columnType("_int4")
                         .dataType("_int4")
                         .build();
-        column = PostgresTypeConverter.INSTANCE.convert(typeDefine);
+        column = KingbaseTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(ArrayType.INT_ARRAY_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType().toLowerCase());
@@ -433,7 +483,7 @@ public class PostgresTypeConverterTest {
                         .columnType("_int8")
                         .dataType("_int8")
                         .build();
-        column = PostgresTypeConverter.INSTANCE.convert(typeDefine);
+        column = KingbaseTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(ArrayType.LONG_ARRAY_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType().toLowerCase());
@@ -444,7 +494,7 @@ public class PostgresTypeConverterTest {
                         .columnType("_float4")
                         .dataType("_float4")
                         .build();
-        column = PostgresTypeConverter.INSTANCE.convert(typeDefine);
+        column = KingbaseTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(ArrayType.FLOAT_ARRAY_TYPE, column.getDataType());
 
@@ -454,7 +504,7 @@ public class PostgresTypeConverterTest {
                         .columnType("_float8")
                         .dataType("_float8")
                         .build();
-        column = PostgresTypeConverter.INSTANCE.convert(typeDefine);
+        column = KingbaseTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(ArrayType.DOUBLE_ARRAY_TYPE, column.getDataType());
 
@@ -464,7 +514,7 @@ public class PostgresTypeConverterTest {
                         .columnType("_bpchar")
                         .dataType("_bpchar")
                         .build();
-        column = PostgresTypeConverter.INSTANCE.convert(typeDefine);
+        column = KingbaseTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(ArrayType.STRING_ARRAY_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
@@ -475,7 +525,7 @@ public class PostgresTypeConverterTest {
                         .columnType("_varchar")
                         .dataType("_varchar")
                         .build();
-        column = PostgresTypeConverter.INSTANCE.convert(typeDefine);
+        column = KingbaseTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(ArrayType.STRING_ARRAY_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
@@ -486,7 +536,7 @@ public class PostgresTypeConverterTest {
                         .columnType("_text")
                         .dataType("_text")
                         .build();
-        column = PostgresTypeConverter.INSTANCE.convert(typeDefine);
+        column = KingbaseTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(ArrayType.STRING_ARRAY_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
@@ -503,10 +553,10 @@ public class PostgresTypeConverterTest {
                         .comment("test")
                         .build();
 
-        BasicTypeDefine typeDefine = PostgresTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = KingbaseTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
-        Assertions.assertEquals(PostgresTypeConverter.PG_BOOLEAN, typeDefine.getColumnType());
-        Assertions.assertEquals(PostgresTypeConverter.PG_BOOLEAN, typeDefine.getDataType());
+        Assertions.assertEquals(KingbaseTypeConverter.PG_BOOLEAN, typeDefine.getColumnType());
+        Assertions.assertEquals(KingbaseTypeConverter.PG_BOOLEAN, typeDefine.getDataType());
         Assertions.assertEquals(column.isNullable(), typeDefine.isNullable());
         Assertions.assertEquals(column.getDefaultValue(), typeDefine.getDefaultValue());
         Assertions.assertEquals(column.getComment(), typeDefine.getComment());
@@ -516,10 +566,10 @@ public class PostgresTypeConverterTest {
     public void testReconvertByte() {
         Column column = PhysicalColumn.builder().name("test").dataType(BasicType.BYTE_TYPE).build();
 
-        BasicTypeDefine typeDefine = PostgresTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = KingbaseTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
-        Assertions.assertEquals(PostgresTypeConverter.PG_SMALLINT, typeDefine.getColumnType());
-        Assertions.assertEquals(PostgresTypeConverter.PG_SMALLINT, typeDefine.getDataType());
+        Assertions.assertEquals(KingbaseTypeConverter.PG_SMALLINT, typeDefine.getColumnType());
+        Assertions.assertEquals(KingbaseTypeConverter.PG_SMALLINT, typeDefine.getDataType());
     }
 
     @Test
@@ -527,30 +577,30 @@ public class PostgresTypeConverterTest {
         Column column =
                 PhysicalColumn.builder().name("test").dataType(BasicType.SHORT_TYPE).build();
 
-        BasicTypeDefine typeDefine = PostgresTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = KingbaseTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
-        Assertions.assertEquals(PostgresTypeConverter.PG_SMALLINT, typeDefine.getColumnType());
-        Assertions.assertEquals(PostgresTypeConverter.PG_SMALLINT, typeDefine.getDataType());
+        Assertions.assertEquals(KingbaseTypeConverter.PG_SMALLINT, typeDefine.getColumnType());
+        Assertions.assertEquals(KingbaseTypeConverter.PG_SMALLINT, typeDefine.getDataType());
     }
 
     @Test
     public void testReconvertInt() {
         Column column = PhysicalColumn.builder().name("test").dataType(BasicType.INT_TYPE).build();
 
-        BasicTypeDefine typeDefine = PostgresTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = KingbaseTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
-        Assertions.assertEquals(PostgresTypeConverter.PG_INTEGER, typeDefine.getColumnType());
-        Assertions.assertEquals(PostgresTypeConverter.PG_INTEGER, typeDefine.getDataType());
+        Assertions.assertEquals(KingbaseTypeConverter.PG_INTEGER, typeDefine.getColumnType());
+        Assertions.assertEquals(KingbaseTypeConverter.PG_INTEGER, typeDefine.getDataType());
     }
 
     @Test
     public void testReconvertLong() {
         Column column = PhysicalColumn.builder().name("test").dataType(BasicType.LONG_TYPE).build();
 
-        BasicTypeDefine typeDefine = PostgresTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = KingbaseTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
-        Assertions.assertEquals(PostgresTypeConverter.PG_BIGINT, typeDefine.getColumnType());
-        Assertions.assertEquals(PostgresTypeConverter.PG_BIGINT, typeDefine.getDataType());
+        Assertions.assertEquals(KingbaseTypeConverter.PG_BIGINT, typeDefine.getColumnType());
+        Assertions.assertEquals(KingbaseTypeConverter.PG_BIGINT, typeDefine.getDataType());
     }
 
     @Test
@@ -558,10 +608,10 @@ public class PostgresTypeConverterTest {
         Column column =
                 PhysicalColumn.builder().name("test").dataType(BasicType.FLOAT_TYPE).build();
 
-        BasicTypeDefine typeDefine = PostgresTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = KingbaseTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
-        Assertions.assertEquals(PostgresTypeConverter.PG_REAL, typeDefine.getColumnType());
-        Assertions.assertEquals(PostgresTypeConverter.PG_REAL, typeDefine.getDataType());
+        Assertions.assertEquals(KingbaseTypeConverter.PG_REAL, typeDefine.getColumnType());
+        Assertions.assertEquals(KingbaseTypeConverter.PG_REAL, typeDefine.getDataType());
     }
 
     @Test
@@ -569,12 +619,12 @@ public class PostgresTypeConverterTest {
         Column column =
                 PhysicalColumn.builder().name("test").dataType(BasicType.DOUBLE_TYPE).build();
 
-        BasicTypeDefine typeDefine = PostgresTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = KingbaseTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(
-                PostgresTypeConverter.PG_DOUBLE_PRECISION, typeDefine.getColumnType());
+                KingbaseTypeConverter.PG_DOUBLE_PRECISION, typeDefine.getColumnType());
         Assertions.assertEquals(
-                PostgresTypeConverter.PG_DOUBLE_PRECISION, typeDefine.getDataType());
+                KingbaseTypeConverter.PG_DOUBLE_PRECISION, typeDefine.getDataType());
     }
 
     @Test
@@ -582,25 +632,25 @@ public class PostgresTypeConverterTest {
         Column column =
                 PhysicalColumn.builder().name("test").dataType(new DecimalType(0, 0)).build();
 
-        BasicTypeDefine typeDefine = PostgresTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = KingbaseTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(
                 String.format(
                         "%s(%s,%s)",
-                        PostgresTypeConverter.PG_NUMERIC,
-                        PostgresTypeConverter.DEFAULT_PRECISION,
-                        PostgresTypeConverter.DEFAULT_SCALE),
+                        KingbaseTypeConverter.PG_NUMERIC,
+                        KingbaseTypeConverter.DEFAULT_PRECISION,
+                        KingbaseTypeConverter.DEFAULT_SCALE),
                 typeDefine.getColumnType());
-        Assertions.assertEquals(PostgresTypeConverter.PG_NUMERIC, typeDefine.getDataType());
+        Assertions.assertEquals(KingbaseTypeConverter.PG_NUMERIC, typeDefine.getDataType());
 
         column = PhysicalColumn.builder().name("test").dataType(new DecimalType(10, 2)).build();
 
-        typeDefine = PostgresTypeConverter.INSTANCE.reconvert(column);
+        typeDefine = KingbaseTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(
-                String.format("%s(%s,%s)", PostgresTypeConverter.PG_NUMERIC, 10, 2),
+                String.format("%s(%s,%s)", KingbaseTypeConverter.PG_NUMERIC, 10, 2),
                 typeDefine.getColumnType());
-        Assertions.assertEquals(PostgresTypeConverter.PG_NUMERIC, typeDefine.getDataType());
+        Assertions.assertEquals(KingbaseTypeConverter.PG_NUMERIC, typeDefine.getDataType());
     }
 
     @Test
@@ -612,10 +662,10 @@ public class PostgresTypeConverterTest {
                         .columnLength(null)
                         .build();
 
-        BasicTypeDefine typeDefine = PostgresTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = KingbaseTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
-        Assertions.assertEquals(PostgresTypeConverter.PG_BYTEA, typeDefine.getColumnType());
-        Assertions.assertEquals(PostgresTypeConverter.PG_BYTEA, typeDefine.getDataType());
+        Assertions.assertEquals(KingbaseTypeConverter.PG_BYTEA, typeDefine.getColumnType());
+        Assertions.assertEquals(KingbaseTypeConverter.PG_BYTEA, typeDefine.getDataType());
     }
 
     @Test
@@ -627,10 +677,10 @@ public class PostgresTypeConverterTest {
                         .columnLength(null)
                         .build();
 
-        BasicTypeDefine typeDefine = PostgresTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = KingbaseTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
-        Assertions.assertEquals(PostgresTypeConverter.PG_TEXT, typeDefine.getColumnType());
-        Assertions.assertEquals(PostgresTypeConverter.PG_TEXT, typeDefine.getDataType());
+        Assertions.assertEquals(KingbaseTypeConverter.PG_TEXT, typeDefine.getColumnType());
+        Assertions.assertEquals(KingbaseTypeConverter.PG_TEXT, typeDefine.getDataType());
 
         column =
                 PhysicalColumn.builder()
@@ -639,12 +689,12 @@ public class PostgresTypeConverterTest {
                         .columnLength(1L)
                         .build();
 
-        typeDefine = PostgresTypeConverter.INSTANCE.reconvert(column);
+        typeDefine = KingbaseTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(
-                String.format("%s(%s)", PostgresTypeConverter.PG_VARCHAR, column.getColumnLength()),
+                String.format("%s(%s)", KingbaseTypeConverter.PG_VARCHAR, column.getColumnLength()),
                 typeDefine.getColumnType());
-        Assertions.assertEquals(PostgresTypeConverter.PG_VARCHAR, typeDefine.getDataType());
+        Assertions.assertEquals(KingbaseTypeConverter.PG_VARCHAR, typeDefine.getDataType());
 
         column =
                 PhysicalColumn.builder()
@@ -653,10 +703,10 @@ public class PostgresTypeConverterTest {
                         .columnLength(10485761L)
                         .build();
 
-        typeDefine = PostgresTypeConverter.INSTANCE.reconvert(column);
+        typeDefine = KingbaseTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
-        Assertions.assertEquals(PostgresTypeConverter.PG_TEXT, typeDefine.getColumnType());
-        Assertions.assertEquals(PostgresTypeConverter.PG_TEXT, typeDefine.getDataType());
+        Assertions.assertEquals(KingbaseTypeConverter.PG_TEXT, typeDefine.getColumnType());
+        Assertions.assertEquals(KingbaseTypeConverter.PG_TEXT, typeDefine.getDataType());
     }
 
     @Test
@@ -667,10 +717,10 @@ public class PostgresTypeConverterTest {
                         .dataType(LocalTimeType.LOCAL_DATE_TYPE)
                         .build();
 
-        BasicTypeDefine typeDefine = PostgresTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = KingbaseTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
-        Assertions.assertEquals(PostgresTypeConverter.PG_DATE, typeDefine.getColumnType());
-        Assertions.assertEquals(PostgresTypeConverter.PG_DATE, typeDefine.getDataType());
+        Assertions.assertEquals(KingbaseTypeConverter.PG_DATE, typeDefine.getColumnType());
+        Assertions.assertEquals(KingbaseTypeConverter.PG_DATE, typeDefine.getDataType());
     }
 
     @Test
@@ -681,10 +731,10 @@ public class PostgresTypeConverterTest {
                         .dataType(LocalTimeType.LOCAL_TIME_TYPE)
                         .build();
 
-        BasicTypeDefine typeDefine = PostgresTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = KingbaseTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
-        Assertions.assertEquals(PostgresTypeConverter.PG_TIME, typeDefine.getColumnType());
-        Assertions.assertEquals(PostgresTypeConverter.PG_TIME, typeDefine.getDataType());
+        Assertions.assertEquals(KingbaseTypeConverter.PG_TIME, typeDefine.getColumnType());
+        Assertions.assertEquals(KingbaseTypeConverter.PG_TIME, typeDefine.getDataType());
 
         column =
                 PhysicalColumn.builder()
@@ -693,12 +743,12 @@ public class PostgresTypeConverterTest {
                         .scale(3)
                         .build();
 
-        typeDefine = PostgresTypeConverter.INSTANCE.reconvert(column);
+        typeDefine = KingbaseTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(
-                String.format("%s(%s)", PostgresTypeConverter.PG_TIME, column.getScale()),
+                String.format("%s(%s)", KingbaseTypeConverter.PG_TIME, column.getScale()),
                 typeDefine.getColumnType());
-        Assertions.assertEquals(PostgresTypeConverter.PG_TIME, typeDefine.getDataType());
+        Assertions.assertEquals(KingbaseTypeConverter.PG_TIME, typeDefine.getDataType());
         Assertions.assertEquals(column.getScale(), typeDefine.getScale());
     }
 
@@ -710,10 +760,10 @@ public class PostgresTypeConverterTest {
                         .dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE)
                         .build();
 
-        BasicTypeDefine typeDefine = PostgresTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = KingbaseTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
-        Assertions.assertEquals(PostgresTypeConverter.PG_TIMESTAMP, typeDefine.getColumnType());
-        Assertions.assertEquals(PostgresTypeConverter.PG_TIMESTAMP, typeDefine.getDataType());
+        Assertions.assertEquals(KingbaseTypeConverter.PG_TIMESTAMP, typeDefine.getColumnType());
+        Assertions.assertEquals(KingbaseTypeConverter.PG_TIMESTAMP, typeDefine.getDataType());
 
         column =
                 PhysicalColumn.builder()
@@ -722,12 +772,12 @@ public class PostgresTypeConverterTest {
                         .scale(3)
                         .build();
 
-        typeDefine = PostgresTypeConverter.INSTANCE.reconvert(column);
+        typeDefine = KingbaseTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(
-                String.format("%s(%s)", PostgresTypeConverter.PG_TIMESTAMP, column.getScale()),
+                String.format("%s(%s)", KingbaseTypeConverter.PG_TIMESTAMP, column.getScale()),
                 typeDefine.getColumnType());
-        Assertions.assertEquals(PostgresTypeConverter.PG_TIMESTAMP, typeDefine.getDataType());
+        Assertions.assertEquals(KingbaseTypeConverter.PG_TIMESTAMP, typeDefine.getDataType());
         Assertions.assertEquals(column.getScale(), typeDefine.getScale());
 
         column =
@@ -737,10 +787,10 @@ public class PostgresTypeConverterTest {
                         .scale(9)
                         .build();
 
-        typeDefine = PostgresTypeConverter.INSTANCE.reconvert(column);
+        typeDefine = KingbaseTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(
-                String.format("%s(%s)", PostgresTypeConverter.PG_TIMESTAMP, 6),
+                String.format("%s(%s)", KingbaseTypeConverter.PG_TIMESTAMP, 6),
                 typeDefine.getColumnType());
     }
 
@@ -752,64 +802,64 @@ public class PostgresTypeConverterTest {
                         .dataType(ArrayType.BOOLEAN_ARRAY_TYPE)
                         .build();
 
-        BasicTypeDefine typeDefine = PostgresTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine typeDefine = KingbaseTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
-        Assertions.assertEquals(PostgresTypeConverter.PG_BOOLEAN_ARRAY, typeDefine.getColumnType());
-        Assertions.assertEquals(PostgresTypeConverter.PG_BOOLEAN_ARRAY, typeDefine.getDataType());
+        Assertions.assertEquals(KingbaseTypeConverter.PG_BOOLEAN_ARRAY, typeDefine.getColumnType());
+        Assertions.assertEquals(KingbaseTypeConverter.PG_BOOLEAN_ARRAY, typeDefine.getDataType());
 
         column = PhysicalColumn.builder().name("test").dataType(ArrayType.BYTE_ARRAY_TYPE).build();
-        typeDefine = PostgresTypeConverter.INSTANCE.reconvert(column);
+        typeDefine = KingbaseTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(
-                PostgresTypeConverter.PG_SMALLINT_ARRAY, typeDefine.getColumnType());
-        Assertions.assertEquals(PostgresTypeConverter.PG_SMALLINT_ARRAY, typeDefine.getDataType());
+                KingbaseTypeConverter.PG_SMALLINT_ARRAY, typeDefine.getColumnType());
+        Assertions.assertEquals(KingbaseTypeConverter.PG_SMALLINT_ARRAY, typeDefine.getDataType());
 
         column = PhysicalColumn.builder().name("test").dataType(ArrayType.SHORT_ARRAY_TYPE).build();
-        typeDefine = PostgresTypeConverter.INSTANCE.reconvert(column);
+        typeDefine = KingbaseTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(
-                PostgresTypeConverter.PG_SMALLINT_ARRAY, typeDefine.getColumnType());
-        Assertions.assertEquals(PostgresTypeConverter.PG_SMALLINT_ARRAY, typeDefine.getDataType());
+                KingbaseTypeConverter.PG_SMALLINT_ARRAY, typeDefine.getColumnType());
+        Assertions.assertEquals(KingbaseTypeConverter.PG_SMALLINT_ARRAY, typeDefine.getDataType());
 
         column = PhysicalColumn.builder().name("test").dataType(ArrayType.INT_ARRAY_TYPE).build();
-        typeDefine = PostgresTypeConverter.INSTANCE.reconvert(column);
+        typeDefine = KingbaseTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
-        Assertions.assertEquals(PostgresTypeConverter.PG_INTEGER_ARRAY, typeDefine.getColumnType());
-        Assertions.assertEquals(PostgresTypeConverter.PG_INTEGER_ARRAY, typeDefine.getDataType());
+        Assertions.assertEquals(KingbaseTypeConverter.PG_INTEGER_ARRAY, typeDefine.getColumnType());
+        Assertions.assertEquals(KingbaseTypeConverter.PG_INTEGER_ARRAY, typeDefine.getDataType());
 
         column = PhysicalColumn.builder().name("test").dataType(ArrayType.LONG_ARRAY_TYPE).build();
-        typeDefine = PostgresTypeConverter.INSTANCE.reconvert(column);
+        typeDefine = KingbaseTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
-        Assertions.assertEquals(PostgresTypeConverter.PG_BIGINT_ARRAY, typeDefine.getColumnType());
-        Assertions.assertEquals(PostgresTypeConverter.PG_BIGINT_ARRAY, typeDefine.getDataType());
+        Assertions.assertEquals(KingbaseTypeConverter.PG_BIGINT_ARRAY, typeDefine.getColumnType());
+        Assertions.assertEquals(KingbaseTypeConverter.PG_BIGINT_ARRAY, typeDefine.getDataType());
 
         column = PhysicalColumn.builder().name("test").dataType(ArrayType.FLOAT_ARRAY_TYPE).build();
-        typeDefine = PostgresTypeConverter.INSTANCE.reconvert(column);
+        typeDefine = KingbaseTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
-        Assertions.assertEquals(PostgresTypeConverter.PG_REAL_ARRAY, typeDefine.getColumnType());
-        Assertions.assertEquals(PostgresTypeConverter.PG_REAL_ARRAY, typeDefine.getDataType());
+        Assertions.assertEquals(KingbaseTypeConverter.PG_REAL_ARRAY, typeDefine.getColumnType());
+        Assertions.assertEquals(KingbaseTypeConverter.PG_REAL_ARRAY, typeDefine.getDataType());
 
         column =
                 PhysicalColumn.builder().name("test").dataType(ArrayType.DOUBLE_ARRAY_TYPE).build();
-        typeDefine = PostgresTypeConverter.INSTANCE.reconvert(column);
+        typeDefine = KingbaseTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(
-                PostgresTypeConverter.PG_DOUBLE_PRECISION_ARRAY, typeDefine.getColumnType());
+                KingbaseTypeConverter.PG_DOUBLE_PRECISION_ARRAY, typeDefine.getColumnType());
         Assertions.assertEquals(
-                PostgresTypeConverter.PG_DOUBLE_PRECISION_ARRAY, typeDefine.getDataType());
+                KingbaseTypeConverter.PG_DOUBLE_PRECISION_ARRAY, typeDefine.getDataType());
 
         column =
                 PhysicalColumn.builder().name("test").dataType(ArrayType.STRING_ARRAY_TYPE).build();
-        typeDefine = PostgresTypeConverter.INSTANCE.reconvert(column);
+        typeDefine = KingbaseTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
-        Assertions.assertEquals(PostgresTypeConverter.PG_TEXT_ARRAY, typeDefine.getColumnType());
-        Assertions.assertEquals(PostgresTypeConverter.PG_TEXT_ARRAY, typeDefine.getDataType());
+        Assertions.assertEquals(KingbaseTypeConverter.PG_TEXT_ARRAY, typeDefine.getColumnType());
+        Assertions.assertEquals(KingbaseTypeConverter.PG_TEXT_ARRAY, typeDefine.getDataType());
 
         column = PhysicalColumn.builder().name("test").dataType(ArrayType.BYTE_ARRAY_TYPE).build();
-        typeDefine = PostgresTypeConverter.INSTANCE.reconvert(column);
+        typeDefine = KingbaseTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(
-                PostgresTypeConverter.PG_SMALLINT_ARRAY, typeDefine.getColumnType());
-        Assertions.assertEquals(PostgresTypeConverter.PG_SMALLINT_ARRAY, typeDefine.getDataType());
+                KingbaseTypeConverter.PG_SMALLINT_ARRAY, typeDefine.getColumnType());
+        Assertions.assertEquals(KingbaseTypeConverter.PG_SMALLINT_ARRAY, typeDefine.getDataType());
     }
 }
