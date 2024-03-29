@@ -92,33 +92,33 @@ public class JsonToRowConverters implements Serializable {
             case ROW:
                 return createRowConverter((SeaTunnelRowType) type);
             case NULL:
-                return (JsonToRowConverter) jsonNode -> null;
+                return jsonNode -> null;
             case BOOLEAN:
-                return (JsonToRowConverter) (JsonNode jsonNode) -> convertToBoolean(jsonNode);
+                return (JsonNode jsonNode) -> convertToBoolean(jsonNode);
             case TINYINT:
-                return (JsonToRowConverter) (JsonNode jsonNode) -> Byte.parseByte(jsonNode.asText().trim());
+                return (JsonNode jsonNode) -> Byte.parseByte(jsonNode.asText().trim());
             case SMALLINT:
-                return (JsonToRowConverter) (JsonNode jsonNode) -> Short.parseShort(jsonNode.asText().trim());
+                return (JsonNode jsonNode) -> Short.parseShort(jsonNode.asText().trim());
             case INT:
-                return (JsonToRowConverter) (JsonNode jsonNode) -> convertToInt(jsonNode);
+                return (JsonNode jsonNode) -> convertToInt(jsonNode);
             case BIGINT:
-                return (JsonToRowConverter) (JsonNode jsonNode) -> convertToLong(jsonNode);
+                return (JsonNode jsonNode) -> convertToLong(jsonNode);
             case DATE:
-                return (JsonToRowConverter) (JsonNode jsonNode) -> convertToLocalDate(jsonNode);
+                return (JsonNode jsonNode) -> convertToLocalDate(jsonNode);
             case TIME:
-                return (JsonToRowConverter) (JsonNode jsonNode) -> convertToLocalTime(jsonNode);
+                return (JsonNode jsonNode) -> convertToLocalTime(jsonNode);
             case TIMESTAMP:
-                return (JsonToRowConverter) (JsonNode jsonNode) -> convertToLocalDateTime(jsonNode);
+                return (JsonNode jsonNode) -> convertToLocalDateTime(jsonNode);
             case FLOAT:
-                return (JsonToRowConverter) (JsonNode jsonNode) -> convertToFloat(jsonNode);
+                return (JsonNode jsonNode) -> convertToFloat(jsonNode);
             case DOUBLE:
-                return (JsonToRowConverter) (JsonNode jsonNode) -> convertToDouble(jsonNode);
+                return (JsonNode jsonNode) -> convertToDouble(jsonNode);
             case STRING:
-                return (JsonToRowConverter) (JsonNode jsonNode) -> convertToString(jsonNode);
+                return (JsonNode jsonNode) -> convertToString(jsonNode);
             case BYTES:
-                return (JsonToRowConverter) (JsonNode jsonNode) -> convertToBytes(jsonNode);
+                return (JsonNode jsonNode) -> convertToBytes(jsonNode);
             case DECIMAL:
-                return (JsonToRowConverter) (JsonNode jsonNode) -> convertToBigDecimal(jsonNode);
+                return (JsonNode jsonNode) -> convertToBigDecimal(jsonNode);
             case ARRAY:
                 return createArrayConverter((ArrayType<?, ?>) type);
             case MAP:
