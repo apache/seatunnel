@@ -578,6 +578,8 @@ jobs:
         env:
           KUBECONFIG: /etc/rancher/k3s/k3s.yaml
       - uses: actions/checkout@v2
+      - name: free disk space
+        run: tools/github/free_disk_space.sh
       - name: Set up JDK ${{ matrix.java }}
         uses: actions/setup-java@v3
         with:
