@@ -96,9 +96,9 @@ public class JsonToRowConverters implements Serializable {
             case BOOLEAN:
                 return this::convertToBoolean;
             case TINYINT:
-                return (JsonNode jsonNode) -> Byte.parseByte(jsonNode.asText().trim());
+                return jsonNode -> Byte.parseByte(jsonNode.asText().trim());
             case SMALLINT:
-                return (JsonNode jsonNode) -> Short.parseShort(jsonNode.asText().trim());
+                return jsonNode -> Short.parseShort(jsonNode.asText().trim());
             case INT:
                 return this::convertToInt;
             case BIGINT:
