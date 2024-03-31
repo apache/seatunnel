@@ -37,7 +37,6 @@ import org.apache.flink.api.common.functions.FlatMapFunction;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.types.Row;
-import org.apache.flink.util.Collector;
 
 import java.net.URL;
 import java.util.Collections;
@@ -119,24 +118,25 @@ public class TransformExecuteProcessor
 
     protected DataStream<Row> flinkTransform(
             SeaTunnelRowType sourceType, SeaTunnelTransform transform, DataStream<Row> stream) {
-        TypeInformation rowTypeInfo = TypeConverterUtils.convert(transform.getProducedType());
+        TypeInformation rowTypeInfo =
+                TypeConverterUtils.convert(
+                        transform.getProducedCatalogTable().getSeaTunnelRowType());
         FlinkRowConverter transformInputRowConverter = new FlinkRowConverter(sourceType);
         FlinkRowConverter transformOutputRowConverter =
                 new FlinkRowConverter(transform.getProducedCatalogTable().getSeaTunnelRowType());
         DataStream<Row> output =
                 stream.flatMap(
-                        new FlatMapFunction<Row, Row>() {
-                            @Override
-                            public void flatMap(Row value, Collector<Row> out) throws Exception {
-                                SeaTunnelRow seaTunnelRow =
-                                        transformInputRowConverter.reconvert(value);
-                                SeaTunnelRow dataRow = (SeaTunnelRow) transform.map(seaTunnelRow);
-                                if (dataRow != null) {
-                                    Row copy = transformOutputRowConverter.convert(dataRow);
-                                    out.collect(copy);
-                                }
-                            }
-                        },
+                        (FlatMapFunction<Row, Row>)
+                                (value, out) -> {
+                                    SeaTunnelRow seaTunnelRow =
+                                            transformInputRowConverter.reconvert(value);
+                                    SeaTunnelRow dataRow =
+                                            (SeaTunnelRow) transform.map(seaTunnelRow);
+                                    if (dataRow != null) {
+                                        Row copy = transformOutputRowConverter.convert(dataRow);
+                                        out.collect(copy);
+                                    }
+                                },
                         rowTypeInfo);
         return output;
     }
