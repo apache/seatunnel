@@ -25,6 +25,7 @@ import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderService;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+import org.apache.seatunnel.engine.server.rest.RestHttpGetCommandProcessor;
 import org.apache.seatunnel.engine.server.service.jar.ConnectorPackageService;
 import org.apache.seatunnel.engine.server.service.slot.DefaultSlotService;
 import org.apache.seatunnel.engine.server.service.slot.SlotService;
@@ -251,16 +252,25 @@ public class SeaTunnelServer
         return taskState != null && ((ExecutionState) taskState).isEndState();
     }
 
+  public static void main(String[] args) {
+    //
+  }
+
+
+
+
+
+
     public boolean isMasterNode() {
         // must retry until the cluster have master node
         try {
-            return RetryUtils.retryWithException(
+            return Boolean.TRUE.equals(RetryUtils.retryWithException(
                     () -> nodeEngine.getThisAddress().equals(nodeEngine.getMasterAddress()),
                     new RetryUtils.RetryMaterial(
                             Constant.OPERATION_RETRY_TIME,
                             true,
                             exception -> exception instanceof NullPointerException && isRunning,
-                            Constant.OPERATION_RETRY_SLEEP));
+                            Constant.OPERATION_RETRY_SLEEP)));
         } catch (InterruptedException e) {
             LOGGER.info("master node check interrupted");
             return false;
