@@ -15,7 +15,7 @@ We are committed to ongoing efforts to enhance and stabilize this functionality,
 We can enable the optimization job submission process, which is configured in the `seatunel.yaml`. After enabling the optimization of the Seatunnel job submission process configuration item,
 users can use the Seatunnel Zeta engine as the execution engine without placing the connector Jar packages required for task execution or the third-party Jar packages that the connector relies on in each engine `connector` directory.
 Users only need to place all the Jar packages for task execution on the client that submits the job, and the client will automatically upload the Jars required for task execution to the Zeta engine. It is necessary to enable this configuration item when submitting jobs in Docker or k8s mode,
-which can fundamentally solve the problem of large container images caused by the heavy weight of the Seatunnrl Zeta engine. In the image, only the core framework package of the Zeta engine needs to be provided,
+which can fundamentally solve the problem of large container images caused by the heavy weight of the Seatunnel Zeta engine. In the image, only the core framework package of the Zeta engine needs to be provided,
 and then the jar package of the connector and the third-party jar package that the connector relies on can be separately uploaded to the pod for distribution.
 
 After enabling the optimization job submission process configuration item, you do not need to place the following two types of Jar packages in the Zeta engine:
@@ -26,7 +26,7 @@ COMMON_ PLUGIN_ JARS refers to the third-party Jar package that the connector re
 When common jars do not exist in Zeta's `lib`, it can upload the local common jars of the client to the `lib` directory of all engine nodes.
 This way, even if the user does not place a jar on all nodes in Zeta's `lib`, the task can still be executed normally.
 However, we do not recommend relying on the configuration item of opening the optimization job submission process to upload the third-party Jar package that the connector relies on.
-If you use Zeta Engine, please add the the third-party jar package files that the connector relies on to `$SEATUNNEL_HOME/lib/` directory on each node, such as jdbc drivers.
+If you use Zeta Engine, please add the third-party jar package files that the connector relies on to `$SEATUNNEL_HOME/lib/` directory on each node, such as jdbc drivers.
 
 # ConnectorJar storage strategy
 
@@ -36,7 +36,7 @@ Two different storage strategies provide a more flexible storage mode for Jar fi
 
 ## Related configuration
 
-|             paramemter              | default value |                                                                      describe                                                                      |
+|              parameter              | default value |                                                                      describe                                                                      |
 |-------------------------------------|---------------|----------------------------------------------------------------------------------------------------------------------------------------------------|
 | connector-jar-storage-enable        | false         | Whether to enable uploading the connector Jar package to the engine. The default enabled state is false.                                           |
 | connector-jar-storage-mode          | SHARED        | Engine-side Jar package storage mode selection. There are two optional modes, SHARED and ISOLATED. The default Jar package storage mode is SHARED. |
@@ -79,7 +79,7 @@ Example:
 
 ```yaml
 jar-storage:
-   connector-jar-storage-enable：true
+   connector-jar-storage-enable: true
    connector-jar-storage-mode: SHARED
    connector-jar-storage-path: ""
    connector-jar-cleanup-task-interval: 3600
