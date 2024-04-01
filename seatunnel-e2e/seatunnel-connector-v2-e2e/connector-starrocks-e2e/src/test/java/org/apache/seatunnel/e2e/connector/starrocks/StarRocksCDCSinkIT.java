@@ -152,7 +152,6 @@ public class StarRocksCDCSinkIT extends TestSuiteBase implements TestResource {
                                 sinkResultSet.getLong("pk_id"),
                                 sinkResultSet.getString("name"),
                                 sinkResultSet.getInt("score"));
-                System.out.println(row);
                 actual.add(row);
             }
         }
