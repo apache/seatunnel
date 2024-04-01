@@ -117,7 +117,6 @@ public class CsvTextFormatSchemaTest {
         Assertions.assertEquals(data, content);
     }
 
-
     @Test
     public void testDeserilizewithQuote() throws IOException {
         SeaTunnelRowType rowType =
