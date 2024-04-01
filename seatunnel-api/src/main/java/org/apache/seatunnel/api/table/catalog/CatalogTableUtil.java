@@ -122,7 +122,7 @@ public class CatalogTableUtil implements Serializable {
                                         catalog.getTables(readonlyConfig);
                                 log.info(
                                         String.format(
-                                                "Get catalog tables, cost time: %d/ms",
+                                                "Get catalog tables, cost time: %d ms",
                                                 System.currentTimeMillis() - startTime));
                                 if (catalogTables.isEmpty()) {
                                     throw new SeaTunnelException(
