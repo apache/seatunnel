@@ -83,7 +83,7 @@ public class XuguCatalog extends AbstractJdbcCatalog {
                     + "        'INTEGER', 4, 'BIGINT', 8,\n"
                     + "        'FLOAT', 4, 'DOUBLE', 8,\n"
                     + "        'NUMERIC', 17,\n"
-                    + "        'CHAR', DECODE(c.scale, -1, 20000, c.scale),\n"
+                    + "        'CHAR', DECODE(c.scale, -1, 60000, c.scale),\n"
                     + "        'DATE', 4, 'DATETIME', 8,\n"
                     + "        'TIMESTAMP', 8, 'DATETIME WITH TIME ZONE', 8,\n"
                     + "        'TIME', 4, 'TIME WITH TIME ZONE', 4,\n"

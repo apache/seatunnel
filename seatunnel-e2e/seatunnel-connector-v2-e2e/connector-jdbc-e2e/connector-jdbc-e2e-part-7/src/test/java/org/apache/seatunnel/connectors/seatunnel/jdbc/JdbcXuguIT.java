@@ -195,7 +195,7 @@ public class JdbcXuguIT extends AbstractJdbcIT {
                                 null,
                                 null,
                                 null,
-                                null
+                                false
                             });
             rows.add(row);
         }

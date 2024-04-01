@@ -30,59 +30,60 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.TypeDefineUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 import com.google.auto.service.AutoService;
-import com.google.common.base.Preconditions;
 import lombok.extern.slf4j.Slf4j;
 
+// reference
+// https://docs.xugudb.com/%E8%99%9A%E8%B0%B7%E6%95%B0%E6%8D%AE%E5%BA%93%E5%AF%B9%E5%A4%96%E5%8F%91%E5%B8%83/06%E5%8F%82%E8%80%83%E6%8C%87%E5%8D%97/SQL%E8%AF%AD%E6%B3%95%E5%8F%82%E8%80%83/%E6%95%B0%E6%8D%AE%E7%B1%BB%E5%9E%8B/%E6%A6%82%E8%BF%B0/
 @Slf4j
 @AutoService(TypeConverter.class)
 public class XuguTypeConverter implements TypeConverter<BasicTypeDefine> {
     // ============================data types=====================
     // -------------------------number----------------------------
-    private static final String XUGU_NUMERIC = "NUMERIC";
-    private static final String XUGU_NUMBER = "NUMBER";
+    public static final String XUGU_NUMERIC = "NUMERIC";
+    public static final String XUGU_NUMBER = "NUMBER";
     public static final String XUGU_DECIMAL = "DECIMAL";
-    private static final String XUGU_INTEGER = "INTEGER";
-    private static final String XUGU_INT = "INT";
-    private static final String XUGU_BIGINT = "BIGINT";
-    private static final String XUGU_TINYINT = "TINYINT";
-    private static final String XUGU_SMALLINT = "SMALLINT";
-    private static final String XUGU_FLOAT = "FLOAT";
-    private static final String XUGU_DOUBLE = "DOUBLE";
+    public static final String XUGU_INTEGER = "INTEGER";
+    public static final String XUGU_INT = "INT";
+    public static final String XUGU_BIGINT = "BIGINT";
+    public static final String XUGU_TINYINT = "TINYINT";
+    public static final String XUGU_SMALLINT = "SMALLINT";
+    public static final String XUGU_FLOAT = "FLOAT";
+    public static final String XUGU_DOUBLE = "DOUBLE";
 
     // ----------------------------string-------------------------
-    private static final String XUGU_CHAR = "CHAR";
-    private static final String XUGU_NCHAR = "NCHAR";
-    private static final String XUGU_VARCHAR = "VARCHAR";
-    private static final String XUGU_VARCHAR2 = "VARCHAR2";
-    private static final String XUGU_CLOB = "CLOB";
+    public static final String XUGU_CHAR = "CHAR";
+    public static final String XUGU_NCHAR = "NCHAR";
+    public static final String XUGU_VARCHAR = "VARCHAR";
+    public static final String XUGU_VARCHAR2 = "VARCHAR2";
+    public static final String XUGU_CLOB = "CLOB";
 
     // ------------------------------time-------------------------
-    private static final String XUGU_DATE = "DATE";
-    private static final String XUGU_TIME = "TIME";
-    private static final String XUGU_TIMESTAMP = "TIMESTAMP";
-    private static final String XUGU_DATETIME = "DATETIME";
-    private static final String XUGU_DATETIME_WITH_TIME_ZONE = "DATETIME WITH TIME ZONE";
-    private static final String XUGU_TIME_WITH_TIME_ZONE = "TIME WITH TIME ZONE";
-    private static final String XUGU_TIMESTAMP_WITH_TIME_ZONE = "TIMESTAMP WITH TIME ZONE";
+    public static final String XUGU_DATE = "DATE";
+    public static final String XUGU_TIME = "TIME";
+    public static final String XUGU_TIMESTAMP = "TIMESTAMP";
+    public static final String XUGU_DATETIME = "DATETIME";
+    public static final String XUGU_DATETIME_WITH_TIME_ZONE = "DATETIME WITH TIME ZONE";
+    public static final String XUGU_TIME_WITH_TIME_ZONE = "TIME WITH TIME ZONE";
+    public static final String XUGU_TIMESTAMP_WITH_TIME_ZONE = "TIMESTAMP WITH TIME ZONE";
 
     // ---------------------------binary---------------------------
-    private static final String XUGU_BINARY = "BINARY";
-    private static final String XUGU_BLOB = "BLOB";
+    public static final String XUGU_BINARY = "BINARY";
+    public static final String XUGU_BLOB = "BLOB";
 
     // ---------------------------other---------------------------
-    private static final String XUGU_GUID = "GUID";
-    private static final String XUGU_BOOLEAN = "BOOLEAN";
-    private static final String XUGU_BOOL = "BOOL";
-    private static final String XUGU_JSON = "JSON";
+    public static final String XUGU_GUID = "GUID";
+    public static final String XUGU_BOOLEAN = "BOOLEAN";
+    public static final String XUGU_BOOL = "BOOL";
+    public static final String XUGU_JSON = "JSON";
 
     public static final int MAX_PRECISION = 38;
     public static final int DEFAULT_PRECISION = MAX_PRECISION;
-    public static final int MAX_SCALE = 127;
+    public static final int MAX_SCALE = 38;
     public static final int DEFAULT_SCALE = 18;
     public static final int TIMESTAMP_DEFAULT_SCALE = 3;
     public static final int MAX_TIMESTAMP_SCALE = 6;
     public static final int MAX_TIME_SCALE = 3;
-    public static final long MAX_VARCHAR_LENGTH = 20000;
+    public static final long MAX_VARCHAR_LENGTH = 60000;
     public static final long POWER_2_16 = (long) Math.pow(2, 16);
     public static final long BYTES_2GB = (long) Math.pow(2, 31);
     public static final long MAX_BINARY_LENGTH = POWER_2_16 - 4;
@@ -131,19 +132,13 @@ public class XuguTypeConverter implements TypeConverter<BasicTypeDefine> {
             case XUGU_NUMBER:
             case XUGU_DECIMAL:
             case XUGU_NUMERIC:
-                Preconditions.checkArgument(typeDefine.getPrecision() > 0);
-
                 DecimalType decimalType;
-                if (typeDefine.getPrecision() > DEFAULT_PRECISION) {
-                    log.warn("{} will probably cause value overflow.", XUGU_DECIMAL);
-                    decimalType = new DecimalType(DEFAULT_PRECISION, DEFAULT_SCALE);
-                } else {
+                if (typeDefine.getPrecision() != null && typeDefine.getPrecision() > 0) {
                     decimalType =
                             new DecimalType(
-                                    typeDefine.getPrecision().intValue(),
-                                    typeDefine.getScale() == null
-                                            ? 0
-                                            : typeDefine.getScale().intValue());
+                                    typeDefine.getPrecision().intValue(), typeDefine.getScale());
+                } else {
+                    decimalType = new DecimalType(DEFAULT_PRECISION, DEFAULT_SCALE);
                 }
                 builder.dataType(decimalType);
                 builder.columnLength(Long.valueOf(decimalType.getPrecision()));
@@ -190,12 +185,10 @@ public class XuguTypeConverter implements TypeConverter<BasicTypeDefine> {
             case XUGU_TIME:
             case XUGU_TIME_WITH_TIME_ZONE:
                 builder.dataType(LocalTimeType.LOCAL_TIME_TYPE);
-                builder.scale(typeDefine.getScale());
                 break;
             case XUGU_DATETIME:
             case XUGU_DATETIME_WITH_TIME_ZONE:
                 builder.dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE);
-                builder.scale(typeDefine.getScale());
                 break;
             case XUGU_TIMESTAMP:
             case XUGU_TIMESTAMP_WITH_TIME_ZONE:
@@ -375,8 +368,7 @@ public class XuguTypeConverter implements TypeConverter<BasicTypeDefine> {
                                 MAX_TIMESTAMP_SCALE,
                                 timestampScale);
                     }
-                    builder.columnType(
-                            String.format("TIMESTAMP(%s) WITH TIME ZONE", timestampScale));
+                    builder.columnType(String.format("TIMESTAMP(%s)", timestampScale));
                     builder.scale(timestampScale);
                 }
                 builder.dataType(XUGU_TIMESTAMP);
