@@ -31,7 +31,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 
 ## Options
 
-| Name                             | Type    | Required | Default                                    | Description                                                                                                       |
+|               Name               |  Type   | Required |                  Default                   |                                                    Description                                                    |
 |----------------------------------|---------|----------|--------------------------------------------|-------------------------------------------------------------------------------------------------------------------|
 | host                             | string  | yes      | -                                          |                                                                                                                   |
 | port                             | int     | yes      | -                                          |                                                                                                                   |
