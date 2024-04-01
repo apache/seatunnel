@@ -129,9 +129,6 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
         }
 
         public TextDeserializationSchema build() {
-            if (Objects.isNull(textLineSplitor)) {
-                textLineSplitor = new DefaultTextLineSplitor();
-            }
             return new TextDeserializationSchema(
                     seaTunnelRowType,
                     separators,

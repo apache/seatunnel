@@ -36,6 +36,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorExc
 import org.apache.seatunnel.format.text.TextDeserializationSchema;
 import org.apache.seatunnel.format.text.constant.TextFormatConstant;
 import org.apache.seatunnel.format.text.splitor.CsvLineSplitor;
+import org.apache.seatunnel.format.text.splitor.DefaultTextLineSplitor;
 import org.apache.seatunnel.format.text.splitor.TextLineSplitor;
 
 import io.airlift.compress.lzo.LzopCodec;
@@ -243,7 +244,8 @@ public class TextReadStrategy extends AbstractReadStrategy {
                                 .getString(BaseSourceConfigOptions.FILE_FORMAT_TYPE.key())
                                 .toUpperCase()))) {
             textLineSplitor = new CsvLineSplitor();
+        } else {
+            textLineSplitor = new DefaultTextLineSplitor();
         }
-        ;
     }
 }
