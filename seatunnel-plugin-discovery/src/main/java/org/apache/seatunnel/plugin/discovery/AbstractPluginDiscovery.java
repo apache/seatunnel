@@ -65,6 +65,12 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
 
     private static final String PLUGIN_MAPPING_FILE = "plugin-mapping.properties";
 
+    private static final String OPTION_DESCRIPTION_FORMAT = ", Description: '%s'";
+
+    private static final String REQUIRED_OPTION_FORMAT = "Required Options: \n %s";
+
+    private static final String OPTIONAL_OPTION_FORMAT = "Optional Options: \n %s";
+
     /**
      * Add jar url to classloader. The different engine should have different logic to add url into
      * their own classloader
@@ -107,7 +113,7 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
         this.pluginDir = pluginDir;
         this.pluginMappingConfig = pluginMappingConfig;
         this.addURLToClassLoaderConsumer = addURLToClassLoaderConsumer;
-        log.info("Load {} Plugin from {}", getPluginBaseClass().getSimpleName(), pluginDir);
+        log.debug("Load {} Plugin from {}", getPluginBaseClass().getSimpleName(), pluginDir);
     }
 
     protected static Config loadConnectorPluginConfig() {
@@ -231,24 +237,78 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
         throw new RuntimeException("Plugin " + pluginIdentifier + " not found.");
     }
 
+    @Override
+    public void printOptionRules(String pluginIdentifier) {
+        Optional<Map.Entry<PluginIdentifier, OptionRule>> pluginEntry =
+                getPlugins().entrySet().stream()
+                        .filter(
+                                entry ->
+                                        entry.getKey()
+                                                .getPluginName()
+                                                .equalsIgnoreCase(pluginIdentifier))
+                        .findFirst();
+        if (pluginEntry.isPresent()) {
+            Map.Entry<PluginIdentifier, OptionRule> entry = pluginEntry.get();
+            System.out.println(
+                    StringUtils.LF
+                            + entry.getKey().getPluginName()
+                            + StringUtils.SPACE
+                            + entry.getKey().getPluginType());
+            String requiredOptions =
+                    entry.getValue().getRequiredOptions().stream()
+                            .flatMap(
+                                    requiredOption ->
+                                            requiredOption.getOptions().stream()
+                                                    .map(
+                                                            option ->
+                                                                    String.format(
+                                                                                    option
+                                                                                                    .toString()
+                                                                                            + OPTION_DESCRIPTION_FORMAT,
+                                                                                    option
+                                                                                            .getDescription())
+                                                                            + StringUtils.LF))
+                            .collect(Collectors.joining(StringUtils.SPACE));
+            System.out.println(String.format(REQUIRED_OPTION_FORMAT, requiredOptions));
+            String optionOptions =
+                    entry.getValue().getOptionalOptions().stream()
+                            .map(
+                                    option ->
+                                            String.format(
+                                                            option.toString()
+                                                                    + OPTION_DESCRIPTION_FORMAT,
+                                                            option.getDescription())
+                                                    + StringUtils.LF)
+                            .collect(Collectors.joining(StringUtils.SPACE));
+            System.out.println(String.format(OPTIONAL_OPTION_FORMAT, optionOptions));
+        }
+    }
+
+    /**
+     * Get all support plugin already in SEATUNNEL_HOME, support connector-v2 and transform-v2
+     *
+     * @param pluginType
+     * @param factoryIdentifier
+     * @param optionRule
+     * @return
+     */
+    protected void getPluginsByFactoryIdentifier(
+            LinkedHashMap<PluginIdentifier, OptionRule> plugins,
+            PluginType pluginType,
+            String factoryIdentifier,
+            OptionRule optionRule) {
+        PluginIdentifier pluginIdentifier =
+                PluginIdentifier.of("seatunnel", pluginType.getType(), factoryIdentifier);
+        plugins.computeIfAbsent(pluginIdentifier, k -> optionRule);
+    }
+
     /**
      * Get all support plugin already in SEATUNNEL_HOME, only support connector-v2
      *
      * @return the all plugin identifier of the engine
      */
-    public Map<PluginType, LinkedHashMap<PluginIdentifier, OptionRule>> getAllPlugin()
-            throws IOException {
-        List<Factory> factories;
-        if (this.pluginDir.toFile().exists()) {
-            log.info("load plugin from plugin dir: {}", this.pluginDir);
-            List<URL> files = FileUtils.searchJarFiles(this.pluginDir);
-            factories =
-                    FactoryUtil.discoverFactories(new URLClassLoader(files.toArray(new URL[0])));
-        } else {
-            log.warn("plugin dir: {} not exists, load plugin from classpath", this.pluginDir);
-            factories =
-                    FactoryUtil.discoverFactories(Thread.currentThread().getContextClassLoader());
-        }
+    public Map<PluginType, LinkedHashMap<PluginIdentifier, OptionRule>> getAllPlugin() {
+        List<Factory> factories = getPluginFactories();
 
         Map<PluginType, LinkedHashMap<PluginIdentifier, OptionRule>> plugins = new HashMap<>();
 
@@ -295,6 +355,29 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
                     }
                 });
         return plugins;
+    }
+
+    protected List<Factory> getPluginFactories() {
+        List<Factory> factories;
+        if (this.pluginDir.toFile().exists()) {
+            log.debug("load plugin from plugin dir: {}", this.pluginDir);
+            List<URL> files;
+            try {
+                files = FileUtils.searchJarFiles(this.pluginDir);
+            } catch (IOException e) {
+                throw new RuntimeException(
+                        String.format(
+                                "Can not find any plugin(source/sink/transform) in the dir: %s",
+                                this.pluginDir));
+            }
+            factories =
+                    FactoryUtil.discoverFactories(new URLClassLoader(files.toArray(new URL[0])));
+        } else {
+            log.warn("plugin dir: {} not exists, load plugin from classpath", this.pluginDir);
+            factories =
+                    FactoryUtil.discoverFactories(Thread.currentThread().getContextClassLoader());
+        }
+        return factories;
     }
 
     protected T loadPluginInstance(PluginIdentifier pluginIdentifier, ClassLoader classLoader) {

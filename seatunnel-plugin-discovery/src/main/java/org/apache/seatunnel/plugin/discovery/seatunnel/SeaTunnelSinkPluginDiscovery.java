@@ -17,16 +17,59 @@
 
 package org.apache.seatunnel.plugin.discovery.seatunnel;
 
+import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.table.factory.FactoryUtil;
+import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.plugin.discovery.AbstractPluginDiscovery;
+import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
+
+import org.apache.commons.lang3.StringUtils;
 
 import java.net.URL;
+import java.util.LinkedHashMap;
 import java.util.function.BiConsumer;
+import java.util.stream.Collectors;
 
 public class SeaTunnelSinkPluginDiscovery extends AbstractPluginDiscovery<SeaTunnelSink> {
 
     public SeaTunnelSinkPluginDiscovery() {
         super();
+    }
+
+    @Override
+    public void printOptionRules(String pluginIdentifier) {
+        super.printOptionRules(pluginIdentifier);
+    }
+
+    @Override
+    public void printSupportedPlugins() {
+        System.out.println(StringUtils.LF + StringUtils.capitalize(PluginType.SINK.getType()));
+        String supportedSinks =
+                getPlugins().keySet().stream()
+                        .map(pluginIdentifier -> pluginIdentifier.getPluginName())
+                        .collect(Collectors.joining(StringUtils.SPACE));
+        System.out.println(supportedSinks + StringUtils.LF);
+    }
+
+    @Override
+    public LinkedHashMap<PluginIdentifier, OptionRule> getPlugins() {
+
+        LinkedHashMap<PluginIdentifier, OptionRule> plugins = new LinkedHashMap<>();
+        getPluginFactories().stream()
+                .filter(
+                        pluginFactory ->
+                                TableSinkFactory.class.isAssignableFrom(pluginFactory.getClass()))
+                .forEach(
+                        pluginFactory ->
+                                getPluginsByFactoryIdentifier(
+                                        plugins,
+                                        PluginType.SINK,
+                                        pluginFactory.factoryIdentifier(),
+                                        FactoryUtil.sinkFullOptionRule(
+                                                (TableSinkFactory) pluginFactory)));
+        return plugins;
     }
 
     public SeaTunnelSinkPluginDiscovery(BiConsumer<ClassLoader, URL> addURLToClassLoader) {

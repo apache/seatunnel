@@ -17,14 +17,56 @@
 
 package org.apache.seatunnel.plugin.discovery.seatunnel;
 
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.common.config.Common;
+import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.plugin.discovery.AbstractPluginDiscovery;
+import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
+
+import org.apache.commons.lang3.StringUtils;
+
+import java.util.LinkedHashMap;
+import java.util.stream.Collectors;
 
 public class SeaTunnelTransformPluginDiscovery extends AbstractPluginDiscovery<SeaTunnelTransform> {
 
     public SeaTunnelTransformPluginDiscovery() {
         super(Common.libDir());
+    }
+
+    @Override
+    public void printOptionRules(String pluginIdentifier) {
+        super.printOptionRules(pluginIdentifier);
+    }
+
+    @Override
+    public void printSupportedPlugins() {
+        System.out.println(StringUtils.LF + StringUtils.capitalize(PluginType.TRANSFORM.getType()));
+        String supportedTransforms =
+                getPlugins().keySet().stream()
+                        .map(pluginIdentifier -> pluginIdentifier.getPluginName())
+                        .collect(Collectors.joining(StringUtils.SPACE));
+        System.out.println(supportedTransforms + StringUtils.LF);
+    }
+
+    @Override
+    public LinkedHashMap<PluginIdentifier, OptionRule> getPlugins() {
+        LinkedHashMap<PluginIdentifier, OptionRule> plugins = new LinkedHashMap<>();
+        getPluginFactories().stream()
+                .filter(
+                        pluginFactory ->
+                                TableTransformFactory.class.isAssignableFrom(
+                                        pluginFactory.getClass()))
+                .forEach(
+                        pluginFactory ->
+                                getPluginsByFactoryIdentifier(
+                                        plugins,
+                                        PluginType.TRANSFORM,
+                                        pluginFactory.factoryIdentifier(),
+                                        pluginFactory.optionRule()));
+        return plugins;
     }
 
     @Override
