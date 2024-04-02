@@ -22,9 +22,11 @@ import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
+import org.apache.seatunnel.connectors.cdc.base.source.event.CompletedSnapshotPhaseEvent;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceRecords;
+import org.apache.seatunnel.connectors.cdc.base.source.split.state.IncrementalSplitState;
 import org.apache.seatunnel.connectors.cdc.base.source.split.state.SourceSplitStateBase;
 import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationSchema;
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.RecordEmitter;
@@ -65,6 +67,7 @@ public class IncrementalSourceRecordEmitter<T>
 
     protected final OffsetFactory offsetFactory;
 
+    protected final SourceReader.Context context;
     protected final Counter recordFetchDelay;
     protected final Counter recordEmitDelay;
     protected final EventListener eventListener;
@@ -76,6 +79,7 @@ public class IncrementalSourceRecordEmitter<T>
         this.debeziumDeserializationSchema = debeziumDeserializationSchema;
         this.outputCollector = new OutputCollector<>();
         this.offsetFactory = offsetFactory;
+        this.context = context;
         this.recordFetchDelay = context.getMetricsContext().counter(CDC_RECORD_FETCH_DELAY);
         this.recordEmitDelay = context.getMetricsContext().counter(CDC_RECORD_EMIT_DELAY);
         this.eventListener = context.getEventListener();
@@ -90,6 +94,7 @@ public class IncrementalSourceRecordEmitter<T>
             SourceRecord next = elementIterator.next();
             reportMetrics(next);
             processElement(next, collector, splitState);
+            markEnterPureIncrementPhase(next, splitState);
         }
     }
 
@@ -135,6 +140,29 @@ public class IncrementalSourceRecordEmitter<T>
             emitElement(element, output);
         } else {
             emitElement(element, output);
+        }
+    }
+
+    private void markEnterPureIncrementPhase(
+            SourceRecord element, SourceSplitStateBase splitState) {
+        if (splitState.isIncrementalSplitState()) {
+            IncrementalSplitState incrementalSplitState = splitState.asIncrementalSplitState();
+            if (incrementalSplitState.isEnterPureIncrementPhase()) {
+                return;
+            }
+            Offset position = getOffsetPosition(element);
+            if (incrementalSplitState.markEnterPureIncrementPhaseIfNeed(position)) {
+                log.info(
+                        "The current record position {} is after the maxSnapshotSplitsHighWatermark {}, "
+                                + "mark enter pure increment phase.",
+                        position,
+                        incrementalSplitState.getMaxSnapshotSplitsHighWatermark());
+                log.info("Clean the IncrementalSplit#completedSnapshotSplitInfos to empty.");
+
+                CompletedSnapshotPhaseEvent completedSnapshotPhaseEvent =
+                        new CompletedSnapshotPhaseEvent(incrementalSplitState.getTableIds());
+                context.sendSourceEventToEnumerator(completedSnapshotPhaseEvent);
+            }
         }
     }
 
