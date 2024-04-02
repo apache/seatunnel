@@ -45,6 +45,7 @@ import java.util.List;
 @Slf4j
 public class PaimonSecurityContext extends SecurityContext {
     private static final String KRB5_CONF_KEY = "java.security.krb5.conf";
+    private static final String FS_DISABLE_CACHE = "fs.hdfs.impl.disable.cache";
     private static final List<String> HADOOP_CONF_FILES =
             ImmutableList.of("core-site.xml", "hdfs-site.xml", "hive-site.xml");
 
@@ -89,6 +90,10 @@ public class PaimonSecurityContext extends SecurityContext {
                     });
         }
         paimonConfig.getHadoopConfProps().forEach((k, v) -> configuration.set(k, v));
+        // This configuration is enabled to avoid affecting other hadoop filesystem jobs
+        // refer:
+        // org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy.createConfiguration
+        configuration.setBoolean(FS_DISABLE_CACHE, true);
         log.info("Hadoop config initialized: {}", configuration.getClass().getName());
         return configuration;
     }
