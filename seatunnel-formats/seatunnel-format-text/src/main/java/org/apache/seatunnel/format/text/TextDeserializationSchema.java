@@ -31,6 +31,7 @@ import org.apache.seatunnel.common.utils.EncodingUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
 import org.apache.seatunnel.format.text.constant.TextFormatConstant;
 import org.apache.seatunnel.format.text.exception.SeaTunnelTextFormatException;
+import org.apache.seatunnel.format.text.splitor.DefaultTextLineSplitor;
 import org.apache.seatunnel.format.text.splitor.TextLineSplitor;
 
 import org.apache.commons.lang3.StringUtils;
@@ -82,7 +83,7 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
                 DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS;
         private TimeUtils.Formatter timeFormatter = TimeUtils.Formatter.HH_MM_SS;
         private String encoding = StandardCharsets.UTF_8.name();
-        private TextLineSplitor textLineSplitor;
+        private TextLineSplitor textLineSplitor = new DefaultTextLineSplitor();
 
         private Builder() {}
 

@@ -26,7 +26,6 @@ import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.format.text.splitor.DefaultTextLineSplitor;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -131,7 +130,6 @@ public class TextFormatSchemaTest {
                 TextDeserializationSchema.builder()
                         .seaTunnelRowType(seaTunnelRowType)
                         .delimiter("\u0001")
-                        .textLineSplitor(new DefaultTextLineSplitor())
                         .build();
         TextSerializationSchema serializationSchema =
                 TextSerializationSchema.builder()

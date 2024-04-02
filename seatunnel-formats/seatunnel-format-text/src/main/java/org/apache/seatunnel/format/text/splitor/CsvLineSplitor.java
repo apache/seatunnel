@@ -24,17 +24,21 @@ import org.apache.commons.csv.CSVRecord;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 public class CsvLineSplitor implements TextLineSplitor, Serializable {
-    private CSVFormat format;
+    private Map<Character, CSVFormat> splitorFormatMap = new HashMap<>(4);
 
     @Override
     public String[] spliteLine(String line, String splitor) {
-        if (Objects.isNull(format)) {
-            this.format = CSVFormat.DEFAULT.withDelimiter(splitor.charAt(0));
+        Character splitChar = splitor.charAt(0);
+        if (Objects.isNull(splitorFormatMap.get(splitChar))) {
+            splitorFormatMap.put(splitChar, CSVFormat.DEFAULT.withDelimiter(splitChar));
         }
+        CSVFormat format = splitorFormatMap.get(splitChar);
         CSVParser parser = null;
         // Method to parse the line into CSV with the given separator
         try {
