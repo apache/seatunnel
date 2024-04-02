@@ -25,12 +25,16 @@ import org.apache.seatunnel.connectors.doris.config.DorisConfig;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Locale;
+
 @Slf4j
 public class DorisTypeConverterFactory {
     public static TypeConverter<BasicTypeDefine> getTypeConverter(@NonNull String dorisVersion) {
-        if (dorisVersion.startsWith("Doris version doris-1.")) {
+        if (dorisVersion.toLowerCase(Locale.ROOT).startsWith("doris version doris-1.")
+                || dorisVersion.toLowerCase(Locale.ROOT).startsWith("selectdb-doris-1.")) {
             return DorisTypeConverterV1.INSTANCE;
-        } else if (dorisVersion.startsWith("Doris version doris-2.")) {
+        } else if (dorisVersion.toLowerCase(Locale.ROOT).startsWith("doris version doris-2.")
+                || dorisVersion.toLowerCase(Locale.ROOT).startsWith("selectdb-doris-2.")) {
             return DorisTypeConverterV2.INSTANCE;
         } else {
             throw CommonError.unsupportedVersion(DorisConfig.IDENTIFIER, dorisVersion);
