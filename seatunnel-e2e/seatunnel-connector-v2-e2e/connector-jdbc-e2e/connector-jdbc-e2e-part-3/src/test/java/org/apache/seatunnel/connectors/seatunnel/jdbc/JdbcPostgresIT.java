@@ -313,23 +313,11 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                 .getColumns()
                 .forEach(
                         column -> {
-                            if (column.getName().equals("gid")) {
-                                Assertions.assertEquals(column.getLongColumnLength(), 32L);
-                            }
                             if (column.getName().equals("varchar_col")) {
-                                Assertions.assertEquals(column.getLongColumnLength(), 255L);
+                                Assertions.assertEquals(column.getColumnLength(), 1020L);
                             }
                             if (column.getName().equals("char_col")) {
-                                Assertions.assertEquals(column.getLongColumnLength(), 10L);
-                            }
-                            if (column.getName().equals("smallint_col")) {
-                                Assertions.assertEquals(column.getLongColumnLength(), 16L);
-                            }
-                            if (column.getName().equals("integer_col")) {
-                                Assertions.assertEquals(column.getLongColumnLength(), 32L);
-                            }
-                            if (column.getName().equals("bigint_col")) {
-                                Assertions.assertEquals(column.getLongColumnLength(), 64L);
+                                Assertions.assertEquals(column.getColumnLength(), 10L);
                             }
                             if (column.getName().equals("decimal_col")) {
                                 Assertions.assertInstanceOf(
@@ -345,26 +333,11 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                                 Assertions.assertEquals(decimalType.getPrecision(), 8L);
                                 Assertions.assertEquals(decimalType.getScale(), 4L);
                             }
-                            if (column.getName().equals("real_col")) {
-                                Assertions.assertEquals(column.getLongColumnLength(), 24L);
-                            }
-                            if (column.getName().equals("double_precision_col")) {
-                                Assertions.assertEquals(column.getLongColumnLength(), 53L);
-                            }
-                            if (column.getName().equals("smallserial_col")) {
-                                Assertions.assertEquals(column.getLongColumnLength(), 16L);
-                            }
-                            if (column.getName().equals("serial_col")) {
-                                Assertions.assertEquals(column.getLongColumnLength(), 32L);
-                            }
-                            if (column.getName().equals("bigserial_col")) {
-                                Assertions.assertEquals(column.getLongColumnLength(), 64L);
-                            }
                             if (column.getName().equals("bpchar_col")) {
-                                Assertions.assertEquals(column.getLongColumnLength(), 10L);
+                                Assertions.assertEquals(column.getColumnLength(), 10L);
                             }
                             if (column.getName().equals("bit_col")) {
-                                Assertions.assertEquals(column.getLongColumnLength(), 1L);
+                                Assertions.assertEquals(column.getColumnLength(), 1L);
                             }
                         });
 

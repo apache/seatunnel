@@ -98,6 +98,8 @@ public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
     // timestamp with time zone <=> timestamptz
     public static final String PG_TIMESTAMP_TZ = "timestamptz";
 
+    public static final String PG_BIT = "bit";
+
     public static final int MAX_PRECISION = 1000;
     public static final int DEFAULT_PRECISION = 38;
     public static final int MAX_SCALE = MAX_PRECISION - 1;
@@ -176,6 +178,7 @@ public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
                 break;
             case PG_CHAR:
             case PG_CHARACTER:
+            case PG_BIT:
                 builder.dataType(BasicType.STRING_TYPE);
                 if (typeDefine.getLength() == null || typeDefine.getLength() <= 0) {
                     builder.columnLength(1L);
