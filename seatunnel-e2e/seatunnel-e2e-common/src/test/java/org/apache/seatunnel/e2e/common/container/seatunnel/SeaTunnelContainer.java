@@ -248,6 +248,8 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 || s.startsWith("Timer-")
                 || s.contains("InterruptTimer")
                 || s.contains("Java2D Disposer")
+                || s.contains("OkHttp ConnectionPool")
+                || s.startsWith("http-report-event-scheduler")
                 || s.contains(
                         "org.apache.hadoop.fs.FileSystem$Statistics$StatisticsDataReferenceCleaner")
                 || s.startsWith("Log4j2-TF-")

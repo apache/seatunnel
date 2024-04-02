@@ -19,12 +19,15 @@ package org.apache.seatunnel.e2e.connector.starrocks;
 
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
+import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
@@ -53,7 +56,6 @@ import java.util.stream.Stream;
 import static org.awaitility.Awaitility.given;
 
 @Slf4j
-@Disabled("There are still errors unfixed @Hisoka-X")
 public class StarRocksCDCSinkIT extends TestSuiteBase implements TestResource {
     private static final String DOCKER_IMAGE = "d87904488/starrocks-starter:2.2.1";
     private static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
@@ -87,6 +89,18 @@ public class StarRocksCDCSinkIT extends TestSuiteBase implements TestResource {
     private Connection jdbcConnection;
     private GenericContainer<?> starRocksServer;
 
+    @TestContainerExtension
+    private final ContainerExtendedFactory extendedFactory =
+            container -> {
+                Container.ExecResult extraCommands =
+                        container.execInContainer(
+                                "bash",
+                                "-c",
+                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O "
+                                        + SR_DRIVER_JAR);
+                Assertions.assertEquals(0, extraCommands.getExitCode());
+            };
+
     @BeforeAll
     @Override
     public void startUp() {
@@ -119,6 +133,10 @@ public class StarRocksCDCSinkIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK},
+            disabledReason = "Currently Spark engine unsupported DELETE operation")
     public void testStarRocksSink(TestContainer container) throws Exception {
         Container.ExecResult execResult =
                 container.executeJob("/write-cdc-changelog-to-starrocks.conf");
