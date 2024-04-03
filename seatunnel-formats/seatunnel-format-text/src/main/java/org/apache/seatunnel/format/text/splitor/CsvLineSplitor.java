@@ -30,7 +30,7 @@ import java.util.Map;
 import java.util.Objects;
 
 public class CsvLineSplitor implements TextLineSplitor, Serializable {
-    private Map<Character, CSVFormat> splitorFormatMap = new HashMap<>(4);
+    private Map<Character, CSVFormat> splitorFormatMap = new HashMap<>();
 
     @Override
     public String[] spliteLine(String line, String splitor) {
