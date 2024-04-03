@@ -37,6 +37,8 @@ By default, we use 2PC commit to ensure `exactly-once`
 | compress_codec                | string  | no       | none           |
 | hdfs_site_path                | string  | no       | -              |
 | hive_site_path                | string  | no       | -              |
+| hive.hadoop.conf              | string  | no       | -              |
+| hive.hadoop.conf-path         | string  | no       | -              |
 | krb5_path                     | string  | no       | /etc/krb5.conf |
 | kerberos_principal            | string  | no       | -              |
 | kerberos_keytab_path          | string  | no       | -              |
@@ -162,7 +164,9 @@ sink {
   Hive {
     table_name = "test_hive.test_hive_sink_text_simple"
     metastore_uri = "thrift://ctyun7:9083"
-  }
+    hive.hadoop.conf = {
+      bucket = "s3a://mybucket"
+    }
 }
 ```
 

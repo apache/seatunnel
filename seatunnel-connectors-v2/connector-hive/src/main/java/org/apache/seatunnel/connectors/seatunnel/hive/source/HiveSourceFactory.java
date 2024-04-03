@@ -40,6 +40,8 @@ public class HiveSourceFactory implements TableSourceFactory {
                 .required(HiveConfig.METASTORE_URI)
                 .optional(BaseSourceConfigOptions.READ_PARTITIONS)
                 .optional(BaseSourceConfigOptions.READ_COLUMNS)
+                .optional(HiveConfig.HADOOP_CONF)
+                .optional(HiveConfig.HADOOP_CONF_PATH)
                 .build();
     }
 
