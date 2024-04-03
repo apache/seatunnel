@@ -23,10 +23,8 @@ import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.common.constants.CollectionConstants;
 import org.apache.seatunnel.core.starter.execution.PluginUtil;
 import org.apache.seatunnel.engine.common.config.JobConfig;
@@ -34,7 +32,6 @@ import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
-import org.apache.seatunnel.engine.core.dag.actions.TransformAction;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
 
@@ -96,38 +93,6 @@ public class JobConfigParser {
         action.setParallelism(parallelism);
         SeaTunnelRowType producedType = (SeaTunnelRowType) tuple.getLeft().getProducedType();
         CatalogTable catalogTable = CatalogTableUtil.getCatalogTable(tableId, producedType);
-        return new Tuple2<>(catalogTable, action);
-    }
-
-    public Tuple2<CatalogTable, Action> parseTransform(
-            Config config,
-            JobConfig jobConfig,
-            String tableId,
-            int parallelism,
-            SeaTunnelRowType rowType,
-            Set<Action> inputActions) {
-        final ImmutablePair<SeaTunnelTransform<?>, Set<URL>> tuple =
-                ConnectorInstanceLoader.loadTransformInstance(
-                        config, jobConfig.getJobContext(), commonPluginJars);
-        final SeaTunnelTransform<?> transform = tuple.getLeft();
-        // old logic: prepare(initialization) -> set job context -> set row type (There is a logical
-        // judgment that depends on before and after, not a simple set)
-        transform.prepare(config);
-        transform.setJobContext(jobConfig.getJobContext());
-        transform.setTypeInfo((SeaTunnelDataType) rowType);
-        final String actionName = createTransformActionName(0, tuple.getLeft().getPluginName());
-        final TransformAction action =
-                new TransformAction(
-                        idGenerator.getNextId(),
-                        actionName,
-                        new ArrayList<>(inputActions),
-                        transform,
-                        tuple.getRight(),
-                        new HashSet<>());
-        action.setParallelism(parallelism);
-        CatalogTable catalogTable =
-                CatalogTableUtil.getCatalogTable(
-                        tableId, (SeaTunnelRowType) transform.getProducedType());
         return new Tuple2<>(catalogTable, action);
     }
 
