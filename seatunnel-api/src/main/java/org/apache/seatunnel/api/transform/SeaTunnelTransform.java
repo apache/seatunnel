@@ -45,7 +45,8 @@ public interface SeaTunnelTransform<T>
     CatalogTable getProducedCatalogTable();
 
     /**
-     * Transform input data to {@link this#getProducedCatalogTable().getSeaTunnelRowType()} types data.
+     * Transform input data to {@link this#getProducedCatalogTable().getSeaTunnelRowType()} types
+     * data.
      *
      * @param row the data need be transformed.
      * @return transformed data.
