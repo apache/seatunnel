@@ -221,12 +221,12 @@ public class JobConfigParser {
         return String.format("Source[%s]-%s", configIndex, pluginName);
     }
 
-    static String createSinkActionName(int configIndex, String pluginName) {
-        return String.format("Sink[%s]-%s", configIndex, pluginName);
-    }
-
     static String createSinkActionName(int configIndex, String pluginName, String table) {
-        return String.format("Sink[%s]-%s-%s", configIndex, pluginName, table);
+        if(table!=null && !table.isEmpty()){
+            return String.format("Sink[%s]-%s-%s", configIndex, pluginName, table);
+        } else {
+            return String.format("Sink[%s]-%s", configIndex, pluginName);
+        }
     }
 
     static String createTransformActionName(int configIndex, String pluginName) {
