@@ -222,13 +222,20 @@ public class JobConfigParser {
     }
 
     //    added if condition instead of two createSinkActionName functions
-    static String createSinkActionName(int configIndex, String pluginName, String table) {
-        if (table != null && !table.isEmpty()) {
-            return String.format("Sink[%s]-%s-%s", configIndex, pluginName, table);
-        } else {
-            return String.format("Sink[%s]-%s", configIndex, pluginName);
-        }
+    static String createSinkActionName(int configIndex, String pluginName) {
+        return String.format("Sink[%s]-%s", configIndex, pluginName);
     }
+
+    static String createSinkActionName(int configIndex, String pluginName, String table) {
+        return String.format("Sink[%s]-%s-%s", configIndex, pluginName, table);
+    }
+    //    static String createSinkActionName(int configIndex, String pluginName, String table) {
+    //        if (table != null && !table.isEmpty()) {
+    //            return String.format("Sink[%s]-%s-%s", configIndex, pluginName, table);
+    //        } else {
+    //            return String.format("Sink[%s]-%s", configIndex, pluginName);
+    //        }
+    //    }
 
     static String createTransformActionName(int configIndex, String pluginName) {
         return String.format("Transform[%s]-%s", configIndex, pluginName);
