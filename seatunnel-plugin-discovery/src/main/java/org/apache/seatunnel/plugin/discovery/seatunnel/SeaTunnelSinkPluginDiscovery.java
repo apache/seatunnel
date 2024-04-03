@@ -34,6 +34,8 @@ import java.util.stream.Collectors;
 
 public class SeaTunnelSinkPluginDiscovery extends AbstractPluginDiscovery<SeaTunnelSink> {
 
+    private static final String MULTITABLESINK_FACTORYIDENTIFIER = "MultiTableSink";
+
     public SeaTunnelSinkPluginDiscovery() {
         super();
     }
@@ -60,7 +62,11 @@ public class SeaTunnelSinkPluginDiscovery extends AbstractPluginDiscovery<SeaTun
         getPluginFactories().stream()
                 .filter(
                         pluginFactory ->
-                                TableSinkFactory.class.isAssignableFrom(pluginFactory.getClass()))
+                                !pluginFactory
+                                                .factoryIdentifier()
+                                                .equals(MULTITABLESINK_FACTORYIDENTIFIER)
+                                        && TableSinkFactory.class.isAssignableFrom(
+                                                pluginFactory.getClass()))
                 .forEach(
                         pluginFactory ->
                                 getPluginsByFactoryIdentifier(
