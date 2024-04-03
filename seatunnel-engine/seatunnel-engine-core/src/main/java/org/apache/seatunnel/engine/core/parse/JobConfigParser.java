@@ -217,6 +217,10 @@ public class JobConfigParser {
         return action;
     }
 
+    static String createSourceActionName(int configIndex, String pluginName) {
+        return String.format("Source[%s]-%s", configIndex, pluginName);
+    }
+
     static String createSinkActionName(int configIndex, String pluginName, String table) {
         if (table != null && !table.isEmpty()) {
             return String.format("Sink[%s]-%s", configIndex, pluginName, table);
