@@ -57,7 +57,8 @@ public class PaimonSinkFactory implements TableSinkFactory {
                         PaimonSinkConfig.PRIMARY_KEYS,
                         PaimonSinkConfig.PARTITION_KEYS,
                         PaimonSinkConfig.WRITE_PROPS,
-                        PaimonConfig.HADOOP_CONF)
+                        PaimonConfig.HADOOP_CONF,
+                        PaimonConfig.HADOOP_CONF_PATH)
                 .build();
     }
 
