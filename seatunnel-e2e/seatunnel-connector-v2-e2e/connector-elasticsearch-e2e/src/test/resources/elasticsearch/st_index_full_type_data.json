@@ -1,0 +1,137 @@
+{
+  "aggregate_metric_double": {
+    "min": 10,
+    "max": 100,
+    "sum": 1000,
+    "value_count": 5
+  },
+  "binary": "binary_data",
+  "byte": 127,
+  "boolean": true,
+  "completion": {
+    "input": [
+      "search term",
+      "another term"
+    ]
+  },
+  "date": "2024-03-19",
+  "date_nanos": "2024-03-19T12:30:45.123456789Z",
+  "dense_vector": [
+    1.0,
+    2.0,
+    3.0
+  ],
+  "double": 3.14159,
+  "flattened": {
+    "nested_field1": "value1",
+    "nested_field2": "value2"
+  },
+  "float": 3.14,
+  "geo_point": {
+    "lat": 40.7128,
+    "lon": -74.0060
+  },
+  "geo_shape": {
+    "type": "point",
+    "coordinates": [
+      100.0,
+      0.0
+    ]
+  },
+  "point": {
+    "type": "Point",
+    "coordinates": [
+      100.0,
+      0.0
+    ]
+  },
+  "integer_range": {
+    "gte": 10,
+    "lte": 20
+  },
+  "float_range": {
+    "gte": 1.0,
+    "lte": 5.0
+  },
+  "long_range": {
+    "gte": 100,
+    "lte": 200
+  },
+  "double_range": {
+    "gte": 1.0,
+    "lte": 10.0
+  },
+  "date_range": {
+    "gte": "2024-01-01",
+    "lte": "2024-03-31"
+  },
+  "ip_range": {
+    "gte": "192.0.2.0",
+    "lte": "192.0.2.255"
+  },
+  "half_float": 3.14,
+  "scaled_float": 1.23,
+  "histogram": {
+    "values": [
+      0.1,
+      0.2,
+      0.3,
+      0.4,
+      0.5
+    ],
+    "counts": [
+      3,
+      7,
+      23,
+      12,
+      6
+    ]
+  },
+  "integer": 42,
+  "ip": "192.0.2.1",
+  "join": {
+    "name": "question"
+  },
+  "keyword": "keyword_value",
+  "long": 1234567890,
+  "nested": {
+    "nested_field1": "value1",
+    "nested_field2": "value2"
+  },
+  "object": {
+    "age": 30,
+    "name": {
+      "first": "John",
+      "last": "Doe"
+    }
+  },
+  "percolator": {
+    "match": {
+      "keyword": "keyword_value"
+    }
+  },
+  "rank_feature": 5.0,
+  "rank_features": {
+    "feature1": 10.0,
+    "feature2": 20.0
+  },
+  "shape": "POINT (-377.03653 389.897676)",
+  "search_as_you_type": "searchable text",
+  "short": 32767,
+  "sparse_vector": {
+    "index": [
+      0,
+      2,
+      4
+    ],
+    "values": [
+      1.0,
+      2.0,
+      3.0
+    ]
+  },
+  "text": "full text",
+  "match_only_text": "match only text",
+  "name": "John Doe",
+  "version": "1.0"
+}

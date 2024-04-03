@@ -30,6 +30,8 @@ import org.apache.seatunnel.connectors.seatunnel.paimon.utils.JobContextUtil;
 import org.apache.seatunnel.connectors.seatunnel.paimon.utils.RowConverter;
 
 import org.apache.paimon.data.InternalRow;
+import org.apache.paimon.schema.TableSchema;
+import org.apache.paimon.table.FileStoreTable;
 import org.apache.paimon.table.Table;
 import org.apache.paimon.table.sink.BatchTableCommit;
 import org.apache.paimon.table.sink.BatchTableWrite;
@@ -74,6 +76,8 @@ public class PaimonSinkWriter
 
     private final JobContext jobContext;
 
+    private TableSchema tableSchema;
+
     public PaimonSinkWriter(
             Context context,
             Table table,
@@ -88,6 +92,7 @@ public class PaimonSinkWriter
         this.seaTunnelRowType = seaTunnelRowType;
         this.context = context;
         this.jobContext = jobContext;
+        this.tableSchema = ((FileStoreTable) table).schema();
     }
 
     public PaimonSinkWriter(
@@ -96,15 +101,7 @@ public class PaimonSinkWriter
             SeaTunnelRowType seaTunnelRowType,
             List<PaimonSinkState> states,
             JobContext jobContext) {
-        this.table = table;
-        this.tableWriteBuilder =
-                JobContextUtil.isBatchJob(jobContext)
-                        ? this.table.newBatchWriteBuilder().withOverwrite()
-                        : this.table.newStreamWriteBuilder();
-        this.tableWrite = tableWriteBuilder.newWrite();
-        this.seaTunnelRowType = seaTunnelRowType;
-        this.context = context;
-        this.jobContext = jobContext;
+        this(context, table, seaTunnelRowType, jobContext);
         if (Objects.isNull(states) || states.isEmpty()) {
             return;
         }
@@ -132,7 +129,7 @@ public class PaimonSinkWriter
 
     @Override
     public void write(SeaTunnelRow element) throws IOException {
-        InternalRow rowData = RowConverter.convert(element, seaTunnelRowType);
+        InternalRow rowData = RowConverter.reconvert(element, seaTunnelRowType, tableSchema);
         try {
             tableWrite.write(rowData);
         } catch (Exception e) {

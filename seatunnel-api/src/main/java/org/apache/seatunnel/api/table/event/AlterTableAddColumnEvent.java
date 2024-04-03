@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.api.table.event;
 
+import org.apache.seatunnel.api.event.EventType;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 
@@ -50,5 +51,10 @@ public class AlterTableAddColumnEvent extends AlterTableColumnEvent {
     public static AlterTableAddColumnEvent addAfter(
             TableIdentifier tableIdentifier, Column column, String afterColumn) {
         return new AlterTableAddColumnEvent(tableIdentifier, column, false, afterColumn);
+    }
+
+    @Override
+    public EventType getEventType() {
+        return EventType.SCHEMA_CHANGE_ADD_COLUMN;
     }
 }

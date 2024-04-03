@@ -88,6 +88,12 @@
             <classifier>optional</classifier>
             <scope>provided</scope>
         </dependency>
+        <dependency>
+            <groupId>com.squareup.okhttp</groupId>
+            <artifactId>mockwebserver</artifactId>
+            <version>2.7.5</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
 </project>

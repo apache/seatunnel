@@ -38,6 +38,11 @@ public interface ReadStrategy extends Serializable, Closeable {
 
     SeaTunnelRowType getSeaTunnelRowTypeInfo(String path) throws FileConnectorException;
 
+    default SeaTunnelRowType getSeaTunnelRowTypeInfoWithUserConfigRowType(
+            String path, SeaTunnelRowType rowType) throws FileConnectorException {
+        return getSeaTunnelRowTypeInfo(path);
+    }
+
     // todo: use CatalogTable
     void setSeaTunnelRowTypeInfo(SeaTunnelRowType seaTunnelRowType);
 

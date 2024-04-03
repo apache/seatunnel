@@ -23,61 +23,40 @@ import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
 
-public final class JdbcUtils {
+public final class JdbcFieldTypeUtils {
 
-    private JdbcUtils() {}
-
-    public static String getString(ResultSet resultSet, int columnIndex) throws SQLException {
-        return resultSet.getString(columnIndex);
-    }
+    private JdbcFieldTypeUtils() {}
 
     public static Boolean getBoolean(ResultSet resultSet, int columnIndex) throws SQLException {
-        if (null == resultSet.getObject(columnIndex)) {
-            return null;
-        }
-        return resultSet.getBoolean(columnIndex);
+        return getNullableValue(resultSet, columnIndex, ResultSet::getBoolean);
     }
 
     public static Byte getByte(ResultSet resultSet, int columnIndex) throws SQLException {
-        if (null == resultSet.getObject(columnIndex)) {
-            return null;
-        }
-        return resultSet.getByte(columnIndex);
+        return getNullableValue(resultSet, columnIndex, ResultSet::getByte);
     }
 
     public static Short getShort(ResultSet resultSet, int columnIndex) throws SQLException {
-        if (null == resultSet.getObject(columnIndex)) {
-            return null;
-        }
-        return resultSet.getShort(columnIndex);
+        return getNullableValue(resultSet, columnIndex, ResultSet::getShort);
     }
 
     public static Integer getInt(ResultSet resultSet, int columnIndex) throws SQLException {
-        if (null == resultSet.getObject(columnIndex)) {
-            return null;
-        }
-        return resultSet.getInt(columnIndex);
+        return getNullableValue(resultSet, columnIndex, ResultSet::getInt);
     }
 
     public static Long getLong(ResultSet resultSet, int columnIndex) throws SQLException {
-        if (null == resultSet.getObject(columnIndex)) {
-            return null;
-        }
-        return resultSet.getLong(columnIndex);
+        return getNullableValue(resultSet, columnIndex, ResultSet::getLong);
     }
 
     public static Float getFloat(ResultSet resultSet, int columnIndex) throws SQLException {
-        if (null == resultSet.getObject(columnIndex)) {
-            return null;
-        }
-        return resultSet.getFloat(columnIndex);
+        return getNullableValue(resultSet, columnIndex, ResultSet::getFloat);
     }
 
     public static Double getDouble(ResultSet resultSet, int columnIndex) throws SQLException {
-        if (null == resultSet.getObject(columnIndex)) {
-            return null;
-        }
-        return resultSet.getDouble(columnIndex);
+        return getNullableValue(resultSet, columnIndex, ResultSet::getDouble);
+    }
+
+    public static String getString(ResultSet resultSet, int columnIndex) throws SQLException {
+        return resultSet.getString(columnIndex);
     }
 
     public static BigDecimal getBigDecimal(ResultSet resultSet, int columnIndex)
@@ -98,9 +77,22 @@ public final class JdbcUtils {
     }
 
     public static byte[] getBytes(ResultSet resultSet, int columnIndex) throws SQLException {
-        if (null == resultSet.getObject(columnIndex)) {
+        return resultSet.getBytes(columnIndex);
+    }
+
+    private static <T> T getNullableValue(
+            ResultSet resultSet,
+            int columnIndex,
+            ThrowingFunction<ResultSet, T, SQLException> getter)
+            throws SQLException {
+        if (resultSet.getObject(columnIndex) == null) {
             return null;
         }
-        return resultSet.getBytes(columnIndex);
+        return getter.apply(resultSet, columnIndex);
+    }
+
+    @FunctionalInterface
+    private interface ThrowingFunction<T, R, E extends Exception> {
+        R apply(T t, int columnIndex) throws E;
     }
 }

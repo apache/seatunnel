@@ -65,9 +65,9 @@ public class DorisSinkWriter
     private final int intervalTime;
     private final DorisSerializer serializer;
     private final CatalogTable catalogTable;
-    private final transient ScheduledExecutorService scheduledExecutorService;
-    private transient Thread executorThread;
-    private transient volatile Exception loadException = null;
+    private final ScheduledExecutorService scheduledExecutorService;
+    private Thread executorThread;
+    private volatile Exception loadException = null;
 
     public DorisSinkWriter(
             SinkWriter.Context context,
@@ -114,8 +114,6 @@ public class DorisSinkWriter
         } catch (Exception e) {
             throw new DorisConnectorException(DorisConnectorErrorCode.STREAM_LOAD_FAILED, e);
         }
-        // get main work thread.
-        executorThread = Thread.currentThread();
         startLoad(labelGenerator.generateLabel(lastCheckpointId + 1));
         // when uploading data in streaming mode, we need to regularly detect whether there are
         // exceptions.
@@ -125,7 +123,7 @@ public class DorisSinkWriter
 
     @Override
     public void write(SeaTunnelRow element) throws IOException {
-        checkLoadException();
+        checkLoadExceptionAndResetThread();
         byte[] serialize =
                 serializer.serialize(
                         dorisConfig.isNeedsUnsupportedTypeCasting()
@@ -222,9 +220,11 @@ public class DorisSinkWriter
         }
     }
 
-    private void checkLoadException() {
+    private void checkLoadExceptionAndResetThread() {
         if (loadException != null) {
             throw new RuntimeException("error while loading data.", loadException);
+        } else {
+            executorThread = Thread.currentThread();
         }
     }
 
