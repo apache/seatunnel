@@ -221,6 +221,7 @@ public class JobConfigParser {
         return String.format("Source[%s]-%s", configIndex, pluginName);
     }
 
+    //    added if condition instead of two createSinkActionName functions
     static String createSinkActionName(int configIndex, String pluginName, String table) {
         if (table != null && !table.isEmpty()) {
             return String.format("Sink[%s]-%s-%s", configIndex, pluginName, table);
