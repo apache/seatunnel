@@ -171,7 +171,9 @@ public class AmazondynamodbIT extends TestSuiteBase implements TestResource {
     }
 
     private void assertHasData(String tableName) {
-        ScanResponse scan = dynamoDbClient.scan(ScanRequest.builder().tableName(tableName).build());
+        ScanResponse scan =
+                dynamoDbClient.scan(
+                        ScanRequest.builder().tableName(tableName).consistentRead(true).build());
         Assertions.assertTrue(
                 !scan.items().isEmpty(), String.format("table %s is empty.", tableName));
     }
