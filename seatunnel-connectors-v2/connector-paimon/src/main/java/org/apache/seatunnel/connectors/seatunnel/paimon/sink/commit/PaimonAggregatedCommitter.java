@@ -66,7 +66,7 @@ public class PaimonAggregatedCommitter
                 JobContextUtil.isBatchJob(jobContext)
                         ? table.newBatchWriteBuilder()
                         : table.newStreamWriteBuilder();
-        PaimonSecurityContext.shoudEnableKerberos(paimonHadoopConfiguration);
+        PaimonSecurityContext.shouldEnableKerberos(paimonHadoopConfiguration);
     }
 
     @Override

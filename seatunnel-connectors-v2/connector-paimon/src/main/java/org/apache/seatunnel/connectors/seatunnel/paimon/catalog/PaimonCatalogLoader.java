@@ -69,7 +69,7 @@ public class PaimonCatalogLoader implements Serializable {
             checkConfiguration(paimonHadoopConfiguration, HDFS_DEF_FS_NAME);
             paimonHadoopConfiguration.set(HDFS_IMPL_KEY, HDFS_IMPL);
         }
-        PaimonSecurityContext.shoudEnableKerberos(paimonHadoopConfiguration);
+        PaimonSecurityContext.shouldEnableKerberos(paimonHadoopConfiguration);
         final CatalogContext catalogContext =
                 CatalogContext.create(options, paimonHadoopConfiguration);
         try {

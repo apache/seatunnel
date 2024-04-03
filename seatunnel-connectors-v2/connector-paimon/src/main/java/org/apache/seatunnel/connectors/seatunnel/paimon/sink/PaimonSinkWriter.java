@@ -96,7 +96,7 @@ public class PaimonSinkWriter
         this.context = context;
         this.jobContext = jobContext;
         this.tableSchema = ((FileStoreTable) table).schema();
-        PaimonSecurityContext.shoudEnableKerberos(paimonHadoopConfiguration);
+        PaimonSecurityContext.shouldEnableKerberos(paimonHadoopConfiguration);
     }
 
     public PaimonSinkWriter(

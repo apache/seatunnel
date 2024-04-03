@@ -49,7 +49,7 @@ public class PaimonSecurityContext extends SecurityContext {
     private static final List<String> HADOOP_CONF_FILES =
             ImmutableList.of("core-site.xml", "hdfs-site.xml", "hive-site.xml");
 
-    public static void shoudEnableKerberos(Configuration configuration) {
+    public static void shouldEnableKerberos(Configuration configuration) {
         String kerberosPrincipal =
                 configuration.get(SecurityConfiguration.KERBEROS_LOGIN_PRINCIPAL.key());
         String kerberosKeytabFilePath =
