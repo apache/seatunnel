@@ -46,6 +46,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -113,7 +114,7 @@ public class CatalogUtils {
                         tablePath.getTableName());
 
         // seq -> column name
-        List<Pair<Integer, String>> primaryKeyColumns = new ArrayList<>();
+        LinkedHashSet<Pair<Integer, String>> primaryKeyColumns = new LinkedHashSet<>();
         String pkName = null;
         while (rs.next()) {
             String columnName = rs.getString("COLUMN_NAME");
