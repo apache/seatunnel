@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver.SqlServerCatalog;
@@ -354,6 +355,41 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
                 "insert into sink_lw(INT_IDENTITY_TEST, BIGINT_TEST) values(1, 12)");
         boolean existsDataAfter = sqlServerCatalog.isExistsData(tablePathSqlserver_Sink);
         Assertions.assertTrue(existsDataAfter);
+        // check NVARCHAR_TEST and NCHAR_TEST column length
+        catalogTable
+                .getTableSchema()
+                .getColumns()
+                .forEach(
+                        column -> {
+                            if (column.getName().equals("BINARY_TEST")) {
+                                Assertions.assertEquals(column.getColumnLength(), 255L);
+                            }
+                            if (column.getName().equals("CHAR_TEST")) {
+                                Assertions.assertEquals(column.getColumnLength(), 255L);
+                            }
+                            if (column.getName().equals("DECIMAL_TEST")) {
+                                DecimalType decimalType = (DecimalType) column.getDataType();
+                                Assertions.assertEquals(decimalType.getPrecision(), 18L);
+                                Assertions.assertEquals(decimalType.getScale(), 2L);
+                            }
+                            if (column.getName().equals("NCHAR_TEST")) {
+                                Assertions.assertEquals(column.getColumnLength(), 2L);
+                            }
+                            if (column.getName().equals("NUMERIC_TEST")) {
+                                DecimalType decimalType = (DecimalType) column.getDataType();
+                                Assertions.assertEquals(decimalType.getPrecision(), 18L);
+                                Assertions.assertEquals(decimalType.getScale(), 2L);
+                            }
+                            if (column.getName().equals("NVARCHAR_TEST")) {
+                                Assertions.assertEquals(column.getColumnLength(), 32L);
+                            }
+                            if (column.getName().equals("VARBINARY_TEST")) {
+                                Assertions.assertEquals(column.getColumnLength(), 255L);
+                            }
+                            if (column.getName().equals("VARCHAR_TEST")) {
+                                Assertions.assertEquals(column.getColumnLength(), 16L);
+                            }
+                        });
         // truncateTable
         sqlServerCatalog.truncateTable(tablePathSqlserver_Sink, true);
         Assertions.assertFalse(sqlServerCatalog.isExistsData(tablePathSqlserver_Sink));

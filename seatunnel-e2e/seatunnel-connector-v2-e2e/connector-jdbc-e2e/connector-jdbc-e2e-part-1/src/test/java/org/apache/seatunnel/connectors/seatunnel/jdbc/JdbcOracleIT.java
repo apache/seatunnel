@@ -18,7 +18,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleURLParser;
@@ -28,10 +30,12 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
 
 import org.apache.commons.lang3.tuple.Pair;
 
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.OracleContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.containers.wait.strategy.HostPortWaitStrategy;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 import org.testcontainers.utility.MountableFile;
@@ -42,6 +46,7 @@ import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -81,7 +86,9 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                     + "    DATE_COL                      date,\n"
                     + "    TIMESTAMP_WITH_3_FRAC_SEC_COL timestamp(3),\n"
                     + "    TIMESTAMP_WITH_LOCAL_TZ       timestamp with local time zone,\n"
-                    + "    XML_TYPE_COL                  \"SYS\".\"XMLTYPE\"\n"
+                    + "    XML_TYPE_COL                  \"SYS\".\"XMLTYPE\",\n"
+                    + "    NVARCHAR2_10_COL              nvarchar2(10),\n"
+                    + "    NCHAR_10_COL                  nchar(10)\n"
                     + ")";
 
     private static final String[] fieldNames =
@@ -98,7 +105,9 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                 "DATE_COL",
                 "TIMESTAMP_WITH_3_FRAC_SEC_COL",
                 "TIMESTAMP_WITH_LOCAL_TZ",
-                "XML_TYPE_COL"
+                "XML_TYPE_COL",
+                "NVARCHAR2_10_COL",
+                "NCHAR_10_COL",
             };
 
     @Test
@@ -109,6 +118,37 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                         .tablePath(TablePath.of(null, SCHEMA, SOURCE_TABLE))
                         .build();
         dialect.sampleDataFromColumn(connection, table, "INTEGER_COL", 1, 1024);
+    }
+
+    @Test
+    public void testTableColumnMetadataLength() {
+        CatalogTable tableCatalog =
+                catalog.getTable(TablePath.of("XE", "TESTUSER", "E2E_TABLE_SOURCE"));
+        tableCatalog
+                .getTableSchema()
+                .getColumns()
+                .forEach(
+                        column -> {
+                            if (column.getName().equals("NVARCHAR2_10_COL")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 10L);
+                            }
+                            if (column.getName().equals("NCHAR_10_COL")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 10L);
+                            }
+                            if (column.getName().equals("VARCHAR_10_COL")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 10L);
+                            }
+                            if (column.getName().equals("CHAR_10_COL")) {
+                                Assertions.assertEquals(column.getLongColumnLength(), 10L);
+                            }
+                            if (column.getName().equals("NUMBER_3_SF_2_DP")) {
+                                Assertions.assertInstanceOf(
+                                        DecimalType.class, column.getDataType());
+                                DecimalType decimalType = (DecimalType) column.getDataType();
+                                Assertions.assertEquals(decimalType.getPrecision(), 3L);
+                                Assertions.assertEquals(decimalType.getScale(), 2L);
+                            }
+                        });
     }
 
     @Override
@@ -178,7 +218,9 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                                 Date.valueOf(LocalDate.now()),
                                 Timestamp.valueOf(LocalDateTime.now()),
                                 Timestamp.valueOf(LocalDateTime.now()),
-                                "<?xml version=\"1.0\" encoding=\"UTF-8\"?><project xmlns=\"http://maven.apache.org/POM/4.0.0\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd\"><name>SeaTunnel : E2E : Connector V2 : Oracle XMLType</name></project>"
+                                "<?xml version=\"1.0\" encoding=\"UTF-8\"?><project xmlns=\"http://maven.apache.org/POM/4.0.0\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd\"><name>SeaTunnel : E2E : Connector V2 : Oracle XMLType</name></project>",
+                                String.format("f%s", i),
+                                String.format("f%s", i)
                             });
             rows.add(row);
         }
@@ -199,6 +241,9 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                         .withNetwork(NETWORK)
                         .withNetworkAliases(ORACLE_NETWORK_ALIASES)
                         .withExposedPorts(ORACLE_PORT)
+                        .waitingFor(
+                                new HostPortWaitStrategy()
+                                        .withStartupTimeout(Duration.ofMinutes(10)))
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(ORACLE_IMAGE)));
 
