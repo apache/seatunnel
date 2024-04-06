@@ -23,11 +23,11 @@ import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 import org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkKind;
+import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.config.OracleConnectorConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.reader.fetch.OracleSourceFetchTaskContext;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.reader.fetch.logminer.OracleRedoLogFetchTask;
 
 import io.debezium.config.Configuration;
-import io.debezium.connector.oracle.OracleConnectorConfig;
 import io.debezium.connector.oracle.OracleOffsetContext;
 import io.debezium.connector.oracle.OraclePartition;
 import io.debezium.connector.oracle.logminer.LogMinerOracleOffsetContextLoader;
@@ -70,7 +70,7 @@ public class OracleSnapshotFetchTask implements FetchTask<SourceSplitBase> {
     }
 
     @Override
-    public void execute(FetchTask.Context context) throws Exception {
+    public void execute(Context context) throws Exception {
         OracleSourceFetchTaskContext sourceFetchContext = (OracleSourceFetchTaskContext) context;
         taskRunning = true;
         snapshotSplitReadTask =
