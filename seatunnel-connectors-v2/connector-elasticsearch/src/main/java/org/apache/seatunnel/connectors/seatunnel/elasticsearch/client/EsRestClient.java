@@ -619,7 +619,13 @@ public class EsRestClient {
                                         new EsType(OBJECT, (Map) subFieldTypeInfoMap));
                                 allElasticSearchFieldTypeInfoMap.put(fieldName, typeDefine.build());
                             } else {
-                                allElasticSearchFieldTypeInfoMap.put(fieldName, "text");
+                                // For map types
+                                BasicTypeDefine typeDefine =
+                                        BasicTypeDefine.<EsType>builder()
+                                                .name(fieldName)
+                                                .columnType("text")
+                                                .dataType("text");
+                                allElasticSearchFieldTypeInfoMap.put(fieldName, typeDefine.build());
                             }
                         });
         if (CollectionUtils.isEmpty(source)) {
