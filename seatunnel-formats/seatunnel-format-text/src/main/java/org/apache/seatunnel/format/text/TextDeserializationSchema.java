@@ -257,7 +257,7 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
             case DATE:
                 DateTimeFormatter dateFormatter = fieldFormatterMap.get(fieldName);
                 if (dateFormatter == null) {
-                    dateFormatter = DateUtils.matchDateTimeFormatter(field);
+                    dateFormatter = DateUtils.matchDateFormatter(field);
                     fieldFormatterMap.put(fieldName, dateFormatter);
                 }
 

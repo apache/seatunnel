@@ -184,8 +184,8 @@ public class DateTimeUtilsTest {
             DateTimeUtils.parse(datetimeStr1);
         }
         long t6 = System.currentTimeMillis();
-        // If format is not specified, the system automatically obtains the format 'yyyy-MM-dd
-        // HH:mm:ss' for processing, use time: 4842ms
+        // If format is not specified, the system automatically obtains the format 'yyyyMMddHHmmss'
+        // for processing, use time: 4842ms
 
         System.out.println((t6 - t5) + "");
 
@@ -194,14 +194,14 @@ public class DateTimeUtilsTest {
             DateTimeUtils.parse(datetimeStr2, dateTimeFormatter2);
         }
         long t8 = System.currentTimeMillis();
-        // Use an explicit time format 'yyyy-MM-dd HH:mm:ss.SSS' for processing, use time: 8162ms
+        // Use an explicit time format 'yyyy.MM.dd HH:mm:ss.SSS' for processing, use time: 8162ms
         System.out.println((t8 - t7) + "");
 
         for (int i = 0; i < 10000000; i++) {
             DateTimeUtils.parse(datetimeStr2);
         }
         long t9 = System.currentTimeMillis();
-        // If format is not specified, the system automatically obtains the format 'yyyy-MM-dd
+        // If format is not specified, the system automatically obtains the format 'yyyy.MM.dd
         // HH:mm:ss.SSS' for processing, use time: 11366ms
         System.out.println((t9 - t8) + "");
 
@@ -210,14 +210,14 @@ public class DateTimeUtilsTest {
             DateTimeUtils.parse(datetimeStr3, dateTimeFormatter3);
         }
         long t11 = System.currentTimeMillis();
-        // Use an explicit time format 'yyyy-MM-dd HH:mm:ss' for processing, use time: 4405ms
+        // Use an explicit time format 'yyyy.MM.dd HH:mm:ss' for processing, use time: 4405ms
         System.out.println((t11 - t10) + "");
 
         for (int i = 0; i < 10000000; i++) {
             DateTimeUtils.parse(datetimeStr3);
         }
         long t12 = System.currentTimeMillis();
-        // If format is not specified, the system automatically obtains the format 'yyyy-MM-dd
+        // If format is not specified, the system automatically obtains the format 'yyyy.MM.dd
         // HH:mm:ss' for processing, use time: 7771ms
         System.out.println((t12 - t11) + "");
     }

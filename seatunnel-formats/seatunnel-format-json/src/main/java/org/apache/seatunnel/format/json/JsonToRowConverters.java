@@ -253,7 +253,7 @@ public class JsonToRowConverters implements Serializable {
         String dateStr = jsonNode.asText();
         DateTimeFormatter dateFormatter = fieldFormatterMap.get(fieldName);
         if (dateFormatter == null) {
-            dateFormatter = DateUtils.matchDateTimeFormatter(dateStr);
+            dateFormatter = DateUtils.matchDateFormatter(dateStr);
             fieldFormatterMap.put(fieldName, dateFormatter);
         }
 

@@ -125,13 +125,18 @@ public class DateUtils {
      * @return the DateTimeFormatter matched, will return null when not matched any pattern in
      *     {@link #PATTERN_ARRAY}
      */
-    public static DateTimeFormatter matchDateTimeFormatter(String dateTime) {
+    public static DateTimeFormatter matchDateFormatter(String dateTime) {
         for (int j = 0; j < PATTERN_ARRAY.length; j++) {
             if (PATTERN_ARRAY[j].matcher(dateTime).matches()) {
                 return DATE_FORMATTER_MAP.get(PATTERN_ARRAY[j]);
             }
         }
         return null;
+    }
+
+    public static LocalDate parse(String date) {
+        DateTimeFormatter dateTimeFormatter = matchDateFormatter(date);
+        return parse(date, dateTimeFormatter);
     }
 
     public static LocalDate parse(String date, DateTimeFormatter dateTimeFormatter) {
