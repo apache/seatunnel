@@ -620,7 +620,7 @@ public class EsRestClient {
                                 allElasticSearchFieldTypeInfoMap.put(fieldName, typeDefine.build());
                             } else {
                                 // For map types
-                                BasicTypeDefine typeDefine =
+                                BasicTypeDefine.BasicTypeDefineBuilder<EsType> typeDefine =
                                         BasicTypeDefine.<EsType>builder()
                                                 .name(fieldName)
                                                 .columnType("text")
