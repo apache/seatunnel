@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.e2e.connector.elasticsearch;
 
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsType;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
@@ -239,7 +241,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
     }
 
     private List<String> readSinkDataWithOutSchema() throws InterruptedException {
-        Map<String, String> esFieldType =
+        Map<String, BasicTypeDefine<EsType>> esFieldType =
                 esRestClient.getFieldTypeMapping("st_index2", Lists.newArrayList());
 
         // wait for index refresh
