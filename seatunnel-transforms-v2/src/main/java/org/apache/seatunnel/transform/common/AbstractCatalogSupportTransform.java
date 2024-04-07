@@ -20,8 +20,6 @@ package org.apache.seatunnel.transform.common;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import lombok.NonNull;
 
@@ -61,12 +59,4 @@ public abstract class AbstractCatalogSupportTransform extends AbstractSeaTunnelT
     protected abstract TableSchema transformTableSchema();
 
     protected abstract TableIdentifier transformTableIdentifier();
-
-    @Override
-    public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
-        if (outputRowType != null) {
-            return outputRowType;
-        }
-        return getProducedCatalogTable().getTableSchema().toPhysicalRowDataType();
-    }
 }

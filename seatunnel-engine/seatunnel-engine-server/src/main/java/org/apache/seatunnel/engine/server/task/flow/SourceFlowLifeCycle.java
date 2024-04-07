@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.task.flow;
 
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
+import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceReader;
@@ -29,6 +30,7 @@ import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
+import org.apache.seatunnel.engine.server.event.JobEventListener;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.SeaTunnelSourceCollector;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
@@ -80,6 +82,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
     private SeaTunnelSourceCollector<T> collector;
 
     private final MetricsContext metricsContext;
+    private final EventListener eventListener;
 
     private final AtomicReference<SchemaChangePhase> schemaChangePhase = new AtomicReference<>();
 
@@ -97,6 +100,8 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
         this.enumeratorTaskLocation = enumeratorTaskLocation;
         this.currentTaskLocation = currentTaskLocation;
         this.metricsContext = metricsContext;
+        this.eventListener =
+                new JobEventListener(currentTaskLocation, runningTask.getExecutionContext());
     }
 
     public void setCollector(SeaTunnelSourceCollector<T> collector) {
@@ -114,7 +119,8 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
                                         indexID,
                                         sourceAction.getSource().getBoundedness(),
                                         this,
-                                        metricsContext));
+                                        metricsContext,
+                                        eventListener));
         this.enumeratorTaskAddress = getEnumeratorTaskAddress();
     }
 

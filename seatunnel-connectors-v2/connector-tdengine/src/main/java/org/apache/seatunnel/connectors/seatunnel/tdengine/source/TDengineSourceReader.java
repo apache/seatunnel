@@ -44,6 +44,8 @@ import java.util.Objects;
 import java.util.Properties;
 import java.util.Set;
 
+import static org.apache.seatunnel.connectors.seatunnel.tdengine.utils.TDengineUtil.checkDriverExist;
+
 @Slf4j
 public class TDengineSourceReader implements SourceReader<SeaTunnelRow, TDengineSourceSplit> {
 
@@ -108,6 +110,8 @@ public class TDengineSourceReader implements SourceReader<SeaTunnelRow, TDengine
         // @bobo (tdengine)
         connProps.setProperty(TSDBDriver.PROPERTY_KEY_BATCH_LOAD, "false");
         try {
+            // check td driver whether exist and if not, try to register
+            checkDriverExist(jdbcUrl);
             conn = DriverManager.getConnection(jdbcUrl, connProps);
         } catch (SQLException e) {
             throw new TDengineConnectorException(

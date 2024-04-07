@@ -17,21 +17,30 @@
 
 package org.apache.seatunnel.connectors.seatunnel.paimon.sink;
 
+import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.commit.PaimonCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.state.PaimonSinkState;
+import org.apache.seatunnel.connectors.seatunnel.paimon.utils.JobContextUtil;
 import org.apache.seatunnel.connectors.seatunnel.paimon.utils.RowConverter;
 
 import org.apache.paimon.data.InternalRow;
+import org.apache.paimon.schema.TableSchema;
+import org.apache.paimon.table.FileStoreTable;
 import org.apache.paimon.table.Table;
 import org.apache.paimon.table.sink.BatchTableCommit;
 import org.apache.paimon.table.sink.BatchTableWrite;
-import org.apache.paimon.table.sink.BatchWriteBuilder;
 import org.apache.paimon.table.sink.CommitMessage;
+import org.apache.paimon.table.sink.StreamTableCommit;
+import org.apache.paimon.table.sink.StreamTableWrite;
+import org.apache.paimon.table.sink.TableCommit;
+import org.apache.paimon.table.sink.TableWrite;
+import org.apache.paimon.table.sink.WriteBuilder;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -46,13 +55,14 @@ import java.util.stream.Collectors;
 
 @Slf4j
 public class PaimonSinkWriter
-        implements SinkWriter<SeaTunnelRow, PaimonCommitInfo, PaimonSinkState> {
+        implements SinkWriter<SeaTunnelRow, PaimonCommitInfo, PaimonSinkState>,
+                SupportMultiTableSinkWriter<Void> {
 
     private String commitUser = UUID.randomUUID().toString();
 
-    private final BatchWriteBuilder tableWriteBuilder;
+    private final WriteBuilder tableWriteBuilder;
 
-    private final BatchTableWrite tableWrite;
+    private final TableWrite tableWrite;
 
     private long checkpointId = 0;
 
@@ -64,37 +74,53 @@ public class PaimonSinkWriter
 
     private final SinkWriter.Context context;
 
-    public PaimonSinkWriter(Context context, Table table, SeaTunnelRowType seaTunnelRowType) {
+    private final JobContext jobContext;
+
+    private TableSchema tableSchema;
+
+    public PaimonSinkWriter(
+            Context context,
+            Table table,
+            SeaTunnelRowType seaTunnelRowType,
+            JobContext jobContext) {
         this.table = table;
-        this.tableWriteBuilder = this.table.newBatchWriteBuilder().withOverwrite();
+        this.tableWriteBuilder =
+                JobContextUtil.isBatchJob(jobContext)
+                        ? this.table.newBatchWriteBuilder().withOverwrite()
+                        : this.table.newStreamWriteBuilder();
         this.tableWrite = tableWriteBuilder.newWrite();
         this.seaTunnelRowType = seaTunnelRowType;
         this.context = context;
+        this.jobContext = jobContext;
+        this.tableSchema = ((FileStoreTable) table).schema();
     }
 
     public PaimonSinkWriter(
             Context context,
             Table table,
             SeaTunnelRowType seaTunnelRowType,
-            List<PaimonSinkState> states) {
-        this.table = table;
-        this.tableWriteBuilder = this.table.newBatchWriteBuilder().withOverwrite();
-        this.tableWrite = tableWriteBuilder.newWrite();
-        this.seaTunnelRowType = seaTunnelRowType;
-        this.context = context;
+            List<PaimonSinkState> states,
+            JobContext jobContext) {
+        this(context, table, seaTunnelRowType, jobContext);
         if (Objects.isNull(states) || states.isEmpty()) {
             return;
         }
         this.commitUser = states.get(0).getCommitUser();
         this.checkpointId = states.get(0).getCheckpointId();
-        try (BatchTableCommit tableCommit = tableWriteBuilder.newCommit()) {
+        try (TableCommit tableCommit = tableWriteBuilder.newCommit()) {
             List<CommitMessage> commitables =
                     states.stream()
                             .map(PaimonSinkState::getCommittables)
                             .flatMap(List::stream)
                             .collect(Collectors.toList());
             log.info("Trying to recommit states {}", commitables);
-            tableCommit.commit(commitables);
+            if (JobContextUtil.isBatchJob(jobContext)) {
+                log.debug("Trying to recommit states batch mode");
+                ((BatchTableCommit) tableCommit).commit(commitables);
+            } else {
+                log.debug("Trying to recommit states streaming mode");
+                ((StreamTableCommit) tableCommit).commit(Objects.hash(commitables), commitables);
+            }
         } catch (Exception e) {
             throw new PaimonConnectorException(
                     PaimonConnectorErrorCode.TABLE_WRITE_COMMIT_FAILED, e);
@@ -103,7 +129,7 @@ public class PaimonSinkWriter
 
     @Override
     public void write(SeaTunnelRow element) throws IOException {
-        InternalRow rowData = RowConverter.convert(element, seaTunnelRowType);
+        InternalRow rowData = RowConverter.reconvert(element, seaTunnelRowType, tableSchema);
         try {
             tableWrite.write(rowData);
         } catch (Exception e) {
@@ -117,7 +143,13 @@ public class PaimonSinkWriter
     @Override
     public Optional<PaimonCommitInfo> prepareCommit() throws IOException {
         try {
-            List<CommitMessage> fileCommittables = tableWrite.prepareCommit();
+            List<CommitMessage> fileCommittables;
+            if (JobContextUtil.isBatchJob(jobContext)) {
+                fileCommittables = ((BatchTableWrite) tableWrite).prepareCommit();
+            } else {
+                fileCommittables =
+                        ((StreamTableWrite) tableWrite).prepareCommit(false, committables.size());
+            }
             committables.addAll(fileCommittables);
             return Optional.of(new PaimonCommitInfo(fileCommittables));
         } catch (Exception e) {

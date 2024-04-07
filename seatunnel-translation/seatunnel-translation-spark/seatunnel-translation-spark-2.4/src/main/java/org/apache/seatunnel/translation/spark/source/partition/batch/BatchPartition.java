@@ -33,16 +33,19 @@ import java.util.Map;
 public class BatchPartition implements InputPartition<InternalRow> {
     protected final SeaTunnelSource<SeaTunnelRow, ?, ?> source;
     protected final Integer parallelism;
+    protected final String jobId;
     protected final Integer subtaskId;
     private Map<String, String> envOptions;
 
     public BatchPartition(
             SeaTunnelSource<SeaTunnelRow, ?, ?> source,
             Integer parallelism,
+            String jobId,
             Integer subtaskId,
             Map<String, String> envOptions) {
         this.source = source;
         this.parallelism = parallelism;
+        this.jobId = jobId;
         this.subtaskId = subtaskId;
         this.envOptions = envOptions;
     }
@@ -52,10 +55,12 @@ public class BatchPartition implements InputPartition<InternalRow> {
         ParallelBatchPartitionReader partitionReader;
         if (source instanceof SupportCoordinate) {
             partitionReader =
-                    new CoordinatedBatchPartitionReader(source, parallelism, subtaskId, envOptions);
+                    new CoordinatedBatchPartitionReader(
+                            source, parallelism, jobId, subtaskId, envOptions);
         } else {
             partitionReader =
-                    new ParallelBatchPartitionReader(source, parallelism, subtaskId, envOptions);
+                    new ParallelBatchPartitionReader(
+                            source, parallelism, jobId, subtaskId, envOptions);
         }
         return new SeaTunnelInputPartitionReader(partitionReader);
     }

@@ -38,7 +38,10 @@ import org.apache.paimon.data.InternalRow;
 import org.apache.paimon.data.Timestamp;
 import org.apache.paimon.data.serializer.InternalArraySerializer;
 import org.apache.paimon.data.serializer.InternalMapSerializer;
+import org.apache.paimon.schema.TableSchema;
+import org.apache.paimon.types.DataType;
 import org.apache.paimon.types.DataTypes;
+import org.apache.paimon.types.RowType;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -48,7 +51,10 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /** Unit tests for {@link RowConverter} */
@@ -59,6 +65,45 @@ public class RowConverterTest {
     private InternalRow internalRow;
 
     private SeaTunnelRowType seaTunnelRowType;
+
+    private TableSchema tableSchema;
+
+    public static final RowType DEFAULT_ROW_TYPE =
+            RowType.of(
+                    new DataType[] {
+                        DataTypes.TINYINT(),
+                        DataTypes.SMALLINT(),
+                        DataTypes.INT(),
+                        DataTypes.BIGINT(),
+                        DataTypes.FLOAT(),
+                        DataTypes.DOUBLE(),
+                        DataTypes.DECIMAL(10, 10),
+                        DataTypes.STRING(),
+                        DataTypes.BYTES(),
+                        DataTypes.BOOLEAN(),
+                        DataTypes.DATE(),
+                        DataTypes.TIMESTAMP(),
+                        DataTypes.MAP(DataTypes.STRING(), DataTypes.STRING()),
+                        DataTypes.ARRAY(DataTypes.STRING())
+                    },
+                    new String[] {
+                        "c_tinyint",
+                        "c_smallint",
+                        "c_int",
+                        "c_bigint",
+                        "c_float",
+                        "c_double",
+                        "c_decimal",
+                        "c_string",
+                        "c_bytes",
+                        "c_boolean",
+                        "c_date",
+                        "c_timestamp",
+                        "c_map",
+                        "c_array"
+                    });
+
+    public static final List<String> KEY_NAME_LIST = Arrays.asList("c_tinyint");
 
     @BeforeEach
     public void before() {
@@ -171,11 +216,21 @@ public class RowConverterTest {
         binaryRowWriter.writeArray(
                 13, binaryArray2, new InternalArraySerializer(DataTypes.STRING()));
         internalRow = binaryRow;
+
+        tableSchema =
+                new TableSchema(
+                        0,
+                        TableSchema.newFields(DEFAULT_ROW_TYPE),
+                        DEFAULT_ROW_TYPE.getFieldCount(),
+                        Collections.EMPTY_LIST,
+                        KEY_NAME_LIST,
+                        Collections.EMPTY_MAP,
+                        "");
     }
 
     @Test
     public void seaTunnelToPaimon() {
-        InternalRow convert = RowConverter.convert(seaTunnelRow, seaTunnelRowType);
+        InternalRow convert = RowConverter.reconvert(seaTunnelRow, seaTunnelRowType, tableSchema);
         Assertions.assertEquals(convert, internalRow);
     }
 

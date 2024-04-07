@@ -35,15 +35,12 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.state.Elasticsear
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.state.ElasticsearchCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.state.ElasticsearchSinkState;
 
-import com.google.auto.service.AutoService;
-
 import java.util.Optional;
 
 import static org.apache.seatunnel.api.table.factory.FactoryUtil.discoverFactory;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SinkConfig.MAX_BATCH_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SinkConfig.MAX_RETRY_COUNT;
 
-@AutoService(SeaTunnelSink.class)
 public class ElasticsearchSink
         implements SeaTunnelSink<
                         SeaTunnelRow,
@@ -75,7 +72,7 @@ public class ElasticsearchSink
     public SinkWriter<SeaTunnelRow, ElasticsearchCommitInfo, ElasticsearchSinkState> createWriter(
             SinkWriter.Context context) {
         return new ElasticsearchSinkWriter(
-                context, catalogTable.getSeaTunnelRowType(), config, maxBatchSize, maxRetryCount);
+                context, catalogTable, config, maxBatchSize, maxRetryCount);
     }
 
     @Override
@@ -92,7 +89,7 @@ public class ElasticsearchSink
         SchemaSaveMode schemaSaveMode = config.get(SinkConfig.SCHEMA_SAVE_MODE);
         DataSaveMode dataSaveMode = config.get(SinkConfig.DATA_SAVE_MODE);
 
-        TablePath tablePath = TablePath.of("", config.get(SinkConfig.INDEX));
+        TablePath tablePath = TablePath.of("", catalogTable.getTableId().getTableName());
         catalog.open();
         return Optional.of(
                 new DefaultSaveModeHandler(

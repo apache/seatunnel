@@ -26,6 +26,7 @@ import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.fetcher.SplitFetcherManager;
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.splitreader.SplitReader;
 
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -62,7 +63,7 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
     protected final SourceReader.Context context;
 
     private RecordsWithSplitIds<E> currentFetch;
-    private SplitContext<T, SplitStateT> currentSplitContext;
+    protected SplitContext<T, SplitStateT> currentSplitContext;
     private Collector<T> currentSplitOutput;
     private boolean noMoreSplitsAssignment;
 
@@ -234,9 +235,9 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
     protected abstract SplitT toSplitType(String splitId, SplitStateT splitState);
 
     @RequiredArgsConstructor
-    private static final class SplitContext<T, SplitStateT> {
+    protected static final class SplitContext<T, SplitStateT> {
         final String splitId;
-        final SplitStateT state;
+        @Getter final SplitStateT state;
         Collector<T> splitOutput;
 
         Collector<T> getOrCreateSplitOutput(Collector<T> output) {

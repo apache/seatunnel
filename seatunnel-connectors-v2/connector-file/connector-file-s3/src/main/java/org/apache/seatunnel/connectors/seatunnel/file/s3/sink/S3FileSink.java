@@ -25,7 +25,6 @@ import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.DefaultSaveModeHandler;
 import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
-import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SupportSaveMode;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -39,13 +38,10 @@ import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3Conf;
 import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3ConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.BaseMultipleTableFileSink;
 
-import com.google.auto.service.AutoService;
-
 import java.util.Optional;
 
 import static org.apache.seatunnel.api.table.factory.FactoryUtil.discoverFactory;
 
-@AutoService(SeaTunnelSink.class)
 public class S3FileSink extends BaseMultipleTableFileSink implements SupportSaveMode {
 
     private CatalogTable catalogTable;

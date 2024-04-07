@@ -18,16 +18,19 @@
 package org.apache.seatunnel.engine.server;
 
 import org.apache.seatunnel.api.common.metrics.MetricTags;
+import org.apache.seatunnel.api.event.Event;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
+import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.common.utils.StringFormatUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.ThreadShareMode;
 import org.apache.seatunnel.engine.common.exception.JobNotFoundException;
-import org.apache.seatunnel.engine.common.loader.ClassLoaderUtil;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
+import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
+import org.apache.seatunnel.engine.server.event.JobEventReportOperation;
 import org.apache.seatunnel.engine.server.exception.TaskGroupContextNotFoundException;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
@@ -42,15 +45,16 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.execution.TaskTracker;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
-import org.apache.seatunnel.engine.server.service.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.server.service.jar.ServerConnectorPackageClient;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 import org.apache.seatunnel.engine.server.task.operation.NotifyTaskStatusOperation;
+import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import org.apache.commons.collections4.CollectionUtils;
 
 import com.google.common.collect.Lists;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.hazelcast.instance.impl.NodeState;
 import com.hazelcast.internal.metrics.DynamicMetricsProvider;
 import com.hazelcast.internal.metrics.MetricDescriptor;
@@ -69,6 +73,7 @@ import lombok.SneakyThrows;
 
 import java.io.IOException;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -76,6 +81,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -141,6 +147,9 @@ public class TaskExecutionService implements DynamicMetricsProvider {
 
     private final ServerConnectorPackageClient serverConnectorPackageClient;
 
+    private final BlockingQueue<Event> eventBuffer;
+    private final ExecutorService eventForwardService;
+
     public TaskExecutionService(
             ClassLoaderService classLoaderService,
             NodeEngineImpl nodeEngine,
@@ -166,6 +175,43 @@ public class TaskExecutionService implements DynamicMetricsProvider {
 
         serverConnectorPackageClient =
                 new ServerConnectorPackageClient(nodeEngine, seaTunnelConfig);
+
+        eventBuffer = new ArrayBlockingQueue<>(2048);
+        eventForwardService =
+                Executors.newSingleThreadExecutor(
+                        new ThreadFactoryBuilder().setNameFormat("event-forwarder-%d").build());
+        eventForwardService.submit(
+                () -> {
+                    List<Event> events = new ArrayList<>();
+                    RetryUtils.RetryMaterial retryMaterial =
+                            new RetryUtils.RetryMaterial(2, true, e -> true);
+                    while (!Thread.currentThread().isInterrupted()) {
+                        try {
+                            events.clear();
+
+                            Event first = eventBuffer.take();
+                            events.add(first);
+
+                            eventBuffer.drainTo(events, 500);
+                            JobEventReportOperation operation = new JobEventReportOperation(events);
+
+                            RetryUtils.retryWithException(
+                                    () ->
+                                            NodeEngineUtil.sendOperationToMasterNode(
+                                                            nodeEngine, operation)
+                                                    .join(),
+                                    retryMaterial);
+
+                            logger.fine("Event forward success, events " + events.size());
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            logger.info("Event forward thread interrupted");
+                        } catch (Throwable t) {
+                            logger.warning(
+                                    "Event forward failed, discard events " + events.size(), t);
+                        }
+                    }
+                });
     }
 
     public void start() {
@@ -176,6 +222,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         isRunning = false;
         executorService.shutdownNow();
         scheduledExecutorService.shutdown();
+        eventForwardService.shutdownNow();
     }
 
     public TaskGroupContext getExecutionContext(TaskGroupLocation taskGroupLocation) {
@@ -620,6 +667,13 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         }
     }
 
+    public void reportEvent(Event e) {
+        while (!eventBuffer.offer(e)) {
+            eventBuffer.poll();
+            logger.warning("Event buffer is full, discard the oldest event");
+        }
+    }
+
     private final class BlockingWorker implements Runnable {
 
         private final TaskTracker tracker;
@@ -919,9 +973,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
 
         private void recycleClassLoader(TaskGroupLocation taskGroupLocation) {
             TaskGroupContext context = executionContexts.get(taskGroupLocation);
-            ClassLoader classLoader = context.getClassLoader();
             executionContexts.get(taskGroupLocation).setClassLoader(null);
-            ClassLoaderUtil.recycleClassLoaderFromThread(classLoader);
             classLoaderService.releaseClassLoader(taskGroupLocation.getJobId(), context.getJars());
         }
 
