@@ -43,6 +43,9 @@ public class CreateTableParser {
             } else if ((c == ',' || c == ')') && !insideParentheses) {
                 parseColumn(columnBuilder.toString(), columns, startIndex + i + 1);
                 columnBuilder.setLength(0);
+                if (c == ')') {
+                    break;
+                }
             } else if (c == ')') {
                 insideParentheses = false;
                 columnBuilder.append(c);

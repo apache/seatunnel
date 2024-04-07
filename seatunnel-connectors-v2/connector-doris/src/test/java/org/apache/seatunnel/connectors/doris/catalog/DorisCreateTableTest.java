@@ -305,4 +305,45 @@ public class DorisCreateTableTest {
                         + "    \"dynamic_partition.prefix\" = \"p\"                                                                                                                                                                           \n"
                         + ");");
     }
+
+    @Test
+    public void testWithThreePrimaryKeys() {
+        List<Column> columns = new ArrayList<>();
+
+        columns.add(PhysicalColumn.of("id", BasicType.LONG_TYPE, (Long) null, true, null, ""));
+        columns.add(PhysicalColumn.of("name", BasicType.STRING_TYPE, (Long) null, true, null, ""));
+        columns.add(PhysicalColumn.of("age", BasicType.INT_TYPE, (Long) null, true, null, ""));
+        columns.add(PhysicalColumn.of("comment", BasicType.STRING_TYPE, 500, true, null, ""));
+        columns.add(PhysicalColumn.of("description", BasicType.STRING_TYPE, 70000, true, null, ""));
+
+        String result =
+                DorisCatalogUtil.getCreateTableStatement(
+                        "create table '${database}'.'${table_name}'(\n"
+                                + "     ${rowtype_fields}\n"
+                                + " )\n"
+                                + " partitioned by ${rowtype_primary_key};",
+                        TablePath.of("test1", "test2"),
+                        CatalogTable.of(
+                                TableIdentifier.of("test", "test1", "test2"),
+                                TableSchema.builder()
+                                        .primaryKey(
+                                                PrimaryKey.of(
+                                                        "test", Arrays.asList("id", "age", "name")))
+                                        .columns(columns)
+                                        .build(),
+                                Collections.emptyMap(),
+                                Collections.emptyList(),
+                                ""));
+
+        Assertions.assertEquals(
+                "create table 'test1'.'test2'(\n"
+                        + "     `id` BIGINT(1) NULL ,\n"
+                        + "`name` STRING NULL ,\n"
+                        + "`age` INT(1) NULL ,\n"
+                        + "`comment` VARCHAR(500) NULL ,\n"
+                        + "`description` STRING NULL \n"
+                        + " )\n"
+                        + " partitioned by `id`,`age`,`name`;",
+                result);
+    }
 }
