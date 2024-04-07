@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.event;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 import org.apache.seatunnel.shade.com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import org.apache.seatunnel.api.event.Event;
@@ -104,7 +105,8 @@ public class JobEventHttpReportHandler implements EventHandler {
         completionStage.toCompletableFuture().join();
     }
 
-    private void report() throws IOException {
+    @VisibleForTesting
+    synchronized void report() throws IOException {
         long headSequence = ringbuffer.headSequence();
         if (headSequence > committedEventIndex) {
             log.warn(

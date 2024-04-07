@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.event;
 
 import org.apache.seatunnel.api.event.Event;
+import org.apache.seatunnel.api.event.EventProcessor;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 
@@ -33,24 +34,28 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.util.List;
 
 @NoArgsConstructor
 @AllArgsConstructor
 public class JobEventReportOperation extends Operation implements IdentifiedDataSerializable {
 
-    private Event event;
+    private List<Event> events;
 
     @Override
     public void run() throws Exception {
         SeaTunnelServer server = getService();
-        server.getCoordinatorService().getEventProcessor().process(event);
+        EventProcessor processor = server.getCoordinatorService().getEventProcessor();
+        for (Event event : events) {
+            processor.process(event);
+        }
     }
 
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         try (ByteArrayOutputStream byteOut = new ByteArrayOutputStream();
                 ObjectOutputStream objectOut = new ObjectOutputStream(byteOut)) {
-            objectOut.writeObject(event);
+            objectOut.writeObject(events);
             objectOut.flush();
             out.writeByteArray(byteOut.toByteArray());
         }
@@ -60,7 +65,7 @@ public class JobEventReportOperation extends Operation implements IdentifiedData
     protected void readInternal(ObjectDataInput in) throws IOException {
         try (ByteArrayInputStream byteIn = new ByteArrayInputStream(in.readByteArray());
                 ObjectInputStream objectIn = new ObjectInputStream(byteIn)) {
-            event = (Event) objectIn.readObject();
+            events = (List<Event>) objectIn.readObject();
         } catch (ClassNotFoundException e) {
             throw new RuntimeException(e);
         }

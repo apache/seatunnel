@@ -46,7 +46,7 @@ public abstract class AbstractConfiguration {
      * @param config configuration
      * @param keys keys
      */
-    void checkConfiguration(Map<String, Object> config, String... keys) {
+    void checkConfiguration(Map<String, String> config, String... keys) {
         for (String key : keys) {
             if (!config.containsKey(key) || null == config.get(key)) {
                 throw new IllegalArgumentException(key + " is required");
@@ -54,7 +54,7 @@ public abstract class AbstractConfiguration {
         }
     }
 
-    public abstract Configuration buildConfiguration(Map<String, Object> config)
+    public abstract Configuration buildConfiguration(Map<String, String> config)
             throws IMapStorageException;
 
     /**
@@ -65,11 +65,11 @@ public abstract class AbstractConfiguration {
      * @param prefix
      */
     void setExtraConfiguration(
-            Configuration hadoopConf, Map<String, Object> config, String prefix) {
+            Configuration hadoopConf, Map<String, String> config, String prefix) {
         config.forEach(
                 (k, v) -> {
                     if (config.containsKey(BLOCK_SIZE)) {
-                        setBlockSize(Long.parseLong(config.get(BLOCK_SIZE).toString()));
+                        setBlockSize(Long.parseLong(config.get(BLOCK_SIZE)));
                     }
                     if (k.startsWith(prefix)) {
                         hadoopConf.set(k, String.valueOf(v));

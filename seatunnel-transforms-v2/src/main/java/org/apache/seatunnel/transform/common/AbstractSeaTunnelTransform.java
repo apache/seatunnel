@@ -18,7 +18,6 @@
 package org.apache.seatunnel.transform.common;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
@@ -29,11 +28,6 @@ public abstract class AbstractSeaTunnelTransform implements SeaTunnelTransform<S
     protected SeaTunnelRowType inputRowType;
 
     protected SeaTunnelRowType outputRowType;
-
-    @Override
-    public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
-        return outputRowType;
-    }
 
     @Override
     public SeaTunnelRow map(SeaTunnelRow row) {

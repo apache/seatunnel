@@ -20,21 +20,95 @@
 
 package org.apache.seatunnel.engine.imap.storage.file.config;
 
-import org.apache.hadoop.conf.Configuration;
+import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
 
+import org.apache.commons.lang3.StringUtils;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.security.UserGroupInformation;
+
+import java.io.IOException;
 import java.util.Map;
 
-import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
 import static org.apache.hadoop.fs.FileSystem.FS_DEFAULT_NAME_KEY;
 
 public class HdfsConfiguration extends AbstractConfiguration {
 
+    /** hdfs uri is required */
+    private static final String HDFS_DEF_FS_NAME = "fs.defaultFS";
+    /** hdfs kerberos principal( is optional) */
+    private static final String KERBEROS_PRINCIPAL = "kerberosPrincipal";
+
+    private static final String KERBEROS_KEYTAB_FILE_PATH = "kerberosKeytabFilePath";
+    private static final String HADOOP_SECURITY_AUTHENTICATION_KEY =
+            "hadoop.security.authentication";
+
+    private static final String KERBEROS_KEY = "kerberos";
+
+    /** ******** Hdfs constants ************* */
+    private static final String HDFS_IMPL = "org.apache.hadoop.hdfs.DistributedFileSystem";
+
+    private static final String HDFS_IMPL_KEY = "fs.hdfs.impl";
+
+    private static final String HDFS_SITE_PATH = "hdfs_site_path";
+
+    private static final String SEATUNNEL_HADOOP_PREFIX = "seatunnel.hadoop.";
+
     @Override
-    public Configuration buildConfiguration(Map<String, Object> config) {
+    public Configuration buildConfiguration(Map<String, String> config) {
         Configuration hadoopConf = new Configuration();
-        hadoopConf.set(
-                FS_DEFAULT_NAME_KEY,
-                String.valueOf(config.getOrDefault(FS_DEFAULT_NAME_KEY, FS_DEFAULT_NAME_DEFAULT)));
+        if (config.containsKey(HDFS_DEF_FS_NAME)) {
+            hadoopConf.set(HDFS_DEF_FS_NAME, config.get(HDFS_DEF_FS_NAME));
+        }
+        hadoopConf.set(HDFS_IMPL_KEY, HDFS_IMPL);
+        hadoopConf.set(FS_DEFAULT_NAME_KEY, config.get(FS_DEFAULT_NAME_KEY));
+        if (config.containsKey(KERBEROS_PRINCIPAL)
+                && config.containsKey(KERBEROS_KEYTAB_FILE_PATH)) {
+            String kerberosPrincipal = config.get(KERBEROS_PRINCIPAL);
+            String kerberosKeytabFilePath = config.get(KERBEROS_KEYTAB_FILE_PATH);
+            if (StringUtils.isNotBlank(kerberosPrincipal)
+                    && StringUtils.isNotBlank(kerberosKeytabFilePath)) {
+                hadoopConf.set(HADOOP_SECURITY_AUTHENTICATION_KEY, KERBEROS_KEY);
+                authenticateKerberos(kerberosPrincipal, kerberosKeytabFilePath, hadoopConf);
+            }
+        }
+        if (config.containsKey(HDFS_SITE_PATH)) {
+            hadoopConf.addResource(new Path(config.get(HDFS_SITE_PATH)));
+        }
+        //  support other hdfs optional config keys
+        config.entrySet().stream()
+                .filter(entry -> entry.getKey().startsWith(SEATUNNEL_HADOOP_PREFIX))
+                .forEach(
+                        entry -> {
+                            String key = entry.getKey().replace(SEATUNNEL_HADOOP_PREFIX, "");
+                            String value = entry.getValue();
+                            hadoopConf.set(key, value);
+                        });
+
         return hadoopConf;
+    }
+
+    /**
+     * Authenticate kerberos
+     *
+     * @param kerberosPrincipal kerberos principal
+     * @param kerberosKeytabFilePath kerberos keytab file path
+     * @param hdfsConf hdfs configuration
+     * @throws IMapStorageException authentication exception
+     */
+    private void authenticateKerberos(
+            String kerberosPrincipal, String kerberosKeytabFilePath, Configuration hdfsConf)
+            throws IMapStorageException {
+        UserGroupInformation.setConfiguration(hdfsConf);
+        try {
+            UserGroupInformation.loginUserFromKeytab(kerberosPrincipal, kerberosKeytabFilePath);
+        } catch (IOException e) {
+            throw new IMapStorageException(
+                    "Failed to login user from keytab : "
+                            + kerberosKeytabFilePath
+                            + " and kerberos principal : "
+                            + kerberosPrincipal,
+                    e);
+        }
     }
 }

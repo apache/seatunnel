@@ -49,6 +49,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.DEFAULT_IMAP_FILE_PATH_SPLIT;
 import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.DEFAULT_IMAP_NAMESPACE;
@@ -125,8 +126,13 @@ public class IMapFileStorage implements IMapStorage {
         this.fileConfiguration = FileConfiguration.valueOf(storageType.toUpperCase());
         // build configuration
         AbstractConfiguration fileConfiguration = this.fileConfiguration.getConfiguration();
+        Map<String, String> stringMap =
+                configuration.entrySet().stream()
+                        .collect(
+                                Collectors.toMap(
+                                        Map.Entry::getKey, entry -> entry.getValue().toString()));
 
-        Configuration hadoopConf = fileConfiguration.buildConfiguration(configuration);
+        Configuration hadoopConf = fileConfiguration.buildConfiguration(stringMap);
         this.conf = hadoopConf;
         this.namespace = (String) configuration.getOrDefault(NAMESPACE_KEY, DEFAULT_IMAP_NAMESPACE);
         this.businessName = (String) configuration.get(BUSINESS_KEY);
