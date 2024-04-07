@@ -447,17 +447,10 @@ public class MultipleTableJobConfigParser {
                 return ((SourceAction<?, ?, ?>) action).getSource().getProducedType();
             }
         } else if (action instanceof TransformAction) {
-            try {
-                return ((TransformAction) action)
-                        .getTransform()
-                        .getProducedCatalogTable()
-                        .getSeaTunnelRowType();
-            } catch (UnsupportedOperationException e) {
-                return ((TransformAction) action)
-                        .getTransform()
-                        .getProducedCatalogTable()
-                        .getSeaTunnelRowType();
-            }
+            return ((TransformAction) action)
+                    .getTransform()
+                    .getProducedCatalogTable()
+                    .getSeaTunnelRowType();
         }
         throw new UnsupportedOperationException();
     }
