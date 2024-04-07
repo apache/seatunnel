@@ -230,6 +230,7 @@ public class JdbcOracleLowercaseTableIT extends AbstractJdbcIT {
                                 jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost())),
                         SCHEMA);
         oracleCatalog.open();
+
         Assertions.assertTrue(oracleCatalog.tableExists(tablePathOracle));
         oracleCatalog.truncateTable(tablePathOracle, true);
         Assertions.assertFalse(oracleCatalog.isExistsData(tablePathOracle));
