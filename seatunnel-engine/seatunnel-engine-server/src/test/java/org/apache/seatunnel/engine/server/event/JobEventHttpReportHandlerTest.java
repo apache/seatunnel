@@ -28,6 +28,8 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import com.hazelcast.config.Config;
+import com.hazelcast.config.RingbufferConfig;
+import com.hazelcast.config.RingbufferStoreConfig;
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.ringbuffer.Ringbuffer;
@@ -38,38 +40,60 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
 import okio.Buffer;
 
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import static org.awaitility.Awaitility.given;
 
+@Slf4j
 public class JobEventHttpReportHandlerTest {
+    private static final String ringBufferName = "test";
+    private static final int capacity = 1000;
     private static HazelcastInstance hazelcast;
     private static MockWebServer mockWebServer;
 
     @BeforeAll
     public static void before() throws IOException {
-        hazelcast = Hazelcast.newHazelcastInstance();
+        Config config = new Config();
+        config.setRingbufferConfigs(
+                Collections.singletonMap(
+                        ringBufferName,
+                        new RingbufferConfig(ringBufferName)
+                                .setCapacity(capacity)
+                                .setBackupCount(0)
+                                .setAsyncBackupCount(1)
+                                .setTimeToLiveSeconds(0)
+                                .setRingbufferStoreConfig(
+                                        new RingbufferStoreConfig().setEnabled(false))));
+        hazelcast = Hazelcast.newHazelcastInstance(config);
         mockWebServer = new MockWebServer();
         mockWebServer.start();
-        mockWebServer.enqueue(new MockResponse().setResponseCode(200));
+        for (int i = 0; i < capacity; i++) {
+            mockWebServer.enqueue(new MockResponse().setResponseCode(200));
+        }
     }
 
     @AfterAll
     public static void after() throws IOException {
         hazelcast.shutdown();
-        mockWebServer.shutdown();
+        try {
+            mockWebServer.shutdown();
+        } catch (Exception e) {
+            log.error("Failed to shutdown mockWebServer", e);
+        }
     }
 
     @Test
     public void testReportEvent() throws IOException, InterruptedException {
         int maxEvents = 1000;
-        Ringbuffer ringbuffer = createRingBuffer(maxEvents);
+        Ringbuffer ringbuffer = hazelcast.getRingbuffer(ringBufferName);
         JobEventHttpReportHandler handler =
                 new JobEventHttpReportHandler(
                         mockWebServer.url("/api").toString(), Duration.ofSeconds(1), ringbuffer);
@@ -80,6 +104,7 @@ public class JobEventHttpReportHandlerTest {
                 .await()
                 .atMost(10, TimeUnit.SECONDS)
                 .until(() -> mockWebServer.getRequestCount(), count -> count > 0);
+        handler.report();
         handler.close();
 
         List<TestEvent> events = new ArrayList<>();
@@ -98,21 +123,6 @@ public class JobEventHttpReportHandlerTest {
         for (int i = 0; i < maxEvents; i++) {
             Assertions.assertEquals(String.valueOf(i), events.get(i).getJobId());
         }
-    }
-
-    private Ringbuffer createRingBuffer(int capacity) {
-        String ringBufferName = "test";
-        hazelcast
-                .getConfig()
-                .addRingBufferConfig(
-                        new Config()
-                                .getRingbufferConfig(ringBufferName)
-                                .setCapacity(capacity)
-                                .setBackupCount(0)
-                                .setAsyncBackupCount(1)
-                                .setTimeToLiveSeconds(0));
-        Ringbuffer ringbuffer = hazelcast.getRingbuffer(ringBufferName);
-        return ringbuffer;
     }
 
     @Getter
