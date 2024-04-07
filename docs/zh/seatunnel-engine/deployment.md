@@ -3,9 +3,9 @@
 sidebar_position: 4
 -------------------
 
-# Deployment SeaTunnel Engine
+# 部署 SeaTunnel Engine
 
-## 1. Download
+## 1. 下载
 
 SeaTunnel Engine 是 SeaTunnel 的默认引擎。SeaTunnel 的安装包已经包含了 SeaTunnel Engine 的所有内容。
 

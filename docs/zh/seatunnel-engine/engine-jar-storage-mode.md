@@ -37,7 +37,7 @@ COMMON_ PLUGIN_ JARS 指的是连接器所依赖的第三方 Jar 包， CONNECTO
 
 ## 相关配置
 
-| 参数                                  | 默认值    | 描述                                                                      |
+|                 参数                  |  默认值   |                                   描述                                    |
 |-------------------------------------|--------|-------------------------------------------------------------------------|
 | connector-jar-storage-enable        | false  | 是否启用上传连接器 Jar 包到引擎。默认启用状态为 false。                                       |
 | connector-jar-storage-mode          | SHARED | 引擎端 Jar 包存储模式选择。有两个可选模式，SHARED（共享）和 ISOLATED（隔离）。默认的 Jar 包存储模式是 SHARED。 |
