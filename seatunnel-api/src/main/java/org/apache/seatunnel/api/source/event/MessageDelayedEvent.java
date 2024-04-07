@@ -15,24 +15,37 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.event;
+package org.apache.seatunnel.api.source.event;
 
 import org.apache.seatunnel.api.event.Event;
-import org.apache.seatunnel.api.event.EventListener;
-import org.apache.seatunnel.engine.server.execution.TaskExecutionContext;
-import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.api.event.EventType;
 
 import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
 
+@Getter
+@Setter
+@ToString
 @AllArgsConstructor
-public class JobEventListener implements EventListener {
-    private final TaskLocation taskLocation;
-    private final TaskExecutionContext taskExecutionContext;
+@NoArgsConstructor
+public class MessageDelayedEvent implements Event {
+    private long createdTime;
+    private String jobId;
+    private EventType eventType = EventType.READER_MESSAGE_DELAYED;
 
-    @Override
-    public void onEvent(Event event) {
-        event.setJobId(String.valueOf(taskLocation.getJobId()));
+    private long delayTime;
+    private String record;
 
-        taskExecutionContext.getTaskExecutionService().reportEvent(event);
+    public MessageDelayedEvent(long delayTime) {
+        this(delayTime, null);
+    }
+
+    public MessageDelayedEvent(long delayTime, String record) {
+        this.delayTime = delayTime;
+        this.record = record;
+        this.createdTime = System.currentTimeMillis();
     }
 }
