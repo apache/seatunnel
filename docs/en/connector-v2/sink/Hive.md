@@ -37,7 +37,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 | compress_codec                | string  | no       | none           |
 | hdfs_site_path                | string  | no       | -              |
 | hive_site_path                | string  | no       | -              |
-| hive.hadoop.conf              | string  | no       | -              |
+| hive.hadoop.conf              | Map     | no       | -              |
 | hive.hadoop.conf-path         | string  | no       | -              |
 | krb5_path                     | string  | no       | /etc/krb5.conf |
 | kerberos_principal            | string  | no       | -              |
@@ -58,6 +58,16 @@ Hive metastore uri
 The path of `hdfs-site.xml`, used to load ha configuration of namenodes
 
 ### hive_site_path [string]
+
+The path of `hive-site.xml`
+
+### hive.hadoop.conf [map]
+
+Properties in hadoop conf('core-site.xml', 'hdfs-site.xml', 'hive-site.xml')
+
+### hive.hadoop.conf-path [string]
+
+The specified loading path for the 'core-site.xml', 'hdfs-site.xml', 'hive-site.xml' files
 
 ### krb5_path [string]
 
