@@ -180,6 +180,89 @@ sink {
 }
 ```
 
+## Hive on s3
+
+### Step 1
+
+Create the lib dir for hive of emr.
+
+```shell
+mkdir -p ${SEATUNNEL_HOME}/plugins/Hive/lib
+```
+
+### Step 2
+
+Get the jars from maven center to the lib.
+
+```shell
+cd ${SEATUNNEL_HOME}/plugins/Hive/lib
+wget https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/2.6.5/hadoop-aws-2.6.5.jar
+wget https://repo1.maven.org/maven2/org/apache/hive/hive-exec/2.3.9/hive-exec-2.3.9.jar
+```
+
+### Step 3
+
+Copy the jars from your environment on emr to the lib dir.
+
+```shell
+cp /usr/share/aws/emr/emrfs/lib/emrfs-hadoop-assembly-2.60.0.jar ${SEATUNNEL_HOME}/plugins/Hive/lib
+cp /usr/share/aws/emr/hadoop-state-pusher/lib/hadoop-common-3.3.6-amzn-1.jar ${SEATUNNEL_HOME}/plugins/Hive/lib
+cp /usr/share/aws/emr/hadoop-state-pusher/lib/javax.inject-1.jar ${SEATUNNEL_HOME}/plugins/Hive/lib
+cp /usr/share/aws/emr/hadoop-state-pusher/lib/aopalliance-1.0.jar ${SEATUNNEL_HOME}/plugins/Hive/lib
+```
+
+### Step 4
+
+Run the case.
+
+```shell
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    schema = {
+      fields {
+        pk_id = bigint
+        name = string
+        score = int
+      }
+      primaryKey {
+        name = "pk_id"
+        columnNames = [pk_id]
+      }
+    }
+    rows = [
+      {
+        kind = INSERT
+        fields = [1, "A", 100]
+      },
+      {
+        kind = INSERT
+        fields = [2, "B", 100]
+      },
+      {
+        kind = INSERT
+        fields = [3, "C", 100]
+      }
+    ]
+  }
+}
+
+sink {
+  Hive {
+    table_name = "test_hive.test_hive_sink_on_s3"
+    metastore_uri = "thrift://ip-192-168-0-202.cn-north-1.compute.internal:9083"
+    hive.hadoop.conf-path = "/home/ec2-user/hadoop-conf"
+    hive.hadoop.conf = {
+       bucket="s3://ws-package"
+    }
+  }
+}
+```
+
 ## Changelog
 
 ### 2.2.0-beta 2022-09-26

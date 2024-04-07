@@ -60,11 +60,27 @@ public class HadoopConf implements Serializable {
 
     public void setExtraOptionsForConfiguration(Configuration configuration) {
         if (!extraOptions.isEmpty()) {
+            removeUnwantedOverwritingProps(extraOptions);
             extraOptions.forEach(configuration::set);
         }
         if (hdfsSitePath != null) {
-            configuration.addResource(new Path(hdfsSitePath));
+            Configuration hdfsSiteConfiguration = new Configuration();
+            hdfsSiteConfiguration.addResource(new Path(hdfsSitePath));
+            unsetUnwantedOverwritingProps(hdfsSiteConfiguration);
+            configuration.addResource(hdfsSiteConfiguration);
         }
+    }
+
+    private void removeUnwantedOverwritingProps(Map extraOptions) {
+        extraOptions.remove(getFsDefaultNameKey());
+        extraOptions.remove(getHdfsImplKey());
+        extraOptions.remove(getHdfsImplDisableCacheKey());
+    }
+
+    public void unsetUnwantedOverwritingProps(Configuration hdfsSiteConfiguration) {
+        hdfsSiteConfiguration.unset(getFsDefaultNameKey());
+        hdfsSiteConfiguration.unset(getHdfsImplKey());
+        hdfsSiteConfiguration.unset(getHdfsImplDisableCacheKey());
     }
 
     public Configuration toConfiguration() {
@@ -73,9 +89,21 @@ public class HadoopConf implements Serializable {
         configuration.setBoolean(WRITE_FIXED_AS_INT96, true);
         configuration.setBoolean(ADD_LIST_ELEMENT_RECORDS, false);
         configuration.setBoolean(WRITE_OLD_LIST_STRUCTURE, true);
-        configuration.setBoolean(String.format("fs.%s.impl.disable.cache", getSchema()), true);
-        configuration.set(CommonConfigurationKeys.FS_DEFAULT_NAME_KEY, getHdfsNameKey());
-        configuration.set(String.format("fs.%s.impl", getSchema()), getFsHdfsImpl());
+        configuration.setBoolean(getHdfsImplDisableCacheKey(), true);
+        configuration.set(getFsDefaultNameKey(), getHdfsNameKey());
+        configuration.set(getHdfsImplKey(), getFsHdfsImpl());
         return configuration;
+    }
+
+    public String getFsDefaultNameKey() {
+        return CommonConfigurationKeys.FS_DEFAULT_NAME_KEY;
+    }
+
+    public String getHdfsImplKey() {
+        return String.format("fs.%s.impl", getSchema());
+    }
+
+    public String getHdfsImplDisableCacheKey() {
+        return String.format("fs.%s.impl.disable.cache", getSchema());
     }
 }

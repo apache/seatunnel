@@ -58,6 +58,7 @@ public class OSSStorageTest {
         String filePath = Paths.get(resource.toURI()).toString();
         HashMap<String, Object> map = new HashMap<>();
         map.put("hive.hadoop.conf-path", filePath);
+        map.putAll(OSS.toMap());
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromMap(map);
         OSSStorage ossStorage = new OSSStorage();
         HadoopConf hadoopConf = ossStorage.buildHadoopConfWithReadOnlyConfig(readonlyConfig);

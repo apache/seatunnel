@@ -62,6 +62,7 @@ public class CosStorageTest {
         String filePath = Paths.get(resource.toURI()).toString();
         HashMap<String, Object> map = new HashMap<>();
         map.put("hive.hadoop.conf-path", filePath);
+        map.putAll(COS.toMap());
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromMap(map);
         COSStorage cosStorage = new COSStorage();
         HadoopConf hadoopConf = cosStorage.buildHadoopConfWithReadOnlyConfig(readonlyConfig);

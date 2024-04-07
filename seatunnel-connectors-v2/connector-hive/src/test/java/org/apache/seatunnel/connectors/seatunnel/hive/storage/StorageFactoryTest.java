@@ -30,6 +30,7 @@ public class StorageFactoryTest {
                 {
                     put("hdfs://path/to/", HDFSStorage.class);
                     put("s3n://path/to/", S3Storage.class);
+                    put("s3://ws-package/hive/test_hive.db/test_hive_sink_on_s3", S3Storage.class);
                     put("s3a://path/to/", S3Storage.class);
                     put("oss://path/to/", OSSStorage.class);
                     put("cosn://path/to/", COSStorage.class);

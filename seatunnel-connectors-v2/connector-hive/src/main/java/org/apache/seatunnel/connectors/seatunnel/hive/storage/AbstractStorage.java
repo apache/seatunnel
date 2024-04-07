@@ -41,7 +41,6 @@ import java.util.Optional;
 @Slf4j
 public abstract class AbstractStorage implements Storage {
     private static final Option BUCKET_OPTION = Options.key("bucket").stringType().noDefaultValue();
-    private static final String HDFS_DEFAULT_FS_NAME = "fs.defaultFS";
     private static final List<String> HADOOP_CONF_FILES =
             ImmutableList.of("core-site.xml", "hdfs-site.xml", "hive-site.xml");
 
@@ -49,14 +48,8 @@ public abstract class AbstractStorage implements Storage {
         Config config = readonlyConfig.toConfig();
         String bucketValue = configuration.get(BUCKET_OPTION.key());
         if (StringUtils.isBlank(bucketValue)) {
-            // try to get fs.defaultFS
-            String hdfsDefaultFsName = configuration.get(HDFS_DEFAULT_FS_NAME);
-            if (StringUtils.isNoneBlank(hdfsDefaultFsName)) {
-                bucketValue = hdfsDefaultFsName;
-            } else {
-                throw new RuntimeException(
-                        "There is no bucket or fs.defaultFS property in conf which load from [hadoop_conf_path,hadoop_conf].");
-            }
+            throw new RuntimeException(
+                    "There is no bucket property in conf which load from [hadoop_conf_path,hadoop_conf].");
         }
         config = config.withValue(BUCKET_OPTION.key(), ConfigValueFactory.fromAnyRef(bucketValue));
         return config;

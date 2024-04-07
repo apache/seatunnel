@@ -58,6 +58,7 @@ public class S3StorageTest {
         String filePath = Paths.get(resource.toURI()).toString();
         HashMap<String, Object> map = new HashMap<>();
         map.put("hive.hadoop.conf-path", filePath);
+        map.putAll(S3A.toMap());
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromMap(map);
         S3Storage s3Storage = new S3Storage();
         HadoopConf hadoopConf = s3Storage.buildHadoopConfWithReadOnlyConfig(readonlyConfig);

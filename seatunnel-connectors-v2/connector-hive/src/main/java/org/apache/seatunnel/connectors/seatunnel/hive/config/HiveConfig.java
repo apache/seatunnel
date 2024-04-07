@@ -65,7 +65,7 @@ public class HiveConfig {
                     .stringType()
                     .noDefaultValue()
                     .withDescription(
-                            "The specified loading path for the 'core-site.xml', 'hdfs-site.xml', 'hive-site.xml' files");
+                            "The specified loading path for the 'core-site.xml', 'hdfs-site.xml' files");
 
     public static final String TEXT_INPUT_FORMAT_CLASSNAME =
             "org.apache.hadoop.mapred.TextInputFormat";

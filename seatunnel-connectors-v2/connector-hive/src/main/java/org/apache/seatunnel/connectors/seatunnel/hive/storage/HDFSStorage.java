@@ -23,9 +23,11 @@ import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorErr
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorException;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.hadoop.conf.Configuration;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Map;
 
 public class HDFSStorage extends AbstractStorage {
 
@@ -39,7 +41,12 @@ public class HDFSStorage extends AbstractStorage {
     public HadoopConf buildHadoopConfWithReadOnlyConfig(ReadonlyConfig readonlyConfig) {
         try {
             String path = new URI(hiveSdLocation).getPath();
-            return new HadoopConf(hiveSdLocation.replace(path, StringUtils.EMPTY));
+            HadoopConf hadoopConf = new HadoopConf(hiveSdLocation.replace(path, StringUtils.EMPTY));
+            Configuration configuration = loadHiveBaseHadoopConfig(readonlyConfig);
+            Map<String, String> propsInConfiguration =
+                    configuration.getPropsWithPrefix(StringUtils.EMPTY);
+            hadoopConf.setExtraOptions(propsInConfiguration);
+            return hadoopConf;
         } catch (URISyntaxException e) {
             String errorMsg =
                     String.format(
