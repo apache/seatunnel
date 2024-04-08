@@ -32,7 +32,6 @@ import org.apache.paimon.catalog.CatalogContext;
 import org.apache.paimon.catalog.CatalogFactory;
 import org.apache.paimon.catalog.Identifier;
 import org.apache.paimon.data.InternalRow;
-import org.apache.paimon.data.Timestamp;
 import org.apache.paimon.options.Options;
 import org.apache.paimon.reader.RecordReader;
 import org.apache.paimon.table.FileStoreTable;
@@ -41,7 +40,9 @@ import org.apache.paimon.table.source.ReadBuilder;
 import org.apache.paimon.table.source.TableRead;
 import org.apache.paimon.table.source.TableScan;
 import org.apache.paimon.types.DataField;
+import org.apache.paimon.types.DateType;
 import org.apache.paimon.types.TimestampType;
+import org.apache.paimon.utils.DateTimeUtils;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -49,12 +50,10 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -373,6 +372,57 @@ public class PaimonSinkCDCIT extends TestSuiteBase implements TestResource {
                         });
     }
 
+    @TestTemplate
+    public void testFakeSinkPaimonWithDate(TestContainer container) throws Exception {
+        Container.ExecResult execResult = container.executeJob("/fake_cdc_sink_paimon_case8.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+
+        given().ignoreExceptions()
+                .await()
+                .atLeast(100L, TimeUnit.MILLISECONDS)
+                .atMost(30L, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            // copy paimon to local
+                            container.executeExtraCommands(containerExtendedFactory);
+                            FileStoreTable table =
+                                    (FileStoreTable) getTable("seatunnel_namespace8", TARGET_TABLE);
+                            List<DataField> fields = table.schema().fields();
+                            for (DataField field : fields) {
+                                if (field.name().equalsIgnoreCase("one_date")) {
+                                    Assertions.assertTrue(field.type() instanceof DateType);
+                                }
+                            }
+                            ReadBuilder readBuilder = table.newReadBuilder();
+                            TableScan.Plan plan = readBuilder.newScan().plan();
+                            TableRead tableRead = readBuilder.newRead();
+                            List<PaimonRecord> result = new ArrayList<>();
+                            try (RecordReader<InternalRow> reader = tableRead.createReader(plan)) {
+                                reader.forEachRemaining(
+                                        row ->
+                                                result.add(
+                                                        new PaimonRecord(
+                                                                row.getLong(0),
+                                                                row.getString(1).toString(),
+                                                                row.getInt(2))));
+                            }
+                            Assertions.assertEquals(3, result.size());
+                            for (PaimonRecord paimonRecord : result) {
+                                if (paimonRecord.getPkId() == 1) {
+                                    Assertions.assertEquals(
+                                            paimonRecord.oneDate,
+                                            DateTimeUtils.toInternal(
+                                                    LocalDate.parse("2024-03-20")));
+                                } else {
+                                    Assertions.assertEquals(
+                                            paimonRecord.oneDate,
+                                            DateTimeUtils.toInternal(
+                                                    LocalDate.parse("2024-03-10")));
+                                }
+                            }
+                        });
+    }
+
     protected final ContainerExtendedFactory containerExtendedFactory =
             container -> {
                 FileUtils.deleteFile(CATALOG_ROOT_DIR + NAMESPACE_TAR);
@@ -455,42 +505,5 @@ public class PaimonSinkCDCIT extends TestSuiteBase implements TestResource {
         options.set("warehouse", "file://" + CATALOG_DIR);
         Catalog catalog = CatalogFactory.createCatalog(CatalogContext.create(options));
         return catalog;
-    }
-
-    @Data
-    @NoArgsConstructor
-    @AllArgsConstructor
-    public class PaimonRecord {
-        private Long pkId;
-        private String name;
-        private String dt;
-        private Timestamp oneTime;
-        private Timestamp twoTime;
-        private Timestamp threeTime;
-        private Timestamp fourTime;
-
-        public PaimonRecord(Long pkId, String name) {
-            this.pkId = pkId;
-            this.name = name;
-        }
-
-        public PaimonRecord(Long pkId, String name, String dt) {
-            this(pkId, name);
-            this.dt = dt;
-        }
-
-        public PaimonRecord(
-                Long pkId,
-                String name,
-                Timestamp oneTime,
-                Timestamp twoTime,
-                Timestamp threeTime,
-                Timestamp fourTime) {
-            this(pkId, name);
-            this.oneTime = oneTime;
-            this.twoTime = twoTime;
-            this.threeTime = threeTime;
-            this.fourTime = fourTime;
-        }
     }
 }

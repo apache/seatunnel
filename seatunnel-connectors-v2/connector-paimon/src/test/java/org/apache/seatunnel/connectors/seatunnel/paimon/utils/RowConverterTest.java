@@ -42,6 +42,7 @@ import org.apache.paimon.schema.TableSchema;
 import org.apache.paimon.types.DataType;
 import org.apache.paimon.types.DataTypes;
 import org.apache.paimon.types.RowType;
+import org.apache.paimon.utils.DateTimeUtils;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -50,7 +51,6 @@ import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -184,8 +184,7 @@ public class RowConverterTest {
         binaryRowWriter.writeString(7, BinaryString.fromString(string));
         binaryRowWriter.writeBinary(8, bytes);
         binaryRowWriter.writeBoolean(9, booleanValue);
-        binaryRowWriter.writeTimestamp(
-                10, Timestamp.fromLocalDateTime(LocalDateTime.of(date, LocalTime.of(0, 0, 0))), 3);
+        binaryRowWriter.writeInt(10, DateTimeUtils.toInternal(date));
         binaryRowWriter.writeTimestamp(11, Timestamp.fromLocalDateTime(timestamp), 6);
         BinaryArray binaryArray = new BinaryArray();
         BinaryArrayWriter binaryArrayWriter =
