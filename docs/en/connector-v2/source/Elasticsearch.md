@@ -29,7 +29,6 @@ support version >= 2.x and <= 8.x.
 | query                   | json    | no       | {"match_all": {}} |
 | scroll_time             | string  | no       | 1m                |
 | scroll_size             | int     | no       | 100               |
-| schema                  |         | no       | -                 |
 | tls_verify_certificate  | boolean | no       | true              |
 | tls_verify_hostnames    | boolean | no       | true              |
 | tls_keystore_path       | string  | no       | -                 |
@@ -73,10 +72,6 @@ Amount of time Elasticsearch will keep the search context alive for scroll reque
 
 Maximum number of hits to be returned with each Elasticsearch scroll request.
 
-### schema
-
-The structure of the data, including field names and field types.
-If you don't config schema, you must config `source`.
 
 ### tls_verify_certificate [boolean]
 
