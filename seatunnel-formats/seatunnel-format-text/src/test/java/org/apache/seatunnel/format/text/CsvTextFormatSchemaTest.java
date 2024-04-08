@@ -215,14 +215,8 @@ public class CsvTextFormatSchemaTest {
                         .delimiter(delimiter)
                         .textLineSplitor(new CsvLineSplitor())
                         .build();
-        TextSerializationSchema serializationSchema =
-                TextSerializationSchema.builder()
-                        .seaTunnelRowType(seaTunnelRowType)
-                        .delimiter(delimiter)
-                        .build();
         SeaTunnelRow seaTunnelRow =
                 deserializationSchema.deserialize(str.replace("\u0001", delimiter).getBytes());
-        String data = new String(serializationSchema.serialize(seaTunnelRow));
         Assertions.assertEquals("tyrantlucifer", seaTunnelRow.getField(0));
         Assertions.assertEquals(Boolean.TRUE, seaTunnelRow.getField(1));
         Assertions.assertEquals(Byte.valueOf("1"), seaTunnelRow.getField(2));

@@ -17,9 +17,13 @@
 
 package org.apache.seatunnel.format.text.splitor;
 
+import org.apache.seatunnel.common.utils.ExceptionUtils;
+
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.io.Serializable;
@@ -29,6 +33,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+@Slf4j
 public class CsvLineSplitor implements TextLineSplitor, Serializable {
     private Map<Character, CSVFormat> splitorFormatMap = new HashMap<>();
 
@@ -51,17 +56,16 @@ public class CsvLineSplitor implements TextLineSplitor, Serializable {
                     res.add(value);
                 }
             }
-            parser.close();
             return res.toArray(new String[0]);
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error(ExceptionUtils.getMessage(e));
             return new String[0];
         } finally {
             if (Objects.nonNull(parser)) {
                 try {
                     parser.close();
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    log.error(ExceptionUtils.getMessage(e));
                 }
             }
         }
