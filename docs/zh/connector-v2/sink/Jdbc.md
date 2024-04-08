@@ -21,7 +21,7 @@
 - [x] [精确一次](../../concept/connector-v2-features.md)
 
 使用 `Xa transactions` 来确保 `exactly-once`。所以对于支持 `Xa transactions` 的数据库只支持 `exactly-once`
-。您可以设置 `is_exactly_once=true` 来启用它。
+。您可以设置 `is_exactly_once=true` 来启用它
 
 - [x] [cdc](../../concept/connector-v2-features.md)
 
@@ -93,10 +93,10 @@ Postgres 9.5或以下版本，请设置为`postgresLow`以支持cdc
 
 使用 `database` 和这个 `table-name` 自动生成sql并接收上游输入数据写入数据库
 
-该选项与 `query` 互斥，并且具有更高的优先级。
+该选项与 `query` 互斥，并且具有更高的优先级
 
 table参数可以填写不愿意的表的名称，最终会作为创建表的表名，支持变量（`${table_name}`、`${schema_name}`
-）。替换规则：`${schema_name}`将替换传递到目标端的SCHEMA名称，`${table_name}`将替换传递到目标端表的表名称。
+）。替换规则：`${schema_name}`将替换传递到目标端的SCHEMA名称，`${table_name}`将替换传递到目标端表的表名称
 
 mysql 接收器示例:
 
@@ -124,7 +124,7 @@ Tip: 如果目标数据库有SCHEMA的概念，则表参数必须写成`xxx.xxx`
 
 ### connection_check_timeout_sec [int]
 
-等待用于验证连接的数据库操作完成的时间（以秒为单位）。
+等待用于验证连接的数据库操作完成的时间（以秒为单位）
 
 ### max_retries[int]
 
@@ -190,7 +190,7 @@ Sink插件常用参数，请参考 [Sink常用选项](common-options.md) 了解�
 
 ### custom_sql [String]
 
-当`data_save_mode`选择`CUSTOM_PROCESSING`时，需要填写`CUSTOM_SQL`参数。该参数通常填写一条可以执行的SQL。SQL将在同步任务之前执行。
+当`data_save_mode`选择`CUSTOM_PROCESSING`时，需要填写`CUSTOM_SQL`参数。该参数通常填写一条可以执行的SQL。SQL将在同步任务之前执行
 
 ### enable_upsert [boolean]
 
@@ -199,9 +199,9 @@ Sink插件常用参数，请参考 [Sink常用选项](common-options.md) 了解�
 ### use_copy_statement [boolean]
 
 使用 `COPY ${table} FROM STDIN` 语句导入数据。仅支持具有 `getCopyAPI()` 方法连接的驱动程序。例如：Postgresql
-驱动程序 `org.postgresql.Driver`。
+驱动程序 `org.postgresql.Driver`
 
-注意：不支持 `MAP`、`ARRAY`、`ROW`类型。
+注意：不支持 `MAP`、`ARRAY`、`ROW`类型
 
 ## tips
 
