@@ -23,8 +23,11 @@ import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.Config;
+import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormat;
 
 import com.google.auto.service.AutoService;
+
+import java.util.Arrays;
 
 @AutoService(Factory.class)
 public class KafkaSinkFactory implements TableSinkFactory {
@@ -45,6 +48,17 @@ public class KafkaSinkFactory implements TableSinkFactory {
                         Config.SEMANTICS,
                         Config.PARTITION,
                         Config.PARTITION_KEY_FIELDS)
+                .conditional(
+                        Config.FORMAT,
+                        Arrays.asList(
+                                MessageFormat.JSON,
+                                MessageFormat.TEXT,
+                                MessageFormat.CANAL_JSON,
+                                MessageFormat.DEBEZIUM_JSON,
+                                MessageFormat.COMPATIBLE_DEBEZIUM_JSON,
+                                MessageFormat.COMPATIBLE_KAFKA_CONNECT_JSON,
+                                MessageFormat.OGG_JSON,
+                                MessageFormat.AVRO))
                 .build();
     }
 
