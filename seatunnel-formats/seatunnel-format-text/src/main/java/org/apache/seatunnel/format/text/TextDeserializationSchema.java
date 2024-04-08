@@ -31,6 +31,8 @@ import org.apache.seatunnel.common.utils.EncodingUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
 import org.apache.seatunnel.format.text.constant.TextFormatConstant;
 import org.apache.seatunnel.format.text.exception.SeaTunnelTextFormatException;
+import org.apache.seatunnel.format.text.splitor.DefaultTextLineSplitor;
+import org.apache.seatunnel.format.text.splitor.TextLineSplitor;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -50,6 +52,7 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
     private final DateTimeUtils.Formatter dateTimeFormatter;
     private final TimeUtils.Formatter timeFormatter;
     private final String encoding;
+    private final TextLineSplitor splitor;
 
     private TextDeserializationSchema(
             @NonNull SeaTunnelRowType seaTunnelRowType,
@@ -57,13 +60,15 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
             DateUtils.Formatter dateFormatter,
             DateTimeUtils.Formatter dateTimeFormatter,
             TimeUtils.Formatter timeFormatter,
-            String encoding) {
+            String encoding,
+            TextLineSplitor splitor) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.separators = separators;
         this.dateFormatter = dateFormatter;
         this.dateTimeFormatter = dateTimeFormatter;
         this.timeFormatter = timeFormatter;
         this.encoding = encoding;
+        this.splitor = splitor;
     }
 
     public static Builder builder() {
@@ -78,6 +83,7 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
                 DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS;
         private TimeUtils.Formatter timeFormatter = TimeUtils.Formatter.HH_MM_SS;
         private String encoding = StandardCharsets.UTF_8.name();
+        private TextLineSplitor textLineSplitor = new DefaultTextLineSplitor();
 
         private Builder() {}
 
@@ -116,6 +122,11 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
             return this;
         }
 
+        public Builder textLineSplitor(TextLineSplitor splitor) {
+            this.textLineSplitor = splitor;
+            return this;
+        }
+
         public TextDeserializationSchema build() {
             return new TextDeserializationSchema(
                     seaTunnelRowType,
@@ -123,7 +134,8 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
                     dateFormatter,
                     dateTimeFormatter,
                     timeFormatter,
-                    encoding);
+                    encoding,
+                    textLineSplitor);
         }
     }
 
@@ -145,7 +157,7 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
 
     private Map<Integer, String> splitLineBySeaTunnelRowType(
             String line, SeaTunnelRowType seaTunnelRowType, int level) {
-        String[] splits = line.split(separators[level], -1);
+        String[] splits = splitor.spliteLine(line, separators[level]);
         LinkedHashMap<Integer, String> splitsMap = new LinkedHashMap<>();
         SeaTunnelDataType<?>[] fieldTypes = seaTunnelRowType.getFieldTypes();
         for (int i = 0; i < splits.length; i++) {
