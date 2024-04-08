@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.hive.utils;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
@@ -32,13 +33,14 @@ public class HiveTableUtils {
 
     public static Table getTableInfo(ReadonlyConfig readonlyConfig) {
         String table = readonlyConfig.get(HiveSourceOptions.TABLE_NAME);
-        String[] splits = table.split("\\.");
-        if (splits.length != 2) {
+        TablePath tablePath = TablePath.of(table);
+        if (tablePath.getDatabaseName() == null || tablePath.getTableName() == null) {
             throw new SeaTunnelRuntimeException(
                     HiveConnectorErrorCode.HIVE_TABLE_NAME_ERROR, "Current table name is " + table);
         }
         HiveMetaStoreProxy hiveMetaStoreProxy = HiveMetaStoreProxy.getInstance(readonlyConfig);
-        Table tableInformation = hiveMetaStoreProxy.getTable(splits[0], splits[1]);
+        Table tableInformation =
+                hiveMetaStoreProxy.getTable(tablePath.getDatabaseName(), tablePath.getTableName());
         hiveMetaStoreProxy.close();
         return tableInformation;
     }

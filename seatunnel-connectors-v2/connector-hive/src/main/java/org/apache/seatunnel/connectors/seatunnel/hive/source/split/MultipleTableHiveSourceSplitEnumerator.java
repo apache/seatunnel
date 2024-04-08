@@ -18,9 +18,10 @@
 package org.apache.seatunnel.connectors.seatunnel.hive.source.split;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
+import org.apache.seatunnel.connectors.seatunnel.file.source.state.FileSourceState;
 import org.apache.seatunnel.connectors.seatunnel.hive.source.config.HiveSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.hive.source.config.MultipleTableHiveSourceConfig;
-import org.apache.seatunnel.connectors.seatunnel.hive.source.state.HiveSourceState;
 
 import org.apache.commons.collections4.CollectionUtils;
 
@@ -36,15 +37,15 @@ import java.util.stream.Collectors;
 
 @Slf4j
 public class MultipleTableHiveSourceSplitEnumerator
-        implements SourceSplitEnumerator<HiveSourceSplit, HiveSourceState> {
+        implements SourceSplitEnumerator<FileSourceSplit, FileSourceState> {
 
-    private final SourceSplitEnumerator.Context<HiveSourceSplit> context;
-    private final Set<HiveSourceSplit> pendingSplit;
-    private final Set<HiveSourceSplit> assignedSplit;
+    private final SourceSplitEnumerator.Context<FileSourceSplit> context;
+    private final Set<FileSourceSplit> pendingSplit;
+    private final Set<FileSourceSplit> assignedSplit;
     private final Map<String, List<String>> filePathMap;
 
     public MultipleTableHiveSourceSplitEnumerator(
-            SourceSplitEnumerator.Context<HiveSourceSplit> context,
+            SourceSplitEnumerator.Context<FileSourceSplit> context,
             MultipleTableHiveSourceConfig multipleTableLocalFileSourceConfig) {
         this.context = context;
         this.filePathMap =
@@ -63,15 +64,15 @@ public class MultipleTableHiveSourceSplitEnumerator
     }
 
     public MultipleTableHiveSourceSplitEnumerator(
-            SourceSplitEnumerator.Context<HiveSourceSplit> context,
+            SourceSplitEnumerator.Context<FileSourceSplit> context,
             MultipleTableHiveSourceConfig multipleTableLocalFileSourceConfig,
-            HiveSourceState localFileSourceState) {
+            FileSourceState localFileSourceState) {
         this(context, multipleTableLocalFileSourceConfig);
         this.assignedSplit.addAll(localFileSourceState.getAssignedSplit());
     }
 
     @Override
-    public void addSplitsBack(List<HiveSourceSplit> splits, int subtaskId) {
+    public void addSplitsBack(List<FileSourceSplit> splits, int subtaskId) {
         if (CollectionUtils.isEmpty(splits)) {
             return;
         }
@@ -93,15 +94,15 @@ public class MultipleTableHiveSourceSplitEnumerator
             String tableId = filePathEntry.getKey();
             List<String> filePaths = filePathEntry.getValue();
             for (String filePath : filePaths) {
-                pendingSplit.add(new HiveSourceSplit(tableId, filePath));
+                pendingSplit.add(new FileSourceSplit(tableId, filePath));
             }
         }
         assignSplit(subtaskId);
     }
 
     @Override
-    public HiveSourceState snapshotState(long checkpointId) {
-        return new HiveSourceState(assignedSplit);
+    public FileSourceState snapshotState(long checkpointId) {
+        return new FileSourceState(assignedSplit);
     }
 
     @Override
@@ -110,14 +111,14 @@ public class MultipleTableHiveSourceSplitEnumerator
     }
 
     private void assignSplit(int taskId) {
-        List<HiveSourceSplit> currentTaskSplits = new ArrayList<>();
+        List<FileSourceSplit> currentTaskSplits = new ArrayList<>();
         if (context.currentParallelism() == 1) {
             // if parallelism == 1, we should assign all the splits to reader
             currentTaskSplits.addAll(pendingSplit);
         } else {
             // if parallelism > 1, according to hashCode of split's id to determine whether to
             // allocate the current task
-            for (HiveSourceSplit fileSourceSplit : pendingSplit) {
+            for (FileSourceSplit fileSourceSplit : pendingSplit) {
                 int splitOwner =
                         getSplitOwner(fileSourceSplit.splitId(), context.currentParallelism());
                 if (splitOwner == taskId) {
@@ -135,7 +136,7 @@ public class MultipleTableHiveSourceSplitEnumerator
                 "SubTask {} is assigned to [{}]",
                 taskId,
                 currentTaskSplits.stream()
-                        .map(HiveSourceSplit::splitId)
+                        .map(FileSourceSplit::splitId)
                         .collect(Collectors.joining(",")));
         context.signalNoMoreSplits(taskId);
     }

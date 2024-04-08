@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hive.source.config;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
+
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -28,17 +31,17 @@ import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
+import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.config.HdfsSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.config.HdfsSourceConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategyFactory;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConstants;
-import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveHadoopConfig;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.hive.storage.StorageFactory;
 import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveTableUtils;
 import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveTypeConvertor;
 
@@ -55,6 +58,11 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+
+import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.FIELD_DELIMITER;
+import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.FILE_FORMAT_TYPE;
+import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig.ROW_DELIMITER;
 
 @Getter
 public class HiveSourceConfig implements Serializable {
@@ -66,26 +74,21 @@ public class HiveSourceConfig implements Serializable {
     private final FileFormat fileFormat;
     private final ReadStrategy readStrategy;
     private final List<String> filePaths;
-    private final HiveHadoopConfig hiveHadoopConfig;
+    private final HadoopConf hadoopConf;
 
     @SneakyThrows
     public HiveSourceConfig(ReadonlyConfig readonlyConfig) {
         readonlyConfig
-                .getOptional(BaseSourceConfig.READ_PARTITIONS)
+                .getOptional(HdfsSourceConfigOptions.READ_PARTITIONS)
                 .ifPresent(this::validatePartitions);
         this.table = HiveTableUtils.getTableInfo(readonlyConfig);
-        this.hiveHadoopConfig = parseHiveHadoopConfig(readonlyConfig, table);
+        this.hadoopConf = parseHiveHadoopConfig(readonlyConfig, table);
         this.fileFormat = HiveTableUtils.parseFileFormat(table);
-        this.readStrategy = parseReadStrategy(readonlyConfig, fileFormat, hiveHadoopConfig);
-        this.filePaths = parseFilePaths(table, hiveHadoopConfig, readStrategy);
+        this.readStrategy = parseReadStrategy(table, readonlyConfig, fileFormat, hadoopConf);
+        this.filePaths = parseFilePaths(table, readStrategy);
         this.catalogTable =
                 parseCatalogTable(
-                        readonlyConfig,
-                        readStrategy,
-                        fileFormat,
-                        hiveHadoopConfig,
-                        filePaths,
-                        table);
+                        readonlyConfig, readStrategy, fileFormat, hadoopConf, filePaths, table);
     }
 
     private void validatePartitions(List<String> partitionsList) {
@@ -108,39 +111,79 @@ public class HiveSourceConfig implements Serializable {
     }
 
     private ReadStrategy parseReadStrategy(
+            Table table,
             ReadonlyConfig readonlyConfig,
             FileFormat fileFormat,
-            HiveHadoopConfig hiveHadoopConfig) {
+            HadoopConf hadoopConf) {
+
         ReadStrategy readStrategy = ReadStrategyFactory.of(fileFormat.name());
-        readStrategy.setPluginConfig(readonlyConfig.toConfig());
-        readStrategy.init(hiveHadoopConfig);
+        Config config = readonlyConfig.toConfig();
+
+        switch (fileFormat) {
+            case TEXT:
+                // if the file format is text, we set the delim.
+                Map<String, String> parameters = table.getSd().getSerdeInfo().getParameters();
+                config =
+                        config.withValue(
+                                        FIELD_DELIMITER.key(),
+                                        ConfigValueFactory.fromAnyRef(
+                                                parameters.get("field.delim")))
+                                .withValue(
+                                        ROW_DELIMITER.key(),
+                                        ConfigValueFactory.fromAnyRef(parameters.get("line.delim")))
+                                .withValue(
+                                        FILE_FORMAT_TYPE.key(),
+                                        ConfigValueFactory.fromAnyRef(FileFormat.TEXT.name()));
+                break;
+            case ORC:
+                config =
+                        config.withValue(
+                                FILE_FORMAT_TYPE.key(),
+                                ConfigValueFactory.fromAnyRef(FileFormat.ORC.name()));
+                break;
+            case PARQUET:
+                config =
+                        config.withValue(
+                                FILE_FORMAT_TYPE.key(),
+                                ConfigValueFactory.fromAnyRef(FileFormat.PARQUET.name()));
+                break;
+            default:
+        }
+        readStrategy.setPluginConfig(config);
+        readStrategy.init(hadoopConf);
         return readStrategy;
     }
 
-    private HiveHadoopConfig parseHiveHadoopConfig(ReadonlyConfig readonlyConfig, Table table) {
-        String fsDefaultName = parseFsDefaultName(table);
-        HiveHadoopConfig hiveHadoopConfig =
-                new HiveHadoopConfig(
-                        fsDefaultName,
-                        readonlyConfig.get(HiveSourceOptions.METASTORE_URI),
-                        readonlyConfig.get(HiveSourceOptions.HIVE_SITE_PATH));
+    private HadoopConf parseHiveHadoopConfig(ReadonlyConfig readonlyConfig, Table table) {
+        String hiveSdLocation = table.getSd().getLocation();
+        /**
+         * Build hadoop conf(support s3、cos、oss、hdfs). The returned hadoop conf can be
+         * CosConf、OssConf、S3Conf、HadoopConf so that HadoopFileSystemProxy can obtain the correct
+         * Schema and FsHdfsImpl that can be filled into hadoop configuration in {@link
+         * org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy#createConfiguration()}
+         */
+        HadoopConf hadoopConf =
+                StorageFactory.getStorageType(hiveSdLocation)
+                        .buildHadoopConfWithReadOnlyConfig(readonlyConfig);
         readonlyConfig
-                .getOptional(HdfsSourceConfig.HDFS_SITE_PATH)
-                .ifPresent(hiveHadoopConfig::setHdfsSitePath);
+                .getOptional(HdfsSourceConfigOptions.HDFS_SITE_PATH)
+                .ifPresent(hadoopConf::setHdfsSitePath);
         readonlyConfig
-                .getOptional(HdfsSourceConfig.KERBEROS_PRINCIPAL)
-                .ifPresent(hiveHadoopConfig::setKerberosPrincipal);
+                .getOptional(HdfsSourceConfigOptions.KERBEROS_PRINCIPAL)
+                .ifPresent(hadoopConf::setKerberosPrincipal);
         readonlyConfig
-                .getOptional(HdfsSourceConfig.KERBEROS_KEYTAB_PATH)
-                .ifPresent(hiveHadoopConfig::setKerberosKeytabPath);
-        return hiveHadoopConfig;
+                .getOptional(HdfsSourceConfigOptions.KERBEROS_KEYTAB_PATH)
+                .ifPresent(hadoopConf::setKerberosKeytabPath);
+        readonlyConfig
+                .getOptional(HdfsSourceConfigOptions.REMOTE_USER)
+                .ifPresent(hadoopConf::setRemoteUser);
+        return hadoopConf;
     }
 
-    private List<String> parseFilePaths(
-            Table table, HiveHadoopConfig hiveHadoopConfig, ReadStrategy readStrategy) {
+    private List<String> parseFilePaths(Table table, ReadStrategy readStrategy) {
         String hdfsPath = parseHdfsPath(table);
         try {
-            return readStrategy.getFileNamesByPath(hiveHadoopConfig, hdfsPath);
+            return readStrategy.getFileNamesByPath(hdfsPath);
         } catch (Exception e) {
             String errorMsg = String.format("Get file list from this path [%s] failed", hdfsPath);
             throw new FileConnectorException(
@@ -185,14 +228,14 @@ public class HiveSourceConfig implements Serializable {
             ReadonlyConfig readonlyConfig,
             ReadStrategy readStrategy,
             FileFormat fileFormat,
-            HiveHadoopConfig hiveHadoopConfig,
+            HadoopConf hadoopConf,
             List<String> filePaths,
             Table table) {
         switch (fileFormat) {
             case PARQUET:
             case ORC:
                 return parseCatalogTableFromRemotePath(
-                        readonlyConfig, hiveHadoopConfig, filePaths, table);
+                        readonlyConfig, hadoopConf, filePaths, table);
             case TEXT:
                 return parseCatalogTableFromTable(readonlyConfig, readStrategy, table);
             default:
@@ -204,7 +247,7 @@ public class HiveSourceConfig implements Serializable {
 
     private CatalogTable parseCatalogTableFromRemotePath(
             ReadonlyConfig readonlyConfig,
-            HiveHadoopConfig hiveHadoopConfig,
+            HadoopConf hadoopConf,
             List<String> filePaths,
             Table table) {
         if (CollectionUtils.isEmpty(filePaths)) {
@@ -214,7 +257,7 @@ public class HiveSourceConfig implements Serializable {
         CatalogTable catalogTable = buildEmptyCatalogTable(readonlyConfig, table);
         try {
             SeaTunnelRowType seaTunnelRowTypeInfo =
-                    readStrategy.getSeaTunnelRowTypeInfo(hiveHadoopConfig, filePaths.get(0));
+                    readStrategy.getSeaTunnelRowTypeInfo(filePaths.get(0));
             return CatalogTableUtil.newCatalogTable(catalogTable, seaTunnelRowTypeInfo);
         } catch (FileConnectorException e) {
             String errorMsg =

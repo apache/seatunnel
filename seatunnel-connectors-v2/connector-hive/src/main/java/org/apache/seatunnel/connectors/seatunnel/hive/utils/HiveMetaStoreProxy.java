@@ -20,7 +20,6 @@ package org.apache.seatunnel.connectors.seatunnel.hive.utils;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopLoginFactory;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.util.FileSystemUtils;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.hive.source.config.HiveSourceOptions;
@@ -51,38 +50,27 @@ public class HiveMetaStoreProxy {
         String metastoreUri = readonlyConfig.get(HiveSourceOptions.METASTORE_URI);
         HiveConf hiveConf = new HiveConf();
         hiveConf.set("hive.metastore.uris", metastoreUri);
-        if (readonlyConfig.getOptional(HiveSourceOptions.KERBEROS_PRINCIPAL).isPresent()
-                && readonlyConfig.getOptional(HiveSourceOptions.KERBEROS_KEYTAB_PATH).isPresent()) {
-            String principal = readonlyConfig.get(HiveSourceOptions.KERBEROS_PRINCIPAL);
-            String keytabPath = readonlyConfig.get(HiveSourceOptions.KERBEROS_KEYTAB_PATH);
-            Configuration configuration = new Configuration();
-            FileSystemUtils.doKerberosAuthentication(configuration, principal, keytabPath);
-        }
         try {
             if (StringUtils.isNotEmpty(readonlyConfig.get(HiveSourceOptions.HIVE_SITE_PATH))) {
                 String hiveSitePath = readonlyConfig.get(HiveSourceOptions.HIVE_SITE_PATH);
                 hiveConf.addResource(new File(hiveSitePath).toURI().toURL());
             }
-            if (HiveMetaStoreProxyUtils.enableKerberos(config)) {
+            if (HiveMetaStoreProxyUtils.enableKerberos(readonlyConfig)) {
                 this.hiveMetaStoreClient =
                         HadoopLoginFactory.loginWithKerberos(
                                 new Configuration(),
-                                TypesafeConfigUtils.getConfig(
-                                        config,
-                                        BaseSourceConfigOptions.KRB5_PATH.key(),
-                                        BaseSourceConfigOptions.KRB5_PATH.defaultValue()),
-                                config.getString(BaseSourceConfigOptions.KERBEROS_PRINCIPAL.key()),
-                                config.getString(
-                                        BaseSourceConfigOptions.KERBEROS_KEYTAB_PATH.key()),
+                                readonlyConfig.get(BaseSourceConfigOptions.KRB5_PATH),
+                                readonlyConfig.get(BaseSourceConfigOptions.KERBEROS_PRINCIPAL),
+                                readonlyConfig.get(BaseSourceConfigOptions.KERBEROS_KEYTAB_PATH),
                                 (configuration, userGroupInformation) ->
                                         new HiveMetaStoreClient(hiveConf));
                 return;
             }
-            if (HiveMetaStoreProxyUtils.enableRemoteUser(config)) {
+            if (HiveMetaStoreProxyUtils.enableRemoteUser(readonlyConfig)) {
                 this.hiveMetaStoreClient =
                         HadoopLoginFactory.loginWithRemoteUser(
                                 new Configuration(),
-                                readonlyConfig.get(BaseSourceConfigOptions.REMOTE_USER.key()),
+                                readonlyConfig.get(BaseSourceConfigOptions.REMOTE_USER),
                                 (configuration, userGroupInformation) ->
                                         new HiveMetaStoreClient(hiveConf));
                 return;

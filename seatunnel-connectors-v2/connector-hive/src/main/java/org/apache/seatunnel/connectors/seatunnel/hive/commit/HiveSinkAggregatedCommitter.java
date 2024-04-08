@@ -18,14 +18,12 @@
 package org.apache.seatunnel.connectors.seatunnel.hive.commit;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileSinkAggregatedCommitter;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.util.FileSystemUtils;
 import org.apache.seatunnel.connectors.seatunnel.hive.sink.HiveSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveMetaStoreProxy;
 
-import org.apache.hadoop.hive.metastore.api.AlreadyExistsException;
-import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.thrift.TException;
 
 import lombok.extern.slf4j.Slf4j;
@@ -44,11 +42,11 @@ public class HiveSinkAggregatedCommitter extends FileSinkAggregatedCommitter {
     private final ReadonlyConfig readonlyConfig;
 
     public HiveSinkAggregatedCommitter(
-            ReadonlyConfig readonlyConfig, Table table, FileSystemUtils fileSystemUtils) {
-        super(fileSystemUtils);
+            ReadonlyConfig readonlyConfig, String dbName, String tableName, HadoopConf hadoopConf) {
+        super(hadoopConf);
         this.readonlyConfig = readonlyConfig;
-        this.dbName = table.getDbName();
-        this.tableName = table.getTableName();
+        this.dbName = dbName;
+        this.tableName = tableName;
         this.abortDropPartitionMetadata =
                 readonlyConfig.get(HiveSinkOptions.ABORT_DROP_PARTITION_METADATA);
     }

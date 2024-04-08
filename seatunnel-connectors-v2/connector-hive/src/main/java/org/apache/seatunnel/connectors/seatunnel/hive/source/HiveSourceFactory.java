@@ -24,9 +24,7 @@ import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
-import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.config.HdfsSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConstants;
 import org.apache.seatunnel.connectors.seatunnel.hive.source.config.HiveSourceOptions;
@@ -51,10 +49,14 @@ public class HiveSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(HiveConfig.TABLE_NAME)
-                .required(HiveConfig.METASTORE_URI)
+                .optional(HiveConfig.TABLE_NAME)
+                .optional(HiveConfig.METASTORE_URI)
+                .optional(HiveSourceOptions.TABLE_CONFIGS)
                 .optional(BaseSourceConfigOptions.READ_PARTITIONS)
                 .optional(BaseSourceConfigOptions.READ_COLUMNS)
+                .optional(BaseSourceConfigOptions.KERBEROS_PRINCIPAL)
+                .optional(BaseSourceConfigOptions.KERBEROS_KEYTAB_PATH)
+                .optional(BaseSourceConfigOptions.REMOTE_USER)
                 .optional(HiveConfig.HADOOP_CONF)
                 .optional(HiveConfig.HADOOP_CONF_PATH)
                 .build();

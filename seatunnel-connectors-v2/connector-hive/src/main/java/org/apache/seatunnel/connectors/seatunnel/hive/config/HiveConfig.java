@@ -1,4 +1,3 @@
-
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -18,14 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hive.config;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveMetaStoreProxy;
-
-import org.apache.commons.lang3.tuple.Pair;
-import org.apache.hadoop.hive.metastore.api.Table;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -67,29 +60,4 @@ public class HiveConfig {
                     .noDefaultValue()
                     .withDescription(
                             "The specified loading path for the 'core-site.xml', 'hdfs-site.xml' files");
-
-    public static final String TEXT_INPUT_FORMAT_CLASSNAME =
-            "org.apache.hadoop.mapred.TextInputFormat";
-    public static final String TEXT_OUTPUT_FORMAT_CLASSNAME =
-            "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat";
-    public static final String PARQUET_INPUT_FORMAT_CLASSNAME =
-            "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat";
-    public static final String PARQUET_OUTPUT_FORMAT_CLASSNAME =
-            "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat";
-    public static final String ORC_INPUT_FORMAT_CLASSNAME =
-            "org.apache.hadoop.hive.ql.io.orc.OrcInputFormat";
-    public static final String ORC_OUTPUT_FORMAT_CLASSNAME =
-            "org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat";
-
-    public static Pair<String[], Table> getTableInfo(Config config) {
-        String table = config.getString(TABLE_NAME.key());
-        String[] splits = table.split("\\.");
-        if (splits.length != 2) {
-            throw new RuntimeException("Please config " + TABLE_NAME + " as db.table format");
-        }
-        HiveMetaStoreProxy hiveMetaStoreProxy = HiveMetaStoreProxy.getInstance(config);
-        Table tableInformation = hiveMetaStoreProxy.getTable(splits[0], splits[1]);
-        hiveMetaStoreProxy.close();
-        return Pair.of(splits, tableInformation);
-    }
 }

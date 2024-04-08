@@ -50,6 +50,9 @@ public class HiveSinkFactory
                 .required(HiveConfig.TABLE_NAME)
                 .required(HiveConfig.METASTORE_URI)
                 .optional(HiveConfig.ABORT_DROP_PARTITION_METADATA)
+                .optional(BaseSinkConfig.KERBEROS_PRINCIPAL)
+                .optional(BaseSinkConfig.KERBEROS_KEYTAB_PATH)
+                .optional(BaseSinkConfig.REMOTE_USER)
                 .optional(HiveConfig.HADOOP_CONF)
                 .optional(HiveConfig.HADOOP_CONF_PATH)
                 .build();
@@ -82,7 +85,7 @@ public class HiveSinkFactory
                         tableName -> {
                             String replacedPath =
                                     replaceCatalogTableInPath(tableName, catalogTable);
-                            configMap.put(BaseSinkConfig.FILE_PATH.key(), replacedPath);
+                            configMap.put(HiveSinkOptions.TABLE_NAME.key(), replacedPath);
                         });
 
         return ReadonlyConfig.fromMap(new HashMap<>(configMap));
