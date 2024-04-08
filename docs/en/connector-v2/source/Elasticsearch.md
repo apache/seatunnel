@@ -72,7 +72,6 @@ Amount of time Elasticsearch will keep the search context alive for scroll reque
 
 Maximum number of hits to be returned with each Elasticsearch scroll request.
 
-
 ### tls_verify_certificate [boolean]
 
 Enable certificates validation for HTTPS endpoints
