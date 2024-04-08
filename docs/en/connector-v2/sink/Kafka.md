@@ -191,23 +191,25 @@ sink {
 }
 ```
 
-###  Kerberos Authentication Example
+### Kerberos Authentication Example
 
 Sink Config
+
 ```
-    sink {
-        Kafka {
-            topic = "seatunnel"
-            bootstrap.servers = "127.0.0.1:9092"
-            format = json
-            semantics = EXACTLY_ONCE
-            kafka.config = {
-                security.protocol=SASL_PLAINTEXT
-                sasl.kerberos.service.name=kafka
-                sasl.mechanism=GSSAPI
-                java.security.krb5.conf="/etc/krb5.conf"
-                sasl.jaas.config="com.sun.security.auth.module.Krb5LoginModule required \n        useKeyTab=true \n        storeKey=true  \n        keyTab=\"/path/to/xxx.keytab\" \n        principal=\"user@xxx.com\";"
-            }
+sink {
+    Kafka {
+        topic = "seatunnel"
+        bootstrap.servers = "127.0.0.1:9092"
+        format = json
+        semantics = EXACTLY_ONCE
+        kafka.config = {
+            security.protocol=SASL_PLAINTEXT
+            sasl.kerberos.service.name=kafka
+            sasl.mechanism=GSSAPI
+            java.security.krb5.conf="/etc/krb5.conf"
+            sasl.jaas.config="com.sun.security.auth.module.Krb5LoginModule required \n        useKeyTab=true \n        storeKey=true  \n        keyTab=\"/path/to/xxx.keytab\" \n        principal=\"user@xxx.com\";"
         }
     }
+}
 ```
+

@@ -159,22 +159,24 @@ source {
 }
 ```
 
-###  Kerberos Authentication Example
+### Kerberos Authentication Example
 
 Source Config
+
 ```
-    source {
-        Kafka {
-            topic = "seatunnel"
-            bootstrap.servers = "127.0.0.1:9092"
-            consumer.group = "seatunnel_group"
-            kafka.config = {
-                security.protocol=SASL_PLAINTEXT
-                sasl.kerberos.service.name=kafka
-                sasl.mechanism=GSSAPI
-                java.security.krb5.conf="/etc/krb5.conf"
-                sasl.jaas.config="com.sun.security.auth.module.Krb5LoginModule required \n        useKeyTab=true \n        storeKey=true  \n        keyTab=\"/path/to/xxx.keytab\" \n        principal=\"user@xxx.com\";"
-            }
+source {
+    Kafka {
+        topic = "seatunnel"
+        bootstrap.servers = "127.0.0.1:9092"
+        consumer.group = "seatunnel_group"
+        kafka.config = {
+            security.protocol=SASL_PLAINTEXT
+            sasl.kerberos.service.name=kafka
+            sasl.mechanism=GSSAPI
+            java.security.krb5.conf="/etc/krb5.conf"
+            sasl.jaas.config="com.sun.security.auth.module.Krb5LoginModule required \n        useKeyTab=true \n        storeKey=true  \n        keyTab=\"/path/to/xxx.keytab\" \n        principal=\"user@xxx.com\";"
         }
     }
+}
 ```
+
