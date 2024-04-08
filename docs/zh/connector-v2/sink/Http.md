@@ -15,11 +15,11 @@
 
 ## 描述
 
-用于发射获取web数据的钩子
+接收Source端传入的数据，用于通过数据调用目标web hooks。
 
 > 例如，来自上游的数据为[`age: 12, name: tyrantlucifer`]，则body内容如下：`{"age": 12, "name": "tyrantlucifer"}`
 
-**Tips: Http 接收器仅支持 `post json`  webhook，来自源的数据将被视为 web hook 中的正文内容。**
+**Tips: Http 接收器仅支持 `post json` 类型的 web hook，来自 source 的数据将在 web hook 中被视为body内容。**
 
 ## 支持的数据源信息
 
