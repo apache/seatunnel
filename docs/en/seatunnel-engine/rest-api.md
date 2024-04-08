@@ -92,8 +92,6 @@ network:
   "jobId": "",
   "jobName": "",
   "jobStatus": "",
-  "envOptions": {
-  },
   "createTime": "",
   "jobDag": {
     "vertices": [
@@ -101,15 +99,23 @@ network:
     "edges": [
     ]
   },
-  "pluginJarsUrls": [
-  ],
-  "isStartWithSavePoint": false,
   "metrics": {
     "sourceReceivedCount": "",
     "sinkWriteCount": ""
-  }
+  },
+  "finishedTime": "",
+  "errorMsg": null,
+  "envOptions": {
+  },
+  "pluginJarsUrls": [
+  ],
+  "isStartWithSavePoint": false
 }
 ```
+
+`jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` always be returned.
+`envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` will return when job is running.
+`finishedTime`, `errorMsg` will return when job is finished.
 
 When we can't get the job info, the response will be:
 

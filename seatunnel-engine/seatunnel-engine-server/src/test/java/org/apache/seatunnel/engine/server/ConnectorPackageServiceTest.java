@@ -199,7 +199,7 @@ public class ConnectorPackageServiceTest {
         fillJobConfig(jobConfig, envOptions);
         List<URL> commonPluginJars = new ArrayList<>(searchPluginJars());
         commonPluginJars.addAll(
-                new ArrayList<URL>(
+                new ArrayList<>(
                         Common.getThirdPartyJars(
                                         jobConfig
                                                 .getEnvOptions()
@@ -220,7 +220,8 @@ public class ConnectorPackageServiceTest {
         MultipleTableJobConfigParser multipleTableJobConfigParser =
                 new MultipleTableJobConfigParser(
                         filePath, new IdGenerator(), jobConfig, commonPluginJars, false);
-        ImmutablePair<List<Action>, Set<URL>> immutablePair = multipleTableJobConfigParser.parse();
+        ImmutablePair<List<Action>, Set<URL>> immutablePair =
+                multipleTableJobConfigParser.parse(null);
         Set<ConnectorJarIdentifier> commonJarIdentifiers = new HashSet<>();
 
         // Upload commonPluginJar

@@ -49,7 +49,7 @@ public class LogicalDagGeneratorTest {
 
         IdGenerator idGenerator = new IdGenerator();
         ImmutablePair<List<Action>, Set<URL>> immutablePair =
-                new MultipleTableJobConfigParser(filePath, idGenerator, jobConfig).parse();
+                new MultipleTableJobConfigParser(filePath, idGenerator, jobConfig).parse(null);
 
         LogicalDagGenerator logicalDagGenerator =
                 new LogicalDagGenerator(immutablePair.getLeft(), jobConfig, idGenerator);

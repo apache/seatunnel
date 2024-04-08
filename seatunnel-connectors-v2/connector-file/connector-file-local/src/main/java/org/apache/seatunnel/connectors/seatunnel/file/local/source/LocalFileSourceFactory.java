@@ -53,6 +53,7 @@ public class LocalFileSourceFactory implements TableSourceFactory {
                 .optional(BaseSourceConfigOptions.TABLE_CONFIGS)
                 .optional(BaseSourceConfigOptions.FILE_PATH)
                 .optional(BaseSourceConfigOptions.FILE_FORMAT_TYPE)
+                .optional(BaseSourceConfigOptions.ENCODING)
                 .conditional(
                         BaseSourceConfigOptions.FILE_FORMAT_TYPE,
                         FileFormat.TEXT,

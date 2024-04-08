@@ -57,6 +57,7 @@ public class ParallelMicroBatchPartitionReader extends ParallelBatchPartitionRea
     public ParallelMicroBatchPartitionReader(
             SeaTunnelSource<SeaTunnelRow, ?, ?> source,
             Integer parallelism,
+            String jobId,
             Integer subtaskId,
             Integer checkpointId,
             Integer checkpointInterval,
@@ -64,7 +65,7 @@ public class ParallelMicroBatchPartitionReader extends ParallelBatchPartitionRea
             String hdfsRoot,
             String hdfsUser,
             Map<String, String> envOptions) {
-        super(source, parallelism, subtaskId, envOptions);
+        super(source, parallelism, jobId, subtaskId, envOptions);
         this.checkpointId = checkpointId;
         this.checkpointInterval = checkpointInterval;
         this.checkpointPath = checkpointPath;
@@ -74,7 +75,7 @@ public class ParallelMicroBatchPartitionReader extends ParallelBatchPartitionRea
 
     @Override
     protected BaseSourceFunction<SeaTunnelRow> createInternalSource() {
-        return new InternalParallelSource<>(source, restoredState, parallelism, subtaskId);
+        return new InternalParallelSource<>(source, restoredState, parallelism, jobId, subtaskId);
     }
 
     @Override

@@ -28,6 +28,9 @@ import org.apache.seatunnel.common.exception.CommonError;
 
 import lombok.Getter;
 
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+
 import static com.google.common.base.Preconditions.checkNotNull;
 
 public class JsonSerializationSchema implements SerializationSchema {
@@ -42,11 +45,18 @@ public class JsonSerializationSchema implements SerializationSchema {
     /** Object mapper that is used to create output JSON objects. */
     @Getter private final ObjectMapper mapper = new ObjectMapper();
 
+    private final Charset charset;
+
     private final RowToJsonConverters.RowToJsonConverter runtimeConverter;
 
     public JsonSerializationSchema(SeaTunnelRowType rowType) {
+        this(rowType, StandardCharsets.UTF_8);
+    }
+
+    public JsonSerializationSchema(SeaTunnelRowType rowType, Charset charset) {
         this.rowType = rowType;
         this.runtimeConverter = new RowToJsonConverters().createConverter(checkNotNull(rowType));
+        this.charset = charset;
     }
 
     @Override
@@ -57,7 +67,7 @@ public class JsonSerializationSchema implements SerializationSchema {
 
         try {
             runtimeConverter.convert(mapper, node, row);
-            return mapper.writeValueAsBytes(node);
+            return mapper.writeValueAsString(node).getBytes(charset);
         } catch (Throwable t) {
             throw CommonError.jsonOperationError(FORMAT, row.toString(), t);
         }

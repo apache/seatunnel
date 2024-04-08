@@ -30,10 +30,12 @@ import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.catalog.ElasticSearchDataTypeConvertor;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.catalog.ElasticSearchTypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsRestClient;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsType;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SourceConfig;
 
 import org.apache.commons.collections4.CollectionUtils;
@@ -71,27 +73,25 @@ public class ElasticsearchSource
                 source = Lists.newArrayList();
             }
             EsRestClient esRestClient = EsRestClient.createInstance(config);
-            Map<String, String> esFieldType =
+            Map<String, BasicTypeDefine<EsType>> esFieldType =
                     esRestClient.getFieldTypeMapping(config.get(SourceConfig.INDEX), source);
             esRestClient.close();
-            ElasticSearchDataTypeConvertor elasticSearchDataTypeConvertor =
-                    new ElasticSearchDataTypeConvertor();
             SeaTunnelDataType[] fieldTypes;
             if (CollectionUtils.isEmpty(source)) {
                 List<String> keys = new ArrayList<>(esFieldType.keySet());
                 fieldTypes = new SeaTunnelDataType[keys.size()];
                 for (int i = 0; i < keys.size(); i++) {
-                    String esType = esFieldType.get(keys.get(i));
+                    BasicTypeDefine<EsType> esType = esFieldType.get(keys.get(i));
                     SeaTunnelDataType<?> seaTunnelDataType =
-                            elasticSearchDataTypeConvertor.toSeaTunnelType(keys.get(i), esType);
+                            ElasticSearchTypeConverter.INSTANCE.convert(esType).getDataType();
                     fieldTypes[i] = seaTunnelDataType;
                 }
             } else {
                 fieldTypes = new SeaTunnelDataType[source.size()];
                 for (int i = 0; i < source.size(); i++) {
-                    String esType = esFieldType.get(source.get(i));
+                    BasicTypeDefine<EsType> esType = esFieldType.get(source.get(i));
                     SeaTunnelDataType<?> seaTunnelDataType =
-                            elasticSearchDataTypeConvertor.toSeaTunnelType(source.get(i), esType);
+                            ElasticSearchTypeConverter.INSTANCE.convert(esType).getDataType();
                     fieldTypes[i] = seaTunnelDataType;
                 }
             }

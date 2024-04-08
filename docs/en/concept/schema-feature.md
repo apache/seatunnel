@@ -64,6 +64,7 @@ columns = [
 | type         | Yes      | -             | The data type of the column                                                      |
 | nullable     | No       | true          | If the column can be nullable                                                    |
 | columnLength | No       | 0             | The length of the column which will be useful when you need to define the length |
+| columnScale  | No       | -             | The scale of the column which will be useful when you need to define the scale   |
 | defaultValue | No       | null          | The default value of the column                                                  |
 | comment      | No       | null          | The comment of the column                                                        |
 

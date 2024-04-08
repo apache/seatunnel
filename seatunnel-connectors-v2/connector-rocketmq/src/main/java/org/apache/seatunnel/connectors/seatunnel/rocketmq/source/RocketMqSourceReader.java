@@ -242,17 +242,21 @@ public class RocketMqSourceReader implements SourceReader<SeaTunnelRow, RocketMq
                 Long offset = entry.getValue();
                 try {
                     if (messageQueue != null && offset != null) {
-                        consumerThreads
-                                .get(messageQueue)
-                                .getTasks()
-                                .put(
-                                        consumer -> {
-                                            if (this.metadata.isEnabledCommitCheckpoint()) {
-                                                consumer.getOffsetStore()
-                                                        .updateOffset(messageQueue, offset, false);
-                                                consumer.getOffsetStore().persist(messageQueue);
-                                            }
-                                        });
+                        RocketMqConsumerThread rocketMqConsumerThread =
+                                consumerThreads.get(messageQueue);
+                        if (rocketMqConsumerThread != null) {
+                            rocketMqConsumerThread
+                                    .getTasks()
+                                    .put(
+                                            consumer -> {
+                                                if (this.metadata.isEnabledCommitCheckpoint()) {
+                                                    consumer.getOffsetStore()
+                                                            .updateOffset(
+                                                                    messageQueue, offset, false);
+                                                    consumer.getOffsetStore().persist(messageQueue);
+                                                }
+                                            });
+                        }
                     }
                 } catch (InterruptedException e) {
                     log.error("commit offset failed", e);

@@ -85,7 +85,7 @@ public class ClientJobExecutionEnvironment extends AbstractJobEnvironment {
 
     @Override
     protected LogicalDag getLogicalDag() {
-        ImmutablePair<List<Action>, Set<URL>> immutablePair = getJobConfigParser().parse();
+        ImmutablePair<List<Action>, Set<URL>> immutablePair = getJobConfigParser().parse(null);
         actions.addAll(immutablePair.getLeft());
         // Enable upload connector jar package to engine server, automatically upload connector Jar
         // packages and dependent third-party Jar packages to the server before job execution.

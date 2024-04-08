@@ -62,6 +62,8 @@ public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfi
 
     private boolean isEnableTransaction = BaseSinkConfig.IS_ENABLE_TRANSACTION.defaultValue();
 
+    private String encoding = BaseSinkConfig.ENCODING.defaultValue();
+
     // ---------------------generator by config params-------------------
 
     private List<Integer> sinkColumnsIndexInRow;
@@ -129,6 +131,10 @@ public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfi
         if (config.hasPath(BaseSinkConfig.IS_ENABLE_TRANSACTION.key())) {
             this.isEnableTransaction =
                     config.getBoolean(BaseSinkConfig.IS_ENABLE_TRANSACTION.key());
+        }
+
+        if (config.hasPath(BaseSinkConfig.ENCODING.key())) {
+            this.encoding = config.getString(BaseSinkConfig.ENCODING.key());
         }
 
         if (this.isEnableTransaction
