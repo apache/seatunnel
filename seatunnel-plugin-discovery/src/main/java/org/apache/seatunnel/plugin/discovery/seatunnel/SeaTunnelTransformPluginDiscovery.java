@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.plugin.discovery.seatunnel;
 
+import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
@@ -25,10 +26,10 @@ import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.plugin.discovery.AbstractPluginDiscovery;
 import org.apache.seatunnel.plugin.discovery.PluginIdentifier;
 
-import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.ImmutableTriple;
 
 import java.util.LinkedHashMap;
-import java.util.stream.Collectors;
+import java.util.List;
 
 public class SeaTunnelTransformPluginDiscovery extends AbstractPluginDiscovery<SeaTunnelTransform> {
 
@@ -37,18 +38,9 @@ public class SeaTunnelTransformPluginDiscovery extends AbstractPluginDiscovery<S
     }
 
     @Override
-    public void printOptionRules(String pluginIdentifier) {
-        super.printOptionRules(pluginIdentifier);
-    }
-
-    @Override
-    public void printSupportedPlugins() {
-        System.out.println(StringUtils.LF + StringUtils.capitalize(PluginType.TRANSFORM.getType()));
-        String supportedTransforms =
-                getPlugins().keySet().stream()
-                        .map(pluginIdentifier -> pluginIdentifier.getPluginName())
-                        .collect(Collectors.joining(StringUtils.SPACE));
-        System.out.println(supportedTransforms + StringUtils.LF);
+    public ImmutableTriple<PluginIdentifier, List<Option<?>>, List<Option<?>>> getOptionRules(
+            String pluginIdentifier) {
+        return super.getOptionRules(pluginIdentifier);
     }
 
     @Override

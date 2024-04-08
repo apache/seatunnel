@@ -23,6 +23,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 
 import org.apache.seatunnel.api.common.PluginIdentifierInterface;
+import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.FactoryUtil;
@@ -37,6 +38,7 @@ import org.apache.seatunnel.common.utils.ReflectionUtils;
 
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.ImmutableTriple;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -47,6 +49,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -64,12 +67,6 @@ import java.util.stream.Collectors;
 public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
 
     private static final String PLUGIN_MAPPING_FILE = "plugin-mapping.properties";
-
-    private static final String OPTION_DESCRIPTION_FORMAT = ", Description: '%s'";
-
-    private static final String REQUIRED_OPTION_FORMAT = "Required Options: \n %s";
-
-    private static final String OPTIONAL_OPTION_FORMAT = "Optional Options: \n %s";
 
     /**
      * Add jar url to classloader. The different engine should have different logic to add url into
@@ -113,7 +110,7 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
         this.pluginDir = pluginDir;
         this.pluginMappingConfig = pluginMappingConfig;
         this.addURLToClassLoaderConsumer = addURLToClassLoaderConsumer;
-        log.debug("Load {} Plugin from {}", getPluginBaseClass().getSimpleName(), pluginDir);
+        log.info("Load {} Plugin from {}", getPluginBaseClass().getSimpleName(), pluginDir);
     }
 
     protected static Config loadConnectorPluginConfig() {
@@ -238,7 +235,8 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
     }
 
     @Override
-    public void printOptionRules(String pluginIdentifier) {
+    public ImmutableTriple<PluginIdentifier, List<Option<?>>, List<Option<?>>> getOptionRules(
+            String pluginIdentifier) {
         Optional<Map.Entry<PluginIdentifier, OptionRule>> pluginEntry =
                 getPlugins().entrySet().stream()
                         .filter(
@@ -249,39 +247,14 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
                         .findFirst();
         if (pluginEntry.isPresent()) {
             Map.Entry<PluginIdentifier, OptionRule> entry = pluginEntry.get();
-            System.out.println(
-                    StringUtils.LF
-                            + entry.getKey().getPluginName()
-                            + StringUtils.SPACE
-                            + entry.getKey().getPluginType());
-            String requiredOptions =
+            List<Option<?>> requiredOptions =
                     entry.getValue().getRequiredOptions().stream()
-                            .flatMap(
-                                    requiredOption ->
-                                            requiredOption.getOptions().stream()
-                                                    .map(
-                                                            option ->
-                                                                    String.format(
-                                                                                    option
-                                                                                                    .toString()
-                                                                                            + OPTION_DESCRIPTION_FORMAT,
-                                                                                    option
-                                                                                            .getDescription())
-                                                                            + StringUtils.LF))
-                            .collect(Collectors.joining(StringUtils.SPACE));
-            System.out.println(String.format(REQUIRED_OPTION_FORMAT, requiredOptions));
-            String optionOptions =
-                    entry.getValue().getOptionalOptions().stream()
-                            .map(
-                                    option ->
-                                            String.format(
-                                                            option.toString()
-                                                                    + OPTION_DESCRIPTION_FORMAT,
-                                                            option.getDescription())
-                                                    + StringUtils.LF)
-                            .collect(Collectors.joining(StringUtils.SPACE));
-            System.out.println(String.format(OPTIONAL_OPTION_FORMAT, optionOptions));
+                            .flatMap(requiredOption -> requiredOption.getOptions().stream())
+                            .collect(Collectors.toList());
+            List<Option<?>> optionalOptions = entry.getValue().getOptionalOptions();
+            return ImmutableTriple.of(entry.getKey(), requiredOptions, optionalOptions);
         }
+        return ImmutableTriple.of(null, new ArrayList<>(), new ArrayList<>());
     }
 
     /**
