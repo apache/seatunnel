@@ -167,6 +167,7 @@ public class SQLTransform extends AbstractCatalogSupportTransform {
                                 fieldNames[i],
                                 fieldTypes[i],
                                 simpleColumn.getColumnLength(),
+                                simpleColumn.getScale(),
                                 simpleColumn.isNullable(),
                                 simpleColumn.getDefaultValue(),
                                 simpleColumn.getComment());

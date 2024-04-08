@@ -97,9 +97,10 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                         PROJECT_ROOT_PATH
                                 + "/seatunnel-shade/seatunnel-hadoop3-3.1.4-uber/target/seatunnel-hadoop3-3.1.4-uber.jar"),
                 Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop3-3.1.4-uber.jar").toString());
-        server.start();
         // execute extra commands
         executeExtraCommands(server);
+
+        server.start();
     }
 
     @Override
@@ -247,6 +248,9 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 || s.startsWith("Timer-")
                 || s.contains("InterruptTimer")
                 || s.contains("Java2D Disposer")
+                || s.contains("OkHttp ConnectionPool")
+                || s.startsWith("http-report-event-scheduler")
+                || s.startsWith("event-forwarder")
                 || s.contains(
                         "org.apache.hadoop.fs.FileSystem$Statistics$StatisticsDataReferenceCleaner")
                 || s.startsWith("Log4j2-TF-")

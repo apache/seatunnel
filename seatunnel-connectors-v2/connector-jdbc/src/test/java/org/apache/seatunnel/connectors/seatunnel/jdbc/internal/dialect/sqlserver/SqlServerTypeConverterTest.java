@@ -254,7 +254,7 @@ public class SqlServerTypeConverterTest {
         Column column = SqlServerTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
-        Assertions.assertEquals(2, column.getColumnLength());
+        Assertions.assertEquals(4, column.getColumnLength());
         Assertions.assertEquals("CHAR(2)", column.getSourceType());
 
         typeDefine =
@@ -280,7 +280,8 @@ public class SqlServerTypeConverterTest {
         column = SqlServerTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
-        Assertions.assertEquals(SqlServerTypeConverter.POWER_2_31 - 1, column.getColumnLength());
+        Assertions.assertEquals(
+                (SqlServerTypeConverter.POWER_2_31 - 1) * 2, column.getColumnLength());
         Assertions.assertEquals(SqlServerTypeConverter.MAX_VARCHAR, column.getSourceType());
 
         typeDefine =
@@ -293,7 +294,7 @@ public class SqlServerTypeConverterTest {
         column = SqlServerTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
-        Assertions.assertEquals(10, column.getColumnLength());
+        Assertions.assertEquals(20, column.getColumnLength());
         Assertions.assertEquals("VARCHAR(10)", column.getSourceType());
 
         typeDefine =

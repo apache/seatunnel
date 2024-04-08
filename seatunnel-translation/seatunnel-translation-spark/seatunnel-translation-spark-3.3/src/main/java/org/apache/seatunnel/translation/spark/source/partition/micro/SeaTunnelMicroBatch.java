@@ -46,6 +46,7 @@ public class SeaTunnelMicroBatch implements MicroBatchStream {
     private final SeaTunnelSource<SeaTunnelRow, ?, ?> source;
 
     private final int parallelism;
+    private final String jobId;
 
     private final String checkpointLocation;
 
@@ -58,10 +59,12 @@ public class SeaTunnelMicroBatch implements MicroBatchStream {
     public SeaTunnelMicroBatch(
             SeaTunnelSource<SeaTunnelRow, ?, ?> source,
             int parallelism,
+            String jobId,
             String checkpointLocation,
             CaseInsensitiveStringMap caseInsensitiveStringMap) {
         this.source = source;
         this.parallelism = parallelism;
+        this.jobId = jobId;
         this.checkpointLocation = checkpointLocation;
         this.caseInsensitiveStringMap = caseInsensitiveStringMap;
     }
@@ -116,7 +119,7 @@ public class SeaTunnelMicroBatch implements MicroBatchStream {
     @Override
     public PartitionReaderFactory createReaderFactory() {
         return new SeaTunnelMicroBatchPartitionReaderFactory(
-                source, parallelism, checkpointLocation, caseInsensitiveStringMap);
+                source, parallelism, jobId, checkpointLocation, caseInsensitiveStringMap);
     }
 
     @Override

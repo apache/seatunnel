@@ -70,6 +70,10 @@ public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
     public static final String PG_DOUBLE_PRECISION_ARRAY = "_float8";
     // numeric <=> decimal
     public static final String PG_NUMERIC = "numeric";
+
+    // money
+    public static final String PG_MONEY = "money";
+
     // char <=> character <=> bpchar
     public static final String PG_CHAR = "bpchar";
     public static final String PG_CHARACTER = "character";
@@ -174,14 +178,23 @@ public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
                 }
                 builder.dataType(decimalType);
                 break;
+            case PG_MONEY:
+                // -92233720368547758.08 to +92233720368547758.07, With the sign bit it's 20, we use
+                // 30 precision to save it
+                DecimalType moneyDecimalType;
+                moneyDecimalType = new DecimalType(30, 2);
+                builder.dataType(moneyDecimalType);
+                builder.columnLength(30L);
+                builder.scale(2);
+                break;
             case PG_CHAR:
             case PG_CHARACTER:
                 builder.dataType(BasicType.STRING_TYPE);
                 if (typeDefine.getLength() == null || typeDefine.getLength() <= 0) {
-                    builder.columnLength(1L);
+                    builder.columnLength(TypeDefineUtils.charTo4ByteLength(1L));
                     builder.sourceType(pgDataType);
                 } else {
-                    builder.columnLength(typeDefine.getLength());
+                    builder.columnLength(TypeDefineUtils.charTo4ByteLength(typeDefine.getLength()));
                     builder.sourceType(String.format("%s(%s)", pgDataType, typeDefine.getLength()));
                 }
                 break;
@@ -249,9 +262,7 @@ public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
                 break;
             default:
                 throw CommonError.convertToSeaTunnelTypeError(
-                        DatabaseIdentifier.POSTGRESQL,
-                        typeDefine.getDataType(),
-                        typeDefine.getName());
+                        identifier(), typeDefine.getDataType(), typeDefine.getName());
         }
         return builder.build();
     }
@@ -291,64 +302,70 @@ public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
                 builder.dataType(PG_DOUBLE_PRECISION);
                 break;
             case DECIMAL:
-                DecimalType decimalType = (DecimalType) column.getDataType();
-                long precision = decimalType.getPrecision();
-                int scale = decimalType.getScale();
-                if (precision <= 0) {
-                    precision = DEFAULT_PRECISION;
-                    scale = DEFAULT_SCALE;
-                    log.warn(
-                            "The decimal column {} type decimal({},{}) is out of range, "
-                                    + "which is precision less than 0, "
-                                    + "it will be converted to decimal({},{})",
-                            column.getName(),
-                            decimalType.getPrecision(),
-                            decimalType.getScale(),
-                            precision,
-                            scale);
-                } else if (precision > MAX_PRECISION) {
-                    scale = (int) Math.max(0, scale - (precision - MAX_PRECISION));
-                    precision = MAX_PRECISION;
-                    log.warn(
-                            "The decimal column {} type decimal({},{}) is out of range, "
-                                    + "which exceeds the maximum precision of {}, "
-                                    + "it will be converted to decimal({},{})",
-                            column.getName(),
-                            decimalType.getPrecision(),
-                            decimalType.getScale(),
-                            MAX_PRECISION,
-                            precision,
-                            scale);
-                }
-                if (scale < 0) {
-                    scale = 0;
-                    log.warn(
-                            "The decimal column {} type decimal({},{}) is out of range, "
-                                    + "which is scale less than 0, "
-                                    + "it will be converted to decimal({},{})",
-                            column.getName(),
-                            decimalType.getPrecision(),
-                            decimalType.getScale(),
-                            precision,
-                            scale);
-                } else if (scale > MAX_SCALE) {
-                    scale = MAX_SCALE;
-                    log.warn(
-                            "The decimal column {} type decimal({},{}) is out of range, "
-                                    + "which exceeds the maximum scale of {}, "
-                                    + "it will be converted to decimal({},{})",
-                            column.getName(),
-                            decimalType.getPrecision(),
-                            decimalType.getScale(),
-                            MAX_SCALE,
-                            precision,
-                            scale);
-                }
+                if (column.getSourceType() != null
+                        && column.getSourceType().equalsIgnoreCase(PG_MONEY)) {
+                    builder.columnType(PG_MONEY);
+                    builder.dataType(PG_MONEY);
+                } else {
+                    DecimalType decimalType = (DecimalType) column.getDataType();
+                    long precision = decimalType.getPrecision();
+                    int scale = decimalType.getScale();
+                    if (precision <= 0) {
+                        precision = DEFAULT_PRECISION;
+                        scale = DEFAULT_SCALE;
+                        log.warn(
+                                "The decimal column {} type decimal({},{}) is out of range, "
+                                        + "which is precision less than 0, "
+                                        + "it will be converted to decimal({},{})",
+                                column.getName(),
+                                decimalType.getPrecision(),
+                                decimalType.getScale(),
+                                precision,
+                                scale);
+                    } else if (precision > MAX_PRECISION) {
+                        scale = (int) Math.max(0, scale - (precision - MAX_PRECISION));
+                        precision = MAX_PRECISION;
+                        log.warn(
+                                "The decimal column {} type decimal({},{}) is out of range, "
+                                        + "which exceeds the maximum precision of {}, "
+                                        + "it will be converted to decimal({},{})",
+                                column.getName(),
+                                decimalType.getPrecision(),
+                                decimalType.getScale(),
+                                MAX_PRECISION,
+                                precision,
+                                scale);
+                    }
+                    if (scale < 0) {
+                        scale = 0;
+                        log.warn(
+                                "The decimal column {} type decimal({},{}) is out of range, "
+                                        + "which is scale less than 0, "
+                                        + "it will be converted to decimal({},{})",
+                                column.getName(),
+                                decimalType.getPrecision(),
+                                decimalType.getScale(),
+                                precision,
+                                scale);
+                    } else if (scale > MAX_SCALE) {
+                        scale = MAX_SCALE;
+                        log.warn(
+                                "The decimal column {} type decimal({},{}) is out of range, "
+                                        + "which exceeds the maximum scale of {}, "
+                                        + "it will be converted to decimal({},{})",
+                                column.getName(),
+                                decimalType.getPrecision(),
+                                decimalType.getScale(),
+                                MAX_SCALE,
+                                precision,
+                                scale);
+                    }
 
-                builder.columnType(String.format("%s(%s,%s)", PG_NUMERIC, precision, scale));
-                builder.dataType(PG_NUMERIC);
-                builder.precision(precision);
-                builder.scale(scale);
+                    builder.columnType(String.format("%s(%s,%s)", PG_NUMERIC, precision, scale));
+                    builder.dataType(PG_NUMERIC);
+                    builder.precision(precision);
+                    builder.scale(scale);
+                }
                 break;
             case BYTES:
                 builder.columnType(PG_BYTEA);

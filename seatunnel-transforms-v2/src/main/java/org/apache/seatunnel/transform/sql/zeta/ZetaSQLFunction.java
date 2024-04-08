@@ -18,7 +18,9 @@
 package org.apache.seatunnel.transform.sql.zeta;
 
 import org.apache.seatunnel.api.table.type.DecimalType;
+import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
@@ -40,6 +42,7 @@ import net.sf.jsqlparser.expression.Function;
 import net.sf.jsqlparser.expression.LongValue;
 import net.sf.jsqlparser.expression.NullValue;
 import net.sf.jsqlparser.expression.Parenthesis;
+import net.sf.jsqlparser.expression.SignedExpression;
 import net.sf.jsqlparser.expression.StringValue;
 import net.sf.jsqlparser.expression.TimeKeyExpression;
 import net.sf.jsqlparser.expression.WhenClause;
@@ -56,6 +59,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class ZetaSQLFunction {
     // ============================internal functions=====================
@@ -184,6 +188,26 @@ public class ZetaSQLFunction {
         if (expression instanceof NullValue) {
             return null;
         }
+        if (expression instanceof SignedExpression) {
+            SignedExpression signedExpression = (SignedExpression) expression;
+            if (signedExpression.getSign() == '-') {
+                Object value = computeForValue(signedExpression.getExpression(), inputFields);
+                if (value instanceof Integer) {
+                    return -((Integer) value);
+                }
+                if (value instanceof Long) {
+                    return -((Long) value);
+                }
+                if (value instanceof Double) {
+                    return -((Double) value);
+                }
+                if (value instanceof Number) {
+                    return -((Number) value).doubleValue();
+                }
+            } else {
+                return computeForValue(signedExpression, inputFields);
+            }
+        }
         if (expression instanceof DoubleValue) {
             return ((DoubleValue) expression).getValue();
         }
@@ -199,8 +223,33 @@ public class ZetaSQLFunction {
             return ((StringValue) expression).getValue();
         }
         if (expression instanceof Column) {
-            int idx = inputRowType.indexOf(((Column) expression).getColumnName());
-            return inputFields[idx];
+            Column columnExp = (Column) expression;
+            String columnName = columnExp.getColumnName();
+            int index = inputRowType.indexOf(columnName, false);
+            if (index != -1) {
+                return inputFields[index];
+            } else {
+                String fullyQualifiedName = columnExp.getFullyQualifiedName();
+                String[] columnNames = fullyQualifiedName.split("\\.");
+                int deep = columnNames.length;
+                SeaTunnelDataType parDataType = inputRowType;
+                SeaTunnelRow parRowValues = new SeaTunnelRow(inputFields);
+                Object res = parRowValues;
+                for (int i = 0; i < deep; i++) {
+                    if (parDataType instanceof MapType) {
+                        return ((Map) res).get(columnNames[i]);
+                    }
+                    parRowValues = (SeaTunnelRow) res;
+                    int idx = ((SeaTunnelRowType) parDataType).indexOf(columnNames[i], false);
+                    if (idx == -1) {
+                        throw new IllegalArgumentException(
+                                String.format("can't find field [%s]", fullyQualifiedName));
+                    }
+                    parDataType = ((SeaTunnelRowType) parDataType).getFieldType(idx);
+                    res = parRowValues.getFields()[idx];
+                }
+                return res;
+            }
         }
         if (expression instanceof Function) {
             Function function = (Function) expression;

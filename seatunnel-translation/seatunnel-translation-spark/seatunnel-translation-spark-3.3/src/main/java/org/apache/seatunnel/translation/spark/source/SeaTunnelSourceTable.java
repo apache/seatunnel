@@ -26,6 +26,7 @@ import org.apache.seatunnel.translation.spark.source.scan.SeaTunnelScanBuilder;
 import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.connector.catalog.SupportsRead;
 import org.apache.spark.sql.connector.catalog.Table;
 import org.apache.spark.sql.connector.catalog.TableCapability;
@@ -66,7 +67,9 @@ public class SeaTunnelSourceTable implements Table, SupportsRead {
     public ScanBuilder newScanBuilder(CaseInsensitiveStringMap caseInsensitiveStringMap) {
         int parallelism =
                 Integer.parseInt(properties.getOrDefault(CommonOptions.PARALLELISM.key(), "1"));
-        return new SeaTunnelScanBuilder(source, parallelism, caseInsensitiveStringMap);
+        String applicationId = SparkSession.getActiveSession().get().sparkContext().applicationId();
+        return new SeaTunnelScanBuilder(
+                source, parallelism, applicationId, caseInsensitiveStringMap);
     }
 
     /** A name to identify this table */

@@ -54,7 +54,7 @@ public class StarRocksCreateTableTest {
                 PhysicalColumn.of("create_time", BasicType.LONG_TYPE, (Long) null, true, null, ""));
 
         String result =
-                StarRocksSaveModeUtil.fillingCreateSql(
+                StarRocksSaveModeUtil.getCreateTableSql(
                         "CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}` (                                                                                                                                                   \n"
                                 + "${rowtype_primary_key}  ,       \n"
                                 + "${rowtype_unique_key} , \n"
@@ -187,7 +187,7 @@ public class StarRocksCreateTableTest {
                         "L_COMMENT", BasicType.STRING_TYPE, (Long) null, false, null, ""));
 
         String result =
-                StarRocksSaveModeUtil.fillingCreateSql(
+                StarRocksSaveModeUtil.getCreateTableSql(
                         "CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}` (\n"
                                 + "`L_COMMITDATE`,\n"
                                 + "${rowtype_primary_key},\n"
@@ -244,7 +244,7 @@ public class StarRocksCreateTableTest {
         columns.add(PhysicalColumn.of("description", BasicType.STRING_TYPE, 70000, true, null, ""));
 
         String result =
-                StarRocksSaveModeUtil.fillingCreateSql(
+                StarRocksSaveModeUtil.getCreateTableSql(
                         "CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}` (                                                                                                                                                   \n"
                                 + "${rowtype_primary_key}  ,       \n"
                                 + "`create_time` DATETIME NOT NULL ,  \n"
@@ -287,6 +287,42 @@ public class StarRocksCreateTableTest {
                         + "    \"dynamic_partition.end\" = \"3\", \n"
                         + "    \"dynamic_partition.prefix\" = \"p\"                                                                                                                                                                           \n"
                         + ");",
+                result);
+    }
+
+    @Test
+    public void testWithThreePrimaryKeys() {
+        List<Column> columns = new ArrayList<>();
+
+        columns.add(PhysicalColumn.of("id", BasicType.LONG_TYPE, (Long) null, true, null, ""));
+        columns.add(PhysicalColumn.of("name", BasicType.STRING_TYPE, (Long) null, true, null, ""));
+        columns.add(PhysicalColumn.of("age", BasicType.INT_TYPE, (Long) null, true, null, ""));
+        columns.add(PhysicalColumn.of("comment", BasicType.STRING_TYPE, 500, true, null, ""));
+        columns.add(PhysicalColumn.of("description", BasicType.STRING_TYPE, 70000, true, null, ""));
+
+        String result =
+                StarRocksSaveModeUtil.getCreateTableSql(
+                        "create table '${database}'.'${table_name}'(\n"
+                                + "     ${rowtype_fields}\n"
+                                + " )\n"
+                                + " partitioned by ${rowtype_primary_key};",
+                        "test1",
+                        "test2",
+                        TableSchema.builder()
+                                .primaryKey(
+                                        PrimaryKey.of("test", Arrays.asList("id", "age", "name")))
+                                .columns(columns)
+                                .build());
+
+        Assertions.assertEquals(
+                "create table 'test1'.'test2'(\n"
+                        + "     `id` BIGINT NULL ,\n"
+                        + "`name` STRING NULL ,\n"
+                        + "`age` INT NULL ,\n"
+                        + "`comment` VARCHAR(500) NULL ,\n"
+                        + "`description` STRING NULL \n"
+                        + " )\n"
+                        + " partitioned by `id`,`age`,`name`;",
                 result);
     }
 }
