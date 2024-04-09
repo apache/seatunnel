@@ -137,7 +137,8 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
         }
 
         public TextDeserializationSchema build() {
-            return new TextDeserializationSchema(seaTunnelRowType, separators, encoding, textLineSplitor);
+            return new TextDeserializationSchema(
+                    seaTunnelRowType, separators, encoding, textLineSplitor);
         }
     }
 

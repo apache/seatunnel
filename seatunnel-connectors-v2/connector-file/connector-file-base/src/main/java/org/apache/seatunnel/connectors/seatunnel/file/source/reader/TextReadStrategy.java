@@ -145,7 +145,9 @@ public class TextReadStrategy extends AbstractReadStrategy {
                             + "SeaTunnel will not support column projection");
         }
         TextDeserializationSchema.Builder builder =
-                TextDeserializationSchema.builder().delimiter(TextFormatConstant.PLACEHOLDER).textLineSplitor(textLineSplitor);
+                TextDeserializationSchema.builder()
+                        .delimiter(TextFormatConstant.PLACEHOLDER)
+                        .textLineSplitor(textLineSplitor);
         if (isMergePartition) {
             deserializationSchema =
                     builder.seaTunnelRowType(this.seaTunnelRowTypeWithPartition).build();
@@ -180,7 +182,9 @@ public class TextReadStrategy extends AbstractReadStrategy {
         }
         initFormatter();
         TextDeserializationSchema.Builder builder =
-                TextDeserializationSchema.builder().delimiter(fieldDelimiter).textLineSplitor(textLineSplitor);
+                TextDeserializationSchema.builder()
+                        .delimiter(fieldDelimiter)
+                        .textLineSplitor(textLineSplitor);
         if (isMergePartition) {
             deserializationSchema =
                     builder.seaTunnelRowType(userDefinedRowTypeWithPartition).build();
