@@ -125,11 +125,27 @@ public class MultipleTableJobConfigParser {
             JobConfig jobConfig,
             List<URL> commonPluginJars,
             boolean isStartWithSavePoint) {
+        this(
+                jobDefineFilePath,
+                null,
+                idGenerator,
+                jobConfig,
+                commonPluginJars,
+                isStartWithSavePoint);
+    }
+
+    public MultipleTableJobConfigParser(
+            String jobDefineFilePath,
+            List<String> variables,
+            IdGenerator idGenerator,
+            JobConfig jobConfig,
+            List<URL> commonPluginJars,
+            boolean isStartWithSavePoint) {
         this.idGenerator = idGenerator;
         this.jobConfig = jobConfig;
         this.commonPluginJars = commonPluginJars;
         this.isStartWithSavePoint = isStartWithSavePoint;
-        this.seaTunnelJobConfig = ConfigBuilder.of(Paths.get(jobDefineFilePath));
+        this.seaTunnelJobConfig = ConfigBuilder.of(Paths.get(jobDefineFilePath), variables);
         this.envOptions = ReadonlyConfig.fromConfig(seaTunnelJobConfig.getConfig("env"));
         this.fallbackParser =
                 new JobConfigParser(idGenerator, commonPluginJars, isStartWithSavePoint);

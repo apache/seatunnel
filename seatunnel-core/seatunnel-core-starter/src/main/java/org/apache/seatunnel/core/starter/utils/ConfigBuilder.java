@@ -117,7 +117,6 @@ public class ConfigBuilder {
 
     private static Config backfillUserVariables(Config config, List<String> variables) {
         if (variables != null) {
-            log.info("user variables size is : {}", variables.size());
             Map<String, String> map =
                     variables.stream()
                             .filter(Objects::nonNull)
@@ -128,7 +127,6 @@ public class ConfigBuilder {
                     ConfigFactory.parseMap(map),
                     ConfigResolveOptions.defaults().setAllowUnresolved(true));
         }
-        log.info("user variable is null");
         return config;
     }
 }
