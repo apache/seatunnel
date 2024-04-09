@@ -193,6 +193,83 @@ configured with these two parameters, because in SeaTunnel, there is a default c
 parameters are not configured, then the generated data from the last module of the previous node will be used.
 This is much more convenient when there is only one source.
 
+## Config variable substitution
+
+In config file we can define some variables and replace it in run time. **This is only support `hocon` format file**.
+
+```hocon
+source {
+  FakeSource {
+    result_table_name = ${resName}
+    row.num = ${rowNum}
+    string.template = [${strTemplate}]
+    schema = {
+      fields {
+        name = string
+        age = "int"
+      }
+    }
+  }
+}
+
+transform {
+    sql {
+      source_table_name = ${resName}
+      query = "select * from "${resName}" where name = '"${nameVal}"' "
+      result_table_name = "sql"
+    }
+}
+
+sink {
+  Console {
+     source_table_name = sql
+  }
+}
+```
+
+In the above config, i define some variables, like `${rowNum}`, `${resName}`.
+We can replace those parameters with this shell command:
+
+```shell
+./bin/seatunnel.sh -c <this_config_file> -i rowNum=10 -i resName=fake -i strTemplate=abc -i nameVal=abc
+```
+
+Then the finial submitted config is:
+
+```hocon
+source {
+  FakeSource {
+    result_table_name = fake
+    row.num = 10
+    string.template = ["abc"]
+    schema = {
+      fields {
+        name = string
+        age = "int"
+      }
+    }
+  }
+}
+
+transform {
+    sql {
+      source_table_name = fake
+      query = "select * from fake where name = 'abc' "
+      result_table_name = "sql"
+    }
+}
+
+sink {
+  Console {
+     source_table_name = sql
+  }
+}
+```
+
+Some Notes:
+- array type like `string.template` can't have multiple value. the array type can only have 1 value
+- if the replacement variables is in `"` or `'`, like `resName` and `nameVal`, you need add `"`
+
 ## What's More
 
 If you want to know the details of this format configuration, Please
