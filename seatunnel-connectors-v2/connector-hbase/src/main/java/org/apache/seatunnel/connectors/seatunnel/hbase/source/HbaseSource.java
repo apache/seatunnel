@@ -20,7 +20,6 @@ package org.apache.seatunnel.connectors.seatunnel.hbase.source;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -39,13 +38,10 @@ import org.apache.seatunnel.connectors.seatunnel.hbase.exception.HbaseConnectorE
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.google.auto.service.AutoService;
-
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.QUERY_COLUMNS;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.TABLE;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.ZOOKEEPER_QUORUM;
 
-@AutoService(SeaTunnelSource.class)
 public class HbaseSource
         implements SeaTunnelSource<SeaTunnelRow, HbaseSourceSplit, HbaseSourceState> {
     private static final Logger LOG = LoggerFactory.getLogger(HbaseSource.class);
@@ -59,8 +55,7 @@ public class HbaseSource
         return PLUGIN_NAME;
     }
 
-    @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
+    HbaseSource(Config pluginConfig) {
         this.pluginConfig = pluginConfig;
         CheckResult result =
                 CheckConfigUtil.checkAllExists(
