@@ -90,7 +90,6 @@ public class CompatibleKafkaConnectDeserializationSchema
                 new JsonToRowConverters(failOnMissingField, ignoreParseErrors)
                         .createRowConverter(checkNotNull(seaTunnelRowType));
         this.catalogTable = catalogTable;
-
     }
 
     @Override
