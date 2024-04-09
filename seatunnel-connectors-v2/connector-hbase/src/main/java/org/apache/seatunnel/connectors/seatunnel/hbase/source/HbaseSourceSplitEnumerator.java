@@ -50,7 +50,6 @@ public class HbaseSourceSplitEnumerator
     /** The splits that have not assigned */
     private Set<HbaseSourceSplit> pendingSplit;
 
-    //    protected final String tableName;
     private HbaseParameters hbaseParameters;
     private Connection connection;
 
