@@ -21,7 +21,7 @@
 - [x] [精确一次](../../concept/connector-v2-features.md)
 
 使用 `Xa transactions` 来确保 `exactly-once`。所以仅对于支持 `Xa transactions` 的数据库支持 `exactly-once`
-。您可以设置 `is_exactly_once=true` 来启用它。
+。你可以设置 `is_exactly_once=true` 来启用它。
 
 - [x] [cdc](../../concept/connector-v2-features.md)
 
@@ -59,7 +59,7 @@
 
 ### driver [string]
 
-用于连接远程数据源的jdbc类名，如果使用MySQL，则值为`com.mysql.cj.jdbc.Driver`
+用于连接远程数据源的 jdbc 类名，如果使用MySQL，则值为`com.mysql.cj.jdbc.Driver`
 
 ### user [string]
 
@@ -75,25 +75,25 @@ JDBC 连接的 URL。参考案例：`jdbc:postgresql://localhost/test`
 
 ### query [string]
 
-使用sql将上游输入数据写入数据库。如 `INSERT ...`
+使用 sql 语句将上游输入数据写入到数据库。如 `INSERT ...`
 
 ### compatible_mode [string]
 
 数据库的兼容模式，当数据库支持多种兼容模式时需要。例如，使用 OceanBase 数据库时，需要将其设置为 'mysql' 或 'oracle' 。
 
-Postgres 9.5及以下版本，请设置为 `postgresLow` 来支持 cdc
+Postgres 9.5及以下版本，请设置为 `postgresLow` 来支持 CDC
 
 ### database [string]
 
 使用此 `database` 和 `table-name` 自动生成 SQL，并接收上游输入的数据写入数据库。
 
-此选项与 `query` 选项是互斥的，并且具有更高的优先级。
+此选项与 `query` 选项是互斥的，此选项具有更高的优先级。
 
 ### table [string]
 
-使用此 `database` 和 `table-name` 自动生成 SQL，并接收上游输入的数据写入数据库。
+使用 `database` 和此 `table-name` 自动生成 SQL，并接收上游输入的数据写入数据库。
 
-此选项与 `query` 选项是互斥的，并且具有更高的优先级。
+此选项与 `query` 选项是互斥的，此选项具有更高的优先级。
 
 table参数可以填入一个任意的表名，这个名字最终会被用作创建表的表名，并且支持变量（`${table_name}`，`${schema_name}`）。
 替换规则如下：`${schema_name}` 将替换传递给目标端的 SCHEMA 名称，`${table_name}` 将替换传递给目标端的表名。
@@ -114,11 +114,11 @@ Tip: 如果目标数据库有 SCHEMA 的概念，则表参数必须写成 `xxx.x
 
 ### primary_keys [array]
 
-该选项用于支持自动生成 sql 时的 insert、delete、update 等操作
+该选项用于辅助生成 insert、delete、update 等 sql 语句。设置了该选项，将会根据该选项生成对应的 sql 语句
 
 ### support_upsert_by_query_primary_key_exist [boolean]
 
-根据查询主键是否存在选择使用 INSERT sql、UPDATE sql 来处理更新事件(INSERT、UPDATE_AFTER)。仅当数据库不支持 upsert 语法时才使用此配置
+根据查询主键是否存在来选择使用 INSERT sql、UPDATE sql 来处理变更事件(INSERT、UPDATE_AFTER)。仅当数据库不支持 upsert 语法时才使用此配置
 **注意**：该方法性能较低
 
 ### connection_check_timeout_sec [int]
@@ -127,7 +127,7 @@ Tip: 如果目标数据库有 SCHEMA 的概念，则表参数必须写成 `xxx.x
 
 ### max_retries[int]
 
-重试提交失败的次数（executeBatch）
+重试提交失败的最大次数（executeBatch）
 
 ### batch_size[int]
 
@@ -135,11 +135,11 @@ Tip: 如果目标数据库有 SCHEMA 的概念，则表参数必须写成 `xxx.x
 
 ### is_exactly_once[boolean]
 
-是否启用一次语义，这将使用 XA 事务。如果打开，您需要设置 `xa_data_source_class_name`
+是否启用通过XA事务实现的精确一次语义。开启，你还需要设置 `xa_data_source_class_name`
 
 ### generate_sink_sql[boolean]
 
-根据要写入的数据库表生成sql语句
+根据要写入的数据库表结构生成 sql 语句
 
 ### xa_data_source_class_name[string]
 
@@ -147,7 +147,7 @@ Tip: 如果目标数据库有 SCHEMA 的概念，则表参数必须写成 `xxx.x
 
 ### max_commit_attempts[int]
 
-事务提交失败的重试次数
+事务提交失败的最大重试次数
 
 ### transaction_timeout_sec[int]
 
@@ -159,13 +159,11 @@ Tip: 如果目标数据库有 SCHEMA 的概念，则表参数必须写成 `xxx.x
 
 ### field_ide [String]
 
-字段`field_ide`用于标识从源到宿同步时该字段是否需要转换为大写或小写。`ORIGINAL` 表示不需要转换，`UPPERCASE`
-表示转换为大写，`LOWERCASE` 表示转换为小写。
+字段 `field_ide` 用于在从 source 同步到 sink 时，确定字段是否需要转换为大写或小写。'ORIGINAL' 表示不需要转换，'UPPERCASE' 表示转换为大写，'LOWERCASE' 表示转换为小写
 
 ### properties
 
-附加连接配置参数，当属性和URL具有相同参数时，优先级由<br/>
-驱动程序的具体实现确定。例如，在 MySQL 中，属性优先于 URL。
+附加连接配置参数，当属性和URL具有相同参数时，优先级由驱动程序的具体实现确定。例如，在 MySQL 中，属性配置优先于 URL。
 
 ### common options
 
@@ -173,15 +171,16 @@ Sink插件常用参数，请参考 [Sink常用选项](common-options.md) 了解�
 
 ### schema_save_mode [Enum]
 
-在开启同步任务之前，针对目标面现有的表面结构选择不同的处理方案。选项介绍：
+在启动同步任务之前，针对目标侧已有的表结构选择不同的处理方案<br/>
+选项介绍：<br/>
 `RECREATE_SCHEMA` ：表不存在时创建，保存表时删除并重建<br/>
 `CREATE_SCHEMA_WHEN_NOT_EXIST` ：表不存在时创建，保存表时跳过<br/>
 `ERROR_WHEN_SCHEMA_NOT_EXIST` ：会出错表不存在时报告<br/>
 
 ### data_save_mode [Enum]
 
-在开启同步任务之前，针对目标端已有的数据选择不同的处理方案。
-选项介绍：
+在启动同步任务之前，针对目标侧已存在的数据选择不同的处理方案<br/>
+选项介绍：<br/>
 `DROP_DATA`：保留数据库结构，删除数据<br/>
 `APPEND_DATA`：保留数据库结构，保留数据<br/>
 `CUSTOM_PROCESSING`：用户自定义处理<br/>

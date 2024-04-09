@@ -1,12 +1,12 @@
 # Avro 格式
 
-Avro是一种流行数据传输格式。现在seatunnel在kafka连接器中支持Avro格式
+Avro 在流式数据处理管道中非常流行。现在seatunnel在kafka连接器中支持Avro格式
 
 # 怎样用
 
 ## Kafka 使用示例
 
-- 使用 Avro 格式从模拟数据源生成数据并将其汇聚到 Kafka 的示例。
+- 模拟随机生成数据源,并以 Avro 的格式 写入 Kafka 的实例
 
 ```bash
 env {
@@ -64,7 +64,7 @@ sink {
 }
 ```
 
-- 用 avro 格式从 kafka 读取数据并打印到控制台的示例
+- 从 kafka 读取 avro 格式的数据并打印到控制台的示例
 
 ```bash
 env {

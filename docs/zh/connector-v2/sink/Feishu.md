@@ -10,7 +10,7 @@
 
 ## 主要特性
 
-- [ ] [精确一次](../../../en/concept/connector-v2-features.md)
+- [ ] [精确一次](../../concept/connector-v2-features.md)
 - [ ] [变更数据捕获](../../concept/connector-v2-features.md)
 
 ## 描述

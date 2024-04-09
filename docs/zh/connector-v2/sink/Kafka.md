@@ -82,10 +82,10 @@ NON 不提供任何保证：如果 Kafka 代理出现问题，消息可能会丢
 
 如果将 name 设置为 key，那么 name 列的哈希值将决定消息发送到哪个分区。
 如果没有设置分区键字段，则将发送空消息键。
-消息key的格式为json，如果设置 name 为key，例如 `{"name":"Jack"}`。
+消息 key 的格式为 json，如果设置 name 为 key，例如 `{"name":"Jack"}`。
 所选的字段必须是上游数据中已存在的字段。
 
-### 分配分区
+### 分区分配
 
 假设总有五个分区，配置中的 assign_partitions 字段设置为：
 assign_partitions = ["shoe", "clothing"]

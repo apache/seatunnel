@@ -42,7 +42,7 @@
 
 ### hosts [array]
 
-`Elasticsearch` 集群http地址，格式为 `host:port` ，允许指定多个主机。例如 `["host1:9200"， "host2:9200"]` 。
+`Elasticsearch` 集群http地址，格式为 `host:port` ，允许指定多个主机。例如 `["host1:9200"， "host2:9200"]`
 
 ### index [string]
 
@@ -54,7 +54,7 @@
 
 ### primary_keys [list]
 
-主键字段用于生成文档`_id`，这是cdc必需的选项。
+主键字段用于生成文档 `_id` ，这是CDC必需的选项。
 
 ### key_delimiter [string]
 
@@ -70,11 +70,11 @@ x-pack 密码
 
 ### max_retry_count [int]
 
-批量请求最大尝试大小
+批次批量请求最大尝试大小
 
 ### max_batch_size [int]
 
-批量批量文档最大大小
+批次批量文档最大大小
 
 ### tls_verify_certificate [boolean]
 
@@ -90,7 +90,7 @@ PEM 或 JKS 密钥存储的路径。运行 SeaTunnel 的操作系统用户必须
 
 ### tls_keystore_password [string]
 
-指定密钥存储的密钥密码
+指定的密钥存储的密钥密码
 
 ### tls_truststore_path [string]
 
@@ -98,7 +98,7 @@ PEM 或 JKS 信任存储的路径。运行 SeaTunnel 的操作系统用户必须
 
 ### tls_truststore_password [string]
 
-指定信任存储的密钥密码
+指定的信任存储的密钥密码
 
 ### common options
 
@@ -106,7 +106,7 @@ Sink插件常用参数，请参考 [Sink常用选项](common-options.md) 了解�
 
 ### schema_save_mode
 
-同步任务开启前，针对目标侧已有的表结构选择不同的处理方案<br/>
+在启动同步任务之前，针对目标侧已有的表结构选择不同的处理方案<br/>
 选项介绍：<br/>
 `RECREATE_SCHEMA` ：表不存在时创建，保存表时删除和重建<br/>
 `CREATE_SCHEMA_WHEN_NOT_EXIST` ：表不存在时创建，保存表时跳过<br/>
@@ -114,7 +114,7 @@ Sink插件常用参数，请参考 [Sink常用选项](common-options.md) 了解�
 
 ### data_save_mode
 
-同步任务开启前，对目标端已有的数据选择不同的处理方案<br/>
+在启动同步任务之前，针对目标侧已存在的数据选择不同的处理方案<br/>
 选项介绍：<br/>
 `DROP_DATA`： 保留数据库结构并删除数据<br/>
 `APPEND_DATA`：保留数据库结构，保留数据<br/>
@@ -133,7 +133,7 @@ sink {
 }
 ```
 
-CDC(更改数据捕获) 事件
+CDC(变更数据捕获) 事件
 
 ```bash
 sink {
@@ -141,7 +141,7 @@ sink {
         hosts = ["localhost:9200"]
         index = "seatunnel-${age}"
         
-        # cdc required options
+        # CDC required options
         primary_keys = ["key1", "key2", ...]
     }
 }
