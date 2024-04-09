@@ -85,7 +85,6 @@ S3基于hdfs-file，所以你可以参考[hadoop s3文档](https://hadoop.apache
 您可以这样配置:
 
 ```yaml
-``` yaml
 
 seatunnel:
     engine:

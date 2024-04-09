@@ -35,7 +35,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 |----------------------------------|---------|----------|--------------------------------------------|-------------------------------------------------------------------------------------------------------------------|
 | host                             | string  | yes      | -                                          |                                                                                                                   |
 | port                             | int     | yes      | -                                          |                                                                                                                   |
-| username                         | string  | yes      | -                                          |                                                                                                                   |
+| user                             | string  | yes      | -                                          |                                                                                                                   |
 | password                         | string  | yes      | -                                          |                                                                                                                   |
 | path                             | string  | yes      | -                                          |                                                                                                                   |
 | tmp_path                         | string  | yes      | /tmp/seatunnel                             | The result file will write to a tmp path first and then use `mv` to submit tmp dir to target dir. Need a FTP dir. |
@@ -70,7 +70,7 @@ The target ftp host is required
 
 The target ftp port is required
 
-### username [string]
+### user [string]
 
 The target ftp username is required
 
@@ -225,7 +225,7 @@ For text file format simple config
 FtpFile {
     host = "xxx.xxx.xxx.xxx"
     port = 21
-    username = "username"
+    user = "username"
     password = "password"
     path = "/data/ftp"
     file_format_type = "text"
@@ -243,7 +243,7 @@ For text file format with `have_partition` and `custom_filename` and `sink_colum
 FtpFile {
     host = "xxx.xxx.xxx.xxx"
     port = 21
-    username = "username"
+    user = "username"
     password = "password"
     path = "/data/ftp/seatunnel/job1"
     tmp_path = "/data/ftp/seatunnel/tmp"

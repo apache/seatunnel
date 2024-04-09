@@ -11,7 +11,7 @@ sidebar_position: 3
 
 ## 部署SeaTunnel Engine集群
 
-部署SeaTunnel Engine集群参考[SeaTunnel Engine集群部署](../../en/seatunnel-engine/deployment.md)
+部署SeaTunnel Engine集群参考[SeaTunnel Engine集群部署](deployment.md)
 
 ## 提交作业
 

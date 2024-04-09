@@ -32,7 +32,7 @@ public class JobEventListener implements EventListener {
     @Override
     public void onEvent(Event event) {
         event.setJobId(String.valueOf(taskLocation.getJobId()));
-        JobEventReportOperation evenCollectOperation = new JobEventReportOperation(event);
-        taskExecutionContext.sendToMaster(evenCollectOperation).join();
+
+        taskExecutionContext.getTaskExecutionService().reportEvent(event);
     }
 }
