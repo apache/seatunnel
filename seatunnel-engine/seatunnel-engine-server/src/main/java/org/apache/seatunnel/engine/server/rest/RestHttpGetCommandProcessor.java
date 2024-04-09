@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
+import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
@@ -44,7 +45,6 @@ import com.hazelcast.cluster.Member;
 import com.hazelcast.internal.ascii.TextCommandService;
 import com.hazelcast.internal.ascii.rest.HttpCommandProcessor;
 import com.hazelcast.internal.ascii.rest.HttpGetCommand;
-import com.hazelcast.internal.json.Json;
 import com.hazelcast.internal.json.JsonArray;
 import com.hazelcast.internal.json.JsonObject;
 import com.hazelcast.internal.json.JsonValue;
@@ -54,10 +54,8 @@ import com.hazelcast.jet.impl.execution.init.CustomClassLoadedObject;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
 
-import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Comparator;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -210,7 +208,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                         .getNodeEngine()
                         .getHazelcastInstance()
                         .getMap(Constant.IMAP_FINISHED_JOB_VERTEX_INFO);
-
+        SeaTunnelServer seaTunnelServer = getSeaTunnelServer(true);
         JsonArray jobs =
                 finishedJob.values().stream()
                         .filter(
@@ -226,7 +224,6 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                         .map(
                                 jobState -> {
                                     Long jobId = jobState.getJobId();
-                                    SeaTunnelServer seaTunnelServer = getSeaTunnelServer(true);
                                     String jobMetrics;
                                     if (seaTunnelServer == null) {
                                         jobMetrics =
@@ -243,15 +240,8 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                                                         .getJobMetrics(jobId)
                                                         .toJsonString();
                                     }
-
-                                    JobDAGInfo jobDAGInfo = finishedJobDAGInfo.get(jobId);
-
-                                    return convertToJson(
-                                            jobState,
-                                            jobMetrics,
-                                            Json.parse(JsonUtils.toJsonString(jobDAGInfo))
-                                                    .asObject(),
-                                            jobId);
+                                    return getJobInfoJson(
+                                            jobState, jobMetrics, finishedJobDAGInfo.get(jobId));
                                 })
                         .collect(JsonArray::new, JsonArray::add, JsonArray::add);
 
@@ -301,7 +291,10 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                                     .get(Long.valueOf(jobId));
             this.prepareResponse(
                     command,
-                    convertToJson(finishedJobState, finishedJobMetrics, finishedJobDAGInfo));
+                    getJobInfoJson(
+                            finishedJobState,
+                            finishedJobMetrics.toJsonString(),
+                            finishedJobDAGInfo));
         } else {
             this.prepareResponse(command, new JsonObject().add(RestConstant.JOB_ID, jobId));
         }
@@ -353,7 +346,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                 this.textCommandService.getNode().getNodeExtension().createExtensionServices();
         SeaTunnelServer seaTunnelServer =
                 (SeaTunnelServer) extensionServices.get(Constant.SEATUNNEL_SERVICE_NAME);
-        if (!seaTunnelServer.isMasterNode() && shouldBeMaster) {
+        if (shouldBeMaster && !seaTunnelServer.isMasterNode()) {
             return null;
         }
         return seaTunnelServer;
@@ -374,7 +367,11 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                                         .getSerializationService()
                                         .toObject(jobInfo.getJobImmutableInformation()));
 
-        ClassLoaderService classLoaderService = getSeaTunnelServer(false).getClassLoaderService();
+        SeaTunnelServer seaTunnelServer = getSeaTunnelServer(true);
+        ClassLoaderService classLoaderService =
+                seaTunnelServer == null
+                        ? getSeaTunnelServer(false).getClassLoaderService()
+                        : seaTunnelServer.getClassLoaderService();
         ClassLoader classLoader =
                 classLoaderService.getClassLoader(
                         jobId, jobImmutableInformation.getPluginJarsUrls());
@@ -385,7 +382,6 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                         jobImmutableInformation.getLogicalDag());
         classLoaderService.releaseClassLoader(jobId, jobImmutableInformation.getPluginJarsUrls());
 
-        SeaTunnelServer seaTunnelServer = getSeaTunnelServer(true);
         String jobMetrics;
         JobStatus jobStatus;
         if (seaTunnelServer == null) {
@@ -416,8 +412,9 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                         JsonUtil.toJsonObject(logicalDag.getJobConfig().getEnvOptions()))
                 .add(
                         RestConstant.CREATE_TIME,
-                        new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
-                                .format(new Date(jobImmutableInformation.getCreateTime())))
+                        DateTimeUtils.toString(
+                                jobImmutableInformation.getCreateTime(),
+                                DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS))
                 .add(RestConstant.JOB_DAG, logicalDag.getLogicalDagAsJson())
                 .add(
                         RestConstant.PLUGIN_JARS_URLS,
@@ -439,53 +436,24 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         return jobInfoJson;
     }
 
-    private JsonObject convertToJson(
-            JobState finishedJobState,
-            JobMetrics finishedJobMetrics,
-            JobDAGInfo finishedJobDAGInfo) {
-        JsonObject jobInfoJson = new JsonObject();
-        jobInfoJson
-                .add(RestConstant.JOB_ID, String.valueOf(finishedJobState.getJobId()))
-                .add(RestConstant.JOB_NAME, finishedJobState.getJobName())
-                .add(RestConstant.JOB_STATUS, finishedJobState.getJobStatus().toString())
-                .add(RestConstant.ERROR_MSG, finishedJobState.getErrorMessage())
-                .add(
-                        RestConstant.CREATE_TIME,
-                        new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
-                                .format(new Date(finishedJobState.getSubmitTime())))
-                .add(
-                        RestConstant.FINISH_TIME,
-                        new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
-                                .format(new Date(finishedJobState.getFinishTime())))
-                .add(
-                        RestConstant.JOB_DAG,
-                        Json.parse(JsonUtils.toJsonString(finishedJobDAGInfo)).asObject())
-                .add(RestConstant.PLUGIN_JARS_URLS, new JsonArray())
-                .add(
-                        RestConstant.METRICS,
-                        JsonUtil.toJsonObject(getJobMetrics(finishedJobMetrics.toJsonString())));
-        return jobInfoJson;
-    }
-
-    private JsonObject convertToJson(
-            JobState jobState, String jobMetrics, JsonObject jobDAGInfo, long jobId) {
-        JsonObject jobInfoJson = new JsonObject();
-        jobInfoJson
-                .add(RestConstant.JOB_ID, String.valueOf(jobId))
+    private JsonObject getJobInfoJson(JobState jobState, String jobMetrics, JobDAGInfo jobDAGInfo) {
+        return new JsonObject()
+                .add(RestConstant.JOB_ID, String.valueOf(jobState.getJobId()))
                 .add(RestConstant.JOB_NAME, jobState.getJobName())
                 .add(RestConstant.JOB_STATUS, jobState.getJobStatus().toString())
                 .add(RestConstant.ERROR_MSG, jobState.getErrorMessage())
                 .add(
                         RestConstant.CREATE_TIME,
-                        new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
-                                .format(new Date(jobState.getSubmitTime())))
+                        DateTimeUtils.toString(
+                                jobState.getSubmitTime(),
+                                DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS))
                 .add(
                         RestConstant.FINISH_TIME,
-                        new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
-                                .format(new Date(jobState.getFinishTime())))
-                .add(RestConstant.JOB_DAG, jobDAGInfo)
+                        DateTimeUtils.toString(
+                                jobState.getFinishTime(),
+                                DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS))
+                .add(RestConstant.JOB_DAG, JsonUtils.toJsonString(jobDAGInfo))
+                .add(RestConstant.PLUGIN_JARS_URLS, new JsonArray())
                 .add(RestConstant.METRICS, JsonUtil.toJsonObject(getJobMetrics(jobMetrics)));
-
-        return jobInfoJson;
     }
 }
