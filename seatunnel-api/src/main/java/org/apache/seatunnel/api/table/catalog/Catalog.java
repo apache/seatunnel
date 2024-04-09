@@ -262,6 +262,19 @@ public interface Catalog extends AutoCloseable {
 
     default void executeSql(TablePath tablePath, String sql) {}
 
+    default PreviewResult previewAction(
+            ActionType actionType, TablePath tablePath, Optional<CatalogTable> catalogTable) {
+        throw new UnsupportedOperationException("Preview action is not supported");
+    }
+
+    enum ActionType {
+        CREATE_TABLE,
+        CREATE_DATABASE,
+        DROP_TABLE,
+        DROP_DATABASE,
+        TRUNCATE_TABLE
+    }
+
     // todo: Support for update table metadata
 
 }

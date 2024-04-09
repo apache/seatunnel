@@ -73,6 +73,7 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
                             "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
+
         this.httpParameter.buildWithConfig(pluginConfig);
         buildSchemaWithConfig(pluginConfig);
         buildPagingWithConfig(pluginConfig);
@@ -94,9 +95,6 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
         if (pluginConfig.hasPath(HttpConfig.PAGEING.key())) {
             pageInfo = new PageInfo();
             Config pageConfig = pluginConfig.getConfig(HttpConfig.PAGEING.key());
-            if (pageConfig.hasPath(HttpConfig.TOTAL_PAGE_SIZE.key())) {
-                pageInfo.setTotalPageSize(pageConfig.getLong(HttpConfig.TOTAL_PAGE_SIZE.key()));
-            }
             if (pageConfig.hasPath(HttpConfig.TOTAL_PAGE_SIZE.key())) {
                 pageInfo.setTotalPageSize(pageConfig.getLong(HttpConfig.TOTAL_PAGE_SIZE.key()));
             } else {

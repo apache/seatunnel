@@ -85,7 +85,7 @@ public class ClientJobExecutionEnvironment extends AbstractJobEnvironment {
 
     @Override
     protected LogicalDag getLogicalDag() {
-        ImmutablePair<List<Action>, Set<URL>> immutablePair = getJobConfigParser().parse();
+        ImmutablePair<List<Action>, Set<URL>> immutablePair = getJobConfigParser().parse(null);
         actions.addAll(immutablePair.getLeft());
         // Enable upload connector jar package to engine server, automatically upload connector Jar
         // packages and dependent third-party Jar packages to the server before job execution.
@@ -153,12 +153,13 @@ public class ClientJobExecutionEnvironment extends AbstractJobEnvironment {
     }
 
     public ClientJobProxy execute() throws ExecutionException, InterruptedException {
+        LogicalDag logicalDag = getLogicalDag();
         JobImmutableInformation jobImmutableInformation =
                 new JobImmutableInformation(
                         Long.parseLong(jobConfig.getJobContext().getJobId()),
                         jobConfig.getName(),
                         isStartWithSavePoint,
-                        seaTunnelHazelcastClient.getSerializationService().toData(getLogicalDag()),
+                        seaTunnelHazelcastClient.getSerializationService().toData(logicalDag),
                         jobConfig,
                         new ArrayList<>(jarUrls),
                         new ArrayList<>(connectorJarIdentifiers));

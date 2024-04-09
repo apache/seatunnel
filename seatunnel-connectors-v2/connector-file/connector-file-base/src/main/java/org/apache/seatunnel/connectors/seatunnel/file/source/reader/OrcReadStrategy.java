@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -27,7 +28,9 @@ import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
@@ -53,17 +56,24 @@ import org.apache.orc.storage.ql.exec.vector.VectorizedRowBatch;
 
 import lombok.extern.slf4j.Slf4j;
 
+import javax.annotation.Nullable;
+
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static org.apache.seatunnel.api.table.type.TypeUtil.canConvert;
 import static org.apache.seatunnel.connectors.seatunnel.file.sink.writer.OrcWriteStrategy.buildFieldWithRowType;
 
 @Slf4j
@@ -116,7 +126,12 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                         if (cols[j] == null) {
                             fields[j] = null;
                         } else {
-                            fields[j] = readColumn(cols[j], children.get(j), num);
+                            fields[j] =
+                                    readColumn(
+                                            cols[j],
+                                            children.get(j),
+                                            seaTunnelRowType.getFieldType(j),
+                                            num);
                         }
                     }
                     SeaTunnelRow seaTunnelRow = new SeaTunnelRow(fields);
@@ -130,6 +145,12 @@ public class OrcReadStrategy extends AbstractReadStrategy {
 
     @Override
     public SeaTunnelRowType getSeaTunnelRowTypeInfo(String path) throws FileConnectorException {
+        return getSeaTunnelRowTypeInfoWithUserConfigRowType(path, null);
+    }
+
+    @Override
+    public SeaTunnelRowType getSeaTunnelRowTypeInfoWithUserConfigRowType(
+            String path, SeaTunnelRowType configRowType) throws FileConnectorException {
         try (Reader reader =
                 hadoopFileSystemProxy.doWithHadoopAuth(
                         ((configuration, userGroupInformation) -> {
@@ -154,7 +175,12 @@ public class OrcReadStrategy extends AbstractReadStrategy {
                                     "Column [%s] does not exists in table schema [%s]",
                                     readColumns.get(i), String.join(",", fieldNames)));
                 }
-                types[i] = orcDataType2SeaTunnelDataType(schema.getChildren().get(index));
+                types[i] =
+                        orcDataType2SeaTunnelDataType(
+                                schema.getChildren().get(index),
+                                configRowType != null && configRowType.getTotalFields() > i
+                                        ? configRowType.getFieldType(i)
+                                        : null);
             }
             seaTunnelRowType = new SeaTunnelRowType(fields, types);
             seaTunnelRowTypeWithPartition = mergePartitionTypes(path, seaTunnelRowType);
@@ -205,39 +231,57 @@ public class OrcReadStrategy extends AbstractReadStrategy {
         }
     }
 
-    private SeaTunnelDataType<?> orcDataType2SeaTunnelDataType(TypeDescription typeDescription) {
+    private SeaTunnelDataType<?> getFinalType(
+            SeaTunnelDataType<?> fileType, SeaTunnelDataType<?> configType) {
+        if (configType == null) {
+            return fileType;
+        }
+        return canConvert(fileType, configType) ? configType : fileType;
+    }
+
+    private SeaTunnelDataType<?> orcDataType2SeaTunnelDataType(
+            TypeDescription typeDescription, SeaTunnelDataType<?> configType) {
         switch (typeDescription.getCategory()) {
             case BOOLEAN:
-                return BasicType.BOOLEAN_TYPE;
+                return getFinalType(BasicType.BOOLEAN_TYPE, configType);
             case INT:
-                return BasicType.INT_TYPE;
+                return getFinalType(BasicType.INT_TYPE, configType);
             case BYTE:
-                return BasicType.BYTE_TYPE;
+                return getFinalType(BasicType.BYTE_TYPE, configType);
             case SHORT:
-                return BasicType.SHORT_TYPE;
+                return getFinalType(BasicType.SHORT_TYPE, configType);
             case LONG:
-                return BasicType.LONG_TYPE;
+                return getFinalType(BasicType.LONG_TYPE, configType);
             case FLOAT:
-                return BasicType.FLOAT_TYPE;
+                return getFinalType(BasicType.FLOAT_TYPE, configType);
             case DOUBLE:
-                return BasicType.DOUBLE_TYPE;
+                return getFinalType(BasicType.DOUBLE_TYPE, configType);
             case BINARY:
-                return PrimitiveByteArrayType.INSTANCE;
+                return getFinalType(PrimitiveByteArrayType.INSTANCE, configType);
             case STRING:
             case VARCHAR:
             case CHAR:
-                return BasicType.STRING_TYPE;
+                return getFinalType(BasicType.STRING_TYPE, configType);
             case DATE:
-                return LocalTimeType.LOCAL_DATE_TYPE;
+                return getFinalType(LocalTimeType.LOCAL_DATE_TYPE, configType);
             case TIMESTAMP:
-                return LocalTimeType.LOCAL_DATE_TIME_TYPE;
+                // Support only return time when the type is timestamps
+                if (configType != null && configType.getSqlType().equals(SqlType.TIME)) {
+                    return LocalTimeType.LOCAL_TIME_TYPE;
+                }
+                return getFinalType(LocalTimeType.LOCAL_DATE_TIME_TYPE, configType);
             case DECIMAL:
                 int precision = typeDescription.getPrecision();
                 int scale = typeDescription.getScale();
-                return new DecimalType(precision, scale);
+                return getFinalType(new DecimalType(precision, scale), configType);
             case LIST:
                 TypeDescription listType = typeDescription.getChildren().get(0);
-                SeaTunnelDataType<?> seaTunnelDataType = orcDataType2SeaTunnelDataType(listType);
+                SeaTunnelDataType<?> seaTunnelDataType =
+                        orcDataType2SeaTunnelDataType(listType, null);
+                if (configType instanceof ArrayType) {
+                    SeaTunnelDataType<?> elementType = ((ArrayType) configType).getElementType();
+                    seaTunnelDataType = orcDataType2SeaTunnelDataType(listType, elementType);
+                }
                 switch (seaTunnelDataType.getSqlType()) {
                     case STRING:
                         return ArrayType.STRING_ARRAY_TYPE;
@@ -266,16 +310,35 @@ public class OrcReadStrategy extends AbstractReadStrategy {
             case MAP:
                 TypeDescription keyType = typeDescription.getChildren().get(0);
                 TypeDescription valueType = typeDescription.getChildren().get(1);
-                return new MapType<>(
-                        orcDataType2SeaTunnelDataType(keyType),
-                        orcDataType2SeaTunnelDataType(valueType));
+                if (configType instanceof MapType) {
+                    SeaTunnelDataType<?> keyDataType = ((MapType<?, ?>) configType).getKeyType();
+                    SeaTunnelDataType<?> valueDataType =
+                            ((MapType<?, ?>) configType).getValueType();
+                    keyDataType = orcDataType2SeaTunnelDataType(keyType, keyDataType);
+                    valueDataType = orcDataType2SeaTunnelDataType(valueType, valueDataType);
+                    return new MapType<>(keyDataType, valueDataType);
+                } else {
+                    return new MapType<>(
+                            orcDataType2SeaTunnelDataType(keyType, null),
+                            orcDataType2SeaTunnelDataType(valueType, null));
+                }
             case STRUCT:
                 List<TypeDescription> children = typeDescription.getChildren();
                 String[] fieldNames = typeDescription.getFieldNames().toArray(TYPE_ARRAY_STRING);
-                SeaTunnelDataType<?>[] fieldTypes =
-                        children.stream()
-                                .map(this::orcDataType2SeaTunnelDataType)
-                                .toArray(SeaTunnelDataType<?>[]::new);
+                SeaTunnelDataType<?>[] fieldTypes = new SeaTunnelDataType[children.size()];
+                if (configType instanceof SeaTunnelRowType) {
+                    for (int i = 0; i < children.size(); i++) {
+                        fieldTypes[i] =
+                                orcDataType2SeaTunnelDataType(
+                                        children.get(i),
+                                        ((SeaTunnelRowType) configType).getFieldType(i));
+                    }
+                } else {
+                    fieldTypes =
+                            children.stream()
+                                    .map(f -> orcDataType2SeaTunnelDataType(f, null))
+                                    .toArray(SeaTunnelDataType<?>[]::new);
+                }
                 return new SeaTunnelRowType(fieldNames, fieldTypes);
             default:
                 // do nothing
@@ -289,30 +352,37 @@ public class OrcReadStrategy extends AbstractReadStrategy {
         }
     }
 
-    private Object readColumn(ColumnVector colVec, TypeDescription colType, int rowNum) {
+    private Object readColumn(
+            ColumnVector colVec,
+            TypeDescription colType,
+            @Nullable SeaTunnelDataType<?> dataType,
+            int rowNum) {
         Object columnObj = null;
         if (!colVec.isNull[rowNum]) {
             switch (colVec.type) {
                 case LONG:
-                    columnObj = readLongVal(colVec, colType, rowNum);
+                    columnObj = readLongVal(colVec, colType, dataType, rowNum);
                     break;
                 case DOUBLE:
                     columnObj = ((DoubleColumnVector) colVec).vector[rowNum];
                     if (colType.getCategory() == TypeDescription.Category.FLOAT) {
                         columnObj = ((Double) columnObj).floatValue();
                     }
+                    if (dataType != null && dataType.getSqlType().equals(SqlType.STRING)) {
+                        columnObj = columnObj.toString();
+                    }
                     break;
                 case BYTES:
-                    columnObj = readBytesVal(colVec, colType, rowNum);
+                    columnObj = readBytesVal(colVec, colType, dataType, rowNum);
                     break;
                 case DECIMAL:
-                    columnObj = readDecimalVal(colVec, rowNum);
+                    columnObj = readDecimalVal(colVec, dataType, rowNum);
                     break;
                 case TIMESTAMP:
-                    columnObj = readTimestampVal(colVec, colType, rowNum);
+                    columnObj = readTimestampVal(colVec, colType, dataType, rowNum);
                     break;
                 case STRUCT:
-                    columnObj = readStructVal(colVec, colType, rowNum);
+                    columnObj = readStructVal(colVec, colType, dataType, rowNum);
                     break;
                 case LIST:
                     columnObj = readListVal(colVec, colType, rowNum);
@@ -332,7 +402,11 @@ public class OrcReadStrategy extends AbstractReadStrategy {
         return columnObj;
     }
 
-    private Object readLongVal(ColumnVector colVec, TypeDescription colType, int rowNum) {
+    private Object readLongVal(
+            ColumnVector colVec,
+            TypeDescription colType,
+            SeaTunnelDataType<?> dataType,
+            int rowNum) {
         Object colObj = null;
         if (!colVec.isNull[rowNum]) {
             LongColumnVector longVec = (LongColumnVector) colVec;
@@ -349,32 +423,84 @@ public class OrcReadStrategy extends AbstractReadStrategy {
             } else if (colType.getCategory() == TypeDescription.Category.SHORT) {
                 colObj = (short) longVal;
             }
+            if (dataType != null && dataType.getSqlType().equals(SqlType.STRING)) {
+                colObj = colObj.toString();
+            }
         }
         return colObj;
     }
 
-    private Object readBytesVal(ColumnVector colVec, TypeDescription typeDescription, int rowNum) {
+    private Object readBytesVal(
+            ColumnVector colVec,
+            TypeDescription typeDescription,
+            SeaTunnelDataType<?> dataType,
+            int rowNum) {
+        Charset charset = StandardCharsets.UTF_8;
+        if (pluginConfig != null) {
+            charset =
+                    ReadonlyConfig.fromConfig(pluginConfig)
+                            .getOptional(BaseSourceConfigOptions.ENCODING)
+                            .map(Charset::forName)
+                            .orElse(StandardCharsets.UTF_8);
+        }
+
         Object bytesObj = null;
         if (!colVec.isNull[rowNum]) {
             BytesColumnVector bytesVector = (BytesColumnVector) colVec;
-            bytesObj = bytesVector.toString(rowNum);
-            if (typeDescription.getCategory() == TypeDescription.Category.BINARY) {
-                bytesObj = ((String) bytesObj).getBytes();
+            bytesObj = this.bytesVectorToString(bytesVector, rowNum, charset);
+            if (typeDescription.getCategory() == TypeDescription.Category.BINARY
+                    && bytesObj != null) {
+                bytesObj = ((String) bytesObj).getBytes(charset);
+            }
+            if (dataType != null
+                    && dataType.getSqlType().equals(SqlType.STRING)
+                    && bytesObj != null) {
+                bytesObj = bytesObj.toString();
             }
         }
         return bytesObj;
     }
 
-    private Object readDecimalVal(ColumnVector colVec, int rowNum) {
+    /**
+     * copied from {@link BytesColumnVector#toString(int)}
+     *
+     * @param bytesVector the BytesColumnVector
+     * @param row rowNum
+     * @param charset read charset
+     */
+    private Object bytesVectorToString(BytesColumnVector bytesVector, int row, Charset charset) {
+        if (bytesVector.isRepeating) {
+            row = 0;
+        }
+
+        return !bytesVector.noNulls && bytesVector.isNull[row]
+                ? null
+                : new String(
+                        bytesVector.vector[row],
+                        bytesVector.start[row],
+                        bytesVector.length[row],
+                        charset);
+    }
+
+    private Object readDecimalVal(ColumnVector colVec, SeaTunnelDataType<?> dataType, int rowNum) {
         Object decimalObj = null;
         if (!colVec.isNull[rowNum]) {
             DecimalColumnVector decimalVec = (DecimalColumnVector) colVec;
             decimalObj = decimalVec.vector[rowNum].getHiveDecimal().bigDecimalValue();
+            if (dataType != null
+                    && dataType.getSqlType().equals(SqlType.STRING)
+                    && decimalObj != null) {
+                decimalObj = decimalObj.toString();
+            }
         }
         return decimalObj;
     }
 
-    private Object readTimestampVal(ColumnVector colVec, TypeDescription colType, int rowNum) {
+    private Object readTimestampVal(
+            ColumnVector colVec,
+            TypeDescription colType,
+            SeaTunnelDataType<?> dataType,
+            int rowNum) {
         Object timestampVal = null;
         if (!colVec.isNull[rowNum]) {
             TimestampColumnVector timestampVec = (TimestampColumnVector) colVec;
@@ -385,12 +511,28 @@ public class OrcReadStrategy extends AbstractReadStrategy {
             timestampVal = timestamp.toLocalDateTime();
             if (colType.getCategory() == TypeDescription.Category.DATE) {
                 timestampVal = LocalDate.ofEpochDay(timestamp.getTime());
+            } else if (dataType != null && dataType.getSqlType() == SqlType.TIME) {
+                timestampVal =
+                        LocalTime.of(
+                                ((LocalDateTime) timestampVal).getHour(),
+                                ((LocalDateTime) timestampVal).getMinute(),
+                                ((LocalDateTime) timestampVal).getSecond(),
+                                ((LocalDateTime) timestampVal).getNano());
+            }
+            if (dataType != null
+                    && dataType.getSqlType().equals(SqlType.STRING)
+                    && timestampVal != null) {
+                timestampVal = timestampVal.toString();
             }
         }
         return timestampVal;
     }
 
-    private Object readStructVal(ColumnVector colVec, TypeDescription colType, int rowNum) {
+    private Object readStructVal(
+            ColumnVector colVec,
+            TypeDescription colType,
+            SeaTunnelDataType<?> dataType,
+            int rowNum) {
         Object structObj = null;
         if (!colVec.isNull[rowNum]) {
             StructColumnVector structVector = (StructColumnVector) colVec;
@@ -398,8 +540,12 @@ public class OrcReadStrategy extends AbstractReadStrategy {
             Object[] fieldValues = new Object[fieldVec.length];
             List<TypeDescription> fieldTypes = colType.getChildren();
             for (int i = 0; i < fieldVec.length; i++) {
-                Object fieldObj = readColumn(fieldVec[i], fieldTypes.get(i), rowNum);
-                fieldValues[i] = fieldObj;
+                if (dataType instanceof SeaTunnelRowType) {
+                    SeaTunnelDataType<?> fieldType = ((SeaTunnelRowType) dataType).getFieldType(i);
+                    fieldValues[i] = readColumn(fieldVec[i], fieldTypes.get(i), fieldType, rowNum);
+                } else {
+                    fieldValues[i] = readColumn(fieldVec[i], fieldTypes.get(i), null, rowNum);
+                }
             }
             structObj = new SeaTunnelRow(fieldValues);
         }
@@ -486,7 +632,7 @@ public class OrcReadStrategy extends AbstractReadStrategy {
             TypeDescription fieldType = unionFieldTypes.get(tagVal);
             if (tagVal < unionVector.fields.length) {
                 ColumnVector fieldVector = unionVector.fields[tagVal];
-                Object unionValue = readColumn(fieldVector, fieldType, rowNum);
+                Object unionValue = readColumn(fieldVector, fieldType, null, rowNum);
                 columnValuePair = Pair.of(fieldType, unionValue);
             } else {
                 throw new FileConnectorException(

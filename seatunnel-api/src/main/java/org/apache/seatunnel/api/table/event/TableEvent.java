@@ -17,20 +17,34 @@
 
 package org.apache.seatunnel.api.table.event;
 
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import lombok.Setter;
 import lombok.ToString;
 
 @Getter
 @ToString
 @RequiredArgsConstructor
 public abstract class TableEvent implements SchemaChangeEvent {
-    protected final TablePath tablePath;
+    private long createdTime = System.currentTimeMillis();
+    protected final TableIdentifier tableIdentifier;
+    @Getter @Setter private String jobId;
+    @Getter @Setter private String statement;
 
     @Override
-    public TablePath tablePath() {
-        return tablePath;
+    public TableIdentifier tableIdentifier() {
+        return tableIdentifier;
+    }
+
+    public TablePath getTablePath() {
+        return tablePath();
+    }
+
+    @Override
+    public long getCreatedTime() {
+        return createdTime;
     }
 }

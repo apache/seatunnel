@@ -52,6 +52,11 @@ public class LocalFileIT extends TestSuiteBase {
                         "/seatunnel/read/json/name=tyrantlucifer/hobby=coding/e2e.json",
                         container);
 
+                ContainerUtil.copyFileIntoContainers(
+                        "/json/e2e_gbk.json",
+                        "/seatunnel/read/encoding/json/e2e_gbk.json",
+                        container);
+
                 Path jsonLzo = convertToLzoFile(ContainerUtil.getResourcesFile("/json/e2e.json"));
                 ContainerUtil.copyFileIntoContainers(
                         jsonLzo, "/seatunnel/read/lzo_json/e2e.json", container);
@@ -59,6 +64,11 @@ public class LocalFileIT extends TestSuiteBase {
                 ContainerUtil.copyFileIntoContainers(
                         "/text/e2e.txt",
                         "/seatunnel/read/text/name=tyrantlucifer/hobby=coding/e2e.txt",
+                        container);
+
+                ContainerUtil.copyFileIntoContainers(
+                        "/text/e2e_gbk.txt",
+                        "/seatunnel/read/encoding/text/e2e_gbk.txt",
                         container);
 
                 ContainerUtil.copyFileIntoContainers(
@@ -87,6 +97,9 @@ public class LocalFileIT extends TestSuiteBase {
                         "/orc/e2e.orc",
                         "/seatunnel/read/orc/name=tyrantlucifer/hobby=coding/e2e.orc",
                         container);
+
+                ContainerUtil.copyFileIntoContainers(
+                        "/orc/orc_for_cast.orc", "/seatunnel/read/orc_cast/e2e.orc", container);
 
                 ContainerUtil.copyFileIntoContainers(
                         "/parquet/e2e.parquet",
@@ -119,17 +132,29 @@ public class LocalFileIT extends TestSuiteBase {
         helper.execute("/text/local_file_text_to_assert.conf");
         // test read local text file with projection
         helper.execute("/text/local_file_text_projection_to_assert.conf");
+        // test read local csv file with assigning encoding
+        helper.execute("/text/fake_to_local_file_with_encoding.conf");
+        // test read local csv file with assigning encoding
+        helper.execute("/text/local_file_text_to_console_with_encoding.conf");
+
         // test write local json file
         helper.execute("/json/fake_to_local_file_json.conf");
         // test read local json file
         helper.execute("/json/local_file_json_to_assert.conf");
         helper.execute("/json/local_file_json_lzo_to_console.conf");
+        // test read local json file with assigning encoding
+        helper.execute("/json/fake_to_local_file_json_with_encoding.conf");
+        // test write local json file with assigning encoding
+        helper.execute("/json/local_file_json_to_console_with_encoding.conf");
+
         // test write local orc file
         helper.execute("/orc/fake_to_local_file_orc.conf");
         // test read local orc file
         helper.execute("/orc/local_file_orc_to_assert.conf");
         // test read local orc file with projection
         helper.execute("/orc/local_file_orc_projection_to_assert.conf");
+        // test read local orc file with projection and type cast
+        helper.execute("/orc/local_file_orc_to_assert_with_time_and_cast.conf");
         // test write local parquet file
         helper.execute("/parquet/fake_to_local_file_parquet.conf");
         // test read local parquet file

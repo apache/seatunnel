@@ -26,7 +26,9 @@ import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
+import org.apache.paimon.schema.TableSchema;
 import org.apache.paimon.types.DataField;
+import org.apache.paimon.types.DataType;
 import org.apache.paimon.types.DataTypes;
 import org.apache.paimon.types.RowType;
 
@@ -34,11 +36,54 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+
 public class RowTypeConverterTest {
 
     private SeaTunnelRowType seaTunnelRowType;
 
     private RowType rowType;
+
+    private TableSchema tableSchema;
+
+    public static final RowType DEFAULT_ROW_TYPE =
+            RowType.of(
+                    new DataType[] {
+                        DataTypes.TINYINT(),
+                        DataTypes.SMALLINT(),
+                        DataTypes.INT(),
+                        DataTypes.BIGINT(),
+                        DataTypes.FLOAT(),
+                        DataTypes.DOUBLE(),
+                        DataTypes.DECIMAL(10, 10),
+                        DataTypes.STRING(),
+                        DataTypes.BYTES(),
+                        DataTypes.BOOLEAN(),
+                        DataTypes.DATE(),
+                        DataTypes.TIMESTAMP(),
+                        DataTypes.MAP(DataTypes.STRING(), DataTypes.STRING()),
+                        DataTypes.ARRAY(DataTypes.STRING())
+                    },
+                    new String[] {
+                        "c_tinyint",
+                        "c_smallint",
+                        "c_int",
+                        "c_bigint",
+                        "c_float",
+                        "c_double",
+                        "c_decimal",
+                        "c_string",
+                        "c_bytes",
+                        "c_boolean",
+                        "c_date",
+                        "c_timestamp",
+                        "c_map",
+                        "c_array"
+                    });
+
+    public static final List<String> KEY_NAME_LIST = Arrays.asList("c_tinyint");
 
     @BeforeEach
     public void before() {
@@ -93,6 +138,16 @@ public class RowTypeConverterTest {
                         new DataField(
                                 12, "c_map", DataTypes.MAP(DataTypes.STRING(), DataTypes.STRING())),
                         new DataField(13, "c_array", DataTypes.ARRAY(DataTypes.STRING())));
+
+        tableSchema =
+                new TableSchema(
+                        0,
+                        TableSchema.newFields(DEFAULT_ROW_TYPE),
+                        DEFAULT_ROW_TYPE.getFieldCount(),
+                        Collections.EMPTY_LIST,
+                        KEY_NAME_LIST,
+                        Collections.EMPTY_MAP,
+                        "");
     }
 
     @Test
@@ -103,7 +158,7 @@ public class RowTypeConverterTest {
 
     @Test
     public void seaTunnelToPaimon() {
-        RowType convert = RowTypeConverter.convert(seaTunnelRowType);
+        RowType convert = RowTypeConverter.reconvert(seaTunnelRowType, tableSchema);
         Assertions.assertEquals(convert, rowType);
     }
 }

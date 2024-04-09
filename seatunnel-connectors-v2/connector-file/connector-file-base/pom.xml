@@ -37,6 +37,8 @@
         <poi.version>4.1.2</poi.version>
         <poi-ooxml.version>4.1.2</poi-ooxml.version>
         <hadoop-minikdc.version>3.1.4</hadoop-minikdc.version>
+        <dom4j.version>2.1.4</dom4j.version>
+        <jaxen.version>2.0.0</jaxen.version>
     </properties>
 
     <dependencyManagement>
@@ -143,6 +145,18 @@
             <artifactId>hadoop-minikdc</artifactId>
             <version>${hadoop-minikdc.version}</version>
             <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.dom4j</groupId>
+            <artifactId>dom4j</artifactId>
+            <version>${dom4j.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>jaxen</groupId>
+            <artifactId>jaxen</artifactId>
+            <version>${jaxen.version}</version>
         </dependency>
     </dependencies>
 

@@ -21,6 +21,7 @@
   - [x] csv
   - [x] json
   - [x] excel
+  - [x] xml
 
 ## Description
 
@@ -54,8 +55,11 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | skip_header_row_number    | long    | no       | 0                   |
 | schema                    | config  | no       | -                   |
 | sheet_name                | string  | no       | -                   |
+| xml_row_tag               | string  | no       | -                   |
+| xml_use_attr_format       | boolean | no       | -                   |
 | file_filter_pattern       | string  | no       | -                   |
 | compress_codec            | string  | no       | none                |
+| encoding                  | string  | no       | UTF-8               |
 | common-options            |         | no       | -                   |
 
 ### host [string]
@@ -82,7 +86,7 @@ The source file path.
 
 File type, supported as the following file types:
 
-`text` `csv` `parquet` `orc` `json` `excel`
+`text` `csv` `parquet` `orc` `json` `excel` `xml`
 
 If you assign file type to `json` , you should also assign schema option to tell connector how to parse data to the row you want.
 
@@ -221,7 +225,7 @@ then SeaTunnel will skip the first 2 lines from source files
 
 ### schema [config]
 
-Only need to be configured when the file_format_type are text, json, excel or csv ( Or other format we can't read the schema from metadata).
+Only need to be configured when the file_format_type are text, json, excel, xml or csv ( Or other format we can't read the schema from metadata).
 
 The schema information of upstream data.
 
@@ -233,6 +237,18 @@ The read column list of the data source, user can use it to implement field proj
 
 Reader the sheet of the workbook,Only used when file_format_type is excel.
 
+### xml_row_tag [string]
+
+Only need to be configured when file_format is xml.
+
+Specifies the tag name of the data rows within the XML file.
+
+### xml_use_attr_format [boolean]
+
+Only need to be configured when file_format is xml.
+
+Specifies Whether to process data using the tag attribute format.
+
 ### compress_codec [string]
 
 The compress codec of files and the details that supported as the following shown:
@@ -242,6 +258,11 @@ The compress codec of files and the details that supported as the following show
 - csv: `lzo` `none`
 - orc/parquet:  
   automatically recognizes the compression type, no additional settings required.
+
+### encoding [string]
+
+Only used when file_format_type is json,text,csv,xml.
+The encoding of the file to read. This param will be parsed by `Charset.forName(encoding)`.
 
 ### common options
 

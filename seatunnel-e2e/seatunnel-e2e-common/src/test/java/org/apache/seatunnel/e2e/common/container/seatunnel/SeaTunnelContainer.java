@@ -47,6 +47,8 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -56,15 +58,18 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
+import static org.apache.seatunnel.e2e.common.util.ContainerUtil.adaptPathForWin;
+import static org.apache.seatunnel.e2e.common.util.ContainerUtil.copyAllConnectorJarToContainer;
 
 @NoArgsConstructor
 @Slf4j
 @AutoService(TestContainer.class)
 public class SeaTunnelContainer extends AbstractTestContainer {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-    private static final String JDK_DOCKER_IMAGE = "openjdk:8";
+    protected static final String JDK_DOCKER_IMAGE = "openjdk:8";
     private static final String CLIENT_SHELL = "seatunnel.sh";
-    private static final String SERVER_SHELL = "seatunnel-cluster.sh";
+    protected static final String SERVER_SHELL = "seatunnel-cluster.sh";
+    protected static final String CONNECTOR_CHECK_SHELL = "seatunnel-connector.sh";
     protected GenericContainer<?> server;
     private final AtomicInteger runningCount = new AtomicInteger();
 
@@ -97,9 +102,10 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                         PROJECT_ROOT_PATH
                                 + "/seatunnel-shade/seatunnel-hadoop3-3.1.4-uber/target/seatunnel-hadoop3-3.1.4-uber.jar"),
                 Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop3-3.1.4-uber.jar").toString());
-        server.start();
         // execute extra commands
         executeExtraCommands(server);
+
+        server.start();
     }
 
     @Override
@@ -166,6 +172,23 @@ public class SeaTunnelContainer extends AbstractTestContainer {
     }
 
     @Override
+    public Container.ExecResult executeConnectorCheck(String[] args)
+            throws IOException, InterruptedException {
+        // copy all connectors
+        copyAllConnectorJarToContainer(
+                server,
+                getConnectorModulePath(),
+                getConnectorNamePrefix(),
+                getConnectorType(),
+                SEATUNNEL_HOME);
+        final List<String> command = new ArrayList<>();
+        String binPath = Paths.get(SEATUNNEL_HOME, "bin", CONNECTOR_CHECK_SHELL).toString();
+        command.add(adaptPathForWin(binPath));
+        Arrays.stream(args).forEach(arg -> command.add(arg));
+        return executeCommand(server, command);
+    }
+
+    @Override
     public Container.ExecResult executeJob(String confFile)
             throws IOException, InterruptedException {
         log.info("test in container: {}", identifier());
@@ -209,26 +232,7 @@ public class SeaTunnelContainer extends AbstractTestContainer {
 
     private List<String> removeSystemThread(List<String> beforeThreads, List<String> afterThreads)
             throws IOException {
-        Pattern aqsThread = Pattern.compile("pool-[0-9]-thread-[0-9]");
-        afterThreads.removeIf(
-                s ->
-                        s.startsWith("hz.main")
-                                || s.startsWith("seatunnel-coordinator-service")
-                                || s.startsWith("GC task thread")
-                                || s.contains("CompilerThread")
-                                || s.contains("NioNetworking-closeListenerExecutor")
-                                || s.contains("ForkJoinPool.commonPool")
-                                || s.contains("DestroyJavaVM")
-                                || s.contains("main-query-state-checker")
-                                || s.contains("Keep-Alive-SocketCleaner")
-                                || s.contains("process reaper")
-                                || s.startsWith("Timer-")
-                                || s.contains("InterruptTimer")
-                                || s.contains("Java2D Disposer")
-                                || s.contains(
-                                        "org.apache.hadoop.fs.FileSystem$Statistics$StatisticsDataReferenceCleaner")
-                                || s.startsWith("Log4j2-TF-")
-                                || aqsThread.matcher(s).matches());
+        afterThreads.removeIf(SeaTunnelContainer::isSystemThread);
         afterThreads.removeIf(beforeThreads::contains);
         Map<String, String> threadAndClassLoader = getThreadClassLoader();
         List<String> notSystemClassLoaderThread =
@@ -247,7 +251,32 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                         .collect(Collectors.toList());
         notSystemClassLoaderThread.addAll(afterThreads);
         notSystemClassLoaderThread.removeIf(this::isIssueWeAlreadyKnow);
+        notSystemClassLoaderThread.removeIf(SeaTunnelContainer::isSystemThread);
         return notSystemClassLoaderThread;
+    }
+
+    private static boolean isSystemThread(String s) {
+        Pattern aqsThread = Pattern.compile("pool-[0-9]-thread-[0-9]");
+        return s.startsWith("hz.main")
+                || s.startsWith("seatunnel-coordinator-service")
+                || s.startsWith("GC task thread")
+                || s.contains("CompilerThread")
+                || s.contains("NioNetworking-closeListenerExecutor")
+                || s.contains("ForkJoinPool.commonPool")
+                || s.contains("DestroyJavaVM")
+                || s.contains("main-query-state-checker")
+                || s.contains("Keep-Alive-SocketCleaner")
+                || s.contains("process reaper")
+                || s.startsWith("Timer-")
+                || s.contains("InterruptTimer")
+                || s.contains("Java2D Disposer")
+                || s.contains("OkHttp ConnectionPool")
+                || s.startsWith("http-report-event-scheduler")
+                || s.startsWith("event-forwarder")
+                || s.contains(
+                        "org.apache.hadoop.fs.FileSystem$Statistics$StatisticsDataReferenceCleaner")
+                || s.startsWith("Log4j2-TF-")
+                || aqsThread.matcher(s).matches();
     }
 
     private void classLoaderObjectCheck(Integer maxSize) throws IOException, InterruptedException {
@@ -297,6 +326,8 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 || threadName.startsWith("OkHttp TaskRunner")
                 // IOTDB org.apache.iotdb.session.Session
                 || threadName.startsWith("SessionExecutor")
+                // Iceberg org.apache.iceberg.util.ThreadPools.WORKER_POOL
+                || threadName.startsWith("iceberg-worker-pool")
                 // Oracle Driver
                 // oracle.jdbc.driver.BlockSource.ThreadedCachingBlockSource.BlockReleaser
                 || threadName.contains(
@@ -307,7 +338,9 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 // MongoDB
                 || threadName.startsWith("BufferPoolPruner")
                 || threadName.startsWith("MaintenanceTimer")
-                || threadName.startsWith("cluster-");
+                || threadName.startsWith("cluster-")
+                // Iceberg
+                || threadName.startsWith("iceberg");
     }
 
     @Override

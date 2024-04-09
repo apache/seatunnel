@@ -27,6 +27,7 @@ import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.AbstractJobEnvironment;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParser;
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
 
@@ -47,13 +48,17 @@ public class RestJobExecutionEnvironment extends AbstractJobEnvironment {
 
     private final Long jobId;
 
+    private final SeaTunnelServer seaTunnelServer;
+
     public RestJobExecutionEnvironment(
+            SeaTunnelServer seaTunnelServer,
             JobConfig jobConfig,
             Config seaTunnelJobConfig,
             Node node,
             boolean isStartWithSavePoint,
             Long jobId) {
         super(jobConfig, isStartWithSavePoint);
+        this.seaTunnelServer = seaTunnelServer;
         this.seaTunnelJobConfig = seaTunnelJobConfig;
         this.nodeEngine = node.getNodeEngine();
         this.jobConfig.setJobContext(
@@ -73,7 +78,8 @@ public class RestJobExecutionEnvironment extends AbstractJobEnvironment {
 
     @Override
     protected LogicalDag getLogicalDag() {
-        ImmutablePair<List<Action>, Set<URL>> immutablePair = getJobConfigParser().parse();
+        ImmutablePair<List<Action>, Set<URL>> immutablePair =
+                getJobConfigParser().parse(seaTunnelServer.getClassLoaderService());
         actions.addAll(immutablePair.getLeft());
         jarUrls.addAll(commonPluginJars);
         jarUrls.addAll(immutablePair.getRight());

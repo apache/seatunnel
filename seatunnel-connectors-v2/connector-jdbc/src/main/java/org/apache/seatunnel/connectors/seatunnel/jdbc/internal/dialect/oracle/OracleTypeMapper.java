@@ -17,112 +17,52 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle;
 
-import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.DecimalType;
-import org.apache.seatunnel.api.table.type.LocalTimeType;
-import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.common.exception.CommonError;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
+import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
+import org.apache.seatunnel.connectors.seatunnel.common.source.TypeDefineUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.util.Arrays;
 
 @Slf4j
 public class OracleTypeMapper implements JdbcDialectTypeMapper {
 
-    // ============================data types=====================
-
-    private static final String ORACLE_UNKNOWN = "UNKNOWN";
-
-    // -------------------------number----------------------------
-    private static final String ORACLE_BINARY_DOUBLE = "BINARY_DOUBLE";
-    private static final String ORACLE_BINARY_FLOAT = "BINARY_FLOAT";
-    private static final String ORACLE_NUMBER = "NUMBER";
-    private static final String ORACLE_FLOAT = "FLOAT";
-    private static final String ORACLE_REAL = "REAL";
-    private static final String ORACLE_INTEGER = "INTEGER";
-
-    // -------------------------string----------------------------
-    private static final String ORACLE_CHAR = "CHAR";
-    private static final String ORACLE_VARCHAR2 = "VARCHAR2";
-    private static final String ORACLE_NCHAR = "NCHAR";
-    private static final String ORACLE_NVARCHAR2 = "NVARCHAR2";
-    private static final String ORACLE_LONG = "LONG";
-    private static final String ORACLE_ROWID = "ROWID";
-    private static final String ORACLE_CLOB = "CLOB";
-    private static final String ORACLE_NCLOB = "NCLOB";
-    private static final String ORACLE_XML = "SYS.XMLTYPE";
-
-    // ------------------------------time-------------------------
-    private static final String ORACLE_DATE = "DATE";
-    private static final String ORACLE_TIMESTAMP = "TIMESTAMP";
-    private static final String ORACLE_TIMESTAMP_WITH_LOCAL_TIME_ZONE =
-            "TIMESTAMP WITH LOCAL TIME ZONE";
-
-    // ------------------------------blob-------------------------
-    private static final String ORACLE_BLOB = "BLOB";
-    private static final String ORACLE_BFILE = "BFILE";
-    private static final String ORACLE_RAW = "RAW";
-    private static final String ORACLE_LONG_RAW = "LONG RAW";
+    @Override
+    public Column mappingColumn(BasicTypeDefine typeDefine) {
+        return OracleTypeConverter.INSTANCE.convert(typeDefine);
+    }
 
     @Override
-    public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex)
-            throws SQLException {
-        String oracleType = metadata.getColumnTypeName(colIndex).toUpperCase();
-        int precision = metadata.getPrecision(colIndex);
+    public Column mappingColumn(ResultSetMetaData metadata, int colIndex) throws SQLException {
+        String columnName = metadata.getColumnLabel(colIndex);
+        String nativeType = metadata.getColumnTypeName(colIndex);
+        int isNullable = metadata.isNullable(colIndex);
+        long precision = metadata.getPrecision(colIndex);
         int scale = metadata.getScale(colIndex);
-        switch (oracleType) {
-            case ORACLE_INTEGER:
-                return BasicType.INT_TYPE;
-            case ORACLE_FLOAT:
-                // The float type will be converted to DecimalType(10, -127),
-                // which will lose precision in the spark engine
-                return new DecimalType(38, 18);
-            case ORACLE_NUMBER:
-                if (scale == 0) {
-                    if (precision <= 9) {
-                        return BasicType.INT_TYPE;
-                    } else if (precision <= 18) {
-                        return BasicType.LONG_TYPE;
-                    } else if (precision <= 38) {
-                        return new DecimalType(38, 0);
-                    }
-                }
-                return new DecimalType(38, 18);
-            case ORACLE_BINARY_DOUBLE:
-                return BasicType.DOUBLE_TYPE;
-            case ORACLE_BINARY_FLOAT:
-            case ORACLE_REAL:
-                return BasicType.FLOAT_TYPE;
-            case ORACLE_CHAR:
-            case ORACLE_NCHAR:
-            case ORACLE_NVARCHAR2:
-            case ORACLE_VARCHAR2:
-            case ORACLE_LONG:
-            case ORACLE_ROWID:
-            case ORACLE_NCLOB:
-            case ORACLE_CLOB:
-            case ORACLE_XML:
-                return BasicType.STRING_TYPE;
-            case ORACLE_DATE:
-            case ORACLE_TIMESTAMP:
-            case ORACLE_TIMESTAMP_WITH_LOCAL_TIME_ZONE:
-                return LocalTimeType.LOCAL_DATE_TIME_TYPE;
-            case ORACLE_BLOB:
-            case ORACLE_RAW:
-            case ORACLE_LONG_RAW:
-            case ORACLE_BFILE:
-                return PrimitiveByteArrayType.INSTANCE;
-                // Doesn't support yet
-            case ORACLE_UNKNOWN:
-            default:
-                final String jdbcColumnName = metadata.getColumnName(colIndex);
-                throw CommonError.convertToSeaTunnelTypeError(
-                        DatabaseIdentifier.ORACLE, oracleType, jdbcColumnName);
+        if ("number".equalsIgnoreCase(nativeType) && scale == -127) {
+            nativeType = "float";
+        } else if (Arrays.asList("NVARCHAR2", "NCHAR").contains(nativeType)) {
+            long doubleByteLength = TypeDefineUtils.charToDoubleByteLength(precision);
+            precision = doubleByteLength;
+        } else if (Arrays.asList("CHAR", "VARCHAR", "VARCHAR2").contains(nativeType)) {
+            long octetByteLength = TypeDefineUtils.charTo4ByteLength(precision);
+            precision = octetByteLength;
         }
+
+        BasicTypeDefine typeDefine =
+                BasicTypeDefine.builder()
+                        .name(columnName)
+                        .columnType(nativeType)
+                        .dataType(nativeType)
+                        .nullable(isNullable == ResultSetMetaData.columnNullable)
+                        .length(precision)
+                        .precision(precision)
+                        .scale(scale)
+                        .build();
+        return mappingColumn(typeDefine);
     }
 }

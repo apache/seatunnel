@@ -21,6 +21,7 @@
         <groupId>org.apache</groupId>
         <artifactId>apache</artifactId>
         <version>31</version>
+        <relativePath />
     </parent>
 
     <groupId>org.apache.seatunnel</groupId>
@@ -55,7 +56,7 @@
 
     <properties>
         <!--todo The classification is too confusing, reclassify by type-->
-        <revision>2.3.4-SNAPSHOT</revision>
+        <revision>2.3.5-SNAPSHOT</revision>
         <seatunnel.config.shade.version>2.1.1</seatunnel.config.shade.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <java.version>1.8</java.version>
@@ -70,7 +71,6 @@
         <log4j.version>1.2.17</log4j.version>
         <logback.version>1.2.3</logback.version>
         <commons-logging.version>1.2</commons-logging.version>
-        <iceberg.version>0.13.1</iceberg.version>
         <flink.1.13.6.version>1.13.6</flink.1.13.6.version>
         <flink.1.15.3.version>1.15.3</flink.1.15.3.version>
         <spark.2.4.0.version>2.4.0</spark.2.4.0.version>
@@ -87,6 +87,7 @@
         <jackson.version>2.13.3</jackson.version>
         <lombok.version>1.18.24</lombok.version>
         <commons-compress.version>1.20</commons-compress.version>
+        <avro.version>1.11.1</avro.version>
         <skip.pmd.check>false</skip.pmd.check>
         <maven.deploy.skip>false</maven.deploy.skip>
         <maven.javadoc.skip>false</maven.javadoc.skip>
@@ -104,8 +105,8 @@
         <commons-lang3.version>3.5</commons-lang3.version>
         <commons-io.version>2.11.0</commons-io.version>
         <commons-collections4.version>4.4</commons-collections4.version>
+        <commons-csv.version>1.10.0</commons-csv.version>
         <maven-assembly-plugin.version>3.3.0</maven-assembly-plugin.version>
-        <commons-compress.version>1.20</commons-compress.version>
         <protostuff.version>1.8.0</protostuff.version>
         <spark.scope>provided</spark.scope>
         <flink.scope>provided</flink.scope>
@@ -116,6 +117,7 @@
         <jcommander.version>1.81</jcommander.version>
         <junit4.version>4.13.2</junit4.version>
         <junit5.version>5.9.0</junit5.version>
+        <mockito.version>4.11.0</mockito.version>
         <config.version>1.3.3</config.version>
         <maven-shade-plugin.version>3.3.0</maven-shade-plugin.version>
         <maven-helper-plugin.version>3.2.0</maven-helper-plugin.version>
@@ -330,6 +332,11 @@
                 <artifactId>commons-collections4</artifactId>
                 <version>${commons-collections4.version}</version>
             </dependency>
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-csv</artifactId>
+                <version>${commons-csv.version}</version>
+            </dependency>
 
             <dependency>
                 <groupId>com.beust</groupId>
@@ -349,6 +356,13 @@
                 <groupId>junit</groupId>
                 <artifactId>junit</artifactId>
                 <version>${junit4.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.mockito</groupId>
+                <artifactId>mockito-junit-jupiter</artifactId>
+                <version>${mockito.version}</version>
+                <scope>test</scope>
             </dependency>
 
             <dependency>
@@ -512,6 +526,12 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-params</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
             <scope>test</scope>
         </dependency>
 

@@ -99,6 +99,10 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
         executorService.submit(
                 () -> {
                     try {
+                        log.info(
+                                "Start incremental read task for incremental split: {} exactly-once: {}",
+                                currentIncrementalSplit,
+                                taskContext.isExactlyOnce());
                         streamFetchTask.execute(taskContext);
                     } catch (Exception e) {
                         log.error(
@@ -166,7 +170,7 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
      * <p>After event batch: [checkpoint-before] [SchemaChangeEvent-1, SchemaChangeEvent-2,
      * checkpoint-after] [a, b, c, d, e]
      */
-    private Iterator<SourceRecords> splitSchemaChangeStream(List<DataChangeEvent> batchEvents) {
+    Iterator<SourceRecords> splitSchemaChangeStream(List<DataChangeEvent> batchEvents) {
         List<SourceRecords> sourceRecordsSet = new ArrayList<>();
 
         List<SourceRecord> sourceRecordList = new ArrayList<>();
@@ -175,11 +179,6 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
             DataChangeEvent event = batchEvents.get(i);
             SourceRecord currentRecord = event.getRecord();
             if (!shouldEmit(currentRecord)) {
-                continue;
-            }
-            if (!SourceRecordUtils.isDataChangeRecord(currentRecord)
-                    && !SourceRecordUtils.isSchemaChangeEvent(currentRecord)) {
-                sourceRecordList.add(currentRecord);
                 continue;
             }
 
@@ -204,9 +203,11 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
                     sourceRecordList = new ArrayList<>();
                     sourceRecordList.add(currentRecord);
                 }
-            } else if (SourceRecordUtils.isDataChangeRecord(currentRecord)) {
+            } else if (SourceRecordUtils.isDataChangeRecord(currentRecord)
+                    || SourceRecordUtils.isHeartbeatRecord(currentRecord)) {
                 if (previousRecord == null
-                        || SourceRecordUtils.isDataChangeRecord(previousRecord)) {
+                        || SourceRecordUtils.isDataChangeRecord(previousRecord)
+                        || SourceRecordUtils.isHeartbeatRecord(previousRecord)) {
                     sourceRecordList.add(currentRecord);
                 } else {
                     sourceRecordList.add(
@@ -270,7 +271,7 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
     }
 
     /** Returns the record should emit or not. */
-    private boolean shouldEmit(SourceRecord sourceRecord) {
+    boolean shouldEmit(SourceRecord sourceRecord) {
         if (taskContext.isDataChangeRecord(sourceRecord)) {
             Offset position = taskContext.getStreamOffset(sourceRecord);
             TableId tableId = getTableId(sourceRecord);

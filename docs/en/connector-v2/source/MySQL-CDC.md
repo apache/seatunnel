@@ -133,22 +133,22 @@ When an initial consistent snapshot is made for large databases, your establishe
 
 ## Data Type Mapping
 
-|                                     Mysql Data Type                                      | SeaTunnel Data Type |
-|------------------------------------------------------------------------------------------|---------------------|
-| BIT(1)<br/>TINYINT(1)                                                                    | BOOLEAN             |
-| TINYINT                                                                                  | TINYINT             |
-| TINYINT UNSIGNED<br/>SMALLINT                                                            | SMALLINT            |
-| SMALLINT UNSIGNED<br/>MEDIUMINT<br/>MEDIUMINT UNSIGNED<br/>INT<br/>INTEGER<br/>YEAR      | INT                 |
-| INT UNSIGNED<br/>INTEGER UNSIGNED<br/>BIGINT                                             | BIGINT              |
-| BIGINT UNSIGNED                                                                          | DECIMAL(20,0)       |
-| DECIMAL(p, s) <br/>DECIMAL(p, s) UNSIGNED <br/>NUMERIC(p, s) <br/>NUMERIC(p, s) UNSIGNED | DECIMAL(p,s)        |
-| FLOAT<br/>FLOAT UNSIGNED                                                                 | FLOAT               |
-| DOUBLE<br/>DOUBLE UNSIGNED<br/>REAL<br/>REAL UNSIGNED                                    | DOUBLE              |
-| CHAR<br/>VARCHAR<br/>TINYTEXT<br/>MEDIUMTEXT<br/>TEXT<br/>LONGTEXT<br/>ENUM<br/>JSON     | STRING              |
-| DATE                                                                                     | DATE                |
-| TIME                                                                                     | TIME                |
-| DATETIME<br/>TIMESTAMP                                                                   | TIMESTAMP           |
-| BINARY<br/>VARBINAR<br/>BIT(p)<br/>TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB         | BYTES               |
+|                                        Mysql Data Type                                         | SeaTunnel Data Type |
+|------------------------------------------------------------------------------------------------|---------------------|
+| BIT(1)<br/>TINYINT(1)                                                                          | BOOLEAN             |
+| TINYINT                                                                                        | TINYINT             |
+| TINYINT UNSIGNED<br/>SMALLINT                                                                  | SMALLINT            |
+| SMALLINT UNSIGNED<br/>MEDIUMINT<br/>MEDIUMINT UNSIGNED<br/>INT<br/>INTEGER<br/>YEAR            | INT                 |
+| INT UNSIGNED<br/>INTEGER UNSIGNED<br/>BIGINT                                                   | BIGINT              |
+| BIGINT UNSIGNED                                                                                | DECIMAL(20,0)       |
+| DECIMAL(p, s) <br/>DECIMAL(p, s) UNSIGNED <br/>NUMERIC(p, s) <br/>NUMERIC(p, s) UNSIGNED       | DECIMAL(p,s)        |
+| FLOAT<br/>FLOAT UNSIGNED                                                                       | FLOAT               |
+| DOUBLE<br/>DOUBLE UNSIGNED<br/>REAL<br/>REAL UNSIGNED                                          | DOUBLE              |
+| CHAR<br/>VARCHAR<br/>TINYTEXT<br/>MEDIUMTEXT<br/>TEXT<br/>LONGTEXT<br/>ENUM<br/>JSON<br/>ENUM  | STRING              |
+| DATE                                                                                           | DATE                |
+| TIME(s)                                                                                        | TIME(s)             |
+| DATETIME<br/>TIMESTAMP(s)                                                                      | TIMESTAMP(s)        |
+| BINARY<br/>VARBINAR<br/>BIT(p)<br/>TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB <br/>GEOMETRY | BYTES               |
 
 ## Source Options
 

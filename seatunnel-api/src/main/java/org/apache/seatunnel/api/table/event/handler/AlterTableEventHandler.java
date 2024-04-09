@@ -94,7 +94,7 @@ public class AlterTableEventHandler implements DataTypeChangeEventHandler {
             return applyModifyColumn(
                     dataType,
                     new AlterTableModifyColumnEvent(
-                            addColumnEvent.tablePath(),
+                            addColumnEvent.tableIdentifier(),
                             addColumnEvent.getColumn(),
                             addColumnEvent.isFirst(),
                             addColumnEvent.getAfterColumn()));
