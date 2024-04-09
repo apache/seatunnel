@@ -85,18 +85,18 @@ public class ConnectorCheckCommand implements Command<ConnectorCheckCommandArgs>
                         .entrySet()
                         .forEach(
                                 pluginTypePluginDiscoveryEntry -> {
-                                    pringOptionRulesByPluginTypeAndIdentifier(
+                                    printOptionRulesByPluginTypeAndIdentifier(
                                             pluginTypePluginDiscoveryEntry.getValue(),
                                             pluginIdentifier);
                                 });
             } else {
-                pringOptionRulesByPluginTypeAndIdentifier(
+                printOptionRulesByPluginTypeAndIdentifier(
                         DISCOVERY_MAP.get(pluginType), pluginIdentifier);
             }
         }
     }
 
-    private void pringOptionRulesByPluginTypeAndIdentifier(
+    private void printOptionRulesByPluginTypeAndIdentifier(
             PluginDiscovery DISCOVERY_MAP, String pluginIdentifier) {
         ImmutableTriple<PluginIdentifier, List<Option<?>>, List<Option<?>>> triple =
                 DISCOVERY_MAP.getOptionRules(pluginIdentifier);
@@ -108,11 +108,11 @@ public class ConnectorCheckCommand implements Command<ConnectorCheckCommandArgs>
     private void printSupportedPlugins(
             PluginType pluginType, LinkedHashMap<PluginIdentifier, OptionRule> plugins) {
         System.out.println(StringUtils.LF + StringUtils.capitalize(pluginType.getType()));
-        String supportedSinks =
+        String supportedPlugins =
                 plugins.keySet().stream()
                         .map(pluginIdentifier -> pluginIdentifier.getPluginName())
                         .collect(Collectors.joining(StringUtils.SPACE));
-        System.out.println(supportedSinks + StringUtils.LF);
+        System.out.println(supportedPlugins + StringUtils.LF);
     }
 
     private void printOptionRules(
@@ -126,8 +126,10 @@ public class ConnectorCheckCommand implements Command<ConnectorCheckCommandArgs>
                         + pluginIdentifier.getPluginType());
         System.out.println(
                 String.format(REQUIRED_OPTION_FORMAT, getOptionRulesString(requiredOptions)));
-        System.out.println(
-                String.format(OPTIONAL_OPTION_FORMAT, getOptionRulesString(optionOptions)));
+        if (optionOptions.size() > 0) {
+            System.out.println(
+                    String.format(OPTIONAL_OPTION_FORMAT, getOptionRulesString(optionOptions)));
+        }
     }
 
     private static String getOptionRulesString(List<Option<?>> requiredOptions) {
