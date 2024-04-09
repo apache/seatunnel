@@ -28,6 +28,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.NullNode;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.CompositeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -39,6 +40,7 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
 import java.io.IOException;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -64,8 +66,13 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
     /** Object mapper for parsing the JSON. */
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    private final CatalogTable catalogTable;
+
     public JsonDeserializationSchema(
-            boolean failOnMissingField, boolean ignoreParseErrors, SeaTunnelRowType rowType) {
+            boolean failOnMissingField,
+            boolean ignoreParseErrors,
+            SeaTunnelRowType rowType,
+            CatalogTable catalogTable) {
         if (ignoreParseErrors && failOnMissingField) {
             throw new SeaTunnelJsonFormatException(
                     CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
@@ -82,6 +89,7 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
             objectMapper.enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS);
         }
         objectMapper.configure(JsonReadFeature.ALLOW_UNESCAPED_CONTROL_CHARS.mappedFeature(), true);
+        this.catalogTable = catalogTable;
     }
 
     private static boolean hasDecimalType(SeaTunnelDataType<?> dataType) {
@@ -107,15 +115,6 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
         return convertJsonNode(convertBytes(message));
     }
 
-    @Override
-    public SeaTunnelRow deserialize(byte[] message, TablePath tablePath) throws IOException {
-        SeaTunnelRow seaTunnelRow = deserialize(message);
-        if (tablePath != null && !tablePath.toString().isEmpty()) {
-            seaTunnelRow.setTableId(tablePath.toString());
-        }
-        return seaTunnelRow;
-    }
-
     public SeaTunnelRow deserialize(String message) throws IOException {
         if (message == null) {
             return null;
@@ -129,11 +128,20 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
             ArrayNode arrayNode = (ArrayNode) jsonNode;
             for (int i = 0; i < arrayNode.size(); i++) {
                 SeaTunnelRow deserialize = convertJsonNode(arrayNode.get(i));
+                setCollectorTablePath(deserialize, catalogTable);
                 out.collect(deserialize);
             }
         } else {
             SeaTunnelRow deserialize = convertJsonNode(jsonNode);
+            setCollectorTablePath(deserialize, catalogTable);
             out.collect(deserialize);
+        }
+    }
+
+    public void setCollectorTablePath(SeaTunnelRow deserialize, CatalogTable catalogTable) {
+        TablePath tablePath = Optional.ofNullable(catalogTable.getTablePath()).orElse(null);
+        if (tablePath != null) {
+            deserialize.setTableId(tablePath.toString());
         }
     }
 

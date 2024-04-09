@@ -177,10 +177,10 @@ public class Config {
                     .defaultValue(KafkaSemantics.NON)
                     .withDescription(
                             "Semantics that can be chosen EXACTLY_ONCE/AT_LEAST_ONCE/NON, default NON.");
-    public static final Option<List<Map<String, Object>>> TOPIC_LIST =
-            Options.key("topic_list")
+    public static final Option<List<Map<String, Object>>> TABLE_LIST =
+            Options.key("table_list")
                     .type(new TypeReference<List<Map<String, Object>>>() {})
                     .noDefaultValue()
                     .withDescription(
-                            "Topic list config You can configure only one `topic_list` and one `topic` at the same time");
+                            "Topic list config You can configure only one `table_list` and one `topic` at the same time");
 }

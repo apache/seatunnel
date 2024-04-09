@@ -161,7 +161,8 @@ public class DebeziumJsonSerDeSchemaTest {
             throws Exception {
         List<String> lines = readLines(resourceFile);
         DebeziumJsonDeserializationSchema deserializationSchema =
-                new DebeziumJsonDeserializationSchema(PHYSICAL_DATA_TYPE, true, schemaInclude);
+                new DebeziumJsonDeserializationSchema(
+                        PHYSICAL_DATA_TYPE, true, schemaInclude, null);
 
         SimpleCollector collector = new SimpleCollector();
 

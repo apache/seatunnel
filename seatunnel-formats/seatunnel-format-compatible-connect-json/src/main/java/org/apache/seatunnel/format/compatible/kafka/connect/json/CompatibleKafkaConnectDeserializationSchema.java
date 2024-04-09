@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -46,6 +47,7 @@ import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Collections;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -69,12 +71,15 @@ public class CompatibleKafkaConnectDeserializationSchema
     /** Object mapper for parsing the JSON. */
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    private final CatalogTable catalogTable;
+
     public CompatibleKafkaConnectDeserializationSchema(
             @NonNull SeaTunnelRowType seaTunnelRowType,
             boolean keySchemaEnable,
             boolean valueSchemaEnable,
             boolean failOnMissingField,
-            boolean ignoreParseErrors) {
+            boolean ignoreParseErrors,
+            CatalogTable catalogTable) {
 
         this.seaTunnelRowType = seaTunnelRowType;
         this.keySchemaEnable = keySchemaEnable;
@@ -84,18 +89,13 @@ public class CompatibleKafkaConnectDeserializationSchema
         this.runtimeConverter =
                 new JsonToRowConverters(failOnMissingField, ignoreParseErrors)
                         .createConverter(checkNotNull(seaTunnelRowType));
+        this.catalogTable = catalogTable;
     }
 
     @Override
     public SeaTunnelRow deserialize(byte[] message) throws IOException {
         throw new UnsupportedOperationException(
                 "Please invoke DeserializationSchema#deserialize(byte[], Collector<SeaTunnelRow>) instead.");
-    }
-
-    @Override
-    public SeaTunnelRow deserialize(byte[] message, TablePath tablePath) throws IOException {
-        throw new UnsupportedOperationException(
-                "Please invoke DeserializationSchema#deserialize(byte[],TablePath, Collector<SeaTunnelRow>) instead.");
     }
 
     /**
@@ -105,8 +105,7 @@ public class CompatibleKafkaConnectDeserializationSchema
      * @param out
      * @throws Exception
      */
-    public void deserialize(
-            ConsumerRecord<byte[], byte[]> msg, Collector<SeaTunnelRow> out, TablePath tablePath)
+    public void deserialize(ConsumerRecord<byte[], byte[]> msg, Collector<SeaTunnelRow> out)
             throws InvocationTargetException, IllegalAccessException {
         tryInitConverter();
         if (msg == null) {
@@ -119,12 +118,13 @@ public class CompatibleKafkaConnectDeserializationSchema
                         valueConverterMethod.invoke(
                                 valueConverter, record.valueSchema(), record.value());
         JsonNode payload = jsonNode.get(KAFKA_CONNECT_SINK_RECORD_PAYLOAD);
+        TablePath tablePath = Optional.ofNullable(catalogTable.getTablePath()).orElse(null);
         if (payload.isArray()) {
             ArrayNode arrayNode = (ArrayNode) payload;
             for (int i = 0; i < arrayNode.size(); i++) {
                 SeaTunnelRow row = convertJsonNode(arrayNode.get(i));
                 row.setRowKind(rowKind);
-                if (tablePath != null && !tablePath.toString().isEmpty()) {
+                if (tablePath != null) {
                     row.setTableId(tablePath.toString());
                 }
                 out.collect(row);
@@ -132,7 +132,7 @@ public class CompatibleKafkaConnectDeserializationSchema
         } else {
             SeaTunnelRow row = convertJsonNode(payload);
             row.setRowKind(rowKind);
-            if (tablePath != null && !tablePath.toString().isEmpty()) {
+            if (tablePath != null) {
                 row.setTableId(tablePath.toString());
             }
             out.collect(row);

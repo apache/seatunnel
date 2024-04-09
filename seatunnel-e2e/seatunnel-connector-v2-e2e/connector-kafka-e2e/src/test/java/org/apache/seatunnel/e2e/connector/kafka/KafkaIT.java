@@ -371,7 +371,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         };
         SeaTunnelRowType fake_source_row_type = new SeaTunnelRowType(fieldNames, fieldTypes);
         AvroDeserializationSchema avroDeserializationSchema =
-                new AvroDeserializationSchema(fake_source_row_type);
+                new AvroDeserializationSchema(fake_source_row_type, null);
         List<SeaTunnelRow> kafkaSTRow =
                 getKafkaSTRow(
                         "test_avro_topic_fake_source",
@@ -421,7 +421,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
 
         AvroDeserializationSchema avroDeserializationSchema =
-                new AvroDeserializationSchema(SEATUNNEL_ROW_TYPE);
+                new AvroDeserializationSchema(SEATUNNEL_ROW_TYPE, null);
         List<SeaTunnelRow> kafkaSTRow =
                 getKafkaSTRow(
                         "test_avro_topic",

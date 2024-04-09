@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -30,6 +31,7 @@ import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
 import java.io.IOException;
+import java.util.Optional;
 
 import static java.lang.String.format;
 
@@ -58,23 +60,31 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
 
     private final boolean debeziumEnabledSchema;
 
+    private CatalogTable catalogTable;
+
     public DebeziumJsonDeserializationSchema(SeaTunnelRowType rowType, boolean ignoreParseErrors) {
         this.rowType = rowType;
         this.ignoreParseErrors = ignoreParseErrors;
         this.jsonDeserializer =
-                new JsonDeserializationSchema(false, ignoreParseErrors, createJsonRowType(rowType));
+                new JsonDeserializationSchema(
+                        false, ignoreParseErrors, createJsonRowType(rowType), null);
         this.debeziumRowConverter = new DebeziumRowConverter(rowType);
         this.debeziumEnabledSchema = false;
     }
 
     public DebeziumJsonDeserializationSchema(
-            SeaTunnelRowType rowType, boolean ignoreParseErrors, boolean debeziumEnabledSchema) {
+            SeaTunnelRowType rowType,
+            boolean ignoreParseErrors,
+            boolean debeziumEnabledSchema,
+            CatalogTable catalogTable) {
         this.rowType = rowType;
         this.ignoreParseErrors = ignoreParseErrors;
         this.jsonDeserializer =
-                new JsonDeserializationSchema(false, ignoreParseErrors, createJsonRowType(rowType));
+                new JsonDeserializationSchema(
+                        false, ignoreParseErrors, createJsonRowType(rowType), catalogTable);
         this.debeziumRowConverter = new DebeziumRowConverter(rowType);
         this.debeziumEnabledSchema = debeziumEnabledSchema;
+        this.catalogTable = catalogTable;
     }
 
     @Override
@@ -84,19 +94,8 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
     }
 
     @Override
-    public SeaTunnelRow deserialize(byte[] message, TablePath tablePath) throws IOException {
-        throw new UnsupportedOperationException(
-                "Please invoke DeserializationSchema#deserialize(byte[],TablePath tablePath,Collector<SeaTunnelRow>) instead.");
-    }
-
-    @Override
     public void deserialize(byte[] message, Collector<SeaTunnelRow> out) {
-        deserializeMessage(message, out, null);
-    }
-
-    @Override
-    public void deserialize(byte[] message, Collector<SeaTunnelRow> out, TablePath tablePath)
-            throws IOException {
+        TablePath tablePath = Optional.ofNullable(catalogTable.getTablePath()).orElse(null);
         deserializeMessage(message, out, tablePath);
     }
 
@@ -116,7 +115,7 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
                 case OP_READ:
                     SeaTunnelRow insert = convertJsonNode(payload.get("after"));
                     insert.setRowKind(RowKind.INSERT);
-                    if (tablePath != null && !tablePath.toString().isEmpty()) {
+                    if (tablePath != null) {
                         insert.setTableId(tablePath.toString());
                     }
                     out.collect(insert);
@@ -128,7 +127,7 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
                                 String.format(REPLICA_IDENTITY_EXCEPTION, "UPDATE"));
                     }
                     before.setRowKind(RowKind.UPDATE_BEFORE);
-                    if (tablePath != null && !tablePath.toString().isEmpty()) {
+                    if (tablePath != null) {
                         before.setTableId(tablePath.toString());
                     }
                     out.collect(before);
@@ -136,7 +135,7 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
                     SeaTunnelRow after = convertJsonNode(payload.get("after"));
                     after.setRowKind(RowKind.UPDATE_AFTER);
 
-                    if (tablePath != null && !tablePath.toString().isEmpty()) {
+                    if (tablePath != null) {
                         after.setTableId(tablePath.toString());
                     }
                     out.collect(after);
@@ -148,7 +147,7 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
                                 String.format(REPLICA_IDENTITY_EXCEPTION, "UPDATE"));
                     }
                     delete.setRowKind(RowKind.DELETE);
-                    if (tablePath != null && !tablePath.toString().isEmpty()) {
+                    if (tablePath != null) {
                         delete.setTableId(tablePath.toString());
                     }
                     out.collect(delete);

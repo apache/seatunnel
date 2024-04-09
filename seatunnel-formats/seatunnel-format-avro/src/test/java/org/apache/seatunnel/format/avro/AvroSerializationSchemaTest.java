@@ -161,7 +161,8 @@ class AvroSerializationSchemaTest {
         SeaTunnelRow seaTunnelRow = buildSeaTunnelRow();
         AvroSerializationSchema serializationSchema = new AvroSerializationSchema(rowType);
         byte[] bytes = serializationSchema.serialize(seaTunnelRow);
-        AvroDeserializationSchema deserializationSchema = new AvroDeserializationSchema(rowType);
+        AvroDeserializationSchema deserializationSchema =
+                new AvroDeserializationSchema(rowType, null);
         SeaTunnelRow deserialize = deserializationSchema.deserialize(bytes);
         String[] strArray1 = (String[]) seaTunnelRow.getField(1);
         String[] strArray2 = (String[]) deserialize.getField(1);

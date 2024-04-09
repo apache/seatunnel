@@ -44,7 +44,7 @@ public class FakeDataGenerator {
     private final FakeConfig fakeConfig;
     private final JsonDeserializationSchema jsonDeserializationSchema;
     private final FakeDataRandomUtils fakeDataRandomUtils;
-    private String tableId;
+    private final String tableId;
 
     public FakeDataGenerator(FakeConfig fakeConfig) {
         this.catalogTable = fakeConfig.getCatalogTable();
@@ -54,7 +54,7 @@ public class FakeDataGenerator {
                 fakeConfig.getFakeRows() == null
                         ? null
                         : new JsonDeserializationSchema(
-                                false, false, catalogTable.getSeaTunnelRowType());
+                                false, false, catalogTable.getSeaTunnelRowType(), catalogTable);
         this.fakeDataRandomUtils = new FakeDataRandomUtils(fakeConfig);
     }
 

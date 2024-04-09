@@ -19,7 +19,6 @@
 package org.apache.seatunnel.format.compatible.debezium.json;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
-import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -53,11 +52,6 @@ public class CompatibleDebeziumJsonDeserializationSchema
 
     @Override
     public SeaTunnelRow deserialize(byte[] message) throws IOException {
-        throw new UnsupportedEncodingException();
-    }
-
-    @Override
-    public SeaTunnelRow deserialize(byte[] message, TablePath tablePath) throws IOException {
         throw new UnsupportedEncodingException();
     }
 

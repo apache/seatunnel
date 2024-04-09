@@ -18,6 +18,7 @@
 package org.apache.seatunnel.format.avro;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -28,6 +29,7 @@ import org.apache.avro.io.BinaryDecoder;
 import org.apache.avro.io.DecoderFactory;
 
 import java.io.IOException;
+import java.util.Optional;
 
 public class AvroDeserializationSchema implements DeserializationSchema<SeaTunnelRow> {
 
@@ -35,24 +37,24 @@ public class AvroDeserializationSchema implements DeserializationSchema<SeaTunne
 
     private final SeaTunnelRowType rowType;
     private final AvroToRowConverter converter;
+    private final CatalogTable catalogTable;
 
-    public AvroDeserializationSchema(SeaTunnelRowType rowType) {
+    public AvroDeserializationSchema(SeaTunnelRowType rowType, CatalogTable catalogTable) {
         this.rowType = rowType;
         this.converter = new AvroToRowConverter(rowType);
+        this.catalogTable = catalogTable;
     }
 
     @Override
     public SeaTunnelRow deserialize(byte[] message) throws IOException {
         BinaryDecoder decoder = DecoderFactory.get().binaryDecoder(message, null);
         GenericRecord record = this.converter.getReader().read(null, decoder);
-        return converter.converter(record, rowType);
-    }
-
-    @Override
-    public SeaTunnelRow deserialize(byte[] message, TablePath tablePath) throws IOException {
-        SeaTunnelRow deserialize = deserialize(message);
-        deserialize.setTableId(tablePath.toString());
-        return deserialize(message);
+        SeaTunnelRow seaTunnelRow = converter.converter(record, rowType);
+        TablePath tablePath = Optional.ofNullable(catalogTable.getTablePath()).orElse(null);
+        if (tablePath != null) {
+            seaTunnelRow.setTableId(tablePath.toString());
+        }
+        return seaTunnelRow;
     }
 
     @Override

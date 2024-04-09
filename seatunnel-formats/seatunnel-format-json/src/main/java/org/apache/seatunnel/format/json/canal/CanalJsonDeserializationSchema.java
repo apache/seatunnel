@@ -24,6 +24,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -34,6 +35,7 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
 import java.io.IOException;
+import java.util.Optional;
 import java.util.regex.Pattern;
 
 import static java.lang.String.format;
@@ -86,16 +88,18 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
     private final JsonDeserializationSchema jsonDeserializer;
 
     private final SeaTunnelRowType physicalRowType;
+    private final CatalogTable catalogTable;
 
     public CanalJsonDeserializationSchema(
             SeaTunnelRowType physicalRowType,
             String database,
             String table,
-            boolean ignoreParseErrors) {
+            boolean ignoreParseErrors,
+            CatalogTable catalogTable) {
         this.physicalRowType = physicalRowType;
         final SeaTunnelRowType jsonRowType = createJsonRowType(physicalRowType);
         this.jsonDeserializer =
-                new JsonDeserializationSchema(false, ignoreParseErrors, jsonRowType);
+                new JsonDeserializationSchema(false, ignoreParseErrors, jsonRowType, catalogTable);
         this.database = database;
         this.table = table;
         this.fieldNames = physicalRowType.getFieldNames();
@@ -103,18 +107,13 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
         this.ignoreParseErrors = ignoreParseErrors;
         this.databasePattern = database == null ? null : Pattern.compile(database);
         this.tablePattern = table == null ? null : Pattern.compile(table);
+        this.catalogTable = catalogTable;
     }
 
     @Override
     public SeaTunnelRow deserialize(byte[] message) throws IOException {
         throw new UnsupportedOperationException(
                 "Please invoke DeserializationSchema#deserialize(byte[], Collector<SeaTunnelRow>) instead.");
-    }
-
-    @Override
-    public SeaTunnelRow deserialize(byte[] message, TablePath tablePath) throws IOException {
-        throw new UnsupportedOperationException(
-                "Please invoke DeserializationSchema#deserialize(byte[],TablePath tablePath , Collector<SeaTunnelRow>) instead.");
     }
 
     @Override
@@ -221,15 +220,7 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
     public void deserialize(byte[] message, Collector<SeaTunnelRow> out) throws IOException {
         ObjectNode jsonNodes = convertBytes(message);
         if (jsonNodes != null) {
-            deserialize(convertBytes(message), out, null);
-        }
-    }
-
-    @Override
-    public void deserialize(byte[] message, Collector<SeaTunnelRow> out, TablePath tablePath)
-            throws IOException {
-        ObjectNode jsonNodes = convertBytes(message);
-        if (jsonNodes != null) {
+            TablePath tablePath = Optional.ofNullable(catalogTable.getTablePath()).orElse(null);
             deserialize(convertBytes(message), out, tablePath);
         }
     }
@@ -262,6 +253,8 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
 
         private final SeaTunnelRowType physicalDataType;
 
+        private CatalogTable catalogTable;
+
         public Builder(SeaTunnelRowType physicalDataType) {
             this.physicalDataType = physicalDataType;
         }
@@ -281,9 +274,14 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
             return this;
         }
 
+        public Builder setCatalogTable(CatalogTable catalogTable) {
+            this.catalogTable = catalogTable;
+            return this;
+        }
+
         public CanalJsonDeserializationSchema build() {
             return new CanalJsonDeserializationSchema(
-                    physicalDataType, database, table, ignoreParseErrors);
+                    physicalDataType, database, table, ignoreParseErrors, catalogTable);
         }
     }
 }

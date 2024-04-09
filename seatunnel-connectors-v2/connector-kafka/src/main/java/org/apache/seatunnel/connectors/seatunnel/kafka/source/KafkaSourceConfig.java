@@ -105,9 +105,9 @@ public class KafkaSourceConfig implements Serializable {
     private Map<TablePath, ConsumerMetadata> createMapConsumerMetadata(
             ReadonlyConfig readonlyConfig) {
         List<ConsumerMetadata> consumerMetadataList;
-        if (readonlyConfig.getOptional(Config.TOPIC_LIST).isPresent()) {
+        if (readonlyConfig.getOptional(Config.TABLE_LIST).isPresent()) {
             consumerMetadataList =
-                    readonlyConfig.get(Config.TOPIC_LIST).stream()
+                    readonlyConfig.get(Config.TABLE_LIST).stream()
                             .map(ReadonlyConfig::fromMap)
                             .map(config -> createConsumerMetadata(config))
                             .collect(Collectors.toList());
@@ -231,13 +231,14 @@ public class KafkaSourceConfig implements Serializable {
             return TextDeserializationSchema.builder()
                     .seaTunnelRowType(seaTunnelRowType)
                     .delimiter(TextFormatConstant.PLACEHOLDER)
+                    .setCatalogTable(catalogTable)
                     .build();
         }
 
         MessageFormat format = readonlyConfig.get(FORMAT);
         switch (format) {
             case JSON:
-                return new JsonDeserializationSchema(false, false, seaTunnelRowType);
+                return new JsonDeserializationSchema(false, false, seaTunnelRowType, catalogTable);
             case TEXT:
                 String delimiter = readonlyConfig.get(FIELD_DELIMITER);
                 return TextDeserializationSchema.builder()
@@ -247,10 +248,12 @@ public class KafkaSourceConfig implements Serializable {
             case CANAL_JSON:
                 return CanalJsonDeserializationSchema.builder(seaTunnelRowType)
                         .setIgnoreParseErrors(true)
+                        .setCatalogTable(catalogTable)
                         .build();
             case OGG_JSON:
                 return OggJsonDeserializationSchema.builder(seaTunnelRowType)
                         .setIgnoreParseErrors(true)
+                        .setCatalogTable(catalogTable)
                         .build();
             case COMPATIBLE_KAFKA_CONNECT_JSON:
                 Boolean keySchemaEnable =
@@ -260,12 +263,18 @@ public class KafkaSourceConfig implements Serializable {
                         readonlyConfig.get(
                                 KafkaConnectJsonFormatOptions.VALUE_CONVERTER_SCHEMA_ENABLED);
                 return new CompatibleKafkaConnectDeserializationSchema(
-                        seaTunnelRowType, keySchemaEnable, valueSchemaEnable, false, false);
+                        seaTunnelRowType,
+                        keySchemaEnable,
+                        valueSchemaEnable,
+                        false,
+                        false,
+                        catalogTable);
             case DEBEZIUM_JSON:
                 boolean includeSchema = readonlyConfig.get(DEBEZIUM_RECORD_INCLUDE_SCHEMA);
-                return new DebeziumJsonDeserializationSchema(seaTunnelRowType, true, includeSchema);
+                return new DebeziumJsonDeserializationSchema(
+                        seaTunnelRowType, true, includeSchema, catalogTable);
             case AVRO:
-                return new AvroDeserializationSchema(seaTunnelRowType);
+                return new AvroDeserializationSchema(seaTunnelRowType, catalogTable);
             default:
                 throw new SeaTunnelJsonFormatException(
                         CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,

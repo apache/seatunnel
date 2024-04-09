@@ -158,13 +158,10 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
                                                                 ((CompatibleKafkaConnectDeserializationSchema)
                                                                                 deserializationSchema)
                                                                         .deserialize(
-                                                                                record, output,
-                                                                                tablePath);
+                                                                                record, output);
                                                             } else {
                                                                 deserializationSchema.deserialize(
-                                                                        record.value(),
-                                                                        output,
-                                                                        tablePath);
+                                                                        record.value(), output);
                                                             }
                                                         } catch (IOException e) {
                                                             if (this.messageFormatErrorHandleWay

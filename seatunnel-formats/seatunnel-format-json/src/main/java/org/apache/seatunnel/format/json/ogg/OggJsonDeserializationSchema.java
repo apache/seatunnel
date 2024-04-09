@@ -23,6 +23,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -33,6 +34,7 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
 import java.io.IOException;
+import java.util.Optional;
 import java.util.regex.Pattern;
 
 public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTunnelRow> {
@@ -82,15 +84,18 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
 
     private final SeaTunnelRowType physicalRowType;
 
+    private final CatalogTable catalogTable;
+
     public OggJsonDeserializationSchema(
             SeaTunnelRowType physicalRowType,
             String database,
             String table,
-            boolean ignoreParseErrors) {
+            boolean ignoreParseErrors,
+            CatalogTable catalogTable) {
         this.physicalRowType = physicalRowType;
         final SeaTunnelRowType jsonRowType = createJsonRowType(physicalRowType);
         this.jsonDeserializer =
-                new JsonDeserializationSchema(false, ignoreParseErrors, jsonRowType);
+                new JsonDeserializationSchema(false, ignoreParseErrors, jsonRowType, catalogTable);
         this.database = database;
         this.table = table;
         this.fieldNames = physicalRowType.getFieldNames();
@@ -98,18 +103,13 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
         this.ignoreParseErrors = ignoreParseErrors;
         this.databasePattern = database == null ? null : Pattern.compile(database);
         this.tablePattern = table == null ? null : Pattern.compile(table);
+        this.catalogTable = catalogTable;
     }
 
     @Override
     public SeaTunnelRow deserialize(byte[] message) throws IOException {
         throw new UnsupportedOperationException(
                 "Please invoke DeserializationSchema#deserialize(byte[], Collector<SeaTunnelRow>) instead.");
-    }
-
-    @Override
-    public SeaTunnelRow deserialize(byte[] message, TablePath tablePath) throws IOException {
-        throw new UnsupportedOperationException(
-                "Please invoke DeserializationSchema#deserialize(byte[],TablePath tablePath,Collector<SeaTunnelRow>) instead.");
     }
 
     @Override
@@ -157,7 +157,7 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
                     // Gets the data for the INSERT operation
                     JsonNode dataInsert = jsonNode.get(DATA_AFTER);
                     SeaTunnelRow row = convertJsonNode(dataInsert);
-                    if (tablePath != null && !tablePath.toString().isEmpty()) {
+                    if (tablePath != null) {
                         row.setTableId(tablePath.toString());
                     }
                     out.collect(row);
@@ -175,13 +175,13 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
                     // Gets the data for the UPDATE AFTER operation
                     SeaTunnelRow after = convertJsonNode(dataAfter);
                     before.setRowKind(RowKind.UPDATE_BEFORE);
-                    if (tablePath != null && !tablePath.toString().isEmpty()) {
+                    if (tablePath != null) {
                         before.setTableId(tablePath.toString());
                     }
                     out.collect(before);
 
                     after.setRowKind(RowKind.UPDATE_AFTER);
-                    if (tablePath != null && !tablePath.toString().isEmpty()) {
+                    if (tablePath != null) {
                         after.setTableId(tablePath.toString());
                     }
                     out.collect(after);
@@ -199,7 +199,7 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
                                 String.format(REPLICA_IDENTITY_EXCEPTION, "DELETE"));
                     }
                     beforeDelete.setRowKind(RowKind.DELETE);
-                    if (tablePath != null && !tablePath.toString().isEmpty()) {
+                    if (tablePath != null) {
                         beforeDelete.setTableId(tablePath.toString());
                     }
                     out.collect(beforeDelete);
@@ -226,11 +226,7 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
 
     @Override
     public void deserialize(byte[] message, Collector<SeaTunnelRow> out) {
-        deserializeMessage(message, out, null);
-    }
-
-    @Override
-    public void deserialize(byte[] message, Collector<SeaTunnelRow> out, TablePath tablePath) {
+        TablePath tablePath = Optional.ofNullable(catalogTable.getTablePath()).orElse(null);
         deserializeMessage(message, out, tablePath);
     }
 
@@ -262,6 +258,8 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
 
         private final SeaTunnelRowType physicalDataType;
 
+        private CatalogTable catalogTable;
+
         public Builder(SeaTunnelRowType physicalDataType) {
             this.physicalDataType = physicalDataType;
         }
@@ -281,9 +279,14 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
             return this;
         }
 
+        public Builder setCatalogTable(CatalogTable catalogTable) {
+            this.catalogTable = catalogTable;
+            return this;
+        }
+
         public OggJsonDeserializationSchema build() {
             return new OggJsonDeserializationSchema(
-                    physicalDataType, database, table, ignoreParseErrors);
+                    physicalDataType, database, table, ignoreParseErrors, catalogTable);
         }
     }
 }

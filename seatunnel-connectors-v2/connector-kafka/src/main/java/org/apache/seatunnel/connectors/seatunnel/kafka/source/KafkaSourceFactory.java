@@ -43,7 +43,7 @@ public class KafkaSourceFactory implements TableSourceFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(Config.BOOTSTRAP_SERVERS)
-                .exclusive(Config.TOPIC, Config.TOPIC_LIST)
+                .exclusive(Config.TOPIC, Config.TABLE_LIST)
                 .optional(
                         Config.START_MODE,
                         Config.PATTERN,

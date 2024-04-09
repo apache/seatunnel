@@ -35,7 +35,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 |                Name                 |                                    Type                                     | Required |         Default          |                                                                                                                                                                                                                     Description                                                                                                                                                                                                                     |
 |-------------------------------------|-----------------------------------------------------------------------------|----------|--------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | topic                               | String                                                                      | Yes      | -                        | Topic name(s) to read data from when the table is used as source. It also supports topic list for source by separating topic by comma like 'topic-1,topic-2'.                                                                                                                                                                                                                                                                                       |
-| topic_list                          | Map                                                                         | No       | -                        | Topic list config You can configure only one `topic_list` and one `topic` at the same time                                                                                                                                                                                                                                                                                                                                                |
+| table_list                          | Map                                                                         | No       | -                        | Topic list config You can configure only one `table_list` and one `topic` at the same time                                                                                                                                                                                                                                                                                                                                                          |
 | bootstrap.servers                   | String                                                                      | Yes      | -                        | Comma separated list of Kafka brokers.                                                                                                                                                                                                                                                                                                                                                                                                              |
 | pattern                             | Boolean                                                                     | No       | false                    | If `pattern` is set to `true`,the regular expression for a pattern of topic names to read from. All topics in clients with names that match the specified regular expression will be subscribed by the consumer.                                                                                                                                                                                                                                    |
 | consumer.group                      | String                                                                      | No       | SeaTunnel-Consumer-Group | `Kafka consumer group id`, used to distinguish different consumer groups.                                                                                                                                                                                                                                                                                                                                                                           |
@@ -183,7 +183,7 @@ source {
 
 ### Multiple Kafka Source
 
-> Currently, multiple kafka source reads are supported using the Zeta engine, but note that you can only configure one instance of `bootstrap.servers`, and only one in the `topic_list` and `topic` parameters,Currently, when you use multiple topics in `topic_list`, you are still free to set parameters for each `topic`
+> Currently, multiple kafka source reads are supported using the Zeta engine, but note that you can only configure one instance of `bootstrap.servers`, and only one in the `table_list` and `topic` parameters,Currently, when you use multiple topics in `table_list`, you are still free to set parameters for each `topic`
 
 ```hocon
 
@@ -195,7 +195,7 @@ env {
 source {
   Kafka {
     bootstrap.servers = "kafka_e2e:9092"
-    topic_list = [
+    table_list = [
       {
         topic = "^test-ogg-sou.*"
         pattern = "true"
@@ -225,7 +225,7 @@ source {
         format = canal_json
       }
     ]
- # Each topic in the `topic_list` shares the config
+ # Each topic in the `table_list` shares the config
     kafka.config = {
       client.id = client_1
       max.poll.records = 50000
