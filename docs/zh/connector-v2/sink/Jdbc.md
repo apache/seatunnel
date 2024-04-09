@@ -4,7 +4,7 @@
 
 ## 描述
 
-通过jdbc写入数据。支持批处理模式和流式模式，支持并发写入，支持一次语义(使用XA事务保证)
+通过jdbc写入数据。支持批处理模式和流处理模式，支持并发写入，支持精确一次语义(使用XA事务保证)
 
 ## 使用依赖
 
@@ -20,8 +20,8 @@
 
 - [x] [精确一次](../../concept/connector-v2-features.md)
 
-使用 `Xa transactions` 来确保 `exactly-once`。所以对于支持 `Xa transactions` 的数据库只支持 `exactly-once`
-。您可以设置 `is_exactly_once=true` 来启用它
+使用 `Xa transactions` 来确保 `exactly-once`。所以仅对于支持 `Xa transactions` 的数据库支持 `exactly-once`
+。您可以设置 `is_exactly_once=true` 来启用它。
 
 - [x] [cdc](../../concept/connector-v2-features.md)
 
@@ -79,24 +79,24 @@ JDBC 连接的 URL。参考案例：`jdbc:postgresql://localhost/test`
 
 ### compatible_mode [string]
 
-数据库的兼容模式，当数据库支持多种兼容模式时需要。例如，使用OceanBase数据库时，需要将其设置为'mysql'或'oracle'。
+数据库的兼容模式，当数据库支持多种兼容模式时需要。例如，使用 OceanBase 数据库时，需要将其设置为 'mysql' 或 'oracle' 。
 
-Postgres 9.5或以下版本，请设置为`postgresLow`以支持cdc
+Postgres 9.5及以下版本，请设置为 `postgresLow` 来支持 cdc
 
 ### database [string]
 
-使用此 `database` 和 `table-name` 自动生成sql并接收上游输入数据写入数据库
+使用此 `database` 和 `table-name` 自动生成 SQL，并接收上游输入的数据写入数据库。
 
-该选项与 `query` 互斥，并且具有更高的优先级
+此选项与 `query` 选项是互斥的，并且具有更高的优先级。
 
 ### table [string]
 
-使用 `database` 和这个 `table-name` 自动生成sql并接收上游输入数据写入数据库
+使用此 `database` 和 `table-name` 自动生成 SQL，并接收上游输入的数据写入数据库。
 
-该选项与 `query` 互斥，并且具有更高的优先级
+此选项与 `query` 选项是互斥的，并且具有更高的优先级。
 
-table参数可以填写不愿意的表的名称，最终会作为创建表的表名，支持变量（`${table_name}`、`${schema_name}`
-）。替换规则：`${schema_name}`将替换传递到目标端的SCHEMA名称，`${table_name}`将替换传递到目标端表的表名称
+table参数可以填入一个任意的表名，这个名字最终会被用作创建表的表名，并且支持变量（`${table_name}`，`${schema_name}`）。
+替换规则如下：`${schema_name}` 将替换传递给目标端的 SCHEMA 名称，`${table_name}` 将替换传递给目标端的表名。
 
 mysql 接收器示例:
 
@@ -106,25 +106,24 @@ mysql 接收器示例:
 
 pgsql (Oracle Sqlserver ...) 接收器示例:
 
-1. ${schema_name}.${table_name} _test
-2. dbo.tt_${table_name} _sink
+1. ${schema_name}.${table_name}_test
+2. dbo.tt_${table_name}_sink
 3. public.sink_table
 
-Tip: 如果目标数据库有SCHEMA的概念，则表参数必须写成`xxx.xxx`
+Tip: 如果目标数据库有 SCHEMA 的概念，则表参数必须写成 `xxx.xxx`
 
 ### primary_keys [array]
 
-该选项用于支持自动生成sql时的insert、delete、update等操作
+该选项用于支持自动生成 sql 时的 insert、delete、update 等操作
 
 ### support_upsert_by_query_primary_key_exist [boolean]
 
-根据查询主键是否存在选择使用INSERT sql、UPDATE sql来处理更新事件(INSERT、UPDATE_AFTER)。
-仅当数据库不支持 upsert 语法时才使用此配置。
+根据查询主键是否存在选择使用 INSERT sql、UPDATE sql 来处理更新事件(INSERT、UPDATE_AFTER)。仅当数据库不支持 upsert 语法时才使用此配置
 **注意**：该方法性能较低
 
 ### connection_check_timeout_sec [int]
 
-等待用于验证连接的数据库操作完成的时间（以秒为单位）
+用于验证数据库连接的有效性时等待数据库操作完成所需的时间，单位是秒
 
 ### max_retries[int]
 
@@ -136,7 +135,7 @@ Tip: 如果目标数据库有SCHEMA的概念，则表参数必须写成`xxx.xxx`
 
 ### is_exactly_once[boolean]
 
-是否启用一次语义，这将使用 Xa 事务。如果打开，您需要设置 `xa_data_source_class_name`
+是否启用一次语义，这将使用 XA 事务。如果打开，您需要设置 `xa_data_source_class_name`
 
 ### generate_sink_sql[boolean]
 
@@ -144,7 +143,7 @@ Tip: 如果目标数据库有SCHEMA的概念，则表参数必须写成`xxx.xxx`
 
 ### xa_data_source_class_name[string]
 
-数据库Driver的XA数据源类名，例如mysql为`com.mysql.cj.jdbc.MysqlXADataSource`，其他数据源请参考附录
+指数据库驱动的 XA 数据源的类名。以 MySQL 为例，其类名为 com.mysql.cj.jdbc.MysqlXADataSource。了解其他数据库的数据源类名，可以参考文档的附录部分
 
 ### max_commit_attempts[int]
 
@@ -152,7 +151,7 @@ Tip: 如果目标数据库有SCHEMA的概念，则表参数必须写成`xxx.xxx`
 
 ### transaction_timeout_sec[int]
 
-交易开启后的超时时间，默认为-1（永不超时）。请注意，设置超时可能会影响恰好一次语义
+在事务开启后的超时时间，默认值为-1（即永不超时）。请注意，设置超时时间可能会影响到精确一次（exactly-once）的语义
 
 ### auto_commit [boolean]
 
@@ -205,7 +204,7 @@ Sink插件常用参数，请参考 [Sink常用选项](common-options.md) 了解�
 
 ## tips
 
-在 is_exactly_once = "true" 的情况下，使用 Xa 事务。这需要数据库支持，有些数据库需要一些设置：<br/>
+在 is_exactly_once = "true" 的情况下，使用 XA 事务。这需要数据库支持，有些数据库需要一些设置：<br/>
 1 postgres 需要设置 `max_prepared_transactions > 1` 例如 `ALTER SYSTEM set max_prepared_transactions to 10` <br/>
 2 mysql 版本需要 >= `8.0.29` 并且非 root 用户需要授予 `XA_RECOVER_ADMIN` 权限。例如:将 test_db.* 上的 XA_RECOVER_ADMIN
 授予 `'user1'@'%'`<br/>
@@ -213,7 +212,7 @@ Sink插件常用参数，请参考 [Sink常用选项](common-options.md) 了解�
 
 ## 附录
 
-上面的params有些许参考价值
+附录参数仅提供参考
 
 |    数据源     |                    driver                    |                                url                                 |             xa_data_source_class_name              |                                                    maven                                                    |
 |------------|----------------------------------------------|--------------------------------------------------------------------|----------------------------------------------------|-------------------------------------------------------------------------------------------------------------|
@@ -270,7 +269,7 @@ jdbc {
 }
 ```
 
-CDC(Change data capture) 事件
+CDC (Change data capture) 事件
 
 ```
 sink {
@@ -306,7 +305,7 @@ sink {
 }
 ```
 
-Postgresql 9.5以下版本支持CDC(Change data capture)事件
+Postgresql 9.5以下版本支持 CDC (Change data capture) 事件
 
 ```
 sink {

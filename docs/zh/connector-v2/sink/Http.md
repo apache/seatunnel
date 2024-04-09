@@ -8,22 +8,22 @@
 > Flink<br/>
 > SeaTunnel Zeta<br/>
 
-## Key Features
+## 主要特性
 
 - [ ] [精确一次](../../concept/connector-v2-features.md)
 - [ ] [cdc](../../concept/connector-v2-features.md)
 
 ## 描述
 
-接收Source端传入的数据，用于通过数据调用目标web hooks。
+接收Source端传入的数据，利用数据触发 web hooks。
 
 > 例如，来自上游的数据为[`age: 12, name: tyrantlucifer`]，则body内容如下：`{"age": 12, "name": "tyrantlucifer"}`
 
-**Tips: Http 接收器仅支持 `post json` 类型的 web hook，来自 source 的数据将在 web hook 中被视为body内容。**
+**Tips: Http 接收器仅支持 `post json` 类型的 web hook，source 数据将被视为 webhook 中的 body 内容。**
 
 ## 支持的数据源信息
 
-为了使用 Http 连接器，需要以下依赖项。它们可以通过 install-plugin.sh 或从 Maven 中央存储库下载。
+想使用 Http 连接器，需要安装以下必要的依赖。可以通过运行 install-plugin.sh 脚本或者从 Maven 中央仓库下载这些依赖
 
 | 数据源  | 支持版本 |                                                  依赖                                                  |
 |------|------|------------------------------------------------------------------------------------------------------|

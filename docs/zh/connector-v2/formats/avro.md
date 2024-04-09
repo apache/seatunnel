@@ -6,7 +6,7 @@ Avro是一种流行数据传输格式。现在seatunnel在kafka连接器中支�
 
 ## Kafka 使用示例
 
-- 使用 avro 格式从模拟数据源和接收器生成数据到 kafka 的示例
+- 使用 Avro 格式从模拟数据源生成数据并将其汇聚到 Kafka 的示例。
 
 ```bash
 env {

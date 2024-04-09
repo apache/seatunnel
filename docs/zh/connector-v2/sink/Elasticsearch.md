@@ -46,7 +46,7 @@
 
 ### index [string]
 
-`Elasticsearch` `index` 名称。索引支持包含字段名称变量，如 `seatunnel_${age}`，且该字段必须出现在 Seatunnel Row 中s，如果不是，我们会将其视为正常索引。
+`Elasticsearch` 的 `index` 名称。索引支持包含字段名变量，例如 `seatunnel_${age}`，并且该字段必须出现在 seatunnel Row 中。如果没有，我们将把它视为普通索引
 
 ### index_type [string]
 
@@ -106,7 +106,7 @@ Sink插件常用参数，请参考 [Sink常用选项](common-options.md) 了解�
 
 ### schema_save_mode
 
-同步任务开启前，针对目标侧已有的表面结构选择不同的处理方案
+同步任务开启前，针对目标侧已有的表结构选择不同的处理方案<br/>
 选项介绍：<br/>
 `RECREATE_SCHEMA` ：表不存在时创建，保存表时删除和重建<br/>
 `CREATE_SCHEMA_WHEN_NOT_EXIST` ：表不存在时创建，保存表时跳过<br/>

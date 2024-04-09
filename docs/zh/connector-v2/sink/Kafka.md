@@ -13,7 +13,7 @@
 - [x] [精确一次](../../concept/connector-v2-features.md)
 - [ ] [cdc](../../concept/connector-v2-features.md)
 
-> 默认情况下，我们将使用2pc来保证消息只发送一次到kafka。
+> 默认情况下，我们将使用 2pc 来保证消息只发送一次到kafka
 
 ## 描述
 
@@ -32,27 +32,27 @@
 
 |          名称          |   类型   | 是否需要 | 默认值  |                                                                                                                       描述                                                                                                                       |
 |----------------------|--------|------|------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| topic                | String | 是    | -    | 当表用作接收器时，主题名称是要写入数据的主题                                                                                                                                                                                                                         |
+| topic                | String | 是    | -    | 当表用作接收器时，topic 名称是要写入数据的 topic                                                                                                                                                                                                                 |
 | bootstrap.servers    | String | 是    | -    | Kafka brokers 使用逗号分隔                                                                                                                                                                                                                           |
-| kafka.config         | Map    | 否    | -    | 除了上述Kafka Producer客户端必须指定的参数外，用户还可以为Producer客户端指定多个非强制参数，涵盖 [Kafka官方文档中指定的所有生产者参数](https://kafka.apache.org/documentation.html#producerconfigs)                                                                                                |
+| kafka.config         | Map    | 否    | -    | 除了上述 Kafka Producer 客户端必须指定的参数外，用户还可以为 Producer 客户端指定多个非强制参数，涵盖 [Kafka官方文档中指定的所有生产者参数](https://kafka.apache.org/documentation.html#producerconfigs)                                                                                            |
 | semantics            | String | 否    | NON  | 可以选择的语义是 EXACTLY_ONCE/AT_LEAST_ONCE/NON，默认 NON。                                                                                                                                                                                                |
-| partition_key_fields | Array  | 否    | -    | 配置哪些字段用作kafka消息的key                                                                                                                                                                                                                            |
+| partition_key_fields | Array  | 否    | -    | 配置字段用作 kafka 消息的key                                                                                                                                                                                                                            |
 | partition            | Int    | 否    | -    | 可以指定分区，所有消息都会发送到此分区                                                                                                                                                                                                                            |
-| assign_partitions    | Array  | 否    | -    | 我们可以根据消息的内容决定发送哪个分区,此参数的作用是分发信息                                                                                                                                                                                                                |
-| transaction_prefix   | String | 否    | -    | 如果语义指定为EXACTLY_ONCE，生产者将把所有消息写入一个Kafka事务中，kafka通过不同的transactionId来区分不同的事务。该参数是kafka transactionId的前缀，确保不同的作业使用不同的前缀                                                                                                                            |
-| format               | String | 否    | json | 数据格式。默认格式是json。可选文本格式，canal-json、debezium-json 和 avro。如果使用 json 或文本格式。默认字段分隔符是“,”。如果自定义分隔符，请添加“field_delimiter”选项。如果使用canal格式，请参考[canal-json](../formats/canal-json.md)。如果使用debezium格式，请参阅 [debezium-json](../formats/debezium-json.md) 了解详细信息 |
+| assign_partitions    | Array  | 否    | -    | 可以根据消息的内容决定发送哪个分区,该参数的作用是分发信息                                                                                                                                                                                                                  |
+| transaction_prefix   | String | 否    | -    | 如果语义指定为EXACTLY_ONCE，生产者将把所有消息写入一个 Kafka 事务中，kafka 通过不同的 transactionId 来区分不同的事务。该参数是kafka transactionId的前缀，确保不同的作业使用不同的前缀                                                                                                                       |
+| format               | String | 否    | json | 数据格式。默认格式是json。可选文本格式，canal-json、debezium-json 和 avro。如果使用 json 或文本格式。默认字段分隔符是`,`。如果自定义分隔符，请添加`field_delimiter`选项。如果使用canal格式，请参考[canal-json](../formats/canal-json.md)。如果使用debezium格式，请参阅 [debezium-json](../formats/debezium-json.md) 了解详细信息 |
 | field_delimiter      | String | 否    | ,    | 自定义数据格式的字段分隔符                                                                                                                                                                                                                                  |
 | common-options       |        | 否    | -    | Sink插件常用参数，请参考 [Sink常用选项 ](common-options.md) 了解详情                                                                                                                                                                                             |
 
 ## 参数解释
 
-### Topic Formats
+### Topic 格式
 
 目前支持两种格式：
 
-1. 填写主题名称
+1. 填写topic名称
 
-2. 使用上游数据中的字段值作为主题,格式是 `${your field name}`, 其中 topic 是上游数据的其中一列的值
+2. 使用上游数据中的字段值作为 topic ,格式是 `${your field name}`, 其中 topic 是上游数据的其中一列的值
 
    例如，上游数据如下：
 
@@ -61,7 +61,7 @@
 | Jack | 16  | data-example1 |
 | Mary | 23  | data-example2 |
 
-如果 `${name}` 设置为主题。因此，第一行发送到 Jack 主题，第二行发送到 Mary 主题。
+如果 `${name}` 设置为 topic。因此，第一行发送到 Jack topic，第二行发送到 Mary topic。
 
 ### 语义
 
@@ -71,39 +71,33 @@ NON 不提供任何保证：如果 Kafka 代理出现问题，消息可能会丢
 
 ### 分区关键字段
 
-例如，如果您想使用上游数据中的字段值作为键，您可以将字段名称分配给该属性。
+例如，如果你想使用上游数据中的字段值作为键，可以将这些字段名指定给此属性
 
-上游数据如下：
+上游数据如下所示：
 
 | name | age |     data      |
 |------|-----|---------------|
 | Jack | 16  | data-example1 |
 | Mary | 23  | data-example2 |
 
-如果将 name 设置为 key，那么 name 列的哈希值将决定消息发送到哪个分区。如果将 name 设置为key，那么 name 列的哈希值将决定消息发送到哪个分区
-如果没有设置分区键字段，则将发送空消息键
-消息key的格式为json，如果设置 name 为key，例如 `{"name":"Jack"}`
-所选字段必须是上游现有字段。所选字段必须是上游现有字段
+如果将 name 设置为 key，那么 name 列的哈希值将决定消息发送到哪个分区。
+如果没有设置分区键字段，则将发送空消息键。
+消息key的格式为json，如果设置 name 为key，例如 `{"name":"Jack"}`。
+所选的字段必须是上游数据中已存在的字段。
 
 ### 分配分区
 
-例如总共有5个分区，config中的assign_partitions字段如下：例如总共有5个分区，config中的assign_partitions字段如下：
+假设总有五个分区，配置中的 assign_partitions 字段设置为：
 assign_partitions = ["shoe", "clothing"]
-那么包含`shoe`的消息将被发送到分区0，因为`shoe`在assign_partitions中被订阅为`0`，而包含`clothing`的消息将被发送到分区`1`。
-对于其他消息，将使用哈希算法将它们分成剩余的分区。这个函数通过 `MessageContentPartitioner`
-类实现了 `org.apache.kafka.clients. Producer.Partitioner` 接口。
-如果我们需要自定义分区，我们也需要实现这个接口。
+在这种情况下，包含 "shoe" 的消息将被发送到第零个分区，因为 "shoe" 在 assign_partitions 中被标记为零， 而包含 "clothing" 的消息将被发送到第一个分区。
+对于其他的消息，我们将使用哈希算法将它们均匀地分配到剩余的分区中。
+这个功能是通过 MessageContentPartitioner 类实现的，该类实现了 org.apache.kafka.clients.producer.Partitioner 接口。如果我们需要自定义分区，我们需要实现这个接口
 
 ## 任务示例
 
 ### 简单:
 
-> 本示例定义了一个 SeaTunnel 同步任务，通过 FakeSource 自动生成数据并将其发送到 Kafka Sink。
-> FakeSource总共生成16行数据（row.num=16），每行有两个字段， name（string类型）和age（int类型）。
-> 最终的目标主题是test_topic，也将是主题中的16行数据。并且如果
-> 您尚未安装和部署SeaTunnel，则需要按照[安装SeaTunnel](../../start-v2/locally/deployment.md)中的说明
-> 安装和部署SeaTunnel。然后按照[SeaTunnel Engine快速启动](../../start-v2/locally/quick-start-seatunnel-engine.md)中的说明运行
-> 此作业
+> 此示例展示了如何定义一个 SeaTunnel 同步任务，该任务能够通过 FakeSource 自动产生数据并将其发送到 Kafka Sink。在这个例子中，FakeSource 会生成总共 16 行数据（row.num=16），每一行都包含两个字段，即 name（字符串类型）和 age（整型）。最终，这些数据将被发送到名为 test_topic 的 topic 中，因此该 topic 也将包含 16 行数据。如果你还未安装和部署 SeaTunnel，你需要参照 [安装SeaTunnel](../../start-v2/locally/deployment.md) 的指南来进行安装和部署。完成安装和部署后，你可以按照 [快速开始使用 SeaTunnel 引擎](../../start-v2/locally/quick-start-seatunnel-engine.md) 的指南来运行任务。
 
 ```hocon
 # Defining the runtime environment
@@ -167,7 +161,7 @@ sink {
 
 从 https://github.com/aws/aws-msk-iam-auth/releases 下载 `aws-msk-iam-auth-1.1.5.jar`
 并将其放入 `$SEATUNNEL_HOME/plugin/kafka/lib` 中目录。
-请确保 IAM 策略具有`kafka-cluster:Connect`
+请确保 IAM 策略具有 `kafka-cluster:Connect`
 像这样：
 
 ```hocon

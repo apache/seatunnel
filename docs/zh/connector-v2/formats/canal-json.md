@@ -10,7 +10,7 @@ SeaTunnel 能够解析 Canal 的 JSON 消息，并将其转化为 INSERT/UPDATE/
         将增量数据从数据库同步到其他系统
         审计日志
         数据库的实时物化视图
-        临时连接改变数据库表的历史记录等
+        关联维度数据库的变更历史，等等。
 
 SeaTunnel 还支持将 SeaTunnel 中的 INSERT/UPDATE/DELETE 消息编码为 Canal JSON 消息，并将其发送到类似 Kafka 这样的存储中。然而，目前 SeaTunnel 无法将 UPDATE_BEFORE 和 UPDATE_AFTER 合并为一个单一的UPDATE消息。因此，SeaTunnel将 UPDATE_BEFORE 和 UPDATE_AFTER 编码为 Canal的 DELETE 和 INSERT 消息来进行
 
@@ -70,10 +70,10 @@ Canal为变更日志提供了一种统一的格式，以下是一个从MySQL pro
 }
 ```
 
-注：请参考 Canal 文档以了解每个字段的含义
+注：请参考 [Canal 文档](https://github.com/alibaba/canal/wiki) 以了解每个字段的含义
 
 MySQL 的 products 表有 4 列（id、name、description 和 weight）
-上述 JSON 消息是产品表的一个更新变更事件，其中 id = 111 的行的 weight 值从 5.18 变为 5.15
+上述 JSON 消息是产品表的一个更新变更事件，其中 id = 111 的行的 weight 值从 5.15 变为 5.18
 假设此表的 binlog 的消息已经同步到 Kafka topic，那么我们可以使用下面的 SeaTunnel 示例来消费这个主题并体现变更事件
 
 ```bash

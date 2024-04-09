@@ -5,14 +5,14 @@
 
 Debezium 是一套分布式服务，用于捕获数据库中的变化，以便您的应用程序可以看到这些变化并对其做出响应。Debezium 在变更事件流中记录每个数据库表中的所有行级变化，应用程序只需读取这些流，就可以按照它们发生的顺序看到变更事件
 
-SeaTunnel 支持将 Debezium JSON 消息解释为 INSERT/UPDATE/DELETE 消息并导入到 seatunnel 系统中。在许多情况下，利用这个特性是非常有用的，例如:
+SeaTunnel 支持将 Debezium JSON 消息解析为 INSERT/UPDATE/DELETE 消息并导入到 seatunnel 系统中。在许多情况下，利用这个特性是非常有用的，例如:
 
         将增量数据从数据库同步到其他系统
         审计日志
         数据库的实时物化视图
-        临时连接改变数据库表的历史记录等
+        关联维度数据库的变更历史，等等。
 
-SeaTunnel 还支持将 SeaTunnel 中的 INSERT/UPDATE/DELETE 消息转化为 Debezium JSON 消息，并将其发送到类似 Kafka 这样的存储中
+SeaTunnel 还支持将 SeaTunnel 中的 INSERT/UPDATE/DELETE 消息解析为 Debezium JSON 消息，并将其发送到类似 Kafka 这样的存储中
 
 # 格式选项
 
@@ -63,10 +63,10 @@ Debezium 提供了一个统一的变更日志格式，下面是一个 MySQL prod
 }
 ```
 
-注：请参考 Debezium 文档以了解每个字段的含义
+注：请参考 [Debezium 文档](https://debezium.io/documentation/reference/2.5/connectors/mysql.html#mysql-events) 以了解每个字段的含义
 
 MySQL 的 products 表有 4 列（id、name、description 和 weight）
-上述 JSON 消息是产品表的一个更新变更事件，其中 id = 111 的行的 weight 值从 5.18 变为 5.15
+上述 JSON 消息是产品表的一个更新变更事件，其中 id = 111 的行的 weight 值从 5.18 变为 5.17
 假设消息已经同步到 Kafka 主题 products_binlog，那么我们可以使用以下的 SeaTunnel 配置来消费这个主题并通过 Debezium 格式解释变更事件。
 
 在此配置中，您必须指定 `schema` 和 `debezium_record_include_schema` 选项：
