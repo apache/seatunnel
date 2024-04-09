@@ -25,8 +25,8 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
@@ -37,6 +37,10 @@ import org.apache.seatunnel.connectors.seatunnel.hbase.exception.HbaseConnectorE
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.common.collect.Lists;
+
+import java.util.List;
 
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.QUERY_COLUMNS;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.TABLE;
@@ -49,6 +53,8 @@ public class HbaseSource
     private Config pluginConfig;
     private SeaTunnelRowType seaTunnelRowType;
     private HbaseParameters hbaseParameters;
+
+    private CatalogTable catalogTable;
 
     @Override
     public String getPluginName() {
@@ -68,9 +74,8 @@ public class HbaseSource
                             getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
         this.hbaseParameters = HbaseParameters.buildWithSinkConfig(pluginConfig);
-        SeaTunnelRowType typeInfo;
-        typeInfo = CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
-        this.seaTunnelRowType = typeInfo;
+        this.catalogTable = CatalogTableUtil.buildWithConfig(pluginConfig);
+        this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
     }
 
     @Override
@@ -79,8 +84,8 @@ public class HbaseSource
     }
 
     @Override
-    public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
-        return seaTunnelRowType;
+    public List<CatalogTable> getProducedCatalogTables() {
+        return Lists.newArrayList(catalogTable);
     }
 
     @Override
