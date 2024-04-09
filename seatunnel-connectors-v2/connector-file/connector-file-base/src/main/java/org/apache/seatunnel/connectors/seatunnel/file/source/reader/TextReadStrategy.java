@@ -147,9 +147,6 @@ public class TextReadStrategy extends AbstractReadStrategy {
         TextDeserializationSchema.Builder builder =
                 TextDeserializationSchema.builder()
                         .delimiter(TextFormatConstant.PLACEHOLDER)
-                        .dateFormatter(dateFormat)
-                        .dateTimeFormatter(datetimeFormat)
-                        .timeFormatter(timeFormat)
                         .textLineSplitor(textLineSplitor);
         if (isMergePartition) {
             deserializationSchema =
@@ -187,9 +184,6 @@ public class TextReadStrategy extends AbstractReadStrategy {
         TextDeserializationSchema.Builder builder =
                 TextDeserializationSchema.builder()
                         .delimiter(fieldDelimiter)
-                        .dateFormatter(dateFormat)
-                        .dateTimeFormatter(datetimeFormat)
-                        .timeFormatter(timeFormat)
                         .textLineSplitor(textLineSplitor);
         if (isMergePartition) {
             deserializationSchema =

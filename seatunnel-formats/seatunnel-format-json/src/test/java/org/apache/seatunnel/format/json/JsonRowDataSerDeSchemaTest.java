@@ -100,6 +100,9 @@ public class JsonRowDataSerDeSchemaTest {
         root.putObject("map").put("element", 123);
         root.putObject("multiSet").put("element", 2);
         root.putObject("map2map").putObject("inner_map").put("key", 234);
+        ObjectNode rowFieldNodes = root.deepCopy();
+        rowFieldNodes.put("date", "1990-10-14T12:12:43.123");
+        root.putIfAbsent("row", rowFieldNodes);
 
         byte[] serializedJson = objectMapper.writeValueAsBytes(root);
 
@@ -117,7 +120,8 @@ public class JsonRowDataSerDeSchemaTest {
                             "timestamp9",
                             "map",
                             "multiSet",
-                            "map2map"
+                            "map2map",
+                            "row"
                         },
                         new SeaTunnelDataType[] {
                             BOOLEAN_TYPE,
@@ -131,13 +135,42 @@ public class JsonRowDataSerDeSchemaTest {
                             LocalTimeType.LOCAL_DATE_TIME_TYPE,
                             new MapType(STRING_TYPE, LONG_TYPE),
                             new MapType(STRING_TYPE, INT_TYPE),
-                            new MapType(STRING_TYPE, new MapType(STRING_TYPE, INT_TYPE))
+                            new MapType(STRING_TYPE, new MapType(STRING_TYPE, INT_TYPE)),
+                            new SeaTunnelRowType(
+                                    new String[] {
+                                        "bool",
+                                        "int",
+                                        "longValue",
+                                        "float",
+                                        "name",
+                                        "date",
+                                        "time",
+                                        "timestamp3",
+                                        "timestamp9",
+                                        "map",
+                                        "multiSet",
+                                        "map2map"
+                                    },
+                                    new SeaTunnelDataType[] {
+                                        BOOLEAN_TYPE,
+                                        INT_TYPE,
+                                        LONG_TYPE,
+                                        FLOAT_TYPE,
+                                        STRING_TYPE,
+                                        LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                                        LocalTimeType.LOCAL_TIME_TYPE,
+                                        LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                                        LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                                        new MapType(STRING_TYPE, LONG_TYPE),
+                                        new MapType(STRING_TYPE, INT_TYPE),
+                                        new MapType(STRING_TYPE, new MapType(STRING_TYPE, INT_TYPE))
+                                    })
                         });
 
         JsonDeserializationSchema deserializationSchema =
                 new JsonDeserializationSchema(false, false, schema);
 
-        SeaTunnelRow expected = new SeaTunnelRow(12);
+        SeaTunnelRow expected = new SeaTunnelRow(13);
         expected.setField(0, true);
         expected.setField(1, intValue);
         expected.setField(2, longValue);
@@ -150,6 +183,22 @@ public class JsonRowDataSerDeSchemaTest {
         expected.setField(9, map);
         expected.setField(10, multiSet);
         expected.setField(11, nestedMap);
+
+        SeaTunnelRow rowFieldRow = new SeaTunnelRow(12);
+        rowFieldRow.setField(0, true);
+        rowFieldRow.setField(1, intValue);
+        rowFieldRow.setField(2, longValue);
+        rowFieldRow.setField(3, floatValue);
+        rowFieldRow.setField(4, name);
+        rowFieldRow.setField(5, timestamp3.toLocalDateTime());
+        rowFieldRow.setField(6, time);
+        rowFieldRow.setField(7, timestamp3.toLocalDateTime());
+        rowFieldRow.setField(8, timestamp9.toLocalDateTime());
+        rowFieldRow.setField(9, map);
+        rowFieldRow.setField(10, multiSet);
+        rowFieldRow.setField(11, nestedMap);
+
+        expected.setField(12, rowFieldRow);
 
         SeaTunnelRow seaTunnelRow = deserializationSchema.deserialize(serializedJson);
         assertEquals(expected, seaTunnelRow);
@@ -423,62 +472,75 @@ public class JsonRowDataSerDeSchemaTest {
 
         JsonToRowConverters converters = new JsonToRowConverters(true, false);
 
-        JsonToRowConverters.JsonToRowConverter stringConverter =
+        JsonToRowConverters.JsonToObjectConverter stringConverter =
                 converters.createConverter(stringKeyMapType);
-        JsonToRowConverters.JsonToRowConverter booleanConverter =
+        JsonToRowConverters.JsonToObjectConverter booleanConverter =
                 converters.createConverter(booleanKeyMapType);
-        JsonToRowConverters.JsonToRowConverter tinyintConverter =
+        JsonToRowConverters.JsonToObjectConverter tinyintConverter =
                 converters.createConverter(tinyintKeyMapType);
-        JsonToRowConverters.JsonToRowConverter smallintConverter =
+        JsonToRowConverters.JsonToObjectConverter smallintConverter =
                 converters.createConverter(smallintKeyMapType);
-        JsonToRowConverters.JsonToRowConverter intConverter =
+        JsonToRowConverters.JsonToObjectConverter intConverter =
                 converters.createConverter(intKeyMapType);
-        JsonToRowConverters.JsonToRowConverter bigintConverter =
+        JsonToRowConverters.JsonToObjectConverter bigintConverter =
                 converters.createConverter(bigintKeyMapType);
-        JsonToRowConverters.JsonToRowConverter floatConverter =
+        JsonToRowConverters.JsonToObjectConverter floatConverter =
                 converters.createConverter(floatKeyMapType);
-        JsonToRowConverters.JsonToRowConverter doubleConverter =
+        JsonToRowConverters.JsonToObjectConverter doubleConverter =
                 converters.createConverter(doubleKeyMapType);
-        JsonToRowConverters.JsonToRowConverter dateConverter =
+        JsonToRowConverters.JsonToObjectConverter dateConverter =
                 converters.createConverter(dateKeyMapType);
-        JsonToRowConverters.JsonToRowConverter timeConverter =
+        JsonToRowConverters.JsonToObjectConverter timeConverter =
                 converters.createConverter(timeKeyMapType);
-        JsonToRowConverters.JsonToRowConverter timestampConverter =
+        JsonToRowConverters.JsonToObjectConverter timestampConverter =
                 converters.createConverter(timestampKeyMapType);
-        JsonToRowConverters.JsonToRowConverter decimalConverter =
+        JsonToRowConverters.JsonToObjectConverter decimalConverter =
                 converters.createConverter(decimalKeyMapType);
 
-        assertMapKeyType("{\"abc\": \"xxx\"}", stringConverter, "abc");
-        assertMapKeyType("{\"false\": \"xxx\"}", booleanConverter, false);
-        assertMapKeyType("{\"1\": \"xxx\"}", tinyintConverter, (byte) 1);
-        assertMapKeyType("{\"12\": \"xxx\"}", smallintConverter, (short) 12);
-        assertMapKeyType("{\"123\": \"xxx\"}", intConverter, 123);
-        assertMapKeyType("{\"12345\": \"xxx\"}", bigintConverter, 12345L);
-        assertMapKeyType("{\"1.0001\": \"xxx\"}", floatConverter, 1.0001f);
-        assertMapKeyType("{\"999.9999\": \"xxx\"}", doubleConverter, 999.9999);
-        assertMapKeyType("{\"9999.23\": \"xxx\"}", decimalConverter, BigDecimal.valueOf(9999.23));
+        assertMapKeyType("{\"abc\": \"xxx\"}", stringConverter, "abc", "stringConverter");
+        assertMapKeyType("{\"false\": \"xxx\"}", booleanConverter, false, "booleanConverter");
+        assertMapKeyType("{\"1\": \"xxx\"}", tinyintConverter, (byte) 1, "tinyintConverter");
+        assertMapKeyType("{\"12\": \"xxx\"}", smallintConverter, (short) 12, "smallintConverter");
+        assertMapKeyType("{\"123\": \"xxx\"}", intConverter, 123, "intConverter");
+        assertMapKeyType("{\"12345\": \"xxx\"}", bigintConverter, 12345L, "bigintConverter");
+        assertMapKeyType("{\"1.0001\": \"xxx\"}", floatConverter, 1.0001f, "floatConverter");
+        assertMapKeyType("{\"999.9999\": \"xxx\"}", doubleConverter, 999.9999, "doubleConverter");
+        assertMapKeyType(
+                "{\"9999.23\": \"xxx\"}",
+                decimalConverter,
+                BigDecimal.valueOf(9999.23),
+                "decimalConverter");
 
         LocalDate date =
                 DateTimeFormatter.ISO_LOCAL_DATE
                         .parse("2024-01-26")
                         .query(TemporalQueries.localDate());
-        assertMapKeyType("{\"2024-01-26\": \"xxx\"}", dateConverter, date);
+        assertMapKeyType(
+                "{\"2024-01-26\": \"xxx\"}", dateConverter, date, "iso_local_date_string_map");
 
         LocalTime time =
                 JsonToRowConverters.TIME_FORMAT
                         .parse("12:00:12.001")
                         .query(TemporalQueries.localTime());
-        assertMapKeyType("{\"12:00:12.001\": \"xxx\"}", timeConverter, time);
+        assertMapKeyType(
+                "{\"12:00:12.001\": \"xxx\"}", timeConverter, time, "time_format_string_map");
 
         LocalDateTime timestamp = LocalDateTime.of(date, time);
-        assertMapKeyType("{\"2024-01-26T12:00:12.001\": \"xxx\"}", timestampConverter, timestamp);
+        assertMapKeyType(
+                "{\"2024-01-26T12:00:12.001\": \"xxx\"}",
+                timestampConverter,
+                timestamp,
+                "timestamp_string_map");
     }
 
     private void assertMapKeyType(
-            String payload, JsonToRowConverters.JsonToRowConverter converter, Object expect)
+            String payload,
+            JsonToRowConverters.JsonToObjectConverter converter,
+            Object expect,
+            String fieldName)
             throws JsonProcessingException {
         JsonNode keyMapNode = JsonUtils.stringToJsonNode(payload);
-        Map<?, ?> keyMap = (Map<?, ?>) converter.convert(keyMapNode);
+        Map<?, ?> keyMap = (Map<?, ?>) converter.convert(keyMapNode, fieldName);
         assertEquals(expect, keyMap.keySet().iterator().next());
     }
 }
