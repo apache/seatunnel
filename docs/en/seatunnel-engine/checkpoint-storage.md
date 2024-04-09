@@ -85,7 +85,6 @@ if you used SimpleAWSCredentialsProvider (can be obtained from the Amazon Securi
 you can config like this:
 
 ```yaml
-``` yaml
 
 seatunnel:
     engine:
