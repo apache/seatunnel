@@ -142,6 +142,10 @@ public class CheckpointCoordinator {
 
     private final IMap<Object, Object> runningJobStateIMap;
 
+    // save pending checkpoint for savepoint, to make sure the different savepoint request can be
+    // processed with one savepoint operation in the same time.
+    private PendingCheckpoint savepointPendingCheckpoint;
+
     private final String checkpointStateImapKey;
 
     @SneakyThrows
@@ -449,7 +453,6 @@ public class CheckpointCoordinator {
             CompletableFuture<PendingCheckpoint> pendingCheckpoint =
                     createPendingCheckpoint(currentTimestamp, checkpointType);
             startTriggerPendingCheckpoint(pendingCheckpoint);
-            pendingCounter.incrementAndGet();
             // if checkpoint type are final type, we don't need to trigger next checkpoint
             if (checkpointType.notFinalCheckpoint() && checkpointType.notSchemaChangeCheckpoint()) {
                 scheduleTriggerPendingCheckpoint(coordinatorConfig.getCheckpointInterval());
@@ -457,7 +460,7 @@ public class CheckpointCoordinator {
         }
     }
 
-    public boolean isShutdown() {
+    private boolean isShutdown() {
         return shutdown;
     }
 
@@ -472,27 +475,43 @@ public class CheckpointCoordinator {
     @SneakyThrows
     public PassiveCompletableFuture<CompletedCheckpoint> startSavepoint() {
         LOG.info(String.format("Start save point for Job (%s)", jobId));
+        if (shutdown || isCompleted()) {
+            return completableFutureWithError(
+                    CheckpointCloseReason.CHECKPOINT_COORDINATOR_SHUTDOWN);
+        }
         if (!isAllTaskReady) {
-            CompletableFuture<CompletedCheckpoint> savepointFuture = new CompletableFuture<>();
-            savepointFuture.completeExceptionally(
-                    new CheckpointException(
-                            CheckpointCloseReason.TASK_NOT_ALL_READY_WHEN_SAVEPOINT));
-            return new PassiveCompletableFuture<>(savepointFuture);
+            return completableFutureWithError(
+                    CheckpointCloseReason.TASK_NOT_ALL_READY_WHEN_SAVEPOINT);
+        }
+        if (savepointPendingCheckpoint != null
+                && !savepointPendingCheckpoint.getCompletableFuture().isDone()) {
+            return savepointPendingCheckpoint.getCompletableFuture();
         }
         CompletableFuture<PendingCheckpoint> savepoint;
         synchronized (lock) {
-            while (pendingCounter.get() > 0) {
+            while (pendingCounter.get() > 0 && !shutdown) {
                 Thread.sleep(500);
+            }
+            if (shutdown || isCompleted()) {
+                return completableFutureWithError(
+                        CheckpointCloseReason.CHECKPOINT_COORDINATOR_SHUTDOWN);
             }
             savepoint = createPendingCheckpoint(Instant.now().toEpochMilli(), SAVEPOINT_TYPE);
             startTriggerPendingCheckpoint(savepoint);
         }
-        PendingCheckpoint savepointPendingCheckpoint = savepoint.join();
+        savepointPendingCheckpoint = savepoint.join();
         LOG.info(
                 String.format(
                         "The save point checkpointId is %s",
                         savepointPendingCheckpoint.getCheckpointId()));
         return savepointPendingCheckpoint.getCompletableFuture();
+    }
+
+    private PassiveCompletableFuture<CompletedCheckpoint> completableFutureWithError(
+            CheckpointCloseReason closeReason) {
+        CompletableFuture<CompletedCheckpoint> future = new CompletableFuture<>();
+        future.completeExceptionally(new CheckpointException(closeReason));
+        return new PassiveCompletableFuture<>(future);
     }
 
     private void startTriggerPendingCheckpoint(
@@ -577,9 +596,10 @@ public class CheckpointCoordinator {
                                         TimeUnit.MILLISECONDS));
                     }
                 });
+        pendingCounter.incrementAndGet();
     }
 
-    CompletableFuture<PendingCheckpoint> createPendingCheckpoint(
+    private CompletableFuture<PendingCheckpoint> createPendingCheckpoint(
             long triggerTimestamp, CheckpointType checkpointType) {
         synchronized (lock) {
             CompletableFuture<Long> idFuture;
@@ -610,7 +630,7 @@ public class CheckpointCoordinator {
         }
     }
 
-    CompletableFuture<PendingCheckpoint> triggerPendingCheckpoint(
+    private CompletableFuture<PendingCheckpoint> triggerPendingCheckpoint(
             long triggerTimestamp,
             CompletableFuture<Long> idFuture,
             CheckpointType checkpointType) {
@@ -943,5 +963,11 @@ public class CheckpointCoordinator {
                             "schema-change-after checkpoint(%s/%s@%s) is already completed.",
                             checkpoint.getCheckpointId(), pipelineId, jobId));
         }
+    }
+
+    /** Only for test */
+    @VisibleForTesting
+    public PendingCheckpoint getSavepointPendingCheckpoint() {
+        return savepointPendingCheckpoint;
     }
 }
