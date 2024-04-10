@@ -12,7 +12,7 @@ Write data to Druid
 
 ## Options
 
-| name           |  type  | required | default value |
+|      name      |  type  | required | default value |
 |----------------|--------|----------|---------------|
 | coordinatorUrl | string | yes      | -             |
 | datasource     | string | yes      | -             |
