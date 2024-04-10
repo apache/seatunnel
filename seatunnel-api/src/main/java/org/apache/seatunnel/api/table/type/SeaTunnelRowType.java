@@ -74,12 +74,20 @@ public class SeaTunnelRowType implements CompositeType<SeaTunnelRow> {
     }
 
     public int indexOf(String fieldName) {
+        return indexOf(fieldName, true);
+    }
+
+    public int indexOf(String fieldName, boolean throwExceptionWhenNotFound) {
         for (int i = 0; i < fieldNames.length; i++) {
             if (fieldNames[i].equals(fieldName)) {
                 return i;
             }
         }
-        throw new IllegalArgumentException(String.format("can't find field [%s]", fieldName));
+        if (throwExceptionWhenNotFound) {
+            throw new IllegalArgumentException(String.format("can't find field [%s]", fieldName));
+        } else {
+            return -1;
+        }
     }
 
     @Override

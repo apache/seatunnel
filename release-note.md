@@ -17,6 +17,7 @@
 - [Elasticsearch] Support https protocol & compatible with opensearch
 - [Hbase] Add hbase sink connector #4049
 - [Clickhouse] Fix clickhouse old version compatibility #5326
+- [Easysearch] Support INFINI Easysearch #5933
 ### Formats
 - [Canal]Support read canal format message #3950
 - [Debezium]Support debezium canal format message #3981
@@ -51,6 +52,8 @@
 - [Connector-v2] [Clickhouse] fix get clickhouse local table name with closing bracket from distributed table engineFull (#4710)
 - [Connector-v2] [CDC] Fix jdbc connection leak for mysql (#5037)
 - [Connector-v2] [File] Fix WriteStrategy parallel writing thread unsafe issue #5546
+- [Connector-v2] [File] Inject FileSystem to OrcWriteStrategy
+- [Connector-v2] [File] Support assign encoding for file source/sink (#5973)
 
 ### Zeta(ST-Engine)
 
@@ -188,6 +191,7 @@
 - [Transform-V2] Add catalog support for SQL Transform plugin (#4819)
 - [Connector-V2] [Assert] Support check the precision and scale of Decimal type (#6110)
 - [Connector-V2] [Assert] Support field type assert and field value equality assert for full data types (#6275)
+- [Connector-V2] [Iceberg] Support iceberg sink #6198
 
 ### Zeta(ST-Engine)
 

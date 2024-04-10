@@ -19,12 +19,17 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect;
 
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
 import java.io.Serializable;
+import java.sql.DatabaseMetaData;
+import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 
 import static java.sql.Types.BINARY;
 import static java.sql.Types.BLOB;
@@ -42,10 +47,85 @@ import static java.sql.Types.VARCHAR;
 /** Separate the jdbc meta-information type to SeaTunnelDataType into the interface. */
 public interface JdbcDialectTypeMapper extends Serializable {
 
-    /** Convert ResultSetMetaData to SeaTunnel data type {@link SeaTunnelDataType}. */
-    SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex) throws SQLException;
+    /**
+     * @deprecated instead by {@link #mappingColumn(BasicTypeDefine)}
+     * @param metadata
+     * @param colIndex
+     * @return
+     * @throws SQLException
+     */
+    @Deprecated
+    default SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex)
+            throws SQLException {
+        String columnName = metadata.getColumnLabel(colIndex);
+        String nativeType = metadata.getColumnTypeName(colIndex);
+        int isNullable = metadata.isNullable(colIndex);
+        int precision = metadata.getPrecision(colIndex);
+        int scale = metadata.getScale(colIndex);
+
+        BasicTypeDefine typeDefine =
+                BasicTypeDefine.builder()
+                        .name(columnName)
+                        .columnType(nativeType)
+                        .dataType(nativeType)
+                        .nullable(isNullable == ResultSetMetaData.columnNullable)
+                        .length((long) precision)
+                        .precision((long) precision)
+                        .scale(scale)
+                        .build();
+        return mappingColumn(typeDefine).getDataType();
+    }
+
+    default Column mappingColumn(BasicTypeDefine typeDefine) {
+        throw new UnsupportedOperationException();
+    }
+
+    default List<Column> mappingColumn(
+            DatabaseMetaData metadata,
+            String catalog,
+            String schemaPattern,
+            String tableNamePattern,
+            String columnNamePattern)
+            throws SQLException {
+        List<Column> columns = new ArrayList<>();
+        try (ResultSet rs =
+                metadata.getColumns(catalog, schemaPattern, tableNamePattern, columnNamePattern)) {
+            while (rs.next()) {
+                String columnName = rs.getString("COLUMN_NAME");
+                String nativeType = rs.getString("TYPE_NAME");
+                int columnSize = rs.getInt("COLUMN_SIZE");
+                int decimalDigits = rs.getInt("DECIMAL_DIGITS");
+                int nullable = rs.getInt("NULLABLE");
+
+                BasicTypeDefine typeDefine =
+                        BasicTypeDefine.builder()
+                                .name(columnName)
+                                .columnType(nativeType)
+                                .dataType(nativeType)
+                                .length((long) columnSize)
+                                .precision((long) columnSize)
+                                .scale(decimalDigits)
+                                .nullable(nullable == DatabaseMetaData.columnNullable)
+                                .build();
+                columns.add(mappingColumn(typeDefine));
+            }
+        }
+        return columns;
+    }
+
+    default List<Column> mappingColumn(ResultSetMetaData metadata) throws SQLException {
+        List<Column> columns = new ArrayList<>();
+        for (int index = 1; index <= metadata.getColumnCount(); index++) {
+            Column column = mappingColumn(metadata, index);
+            columns.add(column);
+        }
+        return columns;
+    }
 
     default Column mappingColumn(ResultSetMetaData metadata, int colIndex) throws SQLException {
+        /**
+         * TODO The mapping method should be replaced by {@link #mappingColumn(BasicTypeDefine)}.
+         */
         SeaTunnelDataType seaTunnelType = mapping(metadata, colIndex);
 
         String columnName = metadata.getColumnLabel(colIndex);

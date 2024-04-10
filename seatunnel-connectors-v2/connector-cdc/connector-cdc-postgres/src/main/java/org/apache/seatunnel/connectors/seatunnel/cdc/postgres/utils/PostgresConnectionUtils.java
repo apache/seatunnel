@@ -17,11 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.postgres.utils;
 
+import io.debezium.connector.postgresql.CustomPostgresValueConverter;
 import io.debezium.connector.postgresql.PostgresConnectorConfig;
-import io.debezium.connector.postgresql.PostgresValueConverter;
 import io.debezium.connector.postgresql.connection.PostgresConnection;
 
 import java.nio.charset.Charset;
+import java.time.ZoneId;
 
 public class PostgresConnectionUtils {
 
@@ -33,12 +34,23 @@ public class PostgresConnectionUtils {
      * PostgresConnectorConfig is protected.
      */
     public static PostgresConnection.PostgresValueConverterBuilder newPostgresValueConverterBuilder(
-            PostgresConnectorConfig config) {
+            PostgresConnectorConfig config, ZoneId zoneId) {
         try (PostgresConnection heartbeatConnection =
                 new PostgresConnection(config.getJdbcConfig())) {
             final Charset databaseCharset = heartbeatConnection.getDatabaseCharset();
             return (typeRegistry) ->
-                    PostgresValueConverter.of(config, databaseCharset, typeRegistry);
+                    CustomPostgresValueConverter.of(config, databaseCharset, typeRegistry, zoneId);
+        }
+    }
+
+    public static PostgresConnection.PostgresValueConverterBuilder newPostgresValueConverterBuilder(
+            PostgresConnectorConfig config, String serverTimezone) {
+        try (PostgresConnection heartbeatConnection =
+                new PostgresConnection(config.getJdbcConfig())) {
+            final Charset databaseCharset = heartbeatConnection.getDatabaseCharset();
+            return (typeRegistry) ->
+                    CustomPostgresValueConverter.of(
+                            config, databaseCharset, typeRegistry, ZoneId.of(serverTimezone));
         }
     }
 }

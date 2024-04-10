@@ -45,15 +45,16 @@ public class StarRocksCreateTableTest {
 
         List<Column> columns = new ArrayList<>();
 
-        columns.add(PhysicalColumn.of("id", BasicType.LONG_TYPE, null, true, null, ""));
-        columns.add(PhysicalColumn.of("name", BasicType.STRING_TYPE, null, true, null, ""));
-        columns.add(PhysicalColumn.of("age", BasicType.INT_TYPE, null, true, null, ""));
-        columns.add(PhysicalColumn.of("score", BasicType.INT_TYPE, null, true, null, ""));
-        columns.add(PhysicalColumn.of("gender", BasicType.BYTE_TYPE, null, true, null, ""));
-        columns.add(PhysicalColumn.of("create_time", BasicType.LONG_TYPE, null, true, null, ""));
+        columns.add(PhysicalColumn.of("id", BasicType.LONG_TYPE, (Long) null, true, null, ""));
+        columns.add(PhysicalColumn.of("name", BasicType.STRING_TYPE, (Long) null, true, null, ""));
+        columns.add(PhysicalColumn.of("age", BasicType.INT_TYPE, (Long) null, true, null, ""));
+        columns.add(PhysicalColumn.of("score", BasicType.INT_TYPE, (Long) null, true, null, ""));
+        columns.add(PhysicalColumn.of("gender", BasicType.BYTE_TYPE, (Long) null, true, null, ""));
+        columns.add(
+                PhysicalColumn.of("create_time", BasicType.LONG_TYPE, (Long) null, true, null, ""));
 
         String result =
-                StarRocksSaveModeUtil.fillingCreateSql(
+                StarRocksSaveModeUtil.getCreateTableSql(
                         "CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}` (                                                                                                                                                   \n"
                                 + "${rowtype_primary_key}  ,       \n"
                                 + "${rowtype_unique_key} , \n"
@@ -125,36 +126,68 @@ public class StarRocksCreateTableTest {
 
         List<Column> columns = new ArrayList<>();
 
-        columns.add(PhysicalColumn.of("L_ORDERKEY", BasicType.INT_TYPE, null, false, null, ""));
-        columns.add(PhysicalColumn.of("L_PARTKEY", BasicType.INT_TYPE, null, false, null, ""));
-        columns.add(PhysicalColumn.of("L_SUPPKEY", BasicType.INT_TYPE, null, false, null, ""));
-        columns.add(PhysicalColumn.of("L_LINENUMBER", BasicType.INT_TYPE, null, false, null, ""));
-        columns.add(PhysicalColumn.of("L_QUANTITY", new DecimalType(15, 2), null, false, null, ""));
+        columns.add(
+                PhysicalColumn.of("L_ORDERKEY", BasicType.INT_TYPE, (Long) null, false, null, ""));
+        columns.add(
+                PhysicalColumn.of("L_PARTKEY", BasicType.INT_TYPE, (Long) null, false, null, ""));
+        columns.add(
+                PhysicalColumn.of("L_SUPPKEY", BasicType.INT_TYPE, (Long) null, false, null, ""));
         columns.add(
                 PhysicalColumn.of(
-                        "L_EXTENDEDPRICE", new DecimalType(15, 2), null, false, null, ""));
-        columns.add(PhysicalColumn.of("L_DISCOUNT", new DecimalType(15, 2), null, false, null, ""));
-        columns.add(PhysicalColumn.of("L_TAX", new DecimalType(15, 2), null, false, null, ""));
-        columns.add(
-                PhysicalColumn.of("L_RETURNFLAG", BasicType.STRING_TYPE, null, false, null, ""));
-        columns.add(
-                PhysicalColumn.of("L_LINESTATUS", BasicType.STRING_TYPE, null, false, null, ""));
+                        "L_LINENUMBER", BasicType.INT_TYPE, (Long) null, false, null, ""));
         columns.add(
                 PhysicalColumn.of(
-                        "L_SHIPDATE", LocalTimeType.LOCAL_DATE_TYPE, null, false, null, ""));
+                        "L_QUANTITY", new DecimalType(15, 2), (Long) null, false, null, ""));
         columns.add(
                 PhysicalColumn.of(
-                        "L_COMMITDATE", LocalTimeType.LOCAL_DATE_TYPE, null, false, null, ""));
+                        "L_EXTENDEDPRICE",
+                        new DecimalType(15, 2),
+                        (Integer) null,
+                        false,
+                        null,
+                        ""));
         columns.add(
                 PhysicalColumn.of(
-                        "L_RECEIPTDATE", LocalTimeType.LOCAL_DATE_TYPE, null, false, null, ""));
+                        "L_DISCOUNT", new DecimalType(15, 2), (Long) null, false, null, ""));
         columns.add(
-                PhysicalColumn.of("L_SHIPINSTRUCT", BasicType.STRING_TYPE, null, false, null, ""));
-        columns.add(PhysicalColumn.of("L_SHIPMODE", BasicType.STRING_TYPE, null, false, null, ""));
-        columns.add(PhysicalColumn.of("L_COMMENT", BasicType.STRING_TYPE, null, false, null, ""));
+                PhysicalColumn.of("L_TAX", new DecimalType(15, 2), (Long) null, false, null, ""));
+        columns.add(
+                PhysicalColumn.of(
+                        "L_RETURNFLAG", BasicType.STRING_TYPE, (Long) null, false, null, ""));
+        columns.add(
+                PhysicalColumn.of(
+                        "L_LINESTATUS", BasicType.STRING_TYPE, (Long) null, false, null, ""));
+        columns.add(
+                PhysicalColumn.of(
+                        "L_SHIPDATE", LocalTimeType.LOCAL_DATE_TYPE, (Long) null, false, null, ""));
+        columns.add(
+                PhysicalColumn.of(
+                        "L_COMMITDATE",
+                        LocalTimeType.LOCAL_DATE_TYPE,
+                        (Long) null,
+                        false,
+                        null,
+                        ""));
+        columns.add(
+                PhysicalColumn.of(
+                        "L_RECEIPTDATE",
+                        LocalTimeType.LOCAL_DATE_TYPE,
+                        (Long) null,
+                        false,
+                        null,
+                        ""));
+        columns.add(
+                PhysicalColumn.of(
+                        "L_SHIPINSTRUCT", BasicType.STRING_TYPE, (Long) null, false, null, ""));
+        columns.add(
+                PhysicalColumn.of(
+                        "L_SHIPMODE", BasicType.STRING_TYPE, (Long) null, false, null, ""));
+        columns.add(
+                PhysicalColumn.of(
+                        "L_COMMENT", BasicType.STRING_TYPE, (Long) null, false, null, ""));
 
         String result =
-                StarRocksSaveModeUtil.fillingCreateSql(
+                StarRocksSaveModeUtil.getCreateTableSql(
                         "CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}` (\n"
                                 + "`L_COMMITDATE`,\n"
                                 + "${rowtype_primary_key},\n"
@@ -204,14 +237,14 @@ public class StarRocksCreateTableTest {
 
         List<Column> columns = new ArrayList<>();
 
-        columns.add(PhysicalColumn.of("id", BasicType.LONG_TYPE, null, true, null, ""));
-        columns.add(PhysicalColumn.of("name", BasicType.STRING_TYPE, null, true, null, ""));
-        columns.add(PhysicalColumn.of("age", BasicType.INT_TYPE, null, true, null, ""));
+        columns.add(PhysicalColumn.of("id", BasicType.LONG_TYPE, (Long) null, true, null, ""));
+        columns.add(PhysicalColumn.of("name", BasicType.STRING_TYPE, (Long) null, true, null, ""));
+        columns.add(PhysicalColumn.of("age", BasicType.INT_TYPE, (Long) null, true, null, ""));
         columns.add(PhysicalColumn.of("comment", BasicType.STRING_TYPE, 500, true, null, ""));
         columns.add(PhysicalColumn.of("description", BasicType.STRING_TYPE, 70000, true, null, ""));
 
         String result =
-                StarRocksSaveModeUtil.fillingCreateSql(
+                StarRocksSaveModeUtil.getCreateTableSql(
                         "CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}` (                                                                                                                                                   \n"
                                 + "${rowtype_primary_key}  ,       \n"
                                 + "`create_time` DATETIME NOT NULL ,  \n"
@@ -254,6 +287,42 @@ public class StarRocksCreateTableTest {
                         + "    \"dynamic_partition.end\" = \"3\", \n"
                         + "    \"dynamic_partition.prefix\" = \"p\"                                                                                                                                                                           \n"
                         + ");",
+                result);
+    }
+
+    @Test
+    public void testWithThreePrimaryKeys() {
+        List<Column> columns = new ArrayList<>();
+
+        columns.add(PhysicalColumn.of("id", BasicType.LONG_TYPE, (Long) null, true, null, ""));
+        columns.add(PhysicalColumn.of("name", BasicType.STRING_TYPE, (Long) null, true, null, ""));
+        columns.add(PhysicalColumn.of("age", BasicType.INT_TYPE, (Long) null, true, null, ""));
+        columns.add(PhysicalColumn.of("comment", BasicType.STRING_TYPE, 500, true, null, ""));
+        columns.add(PhysicalColumn.of("description", BasicType.STRING_TYPE, 70000, true, null, ""));
+
+        String result =
+                StarRocksSaveModeUtil.getCreateTableSql(
+                        "create table '${database}'.'${table_name}'(\n"
+                                + "     ${rowtype_fields}\n"
+                                + " )\n"
+                                + " partitioned by ${rowtype_primary_key};",
+                        "test1",
+                        "test2",
+                        TableSchema.builder()
+                                .primaryKey(
+                                        PrimaryKey.of("test", Arrays.asList("id", "age", "name")))
+                                .columns(columns)
+                                .build());
+
+        Assertions.assertEquals(
+                "create table 'test1'.'test2'(\n"
+                        + "     `id` BIGINT NULL ,\n"
+                        + "`name` STRING NULL ,\n"
+                        + "`age` INT NULL ,\n"
+                        + "`comment` VARCHAR(500) NULL ,\n"
+                        + "`description` STRING NULL \n"
+                        + " )\n"
+                        + " partitioned by `id`,`age`,`name`;",
                 result);
     }
 }

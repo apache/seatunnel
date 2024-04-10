@@ -77,4 +77,5 @@ connector-tablestore
 connector-selectdb-cloud
 connector-hbase
 connector-amazonsqs
+connector-easysearch
 --end--

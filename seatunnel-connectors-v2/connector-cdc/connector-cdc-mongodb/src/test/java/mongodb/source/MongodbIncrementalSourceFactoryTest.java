@@ -17,14 +17,33 @@
 
 package mongodb.source;
 
+import org.apache.seatunnel.api.configuration.SingleChoiceOption;
+import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
+import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.MongodbIncrementalSourceFactory;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
+
 public class MongodbIncrementalSourceFactoryTest {
     @Test
     public void testOptionRule() {
         Assertions.assertNotNull((new MongodbIncrementalSourceFactory()).optionRule());
+    }
+
+    @Test
+    public void testWithUnsupportedStartUpMode() {
+        MongodbIncrementalSourceFactory mongodbIncrementalSourceFactory =
+                new MongodbIncrementalSourceFactory();
+        mongodbIncrementalSourceFactory.optionRule().getOptionalOptions().stream()
+                .filter((option) -> option.key().equals(SourceOptions.STARTUP_MODE_KEY))
+                .forEach(
+                        (option) -> {
+                            Assertions.assertIterableEquals(
+                                    Arrays.asList(StartupMode.INITIAL, StartupMode.TIMESTAMP),
+                                    ((SingleChoiceOption<StartupMode>) option).getOptionValues());
+                        });
     }
 }

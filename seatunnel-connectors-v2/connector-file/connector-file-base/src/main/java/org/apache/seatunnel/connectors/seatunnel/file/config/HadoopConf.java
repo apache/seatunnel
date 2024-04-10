@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.file.config;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.CommonConfigurationKeys;
 import org.apache.hadoop.fs.Path;
 
 import lombok.Data;
@@ -25,6 +26,11 @@ import lombok.Data;
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
+
+import static org.apache.parquet.avro.AvroReadSupport.READ_INT96_AS_FIXED;
+import static org.apache.parquet.avro.AvroSchemaConverter.ADD_LIST_ELEMENT_RECORDS;
+import static org.apache.parquet.avro.AvroWriteSupport.WRITE_FIXED_AS_INT96;
+import static org.apache.parquet.avro.AvroWriteSupport.WRITE_OLD_LIST_STRUCTURE;
 
 @Data
 public class HadoopConf implements Serializable {
@@ -59,5 +65,17 @@ public class HadoopConf implements Serializable {
         if (hdfsSitePath != null) {
             configuration.addResource(new Path(hdfsSitePath));
         }
+    }
+
+    public Configuration toConfiguration() {
+        Configuration configuration = new Configuration();
+        configuration.setBoolean(READ_INT96_AS_FIXED, true);
+        configuration.setBoolean(WRITE_FIXED_AS_INT96, true);
+        configuration.setBoolean(ADD_LIST_ELEMENT_RECORDS, false);
+        configuration.setBoolean(WRITE_OLD_LIST_STRUCTURE, true);
+        configuration.setBoolean(String.format("fs.%s.impl.disable.cache", getSchema()), true);
+        configuration.set(CommonConfigurationKeys.FS_DEFAULT_NAME_KEY, getHdfsNameKey());
+        configuration.set(String.format("fs.%s.impl", getSchema()), getFsHdfsImpl());
+        return configuration;
     }
 }

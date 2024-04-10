@@ -69,7 +69,7 @@ public class InMemoryCatalog implements Catalog {
                                         "name", BasicType.STRING_TYPE, 128, false, null, "name"))
                         .column(
                                 PhysicalColumn.of(
-                                        "age", BasicType.INT_TYPE, null, true, null, "age"))
+                                        "age", BasicType.INT_TYPE, (Long) null, true, null, "age"))
                         .column(
                                 PhysicalColumn.of(
                                         "createTime",

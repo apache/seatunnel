@@ -35,6 +35,11 @@ public interface TestContainer extends TestResource {
 
     Container.ExecResult executeJob(String confFile) throws IOException, InterruptedException;
 
+    default Container.ExecResult executeConnectorCheck(String[] args)
+            throws IOException, InterruptedException {
+        throw new UnsupportedOperationException("Not implemented");
+    };
+
     default Container.ExecResult savepointJob(String jobId)
             throws IOException, InterruptedException {
         throw new UnsupportedOperationException("Not implemented");

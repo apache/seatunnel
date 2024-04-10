@@ -17,121 +17,51 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlserver;
 
-import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.DecimalType;
-import org.apache.seatunnel.api.table.type.LocalTimeType;
-import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.common.exception.CommonError;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
+import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.util.Arrays;
 
 @Slf4j
 public class SqlserverTypeMapper implements JdbcDialectTypeMapper {
 
-    // ============================data types=====================
-
-    private static final String SQLSERVER_UNKNOWN = "UNKNOWN";
-
-    // -------------------------number----------------------------
-    private static final String SQLSERVER_BIT = "BIT";
-    private static final String SQLSERVER_TINYINT = "TINYINT";
-    private static final String SQLSERVER_SMALLINT = "SMALLINT";
-    private static final String SQLSERVER_INTEGER = "INTEGER";
-    private static final String SQLSERVER_INT = "INT";
-    private static final String SQLSERVER_BIGINT = "BIGINT";
-    private static final String SQLSERVER_DECIMAL = "DECIMAL";
-    private static final String SQLSERVER_FLOAT = "FLOAT";
-    private static final String SQLSERVER_REAL = "REAL";
-    private static final String SQLSERVER_NUMERIC = "NUMERIC";
-    private static final String SQLSERVER_MONEY = "MONEY";
-    private static final String SQLSERVER_SMALLMONEY = "SMALLMONEY";
-    // -------------------------string----------------------------
-    private static final String SQLSERVER_CHAR = "CHAR";
-    private static final String SQLSERVER_VARCHAR = "VARCHAR";
-    private static final String SQLSERVER_NTEXT = "NTEXT";
-    private static final String SQLSERVER_NCHAR = "NCHAR";
-    private static final String SQLSERVER_NVARCHAR = "NVARCHAR";
-    private static final String SQLSERVER_TEXT = "TEXT";
-    private static final String SQLSERVER_XML = "XML";
-    private static final String SQLSERVER_UNIQUEIDENTIFIER = "UNIQUEIDENTIFIER";
-    private static final String SQLSERVER_SQLVARIANT = "SQL_VARIANT";
-
-    // ------------------------------time-------------------------
-    private static final String SQLSERVER_DATE = "DATE";
-    private static final String SQLSERVER_TIME = "TIME";
-    private static final String SQLSERVER_DATETIME = "DATETIME";
-    private static final String SQLSERVER_DATETIME2 = "DATETIME2";
-    private static final String SQLSERVER_SMALLDATETIME = "SMALLDATETIME";
-    private static final String SQLSERVER_DATETIMEOFFSET = "DATETIMEOFFSET";
-    private static final String SQLSERVER_TIMESTAMP = "TIMESTAMP";
-
-    // ------------------------------blob-------------------------
-    private static final String SQLSERVER_BINARY = "BINARY";
-    private static final String SQLSERVER_VARBINARY = "VARBINARY";
-    private static final String SQLSERVER_IMAGE = "IMAGE";
+    @Override
+    public Column mappingColumn(BasicTypeDefine typeDefine) {
+        return SqlServerTypeConverter.INSTANCE.convert(typeDefine);
+    }
 
     @Override
-    public SeaTunnelDataType<?> mapping(ResultSetMetaData metadata, int colIndex)
-            throws SQLException {
-        String sqlServerType = metadata.getColumnTypeName(colIndex).toUpperCase();
+    public Column mappingColumn(ResultSetMetaData metadata, int colIndex) throws SQLException {
+        String columnName = metadata.getColumnLabel(colIndex);
+        String nativeType = metadata.getColumnTypeName(colIndex);
+        int isNullable = metadata.isNullable(colIndex);
         int precision = metadata.getPrecision(colIndex);
         int scale = metadata.getScale(colIndex);
-        switch (sqlServerType) {
-            case SQLSERVER_BIT:
-                return BasicType.BOOLEAN_TYPE;
-            case SQLSERVER_TINYINT:
-            case SQLSERVER_SMALLINT:
-                return BasicType.SHORT_TYPE;
-            case SQLSERVER_INTEGER:
-            case SQLSERVER_INT:
-                return BasicType.INT_TYPE;
-            case SQLSERVER_BIGINT:
-                return BasicType.LONG_TYPE;
-            case SQLSERVER_DECIMAL:
-            case SQLSERVER_NUMERIC:
-            case SQLSERVER_MONEY:
-            case SQLSERVER_SMALLMONEY:
-                return new DecimalType(precision, scale);
-            case SQLSERVER_REAL:
-                return BasicType.FLOAT_TYPE;
-            case SQLSERVER_FLOAT:
-                return BasicType.DOUBLE_TYPE;
-            case SQLSERVER_CHAR:
-            case SQLSERVER_NCHAR:
-            case SQLSERVER_VARCHAR:
-            case SQLSERVER_NTEXT:
-            case SQLSERVER_NVARCHAR:
-            case SQLSERVER_TEXT:
-            case SQLSERVER_XML:
-            case SQLSERVER_UNIQUEIDENTIFIER:
-            case SQLSERVER_SQLVARIANT:
-                return BasicType.STRING_TYPE;
-            case SQLSERVER_DATE:
-                return LocalTimeType.LOCAL_DATE_TYPE;
-            case SQLSERVER_TIME:
-                return LocalTimeType.LOCAL_TIME_TYPE;
-            case SQLSERVER_DATETIME:
-            case SQLSERVER_DATETIME2:
-            case SQLSERVER_SMALLDATETIME:
-            case SQLSERVER_DATETIMEOFFSET:
-                return LocalTimeType.LOCAL_DATE_TIME_TYPE;
-            case SQLSERVER_TIMESTAMP:
-            case SQLSERVER_BINARY:
-            case SQLSERVER_VARBINARY:
-            case SQLSERVER_IMAGE:
-                return PrimitiveByteArrayType.INSTANCE;
-                // Doesn't support yet
-            case SQLSERVER_UNKNOWN:
-            default:
-                final String jdbcColumnName = metadata.getColumnName(colIndex);
-                throw CommonError.convertToSeaTunnelTypeError(
-                        DatabaseIdentifier.SQLSERVER, sqlServerType, jdbcColumnName);
+        if ("float".equalsIgnoreCase(nativeType) && precision == 15) {
+            // char length -> max precision
+            // float(1-24) char length is 7, float(25-53) char length is 15
+            // float(1-24) byte length is 4, float(25-53) char length is 8
+            precision = 53;
+        } else if (Arrays.asList("nchar", "nvarchar").contains(nativeType)) {
+            // e.g nvarchar(10) the char length is 10, but byte length is 20
+            precision = precision * 2;
         }
+
+        BasicTypeDefine typeDefine =
+                BasicTypeDefine.builder()
+                        .name(columnName)
+                        .columnType(nativeType)
+                        .dataType(nativeType)
+                        .nullable(isNullable == ResultSetMetaData.columnNullable)
+                        .length((long) precision)
+                        .precision((long) precision)
+                        .scale(scale)
+                        .build();
+        return mappingColumn(typeDefine);
     }
 }

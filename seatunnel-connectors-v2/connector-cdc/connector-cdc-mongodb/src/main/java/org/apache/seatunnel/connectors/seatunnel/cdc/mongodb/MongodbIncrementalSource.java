@@ -19,7 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.mongodb;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -41,16 +40,11 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.sender.MongoDBConne
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.source.dialect.MongodbDialect;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.source.offset.ChangeStreamOffsetFactory;
 
-import com.google.auto.service.AutoService;
-import lombok.NoArgsConstructor;
-
 import javax.annotation.Nonnull;
 
 import java.util.List;
 import java.util.Optional;
 
-@NoArgsConstructor
-@AutoService(SeaTunnelSource.class)
 public class MongodbIncrementalSource<T> extends IncrementalSource<T, MongodbSourceConfig>
         implements SupportParallelism {
 

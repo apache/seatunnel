@@ -95,6 +95,10 @@ public class DorisCatalogUtil {
         return "DROP TABLE " + (ignoreIfNotExists ? "IF EXISTS " : "") + tablePath.getFullName();
     }
 
+    public static String getTruncateTableQuery(TablePath tablePath) {
+        return "TRUNCATE TABLE " + tablePath.getFullName();
+    }
+
     /**
      * @param createTableTemplate create table template
      * @param catalogTable catalog table
@@ -196,11 +200,7 @@ public class DorisCatalogUtil {
                 column.getName(),
                 fromSeaTunnelType(
                         column.getDataType(),
-                        Math.max(
-                                column.getColumnLength() == null ? 0 : column.getColumnLength(),
-                                column.getLongColumnLength() == null
-                                        ? 0
-                                        : column.getLongColumnLength())),
+                        column.getColumnLength() == null ? 0 : column.getColumnLength()),
                 column.isNullable() ? "NULL" : "NOT NULL");
     }
 
