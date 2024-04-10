@@ -113,7 +113,8 @@ public class AmazonSqsSource extends AbstractSingleSplitSource<SeaTunnelRow>
             MessageFormat format = ReadonlyConfig.fromConfig(config).get(FORMAT);
             switch (format) {
                 case JSON:
-                    deserializationSchema = new JsonDeserializationSchema(false, false, typeInfo);
+                    deserializationSchema =
+                            new JsonDeserializationSchema(false, false, typeInfo, null);
                     break;
                 case TEXT:
                     String delimiter = DEFAULT_FIELD_DELIMITER;
@@ -138,7 +139,8 @@ public class AmazonSqsSource extends AbstractSingleSplitSource<SeaTunnelRow>
                         includeSchema = config.getBoolean(DEBEZIUM_RECORD_INCLUDE_SCHEMA.key());
                     }
                     deserializationSchema =
-                            new DebeziumJsonDeserializationSchema(typeInfo, true, includeSchema);
+                            new DebeziumJsonDeserializationSchema(
+                                    typeInfo, true, includeSchema, null);
                     break;
                 default:
                     throw new SeaTunnelJsonFormatException(

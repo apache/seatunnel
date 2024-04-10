@@ -65,10 +65,11 @@ public class JsonReadStrategy extends AbstractReadStrategy {
         super.setSeaTunnelRowTypeInfo(seaTunnelRowType);
         if (isMergePartition) {
             deserializationSchema =
-                    new JsonDeserializationSchema(false, false, this.seaTunnelRowTypeWithPartition);
+                    new JsonDeserializationSchema(
+                            false, false, this.seaTunnelRowTypeWithPartition, null);
         } else {
             deserializationSchema =
-                    new JsonDeserializationSchema(false, false, this.seaTunnelRowType);
+                    new JsonDeserializationSchema(false, false, this.seaTunnelRowType, null);
         }
     }
 

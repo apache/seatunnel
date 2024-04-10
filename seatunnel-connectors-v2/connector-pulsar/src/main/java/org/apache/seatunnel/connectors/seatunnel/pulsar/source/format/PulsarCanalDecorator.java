@@ -58,11 +58,6 @@ public class PulsarCanalDecorator implements DeserializationSchema<SeaTunnelRow>
     }
 
     @Override
-    public SeaTunnelRow deserialize(byte[] message, TablePath tablePath) throws IOException {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
     public void deserialize(byte[] message, Collector<SeaTunnelRow> out) throws IOException {
         deserializeMessage(message, out, null);
     }

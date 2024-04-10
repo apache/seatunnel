@@ -18,14 +18,11 @@
 package org.apache.seatunnel.connectors.seatunnel.http.source;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
-import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
 import lombok.AllArgsConstructor;
-
-import java.io.IOException;
 
 @AllArgsConstructor
 public class SimpleTextDeserializationSchema implements DeserializationSchema<SeaTunnelRow> {
@@ -35,12 +32,6 @@ public class SimpleTextDeserializationSchema implements DeserializationSchema<Se
     @Override
     public SeaTunnelRow deserialize(byte[] message) {
         return new SeaTunnelRow(new Object[] {new String(message)});
-    }
-
-    @Override
-    public SeaTunnelRow deserialize(byte[] message, TablePath tablePath) throws IOException {
-        throw new UnsupportedOperationException(
-                "Please invoke SimpleTextDeserializationSchema#deserialize(byte[]) instead.");
     }
 
     @Override
