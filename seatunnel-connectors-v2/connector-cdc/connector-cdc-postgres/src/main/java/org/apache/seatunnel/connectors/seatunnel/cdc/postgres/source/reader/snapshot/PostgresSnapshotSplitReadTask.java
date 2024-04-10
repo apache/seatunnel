@@ -179,7 +179,7 @@ public class PostgresSnapshotSplitReadTask extends AbstractSnapshotChangeEventSo
 
         final String selectSql =
                 PostgresUtils.buildSplitScanQuery(
-                        snapshotSplit.getTableId(),
+                        table,
                         snapshotSplit.getSplitKeyType(),
                         snapshotSplit.getSplitStart() == null,
                         snapshotSplit.getSplitEnd() == null);
