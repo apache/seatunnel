@@ -94,6 +94,12 @@ public class PaimonConfig implements Serializable {
                     .withDescription(
                             "The specified loading path for the 'core-site.xml', 'hdfs-site.xml', 'hive-site.xml' files");
 
+    public static final Option<String> PROJECTION =
+            Options.key("projection")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Decides which columns of the paimon table to read");
+
     protected String catalogName;
     protected String warehouse;
     protected String namespace;
