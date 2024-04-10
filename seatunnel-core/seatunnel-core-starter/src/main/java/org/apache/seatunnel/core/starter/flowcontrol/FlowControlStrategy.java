@@ -29,23 +29,23 @@ public final class FlowControlStrategy {
 
     private final int bytesPerSecond;
 
-    private final int countPreSecond;
+    private final int countPerSecond;
 
-    FlowControlStrategy(int bytesPerSecond, int countPreSecond) {
-        if (bytesPerSecond <= 0 || countPreSecond <= 0) {
+    FlowControlStrategy(int bytesPerSecond, int countPerSecond) {
+        if (bytesPerSecond <= 0 || countPerSecond <= 0) {
             throw new IllegalArgumentException(
-                    "bytesPerSecond and countPreSecond must be positive");
+                    "bytesPerSecond and countPerSecond must be positive");
         }
         this.bytesPerSecond = bytesPerSecond;
-        this.countPreSecond = countPreSecond;
+        this.countPerSecond = countPerSecond;
     }
 
     public int getBytesPerSecond() {
         return bytesPerSecond;
     }
 
-    public int getCountPreSecond() {
-        return countPreSecond;
+    public int getCountPerSecond() {
+        return countPerSecond;
     }
 
     public static Builder builder() {
@@ -56,7 +56,7 @@ public final class FlowControlStrategy {
 
         private int bytesPerSecond = Integer.MAX_VALUE;
 
-        private int countPreSecond = Integer.MAX_VALUE;
+        private int countPerSecond = Integer.MAX_VALUE;
 
         private Builder() {}
 
@@ -65,20 +65,20 @@ public final class FlowControlStrategy {
             return this;
         }
 
-        public Builder countPerSecond(int countPreSecond) {
-            this.countPreSecond = countPreSecond;
+        public Builder countPerSecond(int countPerSecond) {
+            this.countPerSecond = countPerSecond;
             return this;
         }
 
         public FlowControlStrategy build() {
-            return new FlowControlStrategy(bytesPerSecond, countPreSecond);
+            return new FlowControlStrategy(bytesPerSecond, countPerSecond);
         }
     }
 
-    public static FlowControlStrategy of(int bytesPerSecond, int countPreSecond) {
+    public static FlowControlStrategy of(int bytesPerSecond, int countPerSecond) {
         return FlowControlStrategy.builder()
                 .bytesPerSecond(bytesPerSecond)
-                .countPerSecond(countPreSecond)
+                .countPerSecond(countPerSecond)
                 .build();
     }
 
@@ -86,8 +86,8 @@ public final class FlowControlStrategy {
         return FlowControlStrategy.builder().bytesPerSecond(bytesPerSecond).build();
     }
 
-    public static FlowControlStrategy ofCount(int countPreSecond) {
-        return FlowControlStrategy.builder().countPerSecond(countPreSecond).build();
+    public static FlowControlStrategy ofCount(int countPerSecond) {
+        return FlowControlStrategy.builder().countPerSecond(countPerSecond).build();
     }
 
     public static FlowControlStrategy fromMap(Map<String, Object> envOption) {

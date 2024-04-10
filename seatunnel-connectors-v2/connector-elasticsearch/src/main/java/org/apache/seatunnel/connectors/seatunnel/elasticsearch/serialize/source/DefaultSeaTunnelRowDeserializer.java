@@ -91,6 +91,9 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
                     put(
                             "yyyy-MM-dd HH:mm:ss.SSSSSS".length(),
                             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSS"));
+                    put(
+                            "yyyy-MM-dd HH:mm:ss.SSSSSSSSS".length(),
+                            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSSSSS"));
                 }
             };
 
@@ -185,6 +188,25 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
                 convertMap.put(convertKey, convertValue);
             }
             return convertMap;
+        } else if (fieldType instanceof SeaTunnelRowType) {
+            SeaTunnelRowType rowType = (SeaTunnelRowType) fieldType;
+            Map<String, Object> collect =
+                    mapper.readValue(fieldValue, new TypeReference<Map<String, Object>>() {});
+            Object[] seaTunnelFields = new Object[rowType.getTotalFields()];
+            for (int i = 0; i < rowType.getTotalFields(); i++) {
+                String fieldName = rowType.getFieldName(i);
+                SeaTunnelDataType<?> fieldDataType = rowType.getFieldType(i);
+                Object value = collect.get(fieldName);
+                if (value != null) {
+                    seaTunnelFields[i] =
+                            convertValue(
+                                    fieldDataType,
+                                    (value instanceof List || value instanceof Map)
+                                            ? mapper.writeValueAsString(value)
+                                            : value.toString());
+                }
+            }
+            return new SeaTunnelRow(seaTunnelFields);
         } else if (fieldType instanceof PrimitiveByteArrayType) {
             return Base64.getDecoder().decode(fieldValue);
         } else if (VOID_TYPE.equals(fieldType) || fieldType == null) {
@@ -204,7 +226,7 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
         } catch (NumberFormatException e) {
             // no op
         }
-        String formatDate = fieldValue.replace("T", " ");
+        String formatDate = fieldValue.replace("T", " ").replace("Z", "");
         if (fieldValue.length() == "yyyyMMdd".length()
                 || fieldValue.length() == "yyyy-MM-dd".length()) {
             formatDate = fieldValue + " 00:00:00";

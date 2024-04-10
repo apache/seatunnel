@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.common.multitablesink;
 import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
+import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import lombok.extern.slf4j.Slf4j;
@@ -34,6 +35,7 @@ import java.util.Random;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -58,7 +60,9 @@ public class MultiTableSinkWriter
         AtomicInteger cnt = new AtomicInteger(0);
         executorService =
                 Executors.newFixedThreadPool(
-                        queueSize,
+                        // we use it in `MultiTableWriterRunnable` and `prepare commit task`, so it
+                        // should be double.
+                        queueSize * 2,
                         runnable -> {
                             Thread thread = new Thread(runnable);
                             thread.setDaemon(true);
@@ -71,9 +75,9 @@ public class MultiTableSinkWriter
             BlockingQueue<SeaTunnelRow> queue = new LinkedBlockingQueue<>(1024);
             Map<String, SinkWriter<SeaTunnelRow, ?, ?>> tableIdWriterMap = new HashMap<>();
             Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkIdentifierMap = new HashMap<>();
-            int finalI = i;
+            int queueIndex = i;
             sinkWriters.entrySet().stream()
-                    .filter(entry -> entry.getKey().getIndex() % queueSize == finalI)
+                    .filter(entry -> entry.getKey().getIndex() % queueSize == queueIndex)
                     .forEach(
                             entry -> {
                                 tableIdWriterMap.put(
@@ -115,6 +119,24 @@ public class MultiTableSinkWriter
         for (MultiTableWriterRunnable writerRunnable : runnable) {
             if (writerRunnable.getThrowable() != null) {
                 throw new RuntimeException(writerRunnable.getThrowable());
+            }
+        }
+    }
+
+    @Override
+    public void applySchemaChange(SchemaChangeEvent event) throws IOException {
+        subSinkErrorCheck();
+        for (int i = 0; i < sinkWritersWithIndex.size(); i++) {
+            for (Map.Entry<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriterEntry :
+                    sinkWritersWithIndex.get(i).entrySet()) {
+                if (sinkWriterEntry
+                        .getKey()
+                        .getTableIdentifier()
+                        .equals(event.tablePath().getFullName())) {
+                    synchronized (runnable.get(i)) {
+                        sinkWriterEntry.getValue().applySchemaChange(event);
+                    }
+                }
             }
         }
     }
@@ -178,17 +200,38 @@ public class MultiTableSinkWriter
         checkQueueRemain();
         subSinkErrorCheck();
         MultiTableCommitInfo multiTableCommitInfo = new MultiTableCommitInfo(new HashMap<>());
+        List<Future<?>> futures = new ArrayList<>();
         for (int i = 0; i < sinkWritersWithIndex.size(); i++) {
-            for (Map.Entry<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriterEntry :
-                    sinkWritersWithIndex.get(i).entrySet()) {
-                synchronized (runnable.get(i)) {
-                    Optional<?> commit = sinkWriterEntry.getValue().prepareCommit();
-                    commit.ifPresent(
-                            o ->
-                                    multiTableCommitInfo
-                                            .getCommitInfo()
-                                            .put(sinkWriterEntry.getKey(), o));
-                }
+            int subWriterIndex = i;
+            futures.add(
+                    executorService.submit(
+                            () -> {
+                                synchronized (runnable.get(subWriterIndex)) {
+                                    for (Map.Entry<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>>
+                                            sinkWriterEntry :
+                                                    sinkWritersWithIndex
+                                                            .get(subWriterIndex)
+                                                            .entrySet()) {
+                                        Optional<?> commit;
+                                        try {
+                                            commit = sinkWriterEntry.getValue().prepareCommit();
+                                        } catch (IOException e) {
+                                            throw new RuntimeException(e);
+                                        }
+                                        commit.ifPresent(
+                                                o ->
+                                                        multiTableCommitInfo
+                                                                .getCommitInfo()
+                                                                .put(sinkWriterEntry.getKey(), o));
+                                    }
+                                }
+                            }));
+        }
+        for (Future<?> future : futures) {
+            try {
+                future.get();
+            } catch (Exception e) {
+                throw new RuntimeException(e);
             }
         }
         return Optional.of(multiTableCommitInfo);

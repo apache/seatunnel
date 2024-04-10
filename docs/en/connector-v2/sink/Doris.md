@@ -36,7 +36,7 @@ The internal implementation of Doris sink connector is cached and imported by st
 | table                          | String  | Yes      | -                            | The table name of `Doris` table,  use `${table_name}` to represent the upstream table name                                                                                                                                                                                                   |
 | table.identifier               | String  | Yes      | -                            | The name of `Doris` table, it will deprecate after version 2.3.5, please use `database` and `table` instead.                                                                                                                                                                                 |
 | sink.label-prefix              | String  | Yes      | -                            | The label prefix used by stream load imports. In the 2pc scenario, global uniqueness is required to ensure the EOS semantics of SeaTunnel.                                                                                                                                                   |
-| sink.enable-2pc                | bool    | No       | -                            | Whether to enable two-phase commit (2pc), the default is true, to ensure Exactly-Once semantics. For two-phase commit, please refer to [here](https://doris.apache.org/docs/dev/sql-manual/sql-reference/Data-Manipulation-Statements/Load/STREAM-LOAD).                                     |
+| sink.enable-2pc                | bool    | No       | false                        | Whether to enable two-phase commit (2pc), the default is false. For two-phase commit, please refer to [here](https://doris.apache.org/docs/dev/sql-manual/sql-reference/Data-Manipulation-Statements/Load/STREAM-LOAD).                                                                      |
 | sink.enable-delete             | bool    | No       | -                            | Whether to enable deletion. This option requires Doris table to enable batch delete function (0.15+ version is enabled by default), and only supports Unique model. you can get more detail at this [link](https://doris.apache.org/docs/dev/data-operate/update-delete/batch-delete-manual) |
 | sink.check-interval            | int     | No       | 10000                        | check exception with the interval while loading                                                                                                                                                                                                                                              |
 | sink.max-retries               | int     | No       | 3                            | the max retry times if writing records to database failed                                                                                                                                                                                                                                    |
@@ -73,16 +73,20 @@ We use templates to automatically create Doris tables,
 which will create corresponding table creation statements based on the type of upstream data and schema type,
 and the default template can be modified according to the situation.
 
+Default template:
+
 ```sql
-CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}`
-(
-    ${rowtype_fields}
-) ENGINE = OLAP UNIQUE KEY (${rowtype_primary_key})
-    DISTRIBUTED BY HASH (${rowtype_primary_key})
-    PROPERTIES
-(
-    "replication_num" = "1"
-);
+CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}` (
+${rowtype_fields}
+) ENGINE=OLAP
+ UNIQUE KEY (${rowtype_primary_key})
+DISTRIBUTED BY HASH (${rowtype_primary_key})
+ PROPERTIES (
+"replication_allocation" = "tag.location.default: 1",
+"in_memory" = "false",
+"storage_format" = "V2",
+"disable_auto_compaction" = "false"
+)
 ```
 
 If a custom field is filled in the template, such as adding an `id` field

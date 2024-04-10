@@ -75,6 +75,9 @@ public class RocketMqSourceReader implements SourceReader<SeaTunnelRow, RocketMq
         this.executorService =
                 Executors.newCachedThreadPool(r -> new Thread(r, "RocketMq Source Data Consumer"));
         pendingPartitionsQueue = new LinkedBlockingQueue<>();
+        // Set `rocketmq.client.logUseSlf4j` to `true` to avoid create many
+        // `AsyncAppender-Dispatcher-Thread`
+        System.setProperty("rocketmq.client.logUseSlf4j", "true");
     }
 
     @Override
@@ -239,17 +242,21 @@ public class RocketMqSourceReader implements SourceReader<SeaTunnelRow, RocketMq
                 Long offset = entry.getValue();
                 try {
                     if (messageQueue != null && offset != null) {
-                        consumerThreads
-                                .get(messageQueue)
-                                .getTasks()
-                                .put(
-                                        consumer -> {
-                                            if (this.metadata.isEnabledCommitCheckpoint()) {
-                                                consumer.getOffsetStore()
-                                                        .updateOffset(messageQueue, offset, false);
-                                                consumer.getOffsetStore().persist(messageQueue);
-                                            }
-                                        });
+                        RocketMqConsumerThread rocketMqConsumerThread =
+                                consumerThreads.get(messageQueue);
+                        if (rocketMqConsumerThread != null) {
+                            rocketMqConsumerThread
+                                    .getTasks()
+                                    .put(
+                                            consumer -> {
+                                                if (this.metadata.isEnabledCommitCheckpoint()) {
+                                                    consumer.getOffsetStore()
+                                                            .updateOffset(
+                                                                    messageQueue, offset, false);
+                                                    consumer.getOffsetStore().persist(messageQueue);
+                                                }
+                                            });
+                        }
                     }
                 } catch (InterruptedException e) {
                     log.error("commit offset failed", e);

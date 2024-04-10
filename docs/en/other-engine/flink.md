@@ -1,6 +1,6 @@
 # Seatunnel runs on Flink
 
-Flink is a powerful high-performance distributed stream processing engine,More information about it you can,You can search for `Apacke Flink`
+Flink is a powerful high-performance distributed stream processing engine,More information about it you can,You can search for `Apache Flink`
 
 ### Set Flink configuration information in the job
 

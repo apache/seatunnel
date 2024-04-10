@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.cdc.base.source.enumerator;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
+
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.IncrementalPhaseState;
@@ -44,6 +46,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 
 /** Assigner for incremental split. */
 public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAssigner {
@@ -254,5 +258,24 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
                 sourceConfig.getStopConfig().getStopOffset(offsetFactory),
                 completedSnapshotSplitInfos,
                 checkpointDataType);
+    }
+
+    @VisibleForTesting
+    void setSplitAssigned(boolean assigned) {
+        this.splitAssigned = assigned;
+    }
+
+    public boolean completedSnapshotPhase(List<TableId> tableIds) {
+        checkArgument(splitAssigned && noMoreSplits());
+
+        for (String splitKey : new ArrayList<>(context.getAssignedSnapshotSplit().keySet())) {
+            SnapshotSplit assignedSplit = context.getAssignedSnapshotSplit().get(splitKey);
+            if (tableIds.contains(assignedSplit.getTableId())) {
+                context.getAssignedSnapshotSplit().remove(splitKey);
+                context.getSplitCompletedOffsets().remove(assignedSplit.splitId());
+            }
+        }
+        return context.getAssignedSnapshotSplit().isEmpty()
+                && context.getSplitCompletedOffsets().isEmpty();
     }
 }

@@ -25,17 +25,23 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.List;
 
-public interface ReadStrategy extends Serializable {
+public interface ReadStrategy extends Serializable, Closeable {
     void init(HadoopConf conf);
 
     void read(String path, String tableId, Collector<SeaTunnelRow> output)
             throws IOException, FileConnectorException;
 
     SeaTunnelRowType getSeaTunnelRowTypeInfo(String path) throws FileConnectorException;
+
+    default SeaTunnelRowType getSeaTunnelRowTypeInfoWithUserConfigRowType(
+            String path, SeaTunnelRowType rowType) throws FileConnectorException {
+        return getSeaTunnelRowTypeInfo(path);
+    }
 
     // todo: use CatalogTable
     void setSeaTunnelRowTypeInfo(SeaTunnelRowType seaTunnelRowType);

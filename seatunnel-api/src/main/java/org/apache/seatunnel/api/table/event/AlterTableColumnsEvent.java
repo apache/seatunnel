@@ -17,7 +17,8 @@
 
 package org.apache.seatunnel.api.table.event;
 
-import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.event.EventType;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 
 import lombok.Getter;
 import lombok.ToString;
@@ -30,17 +31,23 @@ import java.util.List;
 public class AlterTableColumnsEvent extends AlterTableEvent {
     private final List<AlterTableColumnEvent> events;
 
-    public AlterTableColumnsEvent(TablePath tablePath) {
-        this(tablePath, new ArrayList<>());
+    public AlterTableColumnsEvent(TableIdentifier tableIdentifier) {
+        this(tableIdentifier, new ArrayList<>());
     }
 
-    public AlterTableColumnsEvent(TablePath tablePath, List<AlterTableColumnEvent> events) {
-        super(tablePath);
+    public AlterTableColumnsEvent(
+            TableIdentifier tableIdentifier, List<AlterTableColumnEvent> events) {
+        super(tableIdentifier);
         this.events = events;
     }
 
     public AlterTableColumnsEvent addEvent(AlterTableColumnEvent event) {
         events.add(event);
         return this;
+    }
+
+    @Override
+    public EventType getEventType() {
+        return EventType.SCHEMA_CHANGE_UPDATE_COLUMNS;
     }
 }

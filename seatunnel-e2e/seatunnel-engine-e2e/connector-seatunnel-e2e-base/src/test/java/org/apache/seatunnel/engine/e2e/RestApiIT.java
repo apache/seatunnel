@@ -43,6 +43,7 @@ import java.util.concurrent.TimeUnit;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.lessThan;
+import static org.hamcrest.Matchers.notNullValue;
 
 @Slf4j
 public class RestApiIT {
@@ -50,6 +51,8 @@ public class RestApiIT {
     private static final String HOST = "http://localhost:";
 
     private static ClientJobProxy clientJobProxy;
+
+    private static ClientJobProxy batchJobProxy;
 
     private static HazelcastInstanceImpl node1;
 
@@ -84,6 +87,19 @@ public class RestApiIT {
                         () ->
                                 Assertions.assertEquals(
                                         JobStatus.RUNNING, clientJobProxy.getJobStatus()));
+
+        String batchFilePath = TestUtils.getResource("fakesource_to_console.conf");
+        JobConfig batchConf = new JobConfig();
+        batchConf.setName("fake_to_console");
+        ClientJobExecutionEnvironment batchJobExecutionEnv =
+                engineClient.createExecutionContext(batchFilePath, batchConf, seaTunnelConfig);
+        batchJobProxy = batchJobExecutionEnv.execute();
+        Awaitility.await()
+                .atMost(5, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.FINISHED, batchJobProxy.getJobStatus()));
     }
 
     @Test
@@ -108,6 +124,61 @@ public class RestApiIT {
     }
 
     @Test
+    public void testGetJobById() {
+        Arrays.asList(node2, node1)
+                .forEach(
+                        instance -> {
+                            given().get(
+                                            HOST
+                                                    + instance.getCluster()
+                                                            .getLocalMember()
+                                                            .getAddress()
+                                                            .getPort()
+                                                    + RestConstant.RUNNING_JOB_URL
+                                                    + "/"
+                                                    + batchJobProxy.getJobId())
+                                    .then()
+                                    .statusCode(200)
+                                    .body("jobName", equalTo("fake_to_console"))
+                                    .body("jobStatus", equalTo("FINISHED"));
+                        });
+    }
+
+    @Test
+    public void testGetAnNotExistJobById() {
+        Arrays.asList(node2, node1)
+                .forEach(
+                        instance -> {
+                            given().get(
+                                            HOST
+                                                    + instance.getCluster()
+                                                            .getLocalMember()
+                                                            .getAddress()
+                                                            .getPort()
+                                                    + RestConstant.RUNNING_JOB_URL
+                                                    + "/"
+                                                    + 123)
+                                    .then()
+                                    .statusCode(200)
+                                    .body("jobId", equalTo("123"));
+                        });
+        Arrays.asList(node2, node1)
+                .forEach(
+                        instance -> {
+                            given().get(
+                                            HOST
+                                                    + instance.getCluster()
+                                                            .getLocalMember()
+                                                            .getAddress()
+                                                            .getPort()
+                                                    + RestConstant.RUNNING_JOB_URL
+                                                    + "/")
+                                    .then()
+                                    .statusCode(500);
+                        });
+    }
+
+    @Test
     public void testGetRunningJobs() {
         Arrays.asList(node2, node1)
                 .forEach(
@@ -124,6 +195,24 @@ public class RestApiIT {
                                     .body("[0].jobName", equalTo("fake_to_file"))
                                     .body("[0].jobStatus", equalTo("RUNNING"));
                         });
+    }
+
+    @Test
+    public void testGetRunningThreads() {
+        Arrays.asList(node2, node1)
+                .forEach(
+                        instance ->
+                                given().get(
+                                                HOST
+                                                        + instance.getCluster()
+                                                                .getLocalMember()
+                                                                .getAddress()
+                                                                .getPort()
+                                                        + RestConstant.RUNNING_THREADS)
+                                        .then()
+                                        .statusCode(200)
+                                        .body("[0].threadName", notNullValue())
+                                        .body("[0].classLoader", notNullValue()));
     }
 
     @Test

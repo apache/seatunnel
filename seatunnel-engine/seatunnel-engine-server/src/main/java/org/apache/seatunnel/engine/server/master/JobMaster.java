@@ -30,7 +30,6 @@ import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
-import org.apache.seatunnel.engine.common.loader.SeaTunnelChildFirstClassLoader;
 import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
@@ -108,8 +107,6 @@ public class JobMaster {
 
     private CompletableFuture<JobResult> jobMasterCompleteFuture;
 
-    private ClassLoader classLoader;
-
     private JobImmutableInformation jobImmutableInformation;
 
     private LogicalDag logicalDag;
@@ -127,8 +124,6 @@ public class JobMaster {
     private final IMap<Object, Object> runningJobStateIMap;
 
     private final IMap<Object, Object> runningJobStateTimestampsIMap;
-
-    private CompletableFuture<Void> scheduleFuture;
 
     // TODO add config to change value
     private boolean isPhysicalDAGIInfo = true;
@@ -203,14 +198,23 @@ public class JobMaster {
                         jobImmutableInformation.getJobConfig().getName(),
                         jobImmutableInformation.getJobId(),
                         jobImmutableInformation.getPluginJarsUrls()));
-
-        classLoader =
-                new SeaTunnelChildFirstClassLoader(jobImmutableInformation.getPluginJarsUrls());
+        ClassLoader appClassLoader = Thread.currentThread().getContextClassLoader();
+        ClassLoader classLoader =
+                seaTunnelServer
+                        .getClassLoaderService()
+                        .getClassLoader(
+                                jobImmutableInformation.getJobId(),
+                                jobImmutableInformation.getPluginJarsUrls());
         logicalDag =
                 CustomClassLoadedObject.deserializeWithCustomClassLoader(
                         nodeEngine.getSerializationService(),
                         classLoader,
                         jobImmutableInformation.getLogicalDag());
+        seaTunnelServer
+                .getClassLoaderService()
+                .releaseClassLoader(
+                        jobImmutableInformation.getJobId(),
+                        jobImmutableInformation.getPluginJarsUrls());
 
         final Tuple2<PhysicalPlan, Map<Integer, CheckpointPlan>> planTuple =
                 PlanUtils.fromLogicalDAG(
@@ -224,6 +228,8 @@ public class JobMaster {
                         runningJobStateTimestampsIMap,
                         engineConfig.getQueueType(),
                         engineConfig);
+        // revert to app class loader, it may be changed by PlanUtils.fromLogicalDAG
+        Thread.currentThread().setContextClassLoader(appClassLoader);
         this.physicalPlan = planTuple.f0();
         this.physicalPlan.setJobMaster(this);
         this.checkpointPlanMap = planTuple.f1();
@@ -442,10 +448,6 @@ public class JobMaster {
         }
         throw new IllegalArgumentException(
                 "can't find task group address from taskGroupLocation: " + taskGroupLocation);
-    }
-
-    public ClassLoader getClassLoader() {
-        return classLoader;
     }
 
     public void cancelJob() {

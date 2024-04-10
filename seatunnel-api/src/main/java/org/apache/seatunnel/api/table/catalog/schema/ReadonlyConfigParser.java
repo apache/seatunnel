@@ -133,6 +133,11 @@ public class ReadonlyConfigParser implements TableSchemaParser<ReadonlyConfig> {
                                 Integer columnLength =
                                         columnConfig.get(
                                                 TableSchemaOptions.ColumnOptions.COLUMN_LENGTH);
+
+                                Integer columnScale =
+                                        columnConfig.get(
+                                                TableSchemaOptions.ColumnOptions.COLUMN_SCALE);
+
                                 Boolean nullable =
                                         columnConfig.get(TableSchemaOptions.ColumnOptions.NULLABLE);
                                 Object defaultValue =
@@ -143,7 +148,8 @@ public class ReadonlyConfigParser implements TableSchemaParser<ReadonlyConfig> {
                                 return PhysicalColumn.of(
                                         name,
                                         seaTunnelDataType,
-                                        columnLength,
+                                        Long.valueOf(columnLength),
+                                        columnScale,
                                         nullable,
                                         defaultValue,
                                         comment);

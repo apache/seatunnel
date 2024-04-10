@@ -201,4 +201,14 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
         }
         return true;
     }
+
+    @Override
+    public void close() throws IOException {
+        try {
+            if (hadoopFileSystemProxy != null) {
+                hadoopFileSystemProxy.close();
+            }
+        } catch (Exception ignore) {
+        }
+    }
 }

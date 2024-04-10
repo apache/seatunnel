@@ -48,7 +48,9 @@ public class BaseFileSourceReader implements SourceReader<SeaTunnelRow, FileSour
     public void open() throws Exception {}
 
     @Override
-    public void close() throws IOException {}
+    public void close() throws IOException {
+        readStrategy.close();
+    }
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {

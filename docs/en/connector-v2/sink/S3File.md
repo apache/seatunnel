@@ -22,6 +22,7 @@ By default, we use 2PC commit to ensure `exactly-once`
   - [x] orc
   - [x] json
   - [x] excel
+  - [x] xml
 
 ## Description
 
@@ -116,9 +117,13 @@ If write to `csv`, `text` file type, All column will be string.
 | common-options                   | object  | no       | -                                                     |                                                                                                                                                                       |
 | max_rows_in_memory               | int     | no       | -                                                     | Only used when file_format is excel.                                                                                                                                  |
 | sheet_name                       | string  | no       | Sheet${Random number}                                 | Only used when file_format is excel.                                                                                                                                  |
+| xml_root_tag                     | string  | no       | RECORDS                                               | Only used when file_format is xml, specifies the tag name of the root element within the XML file.                                                                    |
+| xml_row_tag                      | string  | no       | RECORD                                                | Only used when file_format is xml, specifies the tag name of the data rows within the XML file                                                                        |
+| xml_use_attr_format              | boolean | no       | -                                                     | Only used when file_format is xml, specifies Whether to process data using the tag attribute format.                                                                  |
 | hadoop_s3_properties             | map     | no       |                                                       | If you need to add a other option, you could add it here and refer to this [link](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html)       |
 | schema_save_mode                 | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST                          | Before turning on the synchronous task, do different treatment of the target path                                                                                     |
 | data_save_mode                   | Enum    | no       | APPEND_DATA                                           | Before opening the synchronous task, the data file in the target path is differently processed                                                                        |
+| encoding                         | string  | no       | "UTF-8"                                               | Only used when file_format_type is json,text,csv,xml.                                                                                                                 |
 
 ### path [string]
 
@@ -167,7 +172,7 @@ When the format in the `file_name_expression` parameter is `xxxx-${now}` , `file
 
 We supported as the following file types:
 
-`text` `json` `csv` `orc` `parquet` `excel`
+`text` `json` `csv` `orc` `parquet` `excel` `xml`
 
 Please note that, The final file name will end with the file_format_type's suffix, the suffix of the text file is `txt`.
 
@@ -246,6 +251,18 @@ When File Format is Excel,The maximum number of data items that can be cached in
 
 Writer the sheet of the workbook
 
+### xml_root_tag [string]
+
+Specifies the tag name of the root element within the XML file.
+
+### xml_row_tag [string]
+
+Specifies the tag name of the data rows within the XML file.
+
+### xml_use_attr_format [boolean]
+
+Specifies Whether to process data using the tag attribute format.
+
 ### schema_save_mode[Enum]
 
 Before turning on the synchronous task, do different treatment of the target path.  
@@ -261,6 +278,11 @@ Option introduction：
 `DROP_DATA`： use the path but delete data files in the path.
 `APPEND_DATA`：use the path, and add new files in the path for write data.   
 `ERROR_WHEN_DATA_EXISTS`：When there are some data files in the path, an error will is reported.
+
+### encoding [string]
+
+Only used when file_format_type is json,text,csv,xml.
+The encoding of the file to write. This param will be parsed by `Charset.forName(encoding)`.
 
 ## Example
 

@@ -196,4 +196,15 @@ public class ServerConfigOptions {
                     .type(new TypeReference<ConnectorJarStorageConfig>() {})
                     .defaultValue(new ConnectorJarStorageConfig())
                     .withDescription("The connector jar storage configuration.");
+
+    public static final Option<Boolean> CLASSLOADER_CACHE_MODE =
+            Options.key("classloader-cache-mode")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Whether to use classloader cache mode. With cache mode, all jobs share the same classloader if the jars are the same");
+
+    public static final String EVENT_REPORT_HTTP = "event-report-http";
+    public static final String EVENT_REPORT_HTTP_URL = "url";
+    public static final String EVENT_REPORT_HTTP_HEADERS = "headers";
 }

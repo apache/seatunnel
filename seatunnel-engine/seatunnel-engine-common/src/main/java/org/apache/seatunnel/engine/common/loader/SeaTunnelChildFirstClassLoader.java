@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.common.loader;
 import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Enumeration;
 import java.util.Iterator;
 import java.util.List;
@@ -44,11 +45,12 @@ public class SeaTunnelChildFirstClassLoader extends SeaTunnelBaseClassLoader {
                 "com.fasterxml.jackson"
             };
 
-    public SeaTunnelChildFirstClassLoader(List<URL> urls) {
+    public SeaTunnelChildFirstClassLoader(Collection<URL> urls) {
         this(urls, DEFAULT_PARENT_FIRST_PATTERNS);
     }
 
-    public SeaTunnelChildFirstClassLoader(List<URL> urls, String[] alwaysParentFirstPatterns) {
+    public SeaTunnelChildFirstClassLoader(
+            Collection<URL> urls, String[] alwaysParentFirstPatterns) {
         this(
                 urls.toArray(new URL[0]),
                 SeaTunnelChildFirstClassLoader.class.getClassLoader(),
@@ -56,7 +58,7 @@ public class SeaTunnelChildFirstClassLoader extends SeaTunnelBaseClassLoader {
                 NOOP_EXCEPTION_HANDLER);
     }
 
-    public SeaTunnelChildFirstClassLoader(List<URL> urls, ClassLoader parent) {
+    public SeaTunnelChildFirstClassLoader(Collection<URL> urls, ClassLoader parent) {
         this(
                 urls.toArray(new URL[0]),
                 parent,

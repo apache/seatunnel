@@ -24,6 +24,7 @@ import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
+import org.apache.seatunnel.common.utils.EncodingUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
@@ -37,6 +38,7 @@ import lombok.NonNull;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.charset.Charset;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -51,6 +53,7 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
     private final TimeUtils.Formatter timeFormat;
     private final FileFormat fileFormat;
     private final Boolean enableHeaderWriter;
+    private final Charset charset;
     private SerializationSchema serializationSchema;
 
     public TextWriteStrategy(FileSinkConfig fileSinkConfig) {
@@ -64,6 +67,7 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
         this.timeFormat = fileSinkConfig.getTimeFormat();
         this.fileFormat = fileSinkConfig.getFileFormat();
         this.enableHeaderWriter = fileSinkConfig.getEnableHeaderWriter();
+        this.charset = EncodingUtils.tryParseCharset(fileSinkConfig.getEncoding());
     }
 
     @Override
@@ -77,6 +81,7 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
                         .dateFormatter(dateFormat)
                         .dateTimeFormatter(dateTimeFormat)
                         .timeFormatter(timeFormat)
+                        .charset(charset)
                         .build();
     }
 
@@ -89,7 +94,7 @@ public class TextWriteStrategy extends AbstractWriteStrategy {
             if (isFirstWrite.get(filePath)) {
                 isFirstWrite.put(filePath, false);
             } else {
-                fsDataOutputStream.write(rowDelimiter.getBytes());
+                fsDataOutputStream.write(rowDelimiter.getBytes(charset));
             }
             fsDataOutputStream.write(
                     serializationSchema.serialize(
