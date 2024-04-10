@@ -108,15 +108,15 @@ Sink插件常用参数，请参考 [Sink常用选项](common-options.md) 了解�
 
 在启动同步任务之前，针对目标侧已有的表结构选择不同的处理方案<br/>
 选项介绍：<br/>
-`RECREATE_SCHEMA` ：表不存在时创建，保存表时删除和重建<br/>
-`CREATE_SCHEMA_WHEN_NOT_EXIST` ：表不存在时创建，保存表时跳过<br/>
+`RECREATE_SCHEMA` ：当表不存在时会创建，当表已存在时会删除并重建<br/>
+`CREATE_SCHEMA_WHEN_NOT_EXIST` ：当表不存在时会创建，当表已存在时则跳过<br/>
 `ERROR_WHEN_SCHEMA_NOT_EXIST` ：当表不存在时将抛出错误<br/>
 
 ### data_save_mode
 
 在启动同步任务之前，针对目标侧已存在的数据选择不同的处理方案<br/>
 选项介绍：<br/>
-`DROP_DATA`： 保留数据库结构并删除数据<br/>
+`DROP_DATA`： 保留数据库结构，删除数据<br/>
 `APPEND_DATA`：保留数据库结构，保留数据<br/>
 `ERROR_WHEN_DATA_EXISTS`：当有数据时抛出错误<br/>
 
@@ -206,10 +206,6 @@ sink {
 ```
 
 ## 变更日志
-
-### 2.2.0-beta 2022-09-26
-
-- 添加 Elasticsearch Sink 连接器
 
 ### 下一版本
 

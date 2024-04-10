@@ -173,9 +173,9 @@ Sink插件常用参数，请参考 [Sink常用选项](common-options.md) 了解�
 
 在启动同步任务之前，针对目标侧已有的表结构选择不同的处理方案<br/>
 选项介绍：<br/>
-`RECREATE_SCHEMA` ：表不存在时创建，保存表时删除并重建<br/>
-`CREATE_SCHEMA_WHEN_NOT_EXIST` ：表不存在时创建，保存表时跳过<br/>
-`ERROR_WHEN_SCHEMA_NOT_EXIST` ：会出错表不存在时报告<br/>
+`RECREATE_SCHEMA`：当表不存在时会创建，当表已存在时会删除并重建<br/>
+`CREATE_SCHEMA_WHEN_NOT_EXIST`：当表不存在时会创建，当表已存在时则跳过<br/>
+`ERROR_WHEN_SCHEMA_NOT_EXIST`：当表不存在时将抛出错误<br/>
 
 ### data_save_mode [Enum]
 
@@ -183,8 +183,8 @@ Sink插件常用参数，请参考 [Sink常用选项](common-options.md) 了解�
 选项介绍：<br/>
 `DROP_DATA`：保留数据库结构，删除数据<br/>
 `APPEND_DATA`：保留数据库结构，保留数据<br/>
-`CUSTOM_PROCESSING`：用户自定义处理<br/>
-`ERROR_WHEN_DATA_EXISTS`：有数据时报错<br/>
+`CUSTOM_PROCESSING`：允许用户自定义数据处理方式<br/>
+`ERROR_WHEN_DATA_EXISTS`：当有数据时抛出错误<br/>
 
 ### custom_sql [String]
 
@@ -249,7 +249,9 @@ jdbc {
 
 ```
 
-Exactly-once
+精确一次 (Exactly-once )
+
+通过设置 `is_exactly_once` 开启精确一次语义
 
 ```
 jdbc {
@@ -268,7 +270,9 @@ jdbc {
 }
 ```
 
-CDC (Change data capture) 事件
+变更数据捕获 (Change data capture) 事件
+
+jdbc 接收 CDC 示例
 
 ```
 sink {
@@ -285,7 +289,9 @@ sink {
 }
 ```
 
-增加 SaveMode 功能
+配置表生成策略 (schema_save_mode)
+
+通过设置 `schema_save_mode` 配置为 `CREATE_SCHEMA_WHEN_NOT_EXIST` 来支持不存在表时创建表
 
 ```
 sink {
@@ -304,7 +310,9 @@ sink {
 }
 ```
 
-Postgresql 9.5以下版本支持 CDC (Change data capture) 事件
+支持Postgres 9.5及以下版本的 CDC 示例
+
+Postgres 9.5及以下版本，通过设置 `compatible_mode` 配置为 `postgresLow` 来支持 Postgres CDC 操作
 
 ```
 sink {
@@ -325,10 +333,6 @@ sink {
 ```
 
 ## 变更日志
-
-### 2.2.0-beta 2022-09-26
-
-- 添加控制台接收器连接器
 
 ### 2.3.0-beta 2022-10-20
 
