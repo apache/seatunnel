@@ -28,7 +28,10 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.connectors.doris.config.DorisOptions;
 import org.apache.seatunnel.connectors.doris.util.DorisCatalogUtil;
+
+import org.apache.commons.lang3.StringUtils;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -130,6 +133,35 @@ public class DorisCreateTableTest {
                         + "\"storage_format\" = \"V2\",\n"
                         + "\"disable_auto_compaction\" = \"false\"\n"
                         + ")");
+
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("test", "test1", "test2"),
+                        TableSchema.builder()
+                                .primaryKey(
+                                        PrimaryKey.of(StringUtils.EMPTY, Collections.emptyList()))
+                                .constraintKey(Collections.emptyList())
+                                .columns(columns)
+                                .build(),
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        "");
+        TablePath tablePath = TablePath.of("test1.test2");
+        RuntimeException runtimeException =
+                Assertions.assertThrows(
+                        RuntimeException.class,
+                        () ->
+                                DorisCatalogUtil.getCreateTableStatement(
+                                        DorisOptions.SAVE_MODE_CREATE_TEMPLATE.defaultValue(),
+                                        tablePath,
+                                        catalogTable));
+        Assertions.assertEquals(
+                String.format(
+                        "The table of %s has no primaryKey or uniqueKey, please use the option named "
+                                + DorisOptions.SAVE_MODE_CREATE_TEMPLATE.key()
+                                + " to specify sql template",
+                        tablePath.getFullName()),
+                runtimeException.getMessage());
     }
 
     @Test

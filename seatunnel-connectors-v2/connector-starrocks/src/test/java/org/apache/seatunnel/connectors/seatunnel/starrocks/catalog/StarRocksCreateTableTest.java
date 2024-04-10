@@ -17,15 +17,21 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.catalog;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRocksSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.sink.StarRocksSaveModeUtil;
+
+import org.apache.commons.lang3.StringUtils;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -119,6 +125,37 @@ public class StarRocksCreateTableTest {
                         + "    \"dynamic_partition.prefix\" = \"p\"                                                                                                                                                                           \n"
                         + ");",
                 result);
+
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("test", "test1", "test2"),
+                        TableSchema.builder()
+                                .primaryKey(
+                                        PrimaryKey.of(StringUtils.EMPTY, Collections.emptyList()))
+                                .constraintKey(Collections.emptyList())
+                                .columns(columns)
+                                .build(),
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        "");
+        TablePath tablePath = TablePath.of("test1.test2");
+        RuntimeException runtimeException =
+                Assertions.assertThrows(
+                        RuntimeException.class,
+                        () ->
+                                StarRocksSaveModeUtil.getCreateTableSql(
+                                        StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE
+                                                .defaultValue(),
+                                        tablePath.getDatabaseName(),
+                                        tablePath.getTableName(),
+                                        catalogTable.getTableSchema()));
+        Assertions.assertEquals(
+                String.format(
+                        "The table of %s has no primaryKey or uniqueKey, please use the option named "
+                                + StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE.key()
+                                + " to specify sql template",
+                        tablePath.getFullName()),
+                runtimeException.getMessage());
     }
 
     @Test

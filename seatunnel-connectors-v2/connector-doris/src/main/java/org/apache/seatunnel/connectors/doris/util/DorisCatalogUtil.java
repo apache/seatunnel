@@ -28,6 +28,7 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.connectors.doris.config.DorisOptions;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -125,6 +126,14 @@ public class DorisCatalogUtil {
                             .map(r -> "`" + r.getColumnName() + "`")
                             .collect(Collectors.joining(","));
         }
+        if (canHandledByDefaultTemplate(template, primaryKey, uniqueKey)) {
+            throw new RuntimeException(
+                    String.format(
+                            "The table of %s has no primaryKey or uniqueKey, please use the option named "
+                                    + DorisOptions.SAVE_MODE_CREATE_TEMPLATE.key()
+                                    + " to specify sql template",
+                            tablePath.getFullName()));
+        }
         template =
                 template.replaceAll(
                         String.format("\\$\\{%s\\}", SaveModeConstants.ROWTYPE_PRIMARY_KEY),
@@ -151,6 +160,17 @@ public class DorisCatalogUtil {
                 .replaceAll(
                         String.format("\\$\\{%s\\}", SaveModeConstants.ROWTYPE_FIELDS),
                         rowTypeFields);
+    }
+
+    private static boolean canHandledByDefaultTemplate(
+            String createTemplate, String primaryKey, String uniqueKey) {
+        return (StringUtils.equals(
+                                createTemplate,
+                                DorisOptions.SAVE_MODE_CREATE_TEMPLATE.defaultValue())
+                        && StringUtils.isBlank(primaryKey)
+                        && StringUtils.isBlank(uniqueKey))
+                ? true
+                : false;
     }
 
     private static String mergeColumnInTemplate(

@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRocksSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.util.CreateTableParser;
 
 import org.apache.commons.lang3.StringUtils;
@@ -55,6 +56,14 @@ public class StarRocksSaveModeUtil {
                             .map(r -> "`" + r.getColumnName() + "`")
                             .collect(Collectors.joining(","));
         }
+        if (canHandledByDefaultTemplate(template, primaryKey, uniqueKey)) {
+            throw new RuntimeException(
+                    String.format(
+                            "The table of %s has no primaryKey or uniqueKey, please use the option named "
+                                    + StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE.key()
+                                    + " to specify sql template",
+                            TablePath.of(database, table).getFullName()));
+        }
         template =
                 template.replaceAll(
                         String.format("\\$\\{%s\\}", SaveModeConstants.ROWTYPE_PRIMARY_KEY),
@@ -78,6 +87,17 @@ public class StarRocksSaveModeUtil {
                 .replaceAll(
                         String.format("\\$\\{%s\\}", SaveModeConstants.ROWTYPE_FIELDS),
                         rowTypeFields);
+    }
+
+    private static boolean canHandledByDefaultTemplate(
+            String createTemplate, String primaryKey, String uniqueKey) {
+        return (StringUtils.equals(
+                                createTemplate,
+                                StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE.defaultValue())
+                        && StringUtils.isBlank(primaryKey)
+                        && StringUtils.isBlank(uniqueKey))
+                ? true
+                : false;
     }
 
     private static String columnToStarrocksType(Column column) {
