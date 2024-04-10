@@ -59,7 +59,7 @@ sink {
 
 ```
 
-关于配置的更多信息请查看[配置的基本概念](../../../en/concept/config.md)
+关于配置的更多信息请查看[配置的基本概念](../../concept/config.md)
 
 ## 步骤 4: 运行SeaTunnel应用程序
 
