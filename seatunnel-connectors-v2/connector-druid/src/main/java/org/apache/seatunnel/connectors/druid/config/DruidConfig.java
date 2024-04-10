@@ -25,18 +25,20 @@ public class DruidConfig {
     public static final Integer BATCH_SIZE_DEFAULT = 1024;
 
     public static Option<String> COORDINATOR_URL =
-            Options.key("coordinatorUrl").stringType().noDefaultValue().withDescription("");
+            Options.key("coordinatorUrl")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("The coordinatorUrl host and port of Druid");
 
     public static Option<String> DATASOURCE =
             Options.key("datasource")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription(
-                            "Your DataHub accessId which cloud be access from Alibaba Cloud");
+                    .withDescription("The datasource name need to write");
 
     public static Option<Integer> BATCH_SIZE =
             Options.key("batchSize")
                     .intType()
                     .defaultValue(BATCH_SIZE_DEFAULT)
-                    .withDescription("the batch size of the druid write.");
+                    .withDescription("The batch size of the druid write.");
 }
