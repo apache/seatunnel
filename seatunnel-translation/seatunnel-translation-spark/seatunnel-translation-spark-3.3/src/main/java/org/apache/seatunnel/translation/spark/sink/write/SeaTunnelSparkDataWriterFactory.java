@@ -36,16 +36,20 @@ public class SeaTunnelSparkDataWriterFactory<CommitInfoT, StateT>
 
     private final SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, ?> sink;
     private final CatalogTable catalogTable;
+    private final String jobId;
 
     public SeaTunnelSparkDataWriterFactory(
-            SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, ?> sink, CatalogTable catalogTable) {
+            SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, ?> sink,
+            CatalogTable catalogTable,
+            String jobId) {
         this.sink = sink;
         this.catalogTable = catalogTable;
+        this.jobId = jobId;
     }
 
     @Override
     public DataWriter<InternalRow> createWriter(int partitionId, long taskId) {
-        SinkWriter.Context context = new DefaultSinkWriterContext((int) taskId);
+        SinkWriter.Context context = new DefaultSinkWriterContext(jobId, (int) taskId);
         SinkWriter<SeaTunnelRow, CommitInfoT, StateT> writer;
         SinkCommitter<CommitInfoT> committer;
         try {

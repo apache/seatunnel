@@ -30,15 +30,27 @@
     <name>SeaTunnel : Connectors V2 : Paimon</name>
 
     <properties>
-        <paimon.version>0.6.0-incubating</paimon.version>
+        <paimon.version>0.7.0-incubating</paimon.version>
     </properties>
 
     <dependencies>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>connector-common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
 
         <dependency>
             <groupId>org.apache.paimon</groupId>
             <artifactId>paimon-bundle</artifactId>
             <version>${paimon.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-guava</artifactId>
+            <version>${project.version}</version>
+            <classifier>optional</classifier>
         </dependency>
 
         <dependency>

@@ -19,6 +19,8 @@ package org.apache.seatunnel.translation.source;
 
 import org.apache.seatunnel.api.common.metrics.AbstractMetricsContext;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
+import org.apache.seatunnel.api.event.DefaultEventProcessor;
+import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
@@ -33,13 +35,18 @@ public class ParallelEnumeratorContext<SplitT extends SourceSplit>
     protected final ParallelSource<?, SplitT, ?> parallelSource;
     protected final Integer parallelism;
     protected final Integer subtaskId;
+    protected final EventListener eventListener;
     protected volatile boolean running = false;
 
     public ParallelEnumeratorContext(
-            ParallelSource<?, SplitT, ?> parallelSource, int parallelism, int subtaskId) {
+            ParallelSource<?, SplitT, ?> parallelSource,
+            int parallelism,
+            String jobId,
+            int subtaskId) {
         this.parallelSource = parallelSource;
         this.parallelism = parallelism;
         this.subtaskId = subtaskId;
+        this.eventListener = new DefaultEventProcessor(jobId);
     }
 
     @Override
@@ -82,5 +89,10 @@ public class ParallelEnumeratorContext<SplitT extends SourceSplit>
         // TODO Waiting for Flink and Spark to implement MetricsContext
         // https://github.com/apache/seatunnel/issues/3431
         return new AbstractMetricsContext() {};
+    }
+
+    @Override
+    public EventListener getEventListener() {
+        return eventListener;
     }
 }

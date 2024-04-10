@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.e2e.sink.inmemory;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
@@ -35,12 +36,41 @@ public class InMemorySinkWriter
     private static final List<InMemoryMultiTableResourceManager> resourceManagers =
             new ArrayList<>();
 
+    // use a daemon thread to test classloader leak
+    private static final Thread THREAD;
+
+    static {
+        // use the daemon thread to always hold the classloader
+        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+        THREAD =
+                new Thread(
+                        () -> {
+                            while (true) {
+                                try {
+                                    Thread.sleep(1000);
+                                    System.out.println(classLoader);
+                                } catch (InterruptedException e) {
+                                    e.printStackTrace();
+                                }
+                            }
+                        },
+                        "InMemorySinkWriter-daemon-thread" + System.currentTimeMillis());
+        THREAD.setDaemon(true);
+        THREAD.start();
+    }
+
     public static List<String> getEvents() {
         return events;
     }
 
     public static List<InMemoryMultiTableResourceManager> getResourceManagers() {
         return resourceManagers;
+    }
+
+    private ReadonlyConfig config;
+
+    public InMemorySinkWriter(ReadonlyConfig config) {
+        this.config = config;
     }
 
     private InMemoryMultiTableResourceManager resourceManager;
@@ -50,6 +80,17 @@ public class InMemorySinkWriter
 
     @Override
     public Optional<InMemoryCommitInfo> prepareCommit() throws IOException {
+        try {
+            if (config.get(InMemorySinkFactory.THROW_EXCEPTION)) {
+                Thread.sleep(4000L);
+                throw new IOException("write failed");
+            }
+            if (config.get(InMemorySinkFactory.CHECKPOINT_SLEEP)) {
+                Thread.sleep(5000L);
+            }
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
         return Optional.of(new InMemoryCommitInfo());
     }
 

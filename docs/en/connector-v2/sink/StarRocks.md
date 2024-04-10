@@ -48,6 +48,45 @@ We use templates to automatically create starrocks tables,
 which will create corresponding table creation statements based on the type of upstream data and schema type,
 and the default template can be modified according to the situation. Only work on multi-table mode at now.
 
+Default template:
+
+```sql
+CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}` (
+${rowtype_primary_key},
+${rowtype_fields}
+) ENGINE=OLAP
+PRIMARY KEY (${rowtype_primary_key})
+DISTRIBUTED BY HASH (${rowtype_primary_key})PROPERTIES (
+"replication_num" = "1"
+)
+```
+
+If a custom field is filled in the template, such as adding an `id` field
+
+```sql
+CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}`
+(   
+    id,
+    ${rowtype_fields}
+) ENGINE = OLAP DISTRIBUTED BY HASH (${rowtype_primary_key})
+    PROPERTIES
+(
+    "replication_num" = "1"
+);
+```
+
+The connector will automatically obtain the corresponding type from the upstream to complete the filling,
+and remove the id field from `rowtype_fields`. This method can be used to customize the modification of field types and attributes.
+
+You can use the following placeholders
+
+- database: Used to get the database in the upstream schema
+- table_name: Used to get the table name in the upstream schema
+- rowtype_fields: Used to get all the fields in the upstream schema, we will automatically map to the field
+  description of StarRocks
+- rowtype_primary_key: Used to get the primary key in the upstream schema (maybe a list)
+- rowtype_unique_key: Used to get the unique key in the upstream schema (maybe a list)
+
 ### table [string]
 
 Use `database` and this `table-name` auto-generate sql and receive upstream input datas write to database.
@@ -81,43 +120,6 @@ Option introduction：
 ### custom_sql[String]
 
 When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.
-
-```sql
-CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}`
-(
-    ${rowtype_fields}
-) ENGINE = OLAP DISTRIBUTED BY HASH (${rowtype_primary_key})
-    PROPERTIES
-(
-    "replication_num" = "1"
-);
-```
-
-If a custom field is filled in the template, such as adding an `id` field
-
-```sql
-CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}`
-(   
-    id,
-    ${rowtype_fields}
-) ENGINE = OLAP DISTRIBUTED BY HASH (${rowtype_primary_key})
-    PROPERTIES
-(
-    "replication_num" = "1"
-);
-```
-
-The connector will automatically obtain the corresponding type from the upstream to complete the filling,
-and remove the id field from `rowtype_fields`. This method can be used to customize the modification of field types and attributes.
-
-You can use the following placeholders
-
-- database: Used to get the database in the upstream schema
-- table_name: Used to get the table name in the upstream schema
-- rowtype_fields: Used to get all the fields in the upstream schema, we will automatically map to the field
-  description of StarRocks
-- rowtype_primary_key: Used to get the primary key in the upstream schema (maybe a list)
-- rowtype_unique_key: Used to get the unique key in the upstream schema (maybe a list)
 
 ## Data Type Mapping
 

@@ -19,6 +19,8 @@ package org.apache.seatunnel.translation.source;
 
 import org.apache.seatunnel.api.common.metrics.AbstractMetricsContext;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
+import org.apache.seatunnel.api.event.DefaultEventProcessor;
+import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceReader;
@@ -28,14 +30,17 @@ public class CoordinatedReaderContext implements SourceReader.Context {
     protected final CoordinatedSource<?, ?, ?> coordinatedSource;
     protected final Boundedness boundedness;
     protected final Integer subtaskId;
+    protected final EventListener eventListener;
 
     public CoordinatedReaderContext(
             CoordinatedSource<?, ?, ?> coordinatedSource,
             Boundedness boundedness,
+            String jobId,
             Integer subtaskId) {
         this.coordinatedSource = coordinatedSource;
         this.boundedness = boundedness;
         this.subtaskId = subtaskId;
+        this.eventListener = new DefaultEventProcessor(jobId);
     }
 
     @Override
@@ -68,5 +73,10 @@ public class CoordinatedReaderContext implements SourceReader.Context {
         // TODO Waiting for Flink and Spark to implement MetricsContext
         // https://github.com/apache/seatunnel/issues/3431
         return new AbstractMetricsContext() {};
+    }
+
+    @Override
+    public EventListener getEventListener() {
+        return eventListener;
     }
 }

@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.task.flow;
 import org.apache.seatunnel.api.common.metrics.Counter;
 import org.apache.seatunnel.api.common.metrics.Meter;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
+import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SinkCommitter;
@@ -32,6 +33,7 @@ import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
+import org.apache.seatunnel.engine.server.event.JobEventListener;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.context.SinkWriterContext;
@@ -100,6 +102,8 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
 
     private MultiTableResourceManager resourceManager;
 
+    private EventListener eventListener;
+
     public SinkFlowLifeCycle(
             SinkAction<T, StateT, CommitInfoT, AggregatedCommitInfoT> sinkAction,
             TaskLocation taskLocation,
@@ -116,6 +120,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         this.committerTaskLocation = committerTaskLocation;
         this.containAggCommitter = containAggCommitter;
         this.metricsContext = metricsContext;
+        this.eventListener = new JobEventListener(taskLocation, runningTask.getExecutionContext());
         sinkWriteCount = metricsContext.counter(SINK_WRITE_COUNT);
         sinkWriteQPS = metricsContext.meter(SINK_WRITE_QPS);
         sinkWriteBytes = metricsContext.counter(SINK_WRITE_BYTES);
@@ -294,12 +299,15 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
             this.writer =
                     sinkAction
                             .getSink()
-                            .createWriter(new SinkWriterContext(indexID, metricsContext));
+                            .createWriter(
+                                    new SinkWriterContext(indexID, metricsContext, eventListener));
         } else {
             this.writer =
                     sinkAction
                             .getSink()
-                            .restoreWriter(new SinkWriterContext(indexID, metricsContext), states);
+                            .restoreWriter(
+                                    new SinkWriterContext(indexID, metricsContext, eventListener),
+                                    states);
         }
         if (this.writer instanceof SupportResourceShare) {
             resourceManager =

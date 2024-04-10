@@ -49,7 +49,7 @@ public class ElasticsearchRowSerializerTest {
         ReadonlyConfig pluginConf = ReadonlyConfig.fromMap(confMap);
         ElasticsearchClusterInfo clusterInfo =
                 ElasticsearchClusterInfo.builder().clusterVersion("8.0.0").build();
-        IndexInfo indexInfo = new IndexInfo(pluginConf);
+        IndexInfo indexInfo = new IndexInfo(index, pluginConf);
         SeaTunnelRowType schema =
                 new SeaTunnelRowType(
                         new String[] {primaryKey, "name"},
@@ -88,7 +88,7 @@ public class ElasticsearchRowSerializerTest {
         ReadonlyConfig pluginConf = ReadonlyConfig.fromMap(confMap);
         ElasticsearchClusterInfo clusterInfo =
                 ElasticsearchClusterInfo.builder().clusterVersion("8.0.0").build();
-        IndexInfo indexInfo = new IndexInfo(pluginConf);
+        IndexInfo indexInfo = new IndexInfo(index, pluginConf);
         SeaTunnelRowType schema =
                 new SeaTunnelRowType(
                         new String[] {"id", "name"},
@@ -127,7 +127,7 @@ public class ElasticsearchRowSerializerTest {
         ReadonlyConfig pluginConf = ReadonlyConfig.fromMap(confMap);
         ElasticsearchClusterInfo clusterInfo =
                 ElasticsearchClusterInfo.builder().clusterVersion("8.0.0").build();
-        IndexInfo indexInfo = new IndexInfo(pluginConf);
+        IndexInfo indexInfo = new IndexInfo(index, pluginConf);
         SeaTunnelRowType schema =
                 new SeaTunnelRowType(
                         new String[] {primaryKey, "name"},
@@ -165,7 +165,7 @@ public class ElasticsearchRowSerializerTest {
         ReadonlyConfig pluginConf = ReadonlyConfig.fromMap(confMap);
         ElasticsearchClusterInfo clusterInfo =
                 ElasticsearchClusterInfo.builder().clusterVersion("8.0.0").build();
-        IndexInfo indexInfo = new IndexInfo(pluginConf);
+        IndexInfo indexInfo = new IndexInfo(index, pluginConf);
         SeaTunnelRowType schema =
                 new SeaTunnelRowType(
                         new String[] {primaryKey, "name"},

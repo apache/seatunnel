@@ -31,7 +31,7 @@ import org.apache.spark.sql.types.StructType;
 import org.apache.spark.unsafe.types.UTF8String;
 
 import scala.Tuple2;
-import scala.collection.immutable.HashMap.HashTrieMap;
+import scala.collection.immutable.AbstractMap;
 import scala.collection.mutable.WrappedArray;
 
 import java.io.IOException;
@@ -179,7 +179,7 @@ public class SeaTunnelRowConverter extends RowConverter<SeaTunnelRow> {
             case STRING:
                 return field.toString();
             case MAP:
-                return reconvertMap((HashTrieMap<?, ?>) field, (MapType<?, ?>) dataType);
+                return reconvertMap((AbstractMap<?, ?>) field, (MapType<?, ?>) dataType);
             case ARRAY:
                 return reconvertArray((WrappedArray.ofRef<?>) field, (ArrayType<?, ?>) dataType);
             default:
@@ -206,23 +206,23 @@ public class SeaTunnelRowConverter extends RowConverter<SeaTunnelRow> {
     }
 
     /**
-     * Convert HashTrieMap to LinkedHashMap
+     * Convert AbstractMap to LinkedHashMap
      *
-     * @param hashTrieMap HashTrieMap data
+     * @param abstractMap AbstractMap data
      * @param mapType fields type map
      * @return java.util.LinkedHashMap
-     * @see HashTrieMap
+     * @see AbstractMap
      */
-    private Map<Object, Object> reconvertMap(HashTrieMap<?, ?> hashTrieMap, MapType<?, ?> mapType) {
-        if (hashTrieMap == null || hashTrieMap.size() == 0) {
+    private Map<Object, Object> reconvertMap(AbstractMap<?, ?> abstractMap, MapType<?, ?> mapType) {
+        if (abstractMap == null || abstractMap.size() == 0) {
             return Collections.emptyMap();
         }
-        int num = hashTrieMap.size();
+        int num = abstractMap.size();
         Map<Object, Object> newMap = new LinkedHashMap<>(num);
         SeaTunnelDataType<?> keyType = mapType.getKeyType();
         SeaTunnelDataType<?> valueType = mapType.getValueType();
-        scala.collection.immutable.List<?> keyList = hashTrieMap.keySet().toList();
-        scala.collection.immutable.List<?> valueList = hashTrieMap.values().toList();
+        scala.collection.immutable.List<?> keyList = abstractMap.keySet().toList();
+        scala.collection.immutable.List<?> valueList = abstractMap.values().toList();
         for (int i = 0; i < num; i++) {
             Object key = keyList.apply(i);
             Object value = valueList.apply(i);

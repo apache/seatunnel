@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.starrocks;
 
 import org.apache.seatunnel.connectors.seatunnel.starrocks.sink.StarRocksSinkFactory;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.source.StarRocksSourceFactory;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -27,5 +28,6 @@ class StarRocksFactoryTest {
     @Test
     void optionRule() {
         Assertions.assertNotNull((new StarRocksSinkFactory()).optionRule());
+        Assertions.assertNotNull((new StarRocksSourceFactory()).optionRule());
     }
 }

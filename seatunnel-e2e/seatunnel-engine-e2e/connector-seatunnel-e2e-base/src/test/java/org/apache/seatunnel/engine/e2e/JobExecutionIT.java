@@ -154,6 +154,26 @@ public class JobExecutionIT {
     }
 
     @Test
+    public void testValidJobNameInJobConfig() throws ExecutionException, InterruptedException {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath = TestUtils.getResource("valid_job_name.conf");
+        JobConfig jobConfig = new JobConfig();
+        ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+        clientConfig.setClusterName(TestUtils.getClusterName("JobExecutionIT"));
+        try (SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig)) {
+            ClientJobExecutionEnvironment jobExecutionEnv =
+                    engineClient.createExecutionContext(filePath, jobConfig, SEATUNNEL_CONFIG);
+            final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+            CompletableFuture<JobStatus> completableFuture =
+                    CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
+            await().atMost(600000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(() -> Assertions.assertTrue(completableFuture.isDone()));
+            String value = engineClient.getJobClient().listJobStatus(false);
+            Assertions.assertTrue(value.contains("\"jobName\":\"valid_job_name\""));
+        }
+    }
+
+    @Test
     public void testGetUnKnownJobID() {
 
         ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();

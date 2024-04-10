@@ -71,6 +71,11 @@ public class SelectDBConfig {
                     .noDefaultValue()
                     .withDescription("the jdbc password.");
 
+    public static final Option<Boolean> SINK_ENABLE_2PC =
+            Options.key("sink.enable-2pc")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDescription("enable 2PC while loading");
     // sink config options
     public static final Option<Integer> SINK_MAX_RETRIES =
             Options.key("sink.max-retries")
@@ -120,6 +125,7 @@ public class SelectDBConfig {
     private String tableIdentifier;
     private Boolean enableDelete;
     private String labelPrefix;
+    private boolean enable2PC;
     private Integer maxRetries;
     private Integer bufferSize;
     private Integer bufferCount;
@@ -145,6 +151,11 @@ public class SelectDBConfig {
             selectdbConfig.setMaxRetries(pluginConfig.getInt(SINK_MAX_RETRIES.key()));
         } else {
             selectdbConfig.setMaxRetries(SINK_MAX_RETRIES.defaultValue());
+        }
+        if (pluginConfig.hasPath(SINK_ENABLE_2PC.key())) {
+            selectdbConfig.setEnable2PC(pluginConfig.getBoolean(SINK_ENABLE_2PC.key()));
+        } else {
+            selectdbConfig.setEnable2PC(SINK_ENABLE_2PC.defaultValue());
         }
         if (pluginConfig.hasPath(SINK_BUFFER_SIZE.key())) {
             selectdbConfig.setBufferSize(pluginConfig.getInt(SINK_BUFFER_SIZE.key()));
