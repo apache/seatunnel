@@ -73,6 +73,7 @@ public class PaimonSource
     private Table table;
 
     private int[] projectionIndex = null;
+
     private String[] projectionFieldNames = null;
 
     @Override

@@ -43,7 +43,7 @@ The file path of `hdfs-site.xml`
 
 ### projection [string]
 
-Decides which columns of the paimon table to read. For multiple columns you need to use "," for split, such as "3,2".
+Decides which columns of the paimon table to read. For multiple columns you need to use "," for split, such as "column1,column2".
 
 ## Examples
 
