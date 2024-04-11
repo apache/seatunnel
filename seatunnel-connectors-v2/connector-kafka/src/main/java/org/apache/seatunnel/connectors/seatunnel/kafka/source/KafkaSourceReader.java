@@ -171,7 +171,8 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
                                                                 && record.offset()
                                                                         >= sourceSplit
                                                                                 .getEndOffset()) {
-                                                            // signal to the source that we have reached the end of the data.
+                                                            // signal to the source that we have
+                                                            // reached the end of the data.
                                                             context.signalNoMoreElement();
                                                             break;
                                                         }
