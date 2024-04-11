@@ -184,6 +184,14 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testElasticsearchWithoutSchema(TestContainer container)
             throws IOException, InterruptedException {
+        String mapping =
+                IOUtils.toString(
+                        ContainerUtil.getResourcesFile(
+                                        "/elasticsearch/st_index_source_without_schema_and_sink.json")
+                                .toURI(),
+                        StandardCharsets.UTF_8);
+        esRestClient.createIndex("st_index4", mapping);
+
         Container.ExecResult execResult =
                 container.executeJob(
                         "/elasticsearch/elasticsearch_source_without_schema_and_sink.conf");
