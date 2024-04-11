@@ -41,6 +41,7 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SourceConf
 import org.apache.commons.collections4.CollectionUtils;
 
 import com.google.common.collect.Lists;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -48,6 +49,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 public class ElasticsearchSource
         implements SeaTunnelSource<
                         SeaTunnelRow, ElasticsearchSourceSplit, ElasticsearchSourceState>,
@@ -64,6 +66,7 @@ public class ElasticsearchSource
         this.config = config;
         if (config.getOptional(TableSchemaOptions.SCHEMA).isPresent()) {
             // todo: We need to remove the schema in ES.
+            log.warn("the schema in ES Deprecated,please use source instead!");
             catalogTable = CatalogTableUtil.buildWithConfig(config);
             source = Arrays.asList(catalogTable.getSeaTunnelRowType().getFieldNames());
         } else {
