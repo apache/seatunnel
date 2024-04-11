@@ -243,7 +243,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
 
     private List<String> readSinkDataWithOutSchema() throws InterruptedException {
         Map<String, BasicTypeDefine<EsType>> esFieldType =
-                esRestClient.getFieldTypeMapping("st_index2", Lists.newArrayList());
+                esRestClient.getFieldTypeMapping("st_index4", Lists.newArrayList());
         Thread.sleep(2000);
         List<String> source = new ArrayList<>(esFieldType.keySet());
         return getDocs(source, "st_index4");

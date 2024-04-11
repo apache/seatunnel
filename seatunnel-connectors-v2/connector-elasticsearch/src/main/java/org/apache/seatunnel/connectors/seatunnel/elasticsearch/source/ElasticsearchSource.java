@@ -68,7 +68,7 @@ public class ElasticsearchSource
         this.config = config;
         if (config.getOptional(TableSchemaOptions.SCHEMA).isPresent()) {
             // todo: We need to remove the schema in ES.
-            log.warn("the schema in ES Deprecated,please use source instead!");
+            log.warn("The schema config in ElasticSearch sink is deprecated, please use source config instead!");
             catalogTable = CatalogTableUtil.buildWithConfig(config);
             source = Arrays.asList(catalogTable.getSeaTunnelRowType().getFieldNames());
         } else {
