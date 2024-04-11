@@ -49,7 +49,6 @@ public class TableSchemaOptions {
                         .withDescription("SeaTunnel Schema Table Comment");
     }
 
-    @Deprecated
     public static final Option<Map<String, Object>> SCHEMA =
             Options.key("schema")
                     .type(new TypeReference<Map<String, Object>>() {})
