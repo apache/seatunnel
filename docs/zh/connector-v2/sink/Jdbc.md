@@ -249,7 +249,7 @@ jdbc {
 
 ```
 
-精确一次 (Exactly-once )
+精确一次 (Exactly-once)
 
 通过设置 `is_exactly_once` 开启精确一次语义
 

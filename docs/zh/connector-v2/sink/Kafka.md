@@ -6,7 +6,7 @@
 
 > Spark<br/>
 > Flink<br/>
-> Seatunnel Zeta<br/>
+> SeaTunnel Zeta<br/>
 
 ## 主要特性
 
@@ -91,13 +91,14 @@ NON 不提供任何保证：如果 Kafka 代理出现问题，消息可能会丢
 assign_partitions = ["shoe", "clothing"]
 在这种情况下，包含 "shoe" 的消息将被发送到第零个分区，因为 "shoe" 在 assign_partitions 中被标记为零， 而包含 "clothing" 的消息将被发送到第一个分区。
 对于其他的消息，我们将使用哈希算法将它们均匀地分配到剩余的分区中。
-这个功能是通过 MessageContentPartitioner 类实现的，该类实现了 org.apache.kafka.clients.producer.Partitioner 接口。如果我们需要自定义分区，我们需要实现这个接口
+这个功能是通过 MessageContentPartitioner 类实现的，该类实现了 org.apache.kafka.clients.producer.Partitioner 接口。如果我们需要自定义分区，我们需要实现这个接口。
 
 ## 任务示例
 
 ### 简单:
 
-> 此示例展示了如何定义一个 SeaTunnel 同步任务，该任务能够通过 FakeSource 自动产生数据并将其发送到 Kafka Sink。在这个例子中，FakeSource 会生成总共 16 行数据（row.num=16），每一行都包含两个字段，即 name（字符串类型）和 age（整型）。最终，这些数据将被发送到名为 test_topic 的 topic 中，因此该 topic 也将包含 16 行数据。如果你还未安装和部署 SeaTunnel，你需要参照 [安装SeaTunnel](../../start-v2/locally/deployment.md) 的指南来进行安装和部署。完成安装和部署后，你可以按照 [快速开始使用 SeaTunnel 引擎](../../start-v2/locally/quick-start-seatunnel-engine.md) 的指南来运行任务。
+> 此示例展示了如何定义一个 SeaTunnel 同步任务，该任务能够通过 FakeSource 自动产生数据并将其发送到 Kafka Sink。在这个例子中，FakeSource 会生成总共 16 行数据（`row.num=16`），每一行都包含两个字段，即 `name`（字符串类型）和 `age`（整型）。最终，这些数据将被发送到名为 test_topic 的 topic 中，因此该 topic 也将包含 16 行数据。
+> 如果你还未安装和部署 SeaTunnel，你需要参照 [安装SeaTunnel](../../start-v2/locally/deployment.md) 的指南来进行安装和部署。完成安装和部署后，你可以按照 [快速开始使用 SeaTunnel 引擎](../../start-v2/locally/quick-start-seatunnel-engine.md) 的指南来运行任务。
 
 ```hocon
 # Defining the runtime environment
@@ -162,7 +163,7 @@ sink {
 从 https://github.com/aws/aws-msk-iam-auth/releases 下载 `aws-msk-iam-auth-1.1.5.jar`
 并将其放入 `$SEATUNNEL_HOME/plugin/kafka/lib` 中目录。
 请确保 IAM 策略具有 `kafka-cluster:Connect`
-像这样：
+如下配置：
 
 ```hocon
 "Effect": "Allow",

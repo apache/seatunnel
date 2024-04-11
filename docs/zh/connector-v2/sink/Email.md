@@ -54,7 +54,7 @@
 
 ### email_message_headline [string]
 
-邮件的主题行
+邮件的标题
 
 ### email_message_content [string]
 
