@@ -43,7 +43,7 @@ public class ElasticsearchSourceTest {
         SeaTunnelDataType[] seaTunnelDataTypes =
                 ElasticsearchSource.getSeaTunnelDataType(
                         esFieldType, new ArrayList<>(esFieldType.keySet()));
-        Assertions.assertNotNull(ElasticsearchSource.getSeaTunnelDataType(esFieldType, null));
+        Assertions.assertNotNull(seaTunnelDataTypes);
         Assertions.assertEquals(seaTunnelDataTypes[0].getTypeClass(), String.class);
     }
 }
