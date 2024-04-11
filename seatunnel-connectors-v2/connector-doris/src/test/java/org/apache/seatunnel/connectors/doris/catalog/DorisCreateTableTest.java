@@ -375,13 +375,14 @@ public class DorisCreateTableTest {
                                         .build(),
                                 Collections.emptyMap(),
                                 Collections.emptyList(),
-                                ""));
+                                ""),
+                        DorisTypeConverterV1.INSTANCE);
 
         Assertions.assertEquals(
                 "create table 'test1'.'test2'(\n"
-                        + "     `id` BIGINT(1) NULL ,\n"
+                        + "     `id` BIGINT NULL ,\n"
                         + "`name` STRING NULL ,\n"
-                        + "`age` INT(1) NULL ,\n"
+                        + "`age` INT NULL ,\n"
                         + "`comment` VARCHAR(500) NULL ,\n"
                         + "`description` STRING NULL \n"
                         + " )\n"

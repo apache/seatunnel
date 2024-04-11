@@ -188,7 +188,8 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
 
                 SeaTunnelDataType<?> valueType = mapType.getValueType();
                 Map<String, String> stringMap =
-                        mapper.readValue(fieldValue, new TypeReference<HashMap<String, String>>() {});
+                        mapper.readValue(
+                                fieldValue, new TypeReference<HashMap<String, String>>() {});
                 Map<Object, Object> convertMap = new HashMap<Object, Object>();
                 for (Map.Entry<String, String> entry : stringMap.entrySet()) {
                     Object convertKey = convertValue(keyType, entry.getKey());

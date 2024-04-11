@@ -28,6 +28,8 @@ import org.apache.seatunnel.translation.serialization.RowConverter;
 import org.apache.flink.types.Row;
 import org.apache.flink.types.RowKind;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -39,6 +41,7 @@ import java.util.function.BiFunction;
  * The row converter between {@link Row} and {@link SeaTunnelRow}, used to convert or reconvert
  * between flink row and seatunnel row
  */
+@Slf4j
 public class FlinkRowConverter extends RowConverter<Row> {
 
     public FlinkRowConverter(SeaTunnelDataType<?> dataType) {
@@ -57,6 +60,7 @@ public class FlinkRowConverter extends RowConverter<Row> {
         }
         SqlType sqlType = dataType.getSqlType();
         switch (sqlType) {
+                // testlog
             case ROW:
                 SeaTunnelRow seaTunnelRow = (SeaTunnelRow) field;
                 SeaTunnelRowType rowType = (SeaTunnelRowType) dataType;
@@ -98,8 +102,14 @@ public class FlinkRowConverter extends RowConverter<Row> {
                 Map<Object, Object> newMap = new HashMap<>(mapData.size());
                 mapData.forEach(
                         (key, value) -> {
+                            // test log
+                            SeaTunnelDataType<?> keyType = mapType.getKeyType();
                             SeaTunnelDataType<?> valueType = mapType.getValueType();
-                            newMap.put(key, convertFunction.apply(value, valueType));
+                            // test log
+                            log.info("keyType:" + keyType + ",valueType:" + valueType);
+                            newMap.put(
+                                    convertFunction.apply(key, keyType),
+                                    convertFunction.apply(value, valueType));
                         });
                 return newMap;
             default:

@@ -515,6 +515,12 @@ public class RowBatch {
         }
 
         if (vectorObject instanceof Text) {
+            if (sqlType.equals(SqlType.TIMESTAMP)) {
+                String stringValue = completeMilliseconds(vectorObject.toString());
+                return LocalDateTime.parse(stringValue, dateTimeV2Formatter);
+            } else if (sqlType.equals(SqlType.DATE)) {
+                return LocalDate.parse(vectorObject.toString(), dateFormatter);
+            }
             return vectorObject.toString();
         }
 
