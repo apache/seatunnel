@@ -18,47 +18,30 @@
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.catalog.ElasticSearchDataTypeConvertor;
-
-import org.apache.commons.collections4.CollectionUtils;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsType;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.source.ElasticsearchSource;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import com.google.common.collect.Lists;
-
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 public class ElasticsearchSourceTest {
     @Test
     public void testPrepareWithEmptySource() throws PrepareFailException {
-        List<String> source = Lists.newArrayList();
-
-        Map<String, String> esFieldType = new HashMap<>();
-        esFieldType.put("field1", "String");
-
-        SeaTunnelRowType rowTypeInfo = null;
-        ElasticSearchDataTypeConvertor elasticSearchDataTypeConvertor =
-                new ElasticSearchDataTypeConvertor();
-        if (CollectionUtils.isEmpty(source)) {
-            List<String> keys = new ArrayList<>(esFieldType.keySet());
-            SeaTunnelDataType[] fieldTypes = new SeaTunnelDataType[keys.size()];
-            for (int i = 0; i < keys.size(); i++) {
-                String esType = esFieldType.get(keys.get(i));
-                SeaTunnelDataType seaTunnelDataType =
-                        elasticSearchDataTypeConvertor.toSeaTunnelType(keys.get(i), esType);
-                fieldTypes[i] = seaTunnelDataType;
-            }
-            rowTypeInfo = new SeaTunnelRowType(keys.toArray(new String[0]), fieldTypes);
-        }
-
-        Assertions.assertNotNull(rowTypeInfo);
-        Assertions.assertEquals(rowTypeInfo.getFieldType(0), BasicType.STRING_TYPE);
+        BasicTypeDefine.BasicTypeDefineBuilder<EsType> typeDefine =
+                BasicTypeDefine.<EsType>builder()
+                        .name("field1")
+                        .columnType("text")
+                        .dataType("text");
+        Map<String, BasicTypeDefine<EsType>> esFieldType = new HashMap<>();
+        esFieldType.put("field1", typeDefine.build());
+        SeaTunnelDataType[] seaTunnelDataTypes =
+                ElasticsearchSource.getSeaTunnelDataType(esFieldType, null);
+        Assertions.assertNotNull(ElasticsearchSource.getSeaTunnelDataType(esFieldType, null));
+        Assertions.assertEquals(seaTunnelDataTypes[0].getTypeClass(), String.class);
     }
 }

@@ -57,7 +57,7 @@ Elasticsearch index name, support * fuzzy matching.
 
 The fields of index.
 You can get the document id by specifying the field `_id`.If sink _id to other index,you need specify an alias for _id due to the Elasticsearch limit.
-If you don't config source, you must config `schema`.
+If you don't config source, It is automatically retrieved from the mapping of the index.
 
 ### query [json]
 
