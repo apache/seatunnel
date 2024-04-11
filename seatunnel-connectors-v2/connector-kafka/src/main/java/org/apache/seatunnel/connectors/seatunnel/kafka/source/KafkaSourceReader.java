@@ -171,6 +171,8 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
                                                                 && record.offset()
                                                                         >= sourceSplit
                                                                                 .getEndOffset()) {
+                                                            // signal to the source that we have reached the end of the data.
+                                                            context.signalNoMoreElement();
                                                             break;
                                                         }
                                                     }
@@ -198,11 +200,6 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
                     }
                     completableFuture.join();
                 });
-
-        if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
-            // signal to the source that we have reached the end of the data.
-            context.signalNoMoreElement();
-        }
     }
 
     @Override
