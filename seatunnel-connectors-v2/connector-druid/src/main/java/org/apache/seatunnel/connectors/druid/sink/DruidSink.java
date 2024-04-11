@@ -18,63 +18,35 @@
 
 package org.apache.seatunnel.connectors.druid.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
-import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.druid.exception.DruidConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
-
-import com.google.auto.service.AutoService;
 
 import java.io.IOException;
 
 import static org.apache.seatunnel.connectors.druid.config.DruidConfig.BATCH_SIZE;
-import static org.apache.seatunnel.connectors.druid.config.DruidConfig.BATCH_SIZE_DEFAULT;
 import static org.apache.seatunnel.connectors.druid.config.DruidConfig.COORDINATOR_URL;
 import static org.apache.seatunnel.connectors.druid.config.DruidConfig.DATASOURCE;
 
-@AutoService(SeaTunnelSink.class)
 public class DruidSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
-    private Config pluginConfig;
+    private ReadonlyConfig config;
+    private CatalogTable catalogTable;
     private SeaTunnelRowType seaTunnelRowType;
-    private int batchSize = BATCH_SIZE_DEFAULT;
 
     @Override
     public String getPluginName() {
         return "Druid";
     }
 
-    @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result =
-                CheckConfigUtil.checkAllExists(
-                        pluginConfig, COORDINATOR_URL.key(), DATASOURCE.key());
-        if (!result.isSuccess()) {
-            throw new DruidConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SINK, result.getMsg()));
-        }
-        this.pluginConfig = pluginConfig;
-        if (pluginConfig.hasPath(BATCH_SIZE.key())) {
-            this.batchSize = pluginConfig.getInt(BATCH_SIZE.key());
-        }
-    }
-
-    @Override
-    public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
-        this.seaTunnelRowType = seaTunnelRowType;
+    public DruidSink(ReadonlyConfig config, CatalogTable table) {
+        this.config = config;
+        this.catalogTable = table;
+        this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
     }
 
     @Override
@@ -82,8 +54,8 @@ public class DruidSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
             throws IOException {
         return new DruidWriter(
                 seaTunnelRowType,
-                pluginConfig.getString(COORDINATOR_URL.key()),
-                pluginConfig.getString(DATASOURCE.key()),
-                this.batchSize);
+                config.get(COORDINATOR_URL),
+                config.get(DATASOURCE),
+                config.get(BATCH_SIZE));
     }
 }
