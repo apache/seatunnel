@@ -42,7 +42,6 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SourceConf
 
 import org.apache.commons.collections4.CollectionUtils;
 
-import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
@@ -73,18 +72,15 @@ public class ElasticsearchSource
             catalogTable = CatalogTableUtil.buildWithConfig(config);
             source = Arrays.asList(catalogTable.getSeaTunnelRowType().getFieldNames());
         } else {
-            if (config.getOptional(SourceConfig.SOURCE).isPresent()) {
-                source = config.get(SourceConfig.SOURCE);
-            } else {
-                source = Lists.newArrayList();
-            }
+            source = config.get(SourceConfig.SOURCE);
             EsRestClient esRestClient = EsRestClient.createInstance(config);
             Map<String, BasicTypeDefine<EsType>> esFieldType =
                     esRestClient.getFieldTypeMapping(config.get(SourceConfig.INDEX), source);
+            esRestClient.close();
+
             if (CollectionUtils.isEmpty(source)) {
                 source = new ArrayList<>(esFieldType.keySet());
             }
-            esRestClient.close();
             SeaTunnelDataType[] fieldTypes = getSeaTunnelDataType(esFieldType, source);
             TableSchema.Builder builder = TableSchema.builder();
             for (int i = 0; i < source.size(); i++) {
