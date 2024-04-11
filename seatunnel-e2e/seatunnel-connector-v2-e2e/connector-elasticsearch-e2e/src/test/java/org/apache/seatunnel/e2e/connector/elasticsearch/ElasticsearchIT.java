@@ -113,6 +113,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         testDataset = generateTestDataSet();
         createIndexDocs();
         createIndexWithFullType();
+        createIndexForResourceNull();
     }
 
     /** create a index,and bulk some documents */
@@ -158,6 +159,16 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                 2, esRestClient.getIndexDocsCount("st_index_full_type").get(0).getDocsCount());
     }
 
+    private void createIndexForResourceNull() throws IOException {
+        String mapping =
+                IOUtils.toString(
+                        ContainerUtil.getResourcesFile(
+                                        "/elasticsearch/st_index_source_without_schema_and_sink.json")
+                                .toURI(),
+                        StandardCharsets.UTF_8);
+        esRestClient.createIndex("st_index4", mapping);
+    }
+
     @TestTemplate
     public void testElasticsearch(TestContainer container)
             throws IOException, InterruptedException {
@@ -184,13 +195,6 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testElasticsearchWithoutSchema(TestContainer container)
             throws IOException, InterruptedException {
-        String mapping =
-                IOUtils.toString(
-                        ContainerUtil.getResourcesFile(
-                                        "/elasticsearch/st_index_source_without_schema_and_sink.json")
-                                .toURI(),
-                        StandardCharsets.UTF_8);
-        esRestClient.createIndex("st_index4", mapping);
 
         Container.ExecResult execResult =
                 container.executeJob(
