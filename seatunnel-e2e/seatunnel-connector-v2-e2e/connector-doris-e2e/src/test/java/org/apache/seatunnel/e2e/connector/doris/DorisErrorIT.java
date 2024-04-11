@@ -79,6 +79,7 @@ public class DorisErrorIT extends AbstractDorisIT {
         Thread.sleep(10 * 1000);
         super.container.stop();
         Assertions.assertNotEquals(0, future.get().getExitCode());
+        log.info(future.get().getStderr());
         super.container.start();
         // wait for the container to restart
         given().ignoreExceptions()
