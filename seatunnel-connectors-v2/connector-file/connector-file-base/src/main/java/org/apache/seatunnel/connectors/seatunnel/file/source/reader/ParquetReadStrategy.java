@@ -78,6 +78,7 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
     private static final long NANOS_PER_MILLISECOND = 1000000;
     private static final long MILLIS_PER_DAY = TimeUnit.DAYS.toMillis(1L);
     private static final long JULIAN_DAY_NUMBER_FOR_UNIX_EPOCH = 2440588;
+    private static final String PARQUET = "Parquet";
 
     private int[] indexes;
 
@@ -300,7 +301,7 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                             return LocalTimeType.LOCAL_DATE_TYPE;
                         default:
                             throw CommonError.convertToSeaTunnelTypeError(
-                                    "Parquet", type.toString(), name);
+                                    PARQUET, type.toString(), name);
                     }
                 case INT64:
                     if (type.asPrimitiveType().getOriginalType() == OriginalType.TIMESTAMP_MILLIS) {
@@ -390,11 +391,11 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                                 return ArrayType.DOUBLE_ARRAY_TYPE;
                             default:
                                 throw CommonError.convertToSeaTunnelTypeError(
-                                        "Parquet", type.toString(), name);
+                                        PARQUET, type.toString(), name);
                         }
                     default:
                         throw CommonError.convertToSeaTunnelTypeError(
-                                "Parquet", type.toString(), name);
+                                PARQUET, type.toString(), name);
                 }
             }
         }
