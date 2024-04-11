@@ -49,6 +49,7 @@ import com.google.auto.service.AutoService;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.IntStream;
 
 import static org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig.DATABASE;
 import static org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig.HDFS_SITE_PATH;
@@ -71,7 +72,8 @@ public class PaimonSource
 
     private Table table;
 
-    private int[] projection = null;
+    private int[] projectionIndex = null;
+    private String[] projectionFieldNames = null;
 
     @Override
     public String getPluginName() {
@@ -116,10 +118,24 @@ public class PaimonSource
         }
         if (pluginConfig.hasPath(PROJECTION.key())) {
             String projectString = pluginConfig.getString(PROJECTION.key());
-            this.projection =
-                    Arrays.stream(projectString.split(",")).mapToInt(Integer::parseInt).toArray();
+            this.projectionFieldNames = projectString.split(",");
+            String[] fieldNames = this.table.rowType().getFieldNames().toArray(new String[0]);
+            this.projectionIndex =
+                    IntStream.range(0, projectionFieldNames.length)
+                            .map(
+                                    i -> {
+                                        String fieldName = projectionFieldNames[i];
+                                        int index = Arrays.asList(fieldNames).indexOf(fieldName);
+                                        if (index == -1) {
+                                            throw new IllegalArgumentException(
+                                                    "column " + fieldName + " does not exist.");
+                                        }
+                                        return index;
+                                    })
+                            .toArray();
         }
-        seaTunnelRowType = RowTypeConverter.convert(this.table.rowType(), projection);
+
+        seaTunnelRowType = RowTypeConverter.convert(this.table.rowType(), projectionIndex);
     }
 
     @Override
@@ -135,7 +151,7 @@ public class PaimonSource
     @Override
     public SourceReader<SeaTunnelRow, PaimonSourceSplit> createReader(
             SourceReader.Context readerContext) throws Exception {
-        return new PaimonSourceReader(readerContext, table, seaTunnelRowType, projection);
+        return new PaimonSourceReader(readerContext, table, seaTunnelRowType, projectionIndex);
     }
 
     @Override

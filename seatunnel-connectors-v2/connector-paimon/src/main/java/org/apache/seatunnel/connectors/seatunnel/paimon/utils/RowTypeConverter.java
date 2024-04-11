@@ -68,20 +68,20 @@ public class RowTypeConverter {
      * @param rowType Paimon row type
      * @return SeaTunnel row type {@link SeaTunnelRowType}
      */
-    public static SeaTunnelRowType convert(RowType rowType, int[] projection) {
+    public static SeaTunnelRowType convert(RowType rowType, int[] projectionIndex) {
         String[] fieldNames = rowType.getFieldNames().toArray(new String[0]);
         SeaTunnelDataType<?>[] dataTypes =
                 rowType.getFields().stream()
                         .map(field -> field.type().accept(PaimonToSeaTunnelTypeVisitor.INSTANCE))
                         .toArray(SeaTunnelDataType<?>[]::new);
-        if (projection != null) {
+        if (projectionIndex != null) {
             String[] projectionFieldNames =
-                    Arrays.stream(projection)
+                    Arrays.stream(projectionIndex)
                             .filter(index -> index >= 0 && index < fieldNames.length)
                             .mapToObj(index -> fieldNames[index])
                             .toArray(String[]::new);
             SeaTunnelDataType<?>[] projectionDataTypes =
-                    Arrays.stream(projection)
+                    Arrays.stream(projectionIndex)
                             .filter(index -> index >= 0 && index < fieldNames.length)
                             .mapToObj(index -> dataTypes[index])
                             .toArray(SeaTunnelDataType<?>[]::new);
