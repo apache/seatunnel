@@ -185,7 +185,8 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
     public void testElasticsearchWithoutSchema(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
-                container.executeJob("/elasticsearch/elasticsearch_source_and_sink.conf");
+                container.executeJob(
+                        "/elasticsearch/elasticsearch_source_without_schema_and_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
         List<String> sinkData = readSinkDataWithOutSchema();
         // for DSL is: {"range":{"c_int":{"gte":10,"lte":20}}}
@@ -245,7 +246,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                 esRestClient.getFieldTypeMapping("st_index2", Lists.newArrayList());
         Thread.sleep(2000);
         List<String> source = new ArrayList<>(esFieldType.keySet());
-        return getDocs(source);
+        return getDocs(source, "st_index4");
     }
 
     private List<String> readSinkData() throws InterruptedException {
@@ -267,10 +268,10 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                         "c_bytes",
                         "c_date",
                         "c_timestamp");
-        return getDocs(source);
+        return getDocs(source, "st_index2");
     }
 
-    private List<String> getDocs(List<String> source) {
+    private List<String> getDocs(List<String> source, String index) {
         HashMap<String, Object> rangeParam = new HashMap<>();
         rangeParam.put("gte", 10);
         rangeParam.put("lte", 20);
@@ -278,8 +279,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         range.put("c_int", rangeParam);
         Map<String, Object> query = new HashMap<>();
         query.put("range", range);
-        ScrollResult scrollResult =
-                esRestClient.searchByScroll("st_index2", source, query, "1m", 1000);
+        ScrollResult scrollResult = esRestClient.searchByScroll(index, source, query, "1m", 1000);
         scrollResult
                 .getDocs()
                 .forEach(

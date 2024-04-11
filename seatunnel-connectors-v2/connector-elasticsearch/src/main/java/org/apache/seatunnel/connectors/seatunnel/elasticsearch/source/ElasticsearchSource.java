@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.source;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
+
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -134,6 +136,7 @@ public class ElasticsearchSource
                 enumeratorContext, sourceState, config, source);
     }
 
+    @VisibleForTesting
     public static SeaTunnelDataType[] getSeaTunnelDataType(
             Map<String, BasicTypeDefine<EsType>> esFieldType, List<String> source) {
         SeaTunnelDataType[] fieldTypes;
