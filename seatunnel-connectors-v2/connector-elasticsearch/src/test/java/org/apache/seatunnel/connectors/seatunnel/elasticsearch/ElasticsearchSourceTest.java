@@ -26,6 +26,7 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.source.Elasticsea
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -40,7 +41,8 @@ public class ElasticsearchSourceTest {
         Map<String, BasicTypeDefine<EsType>> esFieldType = new HashMap<>();
         esFieldType.put("field1", typeDefine.build());
         SeaTunnelDataType[] seaTunnelDataTypes =
-                ElasticsearchSource.getSeaTunnelDataType(esFieldType, null);
+                ElasticsearchSource.getSeaTunnelDataType(
+                        esFieldType, new ArrayList<>(esFieldType.keySet()));
         Assertions.assertNotNull(ElasticsearchSource.getSeaTunnelDataType(esFieldType, null));
         Assertions.assertEquals(seaTunnelDataTypes[0].getTypeClass(), String.class);
     }
