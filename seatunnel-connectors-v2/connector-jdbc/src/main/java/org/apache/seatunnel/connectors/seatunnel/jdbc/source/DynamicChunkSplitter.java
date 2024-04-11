@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
+
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -449,7 +451,8 @@ public class DynamicChunkSplitter extends ChunkSplitter {
         return ObjectUtils.compare(obj1, obj2);
     }
 
-    private String createDynamicSplitQuerySQL(JdbcSourceSplit split) {
+    @VisibleForTesting
+    String createDynamicSplitQuerySQL(JdbcSourceSplit split) {
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
                         new String[] {split.getSplitKeyName()},
@@ -499,11 +502,11 @@ public class DynamicChunkSplitter extends ChunkSplitter {
         return sql.toString();
     }
 
-    private static void addKeyColumnsToCondition(
+    private void addKeyColumnsToCondition(
             SeaTunnelRowType rowType, StringBuilder sql, String predicate) {
         for (Iterator<String> fieldNamesIt = Arrays.stream(rowType.getFieldNames()).iterator();
                 fieldNamesIt.hasNext(); ) {
-            sql.append(fieldNamesIt.next()).append(predicate);
+            sql.append(jdbcDialect.quoteIdentifier(fieldNamesIt.next())).append(predicate);
             if (fieldNamesIt.hasNext()) {
                 sql.append(" AND ");
             }

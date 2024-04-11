@@ -62,10 +62,10 @@ Debezium provides a unified format for changelog, here is a simple example for a
 }
 ```
 
-Note: please refer to Debezium documentation about the meaning of each fields.
+Note: please refer to [Debezium documentation](https://debezium.io/documentation/reference/2.5/connectors/mysql.html#mysql-events) about the meaning of each fields.
 
 The MySQL products table has 4 columns (id, name, description and weight).
-The above JSON message is an update change event on the products table where the weight value of the row with id = 111 is changed from 5.18 to 5.15.
+The above JSON message is an update change event on the products table where the weight value of the row with id = 111 is changed from 5.18 to 5.17.
 Assuming the messages have been synchronized to Kafka topic products_binlog, then we can use the following Seatunnel conf to consume this topic and interpret the change events by Debezium format.
 
 **In this config, you must specify the `schema` and `debezium_record_include_schema` options **
