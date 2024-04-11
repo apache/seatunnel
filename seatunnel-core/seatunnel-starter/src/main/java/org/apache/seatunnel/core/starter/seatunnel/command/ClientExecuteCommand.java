@@ -48,6 +48,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
@@ -79,6 +80,7 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         try {
             String clusterName = clientCommandArgs.getClusterName();
+            ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
             if (clientCommandArgs.getMasterType().equals(MasterType.LOCAL)) {
                 clusterName =
                         creatRandomClusterName(
@@ -86,12 +88,13 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                                         ? clusterName
                                         : Constant.DEFAULT_SEATUNNEL_CLUSTER_NAME);
                 instance = createServerInLocal(clusterName, seaTunnelConfig);
+                int port = instance.getCluster().getLocalMember().getSocketAddress().getPort();
+                clientConfig
+                        .getNetworkConfig()
+                        .setAddresses(Collections.singletonList("localhost:" + port));
             }
             if (StringUtils.isNotEmpty(clusterName)) {
                 seaTunnelConfig.getHazelcastConfig().setClusterName(clusterName);
-            }
-            ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
-            if (StringUtils.isNotEmpty(clusterName)) {
                 clientConfig.setClusterName(clusterName);
             }
             engineClient = new SeaTunnelClient(clientConfig);

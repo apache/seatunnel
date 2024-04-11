@@ -35,7 +35,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 |----------------------------------|---------|----------|--------------------------------------------|-------------------------------------------------------------------------------------------------------------------|
 | host                             | string  | yes      | -                                          |                                                                                                                   |
 | port                             | int     | yes      | -                                          |                                                                                                                   |
-| username                         | string  | yes      | -                                          |                                                                                                                   |
+| user                             | string  | yes      | -                                          |                                                                                                                   |
 | password                         | string  | yes      | -                                          |                                                                                                                   |
 | path                             | string  | yes      | -                                          |                                                                                                                   |
 | tmp_path                         | string  | yes      | /tmp/seatunnel                             | The result file will write to a tmp path first and then use `mv` to submit tmp dir to target dir. Need a FTP dir. |
@@ -60,6 +60,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 | xml_root_tag                     | string  | no       | RECORDS                                    | Only used when file_format is xml.                                                                                |
 | xml_row_tag                      | string  | no       | RECORD                                     | Only used when file_format is xml.                                                                                |
 | xml_use_attr_format              | boolean | no       | -                                          | Only used when file_format is xml.                                                                                |
+| encoding                         | string  | no       | "UTF-8"                                    | Only used when file_format_type is json,text,csv,xml.                                                             |
 
 ### host [string]
 
@@ -69,7 +70,7 @@ The target ftp host is required
 
 The target ftp port is required
 
-### username [string]
+### user [string]
 
 The target ftp username is required
 
@@ -210,6 +211,11 @@ Specifies the tag name of the data rows within the XML file.
 
 Specifies Whether to process data using the tag attribute format.
 
+### encoding [string]
+
+Only used when file_format_type is json,text,csv,xml.
+The encoding of the file to write. This param will be parsed by `Charset.forName(encoding)`.
+
 ## Example
 
 For text file format simple config
@@ -219,7 +225,7 @@ For text file format simple config
 FtpFile {
     host = "xxx.xxx.xxx.xxx"
     port = 21
-    username = "username"
+    user = "username"
     password = "password"
     path = "/data/ftp"
     file_format_type = "text"
@@ -237,7 +243,7 @@ For text file format with `have_partition` and `custom_filename` and `sink_colum
 FtpFile {
     host = "xxx.xxx.xxx.xxx"
     port = 21
-    username = "username"
+    user = "username"
     password = "password"
     path = "/data/ftp/seatunnel/job1"
     tmp_path = "/data/ftp/seatunnel/tmp"

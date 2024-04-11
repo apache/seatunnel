@@ -23,6 +23,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.factory.FactoryException;
+import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 
 import org.apache.commons.lang3.StringUtils;
@@ -41,6 +42,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -50,6 +52,7 @@ import java.util.ServiceConfigurationError;
 import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -94,6 +97,58 @@ public final class ContainerUtil {
                         container.copyFileToContainer(
                                 MountableFile.forHostPath(jar.getAbsolutePath()),
                                 Paths.get(seatunnelHome, "connectors", jar.getName()).toString()));
+    }
+
+    public static void copyAllConnectorJarToContainer(
+            GenericContainer<?> container,
+            String connectorsRootPath,
+            String connectorPrefix,
+            String connectorType,
+            String seatunnelHome) {
+        Config connectorsMapping =
+                getConfig(new File(PROJECT_ROOT_PATH + File.separator + PLUGIN_MAPPING_FILE));
+        if (!connectorsMapping.hasPath(connectorType)
+                || connectorsMapping.getConfig(connectorType).isEmpty()) {
+            return;
+        }
+        Config connectors = connectorsMapping.getConfig(connectorType);
+        Set<String> connectorNames = new HashSet<>();
+        Arrays.stream(PluginType.values())
+                .filter(pluginType -> !pluginType.equals(PluginType.TRANSFORM))
+                .forEach(
+                        pluginType ->
+                                connectorNames.addAll(
+                                        getConnectorNames(
+                                                connectors.getConfig(pluginType.getType()))));
+        File module = new File(PROJECT_ROOT_PATH + File.separator + connectorsRootPath);
+        List<File> connectorFiles = getConnectorFiles(module, connectorNames, connectorPrefix);
+        connectorFiles.forEach(
+                jar ->
+                        container.copyFileToContainer(
+                                MountableFile.forHostPath(jar.getAbsolutePath()),
+                                Paths.get(seatunnelHome, "connectors", jar.getName()).toString()));
+    }
+
+    public static Set<String> getConnectorNames(Config config) {
+        return ReadonlyConfig.fromConfig(config).toMap().values().stream()
+                .collect(Collectors.toSet());
+    }
+
+    public static Set<String> getConnectorIdentifier(String connectorType, String pluginType) {
+        TreeSet<String> treeSet = new TreeSet<>();
+        if (StringUtils.isBlank(connectorType) || StringUtils.isBlank(pluginType)) {
+            return treeSet;
+        }
+        Config connectorsMapping =
+                getConfig(
+                        new File(
+                                ContainerUtil.PROJECT_ROOT_PATH
+                                        + File.separator
+                                        + ContainerUtil.PLUGIN_MAPPING_FILE));
+        Config connectors = connectorsMapping.getConfig(connectorType);
+        treeSet.addAll(
+                ReadonlyConfig.fromConfig(connectors.getConfig(pluginType)).toMap().keySet());
+        return treeSet;
     }
 
     public static String copyConfigFileToContainer(GenericContainer<?> container, String confFile) {

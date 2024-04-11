@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.serializable;
 
 import org.apache.seatunnel.engine.common.serializeable.SeaTunnelFactoryIdConstant;
+import org.apache.seatunnel.engine.server.event.JobEventReportOperation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.Progress;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
@@ -98,6 +99,8 @@ public class TaskDataSerializerHook implements DataSerializerHook {
 
     public static final int DELETE_CONNECTOR_JAR_IN_EXECUTION_NODE = 24;
 
+    public static final int REPORT_JOB_EVENT = 25;
+
     public static final int FACTORY_ID =
             FactoryIdHelper.getFactoryId(
                     SeaTunnelFactoryIdConstant.SEATUNNEL_TASK_DATA_SERIALIZER_FACTORY,
@@ -166,6 +169,8 @@ public class TaskDataSerializerHook implements DataSerializerHook {
                     return new SendConnectorJarToMemberNodeOperation();
                 case DELETE_CONNECTOR_JAR_IN_EXECUTION_NODE:
                     return new DeleteConnectorJarInExecutionNode();
+                case REPORT_JOB_EVENT:
+                    return new JobEventReportOperation();
                 default:
                     throw new IllegalArgumentException("Unknown type id " + typeId);
             }

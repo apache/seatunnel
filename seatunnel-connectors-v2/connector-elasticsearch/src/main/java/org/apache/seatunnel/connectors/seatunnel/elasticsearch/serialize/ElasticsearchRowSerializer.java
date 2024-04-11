@@ -36,6 +36,7 @@ import lombok.NonNull;
 
 import java.time.temporal.Temporal;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
@@ -82,7 +83,7 @@ public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
 
     private String serializeUpsert(SeaTunnelRow row) {
         String key = keyExtractor.apply(row);
-        Map<String, Object> document = toDocumentMap(row);
+        Map<String, Object> document = toDocumentMap(row, seaTunnelRowType);
         String documentStr;
 
         try {
@@ -161,20 +162,42 @@ public class ElasticsearchRowSerializer implements SeaTunnelRowSerializer {
                 .toString();
     }
 
-    private Map<String, Object> toDocumentMap(SeaTunnelRow row) {
-        String[] fieldNames = seaTunnelRowType.getFieldNames();
+    private Map<String, Object> toDocumentMap(SeaTunnelRow row, SeaTunnelRowType rowType) {
+        String[] fieldNames = rowType.getFieldNames();
         Map<String, Object> doc = new HashMap<>(fieldNames.length);
         Object[] fields = row.getFields();
         for (int i = 0; i < fieldNames.length; i++) {
             Object value = fields[i];
-            if (value instanceof Temporal) {
-                // jackson not support jdk8 new time api
-                doc.put(fieldNames[i], value.toString());
+            if (value == null) {
+            } else if (value instanceof SeaTunnelRow) {
+                doc.put(
+                        fieldNames[i],
+                        toDocumentMap(
+                                (SeaTunnelRow) value, (SeaTunnelRowType) rowType.getFieldType(i)));
             } else {
-                doc.put(fieldNames[i], value);
+                doc.put(fieldNames[i], convertValue(value));
             }
         }
         return doc;
+    }
+
+    private Object convertValue(Object value) {
+        if (value instanceof Temporal) {
+            // jackson not support jdk8 new time api
+            return value.toString();
+        } else if (value instanceof Map) {
+            for (Map.Entry<?, ?> entry : ((Map<?, ?>) value).entrySet()) {
+                ((Map) value).put(entry.getKey(), convertValue(entry.getValue()));
+            }
+            return value;
+        } else if (value instanceof List) {
+            for (int i = 0; i < ((List) value).size(); i++) {
+                ((List) value).set(i, convertValue(((List) value).get(i)));
+            }
+            return value;
+        } else {
+            return value;
+        }
     }
 
     private Map<String, String> createMetadata(@NonNull SeaTunnelRow row, @NonNull String key) {

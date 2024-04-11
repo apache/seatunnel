@@ -185,6 +185,12 @@ public class BaseSinkConfig {
                     .defaultValue(FileFormat.CSV)
                     .withDescription("File format type, e.g. csv, orc, parquet, text");
 
+    public static final Option<String> ENCODING =
+            Options.key("encoding")
+                    .stringType()
+                    .defaultValue("UTF-8")
+                    .withDescription("The encoding of output file, e.g. UTF-8, ISO-8859-1....");
+
     public static final Option<List<String>> SINK_COLUMNS =
             Options.key("sink_columns")
                     .listType()

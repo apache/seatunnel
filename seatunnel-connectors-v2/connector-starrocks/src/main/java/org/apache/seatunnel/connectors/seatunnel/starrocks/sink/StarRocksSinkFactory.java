@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.config.CommonConfig;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRocksOptions;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRocksSinkOptions;
@@ -42,7 +43,7 @@ import static org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRoc
 public class StarRocksSinkFactory implements TableSinkFactory {
     @Override
     public String factoryIdentifier() {
-        return "StarRocks";
+        return CommonConfig.CONNECTOR_IDENTITY;
     }
 
     @Override
@@ -88,13 +89,15 @@ public class StarRocksSinkFactory implements TableSinkFactory {
         String sinkDatabaseName = sinkConfig.getDatabase();
         String sinkTableName = sinkConfig.getTable();
         // to replace
-        String finalDatabaseName =
-                sinkDatabaseName.replace(REPLACE_DATABASE_NAME_KEY, sourceDatabaseName);
+        sinkDatabaseName =
+                sinkDatabaseName.replace(
+                        REPLACE_DATABASE_NAME_KEY,
+                        sourceDatabaseName != null ? sourceDatabaseName : "");
         String finalTableName = this.replaceFullTableName(sinkTableName, tableId);
         // rebuild TableIdentifier and catalogTable
         TableIdentifier newTableId =
                 TableIdentifier.of(
-                        tableId.getCatalogName(), finalDatabaseName, null, finalTableName);
+                        tableId.getCatalogName(), sinkDatabaseName, null, finalTableName);
         catalogTable =
                 CatalogTable.of(
                         newTableId,
@@ -106,7 +109,7 @@ public class StarRocksSinkFactory implements TableSinkFactory {
         CatalogTable finalCatalogTable = catalogTable;
         // reset
         sinkConfig.setTable(finalTableName);
-        sinkConfig.setDatabase(finalDatabaseName);
+        sinkConfig.setDatabase(sinkDatabaseName);
         return () -> new StarRocksSink(sinkConfig, finalCatalogTable, context.getOptions());
     }
 

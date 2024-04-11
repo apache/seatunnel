@@ -47,6 +47,8 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -56,6 +58,8 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
+import static org.apache.seatunnel.e2e.common.util.ContainerUtil.adaptPathForWin;
+import static org.apache.seatunnel.e2e.common.util.ContainerUtil.copyAllConnectorJarToContainer;
 
 @NoArgsConstructor
 @Slf4j
@@ -65,6 +69,7 @@ public class SeaTunnelContainer extends AbstractTestContainer {
     protected static final String JDK_DOCKER_IMAGE = "openjdk:8";
     private static final String CLIENT_SHELL = "seatunnel.sh";
     protected static final String SERVER_SHELL = "seatunnel-cluster.sh";
+    protected static final String CONNECTOR_CHECK_SHELL = "seatunnel-connector.sh";
     protected GenericContainer<?> server;
     private final AtomicInteger runningCount = new AtomicInteger();
 
@@ -97,9 +102,10 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                         PROJECT_ROOT_PATH
                                 + "/seatunnel-shade/seatunnel-hadoop3-3.1.4-uber/target/seatunnel-hadoop3-3.1.4-uber.jar"),
                 Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop3-3.1.4-uber.jar").toString());
-        server.start();
         // execute extra commands
         executeExtraCommands(server);
+
+        server.start();
     }
 
     @Override
@@ -163,6 +169,23 @@ public class SeaTunnelContainer extends AbstractTestContainer {
     public void executeExtraCommands(ContainerExtendedFactory extendedFactory)
             throws IOException, InterruptedException {
         extendedFactory.extend(server);
+    }
+
+    @Override
+    public Container.ExecResult executeConnectorCheck(String[] args)
+            throws IOException, InterruptedException {
+        // copy all connectors
+        copyAllConnectorJarToContainer(
+                server,
+                getConnectorModulePath(),
+                getConnectorNamePrefix(),
+                getConnectorType(),
+                SEATUNNEL_HOME);
+        final List<String> command = new ArrayList<>();
+        String binPath = Paths.get(SEATUNNEL_HOME, "bin", CONNECTOR_CHECK_SHELL).toString();
+        command.add(adaptPathForWin(binPath));
+        Arrays.stream(args).forEach(arg -> command.add(arg));
+        return executeCommand(server, command);
     }
 
     @Override
@@ -253,6 +276,9 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 || s.startsWith("Timer-")
                 || s.contains("InterruptTimer")
                 || s.contains("Java2D Disposer")
+                || s.contains("OkHttp ConnectionPool")
+                || s.startsWith("http-report-event-scheduler")
+                || s.startsWith("event-forwarder")
                 || s.contains(
                         "org.apache.hadoop.fs.FileSystem$Statistics$StatisticsDataReferenceCleaner")
                 || s.startsWith("Log4j2-TF-")

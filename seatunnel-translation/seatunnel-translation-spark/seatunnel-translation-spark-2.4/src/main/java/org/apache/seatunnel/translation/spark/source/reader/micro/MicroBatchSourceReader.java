@@ -40,6 +40,7 @@ public class MicroBatchSourceReader implements MicroBatchReader {
 
     protected final SeaTunnelSource<SeaTunnelRow, ?, ?> source;
     protected final Integer parallelism;
+    protected final String jobId;
 
     protected final Integer checkpointInterval;
     protected final String checkpointPath;
@@ -53,6 +54,7 @@ public class MicroBatchSourceReader implements MicroBatchReader {
     public MicroBatchSourceReader(
             SeaTunnelSource<SeaTunnelRow, ?, ?> source,
             Integer parallelism,
+            String jobId,
             Integer checkpointId,
             Integer checkpointInterval,
             String checkpointPath,
@@ -61,6 +63,7 @@ public class MicroBatchSourceReader implements MicroBatchReader {
             Map<String, String> envOptions) {
         this.source = source;
         this.parallelism = parallelism;
+        this.jobId = jobId;
         this.checkpointId = checkpointId;
         this.checkpointInterval = checkpointInterval;
         this.checkpointPath = checkpointPath;
@@ -117,6 +120,7 @@ public class MicroBatchSourceReader implements MicroBatchReader {
                     new MicroBatchPartition(
                             source,
                             parallelism,
+                            jobId,
                             0,
                             checkpointId,
                             checkpointInterval,
@@ -131,6 +135,7 @@ public class MicroBatchSourceReader implements MicroBatchReader {
                         new MicroBatchPartition(
                                 source,
                                 parallelism,
+                                jobId,
                                 subtaskId,
                                 checkpointId,
                                 checkpointInterval,

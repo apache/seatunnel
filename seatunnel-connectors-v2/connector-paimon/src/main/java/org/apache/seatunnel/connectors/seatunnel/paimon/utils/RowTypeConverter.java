@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.paimon.utils;
 
+import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
@@ -25,6 +27,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorException;
 
+import org.apache.paimon.schema.TableSchema;
 import org.apache.paimon.types.ArrayType;
 import org.apache.paimon.types.BigIntType;
 import org.apache.paimon.types.BinaryType;
@@ -33,6 +36,7 @@ import org.apache.paimon.types.CharType;
 import org.apache.paimon.types.DataField;
 import org.apache.paimon.types.DataType;
 import org.apache.paimon.types.DataTypeDefaultVisitor;
+import org.apache.paimon.types.DataTypeRoot;
 import org.apache.paimon.types.DataTypes;
 import org.apache.paimon.types.DateType;
 import org.apache.paimon.types.DecimalType;
@@ -43,12 +47,15 @@ import org.apache.paimon.types.LocalZonedTimestampType;
 import org.apache.paimon.types.MapType;
 import org.apache.paimon.types.RowType;
 import org.apache.paimon.types.SmallIntType;
+import org.apache.paimon.types.TimeType;
 import org.apache.paimon.types.TimestampType;
 import org.apache.paimon.types.TinyIntType;
 import org.apache.paimon.types.VarBinaryType;
 import org.apache.paimon.types.VarCharType;
 
 import java.util.Arrays;
+import java.util.List;
+import java.util.Objects;
 
 /** The converter for converting {@link RowType} and {@link SeaTunnelRowType} */
 public class RowTypeConverter {
@@ -71,23 +78,139 @@ public class RowTypeConverter {
     }
 
     /**
+     * Convert Paimon row type {@link DataType} to SeaTunnel row type {@link SeaTunnelDataType}
+     *
+     * @param dataType Paimon data type
+     * @return SeaTunnel data type {@link SeaTunnelDataType}
+     */
+    public static Column convert(DataType dataType) {
+        PhysicalColumn.PhysicalColumnBuilder physicalColumnBuilder = PhysicalColumn.builder();
+        SeaTunnelDataType<?> seaTunnelDataType;
+        PaimonToSeaTunnelTypeVisitor paimonToSeaTunnelTypeVisitor =
+                PaimonToSeaTunnelTypeVisitor.INSTANCE;
+        switch (dataType.getTypeRoot()) {
+            case CHAR:
+                CharType charType = (CharType) dataType;
+                seaTunnelDataType = paimonToSeaTunnelTypeVisitor.visit(charType);
+                physicalColumnBuilder.columnLength((long) charType.getLength());
+                break;
+            case VARCHAR:
+                VarCharType varCharType = (VarCharType) dataType;
+                seaTunnelDataType = paimonToSeaTunnelTypeVisitor.visit(varCharType);
+                physicalColumnBuilder.columnLength((long) varCharType.getLength());
+                break;
+            case BOOLEAN:
+                seaTunnelDataType = paimonToSeaTunnelTypeVisitor.visit((BooleanType) dataType);
+                break;
+            case BINARY:
+                seaTunnelDataType = paimonToSeaTunnelTypeVisitor.visit((BinaryType) dataType);
+                break;
+            case VARBINARY:
+                VarBinaryType varBinaryType = (VarBinaryType) dataType;
+                seaTunnelDataType = paimonToSeaTunnelTypeVisitor.visit(varBinaryType);
+                physicalColumnBuilder.columnLength((long) varBinaryType.getLength());
+                break;
+            case DECIMAL:
+                DecimalType decimalType = (DecimalType) dataType;
+                seaTunnelDataType = paimonToSeaTunnelTypeVisitor.visit(decimalType);
+                physicalColumnBuilder.columnLength((long) decimalType.getPrecision());
+                physicalColumnBuilder.scale(decimalType.getScale());
+                break;
+            case TINYINT:
+                seaTunnelDataType = paimonToSeaTunnelTypeVisitor.visit((TinyIntType) dataType);
+                break;
+            case SMALLINT:
+                seaTunnelDataType = paimonToSeaTunnelTypeVisitor.visit((SmallIntType) dataType);
+                break;
+            case INTEGER:
+                seaTunnelDataType = paimonToSeaTunnelTypeVisitor.visit((IntType) dataType);
+                break;
+            case BIGINT:
+                seaTunnelDataType = paimonToSeaTunnelTypeVisitor.visit((BigIntType) dataType);
+                break;
+            case FLOAT:
+                seaTunnelDataType = paimonToSeaTunnelTypeVisitor.visit((FloatType) dataType);
+                break;
+            case DOUBLE:
+                seaTunnelDataType = paimonToSeaTunnelTypeVisitor.visit((DoubleType) dataType);
+                break;
+            case DATE:
+                seaTunnelDataType = paimonToSeaTunnelTypeVisitor.visit((DateType) dataType);
+                break;
+            case TIME_WITHOUT_TIME_ZONE:
+                TimeType timeType = (TimeType) dataType;
+                seaTunnelDataType = paimonToSeaTunnelTypeVisitor.visit(timeType);
+                physicalColumnBuilder.scale(timeType.getPrecision());
+                break;
+            case TIMESTAMP_WITHOUT_TIME_ZONE:
+                TimestampType timestampType = (TimestampType) dataType;
+                seaTunnelDataType = paimonToSeaTunnelTypeVisitor.visit(timestampType);
+                physicalColumnBuilder.scale(timestampType.getPrecision());
+                break;
+            case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
+                LocalZonedTimestampType localZonedTimestampType =
+                        (LocalZonedTimestampType) dataType;
+                seaTunnelDataType =
+                        paimonToSeaTunnelTypeVisitor.visit((LocalZonedTimestampType) dataType);
+                physicalColumnBuilder.scale(localZonedTimestampType.getPrecision());
+                break;
+            case ARRAY:
+                seaTunnelDataType = paimonToSeaTunnelTypeVisitor.visit((ArrayType) dataType);
+                break;
+            case MAP:
+                seaTunnelDataType = paimonToSeaTunnelTypeVisitor.visit((MapType) dataType);
+                break;
+            case ROW:
+                seaTunnelDataType = paimonToSeaTunnelTypeVisitor.visit((RowType) dataType);
+                break;
+            default:
+                String errorMsg =
+                        String.format(
+                                "Paimon dataType not support this genericType [%s]",
+                                dataType.asSQLString());
+                throw new PaimonConnectorException(
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE, errorMsg);
+        }
+        return physicalColumnBuilder.dataType(seaTunnelDataType).build();
+    }
+
+    /**
      * Convert SeaTunnel row type {@link SeaTunnelRowType} to Paimon row type {@link RowType}
      *
      * @param seaTunnelRowType SeaTunnel row type {@link SeaTunnelRowType}
      * @return Paimon row type {@link RowType}
      */
-    public static RowType convert(SeaTunnelRowType seaTunnelRowType) {
+    public static RowType reconvert(SeaTunnelRowType seaTunnelRowType, TableSchema tableSchema) {
         SeaTunnelDataType<?>[] fieldTypes = seaTunnelRowType.getFieldTypes();
+        List<DataField> fields = tableSchema.fields();
         DataType[] dataTypes =
                 Arrays.stream(fieldTypes)
                         .map(SeaTunnelTypeToPaimonVisitor.INSTANCE::visit)
                         .toArray(DataType[]::new);
         DataField[] dataFields = new DataField[dataTypes.length];
         for (int i = 0; i < dataTypes.length; i++) {
-            DataField dataField = new DataField(i, seaTunnelRowType.getFieldName(i), dataTypes[i]);
+            DataType dataType = dataTypes[i];
+            DataTypeRoot typeRoot = dataType.getTypeRoot();
+            String fieldName = seaTunnelRowType.getFieldName(i);
+            if (typeRoot.equals(DataTypeRoot.TIMESTAMP_WITHOUT_TIME_ZONE)
+                    || typeRoot.equals(DataTypeRoot.TIMESTAMP_WITH_LOCAL_TIME_ZONE)) {
+                DataField dataField = SchemaUtil.getDataField(fields, fieldName);
+                dataType = new TimestampType(((TimestampType) dataField.type()).getPrecision());
+            }
+            DataField dataField = new DataField(i, fieldName, dataType);
             dataFields[i] = dataField;
         }
         return DataTypes.ROW(dataFields);
+    }
+
+    /**
+     * Mapping SeaTunnel data type of column {@link Column} to Paimon data type {@link DataType}
+     *
+     * @param column SeaTunnel data type {@link Column}
+     * @return Paimon data type {@link DataType}
+     */
+    public static DataType reconvert(Column column) {
+        return SeaTunnelTypeToPaimonVisitor.INSTANCE.visit(column);
     }
 
     /**
@@ -96,7 +219,7 @@ public class RowTypeConverter {
      * @param dataType SeaTunnel data type {@link SeaTunnelDataType}
      * @return Paimon data type {@link DataType}
      */
-    public static DataType convert(SeaTunnelDataType<?> dataType) {
+    public static DataType reconvert(SeaTunnelDataType<?> dataType) {
         return SeaTunnelTypeToPaimonVisitor.INSTANCE.visit(dataType);
     }
 
@@ -110,6 +233,21 @@ public class RowTypeConverter {
                 new SeaTunnelTypeToPaimonVisitor();
 
         private SeaTunnelTypeToPaimonVisitor() {}
+
+        public DataType visit(Column column) {
+            SeaTunnelDataType<?> dataType = column.getDataType();
+            Integer scale = column.getScale();
+            switch (dataType.getSqlType()) {
+                case TIMESTAMP:
+                    return DataTypes.TIMESTAMP(
+                            Objects.isNull(scale) ? TimestampType.DEFAULT_PRECISION : scale);
+                case TIME:
+                    return DataTypes.TIME(
+                            Objects.isNull(scale) ? TimeType.DEFAULT_PRECISION : scale);
+                default:
+                    return visit(dataType);
+            }
+        }
 
         public DataType visit(SeaTunnelDataType<?> dataType) {
             switch (dataType.getSqlType()) {
@@ -139,8 +277,10 @@ public class RowTypeConverter {
                     return DataTypes.BOOLEAN();
                 case DATE:
                     return DataTypes.DATE();
+                case TIME:
+                    return DataTypes.TIME(TimeType.MAX_PRECISION);
                 case TIMESTAMP:
-                    return DataTypes.TIMESTAMP(6);
+                    return DataTypes.TIMESTAMP(TimestampType.MAX_PRECISION);
                 case MAP:
                     SeaTunnelDataType<?> keyType =
                             ((org.apache.seatunnel.api.table.type.MapType<?, ?>) dataType)

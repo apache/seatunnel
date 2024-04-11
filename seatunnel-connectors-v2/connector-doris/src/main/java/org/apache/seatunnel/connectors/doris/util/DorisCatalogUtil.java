@@ -95,6 +95,10 @@ public class DorisCatalogUtil {
         return "DROP TABLE " + (ignoreIfNotExists ? "IF EXISTS " : "") + tablePath.getFullName();
     }
 
+    public static String getTruncateTableQuery(TablePath tablePath) {
+        return "TRUNCATE TABLE " + tablePath.getFullName();
+    }
+
     /**
      * @param createTableTemplate create table template
      * @param catalogTable catalog table

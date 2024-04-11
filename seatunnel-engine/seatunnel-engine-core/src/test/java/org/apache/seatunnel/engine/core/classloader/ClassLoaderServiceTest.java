@@ -69,4 +69,35 @@ public class ClassLoaderServiceTest extends AbstractClassLoaderServiceTest {
                 Lists.newArrayList(new URL("file:///console.jar"), new URL("file:///fake.jar")));
         Assertions.assertEquals(0, classLoaderService.queryClassLoaderCount());
     }
+
+    @Test
+    void testRecycleClassLoaderFromThread() throws MalformedURLException, InterruptedException {
+        ClassLoader classLoader =
+                classLoaderService.getClassLoader(
+                        3L,
+                        Lists.newArrayList(
+                                new URL("file:///console.jar"), new URL("file:///fake.jar")));
+        ClassLoader appClassLoader = Thread.currentThread().getContextClassLoader();
+        Thread.currentThread().setContextClassLoader(classLoader);
+        Thread thread =
+                new Thread(
+                        () -> {
+                            while (Thread.currentThread().getContextClassLoader() != null) {
+                                try {
+                                    Thread.sleep(1000);
+                                } catch (InterruptedException e) {
+                                    throw new RuntimeException(e);
+                                }
+                            }
+                        });
+        thread.start();
+        Thread.currentThread().setContextClassLoader(appClassLoader);
+        Assertions.assertEquals(classLoader, thread.getContextClassLoader());
+        classLoaderService.releaseClassLoader(
+                3L,
+                Lists.newArrayList(new URL("file:///console.jar"), new URL("file:///fake.jar")));
+        Assertions.assertNull(thread.getContextClassLoader());
+        Thread.sleep(2000);
+        Assertions.assertFalse(thread.isAlive());
+    }
 }
