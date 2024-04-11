@@ -198,14 +198,21 @@ This is much more convenient when there is only one source.
 In config file we can define some variables and replace it in run time. **This is only support `hocon` format file**.
 
 ```hocon
+env {
+  job.mode = "BATCH"
+  job.name = ${jobName}
+  parallelism = 2
+}
+
 source {
   FakeSource {
     result_table_name = ${resName}
     row.num = ${rowNum}
-    string.template = [${strTemplate}]
+    string.template = ${strTemplate}
+    int.template = [20, 21]
     schema = {
       fields {
-        name = string
+        name = ${nameType}
         age = "int"
       }
     }
@@ -214,34 +221,56 @@ source {
 
 transform {
     sql {
-      source_table_name = ${resName}
-      query = "select * from "${resName}" where name = '"${nameVal}"' "
+      source_table_name = "fake"
       result_table_name = "sql"
+      query = "select * from "${resName}" where name = '"${nameVal}"' "
     }
+
 }
 
 sink {
   Console {
-     source_table_name = sql
+     source_table_name = "sql"
+     username = ${username}
+     password = ${password}
+     blankSpace = ${blankSpace}
   }
 }
+
 ```
 
-In the above config, i define some variables, like `${rowNum}`, `${resName}`.
+In the above config, we define some variables, like `${rowNum}`, `${resName}`.
 We can replace those parameters with this shell command:
 
 ```shell
-./bin/seatunnel.sh -c <this_config_file> -i rowNum=10 -i resName=fake -i strTemplate=abc -i nameVal=abc
+./bin/seatunnel.sh -c <this_config_file> 
+-i jobName='st var job' 
+-i resName=fake 
+-i rowNum=10 
+-i strTemplate=['abc','d~f','h i'] 
+-i nameType=string 
+-i nameVal=abc 
+-i username=seatunnel=2.3.1 
+-i password='$a^b%c.d~e0*9(' 
+-i blankSpace='2023-12-26 11:30:00' 
+-e local
 ```
 
-Then the finial submitted config is:
+Then the final submitted config is:
 
 ```hocon
+env {
+  job.mode = "BATCH"
+  job.name = "st var job"
+  parallelism = 2
+}
+
 source {
   FakeSource {
-    result_table_name = fake
+    result_table_name = "fake"
     row.num = 10
-    string.template = ["abc"]
+    string.template = ["abc","d~f","h i"]
+    int.template = [20, 21]
     schema = {
       fields {
         name = string
@@ -253,21 +282,25 @@ source {
 
 transform {
     sql {
-      source_table_name = fake
-      query = "select * from fake where name = 'abc' "
+      source_table_name = "fake"
       result_table_name = "sql"
+      query = "select * from fake where name = 'abc' "
     }
+
 }
 
 sink {
   Console {
-     source_table_name = sql
+     source_table_name = "sql"
+     username = "seatunnel=2.3.1"
+     password = "$a^b%c.d~e0*9("
+     blankSpace = "2023-12-26 11:30:00"
   }
 }
 ```
 
 Some Notes:
-- array type like `string.template` can't have multiple value. the array type can only have 1 value
+- quota with `'` if the value has space ` ` or special character (like `(`)
 - if the replacement variables is in `"` or `'`, like `resName` and `nameVal`, you need add `"`
 
 ## What's More

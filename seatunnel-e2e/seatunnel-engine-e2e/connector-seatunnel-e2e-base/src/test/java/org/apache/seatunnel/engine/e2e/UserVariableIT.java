@@ -33,9 +33,10 @@ public class UserVariableIT extends TestSuiteBase {
     @TestTemplate
     public void userVariableTest(TestContainer container) throws IOException, InterruptedException {
         List<String> variables = new ArrayList<>();
+        String list = "[abc,def]";
         variables.add("resName=fake");
         variables.add("rowNum=10");
-        variables.add("strTemplate=abc");
+        variables.add("strTemplate=" + list);
         variables.add("nameType=string");
         variables.add("nameVal=abc");
         variables.add("sourceTableName=sql");

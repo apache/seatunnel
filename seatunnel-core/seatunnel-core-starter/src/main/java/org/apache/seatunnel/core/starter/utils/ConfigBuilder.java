@@ -33,7 +33,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 /** Used to build the {@link Config} from config file. */
 @Slf4j
@@ -49,10 +48,7 @@ public class ConfigBuilder {
     private static Config ofInner(@NonNull Path filePath, List<String> variables) {
         Config config =
                 ConfigFactory.parseFile(filePath.toFile())
-                        .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
-                        .resolveWith(
-                                ConfigFactory.systemProperties(),
-                                ConfigResolveOptions.defaults().setAllowUnresolved(true));
+                        .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true));
         return ConfigShadeUtils.decryptConfig(backfillUserVariables(config, variables));
     }
 
@@ -117,14 +113,13 @@ public class ConfigBuilder {
 
     private static Config backfillUserVariables(Config config, List<String> variables) {
         if (variables != null) {
-            Map<String, String> map =
-                    variables.stream()
-                            .filter(Objects::nonNull)
-                            .map(variable -> variable.split("=", 2))
-                            .filter(pair -> pair.length == 2F)
-                            .collect(Collectors.toMap(pair -> pair[0], pair -> pair[1]));
+            variables.stream()
+                    .filter(Objects::nonNull)
+                    .map(variable -> variable.split("=", 2))
+                    .filter(pair -> pair.length == 2)
+                    .forEach(pair -> System.setProperty(pair[0], pair[1]));
             return config.resolveWith(
-                    ConfigFactory.parseMap(map),
+                    ConfigFactory.systemProperties(),
                     ConfigResolveOptions.defaults().setAllowUnresolved(true));
         }
         return config;
