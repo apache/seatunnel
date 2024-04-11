@@ -17,87 +17,41 @@
 
 package org.apache.seatunnel.engine.e2e;
 
-import org.apache.seatunnel.e2e.common.util.ContainerUtil;
-
 import org.apache.commons.lang3.StringUtils;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.Container;
-import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.output.Slf4jLogConsumer;
-import org.testcontainers.containers.wait.strategy.Wait;
-import org.testcontainers.images.PullPolicy;
-import org.testcontainers.utility.DockerLoggerFactory;
-import org.testcontainers.utility.MountableFile;
 
 import java.io.IOException;
-import java.nio.file.Paths;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
 
 public class JobClientJobProxyIT extends SeaTunnelContainer {
-    private static final String JDK_DOCKER_IMAGE = "openjdk:8";
-    private static final String SERVER_SHELL = "seatunnel-cluster.sh";
 
     @Override
     @BeforeAll
     public void startUp() throws Exception {
-        this.server =
-                new GenericContainer<>(getDockerImage())
-                        .withNetwork(NETWORK)
-                        .withCommand(
-                                ContainerUtil.adaptPathForWin(
-                                        Paths.get(SEATUNNEL_HOME, "bin", SERVER_SHELL).toString()))
-                        .withNetworkAliases("server")
-                        .withImagePullPolicy(PullPolicy.alwaysPull())
-                        .withExposedPorts()
-                        .withLogConsumer(
-                                new Slf4jLogConsumer(
-                                        DockerLoggerFactory.getLogger(
-                                                "seatunnel-engine:" + JDK_DOCKER_IMAGE)))
-                        .waitingFor(Wait.forListeningPort());
-        copySeaTunnelStarterToContainer(server);
-        server.setExposedPorts(Arrays.asList(5801));
-        server.setPortBindings(Collections.singletonList("5801:5801"));
-        server.withCopyFileToContainer(
-                MountableFile.forHostPath(
-                        PROJECT_ROOT_PATH
-                                + "/seatunnel-e2e/seatunnel-engine-e2e/connector-seatunnel-e2e-base/src/test/resources/"),
-                Paths.get(SEATUNNEL_HOME, "config").toString());
-
         // use seatunnel_fixed_slot_num.yaml replace seatunnel.yaml in container
-        server.withCopyFileToContainer(
-                MountableFile.forHostPath(
+        this.server =
+                createSeaTunnelContainerWithFakeSourceAndInMemorySink(
                         PROJECT_ROOT_PATH
-                                + "/seatunnel-e2e/seatunnel-engine-e2e/connector-seatunnel-e2e-base/src/test/resources/seatunnel_fixed_slot_num.yaml"),
-                Paths.get(SEATUNNEL_HOME, "config/seatunnel.yaml").toString());
+                                + "/seatunnel-e2e/seatunnel-engine-e2e/connector-seatunnel-e2e-base/src/test/resources/seatunnel_fixed_slot_num.yaml");
+    }
 
-        server.withCopyFileToContainer(
-                MountableFile.forHostPath(
-                        PROJECT_ROOT_PATH
-                                + "/seatunnel-shade/seatunnel-hadoop3-3.1.4-uber/target/seatunnel-hadoop3-3.1.4-uber.jar"),
-                Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop3-3.1.4-uber.jar").toString());
-        LOG.info(
-                "find images: "
-                        + DockerClientFactory.lazyClient().listImagesCmd().exec().stream()
-                                .map(
-                                        image -> {
-                                            if (image.getRepoTags() != null) {
-                                                return image.getRepoTags()[0];
-                                            } else {
-                                                return image.getRepoDigests()[0];
-                                            }
-                                        })
-                                .collect(Collectors.joining(",")));
-        server.start();
-        // execute extra commands
-        executeExtraCommands(server);
+    @Test
+    public void testJobRetryTimes() throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                executeJob(server, "/retry-times/stream_fake_to_inmemory_with_error_retry_1.conf");
+        Assertions.assertNotEquals(0, execResult.getExitCode());
+        Assertions.assertTrue(server.getLogs().contains("Restore time 1, pipeline"));
+        Assertions.assertFalse(server.getLogs().contains("Restore time 3, pipeline"));
+
+        Container.ExecResult execResult2 =
+                executeJob(server, "/retry-times/stream_fake_to_inmemory_with_error.conf");
+        Assertions.assertNotEquals(0, execResult2.getExitCode());
+        Assertions.assertTrue(server.getLogs().contains("Restore time 3, pipeline"));
     }
 
     @Test
