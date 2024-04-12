@@ -330,7 +330,9 @@ public class DorisIT extends AbstractDorisIT {
                         // source read map<xx,datetime> will create map<xx,datetime(6)> in doris
                         // sink, because seatunnel type can not save the scale in MapType
                         // so we use the longest scale on the doris sink to prevent data overflow.
+                        log.error("source:" + source + ", sink:" + sink.toString());
                         String sinkStr = sink.toString().replaceAll(".000000", "");
+                        log.error("after, source:" + source + ", sink:" + sinkStr);
                         Assertions.assertEquals(source, sinkStr);
                     }
                 }
