@@ -55,7 +55,6 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
@@ -135,14 +134,15 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
                         seaTunnelFields[i] = null;
                     } else if (value instanceof ArrayNode) {
                         ArrayNode arrayNode = (ArrayNode) value;
-                        List<Object> dataList = new ArrayList<>();
                         if (arrayNode.size() > 0) {
-                            arrayNode.forEach(
-                                    data -> {
-                                        dataList.add(convertJsonNode(data));
-                                    });
+                            Object[] dataList = new Object[arrayNode.size()];
+                            for (int j = 0; j < arrayNode.size(); j++) {
+                                dataList[j] = convertJsonNode(arrayNode.get(j));
+                            }
+                            seaTunnelFields[i] = dataList;
+                        } else {
+                            seaTunnelFields[i] = null;
                         }
-                        seaTunnelFields[i] = dataList;
                     } else if (value instanceof TextNode) {
                         seaTunnelFields[i] =
                                 convertValue(seaTunnelDataType, ((TextNode) value).textValue());
