@@ -118,13 +118,14 @@ public class CompatibleKafkaConnectDeserializationSchema
                         valueConverterMethod.invoke(
                                 valueConverter, record.valueSchema(), record.value());
         JsonNode payload = jsonNode.get(KAFKA_CONNECT_SINK_RECORD_PAYLOAD);
-        TablePath tablePath = Optional.ofNullable(catalogTable.getTablePath()).orElse(null);
+        Optional<TablePath> tablePath =
+                Optional.ofNullable(catalogTable).map(CatalogTable::getTablePath);
         if (payload.isArray()) {
             ArrayNode arrayNode = (ArrayNode) payload;
             for (int i = 0; i < arrayNode.size(); i++) {
                 SeaTunnelRow row = convertJsonNode(arrayNode.get(i));
                 row.setRowKind(rowKind);
-                if (tablePath != null) {
+                if (tablePath.isPresent()) {
                     row.setTableId(tablePath.toString());
                 }
                 out.collect(row);
@@ -132,7 +133,7 @@ public class CompatibleKafkaConnectDeserializationSchema
         } else {
             SeaTunnelRow row = convertJsonNode(payload);
             row.setRowKind(rowKind);
-            if (tablePath != null) {
+            if (tablePath.isPresent()) {
                 row.setTableId(tablePath.toString());
             }
             out.collect(row);

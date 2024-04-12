@@ -220,7 +220,8 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
     public void deserialize(byte[] message, Collector<SeaTunnelRow> out) throws IOException {
         ObjectNode jsonNodes = convertBytes(message);
         if (jsonNodes != null) {
-            TablePath tablePath = Optional.ofNullable(catalogTable.getTablePath()).orElse(null);
+            TablePath tablePath =
+                    Optional.ofNullable(catalogTable).map(CatalogTable::getTablePath).orElse(null);
             deserialize(convertBytes(message), out, tablePath);
         }
     }

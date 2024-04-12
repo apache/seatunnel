@@ -95,7 +95,8 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
 
     @Override
     public void deserialize(byte[] message, Collector<SeaTunnelRow> out) {
-        TablePath tablePath = Optional.ofNullable(catalogTable.getTablePath()).orElse(null);
+        TablePath tablePath =
+                Optional.ofNullable(catalogTable).map(CatalogTable::getTablePath).orElse(null);
         deserializeMessage(message, out, tablePath);
     }
 
