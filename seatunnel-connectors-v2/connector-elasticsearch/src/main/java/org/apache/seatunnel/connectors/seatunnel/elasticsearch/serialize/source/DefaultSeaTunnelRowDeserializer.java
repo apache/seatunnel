@@ -19,9 +19,21 @@ package org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.source
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ArrayNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.BigIntegerNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.BinaryNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.BooleanNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.DecimalNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.DoubleNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.FloatNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.IntNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.LongNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.NullNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.POJONode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ShortNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.TextNode;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
@@ -43,6 +55,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
@@ -120,6 +133,16 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
                     seaTunnelDataType = rowTypeInfo.getFieldType(i);
                     if (value instanceof NullNode) {
                         seaTunnelFields[i] = null;
+                    } else if (value instanceof ArrayNode) {
+                        ArrayNode arrayNode = (ArrayNode) value;
+                        List<Object> dataList = new ArrayList<>();
+                        if (arrayNode.size() > 0) {
+                            arrayNode.forEach(
+                                    data -> {
+                                        dataList.add(convertJsonNode(data));
+                                    });
+                        }
+                        seaTunnelFields[i] = dataList;
                     } else if (value instanceof TextNode) {
                         seaTunnelFields[i] =
                                 convertValue(seaTunnelDataType, ((TextNode) value).textValue());
@@ -137,6 +160,45 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
                     ex);
         }
         return new SeaTunnelRow(seaTunnelFields);
+    }
+
+    Object convertJsonNode(JsonNode node) {
+        if (node instanceof TextNode) {
+            TextNode textNode = (TextNode) node;
+            return textNode.textValue();
+        } else if (node instanceof IntNode) {
+            IntNode intNode = (IntNode) node;
+            return intNode.intValue();
+        } else if (node instanceof LongNode) {
+            LongNode longNode = (LongNode) node;
+            return longNode.longValue();
+        } else if (node instanceof DoubleNode) {
+            DoubleNode doubleNode = (DoubleNode) node;
+            return doubleNode.doubleValue();
+        } else if (node instanceof ShortNode) {
+            ShortNode shortNode = (ShortNode) node;
+            return shortNode.shortValue();
+        } else if (node instanceof BigIntegerNode) {
+            BigIntegerNode bigIntegerNode = (BigIntegerNode) node;
+            return bigIntegerNode.bigIntegerValue();
+        } else if (node instanceof DecimalNode) {
+            DecimalNode decimalNode = (DecimalNode) node;
+            return decimalNode.decimalValue();
+        } else if (node instanceof FloatNode) {
+            FloatNode floatNode = (FloatNode) node;
+            return floatNode.floatValue();
+        } else if (node instanceof POJONode) {
+            POJONode pojoNode = (POJONode) node;
+            return pojoNode.getPojo();
+        } else if (node instanceof BinaryNode) {
+            BinaryNode binaryNode = (BinaryNode) node;
+            return binaryNode.binaryValue();
+        } else if (node instanceof BooleanNode) {
+            BooleanNode booleanNode = (BooleanNode) node;
+            return booleanNode.booleanValue();
+        } else {
+            return null;
+        }
     }
 
     Object convertValue(SeaTunnelDataType<?> fieldType, String fieldValue)
