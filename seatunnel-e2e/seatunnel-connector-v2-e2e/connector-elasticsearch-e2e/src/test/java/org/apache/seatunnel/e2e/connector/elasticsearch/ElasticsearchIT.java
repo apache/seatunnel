@@ -57,8 +57,6 @@ import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -299,13 +297,6 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                             x.remove("_index");
                             x.remove("_type");
                             x.remove("_id");
-                            // I don’t know if converting the test cases in this way complies with
-                            // the CI specification
-                            x.replace(
-                                    "c_timestamp",
-                                    LocalDateTime.parse(x.get("c_timestamp").toString())
-                                            .toInstant(ZoneOffset.UTC)
-                                            .toEpochMilli());
                         });
         List<String> docs =
                 scrollResult.getDocs().stream()
