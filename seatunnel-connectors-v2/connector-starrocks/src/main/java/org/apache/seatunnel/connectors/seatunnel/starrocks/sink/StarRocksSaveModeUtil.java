@@ -57,26 +57,27 @@ public class StarRocksSaveModeUtil {
                             .map(r -> "`" + r.getColumnName() + "`")
                             .collect(Collectors.joining(","));
         }
-        String primaryKeyPlaceHolder = SaveModePlaceHolderEnum.ROWTYPE_PRIMARY_KEY.getPlaceHolder();
         SqlTemplate.canHandledByTemplateWithPlaceholder(
                 template,
-                primaryKeyPlaceHolder,
+                SaveModePlaceHolderEnum.ROWTYPE_PRIMARY_KEY.getPlaceHolder(),
                 primaryKey,
                 TablePath.of(database, table).getFullName(),
                 StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE.key());
         template =
                 template.replaceAll(
-                        String.format("\\$\\{%s\\}", primaryKeyPlaceHolder), primaryKey);
-        String uniqueKeyPlaceHolder = SaveModePlaceHolderEnum.ROWTYPE_UNIQUE_KEY.getPlaceHolder();
+                        SaveModePlaceHolderEnum.ROWTYPE_PRIMARY_KEY.getReplacePlaceHolder(),
+                        primaryKey);
         SqlTemplate.canHandledByTemplateWithPlaceholder(
                 template,
-                uniqueKeyPlaceHolder,
+                SaveModePlaceHolderEnum.ROWTYPE_UNIQUE_KEY.getPlaceHolder(),
                 uniqueKey,
                 TablePath.of(database, table).getFullName(),
                 StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE.key());
 
         template =
-                template.replaceAll(String.format("\\$\\{%s\\}", uniqueKeyPlaceHolder), uniqueKey);
+                template.replaceAll(
+                        SaveModePlaceHolderEnum.ROWTYPE_UNIQUE_KEY.getReplacePlaceHolder(),
+                        uniqueKey);
         Map<String, CreateTableParser.ColumnInfo> columnInTemplate =
                 CreateTableParser.getColumnList(template);
         template = mergeColumnInTemplate(columnInTemplate, tableSchema, template);
@@ -87,17 +88,10 @@ public class StarRocksSaveModeUtil {
                         .map(StarRocksSaveModeUtil::columnToStarrocksType)
                         .collect(Collectors.joining(",\n"));
         return template.replaceAll(
-                        String.format(
-                                "\\$\\{%s\\}", SaveModePlaceHolderEnum.DATABASE.getPlaceHolder()),
-                        database)
+                        SaveModePlaceHolderEnum.DATABASE.getReplacePlaceHolder(), database)
+                .replaceAll(SaveModePlaceHolderEnum.TABLE_NAME.getReplacePlaceHolder(), table)
                 .replaceAll(
-                        String.format(
-                                "\\$\\{%s\\}", SaveModePlaceHolderEnum.TABLE_NAME.getPlaceHolder()),
-                        table)
-                .replaceAll(
-                        String.format(
-                                "\\$\\{%s\\}",
-                                SaveModePlaceHolderEnum.ROWTYPE_FIELDS.getPlaceHolder()),
+                        SaveModePlaceHolderEnum.ROWTYPE_FIELDS.getReplacePlaceHolder(),
                         rowTypeFields);
     }
 

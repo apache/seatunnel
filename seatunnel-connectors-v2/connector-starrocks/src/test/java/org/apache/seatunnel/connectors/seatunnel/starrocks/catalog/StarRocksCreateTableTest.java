@@ -156,7 +156,7 @@ public class StarRocksCreateTableTest {
                 String.format(
                         SqlTemplate.EXCEPTION_TEMPLATE,
                         tablePath.getFullName(),
-                        SaveModePlaceHolderEnum.getKeyValue(primaryKeyHolder),
+                        SaveModePlaceHolderEnum.getActualValueByPlaceHolder(primaryKeyHolder),
                         createTemplate,
                         primaryKeyHolder,
                         StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE.key()),

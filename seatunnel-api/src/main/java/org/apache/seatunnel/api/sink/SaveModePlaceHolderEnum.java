@@ -17,24 +17,50 @@
 
 package org.apache.seatunnel.api.sink;
 
+import java.util.Arrays;
+import java.util.Optional;
+
 public enum SaveModePlaceHolderEnum {
-    ROWTYPE_PRIMARY_KEY("primaryKeys"),
-    ROWTYPE_UNIQUE_KEY("uniqueKeys"),
-    ROWTYPE_FIELDS("fields"),
-    TABLE_NAME("tableName"),
-    DATABASE("database");
+    ROWTYPE_PRIMARY_KEY("rowtype_primary_key", "primaryKeys"),
+    ROWTYPE_UNIQUE_KEY("rowtype_unique_key", "uniqueKeys"),
+    ROWTYPE_FIELDS("rowtype_fields", "fields"),
+    TABLE_NAME("table_name", "tableName"),
+    DATABASE("database", "database");
 
     private String keyValue;
+    private String actualValue;
 
-    SaveModePlaceHolderEnum(String keyValue) {
+    private static final String REPLACE_PLACE_HOLDER = "\\$\\{%s\\}";
+    private static final String PLACE_HOLDER = "${%s}";
+
+    SaveModePlaceHolderEnum(String keyValue, String actualValue) {
         this.keyValue = keyValue;
+        this.actualValue = actualValue;
     }
 
-    public static String getKeyValue(String sqlKeyTypePlaceholder) {
-        return SaveModePlaceHolderEnum.valueOf(sqlKeyTypePlaceholder.toUpperCase()).keyValue;
+    public static String getActualValueByPlaceHolder(String placeholder) {
+        Optional<SaveModePlaceHolderEnum> saveModePlaceHolderEnumOptional =
+                Arrays.stream(SaveModePlaceHolderEnum.values())
+                        .filter(
+                                saveModePlaceHolderEnum ->
+                                        placeholder.equals(
+                                                saveModePlaceHolderEnum.getPlaceHolder()))
+                        .findFirst();
+        if (saveModePlaceHolderEnumOptional.isPresent()) {
+            return saveModePlaceHolderEnumOptional.get().actualValue;
+        }
+        throw new RuntimeException(String.format("Not support the placeholder: %s", placeholder));
+    }
+
+    public String getPlaceHolderKeyValue() {
+        return this.keyValue;
     }
 
     public String getPlaceHolder() {
-        return this.name().toLowerCase();
+        return String.format(PLACE_HOLDER, getPlaceHolderKeyValue());
+    }
+
+    public String getReplacePlaceHolder() {
+        return String.format(REPLACE_PLACE_HOLDER, getPlaceHolderKeyValue());
     }
 }

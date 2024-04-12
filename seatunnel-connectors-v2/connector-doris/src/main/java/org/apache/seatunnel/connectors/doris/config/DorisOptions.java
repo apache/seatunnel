@@ -228,21 +228,20 @@ public interface DorisOptions {
             Options.key("save_mode_create_template")
                     .stringType()
                     .defaultValue(
-                            "CREATE TABLE IF NOT EXISTS `${"
+                            "CREATE TABLE IF NOT EXISTS `"
                                     + SaveModePlaceHolderEnum.DATABASE.getPlaceHolder()
-                                    + "}`.`${"
+                                    + "`.`"
                                     + SaveModePlaceHolderEnum.TABLE_NAME.getPlaceHolder()
-                                    + "}` (\n"
-                                    + "${"
+                                    + "` (\n"
                                     + SaveModePlaceHolderEnum.ROWTYPE_FIELDS.getPlaceHolder()
-                                    + "}\n"
+                                    + "\n"
                                     + ") ENGINE=OLAP\n"
-                                    + " UNIQUE KEY (${"
+                                    + " UNIQUE KEY ("
                                     + SaveModePlaceHolderEnum.ROWTYPE_PRIMARY_KEY.getPlaceHolder()
-                                    + "})\n"
-                                    + "DISTRIBUTED BY HASH (${"
+                                    + ")\n"
+                                    + "DISTRIBUTED BY HASH ("
                                     + SaveModePlaceHolderEnum.ROWTYPE_PRIMARY_KEY.getPlaceHolder()
-                                    + "})\n "
+                                    + ")\n "
                                     + "PROPERTIES (\n"
                                     + "\"replication_allocation\" = \"tag.location.default: 1\",\n"
                                     + "\"in_memory\" = \"false\",\n"

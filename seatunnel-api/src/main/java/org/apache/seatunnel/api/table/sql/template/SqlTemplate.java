@@ -28,18 +28,18 @@ public class SqlTemplate {
 
     public static void canHandledByTemplateWithPlaceholder(
             String createTemplate,
-            String keyPlaceholder,
-            String actualKey,
+            String placeholder,
+            String actualPlaceHolderValue,
             String tableName,
             String optionsKey) {
-        if (createTemplate.contains(keyPlaceholder) && StringUtils.isBlank(actualKey)) {
+        if (createTemplate.contains(placeholder) && StringUtils.isBlank(actualPlaceHolderValue)) {
             throw new RuntimeException(
                     String.format(
                             EXCEPTION_TEMPLATE,
                             tableName,
-                            SaveModePlaceHolderEnum.getKeyValue(keyPlaceholder),
+                            SaveModePlaceHolderEnum.getActualValueByPlaceHolder(placeholder),
                             createTemplate,
-                            keyPlaceholder,
+                            placeholder,
                             optionsKey));
         }
     }

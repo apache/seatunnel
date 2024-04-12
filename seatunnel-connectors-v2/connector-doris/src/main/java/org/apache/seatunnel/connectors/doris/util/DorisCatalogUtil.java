@@ -127,24 +127,26 @@ public class DorisCatalogUtil {
                             .map(r -> "`" + r.getColumnName() + "`")
                             .collect(Collectors.joining(","));
         }
-        String primaryPlaceHolder = SaveModePlaceHolderEnum.ROWTYPE_PRIMARY_KEY.getPlaceHolder();
         SqlTemplate.canHandledByTemplateWithPlaceholder(
                 template,
-                primaryPlaceHolder,
+                SaveModePlaceHolderEnum.ROWTYPE_PRIMARY_KEY.getPlaceHolder(),
                 primaryKey,
                 tablePath.getFullName(),
                 DorisOptions.SAVE_MODE_CREATE_TEMPLATE.key());
         template =
-                template.replaceAll(String.format("\\$\\{%s\\}", primaryPlaceHolder), primaryKey);
-        String uniqueKeyPlaceHolder = SaveModePlaceHolderEnum.ROWTYPE_UNIQUE_KEY.getPlaceHolder();
+                template.replaceAll(
+                        SaveModePlaceHolderEnum.ROWTYPE_PRIMARY_KEY.getReplacePlaceHolder(),
+                        primaryKey);
         SqlTemplate.canHandledByTemplateWithPlaceholder(
                 template,
-                uniqueKeyPlaceHolder,
+                SaveModePlaceHolderEnum.ROWTYPE_UNIQUE_KEY.getPlaceHolder(),
                 uniqueKey,
                 tablePath.getFullName(),
                 DorisOptions.SAVE_MODE_CREATE_TEMPLATE.key());
         template =
-                template.replaceAll(String.format("\\$\\{%s\\}", uniqueKeyPlaceHolder), uniqueKey);
+                template.replaceAll(
+                        SaveModePlaceHolderEnum.ROWTYPE_UNIQUE_KEY.getReplacePlaceHolder(),
+                        uniqueKey);
         Map<String, CreateTableParser.ColumnInfo> columnInTemplate =
                 CreateTableParser.getColumnList(template);
         template = mergeColumnInTemplate(columnInTemplate, tableSchema, template);
@@ -155,17 +157,13 @@ public class DorisCatalogUtil {
                         .map(DorisCatalogUtil::columnToDorisType)
                         .collect(Collectors.joining(",\n"));
         return template.replaceAll(
-                        String.format(
-                                "\\$\\{%s\\}", SaveModePlaceHolderEnum.DATABASE.getPlaceHolder()),
+                        SaveModePlaceHolderEnum.DATABASE.getReplacePlaceHolder(),
                         tablePath.getDatabaseName())
                 .replaceAll(
-                        String.format(
-                                "\\$\\{%s\\}", SaveModePlaceHolderEnum.TABLE_NAME.getPlaceHolder()),
+                        SaveModePlaceHolderEnum.TABLE_NAME.getReplacePlaceHolder(),
                         tablePath.getTableName())
                 .replaceAll(
-                        String.format(
-                                "\\$\\{%s\\}",
-                                SaveModePlaceHolderEnum.ROWTYPE_FIELDS.getPlaceHolder()),
+                        SaveModePlaceHolderEnum.ROWTYPE_FIELDS.getReplacePlaceHolder(),
                         rowTypeFields);
     }
 
