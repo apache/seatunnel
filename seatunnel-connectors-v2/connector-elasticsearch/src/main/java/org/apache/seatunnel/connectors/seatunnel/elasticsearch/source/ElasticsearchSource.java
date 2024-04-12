@@ -29,6 +29,7 @@ import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.SeaTunnelDataTypeConvertorUtil;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
@@ -63,6 +64,8 @@ public class ElasticsearchSource
 
     private List<String> source;
 
+    private Map<String, String> arrayType;
+
     public ElasticsearchSource(ReadonlyConfig config) {
         this.config = config;
         if (config.getOptional(TableSchemaOptions.SCHEMA).isPresent()) {
@@ -73,6 +76,7 @@ public class ElasticsearchSource
             source = Arrays.asList(catalogTable.getSeaTunnelRowType().getFieldNames());
         } else {
             source = config.get(SourceConfig.SOURCE);
+            arrayType = config.get(SourceConfig.ARRAY_TYPE);
             EsRestClient esRestClient = EsRestClient.createInstance(config);
             Map<String, BasicTypeDefine<EsType>> esFieldType =
                     esRestClient.getFieldTypeMapping(config.get(SourceConfig.INDEX), source);
@@ -83,7 +87,20 @@ public class ElasticsearchSource
             }
             SeaTunnelDataType[] fieldTypes = getSeaTunnelDataType(esFieldType, source);
             TableSchema.Builder builder = TableSchema.builder();
+
+            for (Map.Entry<String, String> entry : arrayType.entrySet()) {
+                String key = entry.getKey();
+                String value = entry.getValue();
+                SeaTunnelDataType<?> dataType =
+                        SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(key, value);
+                builder.column(PhysicalColumn.of(key, dataType, 0, true, null, null));
+            }
             for (int i = 0; i < source.size(); i++) {
+                String key = source.get(i);
+                if (arrayType.containsKey(key)) {
+                    continue;
+                }
+
                 builder.column(
                         PhysicalColumn.of(source.get(i), fieldTypes[i], 0, true, null, null));
             }
