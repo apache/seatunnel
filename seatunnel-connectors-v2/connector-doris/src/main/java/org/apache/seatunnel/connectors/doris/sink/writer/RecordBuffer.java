@@ -24,6 +24,7 @@ import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -75,7 +76,7 @@ public class RecordBuffer {
             // add Empty buffer as finish flag.
             boolean isEmpty = false;
             if (currentWriteBuffer != null) {
-                currentWriteBuffer.flip();
+                ((Buffer) currentWriteBuffer).flip();
                 // check if the current write buffer is empty.
                 isEmpty = currentWriteBuffer.limit() == 0;
                 readQueue.put(currentWriteBuffer);
@@ -87,7 +88,7 @@ public class RecordBuffer {
                     checkErrorMessageByStreamLoad();
                     byteBuffer = writeQueue.poll(100, TimeUnit.MILLISECONDS);
                 }
-                byteBuffer.flip();
+                ((Buffer) byteBuffer).flip();
                 checkState(byteBuffer.limit() == 0);
                 readQueue.put(byteBuffer);
             }
@@ -108,7 +109,7 @@ public class RecordBuffer {
             currentWriteBuffer.put(buf, wPos, nWrite);
             wPos += nWrite;
             if (currentWriteBuffer.remaining() == 0) {
-                currentWriteBuffer.flip();
+                ((Buffer) currentWriteBuffer).flip();
                 readQueue.put(currentWriteBuffer);
                 currentWriteBuffer = null;
             }
@@ -145,7 +146,7 @@ public class RecordBuffer {
     }
 
     private void recycleBuffer(ByteBuffer buffer) throws InterruptedException {
-        buffer.clear();
+        ((Buffer) buffer).clear();
         while (!writeQueue.offer(buffer, 100, TimeUnit.MILLISECONDS)) {
             checkErrorMessageByStreamLoad();
         }

@@ -192,7 +192,7 @@ public class DorisSinkWriter
         String errorMsg;
         log.debug("start timer checker, interval {} ms", intervalTime);
         if ((errorMsg = dorisStreamLoad.getLoadFailedMsg()) != null) {
-            log.error("stream load finished unexpectedly, interrupt worker thread! {}", errorMsg);
+            log.error("stream load finished unexpectedly: {}", errorMsg);
             loadException =
                     new DorisConnectorException(
                             DorisConnectorErrorCode.STREAM_LOAD_FAILED, errorMsg);
