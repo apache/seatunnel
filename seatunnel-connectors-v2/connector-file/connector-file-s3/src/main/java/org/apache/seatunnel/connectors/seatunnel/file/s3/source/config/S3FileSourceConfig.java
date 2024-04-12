@@ -15,35 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.s3.catalog;
+package org.apache.seatunnel.connectors.seatunnel.file.s3.source.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.table.catalog.Catalog;
-import org.apache.seatunnel.api.table.factory.CatalogFactory;
-import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseFileSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
-import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
 import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3HadoopConf;
 
-import com.google.auto.service.AutoService;
+import lombok.Getter;
 
-@AutoService(Factory.class)
-public class S3FileCatalogFactory implements CatalogFactory {
+@Getter
+public class S3FileSourceConfig extends BaseFileSourceConfig {
+
+    private static final long serialVersionUID = 1L;
+
     @Override
-    public Catalog createCatalog(String catalogName, ReadonlyConfig options) {
-        HadoopConf hadoopConf = S3HadoopConf.buildWithReadOnlyConfig(options);
-        HadoopFileSystemProxy fileSystemUtils = new HadoopFileSystemProxy(hadoopConf);
-        return new S3FileCatalog(fileSystemUtils, options);
+    public HadoopConf getHadoopConfig() {
+        return S3HadoopConf.buildWithReadOnlyConfig(getBaseFileSourceConfig());
     }
 
     @Override
-    public String factoryIdentifier() {
-        return "S3";
+    public String getPluginName() {
+        return FileSystemType.S3.getFileSystemPluginName();
     }
 
-    @Override
-    public OptionRule optionRule() {
-        return OptionRule.builder().build();
+    public S3FileSourceConfig(ReadonlyConfig readonlyConfig) {
+        super(readonlyConfig);
     }
 }
