@@ -91,9 +91,6 @@ public class FilterFieldTransform extends AbstractCatalogSupportTransform {
         for (int i = 0; i < fields.size(); i++) {
             String field = fields.get(i);
             int inputFieldIndex = seaTunnelRowType.indexOf(field);
-            if (inputFieldIndex == -1) {
-                throw TransformCommonError.cannotFindInputFieldError(getPluginName(), field);
-            }
             inputValueIndex[i] = inputFieldIndex;
             outputColumns.add(inputColumns.get(inputFieldIndex).copy());
             outputFieldNames.add(inputColumns.get(inputFieldIndex).getName());
