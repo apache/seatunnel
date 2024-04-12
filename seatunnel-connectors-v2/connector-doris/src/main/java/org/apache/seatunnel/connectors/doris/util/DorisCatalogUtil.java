@@ -17,12 +17,13 @@
 
 package org.apache.seatunnel.connectors.doris.util;
 
-import org.apache.seatunnel.api.sink.SaveModeConstants;
+import org.apache.seatunnel.api.sink.SaveModePlaceHolderEnum;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
+import org.apache.seatunnel.api.table.sql.template.SqlTemplate;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -126,22 +127,24 @@ public class DorisCatalogUtil {
                             .map(r -> "`" + r.getColumnName() + "`")
                             .collect(Collectors.joining(","));
         }
-        if (canHandledByDefaultTemplate(template, primaryKey, uniqueKey)) {
-            throw new RuntimeException(
-                    String.format(
-                            "The table of %s has no primaryKey or uniqueKey, please use the option named "
-                                    + DorisOptions.SAVE_MODE_CREATE_TEMPLATE.key()
-                                    + " to specify sql template",
-                            tablePath.getFullName()));
-        }
+        String primaryPlaceHolder = SaveModePlaceHolderEnum.ROWTYPE_PRIMARY_KEY.getPlaceHolder();
+        SqlTemplate.canHandledByTemplateWithPlaceholder(
+                template,
+                primaryPlaceHolder,
+                primaryKey,
+                tablePath.getFullName(),
+                DorisOptions.SAVE_MODE_CREATE_TEMPLATE.key());
         template =
-                template.replaceAll(
-                        String.format("\\$\\{%s\\}", SaveModeConstants.ROWTYPE_PRIMARY_KEY),
-                        primaryKey);
+                template.replaceAll(String.format("\\$\\{%s\\}", primaryPlaceHolder), primaryKey);
+        String uniqueKeyPlaceHolder = SaveModePlaceHolderEnum.ROWTYPE_UNIQUE_KEY.getPlaceHolder();
+        SqlTemplate.canHandledByTemplateWithPlaceholder(
+                template,
+                uniqueKeyPlaceHolder,
+                uniqueKey,
+                tablePath.getFullName(),
+                DorisOptions.SAVE_MODE_CREATE_TEMPLATE.key());
         template =
-                template.replaceAll(
-                        String.format("\\$\\{%s\\}", SaveModeConstants.ROWTYPE_UNIQUE_KEY),
-                        uniqueKey);
+                template.replaceAll(String.format("\\$\\{%s\\}", uniqueKeyPlaceHolder), uniqueKey);
         Map<String, CreateTableParser.ColumnInfo> columnInTemplate =
                 CreateTableParser.getColumnList(template);
         template = mergeColumnInTemplate(columnInTemplate, tableSchema, template);
@@ -152,25 +155,18 @@ public class DorisCatalogUtil {
                         .map(DorisCatalogUtil::columnToDorisType)
                         .collect(Collectors.joining(",\n"));
         return template.replaceAll(
-                        String.format("\\$\\{%s\\}", SaveModeConstants.DATABASE),
+                        String.format(
+                                "\\$\\{%s\\}", SaveModePlaceHolderEnum.DATABASE.getPlaceHolder()),
                         tablePath.getDatabaseName())
                 .replaceAll(
-                        String.format("\\$\\{%s\\}", SaveModeConstants.TABLE_NAME),
+                        String.format(
+                                "\\$\\{%s\\}", SaveModePlaceHolderEnum.TABLE_NAME.getPlaceHolder()),
                         tablePath.getTableName())
                 .replaceAll(
-                        String.format("\\$\\{%s\\}", SaveModeConstants.ROWTYPE_FIELDS),
+                        String.format(
+                                "\\$\\{%s\\}",
+                                SaveModePlaceHolderEnum.ROWTYPE_FIELDS.getPlaceHolder()),
                         rowTypeFields);
-    }
-
-    private static boolean canHandledByDefaultTemplate(
-            String createTemplate, String primaryKey, String uniqueKey) {
-        return (StringUtils.equals(
-                                createTemplate,
-                                DorisOptions.SAVE_MODE_CREATE_TEMPLATE.defaultValue())
-                        && StringUtils.isBlank(primaryKey)
-                        && StringUtils.isBlank(uniqueKey))
-                ? true
-                : false;
     }
 
     private static String mergeColumnInTemplate(

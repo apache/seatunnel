@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.catalog;
 
+import org.apache.seatunnel.api.sink.SaveModePlaceHolderEnum;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
@@ -25,6 +26,7 @@ import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.sql.template.SqlTemplate;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
@@ -139,22 +141,25 @@ public class StarRocksCreateTableTest {
                         Collections.emptyList(),
                         "");
         TablePath tablePath = TablePath.of("test1.test2");
+        String createTemplate = StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE.defaultValue();
         RuntimeException runtimeException =
                 Assertions.assertThrows(
                         RuntimeException.class,
                         () ->
                                 StarRocksSaveModeUtil.getCreateTableSql(
-                                        StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE
-                                                .defaultValue(),
+                                        createTemplate,
                                         tablePath.getDatabaseName(),
                                         tablePath.getTableName(),
                                         catalogTable.getTableSchema()));
+        String primaryKeyHolder = SaveModePlaceHolderEnum.ROWTYPE_PRIMARY_KEY.getPlaceHolder();
         Assertions.assertEquals(
                 String.format(
-                        "The table of %s has no primaryKey or uniqueKey, please use the option named "
-                                + StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE.key()
-                                + " to specify sql template",
-                        tablePath.getFullName()),
+                        SqlTemplate.EXCEPTION_TEMPLATE,
+                        tablePath.getFullName(),
+                        SaveModePlaceHolderEnum.getKeyValue(primaryKeyHolder),
+                        createTemplate,
+                        primaryKeyHolder,
+                        StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE.key()),
                 runtimeException.getMessage());
     }
 

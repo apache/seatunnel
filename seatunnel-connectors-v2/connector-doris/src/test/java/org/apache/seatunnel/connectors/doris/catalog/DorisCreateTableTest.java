@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.doris.catalog;
 
+import org.apache.seatunnel.api.sink.SaveModePlaceHolderEnum;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
@@ -25,6 +26,7 @@ import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.sql.template.SqlTemplate;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
@@ -114,26 +116,8 @@ public class DorisCreateTableTest {
                                 Collections.emptyMap(),
                                 Collections.emptyList(),
                                 ""));
-        Assertions.assertEquals(
-                result,
-                "CREATE TABLE IF NOT EXISTS `test1`.`test2` (                                                                                                                                                   \n"
-                        + "`id` BIGINT(1) NULL ,`age` INT(1) NULL   ,       \n"
-                        + "`name` STRING NULL ,`score` INT(1) NULL  , \n"
-                        + "`create_time` DATETIME NOT NULL ,  \n"
-                        + "`gender` TINYINT NULL   \n"
-                        + ") ENGINE=OLAP  \n"
-                        + "PRIMARY KEY(`id`,`age`,`create_time`)  \n"
-                        + "PARTITION BY RANGE (`create_time`)(  \n"
-                        + "   PARTITION p20230329 VALUES LESS THAN (\"2023-03-29\")                                                                                                                                                           \n"
-                        + ")                                      \n"
-                        + "DISTRIBUTED BY HASH (`id`,`age`)  \n"
-                        + "PROPERTIES (\n"
-                        + "\"replication_allocation\" = \"tag.location.default: 1\",\n"
-                        + "\"in_memory\" = \"false\",\n"
-                        + "\"storage_format\" = \"V2\",\n"
-                        + "\"disable_auto_compaction\" = \"false\"\n"
-                        + ")");
 
+        String createTemplate = DorisOptions.SAVE_MODE_CREATE_TEMPLATE.defaultValue();
         CatalogTable catalogTable =
                 CatalogTable.of(
                         TableIdentifier.of("test", "test1", "test2"),
@@ -152,15 +136,16 @@ public class DorisCreateTableTest {
                         RuntimeException.class,
                         () ->
                                 DorisCatalogUtil.getCreateTableStatement(
-                                        DorisOptions.SAVE_MODE_CREATE_TEMPLATE.defaultValue(),
-                                        tablePath,
-                                        catalogTable));
+                                        createTemplate, tablePath, catalogTable));
+        String primaryKeyHolder = SaveModePlaceHolderEnum.ROWTYPE_PRIMARY_KEY.getPlaceHolder();
         Assertions.assertEquals(
                 String.format(
-                        "The table of %s has no primaryKey or uniqueKey, please use the option named "
-                                + DorisOptions.SAVE_MODE_CREATE_TEMPLATE.key()
-                                + " to specify sql template",
-                        tablePath.getFullName()),
+                        SqlTemplate.EXCEPTION_TEMPLATE,
+                        tablePath.getFullName(),
+                        SaveModePlaceHolderEnum.getKeyValue(primaryKeyHolder),
+                        createTemplate,
+                        primaryKeyHolder,
+                        DorisOptions.SAVE_MODE_CREATE_TEMPLATE.key()),
                 runtimeException.getMessage());
     }
 

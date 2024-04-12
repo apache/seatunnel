@@ -17,13 +17,24 @@
 
 package org.apache.seatunnel.api.sink;
 
-public class SaveModeConstants {
+public enum SaveModePlaceHolderEnum {
+    ROWTYPE_PRIMARY_KEY("primaryKeys"),
+    ROWTYPE_UNIQUE_KEY("uniqueKeys"),
+    ROWTYPE_FIELDS("fields"),
+    TABLE_NAME("tableName"),
+    DATABASE("database");
 
-    public static final String ROWTYPE_PRIMARY_KEY = "rowtype_primary_key";
-    public static final String ROWTYPE_FIELDS = "rowtype_fields";
-    public static final String ROWTYPE_UNIQUE_KEY = "rowtype_unique_key";
+    private String keyValue;
 
-    public static final String TABLE_NAME = "table_name";
+    SaveModePlaceHolderEnum(String keyValue) {
+        this.keyValue = keyValue;
+    }
 
-    public static final String DATABASE = "database";
+    public static String getKeyValue(String sqlKeyTypePlaceholder) {
+        return SaveModePlaceHolderEnum.valueOf(sqlKeyTypePlaceholder.toUpperCase()).keyValue;
+    }
+
+    public String getPlaceHolder() {
+        return this.name().toLowerCase();
+    }
 }
