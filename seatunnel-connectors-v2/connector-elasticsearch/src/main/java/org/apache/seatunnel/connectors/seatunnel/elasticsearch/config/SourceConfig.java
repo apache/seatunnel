@@ -40,8 +40,8 @@ public class SourceConfig {
                     .withDescription(
                             "The fields of index. You can get the document id by specifying the field _id.If sink _id to other index,you need specify an alias for _id due to the Elasticsearch limit");
 
-    public static final Option<Map<String, String>> ARRAY_TYPE =
-            Options.key("array_type")
+    public static final Option<Map<String, String>> ARRAY_COLUMN =
+            Options.key("array_column")
                     .mapType()
                     .noDefaultValue()
                     .withDescription(

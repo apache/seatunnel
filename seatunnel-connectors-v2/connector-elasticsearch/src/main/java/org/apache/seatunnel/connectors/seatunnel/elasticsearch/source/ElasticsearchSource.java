@@ -76,7 +76,7 @@ public class ElasticsearchSource
             source = Arrays.asList(catalogTable.getSeaTunnelRowType().getFieldNames());
         } else {
             source = config.get(SourceConfig.SOURCE);
-            arrayType = config.get(SourceConfig.ARRAY_TYPE);
+            arrayType = config.get(SourceConfig.ARRAY_COLUMN);
             EsRestClient esRestClient = EsRestClient.createInstance(config);
             Map<String, BasicTypeDefine<EsType>> esFieldType =
                     esRestClient.getFieldTypeMapping(config.get(SourceConfig.INDEX), source);
