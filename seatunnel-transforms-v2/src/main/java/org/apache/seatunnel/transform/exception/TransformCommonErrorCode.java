@@ -25,13 +25,7 @@ public enum TransformCommonErrorCode implements SeaTunnelErrorCode {
             "The input field '<field>' of '<transform>' transform not found in upstream schema"),
     INPUT_FIELDS_NOT_FOUND(
             "TRANSFORM_COMMON-02",
-            "The input fields '<fields>' of '<transform>' transform not found in upstream schema"),
-    FILTER_CONFIG_CONFLICT(
-            "TRANSFORM_COMMON-03",
-            "The config of '<transform>' transform contains both include_fields and exclude_fields, please specify only one of them"),
-    FILTER_CONFIG_MISSING(
-            "TRANSFORM_COMMON-04",
-            "The config of '<transform>' transform contains neither include_fields nor exclude_fields, please specify either of them");
+            "The input fields '<fields>' of '<transform>' transform not found in upstream schema");
 
     private final String code;
     private final String description;

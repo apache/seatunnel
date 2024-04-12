@@ -25,9 +25,6 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.transform.exception.TransformCommonErrorCode;
-import org.apache.seatunnel.transform.exception.TransformException;
-
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -100,28 +97,33 @@ class FilterFieldTransformTest {
 
     @Test
     void testConfig() {
-        // test neither include nor exclude set
+        // test both not set
         try {
             new FilterFieldTransform(ReadonlyConfig.fromMap(new HashMap<>()), catalogTable);
         } catch (Exception e) {
-            Assertions.assertTrue(e instanceof TransformException);
-            Assertions.assertTrue(
-                    e.getMessage()
-                            .contains(TransformCommonErrorCode.FILTER_CONFIG_MISSING.getCode()));
+            Assertions.assertEquals(
+                    "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - There are unconfigured options, these options('include_fields', 'exclude_fields') are mutually exclusive, allowing only one set(\"[] for a set\") of options to be configured.",
+                    e.getMessage());
         }
 
         // test both include and exclude set
-        Map<String, Object> configMap = new HashMap<>();
-        configMap.put(FilterFieldTransformConfig.INCLUDE_FIELDS.key(), filterKeys);
-        configMap.put(FilterFieldTransformConfig.EXCLUDE_FIELDS.key(), filterKeys);
         try {
-            new FilterFieldTransform(ReadonlyConfig.fromMap(configMap), catalogTable);
+            new FilterFieldTransform(ReadonlyConfig.fromMap(new HashMap<String, Object>() {{
+                put(FilterFieldTransformConfig.INCLUDE_FIELDS.key(), filterKeys);
+                put(FilterFieldTransformConfig.EXCLUDE_FIELDS.key(), filterKeys);
+            }}), catalogTable);
         } catch (Exception e) {
-            Assertions.assertTrue(e instanceof TransformException);
-            Assertions.assertTrue(
-                    e.getMessage()
-                            .contains(TransformCommonErrorCode.FILTER_CONFIG_CONFLICT.getCode()));
+            Assertions.assertEquals("ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - These options('include_fields', 'exclude_fields') are mutually exclusive, allowing only one set(\"[] for a set\") of options to be configured.", e.getMessage());
         }
+
+        // not exception should be thrown now
+        new FilterFieldTransform(ReadonlyConfig.fromMap(new HashMap<String, Object>() {{
+            put(FilterFieldTransformConfig.INCLUDE_FIELDS.key(), filterKeys);
+        }}), catalogTable);
+
+        new FilterFieldTransform(ReadonlyConfig.fromMap(new HashMap<String, Object>() {{
+            put(FilterFieldTransformConfig.EXCLUDE_FIELDS.key(), filterKeys);
+        }}), catalogTable);
     }
 
     @Test

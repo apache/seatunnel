@@ -18,6 +18,8 @@
 package org.apache.seatunnel.transform.filter;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
@@ -56,13 +58,10 @@ public class FilterFieldTransform extends AbstractCatalogSupportTransform {
         SeaTunnelRowType seaTunnelRowType = catalogTable.getTableSchema().toPhysicalRowDataType();
         includeFields = config.get(FilterFieldTransformConfig.INCLUDE_FIELDS);
         excludeFields = config.get(FilterFieldTransformConfig.EXCLUDE_FIELDS);
-        // only one should be set
-        if (Objects.nonNull(includeFields) && Objects.nonNull(excludeFields)) {
-            throw TransformCommonError.bothIncludeAndExcludeFieldsError(getPluginName());
-        }
-        if (Objects.isNull(includeFields) && Objects.isNull(excludeFields)) {
-            throw TransformCommonError.noIncludeNorExcludeFieldsError(getPluginName());
-        }
+        // exactly only one should be set
+        ConfigValidator.of(config).validate(OptionRule.builder()
+                .exclusive(FilterFieldTransformConfig.INCLUDE_FIELDS, FilterFieldTransformConfig.EXCLUDE_FIELDS)
+                .build());
         List<String> canNotFoundFields =
                 Stream.concat(
                                 Optional.ofNullable(includeFields).orElse(new ArrayList<>())
