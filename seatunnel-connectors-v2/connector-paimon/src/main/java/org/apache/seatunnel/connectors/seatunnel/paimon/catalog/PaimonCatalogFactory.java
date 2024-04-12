@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSinkConfig;
 
 import com.google.auto.service.AutoService;
@@ -35,7 +36,7 @@ public class PaimonCatalogFactory implements CatalogFactory {
 
     @Override
     public String factoryIdentifier() {
-        return "Paimon";
+        return PaimonConfig.CONNECTOR_IDENTITY;
     }
 
     @Override

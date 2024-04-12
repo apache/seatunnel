@@ -35,7 +35,6 @@ import java.util.List;
 import java.util.Map;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
 /**
  * Utility class to store configuration options, used by {@link SeaTunnelSource} and {@link
@@ -43,6 +42,8 @@ import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.ch
  */
 @Getter
 public class PaimonConfig implements Serializable {
+
+    public static final String CONNECTOR_IDENTITY = "Paimon";
 
     public static final Option<String> WAREHOUSE =
             Options.key("warehouse")
@@ -103,18 +104,13 @@ public class PaimonConfig implements Serializable {
     protected String hadoopConfPath;
 
     public PaimonConfig(ReadonlyConfig readonlyConfig) {
-        this.catalogName = checkArgumentNotNull(readonlyConfig.get(CATALOG_NAME));
-        this.warehouse = checkArgumentNotNull(readonlyConfig.get(WAREHOUSE));
-        this.namespace = checkArgumentNotNull(readonlyConfig.get(DATABASE));
-        this.table = checkArgumentNotNull(readonlyConfig.get(TABLE));
+        this.catalogName = readonlyConfig.get(CATALOG_NAME);
+        this.warehouse = readonlyConfig.get(WAREHOUSE);
+        this.namespace = readonlyConfig.get(DATABASE);
+        this.table = readonlyConfig.get(TABLE);
         this.hdfsSitePath = readonlyConfig.get(HDFS_SITE_PATH);
         this.hadoopConfProps = readonlyConfig.get(HADOOP_CONF);
         this.hadoopConfPath = readonlyConfig.get(HADOOP_CONF_PATH);
-    }
-
-    protected <T> T checkArgumentNotNull(T argument) {
-        checkNotNull(argument);
-        return argument;
     }
 
     @VisibleForTesting
