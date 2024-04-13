@@ -114,7 +114,6 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         testDataset = generateTestDataSet();
         createIndexDocs();
         createIndexWithFullType();
-        createIndexForResourceNull();
     }
 
     /** create a index,and bulk some documents */
