@@ -57,6 +57,8 @@ import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -256,7 +258,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                 esRestClient.getFieldTypeMapping("st_index4", Lists.newArrayList());
         Thread.sleep(2000);
         List<String> source = new ArrayList<>(esFieldType.keySet());
-        return getDocs(source, "st_index4");
+        return getDocsWithTransformDate(source, "st_index4");
     }
 
     private List<String> readSinkData() throws InterruptedException {
@@ -278,10 +280,42 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                         "c_bytes",
                         "c_date",
                         "c_timestamp");
-        return getDocs(source, "st_index2");
+        return getDocsWithTransformTimestamp(source, "st_index2");
     }
 
-    private List<String> getDocs(List<String> source, String index) {
+    private List<String> getDocsWithTransformTimestamp(List<String> source, String index) {
+        HashMap<String, Object> rangeParam = new HashMap<>();
+        rangeParam.put("gte", 10);
+        rangeParam.put("lte", 20);
+        HashMap<String, Object> range = new HashMap<>();
+        range.put("c_int", rangeParam);
+        Map<String, Object> query = new HashMap<>();
+        query.put("range", range);
+        ScrollResult scrollResult = esRestClient.searchByScroll(index, source, query, "1m", 1000);
+        scrollResult
+                .getDocs()
+                .forEach(
+                        x -> {
+                            x.remove("_index");
+                            x.remove("_type");
+                            x.remove("_id");
+                            x.replace(
+                                    "c_timestamp",
+                                    LocalDateTime.parse(x.get("c_timestamp").toString())
+                                            .toInstant(ZoneOffset.UTC)
+                                            .toEpochMilli());
+                        });
+        List<String> docs =
+                scrollResult.getDocs().stream()
+                        .sorted(
+                                Comparator.comparingInt(
+                                        o -> Integer.valueOf(o.get("c_int").toString())))
+                        .map(JsonUtils::toJsonString)
+                        .collect(Collectors.toList());
+        return docs;
+    }
+
+    private List<String> getDocsWithTransformDate(List<String> source, String index) {
         HashMap<String, Object> rangeParam = new HashMap<>();
         rangeParam.put("gte", 10);
         rangeParam.put("lte", 20);
