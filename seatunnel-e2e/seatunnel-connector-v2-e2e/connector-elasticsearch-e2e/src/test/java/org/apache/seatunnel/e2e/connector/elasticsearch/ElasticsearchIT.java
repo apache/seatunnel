@@ -59,6 +59,7 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -331,6 +332,13 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                             x.remove("_index");
                             x.remove("_type");
                             x.remove("_id");
+                            x.replace(
+                                    "c_date",
+                                    LocalDate.parse(
+                                                    x.get("c_date").toString(),
+                                                    DateTimeFormatter.ofPattern(
+                                                            "yyyy-MM-dd'T'HH:mm"))
+                                            .toString());
                         });
         List<String> docs =
                 scrollResult.getDocs().stream()
