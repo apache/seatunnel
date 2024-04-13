@@ -20,7 +20,8 @@
                     }
                 },
                 "c_date": {
-                    "type": "date"
+                    "type": "date",
+                    "format": "yyyy-MM-dd"
                 },
                 "c_decimal": {
                     "type": "float"
