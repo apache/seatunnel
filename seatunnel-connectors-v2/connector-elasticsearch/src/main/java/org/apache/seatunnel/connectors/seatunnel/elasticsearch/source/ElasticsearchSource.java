@@ -64,7 +64,7 @@ public class ElasticsearchSource
 
     private List<String> source;
 
-    private Map<String, String> arrayType;
+    private Map<String, String> arrayColumn;
 
     public ElasticsearchSource(ReadonlyConfig config) {
         this.config = config;
@@ -76,7 +76,7 @@ public class ElasticsearchSource
             source = Arrays.asList(catalogTable.getSeaTunnelRowType().getFieldNames());
         } else {
             source = config.get(SourceConfig.SOURCE);
-            arrayType = config.get(SourceConfig.ARRAY_COLUMN);
+            arrayColumn = config.get(SourceConfig.ARRAY_COLUMN);
             EsRestClient esRestClient = EsRestClient.createInstance(config);
             Map<String, BasicTypeDefine<EsType>> esFieldType =
                     esRestClient.getFieldTypeMapping(config.get(SourceConfig.INDEX), source);
@@ -88,7 +88,7 @@ public class ElasticsearchSource
             SeaTunnelDataType[] fieldTypes = getSeaTunnelDataType(esFieldType, source);
             TableSchema.Builder builder = TableSchema.builder();
 
-            for (Map.Entry<String, String> entry : arrayType.entrySet()) {
+            for (Map.Entry<String, String> entry : arrayColumn.entrySet()) {
                 String key = entry.getKey();
                 String value = entry.getValue();
                 SeaTunnelDataType<?> dataType =
@@ -97,7 +97,7 @@ public class ElasticsearchSource
             }
             for (int i = 0; i < source.size(); i++) {
                 String key = source.get(i);
-                if (arrayType.containsKey(key)) {
+                if (arrayColumn.containsKey(key)) {
                     continue;
                 }
 
