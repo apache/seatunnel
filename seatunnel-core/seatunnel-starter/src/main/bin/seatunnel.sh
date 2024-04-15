@@ -101,9 +101,8 @@ fi
 
 CLASS_PATH=${APP_DIR}/lib/*:${APP_JAR}
 
-while read line
-do
-    if [[ ! $line == \#* ]] && [ -n "$line" ]; then
+while IFS= read -r line || [[ -n "$line" ]]; do
+    if [[ ! $line == \#* ]]; then
         JAVA_OPTS="$JAVA_OPTS $line"
     fi
 done < ${APP_DIR}/config/jvm_client_options
