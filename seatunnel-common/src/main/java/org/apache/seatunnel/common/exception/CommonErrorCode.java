@@ -49,7 +49,9 @@ public enum CommonErrorCode implements SeaTunnelErrorCode {
     WRITE_SEATUNNEL_ROW_ERROR(
             "COMMON-23",
             "<connector> write SeaTunnelRow failed, the SeaTunnelRow value is '<seaTunnelRow>'."),
-    SQL_TEMPLATE_HANDLED_ERROR("COMMON-24", "Handle the template with placeholder failed.");
+    SQL_TEMPLATE_HANDLED_ERROR(
+            "COMMON-24",
+            "The table of <tableName> has no <keyName>, but the template \n <template> \n which has the place holder named <placeholder>. Please use the option named <optionName> to specify sql template");
 
     private final String code;
     private final String description;

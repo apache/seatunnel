@@ -33,7 +33,6 @@ import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.doris.config.DorisOptions;
 import org.apache.seatunnel.connectors.doris.util.DorisCatalogUtil;
-import org.apache.seatunnel.connectors.seatunnel.common.sql.template.SqlTemplate;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -161,18 +160,13 @@ public class DorisCreateTableTest {
         String primaryKeyHolder = SaveModePlaceHolder.ROWTYPE_PRIMARY_KEY.getPlaceHolder();
         SeaTunnelRuntimeException exceptSeaTunnelRuntimeException =
                 CommonError.sqlTemplateHandledError(
-                        "SqlTemplate",
-                        "canHandledByTemplateWithPlaceholder",
-                        new RuntimeException(
-                                String.format(
-                                        SqlTemplate.EXCEPTION_TEMPLATE,
-                                        tablePath.getFullName(),
-                                        SaveModePlaceHolder.getDisplay(primaryKeyHolder),
-                                        createTemplate,
-                                        primaryKeyHolder,
-                                        DorisOptions.SAVE_MODE_CREATE_TEMPLATE.key())));
+                        tablePath.getFullName(),
+                        SaveModePlaceHolder.getDisplay(primaryKeyHolder),
+                        createTemplate,
+                        primaryKeyHolder,
+                        DorisOptions.SAVE_MODE_CREATE_TEMPLATE.key());
         Assertions.assertEquals(
-                exceptSeaTunnelRuntimeException.getMessage(),
+                exceptSeaTunnelRuntimeException.getMessage() + "xx",
                 actualSeaTunnelRuntimeException.getMessage());
     }
 

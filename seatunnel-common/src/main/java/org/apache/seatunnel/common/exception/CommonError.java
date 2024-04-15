@@ -186,10 +186,17 @@ public class CommonError {
     }
 
     public static SeaTunnelRuntimeException sqlTemplateHandledError(
-            String identifier, String operation, Throwable cause) {
+            String tableName,
+            String keyName,
+            String template,
+            String placeholder,
+            String optionName) {
         Map<String, String> params = new HashMap<>();
-        params.put("identifier", identifier);
-        params.put("operation", operation);
-        return new SeaTunnelRuntimeException(SQL_TEMPLATE_HANDLED_ERROR, params, cause);
+        params.put("tableName", tableName);
+        params.put("keyName", keyName);
+        params.put("template", template);
+        params.put("placeholder", placeholder);
+        params.put("optionName", optionName);
+        return new SeaTunnelRuntimeException(SQL_TEMPLATE_HANDLED_ERROR, params);
     }
 }

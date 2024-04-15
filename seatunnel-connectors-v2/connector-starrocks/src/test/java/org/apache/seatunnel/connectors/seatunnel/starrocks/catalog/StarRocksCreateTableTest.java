@@ -31,7 +31,6 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
-import org.apache.seatunnel.connectors.seatunnel.common.sql.template.SqlTemplate;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRocksSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.sink.StarRocksSaveModeUtil;
 
@@ -156,16 +155,11 @@ public class StarRocksCreateTableTest {
         String primaryKeyHolder = SaveModePlaceHolder.ROWTYPE_PRIMARY_KEY.getPlaceHolder();
         SeaTunnelRuntimeException exceptSeaTunnelRuntimeException =
                 CommonError.sqlTemplateHandledError(
-                        "SqlTemplate",
-                        "canHandledByTemplateWithPlaceholder",
-                        new RuntimeException(
-                                String.format(
-                                        SqlTemplate.EXCEPTION_TEMPLATE,
-                                        tablePath.getFullName(),
-                                        SaveModePlaceHolder.getDisplay(primaryKeyHolder),
-                                        createTemplate,
-                                        primaryKeyHolder,
-                                        StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE.key())));
+                        tablePath.getFullName(),
+                        SaveModePlaceHolder.getDisplay(primaryKeyHolder),
+                        createTemplate,
+                        primaryKeyHolder,
+                        StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE.key());
         Assertions.assertEquals(
                 exceptSeaTunnelRuntimeException.getMessage(),
                 actualSeaTunnelRuntimeException.getMessage());

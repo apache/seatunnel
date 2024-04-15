@@ -23,10 +23,6 @@ import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.commons.lang3.StringUtils;
 
 public class SqlTemplate {
-
-    public static final String EXCEPTION_TEMPLATE =
-            "The table of %s has no %s, but the template \n %s \n which has the place holder named %s. Please use the option named %s to specify sql template";
-
     public static void canHandledByTemplateWithPlaceholder(
             String createTemplate,
             String placeholder,
@@ -35,16 +31,11 @@ public class SqlTemplate {
             String optionsKey) {
         if (createTemplate.contains(placeholder) && StringUtils.isBlank(actualPlaceHolderValue)) {
             throw CommonError.sqlTemplateHandledError(
-                    "SqlTemplate",
-                    "canHandledByTemplateWithPlaceholder",
-                    new RuntimeException(
-                            String.format(
-                                    EXCEPTION_TEMPLATE,
-                                    tableName,
-                                    SaveModePlaceHolder.getDisplay(placeholder),
-                                    createTemplate,
-                                    placeholder,
-                                    optionsKey)));
+                    tableName,
+                    SaveModePlaceHolder.getDisplay(placeholder),
+                    createTemplate,
+                    placeholder,
+                    optionsKey);
         }
     }
 }
