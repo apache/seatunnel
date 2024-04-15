@@ -166,7 +166,7 @@ public class DorisCreateTableTest {
                         primaryKeyHolder,
                         DorisOptions.SAVE_MODE_CREATE_TEMPLATE.key());
         Assertions.assertEquals(
-                exceptSeaTunnelRuntimeException.getMessage() + "xx",
+                exceptSeaTunnelRuntimeException.getMessage(),
                 actualSeaTunnelRuntimeException.getMessage());
     }
 
