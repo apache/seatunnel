@@ -43,7 +43,7 @@ public class SourceConfig {
     public static final Option<Map<String, String>> ARRAY_COLUMN =
             Options.key("array_column")
                     .mapType()
-                    .noDefaultValue()
+                    .defaultValue(new HashMap<>())
                     .withDescription(
                             "Because there is no array type in es,so need specify array Type.");
 

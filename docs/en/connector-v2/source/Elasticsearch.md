@@ -31,6 +31,7 @@ support version >= 2.x and <= 8.x.
 | scroll_size             | int     | no       | 100               |
 | tls_verify_certificate  | boolean | no       | true              |
 | tls_verify_hostnames    | boolean | no       | true              |
+| array_column            | map     | no       |                   |
 | tls_keystore_path       | string  | no       | -                 |
 | tls_keystore_password   | string  | no       | -                 |
 | tls_truststore_path     | string  | no       | -                 |
@@ -58,6 +59,11 @@ Elasticsearch index name, support * fuzzy matching.
 The fields of index.
 You can get the document id by specifying the field `_id`.If sink _id to other index,you need specify an alias for _id due to the Elasticsearch limit.
 If you don't config source, it is automatically retrieved from the mapping of the index.
+
+### array_column [array]
+
+The fields of array type.
+Since there is no array index in es,so need assign array type,just like {c_array = "array<tinyint>"}
 
 ### query [json]
 
