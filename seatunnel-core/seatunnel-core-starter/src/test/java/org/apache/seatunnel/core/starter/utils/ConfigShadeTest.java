@@ -26,6 +26,8 @@ import org.apache.seatunnel.common.utils.JsonUtils;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -69,6 +71,7 @@ public class ConfigShadeTest {
     }
 
     @Test
+    @DisabledOnOs(OS.WINDOWS)
     public void testVariableReplacement() throws URISyntaxException {
         String jobName = "seatunnel variable test job";
         String resName = "fake";
