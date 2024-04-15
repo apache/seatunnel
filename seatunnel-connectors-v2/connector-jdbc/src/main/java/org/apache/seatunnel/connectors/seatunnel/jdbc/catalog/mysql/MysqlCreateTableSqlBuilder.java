@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
+import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeConverter;
@@ -57,20 +58,23 @@ public class MysqlCreateTableSqlBuilder {
 
     private String fieldIde;
 
-    private MysqlCreateTableSqlBuilder(String tableName) {
+    private final MySqlTypeConverter typeConverter;
+
+    private MysqlCreateTableSqlBuilder(String tableName, MySqlTypeConverter typeConverter) {
         checkNotNull(tableName, "tableName must not be null");
         this.tableName = tableName;
+        this.typeConverter = typeConverter;
     }
 
     public static MysqlCreateTableSqlBuilder builder(
-            TablePath tablePath, CatalogTable catalogTable) {
+            TablePath tablePath, CatalogTable catalogTable, MySqlTypeConverter typeConverter) {
         checkNotNull(tablePath, "tablePath must not be null");
         checkNotNull(catalogTable, "catalogTable must not be null");
 
         TableSchema tableSchema = catalogTable.getTableSchema();
         checkNotNull(tableSchema, "tableSchema must not be null");
 
-        return new MysqlCreateTableSqlBuilder(tablePath.getTableName())
+        return new MysqlCreateTableSqlBuilder(tablePath.getTableName(), typeConverter)
                 .comment(catalogTable.getComment())
                 // todo: set charset and collate
                 .engine(null)
@@ -167,10 +171,16 @@ public class MysqlCreateTableSqlBuilder {
         final List<String> columnSqls = new ArrayList<>();
         columnSqls.add(CatalogUtils.quoteIdentifier(column.getName(), fieldIde, "`"));
         boolean isSupportDef = true;
-        if (StringUtils.equals(catalogName, DatabaseIdentifier.MYSQL)) {
+
+        if ((SqlType.TIME.equals(column.getDataType().getSqlType())
+                        || SqlType.TIMESTAMP.equals(column.getDataType().getSqlType()))
+                && column.getScale() != null) {
+            BasicTypeDefine<MysqlType> typeDefine = typeConverter.reconvert(column);
+            columnSqls.add(typeDefine.getColumnType());
+        } else if (StringUtils.equals(catalogName, DatabaseIdentifier.MYSQL)) {
             columnSqls.add(column.getSourceType());
         } else {
-            BasicTypeDefine<MysqlType> typeDefine = MySqlTypeConverter.INSTANCE.reconvert(column);
+            BasicTypeDefine<MysqlType> typeDefine = typeConverter.reconvert(column);
             columnSqls.add(typeDefine.getColumnType());
         }
         // nullable
