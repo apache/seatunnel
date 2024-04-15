@@ -1,227 +1,155 @@
-# next-release
+# 2.3.5 Release Note
 
 ## Bug fix
 
 ### Core
-- [Core] [API] Fixed generic class loss for lists (#4421)
-- [Core] [API] Fix parse nested row data type key changed upper (#4459)
-- [Starter][Flink]Support transform-v2 for flink #3396
-- [Flink] Support flink 1.14.x #3963
-- [Core][Translation][Spark] Fix SeaTunnelRowConvertor fail to convert when schema contains row type (#5170)
+
+- [fix] fix get seatunnel row size npe issue (#6681)
+- [Hotfix] Fix DEFAULT TABLE problem (#6352)
+- [Chore] Fix `file` spell errors (#6606)
+- [BugFix][Spark-translation] map type cast error (#6552)
+- [Hotfix] Fix spark example (#6486)
+- [Hotfix] Fix compile error (#6463) 
 
 ### Transformer
-- [Spark] Support transform-v2 for spark (#3409)
-- [ALL]Add FieldMapper Transform #3781
-- [All]Add JsonPath Transform #5633
+
+- [Fix][SQLTransform] fix the scale loss for the sql transform (#6553)
+- [Bug] Fix minus constant error in SQLTransform (#6533)
+
 ### Connectors
-- [Elasticsearch] Support https protocol & compatible with opensearch
-- [Hbase] Add hbase sink connector #4049
-- [Clickhouse] Fix clickhouse old version compatibility #5326
-- [Easysearch] Support INFINI Easysearch #5933
+
+- [Fix][Kafka-Sink] fix kafka sink factory option rule (#6657)
+- [Hotfix] fix http source can not read yyyy-MM-dd HH:mm:ss format bug & Improve DateTime Utils (#6601) 
+- [Bug] Fix OrcWriteStrategy/ParquetWriteStrategy doesn't login with kerberos (#6472)
+- [Fix][Doc] Fix FTP sink config key `username` to `user` (#6627)
+- [E2E] Fix AmazondynamodbIT unstable (#6640)
+- [Fix][Connector-V2] Fix add hive partition error when partition already existed (#6577)
+- [Fix][Connector-V2] Fixed doris/starrocks create table sql parse error (#6580)
+- [Fix][Connector-V2] Fix doris sink can not be closed when stream load not read any data (#6570)
+- [Fix][Connector-V2] Fix connector support SPI but without no args constructor (#6551)
+- [Fix][Connector-V2] Fix doris source select fields loss primary key information (#6339)
+- [Fix][FakeSource] fix random from template not include the latest value issue (#6438)
+- [Fix][Connector-V2] Fix mongodb cdc start up mode option values not right (#6338)
+- [BugFix][Connector-file-sftp] Fix SFTPInputStream.close does not correctly trigger the closing of the file stream (#6323) (#6329)
+- [Fix] Fix doris stream load failed not reported error (#6315)
+- [fix][connector-rocketmq]Fix a NPE problem when checkpoint.interval is set too small(#6624)
+- [Bugfix][TDengine] Fix the issue of losing the driver due to multiple calls to the submit job REST API #6581 (#6596)
+- [Fix][StarRocks] Fix NPE when upstream catalogtable table path only have table name part (#6540)
+
 ### Formats
-- [Canal]Support read canal format message #3950
-- [Debezium]Support debezium canal format message #3981
 
-### Connector-V2
+- [Bug] [formats] Fix fail to parse line when content contains the file delimiter (#6589)
 
-- [Json-format] [Canal-Json] Fix json deserialize NPE (#4195)
-- [Connector-V2] [Jdbc] Field aliases are not supported in the query of jdbc source. (#4210)
-- [Connector-V2] [Jdbc] Fix connection failure caused by connection timeout. (#4322)
-- [Connector-V2] [Jdbc] Set default value to false of JdbcOption: generate_sink_sql (#4471)
-- [Connector-V2] [JDBC] Fix TiDBCatalog without open (#4718)
-- [Connector-V2] [Jdbc] Fix XA DataSource crash(Oracle/Dameng/SqlServer) (#4866)
-- [Connector-V2] [Pulsar] Fix the bug that can't consume messages all the time. (#4125)
-- [Connector-V2] [Eleasticsearch] Document description error (#4390)
-- [Connector-V2] [Eleasticsearch] Source deserializer error and inappropriate (#4233)
-- [Connector-V2] [Kafka] Fix KafkaProducer resources have never been released. (#4302)
-- [Connector-V2] [Kafka] Fix the permission problem caused by client.id. (#4246)
-- [Connector-V2] [Kafka] Fix KafkaConsumerThread exit caused by commit offset error. (#4379)
-- [Connector-V2] [Mongodb] Mongodb support cdc sink. (#4833)
-- [Connector-V2] [kafka] Fix the problem that the partition information can not be obtained when kafka is restored (#4764)
-- [Connector-V2] [SFTP] Fix incorrect exception handling logic (#4720)
-- [Connector-V2] [File] Fix read temp file (#4876)
-- [Connector-V2] [CDC Base] Solving the ConcurrentModificationException caused by snapshotState being modified concurrently. (#4877)
-- [Connector-V2] [Doris] update last checkpoint id when doing snapshot (#4881)
-- [Connector-v2] [kafka] Fix the short interval of pull data settings and revise the format (#4875)
-- [Connector-v2] [RabbitMQ] Fix reduplicate ack msg bug and code style (#4842)
-- [Connector-V2] [Jdbc] Fix the error of extracting primary key column in sink (#4815)
-- [Connector-V2] [Jdbc] Fix reconnect throw close statement exception (#4801)
-- [Connector-V2] [Jdbc] Fix sqlserver system table case sensitivity (#4806)
-- [Connector-v2] [File] Fix configuration file format and error comments (#4762)
-- [Connector-v2] [Jdbc] Fix oracle sql table identifier (#4754)
-- [Connector-v2] [Clickhouse] fix get clickhouse local table name with closing bracket from distributed table engineFull (#4710)
-- [Connector-v2] [CDC] Fix jdbc connection leak for mysql (#5037)
-- [Connector-v2] [File] Fix WriteStrategy parallel writing thread unsafe issue #5546
-- [Connector-v2] [File] Inject FileSystem to OrcWriteStrategy
-- [Connector-v2] [File] Support assign encoding for file source/sink (#5973)
 
 ### Zeta(ST-Engine)
 
-- [Zeta] Fix LogicalDagGeneratorTest testcase (#4401)
-- [Zeta] Fix MultipleTableJobConfigParser parse only one transform (#4412)
-- [Zeta] Fix missing common plugin jars (#4448)
-- [Zeta] Fix handleCheckpointError be called while checkpoint already complete (#4442)
-- [Zeta] Fix job error message is not right bug (#4463)
-- [Zeta] Fix finding TaskGroup deployment node bug (#4449)
-- [Zeta] Fix the bug of conf (#4488)
-- [Zeta] Fix Connector load logic from zeta (#4510)
-- [Zeta] Fix conflict dependency of hadoop-hdfs (#4509)
-- [Zeta] Fix TaskExecutionService synchronized lock will not release (#4886)
-- [Zeta] Fix TaskExecutionService will return not active ExecutionContext (#4869)
-- [Zeta] Fix deploy operation timeout but task already finished bug (#4867)
-- [Zeta] Fix restoreComplete Future can't be completed when cancel task (#4863)
-- [Zeta] Fix IMap operation timeout bug (#4859)
-- [Zeta] fix pipeline state not right bug (#4823)
-- [Zeta] Fix the incorrect setting of transform parallelism (#4814)
-- [Zeta] Fix master active bug (#4855)
-- [Zeta] Fix completePendingCheckpoint concurrent action (#4854)
-- [Zeta] Fix engine runtime error (#4850)
-- [Zeta] Fix TaskGroupContext always hold classloader so classloader can't recycle (#4849)
-- [Zeta] Fix task `notifyTaskStatusToMaster` failed when job not running or failed before run (#4847)
-- [Zeta] Fix cpu load problem (#4828)
-- [zeta] Fix the deadlock issue with JDBC driver loading (#4878)
-- [zeta] dynamically replace the value of the variable at runtime (#4950)
-- [Zeta] Add from_unixtime function (#5462)
-- [zeta] Fix CDC task restore throw NPE (#5507)
+- [Hotfix] fix http source can not read yyyy-MM-dd HH:mm:ss format bug & Improve DateTime Utils (#6601) 
+- [Fix][Zeta] Fix the thread stuck problem caused by savepoint checking mechanism (#6568) 
+- [Fix][Zeta] improve the local mode hazelcast connection (#6521)
+- [Fix][Zeta] Fix thread classloader be set to null when use cache mode (#6509)
+- [Bug] [zeta] Fix null pointer exception when submitting jobs (#6492)
+- [bugfix] [Zeta] Fix the problem of class loader not releasing when using REST API to submit jobs 
+- [BUG][Zeta]job name Display error #6470
+- [Hotfix][Zeta] Fix job deadlock when schema change (#6389)
 
 ### E2E
 
-- [E2E] [Kafka] Fix kafka e2e testcase (#4520)
-- [Container Version] Fix risk of unreproducible test cases #4591
-- [E2e] [Mysql-cdc] Removing the excess MySqlIncrementalSourceIT e2e reduces the CI time (#4738)
-- [E2E] [Common] Update test container version of seatunnel engine (#5323)
-- [E2E] [Jdbc] Fix not remove docker image after test finish on jdbc suite (#5586)
+- [E2E] Enable StarRocksCDCSinkIT (#6626)
+
 
 ## Improve
 
-- [Improve][Connector-V2][Jdbc-Source] Support for Decimal types as splict keys (#4634)
+- [Doc][Improve] Add Support Chinese for seatunnel-engine (#6656)
+- [Doc][Improve]Add Support Chinese for start-v2/locally/quick-start-flink.md and start-v2/locally/quick-start-spark.md (#6412)
+- [Improve] add icon for idea (#6394)
+- [Improve] Add deprecated annotation for `ReadonlyConfig::toConfig` (#6353)
+
 
 ### Core
 
-- [Core] [Spark] Push transform operation from Spark Driver to Executors (#4503)
-- [Core] [Starter] Optimize code structure & remove redundant code (#4525)
-- [Core] [Translation] [Flink] Optimize code structure & remove redundant code (#4527)
-- [Core] [Starter] Add check of sink and source config to avoid null pointer exception. (#4734)
-- [Core] [Flink] Remove useless stage type related codes. (#5650)
+- [Improve][RestAPI] always return jobId when call getJobInfoById API (#6422)
+- [Improve][RestAPI] return finished job info when job is finished (#6576)
+- [Improve] Improve MultiTableSinkWriter prepare commit performance (#6495)
+- [Improve] Add SaveMode log of process detail (#6375)
+- [Improve][API] Unify type system api(data & type) (#5872)
 
 ### Formats
 
-- [Json] Remove assert key word. (#5919)
-- [Formats] Replace CommonErrorCodeDeprecated.JSON_OPERATION_FAILED. (#5948)
-- [Formats] Refactor exception catch for `ignoreParseErrors`. (#6065)
+- [Improve] Improve read with parquet type convert error (#6683)
 
 ### Connector-V2
 
-- [Connector-V2] [CDC] Improve startup.mode/stop.mode options (#4360)
-- [Connector-V2] [CDC] Optimize jdbc fetch-size options (#4352)
-- [Connector-V2] [CDC] Fix chunk start/end parameter type error (#4777)
-- [Connector-V2] [SQLServer] Fix sqlserver catalog (#4441)
-- [Connector-V2] [StarRocks] Improve StarRocks Serialize Error Message (#4458)
-- [Connector-V2] [Jdbc] add the log for sql and update some style (#4475)
-- [Connector-V2] [Jdbc] Fix the table name is not automatically obtained when multiple tables (#4514)
-- [Connector-V2] [S3 & Kafka] Delete unavailable S3 & Kafka Catalogs (#4477)
-- [Connector-V2] [Pulsar] Support Canal Format
-- [Connector-V2] [CDC base] Implement Sample-based Sharding Strategy with Configurable Sampling Rate (#4856)
-- [Connector-V2] [SelectDB] Add a jobId to the selectDB label to distinguish between tasks (#4864)
-- [Connector-V2] [Doris] Add a jobId to the doris label to distinguish between tasks (#4839) (#4853)
-- [Connector-v2] [Mongodb]Refactor mongodb connector (#4620)
-- [Connector-v2] [Jdbc] Populate primary key when jdbc sink is created using CatalogTable (#4755)
-- [Connector-v2] [Neo4j] Supports neo4j sink batch write mode (#4835)
-- [Transform-V2] Optimize SQL Transform package and Fix Spark type conversion bug of transform (#4490)
-- [Connector-V2] [Common] Remove assert key word (#5915)
-- [Connector-V2] Replace CommonErrorCodeDeprecated.JSON_OPERATION_FAILED. (#5978)
+- [Improve][Connector-V2]Support multi-table sink feature for redis (#6314)
+- [Improve][Connector-V2] oracle cdc e2e optimization (#6232)
+- [Improve][Connector-V2]Support multi-table sink feature for httpsink (#6316)
+- [Improve][Connector-V2] Support INFINI Easysearch (#5933)
+- [Improve][Connector-V2] Support hadoop ha and kerberos for paimon sink (#6585)
+- [Improve][CDC-Connector]Fix CDC option rule. (#6454)
+- [Improve][CDC] Optimize memory allocation for snapshot split reading (#6281)
+- [Improve][Connector-V2] Support TableSourceFactory on StarRocks (#6498)
+- [Improve][Jdbc] Using varchar2 datatype store string in oracle (#6392)
+- [Improve] StarRocksSourceReader  use the existing client  (#6480)
+- [Improve][JDBC] Optimized code style for getting jdbc field types (#6583)
+- [Improve][Connector-V2] Add ElasticSearch type converter (#6546)
+- [Improve][Connector-V2] Support read orc with schema config to cast type (#6531)
+- [Improve][Jdbc] Support custom case-sensitive config for dameng (#6510)
+- [Improve][Jdbc] Increase tyepe converter when auto creating tables (#6617)
+- [Improve][CDC] Optimize split state memory allocation in increment phase (#6554)
+- [Improve][CDC] Improve read performance when record not contains schema field (#6571)
+- [Improve][Jdbc] Add quote identifier for sql (#6669)
+- [Improve] Add disable 2pc in SelectDB cloud sink (#6266)
+- [Doc][Improve] Add Support Kerberos Auth For Kafka Connector #6653
 
 ### CI
 
 - [CI] Fix error repository name in ci config files (#4795)
-- [CI][E2E][Zeta] Increase Zeta checkpoint timeout to avoid connector-file-sftp-e2e failed frequently (#5339)
 
 ### Zeta(ST-Engine)
 
-- [Zeta] Support run the server through daemon mode (#4161)
-- [Zeta] Change ClassLoader To Improve the SDK compatibility of the client (#4447)
-- [Zeta] Client Support Async Submit Job (#4456)
-- [Zeta] Add more detailed log output. (#4446)
-- [Zeta] Improve seatunnel-cluster.sh (#4435)
-- [Zeta] Reduce CPU Cost When Task Not Ready (#4479)
-- [Zeta] Add parser log (#4485)
-- [Zeta] Remove redundant code (#4489)
-- [Zeta] Remove redundancy code in validateSQL (#4506)
-- [Zeta] Improve JobMetrics fetch performance (#4467)
-- [Zeta] Reduce the operation count of imap_running_job_metrics (#4861)
-- [Zeta] Speed up listAllJob function (#4852)
-- [Zeta] async execute checkpoint trigger and other block method (#4846)
-- [Zeta] Reduce the number of IMAPs used by checkpointIdCounter (#4832)
-- [Zeta] Cancel pipeline add retry to avoid cancel failed. (#4792)
-- [Zeta] Improve Zeta operation max count and ignore NPE (#4787)
-- [Zeta] Remove serialize(deserialize) cost when use shuffle action (#4722)
-- [zeta] Checkpoint exception status messages exclude state data (#5547)
-- [Zeta] Remove assert key words (#5947)
+- [Improve][Zeta] Add classloader cache mode to fix metaspace leak (#6355)
+- [Improve][Test] Fix test unstable on `ResourceManger` and `EventReport` module (#6620)
+- [Improve][Test] Run all test when code merged into dev branch (#6609)
+- [Improve][Test] Make classloader cache testing more stable (#6597)
+- [Improve][Zeta][storage] update hdfs configuration, support more parameters (#6547)
+- [Improve][Zeta]Optimize the logic of RestHttpGetCommandProcessor#getSeaTunnelServer()  (#6666)
+
+
+### Transformer
+
+- [Improve][Transform] Sql transform support inner strucy query (#6484)
+- [Improve][Transform] Remove Fallback during parsing Transform process (#6644)
+- [Improve][Transform] Remove can't find field exception  (#6691)
+
 
 ## Feature
 
 ### Core
 
-- [Core] [API] Support convert strings as List<T> option (#4362)
-- [Core] [API] Add copy method to Catalog codes (#4414)
-- [Core] [API] Add options check before create source and sink and transform in FactoryUtil (#4424)
-- [Core] [Shade] Add guava shade module (#4358)
-- [Core] [Spark] Support SeaTunnel Time Type (#5188)
-- [Core] [Flink] Support Decimal Type with configurable precision and scale (#5419)
-- [Core] [API] Support hocon style declare row type in generic type (#6187)
+- [Feature][Tool] Add connector check script for issue 6199 (#6635)
+- [Feature][Core] Support listening for message delayed events in cdc source (#6634)
+- [Feature][Core] Support event listener for job (#6419)
 
 ### Connector-V2
 
-- [Connector-V2] [CDC] [SQLServer] Support multi-table read (#4377)
-- [Connector-V2] [Kafka] Kafka source supports data deserialization failure skipping (#4364)
-- [Connector-V2] [Jdbc] [TiDB] Add TiDB catalog (#4438)
-- [Connector-V2] [File] Add file excel sink and source (#4164)
-- [Connector-v2] [Snowflake] Add Snowflake Source&Sink connector (#4470)
-- [Connector-V2] [Pular] support read format for pulsar (#4111)
-- [Connector-V2] [Paimon] Introduce paimon connector (#4178)
-- [Connector V2] [Cassandra] Expose configurable options in Cassandra (#3681)
-- [Connector V2] [Jdbc] Supports GEOMETRY data type for PostgreSQL (#4673)
-- [Connector V2] [Jdbc] Supports Kingbase database (#4803)
-- [Transform-V2] Add UDF SPI and an example implement for SQL Transform plugin (#4392)
-- [Transform-V2] Support copy field list (#4404)
-- [Transform-V2] Add support CatalogTable for FieldMapperTransform (#4423)
-- [Transform-V2] Add CatalogTable support for ReplaceTransform (#4411)
-- [Transform-V2] Add Catalog support for FilterRowKindTransform (#4420)
-- [Transform-V2] Add support CatalogTable for FilterFieldTransform (#4422)
-- [Transform-V2] Add catalog support for SQL Transform plugin (#4819)
-- [Connector-V2] [Assert] Support check the precision and scale of Decimal type (#6110)
-- [Connector-V2] [Assert] Support field type assert and field value equality assert for full data types (#6275)
-- [Connector-V2] [Iceberg] Support iceberg sink #6198
+- [Feature][connector-v2] add xugudb connector (#6561)
+- [Feature][Connector-V2] Support multi-table sink feature for paimon #5652 (#6449)
+- [Feature][Connectors-V2][File]support assign encoding for file source/sink (#6489)
+- [Feature][Connector]update pgsql-cdc publication for add table (#6309)
+- [Feature][Paimon] Support specify paimon table write properties, partition keys and primary keys (#6535)
+- [Feature][Feature] Support nanosecond in Doris DateTimeV2 type (#6358)
+- [Feature][Feature] Support nanosecond in SelectDB DateTimeV2 type (#6332)
+- [Feature][Feature] Supports iceberg sink #6198 (#6265)
 
 ### Zeta(ST-Engine)
 
-- [Zeta] Support for mixing Factory and Plugin SPI (#4359)
-- [Zeta] Add get running job info by jobId rest api (#4140)
-- [Zeta] Add REST API To Get System Monitoring Information (#4315)
-- [Transform V2 & Zeta] Make SplitTransform Support CatalogTable And CatalogTable Evolution (#4396)
-- [Zeta] Move driver into lib directory and change operation count (#4845)
-- [Zeta] Add Metaspace size default value to config file (#4848)
-- [Zeta] Reduce the frequency of fetching data from imap (#4851)
-- [Zeta] Add OSS support for Imap storage to cluster-mode type (#4683)
-- [Zeta] Improve local mode startup request ports (#4660)
+- [Zeta] Support config job retry times in job config (#6690)
+
 
 ## Docs 
 
-- [Docs] Optimizes part of the Doris and SelectDB connector documentation (#4365)
-- [Docs] Fix docs code style (#4368)
-- [Docs] Update jdbc doc and kafka doc (#4380)
-- [Docs] Fix max_retries default value is 0. (#4383)
-- [Docs] Fix markdown syntax (#4426)
-- [Docs] Fix Kafka Doc Error Config Key "kafka." (#4427)
-- [Docs] Add Transform to Quick Start v2 (#4436)
-- [Docs] Fix Dockerfile and seatunnel-flink.yaml in Set Up with Kubernetes (#4788)
-- [Docs] Fix Mysql sink format doc (#4800)
-- [Docs] Add the generate sink sql parameter for the jdbc sink document (#4797)
-- [Docs] Add the generate sink sql parameter And example (#4769)
-- [Docs] Redshift add defaultRowFetchSize (#4616)
-- [Docs] Refactor connector-v2 docs using unified format Mysql (#4590)
-- [Docs] Add Value types in Java to Schema features (#5087)
-- [Docs] Replace username by user in the options of FtpFile (#5421)
-- [Docs] Add how to configure logging related parameters of SeaTunnel-E2E Test (#5589)
-- [Docs] Remove redundant double quotation mark from an example code (#5845)
-- [Docs] Add Hive JDBC reference value (#5882)
+- [Docs] fix kafka format typo (#6633)
+- [Fix][Doc] Fixed links in some documents (#6673)
+- [Fix][Doc] Fix some spell errors (#6628)
+- [Fix][Doc] Fixed typography error in starrocks sink document (#6579)
+- [Hotfix][Doc][Chinese] Fix invalid link about configure logging related parameters (#6442)
+- [Fix][Doc]Seatunnel Engine/checkpoint-storage.md doc error(#6369)
