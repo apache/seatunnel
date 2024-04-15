@@ -56,7 +56,9 @@ public enum CommonErrorCode implements SeaTunnelErrorCode {
 
     PRIMARY_KEY_IS_NECESSARY("COMMON-24", "primary key is necessary"),
 
-    VERSION_NOT_SUPPORTED("COMMON-25", "<identifier> <version> is unsupported.");
+    VERSION_NOT_SUPPORTED("COMMON-25", "<identifier> <version> is unsupported."),
+
+    OPERATION_NOT_SUPPORTED("COMMON-26", "<identifier> <operation> is unsupported.");
 
     private final String code;
     private final String description;

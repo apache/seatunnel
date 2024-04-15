@@ -32,6 +32,7 @@ import org.apache.flink.api.common.typeinfo.LocalTimeTypeInfo;
 import org.apache.flink.api.common.typeinfo.PrimitiveArrayTypeInfo;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.typeutils.MapTypeInfo;
+import org.apache.flink.api.java.typeutils.ObjectArrayTypeInfo;
 import org.apache.flink.api.java.typeutils.RowTypeInfo;
 
 import java.math.BigDecimal;
@@ -166,6 +167,13 @@ public class TypeConverterUtils {
             return new MapTypeInfo<>(
                     convert(mapType.getKeyType()), convert(mapType.getValueType()));
         }
+
+        if (dataType instanceof ArrayType) {
+            ArrayType arrayType = (ArrayType) dataType;
+            return ObjectArrayTypeInfo.getInfoFor(
+                    arrayType.getTypeClass(), convert(arrayType.getElementType()));
+        }
+
         if (dataType instanceof SeaTunnelRowType) {
             SeaTunnelRowType rowType = (SeaTunnelRowType) dataType;
             TypeInformation<?>[] types =

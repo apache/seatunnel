@@ -36,6 +36,7 @@ import static org.apache.seatunnel.common.exception.CommonErrorCode.FILE_OPERATI
 import static org.apache.seatunnel.common.exception.CommonErrorCode.GET_CATALOG_TABLES_WITH_UNSUPPORTED_TYPE_ERROR;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.GET_CATALOG_TABLE_WITH_UNSUPPORTED_TYPE_ERROR;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.JSON_OPERATION_FAILED;
+import static org.apache.seatunnel.common.exception.CommonErrorCode.OPERATION_NOT_SUPPORTED;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.SQL_TEMPLATE_HANDLED_ERROR;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.UNSUPPORTED_DATA_TYPE;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.UNSUPPORTED_ENCODING;
@@ -191,6 +192,14 @@ public class CommonError {
         } else {
             return new SeaTunnelRuntimeException(code, params);
         }
+    }
+
+    public static SeaTunnelRuntimeException unsupportedOperation(
+            String identifier, String operation) {
+        Map<String, String> params = new HashMap<>();
+        params.put("identifier", identifier);
+        params.put("operation", operation);
+        return new SeaTunnelRuntimeException(OPERATION_NOT_SUPPORTED, params);
     }
 
     public static SeaTunnelRuntimeException sqlTemplateHandledError(

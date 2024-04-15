@@ -60,7 +60,6 @@ public class FlinkRowConverter extends RowConverter<Row> {
         }
         SqlType sqlType = dataType.getSqlType();
         switch (sqlType) {
-                // testlog
             case ROW:
                 SeaTunnelRow seaTunnelRow = (SeaTunnelRow) field;
                 SeaTunnelRowType rowType = (SeaTunnelRowType) dataType;
@@ -96,25 +95,17 @@ public class FlinkRowConverter extends RowConverter<Row> {
         if (mapData == null || mapData.isEmpty()) {
             return mapData;
         }
-        switch (mapType.getValueType().getSqlType()) {
-            case MAP:
-            case ROW:
-                Map<Object, Object> newMap = new HashMap<>(mapData.size());
-                mapData.forEach(
-                        (key, value) -> {
-                            // test log
-                            SeaTunnelDataType<?> keyType = mapType.getKeyType();
-                            SeaTunnelDataType<?> valueType = mapType.getValueType();
-                            // test log
-                            log.info("keyType:" + keyType + ",valueType:" + valueType);
-                            newMap.put(
-                                    convertFunction.apply(key, keyType),
-                                    convertFunction.apply(value, valueType));
-                        });
-                return newMap;
-            default:
-                return mapData;
-        }
+
+        Map<Object, Object> newMap = new HashMap<>(mapData.size());
+        mapData.forEach(
+                (key, value) -> {
+                    SeaTunnelDataType<?> keyType = mapType.getKeyType();
+                    SeaTunnelDataType<?> valueType = mapType.getValueType();
+                    newMap.put(
+                            convertFunction.apply(key, keyType),
+                            convertFunction.apply(value, valueType));
+                });
+        return newMap;
     }
 
     @Override
