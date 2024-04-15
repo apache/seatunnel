@@ -171,8 +171,9 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
                             seaTunnelRowType.getFieldNames()[i]);
         }
         SeaTunnelRow seaTunnelRow = new SeaTunnelRow(objects);
-        TablePath tablePath = Optional.ofNullable(catalogTable.getTablePath()).orElse(null);
-        if (tablePath != null) {
+        Optional<TablePath> tablePath =
+                Optional.ofNullable(catalogTable).map(CatalogTable::getTablePath);
+        if (tablePath.isPresent()) {
             seaTunnelRow.setTableId(tablePath.toString());
         }
         return seaTunnelRow;
