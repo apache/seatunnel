@@ -17,19 +17,19 @@
 
 package org.apache.seatunnel.connectors.doris.util;
 
-import org.apache.seatunnel.api.sink.SaveModePlaceHolderEnum;
+import org.apache.seatunnel.api.sink.SaveModePlaceHolder;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
-import org.apache.seatunnel.api.table.sql.template.SqlTemplate;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.connectors.doris.config.DorisOptions;
+import org.apache.seatunnel.connectors.seatunnel.common.sql.template.SqlTemplate;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -129,24 +129,23 @@ public class DorisCatalogUtil {
         }
         SqlTemplate.canHandledByTemplateWithPlaceholder(
                 template,
-                SaveModePlaceHolderEnum.ROWTYPE_PRIMARY_KEY.getPlaceHolder(),
+                SaveModePlaceHolder.ROWTYPE_PRIMARY_KEY.getPlaceHolder(),
                 primaryKey,
                 tablePath.getFullName(),
                 DorisOptions.SAVE_MODE_CREATE_TEMPLATE.key());
         template =
                 template.replaceAll(
-                        SaveModePlaceHolderEnum.ROWTYPE_PRIMARY_KEY.getReplacePlaceHolder(),
+                        SaveModePlaceHolder.ROWTYPE_PRIMARY_KEY.getReplacePlaceHolder(),
                         primaryKey);
         SqlTemplate.canHandledByTemplateWithPlaceholder(
                 template,
-                SaveModePlaceHolderEnum.ROWTYPE_UNIQUE_KEY.getPlaceHolder(),
+                SaveModePlaceHolder.ROWTYPE_UNIQUE_KEY.getPlaceHolder(),
                 uniqueKey,
                 tablePath.getFullName(),
                 DorisOptions.SAVE_MODE_CREATE_TEMPLATE.key());
         template =
                 template.replaceAll(
-                        SaveModePlaceHolderEnum.ROWTYPE_UNIQUE_KEY.getReplacePlaceHolder(),
-                        uniqueKey);
+                        SaveModePlaceHolder.ROWTYPE_UNIQUE_KEY.getReplacePlaceHolder(), uniqueKey);
         Map<String, CreateTableParser.ColumnInfo> columnInTemplate =
                 CreateTableParser.getColumnList(template);
         template = mergeColumnInTemplate(columnInTemplate, tableSchema, template);
@@ -157,14 +156,13 @@ public class DorisCatalogUtil {
                         .map(DorisCatalogUtil::columnToDorisType)
                         .collect(Collectors.joining(",\n"));
         return template.replaceAll(
-                        SaveModePlaceHolderEnum.DATABASE.getReplacePlaceHolder(),
+                        SaveModePlaceHolder.DATABASE.getReplacePlaceHolder(),
                         tablePath.getDatabaseName())
                 .replaceAll(
-                        SaveModePlaceHolderEnum.TABLE_NAME.getReplacePlaceHolder(),
+                        SaveModePlaceHolder.TABLE_NAME.getReplacePlaceHolder(),
                         tablePath.getTableName())
                 .replaceAll(
-                        SaveModePlaceHolderEnum.ROWTYPE_FIELDS.getReplacePlaceHolder(),
-                        rowTypeFields);
+                        SaveModePlaceHolder.ROWTYPE_FIELDS.getReplacePlaceHolder(), rowTypeFields);
     }
 
     private static String mergeColumnInTemplate(

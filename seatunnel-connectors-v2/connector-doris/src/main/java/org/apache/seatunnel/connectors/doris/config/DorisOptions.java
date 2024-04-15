@@ -21,7 +21,7 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.sink.DataSaveMode;
-import org.apache.seatunnel.api.sink.SaveModePlaceHolderEnum;
+import org.apache.seatunnel.api.sink.SaveModePlaceHolder;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
 
 import java.util.Map;
@@ -229,18 +229,18 @@ public interface DorisOptions {
                     .stringType()
                     .defaultValue(
                             "CREATE TABLE IF NOT EXISTS `"
-                                    + SaveModePlaceHolderEnum.DATABASE.getPlaceHolder()
+                                    + SaveModePlaceHolder.DATABASE.getPlaceHolder()
                                     + "`.`"
-                                    + SaveModePlaceHolderEnum.TABLE_NAME.getPlaceHolder()
+                                    + SaveModePlaceHolder.TABLE_NAME.getPlaceHolder()
                                     + "` (\n"
-                                    + SaveModePlaceHolderEnum.ROWTYPE_FIELDS.getPlaceHolder()
+                                    + SaveModePlaceHolder.ROWTYPE_FIELDS.getPlaceHolder()
                                     + "\n"
                                     + ") ENGINE=OLAP\n"
                                     + " UNIQUE KEY ("
-                                    + SaveModePlaceHolderEnum.ROWTYPE_PRIMARY_KEY.getPlaceHolder()
+                                    + SaveModePlaceHolder.ROWTYPE_PRIMARY_KEY.getPlaceHolder()
                                     + ")\n"
                                     + "DISTRIBUTED BY HASH ("
-                                    + SaveModePlaceHolderEnum.ROWTYPE_PRIMARY_KEY.getPlaceHolder()
+                                    + SaveModePlaceHolder.ROWTYPE_PRIMARY_KEY.getPlaceHolder()
                                     + ")\n "
                                     + "PROPERTIES (\n"
                                     + "\"replication_allocation\" = \"tag.location.default: 1\",\n"

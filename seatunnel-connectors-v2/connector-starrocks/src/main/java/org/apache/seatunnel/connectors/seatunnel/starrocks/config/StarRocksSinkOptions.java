@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.starrocks.config;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.sink.DataSaveMode;
-import org.apache.seatunnel.api.sink.SaveModePlaceHolderEnum;
+import org.apache.seatunnel.api.sink.SaveModePlaceHolder;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig.StreamLoadFormat;
 
@@ -59,20 +59,20 @@ public interface StarRocksSinkOptions {
                     .stringType()
                     .defaultValue(
                             "CREATE TABLE IF NOT EXISTS `"
-                                    + SaveModePlaceHolderEnum.DATABASE.getPlaceHolder()
+                                    + SaveModePlaceHolder.DATABASE.getPlaceHolder()
                                     + "`.`"
-                                    + SaveModePlaceHolderEnum.TABLE_NAME.getPlaceHolder()
+                                    + SaveModePlaceHolder.TABLE_NAME.getPlaceHolder()
                                     + "` (\n"
-                                    + SaveModePlaceHolderEnum.ROWTYPE_PRIMARY_KEY.getPlaceHolder()
+                                    + SaveModePlaceHolder.ROWTYPE_PRIMARY_KEY.getPlaceHolder()
                                     + ",\n"
-                                    + SaveModePlaceHolderEnum.ROWTYPE_FIELDS.getPlaceHolder()
+                                    + SaveModePlaceHolder.ROWTYPE_FIELDS.getPlaceHolder()
                                     + "\n"
                                     + ") ENGINE=OLAP\n"
                                     + " PRIMARY KEY ("
-                                    + SaveModePlaceHolderEnum.ROWTYPE_PRIMARY_KEY.getPlaceHolder()
+                                    + SaveModePlaceHolder.ROWTYPE_PRIMARY_KEY.getPlaceHolder()
                                     + ")\n"
                                     + "DISTRIBUTED BY HASH ("
-                                    + SaveModePlaceHolderEnum.ROWTYPE_PRIMARY_KEY.getPlaceHolder()
+                                    + SaveModePlaceHolder.ROWTYPE_PRIMARY_KEY.getPlaceHolder()
                                     + ")"
                                     + "PROPERTIES (\n"
                                     + "    \"replication_num\" = \"1\" \n"

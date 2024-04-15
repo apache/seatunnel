@@ -15,9 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.table.sql.template;
+package org.apache.seatunnel.connectors.seatunnel.common.sql.template;
 
-import org.apache.seatunnel.api.sink.SaveModePlaceHolderEnum;
+import org.apache.seatunnel.api.sink.SaveModePlaceHolder;
+import org.apache.seatunnel.common.exception.CommonError;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -33,14 +34,17 @@ public class SqlTemplate {
             String tableName,
             String optionsKey) {
         if (createTemplate.contains(placeholder) && StringUtils.isBlank(actualPlaceHolderValue)) {
-            throw new RuntimeException(
-                    String.format(
-                            EXCEPTION_TEMPLATE,
-                            tableName,
-                            SaveModePlaceHolderEnum.getActualValueByPlaceHolder(placeholder),
-                            createTemplate,
-                            placeholder,
-                            optionsKey));
+            throw CommonError.sqlTemplateHandledError(
+                    "SqlTemplate",
+                    "canHandledByTemplateWithPlaceholder",
+                    new RuntimeException(
+                            String.format(
+                                    EXCEPTION_TEMPLATE,
+                                    tableName,
+                                    SaveModePlaceHolder.getDisplay(placeholder),
+                                    createTemplate,
+                                    placeholder,
+                                    optionsKey)));
         }
     }
 }

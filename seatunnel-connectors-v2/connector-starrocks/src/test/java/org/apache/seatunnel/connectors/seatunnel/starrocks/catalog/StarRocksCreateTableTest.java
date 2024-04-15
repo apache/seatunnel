@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.catalog;
 
-import org.apache.seatunnel.api.sink.SaveModePlaceHolderEnum;
+import org.apache.seatunnel.api.sink.SaveModePlaceHolder;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
@@ -26,10 +26,12 @@ import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
-import org.apache.seatunnel.api.table.sql.template.SqlTemplate;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.connectors.seatunnel.common.sql.template.SqlTemplate;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRocksSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.sink.StarRocksSaveModeUtil;
 
@@ -142,7 +144,7 @@ public class StarRocksCreateTableTest {
                         "");
         TablePath tablePath = TablePath.of("test1.test2");
         String createTemplate = StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE.defaultValue();
-        RuntimeException runtimeException =
+        RuntimeException actualSeaTunnelRuntimeException =
                 Assertions.assertThrows(
                         RuntimeException.class,
                         () ->
@@ -151,16 +153,22 @@ public class StarRocksCreateTableTest {
                                         tablePath.getDatabaseName(),
                                         tablePath.getTableName(),
                                         catalogTable.getTableSchema()));
-        String primaryKeyHolder = SaveModePlaceHolderEnum.ROWTYPE_PRIMARY_KEY.getPlaceHolder();
+        String primaryKeyHolder = SaveModePlaceHolder.ROWTYPE_PRIMARY_KEY.getPlaceHolder();
+        SeaTunnelRuntimeException exceptSeaTunnelRuntimeException =
+                CommonError.sqlTemplateHandledError(
+                        "SqlTemplate",
+                        "canHandledByTemplateWithPlaceholder",
+                        new RuntimeException(
+                                String.format(
+                                        SqlTemplate.EXCEPTION_TEMPLATE,
+                                        tablePath.getFullName(),
+                                        SaveModePlaceHolder.getDisplay(primaryKeyHolder),
+                                        createTemplate,
+                                        primaryKeyHolder,
+                                        StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE.key())));
         Assertions.assertEquals(
-                String.format(
-                        SqlTemplate.EXCEPTION_TEMPLATE,
-                        tablePath.getFullName(),
-                        SaveModePlaceHolderEnum.getActualValueByPlaceHolder(primaryKeyHolder),
-                        createTemplate,
-                        primaryKeyHolder,
-                        StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE.key()),
-                runtimeException.getMessage());
+                exceptSeaTunnelRuntimeException.getMessage(),
+                actualSeaTunnelRuntimeException.getMessage());
     }
 
     @Test
