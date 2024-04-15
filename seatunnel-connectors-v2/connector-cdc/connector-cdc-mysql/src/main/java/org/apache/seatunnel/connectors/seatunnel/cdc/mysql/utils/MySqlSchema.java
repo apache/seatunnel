@@ -93,13 +93,11 @@ public class MySqlSchema {
                 tableChangeMap = getTableSchemaByDescTable(jdbc, tableId);
             } catch (SQLException ex) {
                 throw new SeaTunnelException(
-                        String.format("Failed to read schema for table %s by running %s", tableId),
-                        ex);
+                        String.format("Failed to read schema for table %s", tableId), ex);
             }
         }
         if (!tableChangeMap.containsKey(tableId)) {
-            throw new RuntimeException(
-                    String.format("Can't obtain schema for table %s by running %s", tableId));
+            throw new RuntimeException(String.format("Can't obtain schema for table %s", tableId));
         }
 
         return tableChangeMap.get(tableId);
