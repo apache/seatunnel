@@ -78,6 +78,7 @@ Apache SeaTunnel is a
 next-generation high-performance,
 distributed, massive data integration tool.
 """
+sql = """ select * from "table" """
 ```
 
 ### json
