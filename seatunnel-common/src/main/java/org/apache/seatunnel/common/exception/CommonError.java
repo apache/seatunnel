@@ -36,6 +36,7 @@ import static org.apache.seatunnel.common.exception.CommonErrorCode.FILE_OPERATI
 import static org.apache.seatunnel.common.exception.CommonErrorCode.GET_CATALOG_TABLES_WITH_UNSUPPORTED_TYPE_ERROR;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.GET_CATALOG_TABLE_WITH_UNSUPPORTED_TYPE_ERROR;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.JSON_OPERATION_FAILED;
+import static org.apache.seatunnel.common.exception.CommonErrorCode.SQL_TEMPLATE_HANDLED_ERROR;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.UNSUPPORTED_DATA_TYPE;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.UNSUPPORTED_ENCODING;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.WRITE_SEATUNNEL_ROW_ERROR;
@@ -182,5 +183,20 @@ public class CommonError {
         } else {
             return new SeaTunnelRuntimeException(code, params);
         }
+    }
+
+    public static SeaTunnelRuntimeException sqlTemplateHandledError(
+            String tableName,
+            String keyName,
+            String template,
+            String placeholder,
+            String optionName) {
+        Map<String, String> params = new HashMap<>();
+        params.put("tableName", tableName);
+        params.put("keyName", keyName);
+        params.put("template", template);
+        params.put("placeholder", placeholder);
+        params.put("optionName", optionName);
+        return new SeaTunnelRuntimeException(SQL_TEMPLATE_HANDLED_ERROR, params);
     }
 }
