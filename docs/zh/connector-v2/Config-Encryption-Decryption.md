@@ -74,7 +74,7 @@ Base64编码支持加密以下参数：
      }
    }
    ```
-2. 通过Shell脚本调用不同的计算引擎来对配置文件进行加密操作。在本示例中，我们使用 Zeta 引擎对配置文件进行加密。
+3. 通过Shell脚本调用不同的计算引擎来对配置文件进行加密操作。在本示例中，我们使用 Zeta 引擎对配置文件进行加密。
 
    ```shell
    ${SEATUNNEL_HOME}/bin/seatunnel.sh --config config/v2.batch.template --encrypt
@@ -119,7 +119,7 @@ Base64编码支持加密以下参数：
        ]
    }
    ```
-3. 当然，不仅支持加密配置文件，还支持对配置文件的解密。如果用户想要查看解密后的配置文件，可以执行以下命令：
+4. 当然，不仅支持加密配置文件，还支持对配置文件的解密。如果用户想要查看解密后的配置文件，可以执行以下命令：
 
    ```shell
    ${SEATUNNEL_HOME}/bin/seatunnel.sh --config config/v2.batch.template --decrypt
