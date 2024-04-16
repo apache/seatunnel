@@ -21,6 +21,11 @@
 The Oracle CDC connector allows for reading snapshot data and incremental data from Oracle database. This document
 describes how to set up the Oracle CDC connector to run SQL queries against Oracle databases.
 
+## Notice
+
+The Debezium Oracle connector does not rely on the continuous mining option.  The connector is responsible for detecting log switches and adjusting the logs that are mined automatically, which the continuous mining option did for you automatically.
+So, you can not set this property named `log.mining.continuous.mine` in the debezium.
+
 ## Supported DataSource Info
 
 | Datasource |                    Supported versions                    |          Driver          |                  Url                   |                               Maven                                |

@@ -34,10 +34,13 @@ import io.debezium.connector.sqlserver.SqlServerConnection;
 import io.debezium.connector.sqlserver.SqlServerConnectorConfig;
 import io.debezium.connector.sqlserver.SqlServerDatabaseSchema;
 import io.debezium.connector.sqlserver.SqlServerOffsetContext;
+import io.debezium.connector.sqlserver.SqlServerPartition;
 import io.debezium.connector.sqlserver.SqlServerStreamingChangeEventSource;
 import io.debezium.pipeline.ErrorHandler;
 import io.debezium.pipeline.source.spi.ChangeEventSource;
 import io.debezium.util.Clock;
+
+import java.util.Map;
 
 import static org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source.offset.LsnOffset.NO_STOPPING_OFFSET;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.utils.SqlServerUtils.getLsnPosition;
@@ -70,7 +73,9 @@ public class SqlServerTransactionLogFetchTask implements FetchTask<SourceSplitBa
                 new TransactionLogSplitChangeEventSourceContext();
 
         transactionLogSplitReadTask.execute(
-                changeEventSourceContext, sourceFetchContext.getOffsetContext());
+                changeEventSourceContext,
+                sourceFetchContext.getPartition(),
+                sourceFetchContext.getOffsetContext());
     }
 
     @Override
@@ -123,16 +128,16 @@ public class SqlServerTransactionLogFetchTask implements FetchTask<SourceSplitBa
         }
 
         @Override
-        public void afterHandleLsn(SqlServerOffsetContext offsetContext) {
+        public void afterHandleLsn(SqlServerPartition partition, Map<String, ?> offset) {
             // check do we need to stop for fetch binlog for snapshot split.
             if (isBoundedRead()) {
-                final LsnOffset currentRedoLogOffset = getLsnPosition(offsetContext.getOffset());
+                final LsnOffset currentRedoLogOffset = getLsnPosition(offset);
                 // reach the high watermark, the binlog fetcher should be finished
                 if (currentRedoLogOffset.isAtOrAfter(lsnSplit.getStopOffset())) {
                     // send binlog end event
                     try {
                         dispatcher.dispatchWatermarkEvent(
-                                offsetContext.getPartition(),
+                                partition.getSourcePartition(),
                                 lsnSplit,
                                 currentRedoLogOffset,
                                 WatermarkKind.END);
@@ -154,10 +159,13 @@ public class SqlServerTransactionLogFetchTask implements FetchTask<SourceSplitBa
         }
 
         @Override
-        public void execute(ChangeEventSourceContext context, SqlServerOffsetContext offsetContext)
+        public void execute(
+                ChangeEventSourceContext context,
+                SqlServerPartition partition,
+                SqlServerOffsetContext offsetContext)
                 throws InterruptedException {
             this.context = context;
-            super.execute(context, offsetContext);
+            super.execute(context, partition, offsetContext);
         }
     }
 

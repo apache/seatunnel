@@ -51,7 +51,7 @@ import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlCon
 
 /** The {@link JdbcDataSourceDialect} implementation for MySQL datasource. */
 public class MySqlDialect implements JdbcDataSourceDialect {
-
+    private static final String QUOTED_CHARACTER = "`";
     private static final long serialVersionUID = 1L;
     private final MySqlSourceConfig sourceConfig;
     private transient MySqlSchema mySqlSchema;

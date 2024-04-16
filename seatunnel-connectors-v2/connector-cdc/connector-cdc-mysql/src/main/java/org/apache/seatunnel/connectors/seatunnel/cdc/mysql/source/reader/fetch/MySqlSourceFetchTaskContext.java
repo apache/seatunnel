@@ -47,6 +47,7 @@ import io.debezium.connector.mysql.MySqlConnectorConfig;
 import io.debezium.connector.mysql.MySqlDatabaseSchema;
 import io.debezium.connector.mysql.MySqlErrorHandler;
 import io.debezium.connector.mysql.MySqlOffsetContext;
+import io.debezium.connector.mysql.MySqlPartition;
 import io.debezium.connector.mysql.MySqlStreamingChangeEventSourceMetrics;
 import io.debezium.connector.mysql.MySqlTaskContext;
 import io.debezium.connector.mysql.MySqlTopicSelector;
@@ -56,6 +57,7 @@ import io.debezium.pipeline.ErrorHandler;
 import io.debezium.pipeline.metrics.SnapshotChangeEventSourceMetrics;
 import io.debezium.pipeline.source.spi.EventMetadataProvider;
 import io.debezium.pipeline.spi.OffsetContext;
+import io.debezium.pipeline.spi.Offsets;
 import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
 import io.debezium.relational.Tables;
@@ -89,10 +91,11 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
     private MySqlDatabaseSchema databaseSchema;
     private MySqlTaskContextImpl taskContext;
     private MySqlOffsetContext offsetContext;
-    private SnapshotChangeEventSourceMetrics snapshotChangeEventSourceMetrics;
+    private SnapshotChangeEventSourceMetrics<MySqlPartition> snapshotChangeEventSourceMetrics;
     private MySqlStreamingChangeEventSourceMetrics streamingChangeEventSourceMetrics;
     private TopicSelector<TableId> topicSelector;
-    private JdbcSourceEventDispatcher dispatcher;
+    private JdbcSourceEventDispatcher<MySqlPartition> dispatcher;
+    private MySqlPartition mySqlPartition;
     private ChangeEventQueue<DataChangeEvent> queue;
     private MySqlErrorHandler errorHandler;
 
@@ -118,6 +121,8 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
         this.offsetContext =
                 loadStartingOffsetState(
                         new MySqlOffsetContext.Loader(connectorConfig), sourceSplitBase);
+        this.mySqlPartition = new MySqlPartition(connectorConfig.getLogicalName());
+
         validateAndLoadDatabaseHistory(offsetContext, databaseSchema);
 
         this.taskContext =
@@ -144,7 +149,7 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                         // .buffering()
                         .build();
         this.dispatcher =
-                new JdbcSourceEventDispatcher(
+                new JdbcSourceEventDispatcher<>(
                         connectorConfig,
                         topicSelector,
                         databaseSchema,
@@ -165,7 +170,7 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                 (MySqlStreamingChangeEventSourceMetrics)
                         changeEventSourceMetricsFactory.getStreamingMetrics(
                                 taskContext, queue, metadataProvider);
-        this.errorHandler = new MySqlErrorHandler(connectorConfig.getLogicalName(), queue);
+        this.errorHandler = new MySqlErrorHandler(connectorConfig, queue);
     }
 
     @Override
@@ -207,7 +212,12 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
         return offsetContext;
     }
 
-    public SnapshotChangeEventSourceMetrics getSnapshotChangeEventSourceMetrics() {
+    @Override
+    public MySqlPartition getPartition() {
+        return mySqlPartition;
+    }
+
+    public SnapshotChangeEventSourceMetrics<MySqlPartition> getSnapshotChangeEventSourceMetrics() {
         return snapshotChangeEventSourceMetrics;
     }
 
@@ -231,7 +241,7 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
     }
 
     @Override
-    public JdbcSourceEventDispatcher getDispatcher() {
+    public JdbcSourceEventDispatcher<MySqlPartition> getDispatcher() {
         return dispatcher;
     }
 
@@ -298,7 +308,7 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
     private void validateAndLoadDatabaseHistory(
             MySqlOffsetContext offset, MySqlDatabaseSchema schema) {
         schema.initializeStorage();
-        schema.recover(offset);
+        schema.recover(Offsets.of(mySqlPartition, offset));
     }
 
     private void registerDatabaseHistory(SourceSplitBase sourceSplitBase) {

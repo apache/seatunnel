@@ -43,7 +43,7 @@ public class MySqlTypeUtils {
                         .length((long) column.length())
                         .precision((long) column.length())
                         .scale(column.scale().orElse(0))
-                        .defaultValue(column.defaultValue());
+                        .defaultValue(column.defaultValueExpression().orElse("NULL"));
         switch (column.typeName().toUpperCase()) {
             case MySqlTypeConverter.MYSQL_CHAR:
             case MySqlTypeConverter.MYSQL_VARCHAR:
