@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.doris.catalog;
 
+import org.apache.seatunnel.api.sink.SaveModePlaceHolder;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
@@ -89,8 +90,6 @@ public class DorisCatalog implements Catalog {
     private String dorisVersion;
 
     private TypeConverter<BasicTypeDefine> typeConverter;
-
-    public static final String DUP_KEY = "rowtype_dup_key";
 
     public DorisCatalog(
             String catalogName,
@@ -317,13 +316,19 @@ public class DorisCatalog implements Catalog {
                     if ("UNI".equalsIgnoreCase(columnKey)) {
                         keyList.add(columName);
                     } else if ("DUP".equalsIgnoreCase(columnKey)) {
-                        String dupKey = options.getOrDefault(DUP_KEY, "");
+                        String dupKey =
+                                options.getOrDefault(
+                                        SaveModePlaceHolder.ROWTYPE_DUPLICATE_KEY
+                                                .getPlaceHolderKey(),
+                                        "");
                         if (StringUtils.isBlank(dupKey)) {
                             dupKey = columName;
                         } else {
                             dupKey = dupKey + "," + columName;
                         }
-                        options.put(DUP_KEY, dupKey);
+                        options.put(
+                                SaveModePlaceHolder.ROWTYPE_DUPLICATE_KEY.getPlaceHolderKey(),
+                                dupKey);
                     }
                 }
             } catch (SeaTunnelRuntimeException e) {

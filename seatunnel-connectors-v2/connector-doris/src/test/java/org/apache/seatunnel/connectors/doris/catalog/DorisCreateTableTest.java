@@ -29,10 +29,10 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
-import org.apache.seatunnel.connectors.doris.datatype.DorisTypeConverterV1;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.doris.config.DorisOptions;
+import org.apache.seatunnel.connectors.doris.datatype.DorisTypeConverterV1;
 import org.apache.seatunnel.connectors.doris.util.DorisCatalogUtil;
 
 import org.apache.commons.lang3.StringUtils;
@@ -158,7 +158,10 @@ public class DorisCreateTableTest {
                         SeaTunnelRuntimeException.class,
                         () ->
                                 DorisCatalogUtil.getCreateTableStatement(
-                                        createTemplate, tablePath, catalogTable));
+                                        createTemplate,
+                                        tablePath,
+                                        catalogTable,
+                                        DorisTypeConverterV1.INSTANCE));
         String primaryKeyHolder = SaveModePlaceHolder.ROWTYPE_PRIMARY_KEY.getPlaceHolder();
         SeaTunnelRuntimeException exceptSeaTunnelRuntimeException =
                 CommonError.sqlTemplateHandledError(

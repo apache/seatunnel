@@ -24,9 +24,10 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.converter.TypeConverter;
+import org.apache.seatunnel.connectors.doris.config.DorisOptions;
+import org.apache.seatunnel.connectors.seatunnel.common.sql.template.SqlTemplate;
 
 import org.apache.commons.lang3.StringUtils;
-import org.apache.seatunnel.connectors.doris.catalog.DorisCatalog;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -130,8 +131,16 @@ public class DorisCatalogUtil {
         // dup key
         String dupKey = "";
         if (catalogTable.getOptions() != null
-                && StringUtils.isNotBlank(catalogTable.getOptions().get(DorisCatalog.DUP_KEY))) {
-            String dupKeyColumns = catalogTable.getOptions().get(DorisCatalog.DUP_KEY);
+                && StringUtils.isNotBlank(
+                        catalogTable
+                                .getOptions()
+                                .get(
+                                        SaveModePlaceHolder.ROWTYPE_DUPLICATE_KEY
+                                                .getPlaceHolderKey()))) {
+            String dupKeyColumns =
+                    catalogTable
+                            .getOptions()
+                            .get(SaveModePlaceHolder.ROWTYPE_DUPLICATE_KEY.getPlaceHolderKey());
             dupKey =
                     Arrays.stream(dupKeyColumns.split(","))
                             .map(r -> "`" + r + "`")
@@ -160,12 +169,12 @@ public class DorisCatalogUtil {
         SqlTemplate.canHandledByTemplateWithPlaceholder(
                 template,
                 SaveModePlaceHolder.ROWTYPE_DUPLICATE_KEY.getPlaceHolder(),
-                uniqueKey,
+                dupKey,
                 tablePath.getFullName(),
                 DorisOptions.SAVE_MODE_CREATE_TEMPLATE.key());
         template =
                 template.replaceAll(
-                        SaveModePlaceHolder.ROWTYPE_DUPLICATE_KEY.getReplacePlaceHolder(), uniqueKey);
+                        SaveModePlaceHolder.ROWTYPE_DUPLICATE_KEY.getReplacePlaceHolder(), dupKey);
         Map<String, CreateTableParser.ColumnInfo> columnInTemplate =
                 CreateTableParser.getColumnList(template);
         template = mergeColumnInTemplate(columnInTemplate, tableSchema, template, typeConverter);
