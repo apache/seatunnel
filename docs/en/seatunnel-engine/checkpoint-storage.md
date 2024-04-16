@@ -186,3 +186,40 @@ seatunnel:
 
 ```
 
+### Enable cache
+
+When storage:type is hdfs, cache is disabled by default. If you want to enable it, set `disable.cache: false`
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      interval: 6000
+      timeout: 7000
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          storage.type: hdfs
+          disable.cache: false
+          fs.defaultFS: hdfs:///
+
+```
+
+or
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      interval: 6000
+      timeout: 7000
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          storage.type: hdfs
+          disable.cache: false
+          fs.defaultFS: file:///
+```
+
