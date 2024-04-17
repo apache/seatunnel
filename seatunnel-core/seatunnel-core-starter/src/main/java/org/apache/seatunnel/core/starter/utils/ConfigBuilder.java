@@ -19,8 +19,10 @@ package org.apache.seatunnel.core.starter.utils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigParseOptions;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
+import org.apache.seatunnel.shade.com.typesafe.config.impl.Parseable;
 
 import org.apache.seatunnel.api.configuration.ConfigAdapter;
 
@@ -118,9 +120,15 @@ public class ConfigBuilder {
                     .map(variable -> variable.split("=", 2))
                     .filter(pair -> pair.length == 2)
                     .forEach(pair -> System.setProperty(pair[0], pair[1]));
+            Config systemConfig =
+                    Parseable.newProperties(
+                                    System.getProperties(),
+                                    ConfigParseOptions.defaults()
+                                            .setOriginDescription("system properties"))
+                            .parse()
+                            .toConfig();
             return config.resolveWith(
-                    ConfigFactory.systemProperties(),
-                    ConfigResolveOptions.defaults().setAllowUnresolved(true));
+                    systemConfig, ConfigResolveOptions.defaults().setAllowUnresolved(true));
         }
         return config;
     }
