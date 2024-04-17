@@ -19,7 +19,8 @@ package org.apache.seatunnel.connectors.seatunnel.hive.storage;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
-import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3Conf;
+import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3ConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveOnS3Conf;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -39,7 +40,33 @@ public class S3StorageTest {
                                     "hive.hadoop.conf",
                                     new HashMap<String, String>() {
                                         {
-                                            put("bucket", "s3a://my_bucket");
+                                            put(S3ConfigOptions.S3_BUCKET.key(), "s3a://my_bucket");
+                                            put(
+                                                    S3ConfigOptions.S3A_AWS_CREDENTIALS_PROVIDER
+                                                            .key(),
+                                                    "provider");
+                                            put(
+                                                    S3ConfigOptions.FS_S3A_ENDPOINT.key(),
+                                                    "http://s3.ap-northeast-1.amazonaws.com");
+                                        }
+                                    });
+                        }
+                    });
+
+    private static final ReadonlyConfig S3 =
+            ReadonlyConfig.fromMap(
+                    new HashMap<String, Object>() {
+                        {
+                            put(
+                                    "hive.hadoop.conf",
+                                    new HashMap<String, String>() {
+                                        {
+                                            put(S3ConfigOptions.S3_BUCKET.key(), "s3://my_bucket");
+                                            put(
+                                                    S3ConfigOptions.S3A_AWS_CREDENTIALS_PROVIDER
+                                                            .key(),
+                                                    "testProvider");
+                                            put(S3ConfigOptions.FS_S3A_ENDPOINT.key(), "test");
                                         }
                                     });
                         }
@@ -50,6 +77,12 @@ public class S3StorageTest {
         S3Storage s3Storage = new S3Storage();
         HadoopConf s3aConf = s3Storage.buildHadoopConfWithReadOnlyConfig(S3A);
         assertHadoopConfForS3a(s3aConf);
+
+        HadoopConf s3Conf = s3Storage.buildHadoopConfWithReadOnlyConfig(S3);
+        Assertions.assertTrue(s3Conf instanceof HiveOnS3Conf);
+        Assertions.assertEquals(s3Conf.getSchema(), "s3");
+        Assertions.assertEquals(
+                s3Conf.getFsHdfsImpl(), "com.amazon.ws.emr.hadoop.fs.EmrFileSystem");
     }
 
     @Test
@@ -66,7 +99,7 @@ public class S3StorageTest {
     }
 
     private void assertHadoopConfForS3a(HadoopConf s3aConf) {
-        Assertions.assertTrue(s3aConf instanceof S3Conf);
+        Assertions.assertTrue(s3aConf instanceof HiveOnS3Conf);
         Assertions.assertEquals(s3aConf.getSchema(), "s3a");
         Assertions.assertEquals(s3aConf.getFsHdfsImpl(), "org.apache.hadoop.fs.s3a.S3AFileSystem");
     }

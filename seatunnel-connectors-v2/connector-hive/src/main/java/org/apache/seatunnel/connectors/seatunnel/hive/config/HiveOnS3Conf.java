@@ -27,8 +27,9 @@ public class HiveOnS3Conf extends S3Conf {
     // The emr of amazon on s3 use this EmrFileSystem as the file system
     protected static final String HDFS_S3_IMPL = "com.amazon.ws.emr.hadoop.fs.EmrFileSystem";
 
-    protected HiveOnS3Conf(String hdfsNameKey) {
+    protected HiveOnS3Conf(String hdfsNameKey, String schema) {
         super(hdfsNameKey);
+        setSchema(schema);
     }
 
     @Override
@@ -44,9 +45,13 @@ public class HiveOnS3Conf extends S3Conf {
     public static HadoopConf buildWithReadOnlyConfig(ReadonlyConfig readonlyConfig) {
         S3Conf s3Conf = (S3Conf) S3Conf.buildWithReadOnlyConfig(readonlyConfig);
         String bucketName = readonlyConfig.get(S3ConfigOptions.S3_BUCKET);
-        if (!bucketName.startsWith(S3A_SCHEMA) && !bucketName.startsWith(DEFAULT_SCHEMA)) {
+        if (bucketName.startsWith(DEFAULT_SCHEMA)) {
+            s3Conf.setSchema(DEFAULT_SCHEMA);
+        } else if (bucketName.startsWith(S3A_SCHEMA)) {
+            s3Conf.setSchema(S3A_SCHEMA);
+        } else {
             s3Conf.setSchema(S3_SCHEMA);
         }
-        return new HiveOnS3Conf(s3Conf.getHdfsNameKey());
+        return new HiveOnS3Conf(s3Conf.getHdfsNameKey(), s3Conf.getSchema());
     }
 }
