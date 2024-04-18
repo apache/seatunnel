@@ -92,8 +92,6 @@ network:
   "jobId": "",
   "jobName": "",
   "jobStatus": "",
-  "envOptions": {
-  },
   "createTime": "",
   "jobDag": {
     "vertices": [
@@ -101,14 +99,62 @@ network:
     "edges": [
     ]
   },
-  "pluginJarsUrls": [
-  ],
-  "isStartWithSavePoint": false,
   "metrics": {
     "sourceReceivedCount": "",
     "sinkWriteCount": ""
-  }
+  },
+  "finishedTime": "",
+  "errorMsg": null,
+  "envOptions": {
+  },
+  "pluginJarsUrls": [
+  ],
+  "isStartWithSavePoint": false
 }
+```
+
+`jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` always be returned.
+`envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` will return when job is running.
+`finishedTime`, `errorMsg` will return when job is finished.
+
+When we can't get the job info, the response will be:
+
+```json
+{
+  "jobId" : ""
+}
+```
+
+</details>
+
+------------------------------------------------------------------------------------------
+
+### Return all finished Jobs Info.
+
+<details>
+ <summary><code>GET</code> <code><b>/hazelcast/rest/maps/finished-jobs/:state</b></code> <code>(Return all finished Jobs Info.)</code></summary>
+
+#### Parameters
+
+> | name  |   type   | data type |                           description                            |
+> |-------|----------|-----------|------------------------------------------------------------------|
+> | state | optional | string    | finished job status. `FINISHED`,`CANCELED`,`FAILED`,`UNKNOWABLE` |
+
+#### Responses
+
+```json
+[
+  {
+    "jobId": "",
+    "jobName": "",
+    "jobStatus": "",
+    "errorMsg": null,
+    "createTime": "",
+    "finishTime": "",
+    "jobDag": "",
+    "metrics": ""
+  }
+]
 ```
 
 </details>
@@ -275,7 +321,7 @@ For more information about customize encryption, please refer to the documentati
 ```json
 {
     "env": {
-        "execution.parallelism": 1,
+        "parallelism": 1,
         "shade.identifier":"base64"
     },
     "source": [
@@ -315,7 +361,7 @@ For more information about customize encryption, please refer to the documentati
 ```json
 {
     "env": {
-        "execution.parallelism": 1,
+        "parallelism": 1,
         "shade.identifier": "base64"
     },
     "source": [

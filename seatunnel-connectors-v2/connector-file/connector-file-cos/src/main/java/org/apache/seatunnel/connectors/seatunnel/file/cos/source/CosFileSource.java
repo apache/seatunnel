@@ -32,7 +32,7 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.cos.config.CosConf;
-import org.apache.seatunnel.connectors.seatunnel.file.cos.config.CosConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.cos.config.CosConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.source.BaseFileSource;
@@ -54,12 +54,12 @@ public class CosFileSource extends BaseFileSource {
         CheckResult result =
                 CheckConfigUtil.checkAllExists(
                         pluginConfig,
-                        CosConfig.FILE_PATH.key(),
-                        CosConfig.FILE_FORMAT_TYPE.key(),
-                        CosConfig.SECRET_ID.key(),
-                        CosConfig.SECRET_KEY.key(),
-                        CosConfig.REGION.key(),
-                        CosConfig.BUCKET.key());
+                        CosConfigOptions.FILE_PATH.key(),
+                        CosConfigOptions.FILE_FORMAT_TYPE.key(),
+                        CosConfigOptions.SECRET_ID.key(),
+                        CosConfigOptions.SECRET_KEY.key(),
+                        CosConfigOptions.REGION.key(),
+                        CosConfigOptions.BUCKET.key());
         if (!result.isSuccess()) {
             throw new FileConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
@@ -67,13 +67,15 @@ public class CosFileSource extends BaseFileSource {
                             "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
-        readStrategy =
-                ReadStrategyFactory.of(pluginConfig.getString(CosConfig.FILE_FORMAT_TYPE.key()));
-        readStrategy.setPluginConfig(pluginConfig);
-        String path = pluginConfig.getString(CosConfig.FILE_PATH.key());
+        String path = pluginConfig.getString(CosConfigOptions.FILE_PATH.key());
         hadoopConf = CosConf.buildWithConfig(pluginConfig);
+        readStrategy =
+                ReadStrategyFactory.of(
+                        pluginConfig.getString(CosConfigOptions.FILE_FORMAT_TYPE.key()));
+        readStrategy.setPluginConfig(pluginConfig);
+        readStrategy.init(hadoopConf);
         try {
-            filePaths = readStrategy.getFileNamesByPath(hadoopConf, path);
+            filePaths = readStrategy.getFileNamesByPath(path);
         } catch (IOException e) {
             String errorMsg = String.format("Get file list from this path [%s] failed", path);
             throw new FileConnectorException(
@@ -82,7 +84,9 @@ public class CosFileSource extends BaseFileSource {
         // support user-defined schema
         FileFormat fileFormat =
                 FileFormat.valueOf(
-                        pluginConfig.getString(CosConfig.FILE_FORMAT_TYPE.key()).toUpperCase());
+                        pluginConfig
+                                .getString(CosConfigOptions.FILE_FORMAT_TYPE.key())
+                                .toUpperCase());
         // only json text csv type support user-defined schema now
         if (pluginConfig.hasPath(TableSchemaOptions.SCHEMA.key())) {
             switch (fileFormat) {
@@ -90,6 +94,7 @@ public class CosFileSource extends BaseFileSource {
                 case TEXT:
                 case JSON:
                 case EXCEL:
+                case XML:
                     SeaTunnelRowType userDefinedSchema =
                             CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
                     readStrategy.setSeaTunnelRowTypeInfo(userDefinedSchema);
@@ -113,7 +118,7 @@ public class CosFileSource extends BaseFileSource {
                 return;
             }
             try {
-                rowType = readStrategy.getSeaTunnelRowTypeInfo(hadoopConf, filePaths.get(0));
+                rowType = readStrategy.getSeaTunnelRowTypeInfo(filePaths.get(0));
             } catch (FileConnectorException e) {
                 String errorMsg =
                         String.format("Get table schema from file [%s] failed", filePaths.get(0));

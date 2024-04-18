@@ -22,10 +22,10 @@ import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
-import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3Config;
+import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3ConfigOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -41,32 +41,41 @@ public class S3FileSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(S3Config.FILE_PATH)
-                .required(S3Config.FILE_FORMAT_TYPE)
-                .required(S3Config.S3_BUCKET)
-                .required(S3Config.FS_S3A_ENDPOINT)
-                .required(S3Config.S3A_AWS_CREDENTIALS_PROVIDER)
+                .required(S3ConfigOptions.FILE_PATH)
+                .required(S3ConfigOptions.FILE_FORMAT_TYPE)
+                .required(S3ConfigOptions.S3_BUCKET)
+                .required(S3ConfigOptions.FS_S3A_ENDPOINT)
+                .required(S3ConfigOptions.S3A_AWS_CREDENTIALS_PROVIDER)
                 .conditional(
-                        S3Config.S3A_AWS_CREDENTIALS_PROVIDER,
-                        S3Config.S3aAwsCredentialsProvider.SimpleAWSCredentialsProvider,
-                        S3Config.S3_ACCESS_KEY,
-                        S3Config.S3_SECRET_KEY)
-                .optional(S3Config.S3_PROPERTIES)
+                        S3ConfigOptions.S3A_AWS_CREDENTIALS_PROVIDER,
+                        S3ConfigOptions.S3aAwsCredentialsProvider.SimpleAWSCredentialsProvider,
+                        S3ConfigOptions.S3_ACCESS_KEY,
+                        S3ConfigOptions.S3_SECRET_KEY)
+                .optional(S3ConfigOptions.S3_PROPERTIES)
                 .conditional(
-                        BaseSourceConfig.FILE_FORMAT_TYPE,
+                        BaseSourceConfigOptions.FILE_FORMAT_TYPE,
                         FileFormat.TEXT,
-                        BaseSourceConfig.FIELD_DELIMITER)
+                        BaseSourceConfigOptions.FIELD_DELIMITER)
                 .conditional(
-                        BaseSourceConfig.FILE_FORMAT_TYPE,
+                        BaseSourceConfigOptions.FILE_FORMAT_TYPE,
+                        FileFormat.XML,
+                        BaseSourceConfigOptions.XML_ROW_TAG,
+                        BaseSourceConfigOptions.XML_USE_ATTR_FORMAT)
+                .conditional(
+                        BaseSourceConfigOptions.FILE_FORMAT_TYPE,
                         Arrays.asList(
-                                FileFormat.TEXT, FileFormat.JSON, FileFormat.EXCEL, FileFormat.CSV),
+                                FileFormat.TEXT,
+                                FileFormat.JSON,
+                                FileFormat.EXCEL,
+                                FileFormat.CSV,
+                                FileFormat.XML),
                         TableSchemaOptions.SCHEMA)
-                .optional(BaseSourceConfig.PARSE_PARTITION_FROM_PATH)
-                .optional(BaseSourceConfig.DATE_FORMAT)
-                .optional(BaseSourceConfig.DATETIME_FORMAT)
-                .optional(BaseSourceConfig.TIME_FORMAT)
-                .optional(BaseSourceConfig.FILE_FILTER_PATTERN)
-                .optional(BaseSourceConfig.COMPRESS_CODEC)
+                .optional(BaseSourceConfigOptions.PARSE_PARTITION_FROM_PATH)
+                .optional(BaseSourceConfigOptions.DATE_FORMAT)
+                .optional(BaseSourceConfigOptions.DATETIME_FORMAT)
+                .optional(BaseSourceConfigOptions.TIME_FORMAT)
+                .optional(BaseSourceConfigOptions.FILE_FILTER_PATTERN)
+                .optional(BaseSourceConfigOptions.COMPRESS_CODEC)
                 .build();
     }
 

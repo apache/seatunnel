@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
@@ -104,9 +105,7 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
         try {
             writer.write(record);
         } catch (IOException e) {
-            String errorMsg = String.format("Write data to file [%s] error", filePath);
-            throw new FileConnectorException(
-                    CommonErrorCodeDeprecated.FILE_OPERATION_FAILED, errorMsg, e);
+            throw CommonError.fileOperationFailed("ParquetFile", "write", filePath, e);
         }
     }
 
@@ -140,25 +139,33 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
         dataModel.addLogicalTypeConversion(new TimeConversions.LocalTimestampMillisConversion());
         if (writer == null) {
             Path path = new Path(filePath);
-            try {
-                HadoopOutputFile outputFile =
-                        HadoopOutputFile.fromPath(path, getConfiguration(hadoopConf));
-                ParquetWriter<GenericRecord> newWriter =
-                        AvroParquetWriter.<GenericRecord>builder(outputFile)
-                                .withWriteMode(ParquetFileWriter.Mode.OVERWRITE)
-                                .withDataModel(dataModel)
-                                // use parquet v1 to improve compatibility
-                                .withWriterVersion(ParquetProperties.WriterVersion.PARQUET_1_0)
-                                .withCompressionCodec(compressFormat.getParquetCompression())
-                                .withSchema(schema)
-                                .build();
-                this.beingWrittenWriter.put(filePath, newWriter);
-                return newWriter;
-            } catch (IOException e) {
-                String errorMsg = String.format("Get parquet writer for file [%s] error", filePath);
-                throw new FileConnectorException(
-                        CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED, errorMsg, e);
-            }
+            // initialize the kerberos login
+            return hadoopFileSystemProxy.doWithHadoopAuth(
+                    (configuration, userGroupInformation) -> {
+                        try {
+                            HadoopOutputFile outputFile =
+                                    HadoopOutputFile.fromPath(path, getConfiguration(hadoopConf));
+                            ParquetWriter<GenericRecord> newWriter =
+                                    AvroParquetWriter.<GenericRecord>builder(outputFile)
+                                            .withWriteMode(ParquetFileWriter.Mode.OVERWRITE)
+                                            .withDataModel(dataModel)
+                                            // use parquet v1 to improve compatibility
+                                            .withWriterVersion(
+                                                    ParquetProperties.WriterVersion.PARQUET_1_0)
+                                            .withCompressionCodec(
+                                                    compressFormat.getParquetCompression())
+                                            .withSchema(schema)
+                                            .build();
+                            this.beingWrittenWriter.put(filePath, newWriter);
+                            return newWriter;
+                        } catch (IOException e) {
+                            String errorMsg =
+                                    String.format(
+                                            "Get parquet writer for file [%s] error", filePath);
+                            throw new FileConnectorException(
+                                    CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED, errorMsg, e);
+                        }
+                    });
         }
         return writer;
     }

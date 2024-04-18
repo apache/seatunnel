@@ -60,8 +60,7 @@ public class CompatibleDebeziumJsonDeserializationSchema
         String key = debeziumJsonConverter.serializeKey(record);
         String value = debeziumJsonConverter.serializeValue(record);
         Object[] fields = new Object[] {record.topic(), key, value};
-        SeaTunnelRow row = new SeaTunnelRow(fields);
-        return row;
+        return new SeaTunnelRow(fields);
     }
 
     @Override

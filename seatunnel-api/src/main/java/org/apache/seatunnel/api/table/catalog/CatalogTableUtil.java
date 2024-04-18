@@ -115,14 +115,14 @@ public class CatalogTableUtil implements Serializable {
         return optionalCatalog
                 .map(
                         c -> {
-                            long startTime = System.currentTimeMillis();
                             try (Catalog catalog = c) {
+                                long startTime = System.currentTimeMillis();
                                 catalog.open();
                                 List<CatalogTable> catalogTables =
                                         catalog.getTables(readonlyConfig);
                                 log.info(
                                         String.format(
-                                                "Get catalog tables, cost time: %d",
+                                                "Get catalog tables, cost time: %d ms",
                                                 System.currentTimeMillis() - startTime));
                                 if (catalogTables.isEmpty()) {
                                     throw new SeaTunnelException(
@@ -213,7 +213,9 @@ public class CatalogTableUtil implements Serializable {
                             schemaConfig.get(
                                     TableSchemaOptions.TableIdentifierOptions.SCHEMA_FIRST));
         } else {
-            tablePath = TablePath.EMPTY;
+            Optional<String> resultTableNameOptional =
+                    readonlyConfig.getOptional(CommonOptions.RESULT_TABLE_NAME);
+            tablePath = resultTableNameOptional.map(TablePath::of).orElse(TablePath.DEFAULT);
         }
 
         return CatalogTable.of(

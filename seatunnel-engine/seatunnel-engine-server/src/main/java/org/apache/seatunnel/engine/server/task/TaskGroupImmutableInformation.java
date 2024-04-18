@@ -34,6 +34,7 @@ import java.util.Set;
 @lombok.Data
 @AllArgsConstructor
 public class TaskGroupImmutableInformation implements IdentifiedDataSerializable {
+    private long jobId;
     // Each deployment generates a new executionId
     private long executionId;
 
@@ -67,6 +68,7 @@ public class TaskGroupImmutableInformation implements IdentifiedDataSerializable
 
     @Override
     public void writeData(ObjectDataOutput out) throws IOException {
+        out.writeLong(jobId);
         out.writeLong(executionId);
         out.writeObject(jars);
         out.writeObject(connectorJarIdentifiers);
@@ -75,6 +77,7 @@ public class TaskGroupImmutableInformation implements IdentifiedDataSerializable
 
     @Override
     public void readData(ObjectDataInput in) throws IOException {
+        jobId = in.readLong();
         executionId = in.readLong();
         jars = in.readObject();
         connectorJarIdentifiers = in.readObject();

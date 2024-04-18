@@ -24,7 +24,7 @@ The following is an example of the configuration file, which is the same as the 
 
 ```hocon
 env {
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "BATCH"
 }
 
@@ -62,7 +62,7 @@ sink {
 
 More information about config please check [config concept](../../concept/config.md)
 
-## Step 3: Run SeaTunnel Application
+## Step 4: Run SeaTunnel Application
 
 You could start the application by the following commands
 

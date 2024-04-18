@@ -89,7 +89,7 @@ public class FlinkRowConverter extends RowConverter<Row> {
             Map<?, ?> mapData,
             MapType<?, ?> mapType,
             BiFunction<Object, SeaTunnelDataType<?>, Object> convertFunction) {
-        if (mapData == null || mapData.size() == 0) {
+        if (mapData == null || mapData.isEmpty()) {
             return mapData;
         }
         switch (mapType.getValueType().getSqlType()) {

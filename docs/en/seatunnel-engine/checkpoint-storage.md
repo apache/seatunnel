@@ -85,7 +85,6 @@ if you used SimpleAWSCredentialsProvider (can be obtained from the Amazon Securi
 you can config like this:
 
 ```yaml
-``` yaml
 
 seatunnel:
     engine:
@@ -143,7 +142,9 @@ seatunnel:
           fs.defaultFS: hdfs://localhost:9000
           // if you used kerberos, you can config like this:
           kerberosPrincipal: your-kerberos-principal
-          kerberosKeytab: your-kerberos-keytab  
+          kerberosKeytabFilePath: your-kerberos-keytab
+          // if you need hdfs-site config, you can config like this:
+          hdfs_site_path: /path/to/your/hdfs_site_path
 ```
 
 if HDFS is in HA mode , you can config like this:

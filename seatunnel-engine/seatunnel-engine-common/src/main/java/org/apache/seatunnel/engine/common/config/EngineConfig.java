@@ -26,6 +26,9 @@ import org.apache.seatunnel.engine.common.config.server.ThreadShareMode;
 
 import lombok.Data;
 
+import java.util.Collections;
+import java.util.Map;
+
 import static com.hazelcast.internal.util.Preconditions.checkBackupCount;
 import static com.hazelcast.internal.util.Preconditions.checkNotNull;
 import static com.hazelcast.internal.util.Preconditions.checkPositive;
@@ -53,9 +56,15 @@ public class EngineConfig {
     private ConnectorJarStorageConfig connectorJarStorageConfig =
             ServerConfigOptions.CONNECTOR_JAR_STORAGE_CONFIG.defaultValue();
 
+    private boolean classloaderCacheMode =
+            ServerConfigOptions.CLASSLOADER_CACHE_MODE.defaultValue();
+
     private QueueType queueType = ServerConfigOptions.QUEUE_TYPE.defaultValue();
     private int historyJobExpireMinutes =
             ServerConfigOptions.HISTORY_JOB_EXPIRE_MINUTES.defaultValue();
+
+    private String eventReportHttpApi;
+    private Map<String, String> eventReportHttpHeaders = Collections.emptyMap();
 
     public void setBackupCount(int newBackupCount) {
         checkBackupCount(newBackupCount, 0);
@@ -98,6 +107,16 @@ public class EngineConfig {
     public EngineConfig setQueueType(QueueType queueType) {
         checkNotNull(queueType);
         this.queueType = queueType;
+        return this;
+    }
+
+    public EngineConfig setEventReportHttpApi(String eventReportHttpApi) {
+        this.eventReportHttpApi = eventReportHttpApi;
+        return this;
+    }
+
+    public EngineConfig setEventReportHttpHeaders(Map<String, String> eventReportHttpHeaders) {
+        this.eventReportHttpHeaders = eventReportHttpHeaders;
         return this;
     }
 }

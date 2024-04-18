@@ -17,7 +17,10 @@
 
 package org.apache.seatunnel.api.table.catalog;
 
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigObject;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -29,9 +32,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonError;
-import org.apache.seatunnel.common.utils.JsonUtils;
-
-import java.util.Map;
 
 public class SeaTunnelDataTypeConvertorUtil {
 
@@ -43,7 +43,8 @@ public class SeaTunnelDataTypeConvertorUtil {
             String field, String columnType) {
         SqlType sqlType = null;
         try {
-            sqlType = SqlType.valueOf(columnType.toUpperCase().replace(" ", ""));
+            String compatible = compatibleTypeDeclare(columnType);
+            sqlType = SqlType.valueOf(compatible.toUpperCase().replace(" ", ""));
         } catch (IllegalArgumentException e) {
             // nothing
         }
@@ -84,16 +85,42 @@ public class SeaTunnelDataTypeConvertorUtil {
         }
     }
 
+    /**
+     * User-facing data type declarations will adhere to the specifications outlined in
+     * schema-feature.md. To maintain backward compatibility, this function will transform type
+     * declarations into standard form, including: <code>long -> bigint</code>, <code>
+     * short -> smallint</code>, and <code>byte -> tinyint</code>.
+     *
+     * <p>In a future version, user-facing data type declarations will strictly follow the
+     * specifications, and this function will be removed.
+     *
+     * @param declare
+     * @return compatible type
+     */
+    @Deprecated
+    private static String compatibleTypeDeclare(String declare) {
+        switch (declare.trim().toUpperCase()) {
+            case "LONG":
+                return "BIGINT";
+            case "SHORT":
+                return "SMALLINT";
+            case "BYTE":
+                return "TINYINT";
+            default:
+                return declare;
+        }
+    }
+
     private static SeaTunnelDataType<?> parseComplexDataType(String field, String columnStr) {
         String column = columnStr.toUpperCase().replace(" ", "");
         if (column.startsWith(SqlType.MAP.name())) {
-            return parseMapType(field, column);
+            return parseMapType(field, columnStr);
         }
         if (column.startsWith(SqlType.ARRAY.name())) {
-            return parseArrayType(field, column);
+            return parseArrayType(field, columnStr);
         }
         if (column.startsWith(SqlType.DECIMAL.name())) {
-            return parseDecimalType(column);
+            return parseDecimalType(columnStr);
         }
         if (column.trim().startsWith("{")) {
             return parseRowType(columnStr);
@@ -102,31 +129,64 @@ public class SeaTunnelDataTypeConvertorUtil {
     }
 
     private static SeaTunnelDataType<?> parseRowType(String columnStr) {
-        ObjectNode jsonNodes = JsonUtils.parseObject(columnStr);
-        Map<String, String> fieldsMap = JsonUtils.toStringMap(jsonNodes);
-        String[] fieldsName = new String[fieldsMap.size()];
-        SeaTunnelDataType<?>[] seaTunnelDataTypes = new SeaTunnelDataType<?>[fieldsMap.size()];
-        int i = 0;
-        for (Map.Entry<String, String> entry : fieldsMap.entrySet()) {
-            fieldsName[i] = entry.getKey();
-            seaTunnelDataTypes[i] = deserializeSeaTunnelDataType(entry.getKey(), entry.getValue());
-            i++;
+        String confPayload = "{conf = " + columnStr + "}";
+        Config conf;
+        try {
+            conf = ConfigFactory.parseString(confPayload);
+        } catch (RuntimeException e) {
+            throw new IllegalArgumentException(
+                    String.format("HOCON Config parse from %s failed.", confPayload), e);
         }
-        return new SeaTunnelRowType(fieldsName, seaTunnelDataTypes);
+        return parseRowType(conf.getObject("conf"));
+    }
+
+    private static SeaTunnelDataType<?> parseRowType(ConfigObject conf) {
+        String[] fieldNames = new String[conf.size()];
+        SeaTunnelDataType<?>[] fieldTypes = new SeaTunnelDataType[conf.size()];
+        conf.keySet().toArray(fieldNames);
+
+        for (int idx = 0; idx < fieldNames.length; idx++) {
+            String fieldName = fieldNames[idx];
+            ConfigValue typeVal = conf.get(fieldName);
+            switch (typeVal.valueType()) {
+                case STRING:
+                    {
+                        fieldTypes[idx] =
+                                deserializeSeaTunnelDataType(
+                                        fieldNames[idx], (String) typeVal.unwrapped());
+                    }
+                    break;
+                case OBJECT:
+                    {
+                        fieldTypes[idx] = parseRowType((ConfigObject) typeVal);
+                    }
+                    break;
+                case LIST:
+                case NUMBER:
+                case BOOLEAN:
+                case NULL:
+                default:
+                    throw new IllegalArgumentException(
+                            String.format(
+                                    "Unsupported parse SeaTunnel Type from '%s'.",
+                                    typeVal.unwrapped()));
+            }
+        }
+        return new SeaTunnelRowType(fieldNames, fieldTypes);
     }
 
     private static SeaTunnelDataType<?> parseMapType(String field, String columnStr) {
-        String genericType = getGenericType(columnStr);
+        String genericType = getGenericType(columnStr).trim();
         int index =
-                genericType.startsWith(SqlType.DECIMAL.name())
+                genericType.toUpperCase().startsWith(SqlType.DECIMAL.name())
                         ?
                         // if map key is decimal, we should find the index of second ','
                         genericType.indexOf(",", genericType.indexOf(",") + 1)
                         :
                         // if map key is not decimal, we should find the index of first ','
                         genericType.indexOf(",");
-        String keyGenericType = genericType.substring(0, index);
-        String valueGenericType = genericType.substring(index + 1);
+        String keyGenericType = genericType.substring(0, index).trim();
+        String valueGenericType = genericType.substring(index + 1).trim();
         return new MapType<>(
                 deserializeSeaTunnelDataType(field, keyGenericType),
                 deserializeSeaTunnelDataType(field, valueGenericType));
@@ -138,7 +198,7 @@ public class SeaTunnelDataTypeConvertorUtil {
     }
 
     private static SeaTunnelDataType<?> parseArrayType(String field, String columnStr) {
-        String genericType = getGenericType(columnStr);
+        String genericType = getGenericType(columnStr).trim();
         SeaTunnelDataType<?> dataType = deserializeSeaTunnelDataType(field, genericType);
         switch (dataType.getSqlType()) {
             case STRING:
@@ -158,7 +218,7 @@ public class SeaTunnelDataTypeConvertorUtil {
             case DOUBLE:
                 return ArrayType.DOUBLE_ARRAY_TYPE;
             default:
-                throw CommonError.unsupportedDataType("SeaTunnel", columnStr, field);
+                throw CommonError.unsupportedDataType("SeaTunnel", genericType, field);
         }
     }
 

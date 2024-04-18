@@ -19,8 +19,12 @@ package org.apache.seatunnel.common.exception;
 
 /** SeaTunnel connector error code interface */
 public enum CommonErrorCode implements SeaTunnelErrorCode {
+    FILE_OPERATION_FAILED("COMMON-01", "<identifier> <operation> file '<fileName>' failed."),
+    JSON_OPERATION_FAILED(
+            "COMMON-02", "<identifier> JSON convert/parse '<payload>' operation failed."),
     UNSUPPORTED_DATA_TYPE(
             "COMMON-07", "'<identifier>' unsupported data type '<dataType>' of '<field>'"),
+    UNSUPPORTED_ENCODING("COMMON-08", "unsupported encoding '<encoding>'"),
     CONVERT_TO_SEATUNNEL_TYPE_ERROR(
             "COMMON-16",
             "'<connector>' <type> unsupported convert type '<dataType>' of '<field>' to SeaTunnel data type."),
@@ -38,7 +42,16 @@ public enum CommonErrorCode implements SeaTunnelErrorCode {
             "'<catalogName>' table '<tableName>' unsupported get catalog table with field data types '<fieldWithDataTypes>'"),
     GET_CATALOG_TABLES_WITH_UNSUPPORTED_TYPE_ERROR(
             "COMMON-21",
-            "'<catalogName>' tables unsupported get catalog table，the corresponding field types in the following tables are not supported: '<tableUnsupportedTypes>'");
+            "'<catalogName>' tables unsupported get catalog table，the corresponding field types in the following tables are not supported: '<tableUnsupportedTypes>'"),
+    FILE_NOT_EXISTED(
+            "COMMON-22",
+            "<identifier> <operation> file '<fileName>' failed, because it not existed."),
+    WRITE_SEATUNNEL_ROW_ERROR(
+            "COMMON-23",
+            "<connector> write SeaTunnelRow failed, the SeaTunnelRow value is '<seaTunnelRow>'."),
+    SQL_TEMPLATE_HANDLED_ERROR(
+            "COMMON-24",
+            "The table of <tableName> has no <keyName>, but the template \n <template> \n which has the place holder named <placeholder>. Please use the option named <optionName> to specify sql template");
 
     private final String code;
     private final String description;

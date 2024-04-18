@@ -64,6 +64,19 @@ sink {
 }
 ```
 
+#### multi-line support
+
+In `hocon`, multiline strings are supported, which allows you to include extended passages of text without worrying about newline characters or special formatting. This is achieved by enclosing the text within triple quotes **`"""`** . For example:
+
+```
+var = """
+Apache SeaTunnel is a
+next-generation high-performance,
+distributed, massive data integration tool.
+"""
+sql = """ select * from "table" """
+```
+
 ### json
 
 ```json
@@ -117,6 +130,9 @@ have different functions. After you understand these modules, you will understan
 
 Used to add some engine optional parameters, no matter which engine (Spark or Flink), the corresponding
 optional parameters should be filled in here.
+
+Note that we have separated the parameters by engine, and for the common parameters, we can configure them as before.
+For flink and spark engine, the specific configuration rules of their parameters can be referred to [JobEnvConfig](./JobEnvConfig.md).
 
 <!-- TODO add supported env parameters -->
 

@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.cdc.base.source.enumerator;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
+
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.HybridPendingSplitsState;
@@ -31,9 +33,11 @@ import org.slf4j.LoggerFactory;
 import io.debezium.relational.TableId;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Predicate;
 
 /** Assigner for Hybrid split which contains snapshot splits and incremental splits. */
 public class HybridSplitAssigner<C extends SourceConfig> implements SplitAssigner {
@@ -145,5 +149,23 @@ public class HybridSplitAssigner<C extends SourceConfig> implements SplitAssigne
     public void notifyCheckpointComplete(long checkpointId) {
         snapshotSplitAssigner.notifyCheckpointComplete(checkpointId);
         incrementalSplitAssigner.notifyCheckpointComplete(checkpointId);
+    }
+
+    @VisibleForTesting
+    IncrementalSplitAssigner<C> getIncrementalSplitAssigner() {
+        return incrementalSplitAssigner;
+    }
+
+    @VisibleForTesting
+    SnapshotSplitAssigner<C> getSnapshotSplitAssigner() {
+        return snapshotSplitAssigner;
+    }
+
+    public boolean completedSnapshotPhase(List<TableId> tableIds) {
+        return Arrays.asList(
+                        snapshotSplitAssigner.completedSnapshotPhase(tableIds),
+                        incrementalSplitAssigner.completedSnapshotPhase(tableIds))
+                .stream()
+                .allMatch(Predicate.isEqual(true));
     }
 }

@@ -19,8 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.hive.utils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.util.FileSystemUtils;
+import org.apache.seatunnel.common.config.TypesafeConfigUtils;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopLoginFactory;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorException;
@@ -28,6 +29,7 @@ import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorExc
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.metastore.HiveMetaStoreClient;
+import org.apache.hadoop.hive.metastore.api.AlreadyExistsException;
 import org.apache.hadoop.hive.metastore.api.MetaException;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.thrift.TException;
@@ -42,26 +44,44 @@ import java.util.Objects;
 
 @Slf4j
 public class HiveMetaStoreProxy {
-    private final HiveMetaStoreClient hiveMetaStoreClient;
+    private HiveMetaStoreClient hiveMetaStoreClient;
     private static volatile HiveMetaStoreProxy INSTANCE = null;
 
     private HiveMetaStoreProxy(Config config) {
         String metastoreUri = config.getString(HiveConfig.METASTORE_URI.key());
-        HiveConf hiveConf = new HiveConf();
-        hiveConf.set("hive.metastore.uris", metastoreUri);
-        if (config.hasPath(BaseSourceConfig.KERBEROS_PRINCIPAL.key())
-                && config.hasPath(BaseSourceConfig.KERBEROS_KEYTAB_PATH.key())) {
-            String principal = config.getString(BaseSourceConfig.KERBEROS_PRINCIPAL.key());
-            String keytabPath = config.getString(BaseSourceConfig.KERBEROS_KEYTAB_PATH.key());
-            Configuration configuration = new Configuration();
-            FileSystemUtils.doKerberosAuthentication(configuration, principal, keytabPath);
-        }
+
         try {
+            HiveConf hiveConf = new HiveConf();
+            hiveConf.set("hive.metastore.uris", metastoreUri);
             if (config.hasPath(HiveConfig.HIVE_SITE_PATH.key())) {
                 String hiveSitePath = config.getString(HiveConfig.HIVE_SITE_PATH.key());
                 hiveConf.addResource(new File(hiveSitePath).toURI().toURL());
             }
-            hiveMetaStoreClient = new HiveMetaStoreClient(hiveConf);
+            if (HiveMetaStoreProxyUtils.enableKerberos(config)) {
+                this.hiveMetaStoreClient =
+                        HadoopLoginFactory.loginWithKerberos(
+                                new Configuration(),
+                                TypesafeConfigUtils.getConfig(
+                                        config,
+                                        BaseSourceConfigOptions.KRB5_PATH.key(),
+                                        BaseSourceConfigOptions.KRB5_PATH.defaultValue()),
+                                config.getString(BaseSourceConfigOptions.KERBEROS_PRINCIPAL.key()),
+                                config.getString(
+                                        BaseSourceConfigOptions.KERBEROS_KEYTAB_PATH.key()),
+                                (configuration, userGroupInformation) ->
+                                        new HiveMetaStoreClient(hiveConf));
+                return;
+            }
+            if (HiveMetaStoreProxyUtils.enableRemoteUser(config)) {
+                this.hiveMetaStoreClient =
+                        HadoopLoginFactory.loginWithRemoteUser(
+                                new Configuration(),
+                                config.getString(BaseSourceConfigOptions.REMOTE_USER.key()),
+                                (configuration, userGroupInformation) ->
+                                        new HiveMetaStoreClient(hiveConf));
+                return;
+            }
+            this.hiveMetaStoreClient = new HiveMetaStoreClient(hiveConf);
         } catch (MetaException e) {
             String errorMsg =
                     String.format(
@@ -78,6 +98,11 @@ public class HiveMetaStoreProxy {
                             metastoreUri, config.getString(HiveConfig.HIVE_SITE_PATH.key()));
             throw new HiveConnectorException(
                     HiveConnectorErrorCode.INITIALIZE_HIVE_METASTORE_CLIENT_FAILED, errorMsg, e);
+        } catch (Exception e) {
+            throw new HiveConnectorException(
+                    HiveConnectorErrorCode.INITIALIZE_HIVE_METASTORE_CLIENT_FAILED,
+                    "Login form kerberos failed",
+                    e);
         }
     }
 
@@ -107,7 +132,11 @@ public class HiveMetaStoreProxy {
             @NonNull String dbName, @NonNull String tableName, List<String> partitions)
             throws TException {
         for (String partition : partitions) {
-            hiveMetaStoreClient.appendPartition(dbName, tableName, partition);
+            try {
+                hiveMetaStoreClient.appendPartition(dbName, tableName, partition);
+            } catch (AlreadyExistsException e) {
+                log.warn("The partition {} are already exists", partition);
+            }
         }
     }
 

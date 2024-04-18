@@ -31,9 +31,7 @@ import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.JobMode;
@@ -75,6 +73,7 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
                             "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
+
         this.httpParameter.buildWithConfig(pluginConfig);
         buildSchemaWithConfig(pluginConfig);
         buildPagingWithConfig(pluginConfig);
@@ -96,9 +95,6 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
         if (pluginConfig.hasPath(HttpConfig.PAGEING.key())) {
             pageInfo = new PageInfo();
             Config pageConfig = pluginConfig.getConfig(HttpConfig.PAGEING.key());
-            if (pageConfig.hasPath(HttpConfig.TOTAL_PAGE_SIZE.key())) {
-                pageInfo.setTotalPageSize(pageConfig.getLong(HttpConfig.TOTAL_PAGE_SIZE.key()));
-            }
             if (pageConfig.hasPath(HttpConfig.TOTAL_PAGE_SIZE.key())) {
                 pageInfo.setTotalPageSize(pageConfig.getLong(HttpConfig.TOTAL_PAGE_SIZE.key()));
             } else {
@@ -156,16 +152,7 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
                     TableSchema.builder()
                             .column(
                                     PhysicalColumn.of(
-                                            "content",
-                                            new SeaTunnelRowType(
-                                                    new String[] {"content"},
-                                                    new SeaTunnelDataType<?>[] {
-                                                        BasicType.STRING_TYPE
-                                                    }),
-                                            0,
-                                            false,
-                                            null,
-                                            null))
+                                            "content", BasicType.STRING_TYPE, 0, false, null, null))
                             .build();
 
             this.catalogTable =

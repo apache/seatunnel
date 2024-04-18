@@ -13,7 +13,7 @@ Seatunnel also supports to encode the INSERT/UPDATE/DELETE messages in Seatunnel
 
 # Format Options
 
-|            option            | default | required |                                                                                                Description                                                                                                 |
+|            Option            | Default | Required |                                                                                                Description                                                                                                 |
 |------------------------------|---------|----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | format                       | (none)  | yes      | Specify what format to use, here should be '-json'.                                                                                                                                                        |
 | ogg_json.ignore-parse-errors | false   | no       | Skip fields and rows with parse errors instead of failing. Fields are set to null in case of errors.                                                                                                       |
@@ -51,7 +51,7 @@ Ogg provides a unified format for changelog, here is a simple example for an upd
 }
 ```
 
-Note: please refer to documentation about the meaning of each fields.
+Note: please refer to [Debezium documentation](https://debezium.io/documentation/reference/2.5/connectors/oracle.html#oracle-events) about the meaning of each fields.
 
 The Oracle products table has 4 columns (id, name, description and weight).
 The above JSON message is an update change event on the products table where the weight value of the row with id = 111 is changed from 5.18 to 5.15.
@@ -59,7 +59,7 @@ Assuming the messages have been synchronized to Kafka topic products_binlog, the
 
 ```bash
 env {
-    execution.parallelism = 1
+    parallelism = 1
     job.mode = "STREAMING"
 }
 source {

@@ -19,12 +19,11 @@ package org.apache.seatunnel.connectors.seatunnel.hive.commit;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileSinkAggregatedCommitter;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.util.FileSystemUtils;
 import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveMetaStoreProxy;
 
-import org.apache.hadoop.hive.metastore.api.AlreadyExistsException;
 import org.apache.thrift.TException;
 
 import lombok.extern.slf4j.Slf4j;
@@ -44,8 +43,8 @@ public class HiveSinkAggregatedCommitter extends FileSinkAggregatedCommitter {
     private final boolean abortDropPartitionMetadata;
 
     public HiveSinkAggregatedCommitter(
-            Config pluginConfig, String dbName, String tableName, FileSystemUtils fileSystemUtils) {
-        super(fileSystemUtils);
+            Config pluginConfig, String dbName, String tableName, HadoopConf hadoopConf) {
+        super(hadoopConf);
         this.pluginConfig = pluginConfig;
         this.dbName = dbName;
         this.tableName = tableName;
@@ -71,8 +70,6 @@ public class HiveSinkAggregatedCommitter extends FileSinkAggregatedCommitter {
                 try {
                     hiveMetaStore.addPartitions(dbName, tableName, partitions);
                     log.info("Add these partitions {}", partitions);
-                } catch (AlreadyExistsException e) {
-                    log.warn("These partitions {} are already exists", partitions);
                 } catch (TException e) {
                     log.error("Failed to add these partitions {}", partitions, e);
                     errorCommitInfos.add(aggregatedCommitInfo);

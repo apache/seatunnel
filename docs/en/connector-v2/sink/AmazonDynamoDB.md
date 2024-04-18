@@ -6,13 +6,13 @@
 
 Write data to Amazon DynamoDB
 
-## Key features
+## Key Features
 
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
 
 ## Options
 
-|       name        |  type  | required | default value |
+|       Name        |  Type  | Required | Default value |
 |-------------------|--------|----------|---------------|
 | url               | string | yes      | -             |
 | region            | string | yes      | -             |

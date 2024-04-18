@@ -27,13 +27,15 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
 
 import org.apache.commons.lang3.StringUtils;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.Serializable;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -49,6 +51,8 @@ import static java.lang.String.format;
  * and stateless.
  */
 public interface JdbcDialect extends Serializable {
+
+    Logger log = LoggerFactory.getLogger(JdbcDialect.class.getName());
 
     /**
      * Get the name of jdbc dialect.
@@ -299,7 +303,11 @@ public interface JdbcDialect extends Serializable {
      * @throws SQLException If an SQL error occurs during the sampling operation.
      */
     default Object[] sampleDataFromColumn(
-            Connection connection, JdbcSourceTable table, String columnName, int samplingRate)
+            Connection connection,
+            JdbcSourceTable table,
+            String columnName,
+            int samplingRate,
+            int fetchSize)
             throws SQLException {
         String sampleQuery;
         if (StringUtils.isNotBlank(table.getQuery())) {
@@ -314,11 +322,9 @@ public interface JdbcDialect extends Serializable {
                             quoteIdentifier(columnName), tableIdentifier(table.getTablePath()));
         }
 
-        try (Statement stmt =
-                connection.createStatement(
-                        ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)) {
-            stmt.setFetchSize(Integer.MIN_VALUE);
-            try (ResultSet rs = stmt.executeQuery(sampleQuery)) {
+        try (PreparedStatement stmt = creatPreparedStatement(connection, sampleQuery, fetchSize)) {
+            log.info(String.format("Split Chunk, approximateRowCntStatement: %s", sampleQuery));
+            try (ResultSet rs = stmt.executeQuery()) {
                 int count = 0;
                 List<Object> results = new ArrayList<>();
 

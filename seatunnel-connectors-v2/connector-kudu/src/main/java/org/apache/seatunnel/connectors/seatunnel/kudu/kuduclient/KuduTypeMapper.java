@@ -32,15 +32,13 @@ import org.apache.kudu.Type;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.sql.SQLException;
 import java.util.List;
 
 public class KuduTypeMapper {
 
     private static final Logger log = LoggerFactory.getLogger(KuduTypeMapper.class);
 
-    public static SeaTunnelDataType<?> mapping(List<ColumnSchema> columnSchemaList, int colIndex)
-            throws SQLException {
+    public static SeaTunnelDataType<?> mapping(List<ColumnSchema> columnSchemaList, int colIndex) {
         Type kuduType = columnSchemaList.get(colIndex).getType();
         switch (kuduType) {
             case BOOL:
