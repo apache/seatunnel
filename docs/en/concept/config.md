@@ -64,6 +64,19 @@ sink {
 }
 ```
 
+#### multi-line support
+
+In `hocon`, multiline strings are supported, which allows you to include extended passages of text without worrying about newline characters or special formatting. This is achieved by enclosing the text within triple quotes **`"""`** . For example:
+
+```
+var = """
+Apache SeaTunnel is a
+next-generation high-performance,
+distributed, massive data integration tool.
+"""
+sql = """ select * from "table" """
+```
+
 ### json
 
 ```json

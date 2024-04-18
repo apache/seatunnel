@@ -73,16 +73,20 @@ We use templates to automatically create Doris tables,
 which will create corresponding table creation statements based on the type of upstream data and schema type,
 and the default template can be modified according to the situation.
 
+Default template:
+
 ```sql
-CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}`
-(
-    ${rowtype_fields}
-) ENGINE = OLAP UNIQUE KEY (${rowtype_primary_key})
-    DISTRIBUTED BY HASH (${rowtype_primary_key})
-    PROPERTIES
-(
-    "replication_num" = "1"
-);
+CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}` (
+${rowtype_fields}
+) ENGINE=OLAP
+ UNIQUE KEY (${rowtype_primary_key})
+DISTRIBUTED BY HASH (${rowtype_primary_key})
+ PROPERTIES (
+"replication_allocation" = "tag.location.default: 1",
+"in_memory" = "false",
+"storage_format" = "V2",
+"disable_auto_compaction" = "false"
+)
 ```
 
 If a custom field is filled in the template, such as adding an `id` field

@@ -171,27 +171,37 @@ public final class SeaTunnelRow implements Serializable {
             case STRING:
                 int s = 0;
                 for (String i : ((String[]) v)) {
-                    s += i.length();
+                    s += i == null ? 0 : i.length();
                 }
                 return s;
             case BOOLEAN:
-                return ((Boolean[]) v).length;
+                return getArrayNotNullSize((Boolean[]) v);
             case TINYINT:
-                return ((Byte[]) v).length;
+                return getArrayNotNullSize((Byte[]) v);
             case SMALLINT:
-                return ((Short[]) v).length * 2;
+                return getArrayNotNullSize((Short[]) v) * 2;
             case INT:
-                return ((Integer[]) v).length * 4;
+                return getArrayNotNullSize((Integer[]) v) * 4;
             case FLOAT:
-                return ((Float[]) v).length * 4;
+                return getArrayNotNullSize((Float[]) v) * 4;
             case BIGINT:
-                return ((Long[]) v).length * 8;
+                return getArrayNotNullSize((Long[]) v) * 8;
             case DOUBLE:
-                return ((Double[]) v).length * 8;
+                return getArrayNotNullSize((Double[]) v) * 8;
             case NULL:
             default:
                 return 0;
         }
+    }
+
+    private int getArrayNotNullSize(Object[] values) {
+        int c = 0;
+        for (Object value : values) {
+            if (value != null) {
+                c++;
+            }
+        }
+        return c;
     }
 
     public int getBytesSize() {
@@ -235,25 +245,21 @@ public final class SeaTunnelRow implements Serializable {
             case "LocalDateTime":
                 return 48;
             case "String[]":
-                int s = 0;
-                for (String i : ((String[]) v)) {
-                    s += i.length();
-                }
-                return s;
+                return getBytesForArray(v, BasicType.STRING_TYPE);
             case "Boolean[]":
-                return ((Boolean[]) v).length;
+                return getBytesForArray(v, BasicType.BOOLEAN_TYPE);
             case "Byte[]":
-                return ((Byte[]) v).length;
+                return getBytesForArray(v, BasicType.BYTE_TYPE);
             case "Short[]":
-                return ((Short[]) v).length * 2;
+                return getBytesForArray(v, BasicType.SHORT_TYPE);
             case "Integer[]":
-                return ((Integer[]) v).length * 4;
+                return getBytesForArray(v, BasicType.INT_TYPE);
             case "Long[]":
-                return ((Long[]) v).length * 8;
+                return getBytesForArray(v, BasicType.LONG_TYPE);
             case "Float[]":
-                return ((Float[]) v).length * 4;
+                return getBytesForArray(v, BasicType.FLOAT_TYPE);
             case "Double[]":
-                return ((Double[]) v).length * 8;
+                return getBytesForArray(v, BasicType.DOUBLE_TYPE);
             case "HashMap":
             case "LinkedHashMap":
                 int size = 0;

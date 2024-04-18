@@ -25,7 +25,9 @@ import org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.Watermar
 import org.apache.kafka.connect.source.SourceRecord;
 
 import io.debezium.config.CommonConnectorConfig;
+import io.debezium.config.Configuration;
 import io.debezium.connector.base.ChangeEventQueue;
+import io.debezium.heartbeat.Heartbeat;
 import io.debezium.pipeline.DataChangeEvent;
 import io.debezium.pipeline.EventDispatcher;
 import io.debezium.pipeline.source.spi.EventMetadataProvider;
@@ -37,6 +39,8 @@ import io.debezium.schema.DatabaseSchema;
 import io.debezium.schema.TopicSelector;
 import io.debezium.util.SchemaNameAdjuster;
 
+import java.time.Duration;
+import java.time.temporal.ChronoUnit;
 import java.util.Map;
 
 /**
@@ -71,6 +75,10 @@ public class JdbcSourceEventDispatcher extends EventDispatcher<TableId> {
                 filter,
                 changeEventCreator,
                 metadataProvider,
+                Heartbeat.create(
+                        getHeartbeatInterval(connectorConfig),
+                        topicSelector.getHeartbeatTopic(),
+                        connectorConfig.getLogicalName()),
                 schemaNameAdjuster);
         this.queue = queue;
         this.topic = topicSelector.getPrimaryTopic();
@@ -91,5 +99,15 @@ public class JdbcSourceEventDispatcher extends EventDispatcher<TableId> {
                 WatermarkEvent.create(
                         sourcePartition, topic, sourceSplit.splitId(), watermarkKind, watermark);
         queue.enqueue(new DataChangeEvent(sourceRecord));
+    }
+
+    private static Duration getHeartbeatInterval(CommonConnectorConfig connectorConfig) {
+        Configuration configuration = connectorConfig.getConfig();
+        Duration heartbeatInterval =
+                configuration.getDuration(Heartbeat.HEARTBEAT_INTERVAL, ChronoUnit.MILLIS);
+        if (heartbeatInterval.isZero()) {
+            return Duration.ofMillis(5000);
+        }
+        return heartbeatInterval;
     }
 }

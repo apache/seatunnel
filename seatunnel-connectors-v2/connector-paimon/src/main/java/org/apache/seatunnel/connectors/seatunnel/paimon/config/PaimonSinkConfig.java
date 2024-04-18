@@ -25,7 +25,9 @@ import org.apache.seatunnel.api.sink.SchemaSaveMode;
 
 import lombok.Getter;
 
-import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Getter
 public class PaimonSinkConfig extends PaimonConfig {
@@ -41,26 +43,39 @@ public class PaimonSinkConfig extends PaimonConfig {
                     .defaultValue(DataSaveMode.APPEND_DATA)
                     .withDescription("data_save_mode");
 
-    private String catalogName;
-    private String warehouse;
-    private String namespace;
-    private String table;
-    private String hdfsSitePath;
+    public static final Option<String> PRIMARY_KEYS =
+            Options.key("paimon.table.primary-keys")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Default comma-separated list of columns that identify a row in tables (primary key)");
+
+    public static final Option<String> PARTITION_KEYS =
+            Options.key("paimon.table.partition-keys")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Default comma-separated list of partition fields to use when creating tables.");
+
+    public static final Option<Map<String, String>> WRITE_PROPS =
+            Options.key("paimon.table.write-props")
+                    .mapType()
+                    .defaultValue(new HashMap<>())
+                    .withDescription(
+                            "Properties passed through to paimon table initialization, such as 'file.format', 'bucket'(org.apache.paimon.CoreOptions)");
+
     private SchemaSaveMode schemaSaveMode;
     private DataSaveMode dataSaveMode;
+    private List<String> primaryKeys;
+    private List<String> partitionKeys;
+    private Map<String, String> writeProps;
 
     public PaimonSinkConfig(ReadonlyConfig readonlyConfig) {
-        this.catalogName = checkArgumentNotNull(readonlyConfig.get(CATALOG_NAME));
-        this.warehouse = checkArgumentNotNull(readonlyConfig.get(WAREHOUSE));
-        this.namespace = checkArgumentNotNull(readonlyConfig.get(DATABASE));
-        this.table = checkArgumentNotNull(readonlyConfig.get(TABLE));
-        this.hdfsSitePath = readonlyConfig.get(HDFS_SITE_PATH);
+        super(readonlyConfig);
         this.schemaSaveMode = readonlyConfig.get(SCHEMA_SAVE_MODE);
         this.dataSaveMode = readonlyConfig.get(DATA_SAVE_MODE);
-    }
-
-    protected <T> T checkArgumentNotNull(T argument) {
-        checkNotNull(argument);
-        return argument;
+        this.primaryKeys = stringToList(readonlyConfig.get(PRIMARY_KEYS), ",");
+        this.partitionKeys = stringToList(readonlyConfig.get(PARTITION_KEYS), ",");
+        this.writeProps = readonlyConfig.get(WRITE_PROPS);
     }
 }

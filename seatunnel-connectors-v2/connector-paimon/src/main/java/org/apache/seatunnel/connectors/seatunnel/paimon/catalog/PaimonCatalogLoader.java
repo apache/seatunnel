@@ -17,11 +17,14 @@
 
 package org.apache.seatunnel.connectors.seatunnel.paimon.catalog;
 
+import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonHadoopConfiguration;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.paimon.security.PaimonSecurityContext;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.Path;
 import org.apache.paimon.catalog.Catalog;
 import org.apache.paimon.catalog.CatalogContext;
 import org.apache.paimon.catalog.CatalogFactory;
@@ -31,31 +34,66 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 
 import static org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig.WAREHOUSE;
 
 @Slf4j
 public class PaimonCatalogLoader implements Serializable {
-    private PaimonSinkConfig config;
+    /** hdfs uri is required */
+    private static final String HDFS_DEF_FS_NAME = "fs.defaultFS";
 
-    public PaimonCatalogLoader(PaimonSinkConfig config) {
-        this.config = config;
+    private static final String HDFS_PREFIX = "hdfs://";
+    /** ********* Hdfs constants ************* */
+    private static final String HDFS_IMPL = "org.apache.hadoop.hdfs.DistributedFileSystem";
+
+    private static final String HDFS_IMPL_KEY = "fs.hdfs.impl";
+
+    private String warehouse;
+
+    private PaimonHadoopConfiguration paimonHadoopConfiguration;
+
+    public PaimonCatalogLoader(PaimonSinkConfig paimonSinkConfig) {
+        this.warehouse = paimonSinkConfig.getWarehouse();
+        this.paimonHadoopConfiguration = PaimonSecurityContext.loadHadoopConfig(paimonSinkConfig);
     }
 
     public Catalog loadCatalog() {
         // When using the seatunel engine, set the current class loader to prevent loading failures
         Thread.currentThread().setContextClassLoader(PaimonCatalogLoader.class.getClassLoader());
-        final String warehouse = config.getWarehouse();
-        final Map<String, String> optionsMap = new HashMap<>();
+        final Map<String, String> optionsMap = new HashMap<>(1);
         optionsMap.put(WAREHOUSE.key(), warehouse);
         final Options options = Options.fromMap(optionsMap);
-        final Configuration hadoopConf = new Configuration();
-        String hdfsSitePathOptional = config.getHdfsSitePath();
-        if (StringUtils.isNotBlank(hdfsSitePathOptional)) {
-            hadoopConf.addResource(new Path(hdfsSitePathOptional));
+        if (warehouse.startsWith(HDFS_PREFIX)) {
+            checkConfiguration(paimonHadoopConfiguration, HDFS_DEF_FS_NAME);
+            paimonHadoopConfiguration.set(HDFS_IMPL_KEY, HDFS_IMPL);
         }
-        final CatalogContext catalogContext = CatalogContext.create(options, hadoopConf);
-        return CatalogFactory.createCatalog(catalogContext);
+        PaimonSecurityContext.shouldEnableKerberos(paimonHadoopConfiguration);
+        final CatalogContext catalogContext =
+                CatalogContext.create(options, paimonHadoopConfiguration);
+        try {
+            return PaimonSecurityContext.runSecured(
+                    () -> CatalogFactory.createCatalog(catalogContext));
+        } catch (Exception e) {
+            throw new PaimonConnectorException(
+                    PaimonConnectorErrorCode.LOAD_CATALOG,
+                    "Failed to perform SecurityContext.runSecured",
+                    e);
+        }
+    }
+
+    void checkConfiguration(Configuration configuration, String key) {
+        Iterator<Map.Entry<String, String>> entryIterator = configuration.iterator();
+        while (entryIterator.hasNext()) {
+            Map.Entry<String, String> entry = entryIterator.next();
+            if (entry.getKey().equals(key)) {
+                if (StringUtils.isBlank(entry.getValue())) {
+                    throw new IllegalArgumentException("The value of" + key + " is required");
+                }
+                return;
+            }
+        }
+        throw new IllegalArgumentException(key + " is required");
     }
 }

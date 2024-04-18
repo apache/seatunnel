@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.api.table.event;
 
+import org.apache.seatunnel.api.event.EventType;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 
 import lombok.Getter;
@@ -30,5 +31,10 @@ public class AlterTableDropColumnEvent extends AlterTableColumnEvent {
     public AlterTableDropColumnEvent(TableIdentifier tableIdentifier, String column) {
         super(tableIdentifier);
         this.column = column;
+    }
+
+    @Override
+    public EventType getEventType() {
+        return EventType.SCHEMA_CHANGE_DROP_COLUMN;
     }
 }

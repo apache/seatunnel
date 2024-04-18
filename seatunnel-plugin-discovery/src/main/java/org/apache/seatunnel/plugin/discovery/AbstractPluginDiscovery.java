@@ -23,6 +23,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 
 import org.apache.seatunnel.api.common.PluginIdentifierInterface;
+import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.FactoryUtil;
@@ -37,6 +38,7 @@ import org.apache.seatunnel.common.utils.ReflectionUtils;
 
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.ImmutableTriple;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -47,6 +49,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -231,24 +234,54 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
         throw new RuntimeException("Plugin " + pluginIdentifier + " not found.");
     }
 
+    @Override
+    public ImmutableTriple<PluginIdentifier, List<Option<?>>, List<Option<?>>> getOptionRules(
+            String pluginIdentifier) {
+        Optional<Map.Entry<PluginIdentifier, OptionRule>> pluginEntry =
+                getPlugins().entrySet().stream()
+                        .filter(
+                                entry ->
+                                        entry.getKey()
+                                                .getPluginName()
+                                                .equalsIgnoreCase(pluginIdentifier))
+                        .findFirst();
+        if (pluginEntry.isPresent()) {
+            Map.Entry<PluginIdentifier, OptionRule> entry = pluginEntry.get();
+            List<Option<?>> requiredOptions =
+                    entry.getValue().getRequiredOptions().stream()
+                            .flatMap(requiredOption -> requiredOption.getOptions().stream())
+                            .collect(Collectors.toList());
+            List<Option<?>> optionalOptions = entry.getValue().getOptionalOptions();
+            return ImmutableTriple.of(entry.getKey(), requiredOptions, optionalOptions);
+        }
+        return ImmutableTriple.of(null, new ArrayList<>(), new ArrayList<>());
+    }
+
+    /**
+     * Get all support plugin already in SEATUNNEL_HOME, support connector-v2 and transform-v2
+     *
+     * @param pluginType
+     * @param factoryIdentifier
+     * @param optionRule
+     * @return
+     */
+    protected void getPluginsByFactoryIdentifier(
+            LinkedHashMap<PluginIdentifier, OptionRule> plugins,
+            PluginType pluginType,
+            String factoryIdentifier,
+            OptionRule optionRule) {
+        PluginIdentifier pluginIdentifier =
+                PluginIdentifier.of("seatunnel", pluginType.getType(), factoryIdentifier);
+        plugins.computeIfAbsent(pluginIdentifier, k -> optionRule);
+    }
+
     /**
      * Get all support plugin already in SEATUNNEL_HOME, only support connector-v2
      *
      * @return the all plugin identifier of the engine
      */
-    public Map<PluginType, LinkedHashMap<PluginIdentifier, OptionRule>> getAllPlugin()
-            throws IOException {
-        List<Factory> factories;
-        if (this.pluginDir.toFile().exists()) {
-            log.info("load plugin from plugin dir: {}", this.pluginDir);
-            List<URL> files = FileUtils.searchJarFiles(this.pluginDir);
-            factories =
-                    FactoryUtil.discoverFactories(new URLClassLoader(files.toArray(new URL[0])));
-        } else {
-            log.warn("plugin dir: {} not exists, load plugin from classpath", this.pluginDir);
-            factories =
-                    FactoryUtil.discoverFactories(Thread.currentThread().getContextClassLoader());
-        }
+    public Map<PluginType, LinkedHashMap<PluginIdentifier, OptionRule>> getAllPlugin() {
+        List<Factory> factories = getPluginFactories();
 
         Map<PluginType, LinkedHashMap<PluginIdentifier, OptionRule>> plugins = new HashMap<>();
 
@@ -295,6 +328,29 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
                     }
                 });
         return plugins;
+    }
+
+    protected List<Factory> getPluginFactories() {
+        List<Factory> factories;
+        if (this.pluginDir.toFile().exists()) {
+            log.debug("load plugin from plugin dir: {}", this.pluginDir);
+            List<URL> files;
+            try {
+                files = FileUtils.searchJarFiles(this.pluginDir);
+            } catch (IOException e) {
+                throw new RuntimeException(
+                        String.format(
+                                "Can not find any plugin(source/sink/transform) in the dir: %s",
+                                this.pluginDir));
+            }
+            factories =
+                    FactoryUtil.discoverFactories(new URLClassLoader(files.toArray(new URL[0])));
+        } else {
+            log.warn("plugin dir: {} not exists, load plugin from classpath", this.pluginDir);
+            factories =
+                    FactoryUtil.discoverFactories(Thread.currentThread().getContextClassLoader());
+        }
+        return factories;
     }
 
     protected T loadPluginInstance(PluginIdentifier pluginIdentifier, ClassLoader classLoader) {

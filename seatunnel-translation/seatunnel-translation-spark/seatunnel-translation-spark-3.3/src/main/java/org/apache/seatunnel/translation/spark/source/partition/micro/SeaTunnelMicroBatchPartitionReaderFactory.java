@@ -35,6 +35,7 @@ public class SeaTunnelMicroBatchPartitionReaderFactory implements PartitionReade
     private final SeaTunnelSource<SeaTunnelRow, ?, ?> source;
 
     private final int parallelism;
+    private final String jobId;
 
     private final String checkpointLocation;
 
@@ -43,10 +44,12 @@ public class SeaTunnelMicroBatchPartitionReaderFactory implements PartitionReade
     public SeaTunnelMicroBatchPartitionReaderFactory(
             SeaTunnelSource<SeaTunnelRow, ?, ?> source,
             int parallelism,
+            String jobId,
             String checkpointLocation,
             CaseInsensitiveStringMap caseInsensitiveStringMap) {
         this.source = source;
         this.parallelism = parallelism;
+        this.jobId = jobId;
         this.checkpointLocation = checkpointLocation;
         this.caseInsensitiveStringMap = caseInsensitiveStringMap;
     }
@@ -67,6 +70,7 @@ public class SeaTunnelMicroBatchPartitionReaderFactory implements PartitionReade
                     new CoordinatedMicroBatchPartitionReader(
                             source,
                             parallelism,
+                            jobId,
                             subtaskId,
                             checkpointId,
                             checkpointInterval,
@@ -79,6 +83,7 @@ public class SeaTunnelMicroBatchPartitionReaderFactory implements PartitionReade
                     new ParallelMicroBatchPartitionReader(
                             source,
                             parallelism,
+                            jobId,
                             subtaskId,
                             checkpointId,
                             checkpointInterval,

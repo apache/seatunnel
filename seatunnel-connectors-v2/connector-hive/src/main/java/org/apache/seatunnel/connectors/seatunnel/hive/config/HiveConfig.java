@@ -26,6 +26,9 @@ import org.apache.seatunnel.connectors.seatunnel.hive.utils.HiveMetaStoreProxy;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.hive.metastore.api.Table;
 
+import java.util.HashMap;
+import java.util.Map;
+
 public class HiveConfig {
     public static final Option<String> TABLE_NAME =
             Options.key("table_name")
@@ -50,6 +53,19 @@ public class HiveConfig {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("The path of hive-site.xml");
+
+    public static final Option<Map<String, String>> HADOOP_CONF =
+            Options.key("hive.hadoop.conf")
+                    .mapType()
+                    .defaultValue(new HashMap<>())
+                    .withDescription("Properties in hadoop conf");
+
+    public static final Option<String> HADOOP_CONF_PATH =
+            Options.key("hive.hadoop.conf-path")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "The specified loading path for the 'core-site.xml', 'hdfs-site.xml' files");
 
     public static final String TEXT_INPUT_FORMAT_CLASSNAME =
             "org.apache.hadoop.mapred.TextInputFormat";

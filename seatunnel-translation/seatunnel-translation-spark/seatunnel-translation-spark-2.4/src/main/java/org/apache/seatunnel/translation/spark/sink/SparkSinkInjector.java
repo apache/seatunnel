@@ -33,23 +33,28 @@ public class SparkSinkInjector {
             "org.apache.seatunnel.translation.spark.sink.SparkSink";
 
     public static final String SINK_CATALOG_TABLE = "sink.catalog.table";
+    public static final String JOB_ID = "jobId";
 
     public static DataStreamWriter<Row> inject(
             DataStreamWriter<Row> dataset,
             SeaTunnelSink<?, ?, ?, ?> sink,
-            CatalogTable catalogTable) {
+            CatalogTable catalogTable,
+            String applicationId) {
         return dataset.format(SPARK_SINK_CLASS_NAME)
                 .outputMode(OutputMode.Append())
                 .option(Constants.SINK_SERIALIZATION, SerializationUtils.objectToString(sink))
-                .option(SINK_CATALOG_TABLE, SerializationUtils.objectToString(catalogTable));
+                .option(SINK_CATALOG_TABLE, SerializationUtils.objectToString(catalogTable))
+                .option(JOB_ID, applicationId);
     }
 
     public static DataFrameWriter<Row> inject(
             DataFrameWriter<Row> dataset,
             SeaTunnelSink<?, ?, ?, ?> sink,
-            CatalogTable catalogTable) {
+            CatalogTable catalogTable,
+            String applicationId) {
         return dataset.format(SPARK_SINK_CLASS_NAME)
                 .option(Constants.SINK_SERIALIZATION, SerializationUtils.objectToString(sink))
-                .option(SINK_CATALOG_TABLE, SerializationUtils.objectToString(catalogTable));
+                .option(SINK_CATALOG_TABLE, SerializationUtils.objectToString(catalogTable))
+                .option(JOB_ID, applicationId);
     }
 }
