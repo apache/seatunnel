@@ -18,7 +18,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.db2;
 
-import com.google.auto.service.AutoService;
 import org.apache.seatunnel.api.table.catalog.DataTypeConvertor;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -30,6 +29,8 @@ import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 import org.apache.commons.collections4.MapUtils;
+
+import com.google.auto.service.AutoService;
 
 import java.util.Collections;
 import java.util.Map;
@@ -84,14 +85,14 @@ public class Db2DataTypeConvertor implements DataTypeConvertor<String> {
     // ------------------------------blob-------------------------
     private static final String DB2_BLOB = "BLOB";
 
-
     @Override
     public SeaTunnelDataType<?> toSeaTunnelType(String field, String connectorDataType) {
         return toSeaTunnelType(field, connectorDataType, Collections.emptyMap());
     }
 
     @Override
-    public SeaTunnelDataType<?> toSeaTunnelType(String field, String connectorDataType, Map<String, Object> dataTypeProperties) {
+    public SeaTunnelDataType<?> toSeaTunnelType(
+            String field, String connectorDataType, Map<String, Object> dataTypeProperties) {
         checkNotNull(connectorDataType, "DB2 Type cannot be null for field: " + field);
 
         switch (connectorDataType) {
@@ -105,7 +106,8 @@ public class Db2DataTypeConvertor implements DataTypeConvertor<String> {
             case DB2_BIGINT:
                 return BasicType.LONG_TYPE;
             case DB2_DECIMAL:
-                int precision = MapUtils.getInteger(dataTypeProperties, PRECISION, DEFAULT_PRECISION);
+                int precision =
+                        MapUtils.getInteger(dataTypeProperties, PRECISION, DEFAULT_PRECISION);
                 int scale = MapUtils.getInteger(dataTypeProperties, SCALE, DEFAULT_SCALE);
                 return new DecimalType(precision, scale);
             case DB2_DEC:
@@ -137,12 +139,16 @@ public class Db2DataTypeConvertor implements DataTypeConvertor<String> {
             case DB2_TIMESTAMP:
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
             default:
-                throw CommonError.convertToSeaTunnelTypeError(DatabaseIdentifier.DB_2, connectorDataType, field);
+                throw CommonError.convertToSeaTunnelTypeError(
+                        DatabaseIdentifier.DB_2, connectorDataType, field);
         }
     }
 
     @Override
-    public String toConnectorType(String field, SeaTunnelDataType<?> seaTunnelDataType, Map<String, Object> dataTypeProperties) {
+    public String toConnectorType(
+            String field,
+            SeaTunnelDataType<?> seaTunnelDataType,
+            Map<String, Object> dataTypeProperties) {
         checkNotNull(seaTunnelDataType, "SeaTunnelDataType cannot be null for field: " + field);
         SqlType sqlType = seaTunnelDataType.getSqlType();
         switch (sqlType) {
@@ -167,7 +173,8 @@ public class Db2DataTypeConvertor implements DataTypeConvertor<String> {
             case TIMESTAMP:
                 return DB2_TIMESTAMP;
             default:
-                throw CommonError.convertToConnectorTypeError(DatabaseIdentifier.DB_2, seaTunnelDataType.getSqlType().toString(), field);
+                throw CommonError.convertToConnectorTypeError(
+                        DatabaseIdentifier.DB_2, seaTunnelDataType.getSqlType().toString(), field);
         }
     }
 
