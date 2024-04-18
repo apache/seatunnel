@@ -25,6 +25,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.type.SqlType;
@@ -40,6 +41,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.BaseHdfsFileSo
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.hive.storage.StorageFactory;
 
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
@@ -153,11 +155,11 @@ public class HiveSource extends BaseHdfsFileSource {
                     CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                     "Hive connector only support [text parquet orc] table now");
         }
-        String hdfsLocation = tableInformation.getSd().getLocation();
+        String hiveSdLocation = tableInformation.getSd().getLocation();
         try {
-            URI uri = new URI(hdfsLocation);
+            URI uri = new URI(hiveSdLocation);
             String path = uri.getPath();
-            String defaultFs = hdfsLocation.replace(path, "");
+            String defaultFs = hiveSdLocation.replace(path, "");
             pluginConfig =
                     pluginConfig
                             .withValue(
@@ -165,12 +167,22 @@ public class HiveSource extends BaseHdfsFileSource {
                                     ConfigValueFactory.fromAnyRef(path))
                             .withValue(
                                     FS_DEFAULT_NAME_KEY, ConfigValueFactory.fromAnyRef(defaultFs));
+            /**
+             * Build hadoop conf(support s3、cos、oss、hdfs). The returned hadoop conf can be
+             * CosConf、OssConf、S3Conf、HadoopConf so that HadoopFileSystemProxy can obtain the
+             * correct Schema and FsHdfsImpl that can be filled into hadoop configuration in {@link
+             * org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy#createConfiguration()}
+             */
+            hadoopConf =
+                    StorageFactory.getStorageType(hiveSdLocation)
+                            .buildHadoopConfWithReadOnlyConfig(
+                                    ReadonlyConfig.fromConfig(pluginConfig));
         } catch (URISyntaxException e) {
             String errorMsg =
                     String.format(
                             "Get hdfs namenode host from table location [%s] failed,"
                                     + "please check it",
-                            hdfsLocation);
+                            hiveSdLocation);
             throw new HiveConnectorException(
                     HiveConnectorErrorCode.GET_HDFS_NAMENODE_HOST_FAILED, errorMsg, e);
         }

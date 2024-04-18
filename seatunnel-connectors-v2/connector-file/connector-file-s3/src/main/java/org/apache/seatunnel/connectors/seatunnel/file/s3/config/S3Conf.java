@@ -29,8 +29,8 @@ import java.util.Map;
 public class S3Conf extends HadoopConf {
     private static final String HDFS_S3N_IMPL = "org.apache.hadoop.fs.s3native.NativeS3FileSystem";
     private static final String HDFS_S3A_IMPL = "org.apache.hadoop.fs.s3a.S3AFileSystem";
-    private static final String S3A_SCHEMA = "s3a";
-    private static final String DEFAULT_SCHEMA = "s3n";
+    protected static final String S3A_SCHEMA = "s3a";
+    protected static final String DEFAULT_SCHEMA = "s3n";
     private String schema = DEFAULT_SCHEMA;
 
     @Override
@@ -47,7 +47,7 @@ public class S3Conf extends HadoopConf {
         this.schema = schema;
     }
 
-    private S3Conf(String hdfsNameKey) {
+    protected S3Conf(String hdfsNameKey) {
         super(hdfsNameKey);
     }
 
@@ -80,7 +80,7 @@ public class S3Conf extends HadoopConf {
         return buildWithConfig(config);
     }
 
-    private String switchHdfsImpl() {
+    protected String switchHdfsImpl() {
         switch (this.schema) {
             case S3A_SCHEMA:
                 return HDFS_S3A_IMPL;
