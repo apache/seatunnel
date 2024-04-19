@@ -174,7 +174,7 @@ Sink插件常用参数，请参考 [Sink常用选项](common-options.md) 了解�
 在启动同步任务之前，针对目标侧已有的表结构选择不同的处理方案<br/>
 选项介绍：<br/>
 `RECREATE_SCHEMA`：当表不存在时会创建，当表已存在时会删除并重建<br/>
-`CREATE_SCHEMA_WHEN_NOT_EXIST`：当表不存在时会创建，当表已存在时则跳过<br/>
+`CREATE_SCHEMA_WHEN_NOT_EXIST`：当表不存在时会创建，当表已存在时则跳过创建<br/>
 `ERROR_WHEN_SCHEMA_NOT_EXIST`：当表不存在时将抛出错误<br/>
 
 ### data_save_mode [Enum]
