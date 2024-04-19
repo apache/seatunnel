@@ -37,6 +37,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -114,6 +115,7 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
                                     executorService.submit(thread);
                                     return thread;
                                 }));
+        List<CompletableFuture<Void>> completableFutures = new ArrayList<>();
         sourceSplits.forEach(
                 sourceSplit -> {
                     CompletableFuture<Void> completableFuture = new CompletableFuture<>();
@@ -196,8 +198,11 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
                         throw new KafkaConnectorException(
                                 KafkaConnectorErrorCode.CONSUME_DATA_FAILED, e);
                     }
-                    completableFuture.join();
+                    completableFutures.add(completableFuture);
                 });
+        CompletableFuture<Void> allFutures =
+                CompletableFuture.allOf(completableFutures.toArray(new CompletableFuture[0]));
+        allFutures.join();
 
         if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
             // signal to the source that we have reached the end of the data.
