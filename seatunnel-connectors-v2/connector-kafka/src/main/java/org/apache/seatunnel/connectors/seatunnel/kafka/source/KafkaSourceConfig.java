@@ -191,9 +191,6 @@ public class KafkaSourceConfig implements Serializable {
     private CatalogTable createCatalogTable(ReadonlyConfig readonlyConfig) {
         Optional<Map<String, Object>> schemaOptions =
                 readonlyConfig.getOptional(TableSchemaOptions.SCHEMA);
-        if (readonlyConfig.get(TOPIC) == null) {
-            throw new RuntimeException("Make sure the `topic` configuration option is not empty");
-        }
         TablePath tablePath = TablePath.of(readonlyConfig.get(TOPIC));
         TableSchema tableSchema;
         if (schemaOptions.isPresent()) {
