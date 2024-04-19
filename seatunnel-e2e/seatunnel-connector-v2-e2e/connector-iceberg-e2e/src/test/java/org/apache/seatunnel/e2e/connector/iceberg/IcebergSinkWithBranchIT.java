@@ -124,7 +124,7 @@ public class IcebergSinkWithBranchIT extends TestSuiteBase {
                             log.error("Extract files failed with exit code " + exitCode);
                         }
                     } catch (IOException | InterruptedException e) {
-                        e.printStackTrace();
+                        log.error("Extract data files from container error :", e);
                     }
                 }
             };
@@ -179,7 +179,7 @@ public class IcebergSinkWithBranchIT extends TestSuiteBase {
                             }
                         }
                     } catch (IOException e) {
-                        e.printStackTrace();
+                        log.error("Table scan branch error :", e);
                     }
                 });
         return results;
