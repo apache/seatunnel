@@ -148,8 +148,6 @@ seatunnel:
 
 For additional reading on the Hadoop Credential Provider API see: [Credential Provider API](https://hadoop.apache.org/docs/stable/hadoop-project-dist/hadoop-common/CredentialProviderAPI.html).
 
-if
-
 #### HDFS
 
 if you used HDFS, you can config like this:
