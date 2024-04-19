@@ -259,8 +259,7 @@ public class RocketMqSource
             }
             switch (format) {
                 case JSON:
-                    deserializationSchema =
-                            new JsonDeserializationSchema(false, false, typeInfo, null);
+                    deserializationSchema = new JsonDeserializationSchema(false, false, typeInfo);
                     break;
                 case TEXT:
                     String delimiter = DEFAULT_FIELD_DELIMITER;

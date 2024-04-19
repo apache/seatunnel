@@ -113,8 +113,7 @@ public class AmazonSqsSource extends AbstractSingleSplitSource<SeaTunnelRow>
             MessageFormat format = ReadonlyConfig.fromConfig(config).get(FORMAT);
             switch (format) {
                 case JSON:
-                    deserializationSchema =
-                            new JsonDeserializationSchema(false, false, typeInfo, null);
+                    deserializationSchema = new JsonDeserializationSchema(false, false, typeInfo);
                     break;
                 case TEXT:
                     String delimiter = DEFAULT_FIELD_DELIMITER;

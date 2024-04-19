@@ -69,7 +69,7 @@ public class JsonReadStrategy extends AbstractReadStrategy {
                             false, false, this.seaTunnelRowTypeWithPartition, null);
         } else {
             deserializationSchema =
-                    new JsonDeserializationSchema(false, false, this.seaTunnelRowType, null);
+                    new JsonDeserializationSchema(false, false, this.seaTunnelRowType);
         }
     }
 

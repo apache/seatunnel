@@ -80,8 +80,7 @@ public class SheetsSource extends AbstractSingleSplitSource<SeaTunnelRow> {
         } else {
             this.seaTunnelRowType = CatalogTableUtil.buildSimpleTextSchema();
         }
-        this.deserializationSchema =
-                new JsonDeserializationSchema(false, false, seaTunnelRowType, null);
+        this.deserializationSchema = new JsonDeserializationSchema(false, false, seaTunnelRowType);
     }
 
     @Override

@@ -40,7 +40,7 @@ public class GoogleSheetsDeserializerTest {
         SeaTunnelRowType schema =
                 new SeaTunnelRowType(new String[] {"name"}, new SeaTunnelDataType[] {STRING_TYPE});
         final DeserializationSchema<SeaTunnelRow> deser =
-                new JsonDeserializationSchema(false, false, schema, null);
+                new JsonDeserializationSchema(false, false, schema);
         final GoogleSheetsDeserializer googleSheetsDeser =
                 new GoogleSheetsDeserializer(schema.getFieldNames(), deser);
         List<Object> row = new ArrayList<>();

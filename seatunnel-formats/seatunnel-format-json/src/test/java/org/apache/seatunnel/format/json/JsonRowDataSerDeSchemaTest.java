@@ -168,7 +168,7 @@ public class JsonRowDataSerDeSchemaTest {
                         });
 
         JsonDeserializationSchema deserializationSchema =
-                new JsonDeserializationSchema(false, false, schema, null);
+                new JsonDeserializationSchema(false, false, schema);
 
         SeaTunnelRow expected = new SeaTunnelRow(13);
         expected.setField(0, true);
@@ -227,7 +227,7 @@ public class JsonRowDataSerDeSchemaTest {
                         });
 
         JsonDeserializationSchema deserializationSchema =
-                new JsonDeserializationSchema(false, false, schema, null);
+                new JsonDeserializationSchema(false, false, schema);
         JsonSerializationSchema serializationSchema = new JsonSerializationSchema(schema);
 
         ObjectMapper objectMapper = new ObjectMapper();
@@ -303,7 +303,7 @@ public class JsonRowDataSerDeSchemaTest {
                         });
 
         JsonDeserializationSchema deserializationSchema =
-                new JsonDeserializationSchema(false, true, rowType, null);
+                new JsonDeserializationSchema(false, true, rowType);
         JsonSerializationSchema serializationSchema = new JsonSerializationSchema(rowType);
 
         for (int i = 0; i < jsons.length; i++) {
@@ -319,7 +319,7 @@ public class JsonRowDataSerDeSchemaTest {
         SeaTunnelRowType schema =
                 new SeaTunnelRowType(new String[] {"name"}, new SeaTunnelDataType[] {STRING_TYPE});
         JsonDeserializationSchema deserializationSchema =
-                new JsonDeserializationSchema(true, false, schema, null);
+                new JsonDeserializationSchema(true, false, schema);
         String s = null;
         assertNull(deserializationSchema.deserialize(s));
     }
@@ -330,7 +330,7 @@ public class JsonRowDataSerDeSchemaTest {
                 new SeaTunnelRowType(new String[] {"name"}, new SeaTunnelDataType[] {STRING_TYPE});
 
         JsonDeserializationSchema deserializationSchema =
-                new JsonDeserializationSchema(true, false, schema, null);
+                new JsonDeserializationSchema(true, false, schema);
         SeaTunnelRow rowData = deserializationSchema.deserialize("".getBytes());
         assertEquals(null, rowData);
     }
@@ -348,8 +348,7 @@ public class JsonRowDataSerDeSchemaTest {
                 new SeaTunnelRowType(new String[] {"name"}, new SeaTunnelDataType[] {STRING_TYPE});
 
         // pass on missing field
-        final JsonDeserializationSchema deser =
-                new JsonDeserializationSchema(false, false, schema, null);
+        final JsonDeserializationSchema deser = new JsonDeserializationSchema(false, false, schema);
 
         SeaTunnelRow expected = new SeaTunnelRow(1);
         SeaTunnelRow actual = deser.deserialize(serializedJson);
@@ -369,8 +368,7 @@ public class JsonRowDataSerDeSchemaTest {
                 new SeaTunnelRowType(new String[] {"name"}, new SeaTunnelDataType[] {STRING_TYPE});
 
         // fail on missing field
-        final JsonDeserializationSchema deser =
-                new JsonDeserializationSchema(true, false, schema, null);
+        final JsonDeserializationSchema deser = new JsonDeserializationSchema(true, false, schema);
 
         SeaTunnelRuntimeException expected =
                 CommonError.jsonOperationError("Common", root.toString());
@@ -404,8 +402,7 @@ public class JsonRowDataSerDeSchemaTest {
         SeaTunnelRow expected = new SeaTunnelRow(1);
 
         // ignore on parse error
-        final JsonDeserializationSchema deser =
-                new JsonDeserializationSchema(false, true, schema, null);
+        final JsonDeserializationSchema deser = new JsonDeserializationSchema(false, true, schema);
         assertEquals(expected, deser.deserialize(serializedJson));
     }
 
@@ -418,7 +415,7 @@ public class JsonRowDataSerDeSchemaTest {
                 assertThrows(
                         SeaTunnelJsonFormatException.class,
                         () -> {
-                            new JsonDeserializationSchema(true, true, null, null);
+                            new JsonDeserializationSchema(true, true, null);
                         },
                         "expecting exception message: " + errorMessage);
         assertEquals(actual.getMessage(), errorMessage);
@@ -430,8 +427,7 @@ public class JsonRowDataSerDeSchemaTest {
                 new SeaTunnelRowType(new String[] {"name"}, new SeaTunnelDataType[] {STRING_TYPE});
 
         String noJson = "{]";
-        final JsonDeserializationSchema deser =
-                new JsonDeserializationSchema(false, false, schema, null);
+        final JsonDeserializationSchema deser = new JsonDeserializationSchema(false, false, schema);
         SeaTunnelRuntimeException expected = CommonError.jsonOperationError("Common", noJson);
 
         SeaTunnelRuntimeException actual =

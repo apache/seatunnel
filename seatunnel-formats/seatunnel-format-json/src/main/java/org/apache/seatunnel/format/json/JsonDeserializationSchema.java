@@ -69,6 +69,11 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
     private final CatalogTable catalogTable;
 
     public JsonDeserializationSchema(
+            boolean failOnMissingField, boolean ignoreParseErrors, SeaTunnelRowType rowType) {
+        new JsonDeserializationSchema(failOnMissingField, ignoreParseErrors, rowType, null);
+    }
+
+    public JsonDeserializationSchema(
             boolean failOnMissingField,
             boolean ignoreParseErrors,
             SeaTunnelRowType rowType,

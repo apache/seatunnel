@@ -135,6 +135,6 @@ public class RabbitmqSource
         // TODO: format SPI
         // only support json deserializationSchema
         SeaTunnelRowType rowType = CatalogTableUtil.buildWithConfig(config).getSeaTunnelRowType();
-        this.deserializationSchema = new JsonDeserializationSchema(false, false, rowType, null);
+        this.deserializationSchema = new JsonDeserializationSchema(false, false, rowType);
     }
 }

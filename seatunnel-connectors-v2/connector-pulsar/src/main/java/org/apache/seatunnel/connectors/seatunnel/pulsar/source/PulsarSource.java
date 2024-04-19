@@ -307,8 +307,7 @@ public class PulsarSource
             }
             switch (format.toUpperCase()) {
                 case "JSON":
-                    deserializationSchema =
-                            new JsonDeserializationSchema(false, false, typeInfo, null);
+                    deserializationSchema = new JsonDeserializationSchema(false, false, typeInfo);
                     break;
                 case "CANAL_JSON":
                     deserializationSchema =
@@ -324,8 +323,7 @@ public class PulsarSource
             }
         } else {
             typeInfo = CatalogTableUtil.buildSimpleTextSchema();
-            this.deserializationSchema =
-                    new JsonDeserializationSchema(false, false, typeInfo, null);
+            this.deserializationSchema = new JsonDeserializationSchema(false, false, typeInfo);
         }
     }
 
