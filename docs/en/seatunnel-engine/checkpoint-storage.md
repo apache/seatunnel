@@ -85,7 +85,6 @@ if you used SimpleAWSCredentialsProvider (can be obtained from the Amazon Securi
 you can config like this:
 
 ```yaml
-``` yaml
 
 seatunnel:
     engine:
@@ -123,6 +122,28 @@ seatunnel:
           s3.bucket: your-bucket
           fs.s3a.endpoint: your-endpoint
           fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.InstanceProfileCredentialsProvider
+```
+
+If you want to use Minio that supports the S3 protocol as checkpoint storage, you should configure it this way:
+
+```yaml
+
+seatunnel:
+  engine:
+    checkpoint:
+      interval: 10000
+      timeout: 60000
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          storage.type: s3
+          fs.s3a.access.key: xxxxxxxxx # Access Key  of MinIO
+          fs.s3a.secret.key: xxxxxxxxxxxxxxxxxxxxx # Secret Key of MinIO
+          fs.s3a.endpoint: http://127.0.0.1:9000 # Minio HTTP service access address
+          s3.bucket: s3a://test # test is the bucket name which  storage the checkpoint file
+          fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
+       # important: The user of this key needs to have write permission for the bucket, otherwise an exception of 403 will be returned
 ```
 
 For additional reading on the Hadoop Credential Provider API see: [Credential Provider API](https://hadoop.apache.org/docs/stable/hadoop-project-dist/hadoop-common/CredentialProviderAPI.html).

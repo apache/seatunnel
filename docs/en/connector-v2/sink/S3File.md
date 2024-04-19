@@ -39,7 +39,7 @@ Output data to aws s3 file system.
 > If you use spark/flink, In order to use this connector, You must ensure your spark/flink cluster already integrated hadoop. The tested hadoop version is 2.x.
 >
 > If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you download and install SeaTunnel Engine. You can check the jar package under `${SEATUNNEL_HOME}/lib` to confirm this.
-> To use this connector you need put `hadoop-aws-3.1.4.jar` and `aws-java-sdk-bundle-1.11.271.jar` in `${SEATUNNEL_HOME}/lib` dir.
+> To use this connector you need put `hadoop-aws-3.1.4.jar` and `aws-java-sdk-bundle-1.12.692.jar` in `${SEATUNNEL_HOME}/lib` dir.
 
 ## Data Type Mapping
 
