@@ -121,8 +121,10 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
         return this.physicalRowType;
     }
 
-    public void deserialize(ObjectNode jsonNode, Collector<SeaTunnelRow> out, TablePath tablePath)
-            throws IOException {
+    public void deserialize(ObjectNode jsonNode, Collector<SeaTunnelRow> out) throws IOException {
+        TablePath tablePath =
+                Optional.ofNullable(catalogTable).map(CatalogTable::getTablePath).orElse(null);
+
         try {
             if (database != null
                     && !databasePattern.matcher(jsonNode.get(FIELD_DATABASE).asText()).matches()) {
@@ -220,9 +222,7 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
     public void deserialize(byte[] message, Collector<SeaTunnelRow> out) throws IOException {
         ObjectNode jsonNodes = convertBytes(message);
         if (jsonNodes != null) {
-            TablePath tablePath =
-                    Optional.ofNullable(catalogTable).map(CatalogTable::getTablePath).orElse(null);
-            deserialize(convertBytes(message), out, tablePath);
+            deserialize(convertBytes(message), out);
         }
     }
 

@@ -23,7 +23,6 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
-import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.JsonUtils;
@@ -59,16 +58,6 @@ public class PulsarCanalDecorator implements DeserializationSchema<SeaTunnelRow>
 
     @Override
     public void deserialize(byte[] message, Collector<SeaTunnelRow> out) throws IOException {
-        deserializeMessage(message, out, null);
-    }
-
-    public void deserialize(byte[] message, Collector<SeaTunnelRow> out, TablePath tablePath)
-            throws IOException {
-        deserializeMessage(message, out, tablePath);
-    }
-
-    public void deserializeMessage(byte[] message, Collector<SeaTunnelRow> out, TablePath tablePath)
-            throws IOException {
         JsonNode pulsarCanal = JsonUtils.parseObject(message);
         ArrayNode canalList = JsonUtils.parseArray(pulsarCanal.get(MESSAGE).asText());
         Iterator<JsonNode> canalIterator = canalList.elements();
@@ -77,8 +66,7 @@ public class PulsarCanalDecorator implements DeserializationSchema<SeaTunnelRow>
             // reconvert pulsar handler, reference to
             // https://github.com/apache/pulsar/blob/master/pulsar-io/canal/src/main/java/org/apache/pulsar/io/canal/MessageUtils.java
             ObjectNode root = reconvertPulsarData((ObjectNode) next);
-            // todo Wait for TablePath functionality to be added
-            canalJsonDeserializationSchema.deserialize(root, out, tablePath);
+            canalJsonDeserializationSchema.deserialize(root, out);
         }
     }
 
