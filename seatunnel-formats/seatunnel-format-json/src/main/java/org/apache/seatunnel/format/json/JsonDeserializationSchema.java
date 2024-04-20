@@ -70,7 +70,7 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
 
     public JsonDeserializationSchema(
             boolean failOnMissingField, boolean ignoreParseErrors, SeaTunnelRowType rowType) {
-        new JsonDeserializationSchema(failOnMissingField, ignoreParseErrors, rowType, null);
+        this(failOnMissingField, ignoreParseErrors, rowType, null);
     }
 
     public JsonDeserializationSchema(

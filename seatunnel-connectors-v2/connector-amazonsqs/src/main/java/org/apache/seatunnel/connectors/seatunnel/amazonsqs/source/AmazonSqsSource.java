@@ -138,8 +138,7 @@ public class AmazonSqsSource extends AbstractSingleSplitSource<SeaTunnelRow>
                         includeSchema = config.getBoolean(DEBEZIUM_RECORD_INCLUDE_SCHEMA.key());
                     }
                     deserializationSchema =
-                            new DebeziumJsonDeserializationSchema(
-                                    typeInfo, true, includeSchema, null);
+                            new DebeziumJsonDeserializationSchema(typeInfo, true, includeSchema);
                     break;
                 default:
                     throw new SeaTunnelJsonFormatException(

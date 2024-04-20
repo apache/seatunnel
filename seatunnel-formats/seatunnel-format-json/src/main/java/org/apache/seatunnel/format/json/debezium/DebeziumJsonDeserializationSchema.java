@@ -73,6 +73,17 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
     }
 
     public DebeziumJsonDeserializationSchema(
+            SeaTunnelRowType rowType, boolean ignoreParseErrors, boolean debeziumEnabledSchema) {
+        this.rowType = rowType;
+        this.ignoreParseErrors = ignoreParseErrors;
+        this.jsonDeserializer =
+                new JsonDeserializationSchema(
+                        false, ignoreParseErrors, createJsonRowType(rowType), catalogTable);
+        this.debeziumRowConverter = new DebeziumRowConverter(rowType);
+        this.debeziumEnabledSchema = debeziumEnabledSchema;
+    }
+
+    public DebeziumJsonDeserializationSchema(
             SeaTunnelRowType rowType,
             boolean ignoreParseErrors,
             boolean debeziumEnabledSchema,
