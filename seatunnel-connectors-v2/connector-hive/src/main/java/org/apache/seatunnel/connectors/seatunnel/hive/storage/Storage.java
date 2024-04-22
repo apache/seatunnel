@@ -15,15 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.sink;
+package org.apache.seatunnel.connectors.seatunnel.hive.storage;
 
-public class SaveModeConstants {
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 
-    public static final String ROWTYPE_PRIMARY_KEY = "rowtype_primary_key";
-    public static final String ROWTYPE_FIELDS = "rowtype_fields";
-    public static final String ROWTYPE_UNIQUE_KEY = "rowtype_unique_key";
-
-    public static final String TABLE_NAME = "table_name";
-
-    public static final String DATABASE = "database";
+public interface Storage {
+    HadoopConf buildHadoopConfWithReadOnlyConfig(ReadonlyConfig readonlyConfig);
 }

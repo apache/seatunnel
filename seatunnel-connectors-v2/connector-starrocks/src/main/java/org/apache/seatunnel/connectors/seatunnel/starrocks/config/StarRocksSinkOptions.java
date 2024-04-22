@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.starrocks.config;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.sink.DataSaveMode;
+import org.apache.seatunnel.api.sink.SaveModePlaceHolder;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig.StreamLoadFormat;
 
@@ -57,12 +58,22 @@ public interface StarRocksSinkOptions {
             Options.key("save_mode_create_template")
                     .stringType()
                     .defaultValue(
-                            "CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}` (\n"
-                                    + "${rowtype_primary_key},\n"
-                                    + "${rowtype_fields}\n"
+                            "CREATE TABLE IF NOT EXISTS `"
+                                    + SaveModePlaceHolder.DATABASE.getPlaceHolder()
+                                    + "`.`"
+                                    + SaveModePlaceHolder.TABLE_NAME.getPlaceHolder()
+                                    + "` (\n"
+                                    + SaveModePlaceHolder.ROWTYPE_PRIMARY_KEY.getPlaceHolder()
+                                    + ",\n"
+                                    + SaveModePlaceHolder.ROWTYPE_FIELDS.getPlaceHolder()
+                                    + "\n"
                                     + ") ENGINE=OLAP\n"
-                                    + " PRIMARY KEY (${rowtype_primary_key})\n"
-                                    + "DISTRIBUTED BY HASH (${rowtype_primary_key})"
+                                    + " PRIMARY KEY ("
+                                    + SaveModePlaceHolder.ROWTYPE_PRIMARY_KEY.getPlaceHolder()
+                                    + ")\n"
+                                    + "DISTRIBUTED BY HASH ("
+                                    + SaveModePlaceHolder.ROWTYPE_PRIMARY_KEY.getPlaceHolder()
+                                    + ")"
                                     + "PROPERTIES (\n"
                                     + "    \"replication_num\" = \"1\" \n"
                                     + ")")

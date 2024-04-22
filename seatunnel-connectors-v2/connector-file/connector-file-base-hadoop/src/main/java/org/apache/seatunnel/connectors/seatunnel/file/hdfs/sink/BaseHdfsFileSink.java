@@ -29,6 +29,8 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.BaseFileSink;
 
+import java.util.Objects;
+
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_KEY;
 
 public abstract class BaseHdfsFileSink extends BaseFileSink {
@@ -44,7 +46,11 @@ public abstract class BaseHdfsFileSink extends BaseFileSink {
                             getPluginName(), PluginType.SINK, result.getMsg()));
         }
         super.prepare(pluginConfig);
-        hadoopConf = new HadoopConf(pluginConfig.getString(FS_DEFAULT_NAME_KEY));
+        // Avoid overwriting hadoopConf for subclass initialization. If a subclass is initialized,
+        // it is not initialized here.
+        if (Objects.isNull(hadoopConf)) {
+            hadoopConf = new HadoopConf(pluginConfig.getString(FS_DEFAULT_NAME_KEY));
+        }
         if (pluginConfig.hasPath(BaseSinkConfig.HDFS_SITE_PATH.key())) {
             hadoopConf.setHdfsSitePath(pluginConfig.getString(BaseSinkConfig.HDFS_SITE_PATH.key()));
         }

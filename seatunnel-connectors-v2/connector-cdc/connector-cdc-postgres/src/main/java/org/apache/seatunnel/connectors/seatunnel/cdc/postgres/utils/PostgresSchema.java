@@ -30,7 +30,6 @@ import io.debezium.relational.Tables;
 import io.debezium.relational.history.TableChanges;
 
 import java.sql.SQLException;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -52,44 +51,46 @@ public class PostgresSchema {
         TableChanges.TableChange schema = schemasByTableId.get(tableId);
         if (schema == null) {
             schema = readTableSchema(jdbc, tableId);
-            schemasByTableId.put(tableId, schema);
         }
         return schema;
     }
 
     private TableChanges.TableChange readTableSchema(JdbcConnection jdbc, TableId tableId) {
-
-        CatalogTable catalogTable = tableMap.get(tableId);
         // Because the catalog is null in the postgresConnection.readSchema method
-        tableId = new TableId(null, tableId.schema(), tableId.table());
+        TableId tableIdWithoutCatalog = new TableId(null, tableId.schema(), tableId.table());
 
         PostgresConnection postgresConnection = (PostgresConnection) jdbc;
-        final Map<TableId, TableChanges.TableChange> tableChangeMap = new HashMap<>();
         Tables tables = new Tables();
         try {
             postgresConnection.readSchema(
                     tables,
-                    tableId.catalog(),
-                    tableId.schema(),
+                    tableIdWithoutCatalog.catalog(),
+                    tableIdWithoutCatalog.schema(),
                     connectorConfig.getTableFilters().dataCollectionFilter(),
                     null,
                     false);
-            Table table =
-                    CatalogTableUtils.mergeCatalogTableConfig(
-                            tables.forTable(tableId), catalogTable);
-            TableChanges.TableChange tableChange =
-                    new TableChanges.TableChange(TableChanges.TableChangeType.CREATE, table);
-            tableChangeMap.put(tableId, tableChange);
+            for (TableId id : tables.tableIds()) {
+                TableId idWithCatalog = new TableId(tableId.catalog(), id.schema(), id.table());
+                if (tableMap.containsKey(idWithCatalog)) {
+                    Table table =
+                            CatalogTableUtils.mergeCatalogTableConfig(
+                                    tables.forTable(id), tableMap.get(idWithCatalog));
+                    TableChanges.TableChange tableChange =
+                            new TableChanges.TableChange(
+                                    TableChanges.TableChangeType.CREATE, table);
+                    schemasByTableId.put(idWithCatalog, tableChange);
+                }
+            }
         } catch (SQLException e) {
             throw new SeaTunnelException(
                     String.format("Failed to read schema for table %s ", tableId), e);
         }
 
-        if (!tableChangeMap.containsKey(tableId)) {
+        if (!schemasByTableId.containsKey(tableId)) {
             throw new SeaTunnelException(
                     String.format("Can't obtain schema for table %s ", tableId));
         }
 
-        return tableChangeMap.get(tableId);
+        return schemasByTableId.get(tableId);
     }
 }
