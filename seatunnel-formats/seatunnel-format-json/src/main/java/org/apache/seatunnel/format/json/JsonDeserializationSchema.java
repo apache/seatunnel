@@ -50,23 +50,23 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
     private static final String FORMAT = "Common";
 
     /** Flag indicating whether to fail if a field is missing. */
-    private boolean failOnMissingField;
+    private final boolean failOnMissingField;
 
     /** Flag indicating whether to ignore invalid fields/rows (default: throw an exception). */
-    private boolean ignoreParseErrors;
+    private final boolean ignoreParseErrors;
 
     /** The row type of the produced {@link SeaTunnelRow}. */
-    private SeaTunnelRowType rowType;
+    private final SeaTunnelRowType rowType;
 
     /**
      * Runtime converter that converts {@link JsonNode}s into objects of internal data structures.
      */
-    private JsonToRowConverters.JsonToObjectConverter runtimeConverter;
+    private final JsonToRowConverters.JsonToObjectConverter runtimeConverter;
 
     /** Object mapper for parsing the JSON. */
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    private CatalogTable catalogTable;
+    private final CatalogTable catalogTable;
 
     public JsonDeserializationSchema(
             boolean failOnMissingField, boolean ignoreParseErrors, SeaTunnelRowType rowType) {

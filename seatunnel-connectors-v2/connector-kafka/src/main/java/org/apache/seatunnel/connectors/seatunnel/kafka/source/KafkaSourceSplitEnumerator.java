@@ -270,9 +270,7 @@ public class KafkaSourceSplitEnumerator
             currentPathTopics.forEach(topic -> topicMappingTablePathMap.put(topic, tablePath));
             topics.addAll(currentPathTopics);
         }
-
         log.info("Discovered topics: {}", topics);
-
         Collection<TopicPartition> partitions =
                 adminClient.describeTopics(topics).all().get().values().stream()
                         .flatMap(
