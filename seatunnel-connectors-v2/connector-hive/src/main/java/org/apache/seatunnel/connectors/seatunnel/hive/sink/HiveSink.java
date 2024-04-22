@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
@@ -29,7 +30,6 @@ import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
-import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.hdfs.sink.BaseHdfsFileSink;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileCommitInfo;
@@ -37,6 +37,7 @@ import org.apache.seatunnel.connectors.seatunnel.hive.commit.HiveSinkAggregatedC
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.hive.storage.StorageFactory;
 
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
@@ -177,11 +178,19 @@ public class HiveSink extends BaseHdfsFileSink {
                         .withValue(SINK_COLUMNS.key(), ConfigValueFactory.fromAnyRef(sinkFields))
                         .withValue(
                                 PARTITION_BY.key(), ConfigValueFactory.fromAnyRef(partitionKeys));
-        String hdfsLocation = tableInformation.getSd().getLocation();
+        String hiveSdLocation = tableInformation.getSd().getLocation();
         try {
-            URI uri = new URI(hdfsLocation);
-            String path = uri.getPath();
-            hadoopConf = new HadoopConf(hdfsLocation.replace(path, ""));
+            /**
+             * Build hadoop conf(support s3、cos、oss、hdfs). The returned hadoop conf can be
+             * CosConf、OssConf、S3Conf、HadoopConf so that HadoopFileSystemProxy can obtain the
+             * correct Schema and FsHdfsImpl that can be filled into hadoop configuration in {@link
+             * org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy#createConfiguration()}
+             */
+            hadoopConf =
+                    StorageFactory.getStorageType(hiveSdLocation)
+                            .buildHadoopConfWithReadOnlyConfig(
+                                    ReadonlyConfig.fromConfig(pluginConfig));
+            String path = new URI(hiveSdLocation).getPath();
             pluginConfig =
                     pluginConfig
                             .withValue(FILE_PATH.key(), ConfigValueFactory.fromAnyRef(path))
@@ -193,7 +202,7 @@ public class HiveSink extends BaseHdfsFileSink {
                     String.format(
                             "Get hdfs namenode host from table location [%s] failed,"
                                     + "please check it",
-                            hdfsLocation);
+                            hiveSdLocation);
             throw new HiveConnectorException(
                     HiveConnectorErrorCode.GET_HDFS_NAMENODE_HOST_FAILED, errorMsg, e);
         }

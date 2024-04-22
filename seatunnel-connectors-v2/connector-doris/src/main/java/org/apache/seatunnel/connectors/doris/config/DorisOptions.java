@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.sink.DataSaveMode;
+import org.apache.seatunnel.api.sink.SaveModePlaceHolder;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
 
 import java.util.Map;
@@ -227,11 +228,20 @@ public interface DorisOptions {
             Options.key("save_mode_create_template")
                     .stringType()
                     .defaultValue(
-                            "CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}` (\n"
-                                    + "${rowtype_fields}\n"
+                            "CREATE TABLE IF NOT EXISTS `"
+                                    + SaveModePlaceHolder.DATABASE.getPlaceHolder()
+                                    + "`.`"
+                                    + SaveModePlaceHolder.TABLE_NAME.getPlaceHolder()
+                                    + "` (\n"
+                                    + SaveModePlaceHolder.ROWTYPE_FIELDS.getPlaceHolder()
+                                    + "\n"
                                     + ") ENGINE=OLAP\n"
-                                    + " UNIQUE KEY (${rowtype_primary_key})\n"
-                                    + "DISTRIBUTED BY HASH (${rowtype_primary_key})\n "
+                                    + " UNIQUE KEY ("
+                                    + SaveModePlaceHolder.ROWTYPE_PRIMARY_KEY.getPlaceHolder()
+                                    + ")\n"
+                                    + "DISTRIBUTED BY HASH ("
+                                    + SaveModePlaceHolder.ROWTYPE_PRIMARY_KEY.getPlaceHolder()
+                                    + ")\n "
                                     + "PROPERTIES (\n"
                                     + "\"replication_allocation\" = \"tag.location.default: 1\",\n"
                                     + "\"in_memory\" = \"false\",\n"
