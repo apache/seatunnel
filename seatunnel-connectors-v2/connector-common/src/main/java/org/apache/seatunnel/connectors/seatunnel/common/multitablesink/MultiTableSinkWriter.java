@@ -53,6 +53,7 @@ public class MultiTableSinkWriter
     private final ExecutorService executorService;
     private MultiTableResourceManager resourceManager;
     private volatile boolean submitted = false;
+    private static final long SLEEP_TIME_MS = 100L;
 
     public MultiTableSinkWriter(
             Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters, int queueSize) {
@@ -305,7 +306,7 @@ public class MultiTableSinkWriter
         try {
             for (BlockingQueue<SeaTunnelRow> blockingQueue : blockingQueues) {
                 while (!blockingQueue.isEmpty()) {
-                    Thread.sleep(100);
+                    Thread.sleep(SLEEP_TIME_MS);
                     subSinkErrorCheck();
                 }
             }

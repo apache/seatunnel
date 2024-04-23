@@ -70,6 +70,7 @@ public class DorisValueReader {
 
     protected SeaTunnelRowType seaTunnelRowType;
     protected boolean asyncThreadStarted;
+    private static final long SLEEP_TIME_MS = 5L;
 
     public DorisValueReader(
             PartitionDefinition partition, DorisConfig config, SeaTunnelRowType seaTunnelRowType) {
@@ -205,7 +206,7 @@ public class DorisValueReader {
                     } else {
                         // wait for rowBatch put in queue or eos change
                         try {
-                            Thread.sleep(5);
+                            Thread.sleep(SLEEP_TIME_MS);
                         } catch (InterruptedException e) {
                         }
                     }

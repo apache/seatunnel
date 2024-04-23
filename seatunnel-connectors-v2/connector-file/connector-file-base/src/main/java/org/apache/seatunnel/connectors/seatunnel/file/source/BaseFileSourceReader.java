@@ -38,6 +38,7 @@ public class BaseFileSourceReader implements SourceReader<SeaTunnelRow, FileSour
     private final SourceReader.Context context;
     private final Deque<FileSourceSplit> sourceSplits = new ConcurrentLinkedDeque<>();
     private volatile boolean noMoreSplit;
+    private static final long SLEEP_TIME_MS = 1000L;
 
     public BaseFileSourceReader(ReadStrategy readStrategy, SourceReader.Context context) {
         this.readStrategy = readStrategy;
@@ -69,7 +70,7 @@ public class BaseFileSourceReader implements SourceReader<SeaTunnelRow, FileSour
                 log.info("Closed the bounded File source");
                 context.signalNoMoreElement();
             } else {
-                Thread.sleep(1000L);
+                Thread.sleep(SLEEP_TIME_MS);
             }
         }
     }

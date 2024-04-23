@@ -38,6 +38,7 @@ public class InMemorySinkWriter
 
     // use a daemon thread to test classloader leak
     private static final Thread THREAD;
+    private static final long SLEEP_TIME_MS = 1000L;
 
     static {
         // use the daemon thread to always hold the classloader
@@ -47,7 +48,7 @@ public class InMemorySinkWriter
                         () -> {
                             while (true) {
                                 try {
-                                    Thread.sleep(1000);
+                                    Thread.sleep(SLEEP_TIME_MS);
                                     System.out.println(classLoader);
                                 } catch (InterruptedException e) {
                                     e.printStackTrace();

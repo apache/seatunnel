@@ -66,6 +66,7 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
     protected SplitContext<T, SplitStateT> currentSplitContext;
     private Collector<T> currentSplitOutput;
     private boolean noMoreSplitsAssignment;
+    private static final long SLEEP_TIME_MS = 100L;
 
     public SourceReaderBase(
             BlockingQueue<RecordsWithSplitIds<E>> elementsQueue,
@@ -162,7 +163,7 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
         if (recordsWithSplitId == null || !moveToNextSplit(recordsWithSplitId, output)) {
             try {
                 log.trace("Current fetch is finished.");
-                Thread.sleep(100);
+                Thread.sleep(SLEEP_TIME_MS);
             } catch (InterruptedException e) {
                 throw new SeaTunnelException(e);
             }

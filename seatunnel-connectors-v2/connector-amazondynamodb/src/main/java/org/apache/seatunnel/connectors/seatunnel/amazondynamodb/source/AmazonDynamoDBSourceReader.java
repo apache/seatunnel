@@ -49,6 +49,7 @@ public class AmazonDynamoDBSourceReader
     protected AmazonDynamoDBSourceOptions amazondynamodbSourceOptions;
     protected SeaTunnelRowDeserializer seaTunnelRowDeserializer;
     Queue<AmazonDynamoDBSourceSplit> pendingSplits = new ConcurrentLinkedDeque<>();
+    private static final long SLEEP_TIME_MS = 2000L;
 
     private volatile boolean noMoreSplit;
 
@@ -83,7 +84,6 @@ public class AmazonDynamoDBSourceReader
     }
 
     @Override
-    @SuppressWarnings("magicnumber")
     public void pollNext(Collector<SeaTunnelRow> output) throws InterruptedException {
         synchronized (output.getCheckpointLock()) {
             AmazonDynamoDBSourceSplit split = pendingSplits.poll();
@@ -95,7 +95,7 @@ public class AmazonDynamoDBSourceReader
                     // signal to the source that we have reached the end of the data.
                     log.info("Closed the bounded amazonDynamodb source");
                     context.signalNoMoreElement();
-                    Thread.sleep(2000L);
+                    Thread.sleep(SLEEP_TIME_MS);
                 }
             }
             if (Objects.nonNull(split)) {

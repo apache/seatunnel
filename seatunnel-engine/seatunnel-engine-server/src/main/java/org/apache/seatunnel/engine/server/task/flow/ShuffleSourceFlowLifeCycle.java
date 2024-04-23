@@ -47,6 +47,7 @@ public class ShuffleSourceFlowLifeCycle<T> extends AbstractFlowLifeCycle
     private final Map<Integer, Barrier> alignedBarriers = new HashMap<>();
     private long currentCheckpointId = Long.MAX_VALUE;
     private int alignedBarriersCounter = 0;
+    private static final long SLEEP_TIME_MS = 100L;
 
     public ShuffleSourceFlowLifeCycle(
             SeaTunnelTask runningTask,
@@ -144,7 +145,7 @@ public class ShuffleSourceFlowLifeCycle<T> extends AbstractFlowLifeCycle
         }
 
         if (emptyShuffleQueueCount == shuffles.length) {
-            Thread.sleep(100);
+            Thread.sleep(SLEEP_TIME_MS);
         }
     }
 

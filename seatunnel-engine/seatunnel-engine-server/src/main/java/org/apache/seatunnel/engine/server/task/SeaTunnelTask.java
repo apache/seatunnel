@@ -115,6 +115,8 @@ public abstract class SeaTunnelTask extends AbstractTask {
 
     private SeaTunnelMetricsContext metricsContext;
 
+    private static final long SLEEP_TIME_MS = 100L;
+
     public SeaTunnelTask(long jobID, TaskLocation taskID, int indexID, Flow executionFlow) {
         super(jobID, taskID);
         this.indexID = indexID;
@@ -151,14 +153,14 @@ public abstract class SeaTunnelTask extends AbstractTask {
                     currState = READY_START;
                     reportTaskStatus(READY_START);
                 } else {
-                    Thread.sleep(100);
+                    Thread.sleep(SLEEP_TIME_MS);
                 }
                 break;
             case READY_START:
                 if (startCalled) {
                     currState = STARTING;
                 } else {
-                    Thread.sleep(100);
+                    Thread.sleep(SLEEP_TIME_MS);
                 }
                 break;
             case STARTING:
@@ -174,7 +176,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
                 if (closeCalled) {
                     currState = CLOSED;
                 } else {
-                    Thread.sleep(100);
+                    Thread.sleep(SLEEP_TIME_MS);
                 }
                 break;
             case CLOSED:

@@ -49,6 +49,7 @@ public class KuduSourceReader implements SourceReader<SeaTunnelRow, KuduSourceSp
     boolean noMoreSplit;
 
     private final Map<TablePath, SeaTunnelRowType> tables;
+    private static final long SLEEP_TIME_MS = 1000L;
 
     public KuduSourceReader(Context context, KuduSourceConfig kuduSourceConfig) {
         this.context = context;
@@ -99,7 +100,7 @@ public class KuduSourceReader implements SourceReader<SeaTunnelRow, KuduSourceSp
                 log.info("Closed the bounded kudu source");
                 context.signalNoMoreElement();
             } else {
-                Thread.sleep(1000L);
+                Thread.sleep(SLEEP_TIME_MS);
             }
         }
     }

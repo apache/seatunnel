@@ -78,6 +78,7 @@ public class PostgresReplicationConnection extends JdbcConnection implements Rep
     private Lsn defaultStartingPos;
     private SlotCreationResult slotCreationInfo;
     private boolean hasInitedSlot;
+    private static final long SLEEP_TIME_MS = 10L;
 
     /**
      * Creates a new replication connection with the given params.
@@ -721,7 +722,7 @@ public class PostgresReplicationConnection extends JdbcConnection implements Rep
         // TODO DBZ-508 get rid of this
         // Needed by tests when connections are opened and closed in a fast sequence
         try {
-            Thread.sleep(10);
+            Thread.sleep(SLEEP_TIME_MS);
         } catch (Exception e) {
         }
         stream.forceUpdateStatus();

@@ -83,6 +83,9 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
 
     private final MetricsContext metricsContext;
     private final EventListener eventListener;
+    private static final long SLEEP_TIME_100_MS = 100L;
+    private static final long SLEEP_TIME_200_MS = 200L;
+    private static final long SLEEP_TIME_0_MS = 0L;
 
     private final AtomicReference<SchemaChangePhase> schemaChangePhase = new AtomicReference<>();
 
@@ -149,13 +152,13 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
             if (schemaChanging()) {
                 log.debug("schema is changing, stop reader collect records");
 
-                Thread.sleep(200);
+                Thread.sleep(SLEEP_TIME_200_MS);
                 return;
             }
 
             reader.pollNext(collector);
             if (collector.isEmptyThisPollNext()) {
-                Thread.sleep(100);
+                Thread.sleep(SLEEP_TIME_100_MS);
             } else {
                 collector.resetEmptyThisPollNext();
                 /**
@@ -165,7 +168,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
                  * SourceFlowLifeCycle#triggerBarrier(Barrier)}. When high CPU load, checkpoint
                  * process may be blocked as long time. So we need sleep to free the CPU.
                  */
-                Thread.sleep(0L);
+                Thread.sleep(SLEEP_TIME_0_MS);
             }
 
             if (collector.captureSchemaChangeBeforeCheckpointSignal()) {
@@ -188,7 +191,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
                 log.info("triggered schema-change-after checkpoint, stopping collect data");
             }
         } else {
-            Thread.sleep(100);
+            Thread.sleep(SLEEP_TIME_100_MS);
         }
     }
 

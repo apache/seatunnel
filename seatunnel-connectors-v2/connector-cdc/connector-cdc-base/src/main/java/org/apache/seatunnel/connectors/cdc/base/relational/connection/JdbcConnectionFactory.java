@@ -37,6 +37,7 @@ public class JdbcConnectionFactory implements JdbcConnection.ConnectionFactory {
 
     private final JdbcSourceConfig sourceConfig;
     private final JdbcConnectionPoolFactory jdbcConnectionPoolFactory;
+    private static final long SLEEP_TIME_MS = 300L;
 
     public JdbcConnectionFactory(
             JdbcSourceConfig sourceConfig, JdbcConnectionPoolFactory jdbcConnectionPoolFactory) {
@@ -65,7 +66,7 @@ public class JdbcConnectionFactory implements JdbcConnection.ConnectionFactory {
             } catch (SQLException e) {
                 if (i < connectRetryTimes - 1) {
                     try {
-                        Thread.sleep(300);
+                        Thread.sleep(SLEEP_TIME_MS);
                     } catch (InterruptedException ie) {
                         throw new SeaTunnelException(
                                 "Failed to get connection, interrupted while doing another attempt",

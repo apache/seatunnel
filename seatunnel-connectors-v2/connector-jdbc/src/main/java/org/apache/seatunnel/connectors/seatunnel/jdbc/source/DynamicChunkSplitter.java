@@ -54,6 +54,8 @@ import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.ch
 @Slf4j
 public class DynamicChunkSplitter extends ChunkSplitter {
 
+    private static final long SLEEP_TIME_MS = 100L;
+
     public DynamicChunkSplitter(JdbcSourceConfig config) {
         super(config);
     }
@@ -439,7 +441,7 @@ public class DynamicChunkSplitter extends ChunkSplitter {
         // every 100 queries to sleep 1s
         if (count % 10 == 0) {
             try {
-                Thread.sleep(100);
+                Thread.sleep(SLEEP_TIME_MS);
             } catch (InterruptedException e) {
                 // nothing to do
             }

@@ -63,6 +63,8 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
     protected final Map<Integer, AtomicBoolean> readerRunningMap;
     protected final AtomicInteger completedReader = new AtomicInteger(0);
     protected transient volatile ScheduledThreadPoolExecutor executorService;
+    private static final long SLEEP_TIME_MS = 100L;
+    private static final long SLEEP_TIME_0_MS = 0L;
 
     /** Flag indicating whether the consumer is still running. */
     protected volatile boolean running = true;
@@ -169,7 +171,7 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
                                             try {
                                                 reader.pollNext(collector);
                                                 if (collector.isEmptyThisPollNext()) {
-                                                    Thread.sleep(100);
+                                                    Thread.sleep(SLEEP_TIME_MS);
                                                 } else {
                                                     collector.resetEmptyThisPollNext();
                                                     /**
@@ -180,7 +182,7 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
                                                      * this
                                                      * https://github.com/apache/seatunnel/issues/5694
                                                      */
-                                                    Thread.sleep(0L);
+                                                    Thread.sleep(SLEEP_TIME_0_MS);
                                                 }
                                             } catch (Exception e) {
                                                 running = false;

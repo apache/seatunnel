@@ -46,6 +46,7 @@ public class PaimonSourceReader implements SourceReader<SeaTunnelRow, PaimonSour
     private final Table table;
     private final SeaTunnelRowType seaTunnelRowType;
     private volatile boolean noMoreSplit;
+    private static final long SLEEP_TIME_MS = 1000L;
 
     public PaimonSourceReader(Context context, Table table, SeaTunnelRowType seaTunnelRowType) {
         this.context = context;
@@ -86,7 +87,7 @@ public class PaimonSourceReader implements SourceReader<SeaTunnelRow, PaimonSour
                 context.signalNoMoreElement();
             } else {
                 log.warn("Waiting for flink table source split, sleeping 1s");
-                Thread.sleep(1000L);
+                Thread.sleep(SLEEP_TIME_MS);
             }
         }
     }

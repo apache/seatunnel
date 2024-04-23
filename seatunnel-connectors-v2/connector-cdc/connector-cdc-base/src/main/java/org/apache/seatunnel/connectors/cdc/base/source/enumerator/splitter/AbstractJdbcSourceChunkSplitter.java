@@ -48,6 +48,7 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
 
     private final JdbcSourceConfig sourceConfig;
     private final JdbcDataSourceDialect dialect;
+    private static final long SLEEP_TIME_MS = 100L;
 
     public AbstractJdbcSourceChunkSplitter(
             JdbcSourceConfig sourceConfig, JdbcDataSourceDialect dialect) {
@@ -435,12 +436,11 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
         return ObjectUtils.compare(obj1, obj2);
     }
 
-    @SuppressWarnings("MagicNumber")
     private static void maySleep(int count, TableId tableId) {
         // every 100 queries to sleep 1s
         if (count % 10 == 0) {
             try {
-                Thread.sleep(100);
+                Thread.sleep(SLEEP_TIME_MS);
             } catch (InterruptedException e) {
                 // nothing to do
             }

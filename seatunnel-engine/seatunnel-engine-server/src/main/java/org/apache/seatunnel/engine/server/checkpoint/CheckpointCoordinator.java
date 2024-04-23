@@ -147,6 +147,7 @@ public class CheckpointCoordinator {
     private PendingCheckpoint savepointPendingCheckpoint;
 
     private final String checkpointStateImapKey;
+    private static final long SLEEP_TIME_MS = 500L;
 
     @SneakyThrows
     public CheckpointCoordinator(
@@ -490,7 +491,7 @@ public class CheckpointCoordinator {
         CompletableFuture<PendingCheckpoint> savepoint;
         synchronized (lock) {
             while (pendingCounter.get() > 0 && !shutdown) {
-                Thread.sleep(500);
+                Thread.sleep(SLEEP_TIME_MS);
             }
             if (shutdown || isCompleted()) {
                 return completableFutureWithError(

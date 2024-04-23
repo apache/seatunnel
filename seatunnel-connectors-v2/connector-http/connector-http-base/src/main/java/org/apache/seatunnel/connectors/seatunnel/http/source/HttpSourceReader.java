@@ -67,6 +67,7 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             Configuration.defaultConfiguration().addOptions(DEFAULT_OPTIONS);
     private boolean noMoreElementFlag = true;
     private Optional<PageInfo> pageInfoOptional = Optional.empty();
+    private static final long SLEEP_TIME_MS = 10L;
 
     public HttpSourceReader(
             HttpParameter httpParameter,
@@ -167,7 +168,7 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                     updateRequestParam(info);
                     pollAndCollectData(output);
                     pageIndex += 1;
-                    Thread.sleep(10);
+                    Thread.sleep(SLEEP_TIME_MS);
                 }
             } else {
                 pollAndCollectData(output);

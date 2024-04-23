@@ -40,6 +40,7 @@ public class JdbcSourceReader implements SourceReader<SeaTunnelRow, JdbcSourceSp
     private final JdbcInputFormat inputFormat;
     private final Deque<JdbcSourceSplit> splits = new ConcurrentLinkedDeque<>();
     private volatile boolean noMoreSplit;
+    private static final long SLEEP_TIME_MS = 1000L;
 
     public JdbcSourceReader(
             Context context, JdbcSourceConfig config, Map<TablePath, CatalogTable> tables) {
@@ -58,7 +59,6 @@ public class JdbcSourceReader implements SourceReader<SeaTunnelRow, JdbcSourceSp
     }
 
     @Override
-    @SuppressWarnings("magicnumber")
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         synchronized (output.getCheckpointLock()) {
             JdbcSourceSplit split = splits.poll();
@@ -77,7 +77,7 @@ public class JdbcSourceReader implements SourceReader<SeaTunnelRow, JdbcSourceSp
                 log.info("Closed the bounded jdbc source");
                 context.signalNoMoreElement();
             } else {
-                Thread.sleep(1000L);
+                Thread.sleep(SLEEP_TIME_MS);
             }
         }
     }

@@ -92,6 +92,8 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     private volatile boolean readerRegisterComplete;
 
     private volatile boolean prepareCloseTriggered;
+    private static final long SLEEP_TIME_100_MS = 100L;
+    private static final long SLEEP_TIME_200_MS = 200L;
 
     @Override
     public void init() throws Exception {
@@ -270,7 +272,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         // wait.
         while (null == restoreComplete) {
             log.warn("Task init is not complete, try to get it again after 200 ms");
-            Thread.sleep(200);
+            Thread.sleep(SLEEP_TIME_200_MS);
         }
         restoreComplete.get();
         return enumerator;
@@ -294,7 +296,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
                     currState = READY_START;
                     reportTaskStatus(READY_START);
                 } else {
-                    Thread.sleep(100);
+                    Thread.sleep(SLEEP_TIME_100_MS);
                 }
                 break;
             case READY_START:
@@ -302,7 +304,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
                     currState = STARTING;
                     enumerator.open();
                 } else {
-                    Thread.sleep(100);
+                    Thread.sleep(SLEEP_TIME_100_MS);
                 }
                 break;
             case STARTING:
@@ -319,14 +321,14 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
                 } else if (prepareCloseTriggered) {
                     currState = PREPARE_CLOSE;
                 } else {
-                    Thread.sleep(100);
+                    Thread.sleep(SLEEP_TIME_100_MS);
                 }
                 break;
             case PREPARE_CLOSE:
                 if (closeCalled) {
                     currState = CLOSED;
                 } else {
-                    Thread.sleep(100);
+                    Thread.sleep(SLEEP_TIME_100_MS);
                 }
                 break;
             case CLOSED:

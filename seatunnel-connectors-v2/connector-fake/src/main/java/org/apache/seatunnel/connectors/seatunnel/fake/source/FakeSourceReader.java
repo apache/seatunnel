@@ -48,6 +48,7 @@ public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSp
     private volatile boolean noMoreSplit;
     private final long minSplitReadInterval;
     private volatile long latestTimestamp = 0;
+    private static final long SLEEP_TIME_MS = 1000L;
 
     public FakeSourceReader(
             SourceReader.Context context,
@@ -83,7 +84,6 @@ public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSp
     }
 
     @Override
-    @SuppressWarnings("MagicNumber")
     public void pollNext(Collector<SeaTunnelRow> output) throws InterruptedException {
         long currentTimestamp = Instant.now().toEpochMilli();
         if (currentTimestamp <= latestTimestamp + minSplitReadInterval) {
@@ -117,7 +117,7 @@ public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSp
             log.info("Closed the bounded fake source");
             context.signalNoMoreElement();
         }
-        Thread.sleep(1000L);
+        Thread.sleep(SLEEP_TIME_MS);
     }
 
     @Override

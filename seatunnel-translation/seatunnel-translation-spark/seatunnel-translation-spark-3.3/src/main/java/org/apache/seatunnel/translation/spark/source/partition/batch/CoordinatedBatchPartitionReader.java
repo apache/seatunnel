@@ -35,6 +35,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class CoordinatedBatchPartitionReader extends ParallelBatchPartitionReader {
 
     protected final Map<Integer, InternalRowCollector> collectorMap;
+    private static final long SLEEP_TIME_MS = 100L;
+    private static final long SLEEP_TIME_0_MS = 0L;
 
     public CoordinatedBatchPartitionReader(
             SeaTunnelSource<SeaTunnelRow, ?, ?> source,
@@ -90,7 +92,7 @@ public class CoordinatedBatchPartitionReader extends ParallelBatchPartitionReade
                                                 try {
                                                     reader.pollNext(rowCollector);
                                                     if (rowCollector.isEmptyThisPollNext()) {
-                                                        Thread.sleep(100);
+                                                        Thread.sleep(SLEEP_TIME_MS);
                                                     } else {
                                                         rowCollector.resetEmptyThisPollNext();
                                                         /**
@@ -101,7 +103,7 @@ public class CoordinatedBatchPartitionReader extends ParallelBatchPartitionReade
                                                          * in this
                                                          * https://github.com/apache/seatunnel/issues/5694
                                                          */
-                                                        Thread.sleep(0L);
+                                                        Thread.sleep(SLEEP_TIME_0_MS);
                                                     }
                                                 } catch (Exception e) {
                                                     this.running = false;

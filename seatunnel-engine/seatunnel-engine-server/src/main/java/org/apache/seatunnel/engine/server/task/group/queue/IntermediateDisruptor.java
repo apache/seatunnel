@@ -34,6 +34,7 @@ public class IntermediateDisruptor extends AbstractIntermediateQueue<Disruptor<R
     }
 
     private volatile boolean isExecuted;
+    private static final long SLEEP_TIME_MS = 100L;
 
     @Override
     public void received(Record<?> record) {
@@ -56,7 +57,7 @@ public class IntermediateDisruptor extends AbstractIntermediateQueue<Disruptor<R
             getIntermediateQueue().start();
             isExecuted = true;
         } else {
-            Thread.sleep(100);
+            Thread.sleep(SLEEP_TIME_MS);
         }
     }
 

@@ -118,6 +118,8 @@ public class PhysicalVertex {
 
     public volatile boolean isRunning = false;
 
+    private static final long SLEEP_TIME_MS = 2000L;
+
     /** The error throw by physicalVertex, should be set when physicalVertex throw error. */
     private AtomicReference<String> errorByPhysicalVertex = new AtomicReference<>();
 
@@ -441,7 +443,7 @@ public class PhysicalVertex {
                                 "%s cancel failed with Exception: %s, retry %s",
                                 this.getTaskFullName(), ExceptionUtils.getMessage(e), i));
                 try {
-                    Thread.sleep(2000);
+                    Thread.sleep(SLEEP_TIME_MS);
                 } catch (InterruptedException ex) {
                     throw new RuntimeException(ex);
                 }

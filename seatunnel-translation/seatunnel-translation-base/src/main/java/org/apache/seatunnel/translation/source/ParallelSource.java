@@ -61,6 +61,9 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT extends Serial
     /** Flag indicating whether the consumer is still running. */
     private volatile boolean running = true;
 
+    private static final long SLEEP_TIME_MS = 100L;
+    private static final long SLEEP_TIME_0_MS = 0L;
+
     public ParallelSource(
             SeaTunnelSource<T, SplitT, StateT> source,
             Map<Integer, List<byte[]>> restoredState,
@@ -137,7 +140,7 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT extends Serial
             }
             reader.pollNext(collector);
             if (collector.isEmptyThisPollNext()) {
-                Thread.sleep(100);
+                Thread.sleep(SLEEP_TIME_MS);
             } else {
                 collector.resetEmptyThisPollNext();
                 /**
@@ -145,7 +148,7 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT extends Serial
                  * long time, thus blocking the checkpoint thread for a long time. It is mentioned
                  * in this https://github.com/apache/seatunnel/issues/5694
                  */
-                Thread.sleep(0L);
+                Thread.sleep(SLEEP_TIME_0_MS);
             }
         }
         LOG.debug("Parallel source runs complete.");
