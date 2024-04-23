@@ -82,6 +82,9 @@ public class OracleSourceConfigFactory extends JdbcSourceConfigFactory {
         // disable tombstones
         props.setProperty("tombstones.on.delete", String.valueOf(false));
 
+        // Optimize logminer latency
+        props.setProperty("log.mining.strategy", "online_catalog");
+
         if (originUrl != null) {
             props.setProperty("database.url", originUrl);
         } else {
