@@ -51,12 +51,40 @@ public class SeaTunnelRowTest {
                             1L,
                             map,
                             new BigDecimal("3333.333"),
-                            new String[] {"test2", "test", "3333.333"}
+                            new String[] {"test2", "test", "3333.333"},
+                            new Integer[] {1, 2, 3},
+                            new Long[] {1L, 2L, 3L},
+                            new Double[] {1D, 2D},
+                            new Float[] {1F, 2F},
+                            new Boolean[] {Boolean.TRUE, Boolean.FALSE},
+                            new Byte[] {1, 2, 3, 4},
+                            new Short[] {Short.parseShort("1")}
+                        });
+
+        SeaTunnelRow row2 =
+                new SeaTunnelRow(
+                        new Object[] {
+                            1,
+                            "test",
+                            1L,
+                            map,
+                            new BigDecimal("3333.333"),
+                            new String[] {"test2", "test", "3333.333", null},
+                            new Integer[] {1, 2, 3, null},
+                            new Long[] {1L, 2L, 3L, null},
+                            new Double[] {1D, 2D, null},
+                            new Float[] {1F, 2F, null},
+                            new Boolean[] {Boolean.TRUE, Boolean.FALSE, null},
+                            new Byte[] {1, 2, 3, 4, null},
+                            new Short[] {Short.parseShort("1"), null}
                         });
 
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
-                        new String[] {"f0", "f1", "f2", "f3", "f4", "f5"},
+                        new String[] {
+                            "f0", "f1", "f2", "f3", "f4", "f5", "f6", "f7", "f8", "f9", "f10",
+                            "f11", "f12"
+                        },
                         new SeaTunnelDataType<?>[] {
                             BasicType.INT_TYPE,
                             BasicType.STRING_TYPE,
@@ -72,22 +100,21 @@ public class SeaTunnelRowTest {
                                                 new DecimalType(10, 3)
                                             })),
                             new DecimalType(10, 3),
-                            ArrayType.STRING_ARRAY_TYPE
+                            ArrayType.STRING_ARRAY_TYPE,
+                            ArrayType.INT_ARRAY_TYPE,
+                            ArrayType.LONG_ARRAY_TYPE,
+                            ArrayType.DOUBLE_ARRAY_TYPE,
+                            ArrayType.FLOAT_ARRAY_TYPE,
+                            ArrayType.BOOLEAN_ARRAY_TYPE,
+                            ArrayType.BYTE_ARRAY_TYPE,
+                            ArrayType.SHORT_ARRAY_TYPE
                         });
 
-        Assertions.assertEquals(181, row.getBytesSize(rowType));
+        Assertions.assertEquals(249, row.getBytesSize(rowType));
+        Assertions.assertEquals(249, row.getBytesSize());
 
-        SeaTunnelRow row2 =
-                new SeaTunnelRow(
-                        new Object[] {
-                            1,
-                            "test",
-                            1L,
-                            map,
-                            new BigDecimal("3333.333"),
-                            new String[] {"test2", "test", "3333.333"}
-                        });
-        Assertions.assertEquals(181, row2.getBytesSize());
+        Assertions.assertEquals(249, row2.getBytesSize(rowType));
+        Assertions.assertEquals(249, row2.getBytesSize());
     }
 
     @Test

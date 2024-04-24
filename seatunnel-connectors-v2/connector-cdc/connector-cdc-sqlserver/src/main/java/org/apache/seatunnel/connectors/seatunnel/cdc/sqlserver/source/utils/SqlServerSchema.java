@@ -31,7 +31,6 @@ import io.debezium.relational.history.TableChanges;
 import io.debezium.relational.history.TableChanges.TableChange;
 
 import java.sql.SQLException;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -54,15 +53,12 @@ public class SqlServerSchema {
         TableChange schema = schemasByTableId.get(tableId);
         if (schema == null) {
             schema = readTableSchema(jdbc, tableId);
-            schemasByTableId.put(tableId, schema);
         }
         return schema;
     }
 
     private TableChange readTableSchema(JdbcConnection jdbc, TableId tableId) {
         SqlServerConnection sqlServerConnection = (SqlServerConnection) jdbc;
-
-        final Map<TableId, TableChange> tableChangeMap = new HashMap<>();
         Tables tables = new Tables();
         try {
             sqlServerConnection.readSchema(
@@ -72,21 +68,27 @@ public class SqlServerSchema {
                     connectorConfig.getTableFilters().dataCollectionFilter(),
                     null,
                     false);
-            Table table =
-                    CatalogTableUtils.mergeCatalogTableConfig(
-                            tables.forTable(tableId), tableMap.get(tableId));
-            TableChange tableChange = new TableChange(TableChanges.TableChangeType.CREATE, table);
-            tableChangeMap.put(tableId, tableChange);
+            for (TableId id : tables.tableIds()) {
+                if (tableMap.containsKey(id)) {
+                    Table table =
+                            CatalogTableUtils.mergeCatalogTableConfig(
+                                    tables.forTable(id), tableMap.get(id));
+                    TableChanges.TableChange tableChange =
+                            new TableChanges.TableChange(
+                                    TableChanges.TableChangeType.CREATE, table);
+                    schemasByTableId.put(id, tableChange);
+                }
+            }
         } catch (SQLException e) {
             throw new SeaTunnelException(
                     String.format("Failed to read schema for table %s ", tableId), e);
         }
 
-        if (!tableChangeMap.containsKey(tableId)) {
+        if (!schemasByTableId.containsKey(tableId)) {
             throw new SeaTunnelException(
                     String.format("Can't obtain schema for table %s ", tableId));
         }
 
-        return tableChangeMap.get(tableId);
+        return schemasByTableId.get(tableId);
     }
 }

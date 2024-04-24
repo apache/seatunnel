@@ -18,7 +18,11 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
 
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
@@ -29,6 +33,47 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class DynamicChunkSplitterTest {
+
+    @Test
+    public void testGenerateSplitQuerySQL() {
+        JdbcSourceConfig config =
+                JdbcSourceConfig.builder()
+                        .jdbcConnectionConfig(
+                                JdbcConnectionConfig.builder()
+                                        .url("jdbc:postgresql://localhost:5432/test")
+                                        .driverName("org.postgresql.Driver")
+                                        .build())
+                        .build();
+        DynamicChunkSplitter splitter = new DynamicChunkSplitter(config);
+
+        JdbcSourceSplit split =
+                new JdbcSourceSplit(
+                        TablePath.of("db1", "schema1", "table1"),
+                        "split1",
+                        null,
+                        "id",
+                        BasicType.INT_TYPE,
+                        1,
+                        10);
+        String splitQuerySQL = splitter.createDynamicSplitQuerySQL(split);
+        Assertions.assertEquals(
+                "SELECT * FROM \"db1\".\"schema1\".\"table1\" WHERE \"id\" >= ? AND NOT (\"id\" = ?) AND \"id\" <= ?",
+                splitQuerySQL);
+
+        split =
+                new JdbcSourceSplit(
+                        TablePath.of("db1", "schema1", "table1"),
+                        "split1",
+                        "select * from table1",
+                        "id",
+                        BasicType.INT_TYPE,
+                        1,
+                        10);
+        splitQuerySQL = splitter.createDynamicSplitQuerySQL(split);
+        Assertions.assertEquals(
+                "SELECT * FROM (select * from table1) tmp WHERE \"id\" >= ? AND NOT (\"id\" = ?) AND \"id\" <= ?",
+                splitQuerySQL);
+    }
 
     @Test
     public void testEfficientShardingThroughSampling() throws NoSuchMethodException {

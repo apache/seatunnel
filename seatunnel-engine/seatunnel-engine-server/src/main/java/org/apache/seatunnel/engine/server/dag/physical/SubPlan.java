@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.dag.physical;
 
+import org.apache.seatunnel.api.env.EnvCommonOptions;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
@@ -51,7 +52,7 @@ import java.util.concurrent.atomic.AtomicReference;
 public class SubPlan {
 
     /** The max num pipeline can restore. */
-    public static final int PIPELINE_MAX_RESTORE_NUM = 3; // TODO should set by config
+    private final int pipelineMaxRestoreNum;
 
     private final List<PhysicalVertex> physicalVertexList;
 
@@ -98,7 +99,7 @@ public class SubPlan {
 
     private final Object restoreLock = new Object();
 
-    private volatile PipelineStatus currPipelineStatus = PipelineStatus.INITIALIZING;
+    private volatile PipelineStatus currPipelineStatus;
 
     public volatile boolean isRunning = false;
 
@@ -121,7 +122,15 @@ public class SubPlan {
         this.physicalVertexList = physicalVertexList;
         this.coordinatorVertexList = coordinatorVertexList;
         pipelineRestoreNum = 0;
-
+        pipelineMaxRestoreNum =
+                Integer.parseInt(
+                        jobImmutableInformation
+                                .getJobConfig()
+                                .getEnvOptions()
+                                .computeIfAbsent(
+                                        EnvCommonOptions.JOB_RETRY_TIMES.key(),
+                                        key -> EnvCommonOptions.JOB_RETRY_TIMES.defaultValue())
+                                .toString());
         Long[] stateTimestamps = new Long[PipelineStatus.values().length];
         if (runningJobStateTimestampsIMap.get(pipelineLocation) == null) {
             stateTimestamps[PipelineStatus.INITIALIZING.ordinal()] = initializationTimestamp;
@@ -302,7 +311,7 @@ public class SubPlan {
     }
 
     public boolean canRestorePipeline() {
-        return jobMaster.isNeedRestore() && getPipelineRestoreNum() < PIPELINE_MAX_RESTORE_NUM;
+        return jobMaster.isNeedRestore() && getPipelineRestoreNum() < pipelineMaxRestoreNum;
     }
 
     public synchronized void updatePipelineState(@NonNull PipelineStatus targetState) {

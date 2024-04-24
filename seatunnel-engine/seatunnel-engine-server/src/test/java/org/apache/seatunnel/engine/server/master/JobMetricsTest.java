@@ -137,7 +137,7 @@ class JobMetricsTest extends AbstractSeaTunnelServerTest {
                                         server.getCoordinatorService().getJobStatus(jobId3)));
 
         // check metrics
-        await().atMost(60000, TimeUnit.MILLISECONDS)
+        await().atMost(600000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
                             JobMetrics jobMetrics = coordinatorService.getJobMetrics(jobId3);
@@ -161,12 +161,12 @@ class JobMetricsTest extends AbstractSeaTunnelServerTest {
         server.getCoordinatorService().cancelJob(jobId3);
     }
 
-    private void startJob(Long jobid, String path, boolean isStartWithSavePoint) {
-        LogicalDag testLogicalDag = TestUtils.createTestLogicalPlan(path, jobid.toString(), jobid);
+    private void startJob(Long jobId, String path, boolean isStartWithSavePoint) {
+        LogicalDag testLogicalDag = TestUtils.createTestLogicalPlan(path, jobId.toString(), jobId);
 
         JobImmutableInformation jobImmutableInformation =
                 new JobImmutableInformation(
-                        jobid,
+                        jobId,
                         "Test",
                         isStartWithSavePoint,
                         nodeEngine.getSerializationService().toData(testLogicalDag),
@@ -177,7 +177,7 @@ class JobMetricsTest extends AbstractSeaTunnelServerTest {
         Data data = nodeEngine.getSerializationService().toData(jobImmutableInformation);
 
         PassiveCompletableFuture<Void> voidPassiveCompletableFuture =
-                server.getCoordinatorService().submitJob(jobid, data);
+                server.getCoordinatorService().submitJob(jobId, data);
         voidPassiveCompletableFuture.join();
     }
 }

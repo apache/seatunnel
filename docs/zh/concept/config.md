@@ -68,6 +68,19 @@ sink {
 }
 ```
 
+#### 多行文本支持
+
+`hocon`支持多行字符串，这样就可以包含较长的文本段落，而不必担心换行符或特殊格式。这可以通过将文本括在三层引号 **`"""`** 中来实现。例如:
+
+```
+var = """
+Apache SeaTunnel is a
+next-generation high-performance,
+distributed, massive data integration tool.
+"""
+sql = """ select * from "table" """
+```
+
 ### json
 
 ```json

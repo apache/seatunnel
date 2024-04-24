@@ -32,15 +32,15 @@ public class FlowControlGate {
 
     private FlowControlGate(FlowControlStrategy flowControlStrategy) {
         final int bytesPerSecond = flowControlStrategy.getBytesPerSecond();
-        final int countPreSecond = flowControlStrategy.getCountPreSecond();
+        final int countPerSecond = flowControlStrategy.getCountPerSecond();
         this.bytesRateLimiter =
                 bytesPerSecond == DEFAULT_VALUE
                         ? Optional.empty()
                         : Optional.of(RateLimiter.create(bytesPerSecond));
         this.countRateLimiter =
-                countPreSecond == DEFAULT_VALUE
+                countPerSecond == DEFAULT_VALUE
                         ? Optional.empty()
-                        : Optional.of(RateLimiter.create(countPreSecond));
+                        : Optional.of(RateLimiter.create(countPerSecond));
     }
 
     public void audit(SeaTunnelRow row) {

@@ -405,7 +405,8 @@ public class SparkSinkTest {
         SparkSinkInjector.inject(
                         dataset.write(),
                         new SeaTunnelSinkWithBuffer(),
-                        CatalogTableUtil.getCatalogTable("test", "test", "test", "test", rowType))
+                        CatalogTableUtil.getCatalogTable("test", "test", "test", "test", rowType),
+                        spark.sparkContext().applicationId())
                 .option("checkpointLocation", "/tmp")
                 .mode(SaveMode.Append)
                 .save();

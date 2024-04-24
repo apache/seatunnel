@@ -52,6 +52,8 @@ public class RestApiIT {
 
     private static ClientJobProxy clientJobProxy;
 
+    private static ClientJobProxy batchJobProxy;
+
     private static HazelcastInstanceImpl node1;
 
     private static HazelcastInstanceImpl node2;
@@ -85,6 +87,19 @@ public class RestApiIT {
                         () ->
                                 Assertions.assertEquals(
                                         JobStatus.RUNNING, clientJobProxy.getJobStatus()));
+
+        String batchFilePath = TestUtils.getResource("fakesource_to_console.conf");
+        JobConfig batchConf = new JobConfig();
+        batchConf.setName("fake_to_console");
+        ClientJobExecutionEnvironment batchJobExecutionEnv =
+                engineClient.createExecutionContext(batchFilePath, batchConf, seaTunnelConfig);
+        batchJobProxy = batchJobExecutionEnv.execute();
+        Awaitility.await()
+                .atMost(5, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.FINISHED, batchJobProxy.getJobStatus()));
     }
 
     @Test
@@ -105,6 +120,27 @@ public class RestApiIT {
                                     .statusCode(200)
                                     .body("jobName", equalTo("fake_to_file"))
                                     .body("jobStatus", equalTo("RUNNING"));
+                        });
+    }
+
+    @Test
+    public void testGetJobById() {
+        Arrays.asList(node2, node1)
+                .forEach(
+                        instance -> {
+                            given().get(
+                                            HOST
+                                                    + instance.getCluster()
+                                                            .getLocalMember()
+                                                            .getAddress()
+                                                            .getPort()
+                                                    + RestConstant.RUNNING_JOB_URL
+                                                    + "/"
+                                                    + batchJobProxy.getJobId())
+                                    .then()
+                                    .statusCode(200)
+                                    .body("jobName", equalTo("fake_to_console"))
+                                    .body("jobStatus", equalTo("FINISHED"));
                         });
     }
 

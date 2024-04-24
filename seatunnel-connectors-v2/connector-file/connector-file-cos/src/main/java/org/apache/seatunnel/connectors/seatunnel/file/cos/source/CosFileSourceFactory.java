@@ -35,7 +35,7 @@ import java.util.Arrays;
 public class CosFileSourceFactory implements TableSourceFactory {
     @Override
     public String factoryIdentifier() {
-        return FileSystemType.OSS.getFileSystemPluginName();
+        return FileSystemType.COS.getFileSystemPluginName();
     }
 
     @Override
