@@ -180,28 +180,29 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                 snapshotter.init(connectorConfig, offsetContext.asOffsetState(), slotInfo);
             }
 
-            SlotCreationResult slotCreatedInfo = null;
             if (snapshotter.shouldStream()) {
-                final boolean doSnapshot = snapshotter.shouldSnapshot();
-                createReplicationConnection(
-                        doSnapshot, connectorConfig.maxRetries(), connectorConfig.retryDelay());
+                if (sourceSplitBase.isIncrementalSplit() || slotInfo == null) {
+                    final boolean doSnapshot = snapshotter.shouldSnapshot();
+                    createReplicationConnection(
+                            doSnapshot, connectorConfig.maxRetries(), connectorConfig.retryDelay());
+                }
                 // we need to create the slot before we start streaming if it doesn't exist
                 // otherwise we can't stream back changes happening while the snapshot is taking
                 // place
                 if (slotInfo == null) {
                     try {
-                        slotCreatedInfo =
+                        SlotCreationResult slotCreatedInfo =
                                 replicationConnection.createReplicationSlot().orElse(null);
                     } catch (SQLException ex) {
                         String message = "Creation of replication slot failed";
                         if (ex.getMessage().contains("already exists")) {
                             message +=
                                     "; when setting up multiple connectors for the same database host, please make sure to use a distinct replication slot name for each.";
+                            log.warn(message);
+                        } else {
+                            throw new DebeziumException(message, ex);
                         }
-                        throw new DebeziumException(message, ex);
                     }
-                } else {
-                    slotCreatedInfo = null;
                 }
             }
 
@@ -350,7 +351,9 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
     public void close() {
         try {
             this.dataConnection.close();
-            this.replicationConnection.close();
+            if (this.replicationConnection != null) {
+                this.replicationConnection.close();
+            }
         } catch (Exception e) {
             log.warn("Failed to close connection", e);
         }
