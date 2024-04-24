@@ -55,6 +55,13 @@ public class JobClientJobProxyIT extends SeaTunnelContainer {
     }
 
     @Test
+    public void testMultiTableSinkFailedWithThrowable() throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                executeJob(server, "/stream_fake_to_inmemory_with_throwable_error.conf");
+        Assertions.assertNotEquals(0, execResult.getExitCode());
+    }
+
+    @Test
     public void testJobFailedWillThrowException() throws IOException, InterruptedException {
         Container.ExecResult execResult = executeSeaTunnelJob("/batch_slot_not_enough.conf");
         Assertions.assertNotEquals(0, execResult.getExitCode());
