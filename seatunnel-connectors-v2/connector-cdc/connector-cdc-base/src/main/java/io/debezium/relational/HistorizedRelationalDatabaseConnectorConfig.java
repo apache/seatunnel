@@ -39,6 +39,8 @@ import io.debezium.relational.history.KafkaDatabaseHistory;
  * which use a persistent database schema history.
  *
  * <p>Added JMX_METRICS_ENABLED option.
+ *
+ * <p>Line 147: set classloader to load the EmbeddedDatabaseHistory in seatunnel
  */
 public abstract class HistorizedRelationalDatabaseConnectorConfig
         extends RelationalDatabaseConnectorConfig {
@@ -141,7 +143,8 @@ public abstract class HistorizedRelationalDatabaseConnectorConfig
         DatabaseHistory databaseHistory =
                 config.getInstance(
                         HistorizedRelationalDatabaseConnectorConfig.DATABASE_HISTORY,
-                        DatabaseHistory.class);
+                        DatabaseHistory.class,
+                        () -> HistorizedRelationalDatabaseConnectorConfig.class.getClassLoader());
         if (databaseHistory == null) {
             throw new ConnectException(
                     "Unable to instantiate the database history class "

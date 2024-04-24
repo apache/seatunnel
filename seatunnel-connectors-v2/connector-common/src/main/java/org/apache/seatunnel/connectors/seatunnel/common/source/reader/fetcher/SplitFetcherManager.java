@@ -82,15 +82,9 @@ public abstract class SplitFetcherManager<E, SplitT extends SourceSplit> {
                     }
                 };
         String taskThreadName = Thread.currentThread().getName();
-        final ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
         this.executors =
                 Executors.newCachedThreadPool(
-                        r -> {
-                            Thread thread =
-                                    new Thread(r, "Source Data Fetcher for " + taskThreadName);
-                            thread.setContextClassLoader(classLoader);
-                            return thread;
-                        });
+                        r -> new Thread(r, "Source Data Fetcher for " + taskThreadName));
     }
 
     public abstract void addSplits(Collection<SplitT> splitsToAdd);
