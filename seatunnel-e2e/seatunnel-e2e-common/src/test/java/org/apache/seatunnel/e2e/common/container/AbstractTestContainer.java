@@ -110,6 +110,8 @@ public abstract class AbstractTestContainer implements TestContainer {
         command.add(adaptPathForWin(binPath));
         command.add("--config");
         command.add(adaptPathForWin(confInContainerPath));
+        command.add("--name");
+        command.add(new File(confInContainerPath).getName());
         command.addAll(getExtraStartShellCommands());
         return executeCommand(container, command);
     }

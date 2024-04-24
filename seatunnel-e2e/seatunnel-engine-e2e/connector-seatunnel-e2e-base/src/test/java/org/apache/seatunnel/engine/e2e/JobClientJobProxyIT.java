@@ -45,13 +45,22 @@ public class JobClientJobProxyIT extends SeaTunnelContainer {
         Container.ExecResult execResult =
                 executeJob(server, "/retry-times/stream_fake_to_inmemory_with_error_retry_1.conf");
         Assertions.assertNotEquals(0, execResult.getExitCode());
-        Assertions.assertTrue(server.getLogs().contains("Restore time 1, pipeline"));
-        Assertions.assertFalse(server.getLogs().contains("Restore time 3, pipeline"));
+        Assertions.assertTrue(
+                server.getLogs()
+                        .contains(
+                                "Restore time 1, pipeline Job stream_fake_to_inmemory_with_error_retry_1.conf"));
+        Assertions.assertFalse(
+                server.getLogs()
+                        .contains(
+                                "Restore time 3, pipeline Job stream_fake_to_inmemory_with_error_retry_1.conf"));
 
         Container.ExecResult execResult2 =
                 executeJob(server, "/retry-times/stream_fake_to_inmemory_with_error.conf");
         Assertions.assertNotEquals(0, execResult2.getExitCode());
-        Assertions.assertTrue(server.getLogs().contains("Restore time 3, pipeline"));
+        Assertions.assertTrue(
+                server.getLogs()
+                        .contains(
+                                "Restore time 3, pipeline Job stream_fake_to_inmemory_with_error.conf"));
     }
 
     @Test
