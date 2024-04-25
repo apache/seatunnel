@@ -23,6 +23,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
 
 import org.apache.seatunnel.api.configuration.ConfigAdapter;
+import org.apache.seatunnel.common.utils.ParserException;
 
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
@@ -94,6 +95,8 @@ public class ConfigBuilder {
             Map<String, Object> flattenedMap = configAdapter.loadConfig(filePath);
             Config config = ConfigFactory.parseMap(flattenedMap);
             return ConfigShadeUtils.decryptConfig(config);
+        } catch (ParserException e) {
+            throw e;
         } catch (Exception warn) {
             log.warn(
                     "Loading config failed with spi {}, fallback to HOCON loader.",

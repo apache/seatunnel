@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.transform.sql.zeta;
 
-import net.sf.jsqlparser.expression.SignedExpression;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;

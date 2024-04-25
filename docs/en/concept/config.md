@@ -12,6 +12,8 @@ configure the Config file.
 The main format of the Config file is `hocon`, for more details of this format type you can refer to [HOCON-GUIDE](https://github.com/lightbend/config/blob/main/HOCON.md),
 BTW, we also support the `json` format, but you should know that the name of the config file should end with `.json`
 
+We also support the `SQL` format, for details, please refer to the [SQL configuration](sql-config.md) file.
+
 ## Example
 
 Before you read on, you can find config file

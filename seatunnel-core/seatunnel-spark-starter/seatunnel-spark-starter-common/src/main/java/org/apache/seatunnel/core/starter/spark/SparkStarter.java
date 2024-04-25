@@ -157,7 +157,7 @@ public class SparkStarter implements Starter {
             throw new FileNotFoundException("config file '" + file + "' does not exists!");
         }
         Config appConfig =
-                ConfigFactory.parseFile(file)
+                ConfigBuilder.of(file.toPath())
                         .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
                         .resolveWith(
                                 ConfigFactory.systemProperties(),
