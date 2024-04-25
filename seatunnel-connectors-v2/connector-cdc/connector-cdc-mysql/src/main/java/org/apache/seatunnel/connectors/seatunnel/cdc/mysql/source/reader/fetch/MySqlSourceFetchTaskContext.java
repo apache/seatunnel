@@ -58,6 +58,7 @@ import io.debezium.pipeline.metrics.SnapshotChangeEventSourceMetrics;
 import io.debezium.pipeline.source.spi.EventMetadataProvider;
 import io.debezium.pipeline.spi.OffsetContext;
 import io.debezium.pipeline.spi.Offsets;
+import io.debezium.relational.RelationalDatabaseConnectorConfig;
 import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
 import io.debezium.relational.Tables;
@@ -98,10 +99,12 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
     private MySqlPartition mySqlPartition;
     private ChangeEventQueue<DataChangeEvent> queue;
     private MySqlErrorHandler errorHandler;
+    private RelationalDatabaseConnectorConfig dbzConnectorConfig;
 
     public MySqlSourceFetchTaskContext(
             JdbcSourceConfig sourceConfig, JdbcDataSourceDialect dataSourceDialect) {
         super(sourceConfig, dataSourceDialect);
+        this.dbzConnectorConfig = sourceConfig.getDbzConnectorConfig();
         this.connection = createMySqlConnection(sourceConfig.getDbzConfiguration());
         this.binaryLogClient = createBinaryClient(sourceConfig.getDbzConfiguration());
         this.metadataProvider = new MySqlEventMetadataProvider();
@@ -237,7 +240,7 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
 
     @Override
     public SeaTunnelRowType getSplitType(Table table) {
-        return MySqlUtils.getSplitType(table);
+        return MySqlUtils.getSplitType(table, dbzConnectorConfig);
     }
 
     @Override

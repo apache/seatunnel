@@ -32,6 +32,7 @@ import io.debezium.jdbc.JdbcConnection;
 import io.debezium.jdbc.JdbcValueConverters;
 import io.debezium.jdbc.TemporalPrecisionMode;
 import io.debezium.relational.Column;
+import io.debezium.relational.RelationalDatabaseConnectorConfig;
 import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
 import io.debezium.schema.TopicSelector;
@@ -326,7 +327,8 @@ public class MySqlUtils {
         }
     }
 
-    public static SeaTunnelRowType getSplitType(Table table) {
+    public static SeaTunnelRowType getSplitType(
+            Table table, RelationalDatabaseConnectorConfig dbzConnectorConfig) {
         List<Column> primaryKeys = table.primaryKeyColumns();
         if (primaryKeys.isEmpty()) {
             throw new SeaTunnelException(
@@ -337,7 +339,7 @@ public class MySqlUtils {
         }
 
         // use first field in primary key as the split key
-        return getSplitType(primaryKeys.get(0));
+        return getSplitType(primaryKeys.get(0), dbzConnectorConfig);
     }
 
     /** Creates a new {@link MySqlDatabaseSchema} to monitor the latest MySql database schemas. */
@@ -391,10 +393,13 @@ public class MySqlUtils {
         return new BinlogOffset(offsetStrMap);
     }
 
-    public static SeaTunnelRowType getSplitType(Column splitColumn) {
+    public static SeaTunnelRowType getSplitType(
+            Column splitColumn, RelationalDatabaseConnectorConfig dbzConnectorConfig) {
         return new SeaTunnelRowType(
                 new String[] {splitColumn.name()},
-                new SeaTunnelDataType<?>[] {MySqlTypeUtils.convertFromColumn(splitColumn)});
+                new SeaTunnelDataType<?>[] {
+                    MySqlTypeUtils.convertFromColumn(splitColumn, dbzConnectorConfig)
+                });
     }
 
     public static Column getSplitColumn(Table table) {

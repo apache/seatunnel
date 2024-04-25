@@ -28,6 +28,7 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlUtils;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.Column;
 import io.debezium.relational.Table;
+import io.debezium.relational.RelationalDatabaseConnectorConfig;
 import io.debezium.relational.TableId;
 import lombok.extern.slf4j.Slf4j;
 
@@ -37,8 +38,11 @@ import java.sql.SQLException;
 @Slf4j
 public class MySqlChunkSplitter extends AbstractJdbcSourceChunkSplitter {
 
+    private RelationalDatabaseConnectorConfig dbzConnectorConfig;
+
     public MySqlChunkSplitter(JdbcSourceConfig sourceConfig, JdbcDataSourceDialect dialect) {
         super(sourceConfig, dialect);
+        this.dbzConnectorConfig = sourceConfig.getDbzConnectorConfig();
     }
 
     @Override
@@ -86,6 +90,6 @@ public class MySqlChunkSplitter extends AbstractJdbcSourceChunkSplitter {
 
     @Override
     public SeaTunnelDataType<?> fromDbzColumn(Column splitColumn) {
-        return MySqlTypeUtils.convertFromColumn(splitColumn);
+        return MySqlTypeUtils.convertFromColumn(splitColumn, dbzConnectorConfig);
     }
 }
