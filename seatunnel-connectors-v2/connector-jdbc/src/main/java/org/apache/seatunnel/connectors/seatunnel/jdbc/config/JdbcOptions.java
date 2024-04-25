@@ -207,6 +207,15 @@ public interface JdbcOptions {
                     .withDescription(
                             "When use kerberos, we should set krb5 path file path such as '/seatunnel/krb5.conf' or use the default path '/etc/krb5.conf");
 
+    Option<String> LOGIN_CONFIG =
+            Options.key("login_config").stringType().noDefaultValue().withDescription("浙江Hive用");
+
+    Option<String> ZOOKEEPER_SERVER_PRINCIPAL =
+            Options.key("zookeeper_server_principal")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("浙江Hive用");
+
     Option<Map<String, String>> PROPERTIES =
             Options.key("properties")
                     .mapType()

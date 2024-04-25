@@ -55,6 +55,10 @@ public class JdbcConnectionConfig implements Serializable {
 
     public String krb5Path = JdbcOptions.KRB5_PATH.defaultValue();
 
+    public String loginConfig;
+
+    public String zookeeperServerPrincipal;
+
     private Map<String, String> properties;
 
     public static JdbcConnectionConfig of(ReadonlyConfig config) {
@@ -77,6 +81,8 @@ public class JdbcConnectionConfig implements Serializable {
             builder.kerberosPrincipal(config.get(JdbcOptions.KERBEROS_PRINCIPAL));
             builder.kerberosKeytabPath(config.get(JdbcOptions.KERBEROS_KEYTAB_PATH));
             builder.krb5Path(config.get(JdbcOptions.KRB5_PATH));
+            builder.loginConfig(config.get(JdbcOptions.LOGIN_CONFIG));
+            builder.zookeeperServerPrincipal(config.get(JdbcOptions.ZOOKEEPER_SERVER_PRINCIPAL));
         }
         config.getOptional(JdbcOptions.USER).ifPresent(builder::username);
         config.getOptional(JdbcOptions.PASSWORD).ifPresent(builder::password);
@@ -160,6 +166,8 @@ public class JdbcConnectionConfig implements Serializable {
         public String kerberosPrincipal;
         public String kerberosKeytabPath;
         public String krb5Path = JdbcOptions.KRB5_PATH.defaultValue();
+        public String loginConfig;
+        public String zookeeperServerPrincipal;
 
         private Builder() {}
 
@@ -248,6 +256,16 @@ public class JdbcConnectionConfig implements Serializable {
             return this;
         }
 
+        public Builder loginConfig(String loginConfig) {
+            this.loginConfig = loginConfig;
+            return this;
+        }
+
+        public Builder zookeeperServerPrincipal(String zookeeperServerPrincipal) {
+            this.zookeeperServerPrincipal = zookeeperServerPrincipal;
+            return this;
+        }
+
         public Builder properties(Map<String, String> properties) {
             this.properties = properties;
             return this;
@@ -271,6 +289,8 @@ public class JdbcConnectionConfig implements Serializable {
             jdbcConnectionConfig.kerberosPrincipal = this.kerberosPrincipal;
             jdbcConnectionConfig.kerberosKeytabPath = this.kerberosKeytabPath;
             jdbcConnectionConfig.krb5Path = this.krb5Path;
+            jdbcConnectionConfig.loginConfig = this.loginConfig;
+            jdbcConnectionConfig.zookeeperServerPrincipal = this.zookeeperServerPrincipal;
             jdbcConnectionConfig.properties =
                     this.properties == null ? new HashMap<>() : this.properties;
             return jdbcConnectionConfig;

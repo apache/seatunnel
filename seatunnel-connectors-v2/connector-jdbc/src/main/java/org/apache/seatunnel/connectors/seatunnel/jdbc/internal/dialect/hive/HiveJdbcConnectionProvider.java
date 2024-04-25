@@ -21,6 +21,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErr
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.SimpleJdbcConnectionProvider;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 
 import lombok.NonNull;
@@ -68,12 +69,23 @@ public class HiveJdbcConnectionProvider extends SimpleJdbcConnectionProvider {
         try {
             Configuration configuration = new Configuration();
             configuration.set("hadoop.security.authentication", "kerberos");
-            return HadoopLoginFactory.loginWithKerberos(
-                    configuration,
-                    jdbcConfig.krb5Path,
-                    jdbcConfig.kerberosPrincipal,
-                    jdbcConfig.kerberosKeytabPath,
-                    (conf, userGroupInformation) -> hiveConnectionProduceFunction.produce());
+
+            return StringUtils.isAnyBlank(
+                            jdbcConfig.loginConfig, jdbcConfig.zookeeperServerPrincipal)
+                    ? HadoopLoginFactory.loginWithKerberos(
+                            configuration,
+                            jdbcConfig.krb5Path,
+                            jdbcConfig.kerberosPrincipal,
+                            jdbcConfig.kerberosKeytabPath,
+                            (conf, userGroupInformation) -> hiveConnectionProduceFunction.produce())
+                    : HadoopLoginFactory.loginWithKerberos(
+                            configuration,
+                            jdbcConfig.krb5Path,
+                            jdbcConfig.kerberosPrincipal,
+                            jdbcConfig.kerberosKeytabPath,
+                            jdbcConfig.loginConfig,
+                            jdbcConfig.zookeeperServerPrincipal,
+                            hiveConnectionProduceFunction);
         } catch (Exception ex) {
             throw new JdbcConnectorException(KERBEROS_AUTHENTICATION_FAILED, ex);
         }

@@ -22,6 +22,8 @@ import org.apache.hadoop.security.UserGroupInformation;
 
 import java.io.IOException;
 import java.security.PrivilegedExceptionAction;
+import java.sql.Connection;
+import java.sql.SQLException;
 
 // todo: Add seatunnel-auth-kerberos module and move this to hive connector
 public class HadoopLoginFactory {
@@ -48,6 +50,36 @@ public class HadoopLoginFactory {
             return userGroupInformation.doAs(
                     (PrivilegedExceptionAction<T>)
                             () -> action.run(configuration, userGroupInformation));
+        }
+    }
+
+    /**
+     * 浙江Hive用
+     *
+     * @param loginConfig 浙江Hive登录文件
+     * @param zookeeperServerPrincipal 集群认证
+     */
+    public static Connection loginWithKerberos(
+            Configuration configuration,
+            String krb5FilePath,
+            String kerberosPrincipal,
+            String kerberosKeytabPath,
+            String loginConfig,
+            String zookeeperServerPrincipal,
+            HiveJdbcConnectionProvider.HiveConnectionProduceFunction hiveConnectionProduceFunction)
+            throws IOException, SQLException {
+        if (!configuration.get("hadoop.security.authentication").equals("kerberos")) {
+            throw new IllegalArgumentException("hadoop.security.authentication must be kerberos");
+        }
+        synchronized (UserGroupInformation.class) {
+            System.setProperty("java.security.auth.login.config", loginConfig);
+            System.setProperty("zookeeper.server.principal", zookeeperServerPrincipal);
+            System.setProperty("java.security.krb5.conf", krb5FilePath);
+            Configuration conf = new Configuration();
+            conf.set("hadoop.security.authentication", "Kerberos");
+            UserGroupInformation.setConfiguration(conf);
+            UserGroupInformation.loginUserFromKeytab(kerberosPrincipal, kerberosKeytabPath);
+            return hiveConnectionProduceFunction.produce();
         }
     }
 
