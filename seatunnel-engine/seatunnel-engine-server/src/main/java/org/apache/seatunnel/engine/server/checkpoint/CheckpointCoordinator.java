@@ -113,7 +113,7 @@ public class CheckpointCoordinator {
 
     private final Set<TaskLocation> readyToCloseStartingTask;
     private final Set<TaskLocation> readyToCloseIdleTask;
-    private final Set<TaskLocation> closedIdleTask;
+    @Getter private final Set<TaskLocation> closedIdleTask;
     private final ConcurrentHashMap<Long, PendingCheckpoint> pendingCheckpoints;
 
     private final ArrayDeque<String> completedCheckpointIds;

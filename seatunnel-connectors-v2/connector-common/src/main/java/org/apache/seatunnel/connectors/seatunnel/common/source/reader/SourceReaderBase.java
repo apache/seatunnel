@@ -94,7 +94,7 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
             if (recordsWithSplitId == null) {
                 if (Boundedness.BOUNDED.equals(context.getBoundedness())
                         && noMoreSplitsAssignment
-                        && isNoMoreRecords()) {
+                        && isNoMoreElement()) {
                     context.signalNoMoreElement();
                     log.info(
                             "Reader {} into idle state, send NoMoreElement event",
@@ -147,7 +147,7 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
         log.info("Received unhandled source event: {}", sourceEvent);
     }
 
-    protected boolean isNoMoreRecords() {
+    protected boolean isNoMoreElement() {
         return splitFetcherManager.maybeShutdownFinishedFetchers()
                 && elementsQueue.isEmpty()
                 && currentFetch == null;

@@ -109,7 +109,7 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
             needSendSplitRequest.compareAndSet(true, false);
         }
 
-        if (isNoMoreSplitsAssignment() && isNoMoreRecords()) {
+        if (isNoMoreSplitsAssignment() && isNoMoreElement()) {
             log.info("Reader {} send NoMoreElement event", context.getIndexOfSubtask());
             context.signalNoMoreElement();
         } else {
