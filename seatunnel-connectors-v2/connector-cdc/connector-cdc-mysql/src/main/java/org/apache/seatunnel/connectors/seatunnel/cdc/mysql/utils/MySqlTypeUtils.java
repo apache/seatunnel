@@ -45,6 +45,10 @@ public class MySqlTypeUtils {
                 dbzConnectorConfig
                         .getConfig()
                         .getString(MySqlConnectorConfig.BIGINT_UNSIGNED_HANDLING_MODE);
+        final boolean timeAdjusterEnabled =
+                dbzConnectorConfig
+                        .getConfig()
+                        .getBoolean(MySqlConnectorConfig.ENABLE_TIME_ADJUSTER);
         MySqlConnectorConfig.BigIntUnsignedHandlingMode bigIntUnsignedHandlingMode =
                 MySqlConnectorConfig.BigIntUnsignedHandlingMode.parse(
                         bigIntUnsignedHandlingModeStr);
@@ -53,7 +57,9 @@ public class MySqlTypeUtils {
                         dbzConnectorConfig.getDecimalMode(),
                         dbzConnectorConfig.getTemporalPrecisionMode(),
                         bigIntUnsignedHandlingMode.asBigIntUnsignedMode(),
-                        dbzConnectorConfig.binaryHandlingMode());
+                        dbzConnectorConfig.binaryHandlingMode(),
+                        timeAdjusterEnabled ? MySqlValueConverters::adjustTemporal : (x) -> x,
+                        MySqlValueConverters::defaultParsingErrorHandler);
         MySqlDefaultValueConverter mySqlDefaultValueConverter =
                 new MySqlDefaultValueConverter(mySqlValueConverters);
         Object defaultValue =
