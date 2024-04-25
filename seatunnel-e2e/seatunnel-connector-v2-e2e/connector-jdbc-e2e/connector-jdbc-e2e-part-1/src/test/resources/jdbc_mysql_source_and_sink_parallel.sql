@@ -52,6 +52,6 @@ CREATE TABLE sink_table WITH (
   'generate_sink_sql' = 'true',
   'database' = 'seatunnel',
   'table' = 'sink',
-  'result_table_name' = 'temp1',
+  'source_table_name' = 'temp1',
   'type'='sink'
 );

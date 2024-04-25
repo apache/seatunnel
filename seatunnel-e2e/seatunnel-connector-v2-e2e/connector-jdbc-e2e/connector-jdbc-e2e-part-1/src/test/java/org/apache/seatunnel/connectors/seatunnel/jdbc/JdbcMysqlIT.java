@@ -96,7 +96,8 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                     "/jdbc_mysql_source_and_sink.conf",
                     "/jdbc_mysql_source_and_sink_parallel.conf",
                     "/jdbc_mysql_source_and_sink_parallel_upper_lower.conf",
-                    "/jdbc_mysql_source_and_sink.sql");
+                    "/jdbc_mysql_source_and_sink.sql",
+                    "/jdbc_mysql_source_and_sink_parallel.sql");
     private static final String CREATE_SQL =
             "CREATE TABLE IF NOT EXISTS %s\n"
                     + "(\n"
