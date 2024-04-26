@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.paimon.source;
 
-import org.apache.paimon.table.Table;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -34,6 +33,7 @@ import org.apache.seatunnel.connectors.seatunnel.paimon.catalog.PaimonCatalog;
 import org.apache.seatunnel.connectors.seatunnel.paimon.catalog.PaimonCatalogFactory;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig;
 
+import org.apache.paimon.table.Table;
 
 import com.google.auto.service.AutoService;
 
@@ -67,7 +67,7 @@ public class PaimonSourceFactory implements TableSourceFactory {
 
     @Override
     public <T, SplitT extends SourceSplit, StateT extends Serializable>
-    TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
+            TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
         ReadonlyConfig config = context.getOptions();
         PaimonConfig sourceConfig = new PaimonConfig(config);
         Optional<Catalog> optionalCatalog =
@@ -84,7 +84,5 @@ public class PaimonSourceFactory implements TableSourceFactory {
         return () ->
                 (SeaTunnelSource<T, SplitT, StateT>)
                         new PaimonSource(sourceConfig, catalogTable, paimonTable);
-
-
     }
 }
