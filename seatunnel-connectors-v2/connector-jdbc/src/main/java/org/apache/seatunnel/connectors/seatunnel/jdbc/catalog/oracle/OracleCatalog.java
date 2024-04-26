@@ -30,8 +30,6 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalo
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleTypeMapper;
 
-import org.apache.commons.lang3.StringUtils;
-
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
@@ -143,6 +141,11 @@ public class OracleCatalog extends AbstractJdbcCatalog {
     }
 
     @Override
+    public boolean databaseExists(String databaseName) throws CatalogException {
+        return true;
+    }
+
+    @Override
     protected String getListTableSql(String databaseName) {
         return "SELECT OWNER, TABLE_NAME FROM ALL_TABLES"
                 + "  WHERE TABLE_NAME NOT LIKE 'MDRT_%'"
@@ -239,20 +242,11 @@ public class OracleCatalog extends AbstractJdbcCatalog {
     @Override
     public boolean tableExists(TablePath tablePath) throws CatalogException {
         try {
-            if (StringUtils.isNotBlank(tablePath.getDatabaseName())) {
-                return databaseExists(tablePath.getDatabaseName())
-                        && listTables(tablePath.getDatabaseName())
-                                .contains(tablePath.getSchemaAndTableName());
-            }
-            return listTables().contains(tablePath.getSchemaAndTableName());
+            return listTables(tablePath.getDatabaseName())
+                    .contains(tablePath.getSchemaAndTableName());
         } catch (DatabaseNotExistException e) {
             return false;
         }
-    }
-
-    private List<String> listTables() {
-        List<String> databases = listDatabases();
-        return listTables(databases.get(0));
     }
 
     @Override
