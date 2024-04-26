@@ -95,7 +95,7 @@ public class ConfigBuilder {
             Map<String, Object> flattenedMap = configAdapter.loadConfig(filePath);
             Config config = ConfigFactory.parseMap(flattenedMap);
             return ConfigShadeUtils.decryptConfig(config);
-        } catch (ParserException e) {
+        } catch (ParserException | IllegalArgumentException e) {
             throw e;
         } catch (Exception warn) {
             log.warn(

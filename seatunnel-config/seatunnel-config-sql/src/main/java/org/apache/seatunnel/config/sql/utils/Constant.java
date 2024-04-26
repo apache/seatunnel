@@ -56,10 +56,4 @@ public class Constant {
     public static final String OPTION_DOUBLE_SINGLE_QUOTES = "''";
 
     public static final String TEMP_TABLE_SUFFIX = "__temp";
-
-    public static final String ST4_GROUP_DIR = "st4";
-
-    public static final String ST4_TEMPLATE_FILE_NAME = "sql_config";
-
-    public static final String ST4_ROOT_NAME = "config";
 }

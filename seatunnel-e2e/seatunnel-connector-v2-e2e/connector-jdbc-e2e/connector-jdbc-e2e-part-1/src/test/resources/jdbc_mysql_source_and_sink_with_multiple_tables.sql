@@ -17,8 +17,8 @@
 
 /* config
 env {
-  parallelism = 3
-  job.mode = "BATCH"
+ parallelism = 3
+ job.mode = "BATCH"
 }
 */
 
@@ -26,11 +26,24 @@ CREATE TABLE source_table WITH (
   'connector'='jdbc',
   'url' = 'jdbc:mysql://mysql-e2e:3306/seatunnel',
   'driver' = 'com.mysql.cj.jdbc.Driver',
+  'connection_check_timeout_sec' = '100',
   'user' = 'root',
   'password' = 'Abc!@#135_seatunnel',
-  'query' = 'select * from source',
-  'partition_column' = 'c_decimal_unsigned_30',
-  'partition_num' = '3',
+  'table_list' = '[
+      {
+        table_path = "source.table1"
+      },
+      {
+        table_path = "source.table2",
+        query = "select * from source.table2"
+      }
+    ]',
+  'where_condition' = 'where c_int >= 0',
+  'split.size' = '8096',
+  'split.even-distribution.factor.upper-bound' = '100',
+  'split.even-distribution.factor.lower-bound' = '0.05',
+  'split.sample-sharding.threshold' = '1000',
+  'split.inverse-sampling.rate' = '1000',
   'type' = 'source'
 );
 
@@ -40,22 +53,11 @@ CREATE TABLE sink_table WITH (
   'driver' = 'com.mysql.cj.jdbc.Driver',
   'user' = 'root',
   'password' = 'Abc!@#135_seatunnel',
-  'connection_check_timeout_sec' = '100',
   'generate_sink_sql' = 'true',
-  'database' = 'seatunnel',
-  'table' = 'sink',
+  'database' = 'sink',
   'type' = 'sink'
 );
 
-
-CREATE TABLE temp1 AS
-    SELECT c_bit_1, c_bit_8, c_bit_16, c_bit_32, c_bit_64, c_boolean, c_tinyint, c_tinyint_unsigned, c_smallint, c_smallint_unsigned,
-           c_mediumint, c_mediumint_unsigned, c_int, c_integer, c_bigint, c_bigint_unsigned,
-           c_decimal, c_decimal_unsigned, c_float, c_float_unsigned, c_double, c_double_unsigned,
-           c_char, c_tinytext, c_mediumtext, c_text, c_varchar, c_json, c_longtext, c_date,
-           c_datetime, c_time, c_timestamp, c_tinyblob, c_mediumblob, c_blob, c_longblob, c_varbinary,
-           c_binary, c_year, c_int_unsigned, c_integer_unsigned,c_bigint_30,c_decimal_unsigned_30,c_decimal_30 FROM source_table;
-
-
-INSERT INTO sink_table SELECT * FROM temp1;
- 
+-- If it's multi-table synchronization, there's no need to set select columns.
+-- You can directly use the syntax 'INSERT INTO sink_table SELECT source_table'.
+INSERT INTO sink_table SELECT source_table;

@@ -182,6 +182,11 @@ public class JdbcMysqlMultipleTablesIT extends TestSuiteBase implements TestReso
                 container.executeJob("/jdbc_mysql_source_and_sink_with_multiple_tables.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
 
+        Container.ExecResult sqlConfEexecResult =
+                container.executeJob("/jdbc_mysql_source_and_sink_with_multiple_tables.sql");
+        Assertions.assertEquals(
+                0, sqlConfEexecResult.getExitCode(), sqlConfEexecResult.getStderr());
+
         List<Executable> asserts =
                 TABLES.stream()
                         .map(

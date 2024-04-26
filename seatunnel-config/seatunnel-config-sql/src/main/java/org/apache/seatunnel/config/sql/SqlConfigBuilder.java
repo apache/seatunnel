@@ -36,12 +36,15 @@ import org.apache.commons.lang3.StringUtils;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import net.sf.jsqlparser.parser.CCJSqlParserUtil;
+import net.sf.jsqlparser.schema.Column;
 import net.sf.jsqlparser.schema.Table;
 import net.sf.jsqlparser.statement.Statement;
 import net.sf.jsqlparser.statement.create.table.CreateTable;
 import net.sf.jsqlparser.statement.insert.Insert;
 import net.sf.jsqlparser.statement.select.PlainSelect;
 import net.sf.jsqlparser.statement.select.Select;
+import net.sf.jsqlparser.statement.select.SelectExpressionItem;
+import net.sf.jsqlparser.statement.select.SelectItem;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -131,10 +134,20 @@ public class SqlConfigBuilder {
                                         return containSourceTable;
                                     })
                             .collect(Collectors.toList()));
+            if (seaTunnelConfig.getSourceConfigs().isEmpty()) {
+                throw new ParserException("The SQL config must contain at least one source table");
+            }
+            if (seaTunnelConfig.getSinkConfigs().isEmpty()) {
+                throw new ParserException(
+                        "The SQL config must contain `INSERT INTO ... SELECT ...` syntax");
+            }
 
             // render to hocon config
             String configContent = ConfigTemplate.generate(seaTunnelConfig);
+            log.debug("Generated config: \n{}", configContent);
             return ConfigFactory.parseString(configContent);
+        } catch (ParserException e) {
+            throw e;
         } catch (Exception e) {
             throw new ParserException(e);
         }
@@ -268,10 +281,12 @@ public class SqlConfigBuilder {
         }
         SinkConfig sinkConfig = new SinkConfig();
         sinkConfig.setConnector(connector);
-        String sourceTableName = options.get(OPTION_SOURCE_TABLE_NAME_KEY);
-        if (sourceTableName != null) {
-            sinkConfig.setSourceTableName(sourceTableName);
-        }
+        // original sink table without source_table_name
+        options.remove(OPTION_SOURCE_TABLE_NAME_KEY);
+        // String sourceTableName = options.get(OPTION_SOURCE_TABLE_NAME_KEY);
+        // if (sourceTableName != null) {
+        //     sinkConfig.setSourceTableName(sourceTableName);
+        // }
         convertOptions(options, sinkConfig.getOptions());
 
         return sinkConfig;
@@ -345,8 +360,34 @@ public class SqlConfigBuilder {
         String targetTableName = insertSql.getTable().getName();
         if (select.getSelectBody() instanceof PlainSelect) {
             PlainSelect plainSelect = (PlainSelect) select.getSelectBody();
-            Table table = (Table) plainSelect.getFromItem();
-            String sourceTableName = table.getName();
+
+            String sourceTableName;
+            String resultTableName;
+            if (plainSelect.getFromItem() == null) {
+                List<SelectItem> selectItems = plainSelect.getSelectItems();
+                if (selectItems.size() != 1) {
+                    throw new ParserException(
+                            "Source table must be specified in SQL: " + insertSql);
+                }
+                SelectExpressionItem selectItem = (SelectExpressionItem) selectItems.get(0);
+                Column column = (Column) selectItem.getExpression();
+                sourceTableName = column.getColumnName();
+                resultTableName = sourceTableName;
+            } else {
+                if (!(plainSelect.getFromItem() instanceof Table)) {
+                    throw new ParserException("Unsupported syntax: " + insertSql);
+                }
+                Table table = (Table) plainSelect.getFromItem();
+                sourceTableName = table.getName();
+                resultTableName =
+                        sourceTableName + TEMP_TABLE_SUFFIX + tempTableIndex.getAndIncrement();
+                String query = select.toString();
+                transformConfig.setSourceTableName(sourceTableName);
+                transformConfig.setResultTableName(resultTableName);
+                transformConfig.setQuery(query);
+                seaTunnelConfig.getTransformConfigs().add(transformConfig);
+            }
+
             if (!sqlTables.containsKey(sourceTableName)
                     || (!OPTION_TABLE_TYPE_SOURCE.equalsIgnoreCase(
                                     sqlTables.get(sourceTableName).getType())
@@ -361,14 +402,6 @@ public class SqlConfigBuilder {
                 throw new ParserException(
                         String.format("The sink table[%s] is not found", sourceTableName));
             }
-            String resultTableName =
-                    targetTableName + TEMP_TABLE_SUFFIX + tempTableIndex.getAndIncrement();
-            String query = select.toString();
-            transformConfig.setSourceTableName(sourceTableName);
-            transformConfig.setResultTableName(resultTableName);
-            transformConfig.setQuery(query);
-
-            seaTunnelConfig.getTransformConfigs().add(transformConfig);
 
             SinkConfig sinkConfig = (SinkConfig) sqlTables.get(targetTableName);
             SinkConfig sinkConfigNew = new SinkConfig();
@@ -380,6 +413,8 @@ public class SqlConfigBuilder {
                     .add(Option.of(OPTION_SOURCE_TABLE_NAME_KEY, "\"" + resultTableName + "\""));
 
             seaTunnelConfig.getSinkConfigs().add(sinkConfigNew);
+        } else {
+            throw new ParserException("Unsupported syntax: " + insertSql);
         }
     }
 
