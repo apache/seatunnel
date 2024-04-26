@@ -17,8 +17,8 @@
 
 /* config
 env {
- parallelism = 3
- job.mode = "BATCH"
+  parallelism = 1
+  job.mode = "BATCH"
 }
 */
 
