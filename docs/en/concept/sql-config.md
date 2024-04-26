@@ -16,6 +16,7 @@ env {
 
 CREATE TABLE source_table WITH (
   'connector'='jdbc',
+  'type'='source',
   'url' = 'jdbc:mysql://localhost:3306/seatunnel',
   'driver' = 'com.mysql.cj.jdbc.Driver',
   'user' = 'root',
@@ -24,20 +25,19 @@ CREATE TABLE source_table WITH (
   'properties'= '{
     useSSL = false,
     rewriteBatchedStatements = true
-  }',
-  'type'='source'
+  }'
 );
 
 CREATE TABLE sink_table WITH (
   'connector'='jdbc',
+  'type'='sink',
   'url' = 'jdbc:mysql://localhost:3306/seatunnel',
   'driver' = 'com.mysql.cj.jdbc.Driver',
   'user' = 'root',
   'password' = '123456',
   'generate_sink_sql' = 'true',
   'database' = 'seatunnel',
-  'table' = 'sink',
-  'type'='sink'
+  'table' = 'sink'
 );
 
 INSERT INTO sink_table SELECT id, name, age, email FROM source_table;
@@ -63,6 +63,7 @@ In the `SQL` file, common configuration sections are defined using `/* config */
 ```sql
 CREATE TABLE source_table WITH (
   'connector'='jdbc',
+  'type'='source',
   'url' = 'jdbc:mysql://localhost:3306/seatunnel',
   'driver' = 'com.mysql.cj.jdbc.Driver',
   'user' = 'root',
@@ -71,8 +72,7 @@ CREATE TABLE source_table WITH (
   'properties' = '{
     useSSL = false,
     rewriteBatchedStatements = true
-  }',
-  'type'='source'
+  }'
 );
 ```
 
@@ -99,14 +99,14 @@ CREATE TABLE source_table WITH (
 ```sql
 CREATE TABLE sink_table WITH (
   'connector'='jdbc',
+  'type'='sink',
   'url' = 'jdbc:mysql://localhost:3306/seatunnel',
   'driver' = 'com.mysql.cj.jdbc.Driver',
   'user' = 'root',
   'password' = '123456',
   'generate_sink_sql' = 'true',
   'database' = 'seatunnel',
-  'table' = 'sink',
-  'type'='sink'
+  'table' = 'sink'
 );
 ```
 
@@ -136,6 +136,7 @@ INSERT INTO sink_table SELECT source_table;
 ```sql
 CREATE TABLE source_table WITH (
   'connector'='jdbc',
+  'type' = 'source',
   'url' = 'jdbc:mysql://127.0.0.1:3306/seatunnel',
   'driver' = 'com.mysql.cj.jdbc.Driver',
   'user' = 'root',
@@ -148,19 +149,18 @@ CREATE TABLE source_table WITH (
         table_path = "source.table2",
         query = "select * from source.table2"
       }
-    ]',
-  'type' = 'source'
+    ]'
 );
 
 CREATE TABLE sink_table WITH (
   'connector'='jdbc',
+  'type' = 'sink',
   'url' = 'jdbc:mysql://127.0.0.1:3306/seatunnel',
   'driver' = 'com.mysql.cj.jdbc.Driver',
   'user' = 'root',
   'password' = '123456',
   'generate_sink_sql' = 'true',
-  'database' = 'sink',
-  'type' = 'sink'
+  'database' = 'sink'
 );
 
 INSERT INTO sink_table SELECT source_table;

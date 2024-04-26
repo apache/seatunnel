@@ -24,6 +24,7 @@ env {
 
 CREATE TABLE source_table WITH (
   'connector'='jdbc',
+  'type' = 'source',
   'url' = 'jdbc:mysql://mysql-e2e:3306/seatunnel',
   'driver' = 'com.mysql.cj.jdbc.Driver',
   'connection_check_timeout_sec' = '100',
@@ -43,19 +44,18 @@ CREATE TABLE source_table WITH (
   'split.even-distribution.factor.upper-bound' = '100',
   'split.even-distribution.factor.lower-bound' = '0.05',
   'split.sample-sharding.threshold' = '1000',
-  'split.inverse-sampling.rate' = '1000',
-  'type' = 'source'
+  'split.inverse-sampling.rate' = '1000'
 );
 
 CREATE TABLE sink_table WITH (
   'connector'='jdbc',
+  'type' = 'sink',
   'url' = 'jdbc:mysql://mysql-e2e:3306/seatunnel',
   'driver' = 'com.mysql.cj.jdbc.Driver',
   'user' = 'root',
   'password' = 'Abc!@#135_seatunnel',
   'generate_sink_sql' = 'true',
-  'database' = 'sink',
-  'type' = 'sink'
+  'database' = 'sink'
 );
 
 -- If it's multi-table synchronization, there's no need to set select columns.

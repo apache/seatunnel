@@ -24,6 +24,7 @@ env {
 
 CREATE TABLE source_table WITH (
   'connector'='jdbc',
+  'type' = 'source',
   'url' = 'jdbc:mysql://mysql-e2e:3306/seatunnel',
   'driver' = 'com.mysql.cj.jdbc.Driver',
   'connection_check_timeout_sec' = '100',
@@ -33,20 +34,19 @@ CREATE TABLE source_table WITH (
   'properties'= '{
       useSSL=false,
       rewriteBatchedStatements=true
-  }',
-  'type' = 'source'
+  }'
 );
 
 CREATE TABLE sink_table WITH (
   'connector'='jdbc',
+  'type' = 'sink',
   'url' = 'jdbc:mysql://mysql-e2e:3306/seatunnel',
   'driver' = 'com.mysql.cj.jdbc.Driver',
   'user' = 'root',
   'password' = 'Abc!@#135_seatunnel',
   'generate_sink_sql' = 'true',
   'database' = 'seatunnel',
-  'table' = 'sink',
-  'type' = 'sink'
+  'table' = 'sink'
 );
 
 

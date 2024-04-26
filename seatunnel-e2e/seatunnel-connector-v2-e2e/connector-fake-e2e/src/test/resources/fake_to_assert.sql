@@ -31,6 +31,7 @@ env {
 
 CREATE TABLE fake WITH (
    'connector'='FakeSource',
+   'type' = 'source',
    'schema' = '{
       fields {
         c_map = "map<string, string>",
@@ -64,12 +65,12 @@ CREATE TABLE fake WITH (
           c_timestamp = timestamp
         }
       }
-    }',
-   'type' = 'source'
+    }'
 );
 
 CREATE TABLE assert WITH (
   'connector' = 'Assert',
+  'type' = 'sink',
   'rules' = '{
       row_rules = [
         {
@@ -106,8 +107,7 @@ CREATE TABLE assert WITH (
           ]
         }
       ]
-    }',
-  'type' = 'sink'
+    }'
 );
 
 INSERT INTO assert SELECT * FROM fake;
