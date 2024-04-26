@@ -117,25 +117,7 @@ public class OracleTypeConverter implements TypeConverter<BasicTypeDefine> {
                     scale = 127;
                 }
 
-                if (scale == 0) {
-                    if (precision == 1) {
-                        builder.dataType(BasicType.BOOLEAN_TYPE);
-                    } else if (precision <= 9) {
-                        builder.dataType(BasicType.INT_TYPE);
-                    } else if (precision <= 18) {
-                        builder.dataType(BasicType.LONG_TYPE);
-                    } else if (precision < 38) {
-                        builder.dataType(new DecimalType(precision.intValue(), 0));
-                        builder.columnLength(precision);
-                    } else {
-                        builder.dataType(new DecimalType(DEFAULT_PRECISION, 0));
-                        builder.columnLength((long) DEFAULT_PRECISION);
-                    }
-                } else if (scale > 0 && scale <= DEFAULT_SCALE) {
-                    builder.dataType(new DecimalType(precision.intValue(), scale));
-                    builder.columnLength(precision);
-                    builder.scale(scale);
-                } else if (scale < 0) {
+                if (scale <= 0) {
                     int newPrecision = (int) (precision - scale);
                     if (newPrecision == 1) {
                         builder.dataType(BasicType.BOOLEAN_TYPE);
@@ -150,6 +132,10 @@ public class OracleTypeConverter implements TypeConverter<BasicTypeDefine> {
                         builder.dataType(new DecimalType(DEFAULT_PRECISION, 0));
                         builder.columnLength((long) DEFAULT_PRECISION);
                     }
+                } else if (scale <= DEFAULT_SCALE) {
+                    builder.dataType(new DecimalType(precision.intValue(), scale));
+                    builder.columnLength(precision);
+                    builder.scale(scale);
                 } else {
                     builder.dataType(new DecimalType(precision.intValue(), DEFAULT_SCALE));
                     builder.columnLength(precision);
