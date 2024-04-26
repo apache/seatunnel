@@ -60,7 +60,7 @@ public class PaimonCatalogLoader implements Serializable {
     }
 
     public Catalog loadCatalog() {
-        // When using the seatunel engine, set the current class loader to prevent loading failures
+        // When using the seatunnel engine, set the current class loader to prevent loading failures
         Thread.currentThread().setContextClassLoader(PaimonCatalogLoader.class.getClassLoader());
         final Map<String, String> optionsMap = new HashMap<>(1);
         optionsMap.put(WAREHOUSE.key(), warehouse);

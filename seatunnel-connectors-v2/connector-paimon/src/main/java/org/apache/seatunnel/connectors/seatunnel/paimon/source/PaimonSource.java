@@ -23,9 +23,7 @@ import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig;
-import org.apache.seatunnel.connectors.seatunnel.paimon.utils.RowTypeConverter;
 
 import org.apache.paimon.table.Table;
 
@@ -40,7 +38,6 @@ public class PaimonSource
 
     private CatalogTable catalogTable;
     private PaimonConfig sourceConfig;
-    private SeaTunnelRowType seaTunnelRowType;
     private Table table;
 
     @Override
@@ -52,8 +49,6 @@ public class PaimonSource
         this.sourceConfig = sourceConfig;
         this.catalogTable = catalogTable;
         this.table = paimonTable;
-        // TODO: Support column projection
-        this.seaTunnelRowType = RowTypeConverter.convert(this.table.rowType());
     }
 
     @Override
@@ -69,7 +64,7 @@ public class PaimonSource
     @Override
     public SourceReader<SeaTunnelRow, PaimonSourceSplit> createReader(
             SourceReader.Context readerContext) throws Exception {
-        return new PaimonSourceReader(readerContext, table, seaTunnelRowType);
+        return new PaimonSourceReader(readerContext, table, catalogTable.getSeaTunnelRowType());
     }
 
     @Override

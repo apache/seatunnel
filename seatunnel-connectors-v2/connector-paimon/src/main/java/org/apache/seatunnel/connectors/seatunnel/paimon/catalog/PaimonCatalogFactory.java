@@ -29,6 +29,9 @@ import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
 public class PaimonCatalogFactory implements CatalogFactory {
+
+    public static final String IDENTIFIER = PaimonConfig.CONNECTOR_IDENTITY;
+
     @Override
     public Catalog createCatalog(String catalogName, ReadonlyConfig readonlyConfig) {
         return new PaimonCatalog(catalogName, new PaimonSinkConfig(readonlyConfig));

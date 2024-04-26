@@ -17,26 +17,30 @@
 
 package org.apache.seatunnel.connectors.seatunnel.paimon.source;
 
+import org.apache.paimon.table.Table;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.FactoryUtil;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.paimon.catalog.PaimonCatalog;
 import org.apache.seatunnel.connectors.seatunnel.paimon.catalog.PaimonCatalogFactory;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig;
 
-import org.apache.paimon.table.Table;
 
 import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
+import java.util.Optional;
+
+import static org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig.WAREHOUSE;
 
 @AutoService(Factory.class)
 public class PaimonSourceFactory implements TableSourceFactory {
@@ -49,7 +53,7 @@ public class PaimonSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(PaimonConfig.WAREHOUSE)
+                .required(WAREHOUSE)
                 .required(PaimonConfig.DATABASE)
                 .required(PaimonConfig.TABLE)
                 .optional(PaimonConfig.HDFS_SITE_PATH)
@@ -63,16 +67,24 @@ public class PaimonSourceFactory implements TableSourceFactory {
 
     @Override
     public <T, SplitT extends SourceSplit, StateT extends Serializable>
-            TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
+    TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
         ReadonlyConfig config = context.getOptions();
         PaimonConfig sourceConfig = new PaimonConfig(config);
-        PaimonCatalogFactory factory = new PaimonCatalogFactory();
-        Catalog catalog = factory.createCatalog(PaimonConfig.CONNECTOR_IDENTITY, config);
-        catalog.open();
-        CatalogTable catalogTable = CatalogTableUtil.buildWithConfig(config);
-        Table paimonTable = ((PaimonCatalog) catalog).getPaimonTable(catalogTable.getTablePath());
+        Optional<Catalog> optionalCatalog =
+                FactoryUtil.createOptionalCatalog(
+                        sourceConfig.getCatalogName(),
+                        config,
+                        sourceConfig.getClass().getClassLoader(),
+                        PaimonCatalogFactory.IDENTIFIER);
+        PaimonCatalog paimonCatalog = (PaimonCatalog) optionalCatalog.get();
+        TablePath tablePath = TablePath.of(sourceConfig.getNamespace(), sourceConfig.getTable());
+        Table paimonTable = paimonCatalog.getPaimonTable(tablePath);
+        CatalogTable catalogTable = paimonCatalog.getTable(tablePath);
+
         return () ->
                 (SeaTunnelSource<T, SplitT, StateT>)
                         new PaimonSource(sourceConfig, catalogTable, paimonTable);
+
+
     }
 }
