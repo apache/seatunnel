@@ -19,11 +19,24 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
+import org.apache.commons.lang3.StringUtils;
+
+import org.yaml.snakeyaml.Yaml;
+
+import lombok.Data;
+import lombok.extern.slf4j.Slf4j;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
+@Slf4j
 public class JdbcConnectionConfig implements Serializable {
     private static final long serialVersionUID = 2L;
 
@@ -76,18 +89,56 @@ public class JdbcConnectionConfig implements Serializable {
             builder.transactionTimeoutSec(config.get(JdbcOptions.TRANSACTION_TIMEOUT_SEC));
             builder.maxRetries(0);
         }
-        if (config.get(JdbcOptions.USE_KERBEROS)) {
-            builder.useKerberos(config.get(JdbcOptions.USE_KERBEROS));
-            builder.kerberosPrincipal(config.get(JdbcOptions.KERBEROS_PRINCIPAL));
-            builder.kerberosKeytabPath(config.get(JdbcOptions.KERBEROS_KEYTAB_PATH));
-            builder.krb5Path(config.get(JdbcOptions.KRB5_PATH));
-            builder.loginConfig(config.get(JdbcOptions.LOGIN_CONFIG));
-            builder.zookeeperServerPrincipal(config.get(JdbcOptions.ZOOKEEPER_SERVER_PRINCIPAL));
-        }
+        kerberosAuth(builder);
         config.getOptional(JdbcOptions.USER).ifPresent(builder::username);
         config.getOptional(JdbcOptions.PASSWORD).ifPresent(builder::password);
         config.getOptional(JdbcOptions.PROPERTIES).ifPresent(builder::properties);
         return builder.build();
+    }
+
+    private static void kerberosAuth(Builder builder) {
+        File kerberosFile = new File(System.getenv("SEATUNNEL_HOME") + "/config/hive-kerberos.yml");
+        if (kerberosFile.exists()) {
+            try {
+                HiveKerberos hiveKerberos =
+                        new Yaml().loadAs(new FileInputStream(kerberosFile), HiveKerberos.class);
+                if (hiveKerberos.getUseKerberos()) {
+                    hiveKerberos.check();
+                    builder.useKerberos(hiveKerberos.useKerberos);
+                    builder.kerberosPrincipal(hiveKerberos.kerberosPrincipal);
+                    builder.kerberosKeytabPath(hiveKerberos.kerberosKeytabPath);
+                    builder.krb5Path(hiveKerberos.krb5Conf);
+                    builder.loginConfig(hiveKerberos.loginConfig);
+                    builder.zookeeperServerPrincipal(hiveKerberos.zookeeperServerPrincipal);
+                }
+            } catch (FileNotFoundException e) {
+                throw new RuntimeException(e.getMessage(), e);
+            }
+        } else {
+            log.warn("hive-kerberos.yml doesn't exist");
+        }
+    }
+
+    @Data
+    public static class HiveKerberos {
+        private Boolean useKerberos;
+        private String loginConfig;
+        private String zookeeperServerPrincipal;
+        private String kerberosPrincipal;
+        private String kerberosKeytabPath;
+        private String krb5Conf;
+
+        public void check() {
+            checkArgument(StringUtils.isNotBlank(loginConfig), "loginConfig can't be null");
+            checkArgument(
+                    StringUtils.isNotBlank(zookeeperServerPrincipal),
+                    "zookeeperServerPrincipal can't be null");
+            checkArgument(
+                    StringUtils.isNotBlank(kerberosPrincipal), "kerberosPrincipal can't be null");
+            checkArgument(
+                    StringUtils.isNotBlank(kerberosKeytabPath), "kerberosKeytabPath can't be null");
+            checkArgument(StringUtils.isNotBlank(krb5Conf), "krb5Conf can't be null");
+        }
     }
 
     public String getUrl() {

@@ -1,0 +1,6 @@
+useKerberos: false
+loginConfig: /app/odc/hiveDlink/slp/jdbc_hive_jaas.conf
+zookeeperServerPrincipal: zookeeper/hadoop.hadoop.com
+kerberosPrincipal: ZJ_ODC@HADOOP.COM
+kerberosKeytabPath: /app/odc/hiveDlink/slp/user.keytab
+krb5Conf: /app/odc/hiveDlink/slp/krb5.conf
