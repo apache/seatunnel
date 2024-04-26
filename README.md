@@ -145,6 +145,6 @@ Yes, SeaTunnel is available under the Apache 2.0 License, allowing commercial us
 
 Our [official documentation](https://seatunnel.apache.org/docs) includes detailed guides and tutorials to help you get started.
 
-### 7. Is there a community or support channel?
+### 7. Is there a community or support channel?111111
 
 Join our Slack community for support and discussions: [SeaTunnel Slack](https://s.apache.org/seatunnel-slack).
