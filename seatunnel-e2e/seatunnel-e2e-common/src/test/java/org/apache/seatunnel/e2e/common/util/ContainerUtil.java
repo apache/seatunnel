@@ -282,7 +282,7 @@ public final class ContainerUtil {
     }
 
     private static Config getConfig(File file) {
-        return ConfigFactory.parseFile(file)
+        return ConfigBuilder.of(file.toPath())
                 .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
                 .resolveWith(
                         ConfigFactory.systemProperties(),

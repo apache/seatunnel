@@ -57,10 +57,5 @@
             <artifactId>jsqlparser</artifactId>
             <version>${jsqlparser.version}</version>
         </dependency>
-        <dependency>
-            <groupId>org.antlr</groupId>
-            <artifactId>ST4</artifactId>
-            <version>${st4.version}</version>
-        </dependency>
     </dependencies>
 </project>

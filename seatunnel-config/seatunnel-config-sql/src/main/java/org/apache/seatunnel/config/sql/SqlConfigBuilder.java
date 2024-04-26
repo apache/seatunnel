@@ -33,9 +33,6 @@ import org.apache.seatunnel.config.sql.model.TransformConfig;
 
 import org.apache.commons.lang3.StringUtils;
 
-import org.stringtemplate.v4.ST;
-import org.stringtemplate.v4.STGroupDir;
-
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import net.sf.jsqlparser.parser.CCJSqlParserUtil;
@@ -74,9 +71,6 @@ import static org.apache.seatunnel.config.sql.utils.Constant.SQL_ANNOTATION_PREF
 import static org.apache.seatunnel.config.sql.utils.Constant.SQL_ANNOTATION_SUFFIX;
 import static org.apache.seatunnel.config.sql.utils.Constant.SQL_CONFIG_ANNOTATION_PREFIX;
 import static org.apache.seatunnel.config.sql.utils.Constant.SQL_DELIMITER;
-import static org.apache.seatunnel.config.sql.utils.Constant.ST4_GROUP_DIR;
-import static org.apache.seatunnel.config.sql.utils.Constant.ST4_ROOT_NAME;
-import static org.apache.seatunnel.config.sql.utils.Constant.ST4_TEMPLATE_FILE_NAME;
 import static org.apache.seatunnel.config.sql.utils.Constant.TEMP_TABLE_SUFFIX;
 
 @Slf4j
@@ -138,11 +132,8 @@ public class SqlConfigBuilder {
                                     })
                             .collect(Collectors.toList()));
 
-            // render st4 template to config
-            STGroupDir stg = new STGroupDir(ST4_GROUP_DIR);
-            ST contentST = stg.getInstanceOf(ST4_TEMPLATE_FILE_NAME);
-            contentST.add(ST4_ROOT_NAME, seaTunnelConfig);
-            String configContent = contentST.render();
+            // render to hocon config
+            String configContent = ConfigTemplate.generate(seaTunnelConfig);
             return ConfigFactory.parseString(configContent);
         } catch (Exception e) {
             throw new ParserException(e);
