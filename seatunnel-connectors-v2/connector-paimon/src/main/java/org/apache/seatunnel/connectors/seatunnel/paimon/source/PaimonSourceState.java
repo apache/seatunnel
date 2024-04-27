@@ -17,21 +17,19 @@
 
 package org.apache.seatunnel.connectors.seatunnel.paimon.source;
 
-import java.io.Serializable;
-import java.util.Set;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 
+import java.io.Serializable;
+import java.util.List;
+import java.util.Map;
+
+@AllArgsConstructor
+@Getter
 /** Paimon connector source state, saves the splits has assigned to readers. */
 public class PaimonSourceState implements Serializable {
 
     private static final long serialVersionUID = 1L;
-
-    private final Set<PaimonSourceSplit> assignedSplits;
-
-    public PaimonSourceState(Set<PaimonSourceSplit> assignedSplits) {
-        this.assignedSplits = assignedSplits;
-    }
-
-    public Set<PaimonSourceSplit> getAssignedSplits() {
-        return assignedSplits;
-    }
+    private final Map<Integer, List<PaimonSourceSplit>> pendingSplits;
+    private boolean shouldEnumerate;
 }
