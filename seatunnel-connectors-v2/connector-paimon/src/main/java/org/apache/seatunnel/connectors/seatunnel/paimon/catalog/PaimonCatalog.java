@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.table.catalog.exception.DatabaseAlreadyExistExce
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
 import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistException;
 import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.paimon.utils.SchemaUtil;
 
@@ -35,6 +36,7 @@ import org.apache.paimon.schema.Schema;
 import org.apache.paimon.table.FileStoreTable;
 import org.apache.paimon.table.Table;
 import org.apache.paimon.types.DataField;
+import org.apache.paimon.types.DataType;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -181,7 +183,12 @@ public class PaimonCatalog implements Catalog, PaimonTable {
         TableSchema.Builder builder = TableSchema.builder();
         dataFields.forEach(
                 dataField -> {
-                    Column column = SchemaUtil.toSeaTunnelType(dataField.type());
+                    BasicTypeDefine.BasicTypeDefineBuilder<DataType> typeDefineBuilder =
+                            BasicTypeDefine.<DataType>builder()
+                                    .name(dataField.name())
+                                    .comment(dataField.description())
+                                    .nativeType(dataField.type());
+                    Column column = SchemaUtil.toSeaTunnelType(typeDefineBuilder.build());
                     builder.column(column);
                 });
 

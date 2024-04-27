@@ -19,11 +19,13 @@ package org.apache.seatunnel.connectors.seatunnel.paimon.utils;
 
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorException;
 
@@ -80,11 +82,19 @@ public class RowTypeConverter {
     /**
      * Convert Paimon row type {@link DataType} to SeaTunnel row type {@link SeaTunnelDataType}
      *
-     * @param dataType Paimon data type
+     * @param typeDefine Paimon data type
      * @return SeaTunnel data type {@link SeaTunnelDataType}
      */
-    public static Column convert(DataType dataType) {
-        PhysicalColumn.PhysicalColumnBuilder physicalColumnBuilder = PhysicalColumn.builder();
+    public static Column convert(BasicTypeDefine<DataType> typeDefine) {
+
+        PhysicalColumn.PhysicalColumnBuilder physicalColumnBuilder =
+                PhysicalColumn.builder()
+                        .name(typeDefine.getName())
+                        .sourceType(typeDefine.getColumnType())
+                        .nullable(typeDefine.isNullable())
+                        .defaultValue(typeDefine.getDefaultValue())
+                        .comment(typeDefine.getComment());
+        DataType dataType = typeDefine.getNativeType();
         SeaTunnelDataType<?> seaTunnelDataType;
         PaimonToSeaTunnelTypeVisitor paimonToSeaTunnelTypeVisitor =
                 PaimonToSeaTunnelTypeVisitor.INSTANCE;
@@ -168,8 +178,7 @@ public class RowTypeConverter {
                         String.format(
                                 "Paimon dataType not support this genericType [%s]",
                                 dataType.asSQLString());
-                throw new PaimonConnectorException(
-                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE, errorMsg);
+                throw new PaimonConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, errorMsg);
         }
         return physicalColumnBuilder.dataType(seaTunnelDataType).build();
     }
@@ -209,7 +218,7 @@ public class RowTypeConverter {
      * @param column SeaTunnel data type {@link Column}
      * @return Paimon data type {@link DataType}
      */
-    public static DataType reconvert(Column column) {
+    public static BasicTypeDefine<DataType> reconvert(Column column) {
         return SeaTunnelTypeToPaimonVisitor.INSTANCE.visit(column);
     }
 
@@ -234,18 +243,32 @@ public class RowTypeConverter {
 
         private SeaTunnelTypeToPaimonVisitor() {}
 
-        public DataType visit(Column column) {
+        public BasicTypeDefine<DataType> visit(Column column) {
+            BasicTypeDefine.BasicTypeDefineBuilder<DataType> builder =
+                    BasicTypeDefine.<DataType>builder()
+                            .name(column.getName())
+                            .nullable(column.isNullable())
+                            .comment(column.getComment())
+                            .defaultValue(column.getDefaultValue());
             SeaTunnelDataType<?> dataType = column.getDataType();
             Integer scale = column.getScale();
             switch (dataType.getSqlType()) {
                 case TIMESTAMP:
-                    return DataTypes.TIMESTAMP(
-                            Objects.isNull(scale) ? TimestampType.DEFAULT_PRECISION : scale);
+                    int timestampScale =
+                            Objects.isNull(scale) ? TimestampType.DEFAULT_PRECISION : scale;
+                    TimestampType timestampType = DataTypes.TIMESTAMP(timestampScale);
+                    builder.nativeType(timestampType);
+                    builder.scale(timestampScale);
+                    return builder.build();
                 case TIME:
-                    return DataTypes.TIME(
-                            Objects.isNull(scale) ? TimeType.DEFAULT_PRECISION : scale);
+                    int timeScale = Objects.isNull(scale) ? TimeType.DEFAULT_PRECISION : scale;
+                    TimeType timeType = DataTypes.TIME(timeScale);
+                    builder.nativeType(timeType);
+                    builder.scale(timeScale);
+                    return builder.build();
                 default:
-                    return visit(dataType);
+                    builder.nativeType(visit(dataType));
+                    return builder.build();
             }
         }
 
@@ -264,6 +287,7 @@ public class RowTypeConverter {
                 case DOUBLE:
                     return DataTypes.DOUBLE();
                 case DECIMAL:
+                    // todo
                     return DataTypes.DECIMAL(
                             ((org.apache.seatunnel.api.table.type.DecimalType) dataType)
                                     .getPrecision(),
@@ -302,7 +326,7 @@ public class RowTypeConverter {
                     return DataTypes.ROW(dataTypes);
                 default:
                     throw new PaimonConnectorException(
-                            CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
+                            CommonErrorCode.UNSUPPORTED_DATA_TYPE,
                             "Unsupported data type: " + dataType.getSqlType());
             }
         }

@@ -44,6 +44,8 @@ import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.ch
 @Getter
 public class PaimonConfig implements Serializable {
 
+    public static final String CONNECTOR_IDENTITY = "Paimon";
+
     public static final Option<String> WAREHOUSE =
             Options.key("warehouse")
                     .stringType()
