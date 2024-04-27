@@ -22,13 +22,25 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.common.utils.DateTimeUtils;
+import org.apache.seatunnel.common.utils.DateUtils;
+import org.apache.seatunnel.common.utils.TimeUtils;
 import org.apache.seatunnel.connectors.seatunnel.hbase.exception.HbaseConnectorException;
 
 import org.apache.hadoop.hbase.util.Bytes;
 
-import java.nio.charset.Charset;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+
+import static org.apache.seatunnel.common.utils.DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS;
 
 public class HBaseDeserializationFormat {
+
+    private final DateUtils.Formatter dateFormat = DateUtils.Formatter.YYYY_MM_DD;
+    private final DateTimeUtils.Formatter datetimeFormat = YYYY_MM_DD_HH_MM_SS;
+    private final TimeUtils.Formatter timeFormat = TimeUtils.Formatter.HH_MM_SS;
 
     public SeaTunnelRow deserialize(byte[][] rowCell, SeaTunnelRowType seaTunnelRowType) {
         SeaTunnelRow row = new SeaTunnelRow(seaTunnelRowType.getTotalFields());
@@ -48,21 +60,30 @@ public class HBaseDeserializationFormat {
             case TINYINT:
             case SMALLINT:
             case INT:
-                return Integer.valueOf(Bytes.toString(cell));
+                return Bytes.toInt(cell);
             case BOOLEAN:
-                return Boolean.valueOf(Bytes.toString(cell));
+                return Bytes.toBoolean(cell);
             case BIGINT:
-                return Long.valueOf(Bytes.toString(cell));
+                return Bytes.toLong(cell);
             case FLOAT:
             case DECIMAL:
-                return Double.valueOf(Bytes.toString(cell));
+                return Bytes.toFloat(cell);
+            case DOUBLE:
+                return Bytes.toDouble(cell);
             case BYTES:
                 return cell;
             case DATE:
+                return LocalDate.parse(
+                        Bytes.toString(cell), DateTimeFormatter.ofPattern(dateFormat.getValue()));
             case TIME:
+                return LocalTime.parse(
+                        Bytes.toString(cell), DateTimeFormatter.ofPattern(timeFormat.getValue()));
             case TIMESTAMP:
+                return LocalDateTime.parse(
+                        Bytes.toString(cell),
+                        DateTimeFormatter.ofPattern(datetimeFormat.getValue()));
             case STRING:
-                return new String(cell, Charset.defaultCharset());
+                return Bytes.toString(cell);
             default:
                 throw new HbaseConnectorException(
                         CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
