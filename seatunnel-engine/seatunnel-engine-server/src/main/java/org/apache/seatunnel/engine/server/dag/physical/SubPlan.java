@@ -597,15 +597,11 @@ public class SubPlan {
                 break;
             case SCHEDULED:
                 try {
-                    slotProfiles =
-                            ResourceUtils.applyResourceForPipeline(
-                                    jobMaster.getResourceManager(), this);
+                    ResourceUtils.applyResourceForPipeline(jobMaster.getResourceManager(), this);
                     log.debug(
                             "slotProfiles: {}, PipelineLocation: {}",
                             slotProfiles,
                             this.getPipelineLocation());
-                    // sead slot information to JobMaster
-                    jobMaster.setOwnedSlotProfiles(pipelineLocation, slotProfiles);
                     updatePipelineState(PipelineStatus.DEPLOYING);
                 } catch (Exception e) {
                     makePipelineFailing(e);
