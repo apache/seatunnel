@@ -19,6 +19,8 @@
 package org.apache.seatunnel.connectors.seatunnel.hbase.utils;
 
 import org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseParameters;
+import org.apache.seatunnel.connectors.seatunnel.hbase.exception.HbaseConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.hbase.exception.HbaseConnectorException;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
@@ -39,7 +41,8 @@ public class HbaseConnectionUtil {
             Connection connection = ConnectionFactory.createConnection(hbaseConfiguration);
             return connection;
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            String errorMsg = "Build Hbase connection failed.";
+            throw new HbaseConnectorException(HbaseConnectorErrorCode.CONNECTION_FAILED, errorMsg);
         }
     }
 }
