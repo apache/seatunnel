@@ -88,16 +88,13 @@ public class ElasticsearchSource
             SeaTunnelDataType[] fieldTypes = getSeaTunnelDataType(esFieldType, source);
             TableSchema.Builder builder = TableSchema.builder();
 
-            for (Map.Entry<String, String> entry : arrayColumn.entrySet()) {
-                String key = entry.getKey();
-                String value = entry.getValue();
-                SeaTunnelDataType<?> dataType =
-                        SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(key, value);
-                builder.column(PhysicalColumn.of(key, dataType, 0, true, null, null));
-            }
             for (int i = 0; i < source.size(); i++) {
                 String key = source.get(i);
                 if (arrayColumn.containsKey(key)) {
+                    String value = arrayColumn.get(key);
+                    SeaTunnelDataType<?> dataType =
+                            SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(key, value);
+                    builder.column(PhysicalColumn.of(key, dataType, 0, true, null, null));
                     continue;
                 }
 
