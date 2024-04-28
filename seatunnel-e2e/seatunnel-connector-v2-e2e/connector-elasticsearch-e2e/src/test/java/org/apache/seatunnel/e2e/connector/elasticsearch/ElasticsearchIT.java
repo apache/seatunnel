@@ -215,12 +215,12 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                     "c_boolean",
                     "c_tinyint",
                     "c_smallint",
-                    "c_int",
                     "c_bigint",
                     "c_float",
                     "c_double",
                     "c_decimal",
                     "c_bytes",
+                    "c_int",
                     "c_date",
                     "c_timestamp"
                 };
@@ -273,12 +273,12 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                         "c_boolean",
                         "c_tinyint",
                         "c_smallint",
-                        "c_int",
                         "c_bigint",
                         "c_float",
                         "c_double",
                         "c_decimal",
                         "c_bytes",
+                        "c_int",
                         "c_date",
                         "c_timestamp");
         return getDocsWithTransformTimestamp(source, "st_index2");
