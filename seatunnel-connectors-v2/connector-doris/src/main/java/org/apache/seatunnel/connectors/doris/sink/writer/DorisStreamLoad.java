@@ -78,6 +78,7 @@ public class DorisStreamLoad implements Serializable {
     private final CloseableHttpClient httpClient;
     private final ExecutorService executorService;
     private volatile boolean loadBatchFirstRecord;
+    private volatile boolean loading = false;
     private String label;
     private long recordCount = 0;
 
@@ -199,7 +200,25 @@ public class DorisStreamLoad implements Serializable {
         return recordCount;
     }
 
-    public RespContent handlePreCommitResponse(CloseableHttpResponse response) throws Exception {
+    public String getLoadFailedMsg() {
+        if (!loading) {
+            return null;
+        }
+        if (this.getPendingLoadFuture() != null && this.getPendingLoadFuture().isDone()) {
+            String errorMessage;
+            try {
+                errorMessage = handlePreCommitResponse(pendingLoadFuture.get()).getMessage();
+            } catch (Exception e) {
+                errorMessage = e.getMessage();
+            }
+            recordStream.setErrorMessageByStreamLoad(errorMessage);
+            return errorMessage;
+        } else {
+            return null;
+        }
+    }
+
+    private RespContent handlePreCommitResponse(CloseableHttpResponse response) throws Exception {
         final int statusCode = response.getStatusLine().getStatusCode();
         if (statusCode == HTTP_TEMPORARY_REDIRECT && response.getEntity() != null) {
             String loadResult = EntityUtils.toString(response.getEntity());
@@ -211,6 +230,7 @@ public class DorisStreamLoad implements Serializable {
     }
 
     public RespContent stopLoad() throws IOException {
+        loading = false;
         if (pendingLoadFuture != null) {
             log.info("stream load stopped.");
             recordStream.endInput();
@@ -230,6 +250,7 @@ public class DorisStreamLoad implements Serializable {
         loadBatchFirstRecord = true;
         recordCount = 0;
         this.label = label;
+        this.loading = true;
     }
 
     private void startStreamLoad() {

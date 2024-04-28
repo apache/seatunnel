@@ -333,22 +333,12 @@ public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
         }
     }
 
-    public void registerResultTable(
-            Config config, DataStream<Row> dataStream, String name, Boolean isAppend) {
+    public void registerResultTable(Config config, DataStream<Row> dataStream, String name) {
         StreamTableEnvironment tableEnvironment = this.getStreamTableEnvironment();
         if (!TableUtil.tableExists(tableEnvironment, name)) {
-            if (isAppend) {
-                if (config.hasPath("field_name")) {
-                    String fieldName = config.getString("field_name");
-                    tableEnvironment.registerDataStream(name, dataStream, fieldName);
-                    return;
-                }
-                tableEnvironment.registerDataStream(name, dataStream);
-                return;
-            }
+            tableEnvironment.createTemporaryView(
+                    name, tableEnvironment.fromChangelogStream(dataStream));
         }
-        tableEnvironment.createTemporaryView(
-                name, tableEnvironment.fromChangelogStream(dataStream));
     }
 
     public static FlinkRuntimeEnvironment getInstance(Config config) {
