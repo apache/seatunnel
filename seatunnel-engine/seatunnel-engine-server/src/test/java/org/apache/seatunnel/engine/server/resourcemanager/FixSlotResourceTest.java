@@ -30,7 +30,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 
-public class FixSlotResourceTest extends AbstractSeaTunnelServerTest {
+public class FixSlotResourceTest extends AbstractSeaTunnelServerTest<FixSlotResourceTest> {
 
     @Override
     public SeaTunnelConfig loadSeaTunnelConfig() {
@@ -45,6 +45,7 @@ public class FixSlotResourceTest extends AbstractSeaTunnelServerTest {
 
     @Test
     public void testEnoughResource() throws ExecutionException, InterruptedException {
+        long jobId = System.currentTimeMillis();
         List<ResourceProfile> resourceProfiles = new ArrayList<>();
         resourceProfiles.add(new ResourceProfile());
         resourceProfiles.add(new ResourceProfile());
@@ -52,13 +53,15 @@ public class FixSlotResourceTest extends AbstractSeaTunnelServerTest {
         List<SlotProfile> slotProfiles =
                 server.getCoordinatorService()
                         .getResourceManager()
-                        .applyResources(1L, resourceProfiles)
+                        .applyResources(jobId, resourceProfiles)
                         .get();
         Assertions.assertEquals(slotProfiles.size(), 3);
+        server.getCoordinatorService().getResourceManager().releaseResources(jobId, slotProfiles);
     }
 
     @Test
     public void testNotEnoughResource() throws ExecutionException, InterruptedException {
+        long jobId = System.currentTimeMillis();
         List<ResourceProfile> resourceProfiles = new ArrayList<>();
         resourceProfiles.add(new ResourceProfile());
         resourceProfiles.add(new ResourceProfile());
@@ -67,7 +70,7 @@ public class FixSlotResourceTest extends AbstractSeaTunnelServerTest {
         try {
             server.getCoordinatorService()
                     .getResourceManager()
-                    .applyResources(1L, resourceProfiles)
+                    .applyResources(jobId, resourceProfiles)
                     .get();
         } catch (ExecutionException e) {
             Assertions.assertTrue(e.getMessage().contains("NoEnoughResourceException"));
@@ -76,8 +79,9 @@ public class FixSlotResourceTest extends AbstractSeaTunnelServerTest {
         List<SlotProfile> slotProfiles =
                 server.getCoordinatorService()
                         .getResourceManager()
-                        .applyResources(1L, resourceProfiles)
+                        .applyResources(jobId, resourceProfiles)
                         .get();
         Assertions.assertEquals(slotProfiles.size(), 3);
+        server.getCoordinatorService().getResourceManager().releaseResources(jobId, slotProfiles);
     }
 }
