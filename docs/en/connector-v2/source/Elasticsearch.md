@@ -63,7 +63,7 @@ If you don't config source, it is automatically retrieved from the mapping of th
 ### array_column [array]
 
 The fields of array type.
-Since there is no array index in es,so need assign array type,just like {c_array = "array<tinyint>"}
+Since there is no array index in es,so need assign array type,just like `{c_array = "array<tinyint>"}`.
 
 ### query [json]
 
