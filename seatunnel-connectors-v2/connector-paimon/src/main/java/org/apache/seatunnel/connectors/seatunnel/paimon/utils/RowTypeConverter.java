@@ -287,7 +287,6 @@ public class RowTypeConverter {
                 case DOUBLE:
                     return DataTypes.DOUBLE();
                 case DECIMAL:
-                    // todo
                     return DataTypes.DECIMAL(
                             ((org.apache.seatunnel.api.table.type.DecimalType) dataType)
                                     .getPrecision(),
