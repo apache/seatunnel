@@ -260,12 +260,7 @@ public class KafkaSourceConfig implements Serializable {
                         readonlyConfig.get(
                                 KafkaConnectJsonFormatOptions.VALUE_CONVERTER_SCHEMA_ENABLED);
                 return new CompatibleKafkaConnectDeserializationSchema(
-                        seaTunnelRowType,
-                        keySchemaEnable,
-                        valueSchemaEnable,
-                        false,
-                        false,
-                        catalogTable);
+                        keySchemaEnable, valueSchemaEnable, false, false, catalogTable);
             case DEBEZIUM_JSON:
                 boolean includeSchema = readonlyConfig.get(DEBEZIUM_RECORD_INCLUDE_SCHEMA);
                 return new DebeziumJsonDeserializationSchema(
