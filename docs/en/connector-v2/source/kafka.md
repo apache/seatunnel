@@ -183,7 +183,7 @@ source {
 
 ### Multiple Kafka Source
 
-> Currently, multiple kafka source reads are supported using the Zeta engine, but note that you can only configure one instance of `bootstrap.servers`, and only one in the `table_list` and `topic` parameters,Currently, when you use multiple topics in `table_list`, you are still free to set parameters for each `topic`
+> Currently, multiple kafka source reads are supported using the Zeta engine, but note that you can only configure one instance of `bootstrap.servers`, and only one the `table_list` or `topic` parameters. Currently, when you use multiple topics in `table_list`, you are still free to set parameters for each `topic`
 
 ```hocon
 

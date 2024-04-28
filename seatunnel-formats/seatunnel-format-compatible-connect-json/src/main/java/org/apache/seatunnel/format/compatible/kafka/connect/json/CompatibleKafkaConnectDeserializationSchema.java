@@ -74,14 +74,13 @@ public class CompatibleKafkaConnectDeserializationSchema
     private final CatalogTable catalogTable;
 
     public CompatibleKafkaConnectDeserializationSchema(
-            @NonNull SeaTunnelRowType seaTunnelRowType,
             boolean keySchemaEnable,
             boolean valueSchemaEnable,
             boolean failOnMissingField,
             boolean ignoreParseErrors,
-            CatalogTable catalogTable) {
+            @NonNull CatalogTable catalogTable) {
 
-        this.seaTunnelRowType = seaTunnelRowType;
+        this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
         this.keySchemaEnable = keySchemaEnable;
         this.valueSchemaEnable = valueSchemaEnable;
 
