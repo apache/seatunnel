@@ -109,6 +109,12 @@ public class SinkConfig extends CommonConfig {
                     .defaultValue(DataSaveMode.APPEND_DATA)
                     .withDescription("data save mode");
 
+    public static final Option<String> TABLES_DEFAULT_COMMIT_BRANCH =
+            Options.key("iceberg.table.commit-branch")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Default branch for commits");
+
     @VisibleForTesting private static final String COMMA_NO_PARENS_REGEX = ",(?![^()]*+\\))";
 
     private final ReadonlyConfig readonlyConfig;
@@ -116,6 +122,7 @@ public class SinkConfig extends CommonConfig {
     private Map<String, String> writeProps;
     private List<String> primaryKeys;
     private List<String> partitionKeys;
+    private String commitBranch;
 
     private boolean upsertModeEnabled;
     private boolean tableSchemaEvolutionEnabled;
@@ -133,6 +140,7 @@ public class SinkConfig extends CommonConfig {
         this.tableSchemaEvolutionEnabled = readonlyConfig.get(TABLE_SCHEMA_EVOLUTION_ENABLED_PROP);
         this.schemaSaveMode = readonlyConfig.get(SCHEMA_SAVE_MODE);
         this.dataSaveMode = readonlyConfig.get(DATA_SAVE_MODE);
+        this.commitBranch = readonlyConfig.get(TABLES_DEFAULT_COMMIT_BRANCH);
     }
 
     @VisibleForTesting

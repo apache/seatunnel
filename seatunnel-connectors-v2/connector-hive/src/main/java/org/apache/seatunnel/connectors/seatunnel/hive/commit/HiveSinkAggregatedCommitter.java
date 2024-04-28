@@ -57,26 +57,29 @@ public class HiveSinkAggregatedCommitter extends FileSinkAggregatedCommitter {
     @Override
     public List<FileAggregatedCommitInfo> commit(
             List<FileAggregatedCommitInfo> aggregatedCommitInfos) throws IOException {
-        HiveMetaStoreProxy hiveMetaStore = HiveMetaStoreProxy.getInstance(pluginConfig);
         List<FileAggregatedCommitInfo> errorCommitInfos = super.commit(aggregatedCommitInfos);
         if (errorCommitInfos.isEmpty()) {
-            for (FileAggregatedCommitInfo aggregatedCommitInfo : aggregatedCommitInfos) {
-                Map<String, List<String>> partitionDirAndValuesMap =
-                        aggregatedCommitInfo.getPartitionDirAndValuesMap();
-                List<String> partitions =
-                        partitionDirAndValuesMap.keySet().stream()
-                                .map(partition -> partition.replaceAll("\\\\", "/"))
-                                .collect(Collectors.toList());
-                try {
-                    hiveMetaStore.addPartitions(dbName, tableName, partitions);
-                    log.info("Add these partitions {}", partitions);
-                } catch (TException e) {
-                    log.error("Failed to add these partitions {}", partitions, e);
-                    errorCommitInfos.add(aggregatedCommitInfo);
+            HiveMetaStoreProxy hiveMetaStore = HiveMetaStoreProxy.getInstance(pluginConfig);
+            try {
+                for (FileAggregatedCommitInfo aggregatedCommitInfo : aggregatedCommitInfos) {
+                    Map<String, List<String>> partitionDirAndValuesMap =
+                            aggregatedCommitInfo.getPartitionDirAndValuesMap();
+                    List<String> partitions =
+                            partitionDirAndValuesMap.keySet().stream()
+                                    .map(partition -> partition.replaceAll("\\\\", "/"))
+                                    .collect(Collectors.toList());
+                    try {
+                        hiveMetaStore.addPartitions(dbName, tableName, partitions);
+                        log.info("Add these partitions {}", partitions);
+                    } catch (TException e) {
+                        log.error("Failed to add these partitions {}", partitions, e);
+                        errorCommitInfos.add(aggregatedCommitInfo);
+                    }
                 }
+            } finally {
+                hiveMetaStore.close();
             }
         }
-        hiveMetaStore.close();
         return errorCommitInfos;
     }
 

@@ -79,6 +79,17 @@ public class DorisErrorIT extends AbstractDorisIT {
         Thread.sleep(10 * 1000);
         super.container.stop();
         Assertions.assertNotEquals(0, future.get().getExitCode());
+        Assertions.assertTrue(
+                future.get()
+                        .getStderr()
+                        .contains(
+                                "Caused by: org.apache.seatunnel.connectors.doris.exception.DorisConnectorException: ErrorCode:[Doris-01], ErrorDescription:[stream load error]"));
+        Assertions.assertTrue(
+                future.get()
+                        .getStderr()
+                        .contains(
+                                "at org.apache.seatunnel.connectors.doris.sink.writer.RecordBuffer.checkErrorMessageByStreamLoad"));
+        log.info("doris error log: \n" + future.get().getStderr());
         super.container.start();
         // wait for the container to restart
         given().ignoreExceptions()

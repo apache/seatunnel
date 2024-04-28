@@ -204,8 +204,11 @@ public class ClickhouseSinkWriter
         return result;
     }
 
-    private static boolean clickhouseServerEnableExperimentalLightweightDelete(
+    private boolean clickhouseServerEnableExperimentalLightweightDelete(
             ClickHouseConnectionImpl clickhouseConnection) {
+        if (!option.isAllowExperimentalLightweightDelete()) {
+            return false;
+        }
         String configKey = "allow_experimental_lightweight_delete";
         try (Statement stmt = clickhouseConnection.createStatement()) {
             ResultSet resultSet = stmt.executeQuery("SHOW SETTINGS ILIKE '%" + configKey + "%'");

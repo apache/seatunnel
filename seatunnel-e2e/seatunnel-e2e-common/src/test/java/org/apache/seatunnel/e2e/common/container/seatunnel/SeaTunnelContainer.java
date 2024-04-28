@@ -352,7 +352,11 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 || s.contains(
                         "org.apache.hadoop.fs.FileSystem$Statistics$StatisticsDataReferenceCleaner")
                 || s.startsWith("Log4j2-TF-")
-                || aqsThread.matcher(s).matches();
+                || aqsThread.matcher(s).matches()
+                // The renewed background thread of the hdfs client
+                || s.startsWith("LeaseRenewer")
+                // The read of hdfs which has the thread that is all in running status
+                || s.startsWith("org.apache.hadoop.hdfs.PeerCache");
     }
 
     private void classLoaderObjectCheck(Integer maxSize) throws IOException, InterruptedException {
