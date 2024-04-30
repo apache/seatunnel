@@ -47,7 +47,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 
 ### table_name [string]
 
-Target Hive table name eg: db1.table1
+Target Hive table name eg: db1.table1, and if the source is multiple mode, you can use `${database_name}.${table_name}` to generate the table name, it will replace the `${database_name}` and `${table_name}` with the value of the CatalogTable generate from the source.
 
 ### metastore_uri [string]
 
@@ -339,6 +339,56 @@ sink {
     hive.hadoop.conf = {
         bucket="oss://emr-osshdfs.cn-wulanchabu.oss-dls.aliyuncs.com"
     }
+  }
+}
+```
+
+### example 2
+
+We have multiple source table like this:
+
+```bash
+create table test_1(
+)
+PARTITIONED BY (xx);
+
+create table test_2(
+)
+PARTITIONED BY (xx);
+...
+```
+
+We need read data from these source tables and write to another tables:
+
+The job config file can like this:
+
+```
+env {
+  # You can set flink configuration here
+  parallelism = 3
+  job.name="test_hive_source_to_hive"
+}
+
+source {
+  Hive {
+    tables_configs = [
+      {
+        table_name = "test_hive.test_1"
+        metastore_uri = "thrift://ctyun6:9083"
+      },
+      {
+        table_name = "test_hive.test_2"
+        metastore_uri = "thrift://ctyun7:9083"
+      }
+    ]
+  }
+}
+
+sink {
+  # choose stdout output plugin to output data to console
+  Hive {
+    table_name = "${database_name}.${table_name}"
+    metastore_uri = "thrift://ctyun7:9083"
   }
 }
 ```
