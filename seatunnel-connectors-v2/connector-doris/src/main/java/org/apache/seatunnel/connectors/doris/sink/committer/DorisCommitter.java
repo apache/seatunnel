@@ -116,8 +116,12 @@ public class DorisCommitter implements SinkCommitter<DorisCommitInfo> {
             String loadResult = EntityUtils.toString(response.getEntity());
             Map<String, String> res =
                     mapper.readValue(loadResult, new TypeReference<HashMap<String, String>>() {});
-            if (res.get("status").equals(LoadStatus.FAIL)
-                    && !ResponseUtil.isCommitted(res.get("msg"))) {
+            if (!LoadStatus.SUCCESS.equals(res.get("status"))) {
+                log.error(
+                        "commit transaction error url:{},TxnId:{},result:{}",
+                        String.format(COMMIT_PATTERN, hostPort, committable.getDb()),
+                        committable.getTxbID(),
+                        loadResult);
                 throw new DorisConnectorException(
                         DorisConnectorErrorCode.COMMIT_FAILED, loadResult);
             } else {

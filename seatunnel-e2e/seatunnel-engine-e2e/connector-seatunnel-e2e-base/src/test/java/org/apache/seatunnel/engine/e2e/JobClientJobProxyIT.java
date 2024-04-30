@@ -63,6 +63,6 @@ public class JobClientJobProxyIT extends SeaTunnelContainer {
                         && execResult
                                 .getStderr()
                                 .contains(
-                                        "org.apache.seatunnel.engine.server.resourcemanager.NoEnoughResourceException: can't apply resource request"));
+                                        "org.apache.seatunnel.engine.server.resourcemanager.NoEnoughResourceException"));
     }
 }

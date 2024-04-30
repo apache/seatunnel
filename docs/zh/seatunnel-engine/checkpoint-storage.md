@@ -184,3 +184,39 @@ seatunnel:
 
 ```
 
+### 开启高速缓存
+
+当storage:type为hdfs时，默认关闭cache。如果您想启用它，请设置为`disable.cache: false`。
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      interval: 6000
+      timeout: 7000
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          storage.type: hdfs
+          disable.cache: false
+          fs.defaultFS: hdfs:/// # Ensure that the directory has written permission
+```
+
+or
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      interval: 6000
+      timeout: 7000
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          storage.type: hdfs
+          disable.cache: false
+          fs.defaultFS: file:/// 
+```
+
