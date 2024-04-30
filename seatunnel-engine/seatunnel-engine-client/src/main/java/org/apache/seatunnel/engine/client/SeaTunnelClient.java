@@ -36,6 +36,7 @@ import lombok.NonNull;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -53,8 +54,17 @@ public class SeaTunnelClient implements SeaTunnelClientInstance, AutoCloseable {
             @NonNull String filePath,
             @NonNull JobConfig jobConfig,
             @NonNull SeaTunnelConfig seaTunnelConfig) {
+        return createExecutionContext(filePath, null, jobConfig, seaTunnelConfig);
+    }
+
+    @Override
+    public ClientJobExecutionEnvironment createExecutionContext(
+            @NonNull String filePath,
+            List<String> variables,
+            @NonNull JobConfig jobConfig,
+            @NonNull SeaTunnelConfig seaTunnelConfig) {
         return new ClientJobExecutionEnvironment(
-                jobConfig, filePath, hazelcastClient, seaTunnelConfig);
+                jobConfig, filePath, variables, hazelcastClient, seaTunnelConfig);
     }
 
     @Override
@@ -63,8 +73,18 @@ public class SeaTunnelClient implements SeaTunnelClientInstance, AutoCloseable {
             @NonNull JobConfig jobConfig,
             @NonNull SeaTunnelConfig seaTunnelConfig,
             @NonNull Long jobId) {
+        return restoreExecutionContext(filePath, null, jobConfig, seaTunnelConfig, jobId);
+    }
+
+    @Override
+    public ClientJobExecutionEnvironment restoreExecutionContext(
+            @NonNull String filePath,
+            List<String> variables,
+            @NonNull JobConfig jobConfig,
+            @NonNull SeaTunnelConfig seaTunnelConfig,
+            @NonNull Long jobId) {
         return new ClientJobExecutionEnvironment(
-                jobConfig, filePath, hazelcastClient, seaTunnelConfig, true, jobId);
+                jobConfig, filePath, variables, hazelcastClient, seaTunnelConfig, true, jobId);
     }
 
     @Override
