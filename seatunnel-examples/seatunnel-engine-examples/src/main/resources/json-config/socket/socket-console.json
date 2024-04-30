@@ -1,0 +1,22 @@
+{
+  "env": {
+    "execution.parallelism": "1",
+    "job.mode": "STREAMING",
+    "checkpoint.interval": "5000"
+  },
+  "source": [
+    {
+      "plugin_name": "Socket",
+      "host": "172.16.8.200",
+      "port": "8879",
+      "result_table_name": "doris_test"
+    }
+  ],
+  "transform": [],
+  "sink": [
+    {
+      "source_table_name": "doris_test",
+      "plugin_name": "console"
+    }
+  ]
+}

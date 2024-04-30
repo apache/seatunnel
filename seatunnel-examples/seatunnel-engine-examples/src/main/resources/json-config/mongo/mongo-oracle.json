@@ -1,0 +1,55 @@
+{
+  "env": {
+    "execution.parallelism": "1",
+    "job.mode": "STREAMING",
+    "checkpoint.interval": "5000"
+  },
+  "source": [
+    {
+      "hosts": "172.16.8.205:37017,172.16.8.205:37018,172.16.8.205:37019",
+      "password": "stpw",
+      "connection.options": "authSource=cdc",
+      "collection": [
+        "cdc.data3_1min"
+      ],
+      "result_table_name": "data3_1min",
+      "database": [
+        "cdc"
+      ],
+      "plugin_name": "MongoDB-CDC",
+      "username": "stuser",
+      "schema": {
+        "fields": {
+          "_id": "string",
+          "id": "bigint",
+          "idStr": "string",
+          "name": "string",
+          "passwd": "string",
+          "sfz": "string",
+          "phone": "string",
+          "bankCard": "string"
+        }
+      }
+    }
+  ],
+  "transform": [],
+  "sink":[
+    {
+      "batch_size":2000,
+      "primary_keys":[
+        "_id"
+      ],
+      "source_table_name":"data3_1min",
+      "plugin_name":"jdbc",
+      "url":"jdbc:oracle:thin:@172.16.11.193:1521/ORCL?useInformationSchema=true&remarks=true",
+      "password":"wangmengting",
+      "database":"WANGMENGTING",
+      "enable_upsert":true,
+      "driver":"oracle.jdbc.OracleDriver",
+      "generate_sink_sql":true,
+      "user":"wangmengting",
+      "table":"data3_1min",
+      "batch_interval_ms":1000
+    }
+  ]
+}

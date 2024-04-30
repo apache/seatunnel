@@ -1,0 +1,52 @@
+{
+  "env": {
+    "execution.parallelism": 1,
+    "job.mode": "STREAMING",
+    "checkpoint.interval": 5000
+  },
+  "source": [
+    {
+      "plugin_name": "Kafka",
+      "bootstrap.servers": "172.16.11.151:9092,172.16.11.152:9092,172.16.11.153:9092",
+      "topic": "ocean",
+      "schema": {
+        "fields": {
+          "id": "BIGINT",
+          "name": "STRING",
+          "age": "STRING",
+          "rate": "DOUBLE"
+        }
+      },
+      "start_mode": "latest",
+      "format_error_handle_way": "fail",
+      "format": "text",
+      "result_table_name": "ocean",
+      "field_delimiter": ","
+    }
+  ],
+  "sink": [
+    {
+      "plugin_name": "Jdbc",
+      "url": "jdbc:postgresql://172.16.8.31:5432/cdc?currentSchema=kafka",
+      "driver": "org.postgresql.Driver",
+      "user": "superadmin",
+      "password": "superadmin",
+      "database": "kafka",
+      "batch_size": 2000,
+      "primary_keys": [
+        "id"
+      ],
+      "source_table_name": "ocean",
+      "enable_upsert": true,
+      "generate_sink_sql": true,
+      "compatible_mode": "postgresLow",
+      "table": "ods_ocean",
+      "fields": [
+        "id",
+        "name",
+        "age",
+        "rate"
+      ]
+    }
+  ]
+}

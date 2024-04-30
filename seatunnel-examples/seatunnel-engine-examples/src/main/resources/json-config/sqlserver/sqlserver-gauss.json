@@ -1,0 +1,44 @@
+{
+  "env": {
+    "execution.parallelism": "1",
+    "job.mode": "STREAMING",
+    "checkpoint.interval": "5000"
+  },
+  "source": [
+    {
+      "base-url": "jdbc:sqlserver://172.16.11.123:1433;databaseName=ocean",
+      "password": "Ocean@2021",
+      "startup.mode": "INITIAL",
+      "table-names": [
+        "ocean.mdm.test2_sqlserver_cdc"
+      ],
+      "result_table_name": "ods_test2_sqlserver_cdc",
+      "database-names": [
+        "ocean"
+      ],
+      "plugin_name": "SqlServer-CDC",
+      "username": "sa"
+    }
+  ],
+  "transform": [],
+  "sink":[
+    {
+      "batch_size":2000,
+      "primary_keys":[
+        "INTEGER"
+      ],
+      "source_table_name":"ods_test2_sqlserver_cdc",
+      "plugin_name":"jdbc",
+      "url":"jdbc:opengauss://172.16.8.96:15400/odb?currentSchema=ods",
+      "password":"open@321",
+      "database":"ods",
+      "enable_upsert":true,
+      "driver":"org.opengauss.Driver",
+      "compatible_mode" : "postgresLow",
+      "generate_sink_sql":true,
+      "user":"ocean",
+      "table":"ods_test_sqlserver_cdc",
+      "batch_interval_ms":1000
+    }
+  ]
+}

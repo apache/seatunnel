@@ -1,0 +1,57 @@
+{
+  "env": {
+    "execution.parallelism": "1",
+    "job.mode": "STREAMING",
+    "checkpoint.interval": "5000"
+  },
+  "source": [
+    {
+      "hosts": "172.16.8.205:37017,172.16.8.205:37018,172.16.8.205:37019",
+      "password": "stpw",
+      "connection.options": "authSource=cdc",
+      "collection": [
+        "cdc.data3_1min"
+      ],
+      "result_table_name": "data3_1min",
+      "database": [
+        "cdc"
+      ],
+      "plugin_name": "MongoDB-CDC",
+      "username": "stuser",
+      "schema": {
+        "fields": {
+          "_id": "string",
+          "id": "bigint",
+          "idStr": "string",
+          "name": "string",
+          "passwd": "string",
+          "sfz": "string",
+          "phone": "string",
+          "bankCard": "string"
+        }
+      }
+    }
+  ],
+  "transform": [
+  ],
+  "sink": [
+    {
+      "batch_size": 2000,
+      "primary_keys": [
+        "_id"
+      ],
+      "source_table_name": "data3_1min",
+      "plugin_name": "jdbc",
+      "url": "jdbc:opengauss://172.16.8.96:15400/odb?currentSchema=ods",
+      "password": "open@321",
+      "database": "ods",
+      "enable_upsert": true,
+      "driver": "org.opengauss.Driver",
+      "compatible_mode": "postgresLow",
+      "generate_sink_sql": true,
+      "user": "ocean",
+      "table": "data3_1min",
+      "batch_interval_ms": 1000
+    }
+  ]
+}

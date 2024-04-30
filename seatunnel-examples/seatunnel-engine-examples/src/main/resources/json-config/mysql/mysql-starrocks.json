@@ -1,0 +1,35 @@
+{
+  "env": {
+    "execution.parallelism": "1",
+    "job.mode": "BATCH"
+  },
+  "source": [
+    {
+      "plugin_name": "jdbc",
+      "url": "jdbc:mysql://172.16.8.137:3306/showdata?remarks=true&useInformationSchema=true&useCursorFetch=true&defaultFetchSize=2048&rewriteBatchedStatements=true",
+      "password": "oceanDatum",
+      "user": "root",
+      "driver": "com.mysql.cj.jdbc.Driver",
+      "query": "SELECT t1.`id`, t1.`普查机构代码`, t1.`序号`, t1.`户号`, t1.`户籍地址`, t1.`姓名`, t1.`性别`, t1.`民族`, t1.`与户主关系`, t1.`公民身份号码`, t1.`户类型`, t1.`联系电话`, t1.`文化程度`  FROM 钓鱼巷 t1",
+      "result_table_name": "fake"
+    }
+  ],
+  "sink": [
+    {
+      "plugin_name": "Jdbc",
+      "url": "jdbc:mysql://172.16.11.131:3306/mysql_test?remarks=true&useInformationSchema=true&useCursorFetch=true&defaultFetchSize=2048&rewriteBatchedStatements=true",
+      "driver": "com.mysql.cj.jdbc.Driver",
+      "user": "mysql",
+      "password": "mysql",
+      "database": "mysql_test",
+      "batch_size": 2000,
+      "primary_keys": [
+        "user_id"
+      ],
+      "source_table_name": "test",
+      "enable_upsert": true,
+      "generate_sink_sql": true,
+      "table": "doris_test"
+    }
+  ]
+}
