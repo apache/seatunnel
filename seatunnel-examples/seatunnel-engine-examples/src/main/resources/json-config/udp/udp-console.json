@@ -1,0 +1,25 @@
+{
+  "env": {
+    "execution.parallelism": "2",
+    "job.mode": "STREAMING",
+    "checkpoint.interval": "5000"
+  },
+  "preHandler": [],
+  "source": [
+    {
+      "plugin_name": "UDP",
+      "port": "8879",
+      "fields": {
+        "id": "0-20"
+      },
+      "result_table_name": "ot_fe2386adf0b6457291b38607b8d5880f"
+    }
+  ],
+  "transform": [],
+  "sink": [
+    {
+      "source_table_name": "ot_fe2386adf0b6457291b38607b8d5880f",
+      "plugin_name": "console"
+    }
+  ]
+}

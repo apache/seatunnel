@@ -1,0 +1,43 @@
+{
+  "env": {
+    "execution.parallelism": 1,
+    "job.mode": "BATCH",
+    "checkpoint.interval": 5000
+  },
+  "source": [
+    {
+      "plugin_name": "MongoDB",
+      "uri": "mongodb://stuser:stpw@172.16.8.205:37019/cdc?replicaSet=mongos&authSource=cdc",
+      "database": "cdc",
+      "collection": "test",
+      "result_table_name": "test",
+      "schema": {
+        "fields": {
+          "_id": "STRING",
+          "name": "STRING",
+          "age": "DOUBLE",
+          "sex": "STRING",
+          "image": "BYTES"
+        }
+      }
+    }
+  ],
+  "sink": [
+    {
+      "plugin_name": "Jdbc",
+      "url": "jdbc:dm://172.16.11.202:5236/OCEAN",
+      "driver": "dm.jdbc.driver.DmDriver",
+      "user": "SYSDBA",
+      "password": "SYSDBA",
+      "database": "OCEAN",
+      "batch_size": 2000,
+      "primary_keys": [
+        "_id"
+      ],
+      "source_table_name": "test",
+      "enable_upsert": true,
+      "generate_sink_sql": true,
+      "table": "cdc_test_mon"
+    }
+  ]
+}

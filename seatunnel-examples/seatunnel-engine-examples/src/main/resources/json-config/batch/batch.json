@@ -1,0 +1,78 @@
+{
+  "env": {
+    "job.name": "历史版本测试",
+    "job.mode": "batch"
+  },
+  "preHandler": [
+  ],
+  "source": [
+    {
+      "plugin_name": "Jdbc",
+      "dsId": "1584788710849748993",
+      "dsName": "mysql人口信息库",
+      "dsType": "mysql",
+      "resourceType": "table",
+      "driver": "com.mysql.cj.jdbc.Driver",
+      "connection_check_timeout_sec": 100,
+      "database": "sjkf",
+      "url": "jdbc:mysql://172.16.11.155:3306/sjkf?remarks=true&useInformationSchema=true&useCursorFetch=true&defaultFetchSize=2048&rewriteBatchedStatements=true",
+      "user": "root",
+      "password": "root",
+      "table_list": [
+        {
+          "table_path": "sjkf.a",
+          "query": "SELECT\n `id`,\n `name`,\n `age`\nFROM\n `a`"
+        }
+      ],
+      "result_table_name": "ot_d224564657334df59746a8db32e478a9"
+    }
+  ],
+  "transform": [
+    {
+      "plugin_name": "Sql",
+      "query": "select id,name,age,CONCAT(name,'1') as str  from ot_d224564657334df59746a8db32e478a9",
+      "result_table_name": "ot_aa264f8f569341d9b27f92903eaf0cd8",
+      "source_table_name": [
+        "ot_d224564657334df59746a8db32e478a9"
+      ]
+    },
+    {
+      "plugin_name": "Filter",
+      "fields": [
+        "id",
+        "name"
+      ],
+      "result_table_name": "ot_44e4003aa53949cf87c55c21d21706ea",
+      "source_table_name": [
+        "ot_aa264f8f569341d9b27f92903eaf0cd8"
+      ]
+    },
+    {
+      "plugin_name": "Sql",
+      "query": "select IFNULL(id, '1') as id,name from ot_44e4003aa53949cf87c55c21d21706ea",
+      "result_table_name": "ot_a1c80eef8cb4475a865433243097cd2e",
+      "source_table_name": [
+        "ot_44e4003aa53949cf87c55c21d21706ea"
+      ]
+    }
+  ],
+  "sink": [
+    {
+      "plugin_name": "Jdbc",
+      "driver": "com.mysql.cj.jdbc.Driver",
+      "url": "jdbc:mysql://172.16.11.183:3306/test_data?remarks=true&useInformationSchema=true&useCursorFetch=true&defaultFetchSize=2048&rewriteBatchedStatements=true",
+      "user": "kaifa",
+      "password": "kaifa",
+      "primary_keys": [
+      ],
+      "batch_size": 2048,
+      "data_save_mode": "CUSTOM_PROCESSING",
+      "custom_sql ": "truncate table ottomi01",
+      "query": "insert into `test_data`.`ottomi01`(`id`,`name`) values(?,?)",
+      "result_table_name": "ot_f7040392ca6a4860bdcca1b75063c97c",
+      "source_table_name": [
+        "ot_a1c80eef8cb4475a865433243097cd2e"
+      ]
+    }
+  ]
+}

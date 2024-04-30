@@ -1,0 +1,46 @@
+{
+  "env":{
+    "execution.parallelism":"3",
+    "job.mode":"STREAMING",
+    "checkpoint.interval":"5000"
+  },
+  "source":[
+    {
+      "base-url":"jdbc:mysql://172.16.11.131:3306/test1mysql?remarks=true&useInformationSchema=true&useCursorFetch=true&defaultFetchSize=2048",
+      "password":"mysql",
+      "startup.mode":"INITIAL",
+      "table-names":[
+        "test1mysql.doris_test"
+      ],
+      "result_table_name":"ods_doris_test",
+      "database-names":"test1mysql",
+      "plugin_name":"MySQL-CDC",
+      "connect.max-retries":3,
+      "username":"mysql",
+      "connect.timeout.ms":3000
+    }
+  ],
+  "transform":[
+
+  ],
+  "sink":[
+    {
+      "batch_size":2000,
+      "primary_keys":[
+        "user_id"
+      ],
+      "source_table_name":"ods_doris_test",
+      "compatible_mode":"postgresLow",
+      "plugin_name":"jdbc",
+      "url":"jdbc:postgresql://172.16.8.31:5432/zhongtai?currentSchema=ods",
+      "password":"superadmin",
+      "database":"zhongtai",
+      "enable_upsert":true,
+      "driver":"org.postgresql.Driver",
+      "generate_sink_sql":true,
+      "user":"superadmin",
+      "table":"ods.ods_doris_test",
+      "batch_interval_ms":1000
+    }
+  ]
+}

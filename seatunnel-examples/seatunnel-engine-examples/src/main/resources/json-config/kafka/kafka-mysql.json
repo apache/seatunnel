@@ -1,0 +1,51 @@
+{
+  "env": {
+    "execution.parallelism": 1,
+    "job.mode": "STREAMING",
+    "checkpoint.interval": 5000
+  },
+  "source": [
+    {
+      "plugin_name": "Kafka",
+      "bootstrap.servers": "172.16.11.151:9092,172.16.11.152:9092,172.16.11.153:9092",
+      "topic": "ocean",
+      "schema": {
+        "fields": {
+          "id": "BIGINT",
+          "name": "STRING",
+          "age": "BIGINT",
+          "rate": "DOUBLE"
+        }
+      },
+      "start_mode": "latest",
+      "format_error_handle_way": "skip",
+      "format": "text",
+      "result_table_name": "test",
+      "field_delimiter": ","
+    }
+  ],
+  "sink": [
+    {
+      "plugin_name": "Jdbc",
+      "url": "jdbc:mysql://172.16.11.131:3306/mysql_test?remarks=true&useInformationSchema=true&useCursorFetch=true&defaultFetchSize=2048&rewriteBatchedStatements=true",
+      "driver": "com.mysql.cj.jdbc.Driver",
+      "user": "mysql",
+      "password": "mysql",
+      "database": "mysql_test",
+      "batch_size": 2000,
+      "primary_keys": [
+        "id"
+      ],
+      "source_table_name": "test",
+      "enable_upsert": true,
+      "generate_sink_sql": true,
+      "table": "test",
+      "fields": [
+        "id",
+        "name",
+        "age",
+        "rate"
+      ]
+    }
+  ]
+}

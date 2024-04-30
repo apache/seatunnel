@@ -1,0 +1,33 @@
+{
+  "env": {
+    "execution.parallelism": "1",
+    "job.mode": "STREAMING",
+    "checkpoint.interval": "5000"
+  },
+  "source": [
+    {
+      "base-url": "jdbc:mysql://172.16.11.131:3306/test1mysql?remarks=true&useInformationSchema=true&useCursorFetch=true&defaultFetchSize=2048",
+      "password": "mysql",
+      "startup.mode": "INITIAL",
+      "driver": "com.mysql.cj.jdbc.Driver",
+      "table-names": [
+        "test1mysql.doris_test"
+      ],
+      "result_table_name": "doris_test",
+      "database-names": [
+        "test1mysql"
+      ],
+      "plugin_name": "MySQL-CDC",
+      "connect.max-retries": 3,
+      "connect.timeout.ms": 3000,
+      "username": "mysql"
+    }
+  ],
+  "transform": [],
+  "sink": [
+    {
+      "source_table_name": "doris_test",
+      "plugin_name": "console"
+    }
+  ]
+}

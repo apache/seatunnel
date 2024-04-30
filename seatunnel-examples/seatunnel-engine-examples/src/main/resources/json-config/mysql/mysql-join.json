@@ -1,0 +1,30 @@
+{
+  "env": {
+    "execution.parallelism": "1",
+    "job.mode": "STREAMING",
+    "checkpoint.interval": "5000"
+  },
+  "source": [
+    {
+      "plugin_name": "Jdbc",
+      "dsType": "mysql",
+      "driver": "com.mysql.cj.jdbc.Driver",
+      "connection_check_timeout_sec": 100,
+      "database": "test1mysql",
+      "url": "jdbc:mysql://172.16.11.131:3306/test1mysql?remarks=true&useInformationSchema=true&useCursorFetch=true&defaultFetchSize=2048",
+      "target_tableName": "",
+      "user": "mysql",
+      "password": "mysql",
+      "query": "SELECT a.id,a.name,b.age from a join b on a.id = b.id",
+      "result_table_name": "result"
+    }
+  ],
+  "transform": [
+  ],
+  "sink": [
+    {
+      "source_table_name": "result",
+      "plugin_name": "console"
+    }
+  ]
+}

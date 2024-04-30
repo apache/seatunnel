@@ -1,0 +1,73 @@
+{
+  "env":{
+    "execution.parallelism": "1",
+    "job.mode":"streaming",
+    "checkpoint.interval": "5000"
+  },
+  "preHandler":[
+
+  ],
+  "source":[
+    {
+      "plugin_name":"MongoDB-CDC",
+      "hosts":"172.16.8.205:37017,172.16.8.205:37018,172.16.8.205:37019",
+      "username":"stuser",
+      "password":"stpw",
+      "startup.mode":"initial",
+      "connection.options":"authSource=cdc",
+      "database":[
+        "cdc"
+      ],
+      "collection":[
+        "cdc.test"
+      ],
+      "schema":{
+        "fields":{
+          "_id":"STRING",
+          "name":"STRING",
+          "age":"DOUBLE",
+          "sex":"STRING",
+          "image":"BYTES"
+        }
+      },
+      "result_table_name":"ot_2f48e54e0ccd4aeba52a6f557cb6ed97"
+    }
+  ],
+  "transform":[
+    {
+      "plugin_name":"Sql",
+      "query":"select _id,AES_ENC(name) as name,age,sex,image from ot_2f48e54e0ccd4aeba52a6f557cb6ed97",
+      "result_table_name":"ot_014a0d74900c4a9fbebede6f1a8bf5fc",
+      "source_table_name":[
+        "ot_2f48e54e0ccd4aeba52a6f557cb6ed97"
+      ]
+    }
+  ],
+  "sink":[
+    {
+      "plugin_name":"Jdbc",
+      "driver":"com.mysql.cj.jdbc.Driver",
+      "url":"jdbc:mysql://172.16.11.131:3306/mysql_test?remarks=true&useInformationSchema=true&useCursorFetch=true&defaultFetchSize=2048&rewriteBatchedStatements=true",
+      "user":"mysql",
+      "password":"mysql",
+      "pre_sql":[
+        ""
+      ],
+      "post_sql":[
+        ""
+      ],
+      "batch_size":2048,
+      "enable_upsert":true,
+      "generate_sink_sql":true,
+      "primary_keys":[
+        "_id"
+      ],
+      "database":"mysql_test",
+      "table":"ods_test",
+      "result_table_name":"ot_05eefd33871741b1902a13f03981b695",
+      "source_table_name":[
+        "ot_014a0d74900c4a9fbebede6f1a8bf5fc"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "env": {
+    "execution.parallelism": "1",
+    "job.mode": "STREAMING",
+    "checkpoint.interval": "5000"
+  },
+  "source": [
+    {
+      "plugin_name": "Mysql-CDC",
+      "base-url": "jdbc:mysql://172.16.11.131:3306/test1mysql?remarks=true&useInformationSchema=true&useCursorFetch=true&defaultFetchSize=2048",
+      "username": "mysql",
+      "password": "mysql",
+      "database-names": [
+        "test1mysql"
+      ],
+      "table-names": [
+        "test1mysql.doris_test"
+      ],
+      "startup.mode": "initial",
+      "connect.max-retries": 3,
+      "connect.timeout.ms": 3000,
+      "result_table_name": "test"
+    }
+  ],
+  "transform": [],
+  "sink": [
+    {
+      "password": "Ocean@2021",
+      "database": "ocean",
+      "batch_size": 2000,
+      "primary_keys": [
+        "user_id"
+      ],
+      "driver": "com.microsoft.sqlserver.jdbc.SQLServerDriver",
+      "source_table_name": "test",
+      "plugin_name": "jdbc",
+      "enable_upsert": true,
+      "generate_sink_sql": true,
+      "user": "sa",
+      "url": "jdbc:sqlserver://172.16.11.123:1433;databasename=ocean",
+      "table": "dbo.doris_test",
+      "batch_interval_ms": 1000
+    }
+  ]
+}

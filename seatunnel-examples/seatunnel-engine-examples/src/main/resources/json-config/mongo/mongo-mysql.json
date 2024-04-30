@@ -1,0 +1,57 @@
+{
+  "env": {
+    "execution.parallelism": "3",
+    "job.mode": "STREAMING",
+    "checkpoint.interval": "5000"
+  },
+  "source": [
+    {
+      "hosts": "172.16.8.205:37017,172.16.8.205:37018,172.16.8.205:37019",
+      "password": "stpw",
+      "connection.options": "authSource=cdc",
+      "collection": [
+        "cdc.test"
+      ],
+      "result_table_name": "test",
+      "database": [
+        "cdc"
+      ],
+      "plugin_name": "MongoDB-CDC",
+      "username": "stuser",
+      "schema": {
+        "fields": {
+          "_id": "STRING",
+          "name": "STRING",
+          "age": "DOUBLE",
+          "sex": "STRING",
+          "image": "BYTES"
+        }
+      }
+    }
+  ],
+  "sink": [
+    {
+      "plugin_name": "Jdbc",
+      "url": "jdbc:mysql://172.16.11.131:3306/mysql_test?remarks=true&useInformationSchema=true&useCursorFetch=true&defaultFetchSize=2048&rewriteBatchedStatements=true",
+      "driver": "com.mysql.cj.jdbc.Driver",
+      "user": "mysql",
+      "password": "mysql",
+      "database": "mysql_test",
+      "batch_size": "2000",
+      "primary_keys": [
+        "_id1"
+      ],
+      "source_table_name": "test",
+      "enable_upsert": true,
+      "generate_sink_sql": true,
+      "table": "ods_test",
+      "fields": [
+        "_id1",
+        "name1",
+        "age1",
+        "sex1",
+        "image1"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,48 @@
+{
+  "env":{
+    "execution.parallelism":"1",
+    "job.mode":"STREAMING",
+    "checkpoint.interval":"5000"
+  },
+  "source":[
+    {
+      "base-url":"jdbc:mysql://172.16.11.131:3306/test1mysql?remarks=true&useInformationSchema=true&useCursorFetch=true&defaultFetchSize=2048",
+      "password":"mysql",
+      "startup.mode":"INITIAL",
+      "table-names":[
+        "test1mysql.data3_1min"
+      ],
+      "result_table_name":"ods_data3_1min",
+      "database-names":[
+        "test1mysql"
+      ],
+      "plugin_name":"MySQL-CDC",
+      "connect.max-retries":3,
+      "connect.timeout.ms":3000,
+      "username":"mysql"
+    }
+  ],
+  "transform":[
+
+  ],
+  "sink":[
+    {
+      "batch_size":2000,
+      "primary_keys":[
+        "id"
+      ],
+      "source_table_name":"ods_data3_1min",
+      "plugin_name":"jdbc",
+      "url":"jdbc:opengauss://172.16.8.96:15400/odb?currentSchema=ods",
+      "password":"open@321",
+      "database":"ods",
+      "enable_upsert":true,
+      "driver":"org.opengauss.Driver",
+      "compatible_mode" : "postgresLow",
+      "generate_sink_sql":true,
+      "user":"ocean",
+      "table":"ods_data3_1min",
+      "batch_interval_ms":1000
+    }
+  ]
+}

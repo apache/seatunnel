@@ -1,0 +1,43 @@
+{
+  "env": {
+    "execution.parallelism": 1,
+    "job.mode": "STREAMING",
+    "checkpoint.interval": 5000
+  },
+  "source": [
+    {
+      "plugin_name": "Mysql-CDC",
+      "base-url": "jdbc:mysql://172.16.11.131:3306/test1mysql?remarks=true&useInformationSchema=true&useCursorFetch=true&defaultFetchSize=2048",
+      "username": "mysql",
+      "password": "mysql",
+      "database-names": [
+        "test1mysql"
+      ],
+      "table-names": [
+        "test1mysql.doris_test"
+      ],
+      "startup.mode": "initial",
+      "connect.max-retries": 3,
+      "connect.timeout.ms": 3000,
+      "result_table_name": "test"
+    }
+  ],
+  "sink": [
+    {
+      "plugin_name": "Jdbc",
+      "url": "jdbc:mysql://172.16.11.131:3306/mysql_test?remarks=true&useInformationSchema=true&useCursorFetch=true&defaultFetchSize=2048&rewriteBatchedStatements=true",
+      "driver": "com.mysql.cj.jdbc.Driver",
+      "user": "mysql",
+      "password": "mysql",
+      "database": "mysql_test",
+      "batch_size": 2000,
+      "primary_keys": [
+        "user_id"
+      ],
+      "source_table_name": "test",
+      "enable_upsert": true,
+      "generate_sink_sql": true,
+      "table": "doris_test"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "env": {
+    "execution.parallelism": "1",
+    "job.mode": "STREAMING",
+    "checkpoint.interval": "5000"
+  },
+  "source": [
+    {
+      "plugin_name": "Kafka",
+      "bootstrap.servers": "hadoop102:9092",
+      "topic": "ocean",
+      "schema": {
+        "fields": {
+          "id": "int",
+          "name": "string"
+        }
+      },
+      "field_delimiter": ",",
+      "start_mode": "latest",
+      "format_error_handle_way": "skip",
+      "format": "text",
+      "result_table_name": "ocean"
+    }
+  ],
+  "transform": [
+  ],
+  "sink": [
+    {
+      "source_table_name": "ocean",
+      "plugin_name": "console"
+    }
+  ]
+}
