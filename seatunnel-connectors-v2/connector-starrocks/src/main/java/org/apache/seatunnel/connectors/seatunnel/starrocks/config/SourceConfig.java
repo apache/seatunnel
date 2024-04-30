@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.config;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
+
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
@@ -24,7 +26,9 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Setter
@@ -53,6 +57,7 @@ public class SourceConfig extends CommonConfig {
                                         key.substring(prefix.length()).toLowerCase(), value);
                             }
                         });
+        tableConfigList = StarRocksSourceTableConfig.of(config);
     }
 
     public static final Option<Integer> MAX_RETRIES =
@@ -106,6 +111,12 @@ public class SourceConfig extends CommonConfig {
                     .noDefaultValue()
                     .withDescription("The parameter of the scan data from be");
 
+    public static final Option<List<Map<String, Object>>> TABLE_LIST =
+            Options.key("table_list")
+                    .type(new TypeReference<List<Map<String, Object>>>() {})
+                    .noDefaultValue()
+                    .withDescription("table list config");
+
     private int maxRetries = MAX_RETRIES.defaultValue();
     private int requestTabletSize = QUERY_TABLET_SIZE.defaultValue();
     private String scanFilter = SCAN_FILTER.defaultValue();
@@ -115,4 +126,5 @@ public class SourceConfig extends CommonConfig {
     private int batchRows = SCAN_BATCH_ROWS.defaultValue();
     private int connectTimeoutMs = SCAN_CONNECT_TIMEOUT.defaultValue();
     private Map<String, String> sourceOptionProps = new HashMap<>();
+    private List<StarRocksSourceTableConfig> tableConfigList = new ArrayList<>();
 }

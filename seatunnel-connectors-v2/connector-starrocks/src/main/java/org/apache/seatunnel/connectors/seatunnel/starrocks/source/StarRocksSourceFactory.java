@@ -21,8 +21,6 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
-import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -49,10 +47,9 @@ public class StarRocksSourceFactory implements TableSourceFactory {
                         SourceConfig.NODE_URLS,
                         SourceConfig.USERNAME,
                         SourceConfig.PASSWORD,
-                        SourceConfig.DATABASE,
-                        SourceConfig.TABLE,
-                        TableSchemaOptions.SCHEMA)
+                        SourceConfig.DATABASE)
                 .optional(
+                        TableSchemaOptions.SCHEMA,
                         SourceConfig.MAX_RETRIES,
                         SourceConfig.QUERY_TABLET_SIZE,
                         SourceConfig.SCAN_FILTER,
@@ -61,6 +58,7 @@ public class StarRocksSourceFactory implements TableSourceFactory {
                         SourceConfig.SCAN_KEEP_ALIVE_MIN,
                         SourceConfig.SCAN_BATCH_ROWS,
                         SourceConfig.SCAN_CONNECT_TIMEOUT)
+                .exclusive(SourceConfig.TABLE, SourceConfig.TABLE_LIST)
                 .build();
     }
 
@@ -74,9 +72,7 @@ public class StarRocksSourceFactory implements TableSourceFactory {
             TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
         ReadonlyConfig config = context.getOptions();
         SourceConfig starRocksSourceConfig = new SourceConfig(config);
-        CatalogTable catalogTable = CatalogTableUtil.buildWithConfig(config);
         return () ->
-                (SeaTunnelSource<T, SplitT, StateT>)
-                        new StarRocksSource(starRocksSourceConfig, catalogTable);
+                (SeaTunnelSource<T, SplitT, StateT>) new StarRocksSource(starRocksSourceConfig);
     }
 }

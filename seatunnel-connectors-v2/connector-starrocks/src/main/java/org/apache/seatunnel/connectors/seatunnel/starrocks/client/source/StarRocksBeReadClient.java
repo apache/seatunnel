@@ -91,14 +91,17 @@ public class StarRocksBeReadClient implements Serializable {
     }
 
     public void openScanner(QueryPartition partition, SeaTunnelRowType seaTunnelRowType) {
+        eos.set(false);
+        this.readerOffset = 0;
+        this.rowBatch = null;
         this.seaTunnelRowType = seaTunnelRowType;
         Set<Long> tabletIds = partition.getTabletIds();
         TScanOpenParams params = new TScanOpenParams();
         params.setTablet_ids(new ArrayList<>(tabletIds));
         params.setOpaqued_query_plan(partition.getQueryPlan());
         params.setCluster(DEFAULT_CLUSTER_NAME);
-        params.setDatabase(sourceConfig.getDatabase());
-        params.setTable(sourceConfig.getTable());
+        params.setDatabase(partition.getDatabase());
+        params.setTable(partition.getTable());
         params.setUser(sourceConfig.getUsername());
         params.setPasswd(sourceConfig.getPassword());
         params.setBatch_size(sourceConfig.getBatchRows());

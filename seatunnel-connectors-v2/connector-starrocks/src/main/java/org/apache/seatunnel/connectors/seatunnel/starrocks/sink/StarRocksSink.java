@@ -33,6 +33,7 @@ import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.catalog.StarRocksCatalog;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.catalog.StarRocksCatalogFactory;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.config.CommonConfig;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SinkConfig;
 
 import java.util.Optional;
@@ -74,7 +75,7 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void>
                         catalogTable.getTableId().getTableName());
         Catalog catalog =
                 new StarRocksCatalog(
-                        "StarRocks",
+                        CommonConfig.CONNECTOR_IDENTITY,
                         sinkConfig.getUsername(),
                         sinkConfig.getPassword(),
                         sinkConfig.getJdbcUrl(),

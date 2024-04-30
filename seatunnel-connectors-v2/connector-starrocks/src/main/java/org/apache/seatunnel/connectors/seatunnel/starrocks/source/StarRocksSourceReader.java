@@ -43,18 +43,25 @@ public class StarRocksSourceReader implements SourceReader<SeaTunnelRow, StarRoc
     private final Queue<StarRocksSourceSplit> pendingSplits;
     private final SourceReader.Context context;
     private final SourceConfig sourceConfig;
-    private final SeaTunnelRowType seaTunnelRowType;
     private Map<String, StarRocksBeReadClient> clientsPools;
     private volatile boolean noMoreSplitsAssignment;
+    private final Map<String, SeaTunnelRowType> tables;
 
-    public StarRocksSourceReader(
-            SourceReader.Context readerContext,
-            SeaTunnelRowType seaTunnelRowType,
-            SourceConfig sourceConfig) {
+    public StarRocksSourceReader(SourceReader.Context readerContext, SourceConfig sourceConfig) {
         this.pendingSplits = new LinkedList<>();
         this.context = readerContext;
         this.sourceConfig = sourceConfig;
-        this.seaTunnelRowType = seaTunnelRowType;
+        Map<String, SeaTunnelRowType> tables = new HashMap<>();
+        sourceConfig
+                .getTableConfigList()
+                .forEach(
+                        starRocksSourceTableConfig ->
+                                tables.put(
+                                        starRocksSourceTableConfig.getTable(),
+                                        starRocksSourceTableConfig
+                                                .getCatalogTable()
+                                                .getSeaTunnelRowType()));
+        this.tables = tables;
     }
 
     @Override
@@ -103,9 +110,11 @@ public class StarRocksSourceReader implements SourceReader<SeaTunnelRow, StarRoc
             clientsPools.put(beAddress, client);
         }
         // open scanner to be
+        SeaTunnelRowType seaTunnelRowType = tables.get(partition.getTable());
         client.openScanner(partition, seaTunnelRowType);
         while (client.hasNext()) {
             SeaTunnelRow seaTunnelRow = client.getNext();
+            seaTunnelRow.setTableId(partition.getTable());
             output.collect(seaTunnelRow);
         }
     }

@@ -31,4 +31,5 @@ import java.util.Map;
 public class StarRocksSourceState implements Serializable {
     private boolean shouldEnumerate;
     private Map<Integer, List<StarRocksSourceSplit>> pendingSplit;
+    private List<String> pendingTables;
 }
