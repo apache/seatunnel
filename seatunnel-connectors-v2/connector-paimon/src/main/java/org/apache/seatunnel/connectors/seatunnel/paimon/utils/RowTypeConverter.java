@@ -94,6 +94,7 @@ public class RowTypeConverter {
                         .nullable(typeDefine.isNullable())
                         .defaultValue(typeDefine.getDefaultValue())
                         .comment(typeDefine.getComment());
+
         DataType dataType = typeDefine.getNativeType();
         SeaTunnelDataType<?> seaTunnelDataType;
         PaimonToSeaTunnelTypeVisitor paimonToSeaTunnelTypeVisitor =
@@ -258,16 +259,37 @@ public class RowTypeConverter {
                             Objects.isNull(scale) ? TimestampType.DEFAULT_PRECISION : scale;
                     TimestampType timestampType = DataTypes.TIMESTAMP(timestampScale);
                     builder.nativeType(timestampType);
+                    builder.dataType(timestampType.getTypeRoot().name());
+                    builder.columnType(timestampType.toString());
                     builder.scale(timestampScale);
+                    builder.length(column.getColumnLength());
                     return builder.build();
                 case TIME:
                     int timeScale = Objects.isNull(scale) ? TimeType.DEFAULT_PRECISION : scale;
                     TimeType timeType = DataTypes.TIME(timeScale);
                     builder.nativeType(timeType);
+                    builder.columnType(timeType.toString());
+                    builder.dataType(timeType.getTypeRoot().name());
                     builder.scale(timeScale);
+                    builder.length(column.getColumnLength());
+                    return builder.build();
+                case DECIMAL:
+                    int precision =
+                            ((org.apache.seatunnel.api.table.type.DecimalType) dataType)
+                                    .getPrecision();
+                    DecimalType decimalType = DataTypes.DECIMAL(precision, scale);
+                    builder.nativeType(decimalType);
+                    builder.columnType(decimalType.toString());
+                    builder.dataType(decimalType.getTypeRoot().name());
+                    builder.scale(scale);
+                    builder.precision((long) precision);
+                    builder.length(column.getColumnLength());
                     return builder.build();
                 default:
                     builder.nativeType(visit(dataType));
+                    builder.columnType(dataType.toString());
+                    builder.length(column.getColumnLength());
+                    builder.dataType(dataType.getSqlType().name());
                     return builder.build();
             }
         }

@@ -48,9 +48,9 @@ import java.util.List;
 public class PaimonCatalog implements Catalog, PaimonTable {
     private static final String DEFAULT_DATABASE = "default";
 
-    private String catalogName;
-    private PaimonSinkConfig paimonSinkConfig;
-    private PaimonCatalogLoader paimonCatalogLoader;
+    private final String catalogName;
+    private final PaimonSinkConfig paimonSinkConfig;
+    private final PaimonCatalogLoader paimonCatalogLoader;
     private org.apache.paimon.catalog.Catalog catalog;
 
     public PaimonCatalog(String catalogName, PaimonSinkConfig paimonSinkConfig) {
