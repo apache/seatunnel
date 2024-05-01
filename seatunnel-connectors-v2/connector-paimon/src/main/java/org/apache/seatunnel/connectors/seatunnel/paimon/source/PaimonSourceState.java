@@ -21,8 +21,8 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 import java.io.Serializable;
-import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @AllArgsConstructor
 @Getter
@@ -30,6 +30,6 @@ import java.util.Map;
 public class PaimonSourceState implements Serializable {
 
     private static final long serialVersionUID = 1L;
-    private final Map<Integer, List<PaimonSourceSplit>> pendingSplits;
+    private final Map<Integer, Set<PaimonSourceSplit>> assignedSplits;
     private boolean shouldEnumerate;
 }
