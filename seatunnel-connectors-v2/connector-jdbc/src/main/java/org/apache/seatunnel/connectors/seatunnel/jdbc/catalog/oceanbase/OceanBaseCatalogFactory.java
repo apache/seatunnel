@@ -77,6 +77,6 @@ public class OceanBaseCatalogFactory implements CatalogFactory {
 
     @Override
     public OptionRule optionRule() {
-        return JdbcCatalogOptions.BASE_RULE.required(JdbcCatalogOptions.COMPATIBLE_MODE).build();
+        return JdbcCatalogOptions.base().required(JdbcCatalogOptions.COMPATIBLE_MODE).build();
     }
 }

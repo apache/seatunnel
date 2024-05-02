@@ -57,6 +57,6 @@ public class DamengCatalogFactory implements CatalogFactory {
 
     @Override
     public OptionRule optionRule() {
-        return JdbcCatalogOptions.BASE_RULE.build();
+        return JdbcCatalogOptions.base().build();
     }
 }
