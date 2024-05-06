@@ -10,7 +10,7 @@ Write data to Hive.
 
 In order to use this connector, You must ensure your spark/flink cluster already integrated hive. The tested hive version is 2.3.9.
 
-If you use SeaTunnel Engine, You need put seatunnel-hadoop3-3.1.4-uber.jar and hive-exec-2.3.9.jar in $SEATUNNEL_HOME/lib/ dir.
+If you use SeaTunnel Engine, You need put seatunnel-hadoop3-3.1.4-uber.jar and hive-exec-3.1.3.jar and libfb303-0.9.3.jar in $SEATUNNEL_HOME/lib/ dir.
 :::
 
 ## Key features
@@ -37,6 +37,8 @@ By default, we use 2PC commit to ensure `exactly-once`
 | compress_codec                | string  | no       | none           |
 | hdfs_site_path                | string  | no       | -              |
 | hive_site_path                | string  | no       | -              |
+| hive.hadoop.conf              | Map     | no       | -              |
+| hive.hadoop.conf-path         | string  | no       | -              |
 | krb5_path                     | string  | no       | /etc/krb5.conf |
 | kerberos_principal            | string  | no       | -              |
 | kerberos_keytab_path          | string  | no       | -              |
@@ -45,7 +47,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 
 ### table_name [string]
 
-Target Hive table name eg: db1.table1
+Target Hive table name eg: db1.table1, and if the source is multiple mode, you can use `${database_name}.${table_name}` to generate the table name, it will replace the `${database_name}` and `${table_name}` with the value of the CatalogTable generate from the source.
 
 ### metastore_uri [string]
 
@@ -56,6 +58,16 @@ Hive metastore uri
 The path of `hdfs-site.xml`, used to load ha configuration of namenodes
 
 ### hive_site_path [string]
+
+The path of `hive-site.xml`
+
+### hive.hadoop.conf [map]
+
+Properties in hadoop conf('core-site.xml', 'hdfs-site.xml', 'hive-site.xml')
+
+### hive.hadoop.conf-path [string]
+
+The specified loading path for the 'core-site.xml', 'hdfs-site.xml', 'hive-site.xml' files
 
 ### krb5_path [string]
 
@@ -161,6 +173,221 @@ sink {
 
   Hive {
     table_name = "test_hive.test_hive_sink_text_simple"
+    metastore_uri = "thrift://ctyun7:9083"
+    hive.hadoop.conf = {
+      bucket = "s3a://mybucket"
+    }
+}
+```
+
+## Hive on s3
+
+### Step 1
+
+Create the lib dir for hive of emr.
+
+```shell
+mkdir -p ${SEATUNNEL_HOME}/plugins/Hive/lib
+```
+
+### Step 2
+
+Get the jars from maven center to the lib.
+
+```shell
+cd ${SEATUNNEL_HOME}/plugins/Hive/lib
+wget https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/2.6.5/hadoop-aws-2.6.5.jar
+wget https://repo1.maven.org/maven2/org/apache/hive/hive-exec/2.3.9/hive-exec-2.3.9.jar
+```
+
+### Step 3
+
+Copy the jars from your environment on emr to the lib dir.
+
+```shell
+cp /usr/share/aws/emr/emrfs/lib/emrfs-hadoop-assembly-2.60.0.jar ${SEATUNNEL_HOME}/plugins/Hive/lib
+cp /usr/share/aws/emr/hadoop-state-pusher/lib/hadoop-common-3.3.6-amzn-1.jar ${SEATUNNEL_HOME}/plugins/Hive/lib
+cp /usr/share/aws/emr/hadoop-state-pusher/lib/javax.inject-1.jar ${SEATUNNEL_HOME}/plugins/Hive/lib
+cp /usr/share/aws/emr/hadoop-state-pusher/lib/aopalliance-1.0.jar ${SEATUNNEL_HOME}/plugins/Hive/lib
+```
+
+### Step 4
+
+Run the case.
+
+```shell
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    schema = {
+      fields {
+        pk_id = bigint
+        name = string
+        score = int
+      }
+      primaryKey {
+        name = "pk_id"
+        columnNames = [pk_id]
+      }
+    }
+    rows = [
+      {
+        kind = INSERT
+        fields = [1, "A", 100]
+      },
+      {
+        kind = INSERT
+        fields = [2, "B", 100]
+      },
+      {
+        kind = INSERT
+        fields = [3, "C", 100]
+      }
+    ]
+  }
+}
+
+sink {
+  Hive {
+    table_name = "test_hive.test_hive_sink_on_s3"
+    metastore_uri = "thrift://ip-192-168-0-202.cn-north-1.compute.internal:9083"
+    hive.hadoop.conf-path = "/home/ec2-user/hadoop-conf"
+    hive.hadoop.conf = {
+       bucket="s3://ws-package"
+    }
+  }
+}
+```
+
+## Hive on oss
+
+### Step 1
+
+Create the lib dir for hive of emr.
+
+```shell
+mkdir -p ${SEATUNNEL_HOME}/plugins/Hive/lib
+```
+
+### Step 2
+
+Get the jars from maven center to the lib.
+
+```shell
+cd ${SEATUNNEL_HOME}/plugins/Hive/lib
+wget https://repo1.maven.org/maven2/org/apache/hive/hive-exec/2.3.9/hive-exec-2.3.9.jar
+```
+
+### Step 3
+
+Copy the jars from your environment on emr to the lib dir and delete the conflicting jar.
+
+```shell
+cp -r /opt/apps/JINDOSDK/jindosdk-current/lib/jindo-*.jar ${SEATUNNEL_HOME}/plugins/Hive/lib
+rm -f ${SEATUNNEL_HOME}/lib/hadoop-aliyun-*.jar
+```
+
+### Step 4
+
+Run the case.
+
+```shell
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    schema = {
+      fields {
+        pk_id = bigint
+        name = string
+        score = int
+      }
+      primaryKey {
+        name = "pk_id"
+        columnNames = [pk_id]
+      }
+    }
+    rows = [
+      {
+        kind = INSERT
+        fields = [1, "A", 100]
+      },
+      {
+        kind = INSERT
+        fields = [2, "B", 100]
+      },
+      {
+        kind = INSERT
+        fields = [3, "C", 100]
+      }
+    ]
+  }
+}
+
+sink {
+  Hive {
+    table_name = "test_hive.test_hive_sink_on_oss"
+    metastore_uri = "thrift://master-1-1.c-1009b01725b501f2.cn-wulanchabu.emr.aliyuncs.com:9083"
+    hive.hadoop.conf-path = "/tmp/hadoop"
+    hive.hadoop.conf = {
+        bucket="oss://emr-osshdfs.cn-wulanchabu.oss-dls.aliyuncs.com"
+    }
+  }
+}
+```
+
+### example 2
+
+We have multiple source table like this:
+
+```bash
+create table test_1(
+)
+PARTITIONED BY (xx);
+
+create table test_2(
+)
+PARTITIONED BY (xx);
+...
+```
+
+We need read data from these source tables and write to another tables:
+
+The job config file can like this:
+
+```
+env {
+  # You can set flink configuration here
+  parallelism = 3
+  job.name="test_hive_source_to_hive"
+}
+
+source {
+  Hive {
+    tables_configs = [
+      {
+        table_name = "test_hive.test_1"
+        metastore_uri = "thrift://ctyun6:9083"
+      },
+      {
+        table_name = "test_hive.test_2"
+        metastore_uri = "thrift://ctyun7:9083"
+      }
+    ]
+  }
+}
+
+sink {
+  # choose stdout output plugin to output data to console
+  Hive {
+    table_name = "${database_name}.${table_name}"
     metastore_uri = "thrift://ctyun7:9083"
   }
 }

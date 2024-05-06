@@ -1,4 +1,4 @@
-# JobEnvConfig
+# Job Env Config
 
 This document describes env configuration information, the common parameters can be used in all engines. In order to better distinguish between engine parameters, the additional parameters of other engine need to carry a prefix.
 In flink engine, we use `flink.` as the prefix. In the spark engine, we do not use any prefixes to modify parameters, because the official spark parameters themselves start with `spark.`
@@ -28,6 +28,10 @@ In `STREAMING` mode, checkpoints is required, if you do not set it, it will be o
 ### parallelism
 
 This parameter configures the parallelism of source and sink.
+
+### job.retry.times
+
+Used to control the default retry times when a job fails. The default value is 3, and it only works in the Zeta engine.
 
 ### shade.identifier
 

@@ -17,8 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hive.utils;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 
 import lombok.experimental.UtilityClass;
@@ -26,11 +25,11 @@ import lombok.experimental.UtilityClass;
 @UtilityClass
 public class HiveMetaStoreProxyUtils {
 
-    public boolean enableKerberos(Config config) {
+    public boolean enableKerberos(ReadonlyConfig config) {
         boolean kerberosPrincipalEmpty =
-                config.hasPath(BaseSourceConfigOptions.KERBEROS_PRINCIPAL.key());
+                config.getOptional(BaseSourceConfigOptions.KERBEROS_PRINCIPAL).isPresent();
         boolean kerberosKeytabPathEmpty =
-                config.hasPath(BaseSourceConfigOptions.KERBEROS_KEYTAB_PATH.key());
+                config.getOptional(BaseSourceConfigOptions.KERBEROS_KEYTAB_PATH).isPresent();
         if (kerberosKeytabPathEmpty && kerberosPrincipalEmpty) {
             return true;
         }
@@ -43,7 +42,7 @@ public class HiveMetaStoreProxyUtils {
         throw new IllegalArgumentException("Please set kerberosKeytabPath");
     }
 
-    public boolean enableRemoteUser(Config config) {
-        return config.hasPath(BaseSourceConfigOptions.REMOTE_USER.key());
+    public boolean enableRemoteUser(ReadonlyConfig config) {
+        return config.getOptional(BaseSourceConfigOptions.REMOTE_USER).isPresent();
     }
 }

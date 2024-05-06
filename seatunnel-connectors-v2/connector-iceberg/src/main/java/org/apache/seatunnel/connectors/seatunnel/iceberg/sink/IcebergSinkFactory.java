@@ -62,7 +62,8 @@ public class IcebergSinkFactory implements TableSinkFactory {
                         SinkConfig.TABLE_PRIMARY_KEYS,
                         SinkConfig.TABLE_DEFAULT_PARTITION_KEYS,
                         SinkConfig.TABLE_UPSERT_MODE_ENABLED_PROP,
-                        SinkConfig.TABLE_SCHEMA_EVOLUTION_ENABLED_PROP)
+                        SinkConfig.TABLE_SCHEMA_EVOLUTION_ENABLED_PROP,
+                        SinkConfig.TABLES_DEFAULT_COMMIT_BRANCH)
                 .build();
     }
 

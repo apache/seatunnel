@@ -10,15 +10,15 @@
 
 ## 主要特性
 
-- [x] [批处理](../../../en/concept/connector-v2-features.md)
-- [ ] [流处理](../../../en/concept/connector-v2-features.md)
-- [x] [精确一次](../../../en/concept/connector-v2-features.md)
+- [x] [批处理](../../concept/connector-v2-features.md)
+- [ ] [流处理](../../concept/connector-v2-features.md)
+- [x] [精确一次](../../concept/connector-v2-features.md)
 
 在一次 pollNext 调用中读取分片中的所有数据。将读取的分片保存在快照中。
 
-- [x] [列投影](../../../en/concept/connector-v2-features.md)
-- [x] [并行度](../../../en/concept/connector-v2-features.md)
-- [ ] [支持用户定义的分片](../../../en/concept/connector-v2-features.md)
+- [x] [列投影](../../concept/connector-v2-features.md)
+- [x] [并行度](../../concept/connector-v2-features.md)
+- [ ] [支持用户定义的分片](../../concept/connector-v2-features.md)
 - [x] 文件格式
   - [x] 文本
   - [x] CSV

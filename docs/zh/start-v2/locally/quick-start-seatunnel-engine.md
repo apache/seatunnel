@@ -52,7 +52,7 @@ sink {
 
 ```
 
-关于配置的更多信息请查看[配置的基本概念](../../../en/concept/config.md)
+关于配置的更多信息请查看[配置的基本概念](../../concept/config.md)
 
 ## 步骤 3: 运行SeaTunnel应用程序
 
@@ -91,6 +91,6 @@ SeaTunnel控制台将会打印一些如下日志信息:
 ## 此外
 
 现在,您已经快速浏览了SeaTunnel，你可以通过[连接器](../../../en/connector-v2/source/FakeSource.md)来找到SeaTunnel所支持的所有source和sink。
-如果您想要了解更多关于信息，请参阅[SeaTunnel引擎](../../../en/seatunnel-engine/about.md).
+如果您想要了解更多关于信息，请参阅[SeaTunnel引擎](../../seatunnel-engine/about.md).
 
-SeaTunnel还支持在Spark/Flink中运行作业。您可以查看[Spark快速开始](../../../en/start-v2/locally/quick-start-spark.md)或[Flink快速开始](../../../en/start-v2/locally/quick-start-flink.md)。
+SeaTunnel还支持在Spark/Flink中运行作业。您可以查看[Spark快速开始](quick-start-spark.md)或[Flink快速开始](quick-start-flink.md)。
