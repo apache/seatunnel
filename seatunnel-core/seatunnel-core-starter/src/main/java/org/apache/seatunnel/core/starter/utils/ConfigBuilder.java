@@ -108,7 +108,7 @@ public class ConfigBuilder {
             return ConfigShadeUtils.decryptConfig(backfillUserVariables(config, variables));
         } catch (ParserException | IllegalArgumentException e) {
             throw e;
-        }  catch (Exception warn) {
+        } catch (Exception warn) {
             log.warn(
                     "Loading config failed with spi {}, fallback to HOCON loader.",
                     configAdapter.getClass().getName());
