@@ -20,6 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.hive.utils;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+
 import org.junit.jupiter.api.Test;
 
 import lombok.SneakyThrows;
@@ -35,7 +37,7 @@ class HiveMetaStoreProxyUtilsTest {
 
     @Test
     void enableKerberos() {
-        Config config = parseConfig("/hive_without_kerberos.conf");
+        ReadonlyConfig config = parseConfig("/hive_without_kerberos.conf");
         assertFalse(HiveMetaStoreProxyUtils.enableKerberos(config));
         assertFalse(HiveMetaStoreProxyUtils.enableRemoteUser(config));
 
@@ -48,9 +50,10 @@ class HiveMetaStoreProxyUtilsTest {
     }
 
     @SneakyThrows
-    private Config parseConfig(String configFile) {
+    private ReadonlyConfig parseConfig(String configFile) {
         URL resource = HiveMetaStoreProxyUtilsTest.class.getResource(configFile);
         String filePath = Paths.get(resource.toURI()).toString();
-        return ConfigFactory.parseFile(new File(filePath));
+        Config config = ConfigFactory.parseFile(new File(filePath));
+        return ReadonlyConfig.fromConfig(config);
     }
 }

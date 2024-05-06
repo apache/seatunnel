@@ -48,7 +48,7 @@ public class CheckpointStorageTest extends AbstractSeaTunnelServerTest {
     public SeaTunnelConfig loadSeaTunnelConfig() {
         SeaTunnelConfig seaTunnelConfig = super.loadSeaTunnelConfig();
         CheckpointConfig checkpointConfig = seaTunnelConfig.getEngineConfig().getCheckpointConfig();
-        // set a bigger interval in here and config file to avoid auto trigger checkpoint affect
+        // set a big interval in here and config file to avoid auto trigger checkpoint affect
         // test result
         checkpointConfig.setCheckpointInterval(Integer.MAX_VALUE);
         seaTunnelConfig.getEngineConfig().setCheckpointConfig(checkpointConfig);
@@ -61,7 +61,6 @@ public class CheckpointStorageTest extends AbstractSeaTunnelServerTest {
         long jobId = System.currentTimeMillis();
         CheckpointConfig checkpointConfig =
                 server.getSeaTunnelConfig().getEngineConfig().getCheckpointConfig();
-        server.getSeaTunnelConfig().getEngineConfig().setCheckpointConfig(checkpointConfig);
 
         CheckpointStorage checkpointStorage =
                 FactoryUtil.discoverFactory(
@@ -96,7 +95,6 @@ public class CheckpointStorageTest extends AbstractSeaTunnelServerTest {
         long jobId = System.currentTimeMillis();
         CheckpointConfig checkpointConfig =
                 server.getSeaTunnelConfig().getEngineConfig().getCheckpointConfig();
-        server.getSeaTunnelConfig().getEngineConfig().setCheckpointConfig(checkpointConfig);
 
         CheckpointStorage checkpointStorage =
                 FactoryUtil.discoverFactory(
