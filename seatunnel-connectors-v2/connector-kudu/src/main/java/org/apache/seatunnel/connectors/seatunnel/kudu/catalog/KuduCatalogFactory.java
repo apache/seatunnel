@@ -60,6 +60,7 @@ public class KuduCatalogFactory implements CatalogFactory {
                 .optional(OPERATION_TIMEOUT)
                 .optional(ADMIN_OPERATION_TIMEOUT)
                 .optional(KERBEROS_KRB5_CONF)
+                .optional(ENABLE_KERBEROS)
                 .conditional(ENABLE_KERBEROS, true, KERBEROS_PRINCIPAL, KERBEROS_KEYTAB)
                 .build();
     }
