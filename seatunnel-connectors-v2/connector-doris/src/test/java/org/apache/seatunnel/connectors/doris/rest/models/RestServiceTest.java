@@ -26,6 +26,8 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class RestServiceTest {
@@ -33,16 +35,22 @@ public class RestServiceTest {
     @Test
     void testRandomEndpoint() {
 
-        List<String> list = Arrays.asList("fe_host1:fe_http_port1", "fe_host2:fe_http_port2");
-        Assertions.assertTrue(
-                list.contains(RestService.randomEndpoint("fe_host1:fe_http_port1", log)));
-        Assertions.assertTrue(
-                list.contains(
-                        RestService.randomEndpoint(
-                                "fe_host1:fe_http_port1,fe_host2:fe_http_port2", log)));
-        Assertions.assertTrue(
-                list.contains(
-                        RestService.randomEndpoint(
-                                "fe_host2:fe_http_port2,fe_host1:fe_http_port1", log)));
+        List<String> list =
+                Arrays.asList(
+                        "fe_host1:fe_http_port1",
+                        "fe_host2:fe_http_port2",
+                        "fe_host3:fe_http_port3",
+                        "fe_host4:fe_http_port4",
+                        "fe_host5:fe_http_port5");
+
+        boolean hasDifferentWorker = false;
+        for (int i = 0; i < 5; i++) {
+            Set<String> addresses =
+                    list.stream()
+                            .map(address -> RestService.randomEndpoint(String.join(",", list), log))
+                            .collect(Collectors.toSet());
+            hasDifferentWorker = addresses.size() > 1;
+        }
+        Assertions.assertTrue(hasDifferentWorker);
     }
 }
