@@ -183,7 +183,7 @@ source {
 
 ### Multiple Kafka Source
 
-> Currently, multiple kafka source reads are supported using the Zeta engine, but note that you can only configure one instance of `bootstrap.servers`, and only one the `table_list` or `topic` parameters. Currently, when you use multiple topics in `table_list`, you are still free to set parameters for each `topic`
+> This is written to the same pg table according to different formats and topics of parsing kafka Perform upsert operations based on the id
 
 ```hocon
 
@@ -210,9 +210,9 @@ source {
           }
         },
         format = ogg_json
-      }, {
+      },
+      {
         topic = "test-cdc_mds"
-        consumer.group = "canal_multi_group"
         start_mode = earliest
         schema = {
           fields {
@@ -225,20 +225,19 @@ source {
         format = canal_json
       }
     ]
- # Each topic in the `table_list` shares the config
-    kafka.config = {
-      client.id = client_1
-      max.poll.records = 50000
-    }
   }
 }
 
 sink {
-  Assert {
-    rules {
-      // The current table name is the same as the topic name in order to maintain fewer configuration parameters
-      table-names = ["^test-ogg-sou.*","test-cdc_mds"]
-    }
+  Jdbc {
+    driver = org.postgresql.Driver
+    url = "jdbc:postgresql://postgresql:5432/test?loggerLevel=OFF"
+    user = test
+    password = test
+    generate_sink_sql = true
+    database = test
+    table = public.sink
+    primary_keys = ["id"]
   }
 }
 ```
