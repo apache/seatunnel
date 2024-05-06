@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.dag.physical;
 
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+import org.apache.seatunnel.engine.server.resourcemanager.NoEnoughResourceException;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
@@ -27,10 +28,11 @@ import lombok.NonNull;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 
 public class ResourceUtils {
 
-    public static Map<TaskGroupLocation, SlotProfile> applyResourceForPipeline(
+    public static void applyResourceForPipeline(
             @NonNull ResourceManager resourceManager, @NonNull SubPlan subPlan) {
         Map<TaskGroupLocation, CompletableFuture<SlotProfile>> futures = new HashMap<>();
         Map<TaskGroupLocation, SlotProfile> slotProfiles = new HashMap<>();
@@ -49,12 +51,20 @@ public class ResourceUtils {
                                         task.getTaskGroupLocation(),
                                         applyResourceForTask(resourceManager, task)));
 
-        for (Map.Entry<TaskGroupLocation, CompletableFuture<SlotProfile>> future :
-                futures.entrySet()) {
-            slotProfiles.put(
-                    future.getKey(), future.getValue() == null ? null : future.getValue().join());
+        futures.forEach(
+                (key, value) -> {
+                    try {
+                        slotProfiles.put(key, value == null ? null : value.join());
+                    } catch (CompletionException e) {
+                        // do nothing
+                    }
+                });
+        // set it first, avoid can't get it when get resource not enough exception and need release
+        // applied resource
+        subPlan.getJobMaster().setOwnedSlotProfiles(subPlan.getPipelineLocation(), slotProfiles);
+        if (futures.size() != slotProfiles.size()) {
+            throw new NoEnoughResourceException();
         }
-        return slotProfiles;
     }
 
     public static CompletableFuture<SlotProfile> applyResourceForTask(

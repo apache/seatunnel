@@ -10,7 +10,7 @@ Read data from Hive.
 
 In order to use this connector, You must ensure your spark/flink cluster already integrated hive. The tested hive version is 2.3.9.
 
-If you use SeaTunnel Engine, You need put seatunnel-hadoop3-3.1.4-uber.jar and hive-exec-2.3.9.jar in $SEATUNNEL_HOME/lib/ dir.
+If you use SeaTunnel Engine, You need put seatunnel-hadoop3-3.1.4-uber.jar and hive-exec-3.1.3.jar and libfb303-0.9.3.jar in $SEATUNNEL_HOME/lib/ dir.
 :::
 
 ## Key features
@@ -59,10 +59,6 @@ Hive metastore uri
 
 The path of `hdfs-site.xml`, used to load ha configuration of namenodes
 
-### hive_site_path [string]
-
-The path of `hive-site.xml`, used to authentication hive metastore
-
 ### read_partitions [list]
 
 The target partitions that user want to read from hive table, if user does not set this parameter, it will read all the data from hive table.
@@ -102,11 +98,32 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 
 ## Example
 
+### Example 1: Single table
+
 ```bash
 
   Hive {
     table_name = "default.seatunnel_orc"
     metastore_uri = "thrift://namenode001:9083"
+  }
+
+```
+
+### Example 2: Multiple tables
+
+```bash
+
+  Hive {
+    tables_configs = [
+        {
+          table_name = "default.seatunnel_orc_1"
+          metastore_uri = "thrift://namenode001:9083"
+        },
+        {
+          table_name = "default.seatunnel_orc_2"
+          metastore_uri = "thrift://namenode001:9083"
+        }
+    ]
   }
 
 ```

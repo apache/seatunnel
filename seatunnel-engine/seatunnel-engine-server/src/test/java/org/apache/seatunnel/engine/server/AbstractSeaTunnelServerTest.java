@@ -81,7 +81,7 @@ public abstract class AbstractSeaTunnelServerTest<T extends AbstractSeaTunnelSer
         Config hazelcastConfig = Config.loadFromString(yaml);
         hazelcastConfig.setClusterName(
                 TestUtils.getClusterName("AbstractSeaTunnelServerTest_" + name));
-        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+        SeaTunnelConfig seaTunnelConfig = loadSeaTunnelConfig();
         seaTunnelConfig.setHazelcastConfig(hazelcastConfig);
         instance = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
         nodeEngine = instance.node.nodeEngine;
