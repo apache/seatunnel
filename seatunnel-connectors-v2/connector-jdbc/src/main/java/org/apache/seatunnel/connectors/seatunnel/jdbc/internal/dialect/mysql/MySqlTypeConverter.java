@@ -109,6 +109,10 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
         this.version = version;
     }
 
+    public MySqlTypeConverter() {
+        this(MySqlVersion.V_5_7);
+    }
+
     @Override
     public String identifier() {
         return DatabaseIdentifier.MYSQL;
