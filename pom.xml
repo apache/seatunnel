@@ -52,6 +52,8 @@
         <module>seatunnel-examples</module>
         <module>seatunnel-e2e</module>
         <module>seatunnel-shade</module>
+        <module>seatunnel-transforms-ottomi</module>
+        <module>seatunnel-connectors-ottomi</module>
     </modules>
 
     <properties>
