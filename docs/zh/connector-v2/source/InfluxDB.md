@@ -20,7 +20,7 @@
 
 ## Options
 
-| name               | type   | required | default value |
+|        name        |  type  | required | default value |
 |--------------------|--------|----------|---------------|
 | url                | string | yes      | -             |
 | sql                | string | yes      | -             |
@@ -90,7 +90,6 @@ InfluxDB 分片列
 > - InfluxDB的时间不支持作为分片主键，因为时间字段不能参与数学计算
 > - 目前，split_column仅支持Integer类型分片，并不支持float、string、date等类型。
 
-
 ### upper_bound [long]
 
 分片字段数据的上限
@@ -136,7 +135,7 @@ InfluxDB的查询超时时间，单位为秒
 
 ### common options
 
-插件公共参数，请参考 [公共选项](common-options.md) 
+插件公共参数，请参考 [公共选项](common-options.md)
 
 ## Examples
 
@@ -167,6 +166,7 @@ source {
 ```
 
 不使用分片查询的示例
+
 ```hocon
 source {
 
@@ -187,6 +187,7 @@ source {
 ```
 
 使用分块查询的示例
+
 ```hocon
 source {
     InfluxDB {
@@ -204,6 +205,7 @@ source {
     }
 }
 ```
+
 > Tips:
 > - 分块查询是为了解决没有办法找到合适的分片列进行分片查询，但同时数据量又大的情况。所以如果配置了split_column或者chunk_size = 0则不进行分块查询。
 > - 使用分块查询时，source并行度只能为1，但速度仍然很快，将对下游造成压力，建议将下游的并行度调大，或者输出速率调大，减少反压，提高性能。

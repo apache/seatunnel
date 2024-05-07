@@ -209,12 +209,9 @@ source {
 ```
 
 > Tips:
-> - Chunked queries are used to address situations where no suitable split column can be found for partitioned querying, yet the data volume is large. 
-Therefore, if a split_column is configured or chunk_size = 0, chunked queries will not be performed.
-> - When using partitioned queries, the parallelism of the source can only be set to 1, yet the speed remains fast, which will put pressure on the downstream. 
-It is recommended to increase the parallelism of the downstream, or increase the output rate, to reduce backpressure and improve performance.
-> - When using chunked queries, pressure will be applied to the InfluxDB database itself, which is proportional to the data volume. 
-In tests, when Seatunnel synchronized more than 20GB of data, the memory usage of InfluxDB increased by over 10GB.
+> - Chunked queries are used to address situations where no suitable split column can be found for partitioned querying, yet the data volume is large. Therefore, if a split_column is configured or chunk_size = 0, chunked queries will not be performed.
+> - When using partitioned queries, the parallelism of the source can only be set to 1, yet the speed remains fast, which will put pressure on the downstream. It is recommended to increase the parallelism of the downstream, or increase the output rate, to reduce backpressure and improve performance.
+> - When using chunked queries, pressure will be applied to the InfluxDB database itself, which is proportional to the data volume. In tests, when Seatunnel synchronized more than 20GB of data, the memory usage of InfluxDB increased by over 10GB.
 
 ## Changelog
 
