@@ -68,7 +68,7 @@ public class SourceConfig extends InfluxDBConfig {
     public static final Option<Integer> CHUNK_SIZE =
             Options.key("chunk_size")
                     .intType()
-                    .defaultValue(20000)
+                    .defaultValue(0)
                     .withDescription("the influxdb client query chunk_size");
 
     public static final String DEFAULT_PARTITIONS = PARTITION_NUM.defaultValue();
