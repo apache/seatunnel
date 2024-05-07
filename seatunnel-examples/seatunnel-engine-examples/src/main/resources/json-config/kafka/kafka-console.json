@@ -7,8 +7,9 @@
   "source": [
     {
       "plugin_name": "Kafka",
-      "bootstrap.servers": "hadoop102:9092",
+      "bootstrap.servers": "hadoop102:9092,hadoop103:9092,hadoop104:9092",
       "topic": "ocean",
+      "consumer.group": "ocean20240506",
       "schema": {
         "fields": {
           "id": "int",
