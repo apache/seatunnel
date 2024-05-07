@@ -54,11 +54,9 @@ public enum CommonErrorCode implements SeaTunnelErrorCode {
             "COMMON-24",
             "The table of <tableName> has no <keyName>, but the template \n <template> \n which has the place holder named <placeholder>. Please use the option named <optionName> to specify sql template"),
 
-    PRIMARY_KEY_IS_NECESSARY("COMMON-25", "primary key is necessary"),
+    VERSION_NOT_SUPPORTED("COMMON-25", "<identifier> <version> is unsupported."),
 
-    VERSION_NOT_SUPPORTED("COMMON-26", "<identifier> <version> is unsupported."),
-
-    OPERATION_NOT_SUPPORTED("COMMON-27", "<identifier> <operation> is unsupported.");
+    OPERATION_NOT_SUPPORTED("COMMON-26", "<identifier> <operation> is unsupported.");
 
     private final String code;
     private final String description;

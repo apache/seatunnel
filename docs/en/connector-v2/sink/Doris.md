@@ -116,6 +116,7 @@ You can use the following placeholders
   description of Doris
 - rowtype_primary_key: Used to get the primary key in the upstream schema (maybe a list)
 - rowtype_unique_key: Used to get the unique key in the upstream schema (maybe a list)
+- rowtype_duplicate_key: Used to get the duplicate key in the upstream schema (only for doris source, maybe a list)
 
 ## Data Type Mapping
 
