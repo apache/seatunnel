@@ -102,7 +102,7 @@ public class MysqlDataTypeConvertor implements DataTypeConvertor<MysqlType> {
                         .scale(scale)
                         .build();
 
-        return MySqlTypeConverter.INSTANCE.convert(typeDefine).getDataType();
+        return MySqlTypeConverter.DEFAULT_INSTANCE.convert(typeDefine).getDataType();
     }
 
     @Override
@@ -122,7 +122,8 @@ public class MysqlDataTypeConvertor implements DataTypeConvertor<MysqlType> {
                         .nullable(true)
                         .build();
 
-        BasicTypeDefine<MysqlType> typeDefine = MySqlTypeConverter.INSTANCE.reconvert(column);
+        BasicTypeDefine<MysqlType> typeDefine =
+                MySqlTypeConverter.DEFAULT_INSTANCE.reconvert(column);
         return typeDefine.getNativeType();
     }
 

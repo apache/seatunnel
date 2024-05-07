@@ -64,6 +64,19 @@ sink {
 }
 ```
 
+#### multi-line support
+
+In `hocon`, multiline strings are supported, which allows you to include extended passages of text without worrying about newline characters or special formatting. This is achieved by enclosing the text within triple quotes **`"""`** . For example:
+
+```
+var = """
+Apache SeaTunnel is a
+next-generation high-performance,
+distributed, massive data integration tool.
+"""
+sql = """ select * from "table" """
+```
+
 ### json
 
 ```json
@@ -192,6 +205,116 @@ configurations at the same time. But you will find that in the above example Con
 configured with these two parameters, because in SeaTunnel, there is a default convention, if these two
 parameters are not configured, then the generated data from the last module of the previous node will be used.
 This is much more convenient when there is only one source.
+
+## Config variable substitution
+
+In config file we can define some variables and replace it in run time. **This is only support `hocon` format file**.
+
+```hocon
+env {
+  job.mode = "BATCH"
+  job.name = ${jobName}
+  parallelism = 2
+}
+
+source {
+  FakeSource {
+    result_table_name = ${resName}
+    row.num = ${rowNum}
+    string.template = ${strTemplate}
+    int.template = [20, 21]
+    schema = {
+      fields {
+        name = ${nameType}
+        age = "int"
+      }
+    }
+  }
+}
+
+transform {
+    sql {
+      source_table_name = "fake"
+      result_table_name = "sql"
+      query = "select * from "${resName}" where name = '"${nameVal}"' "
+    }
+
+}
+
+sink {
+  Console {
+     source_table_name = "sql"
+     username = ${username}
+     password = ${password}
+     blankSpace = ${blankSpace}
+  }
+}
+
+```
+
+In the above config, we define some variables, like `${rowNum}`, `${resName}`.
+We can replace those parameters with this shell command:
+
+```shell
+./bin/seatunnel.sh -c <this_config_file> 
+-i jobName='st var job' 
+-i resName=fake 
+-i rowNum=10 
+-i strTemplate=['abc','d~f','h i'] 
+-i nameType=string 
+-i nameVal=abc 
+-i username=seatunnel=2.3.1 
+-i password='$a^b%c.d~e0*9(' 
+-i blankSpace='2023-12-26 11:30:00' 
+-e local
+```
+
+Then the final submitted config is:
+
+```hocon
+env {
+  job.mode = "BATCH"
+  job.name = "st var job"
+  parallelism = 2
+}
+
+source {
+  FakeSource {
+    result_table_name = "fake"
+    row.num = 10
+    string.template = ["abc","d~f","h i"]
+    int.template = [20, 21]
+    schema = {
+      fields {
+        name = string
+        age = "int"
+      }
+    }
+  }
+}
+
+transform {
+    sql {
+      source_table_name = "fake"
+      result_table_name = "sql"
+      query = "select * from fake where name = 'abc' "
+    }
+
+}
+
+sink {
+  Console {
+     source_table_name = "sql"
+     username = "seatunnel=2.3.1"
+     password = "$a^b%c.d~e0*9("
+     blankSpace = "2023-12-26 11:30:00"
+  }
+}
+```
+
+Some Notes:
+- quota with `'` if the value has space ` ` or special character (like `(`)
+- if the replacement variables is in `"` or `'`, like `resName` and `nameVal`, you need add `"`
 
 ## What's More
 
