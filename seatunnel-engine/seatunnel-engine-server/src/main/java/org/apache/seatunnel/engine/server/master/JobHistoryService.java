@@ -107,13 +107,14 @@ public class JobHistoryService {
     // Gets the status of a running and completed job
     public String listAllJob() {
         List<JobStatusData> status = new ArrayList<>();
-        final List<JobState> runningJobStateList = runningJobMasterMap.values().stream()
-                .map(master -> toJobStateMapper(master, true))
-                .collect(Collectors.toList());
-        Set<Long> runningJonIds = runningJobStateList.stream()
-                .map(JobState::getJobId)
-                .collect(Collectors.toSet());
-        Stream.concat(runningJobStateList.stream(),
+        final List<JobState> runningJobStateList =
+                runningJobMasterMap.values().stream()
+                        .map(master -> toJobStateMapper(master, true))
+                        .collect(Collectors.toList());
+        Set<Long> runningJonIds =
+                runningJobStateList.stream().map(JobState::getJobId).collect(Collectors.toSet());
+        Stream.concat(
+                        runningJobStateList.stream(),
                         finishedJobStateImap.values().stream()
                                 .filter(jobState -> !runningJonIds.contains(jobState.getJobId())))
                 .forEach(
