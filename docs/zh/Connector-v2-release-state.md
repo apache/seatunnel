@@ -44,7 +44,7 @@ SeaTunnel 使用连接器分级系统来帮助您了解连接器的期望：
 | [InfluxDB](../en/connector-v2/source/InfluxDB.md)                 | Source | Beta   | 2.3.0-beta      |
 | [IoTDB](../en/connector-v2/source/IoTDB.md)                       | Source | GA     | 2.2.0-beta      |
 | [IoTDB](../en/connector-v2/sink/IoTDB.md)                         | Sink   | GA     | 2.2.0-beta      |
-| [Jdbc](../en/connector-v2/source/Jdbc.md)                               | Source | GA     | 2.2.0-beta      |
+| [Jdbc](../en/connector-v2/source/Jdbc.md)                         | Source | GA     | 2.2.0-beta      |
 | [Jdbc](connector-v2/sink/Jdbc.md)                                 | Sink   | GA     | 2.2.0-beta      |
 | [Kafka](../en/connector-v2/source/kafka.md)                       | Source | GA     | 2.3.0           |
 | [Kafka](connector-v2/sink/Kafka.md)                               | Sink   | GA     | 2.2.0-beta      |
