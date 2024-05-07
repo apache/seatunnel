@@ -30,6 +30,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Objects;
 
 import static org.apache.seatunnel.core.starter.utils.FileUtils.checkConfigExist;
 
@@ -53,10 +54,18 @@ public class ConfEncryptCommand implements Command<AbstractCommandArgs> {
         checkConfigExist(configPath);
         Config config =
                 ConfigFactory.parseFile(configPath.toFile())
-                        .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
-                        .resolveWith(
-                                ConfigFactory.systemProperties(),
-                                ConfigResolveOptions.defaults().setAllowUnresolved(true));
+                        .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true));
+        if (abstractCommandArgs.getVariables() != null) {
+            abstractCommandArgs.getVariables().stream()
+                    .filter(Objects::nonNull)
+                    .map(variable -> variable.split("=", 2))
+                    .filter(pair -> pair.length == 2)
+                    .forEach(pair -> System.setProperty(pair[0], pair[1]));
+            config =
+                    config.resolveWith(
+                            ConfigFactory.systemProperties(),
+                            ConfigResolveOptions.defaults().setAllowUnresolved(true));
+        }
         Config encryptConfig = ConfigShadeUtils.encryptConfig(config);
         log.info(
                 "Encrypt config: \n{}",
