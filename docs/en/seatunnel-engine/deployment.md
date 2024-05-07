@@ -95,7 +95,7 @@ About the checkpoint storage, you can see [checkpoint storage](checkpoint-storag
 
 ### 4.4 Historical Job expiration Config
 
-The information about each completed Job, such as status, counters, and error logs, is stored in the IMap object. As the number of running jobs increases, the memory increases and eventually the memory will overflow. Therefore, you can adjust the history-job-expire-minutes parameter to solve this problem. The time unit of this parameter is minute. The default value is 1440 minutes, that is, one day.
+The information about each completed Job, such as status, counters, and error logs, is stored in the IMap object. As the number of running jobs increases, the memory increases and eventually the memory will overflow. Therefore, you can adjust the history-job-expire-minutes parameter to solve this problem. The time unit of this parameter is minute. The default value is 1440 minutes, that is one day.
 
 Example
 
