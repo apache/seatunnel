@@ -6,17 +6,48 @@
 
 Read external data source data through InfluxDB.
 
+## Support InfluxDB Version
+
+- 1.x/2.x
+
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
+## Using Dependency
+
+### For Spark/Flink Engine
+
+> 1. You need to ensure that the [influxDB connector jar package](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-influxdb) has been placed in directory `${SEATUNNEL_HOME}/connectors/`.
+
+### For SeaTunnel Zeta Engine
+
+> 1. You need to ensure that the [influxDB connector jar package](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-influxdb) has been placed in directory `${SEATUNNEL_HOME}/lib/`.
+
 ## Key features
 
 - [x] [batch](../../concept/connector-v2-features.md)
 - [ ] [stream](../../concept/connector-v2-features.md)
 - [x] [exactly-once](../../concept/connector-v2-features.md)
 - [x] [column projection](../../concept/connector-v2-features.md)
-
-supports query SQL and can achieve projection effect.
-
 - [x] [parallelism](../../concept/connector-v2-features.md)
-- [ ] [support user-defined split](../../concept/connector-v2-features.md)
+- [ ] [support multiple table reading](../../concept/connector-v2-features.md)
+- [x] [parallelism](../../concept/connector-v2-features.md)
+- [x] [support user-defined split](../../concept/connector-v2-features.md)
+
+## Data Type Mapping
+
+|                                 InfluxDB Data Type                                  | SeaTunnel Data Type |
+|-------------------------------------------------------------------------------------|---------------------|
+| BOOLEAN                                                                             | BOOLEAN             |
+| SMALLINT                                                                            | SHORT               |
+| INT                                                                                 | INTEGER             |
+| SMALLINT UNSIGNED<br/>MEDIUMINT<br/>MEDIUMINT UNSIGNED<br/>INT<br/>INTEGER<br/>YEAR | INT                 |
+| BIGINT                                                                              | LONG                |
+| FLOAT<br/>DOUBLE                                                                    | DOUBLE              |
+| STRING                                                                              | STRING              |
 
 ## Options
 
