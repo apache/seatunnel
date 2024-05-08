@@ -28,7 +28,9 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDiale
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.iris.IrisDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
 import org.apache.commons.lang3.tuple.Pair;
@@ -64,6 +66,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+@DisabledOnContainer(
+        value = {},
+        type = {EngineType.SPARK},
+        disabledReason = "Currently SPARK do not support cdc, temporarily disable")
 @Slf4j
 public class JdbcIrisIT extends AbstractJdbcIT {
     private static final String IRIS_IMAGE = "intersystems/iris-community:2023.1";
