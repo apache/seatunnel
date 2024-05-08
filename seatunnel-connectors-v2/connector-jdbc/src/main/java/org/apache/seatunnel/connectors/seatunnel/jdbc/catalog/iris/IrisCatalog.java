@@ -58,9 +58,6 @@ public class IrisCatalog extends AbstractJdbcCatalog {
 
     private static final String LIST_TABLES_SQL_TEMPLATE =
             "SELECT TABLE_SCHEMA,TABLE_NAME FROM INFORMATION_SCHEMA.Tables WHERE TABLE_SCHEMA='%s' and TABLE_TYPE != 'SYSTEM TABLE' and TABLE_TYPE != 'SYSTEM VIEW';";
-    //    private static final String SELECT_COLUMNS_SQL_TEMPLATE =
-    //            "select * from INFORMATION_SCHEMA.COLUMNS where TABLE_SCHEMA = '%s' and TABLE_NAME
-    // = '%s';";
 
     public IrisCatalog(
             String catalogName, String username, String password, JdbcUrlUtil.UrlInfo urlInfo) {

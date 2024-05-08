@@ -28,6 +28,7 @@ import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
+import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Objects;
@@ -37,6 +38,7 @@ import java.util.Objects;
  * https://docs.intersystems.com/iris20241/csp/docbook/DocBook.UI.Page.cls?KEY=RSQL_datatype#RSQL_datatype_view_data_type_mappings_to_intersyst
  */
 @Slf4j
+@AutoService(TypeConverter.class)
 public class IrisTypeConverter implements TypeConverter<BasicTypeDefine> {
     // ============================data types=====================
     public static final String IRIS_NULL = "NULL";
@@ -132,16 +134,19 @@ public class IrisTypeConverter implements TypeConverter<BasicTypeDefine> {
 
     @Override
     public Column convert(BasicTypeDefine typeDefine) {
+        Long typeDefineLength = typeDefine.getLength();
         PhysicalColumn.PhysicalColumnBuilder builder =
                 PhysicalColumn.builder()
                         .name(typeDefine.getName())
                         .sourceType(typeDefine.getColumnType())
-                        .columnLength(typeDefine.getLength())
+                        .columnLength(typeDefineLength)
                         .scale(typeDefine.getScale())
                         .nullable(typeDefine.isNullable())
                         .defaultValue(typeDefine.getDefaultValue())
                         .comment(typeDefine.getComment());
         String irisDataType = typeDefine.getDataType().toUpperCase();
+        long charOrBinaryLength =
+                Objects.nonNull(typeDefineLength) && typeDefineLength > 0 ? typeDefineLength : 1;
         switch (irisDataType) {
             case IRIS_NULL:
                 builder.dataType(BasicType.VOID_TYPE);
@@ -208,7 +213,7 @@ public class IrisTypeConverter implements TypeConverter<BasicTypeDefine> {
             case IRIS_GUID:
             case IRIS_CHARACTER:
                 builder.dataType(BasicType.STRING_TYPE);
-                builder.columnLength(typeDefine.getLength() > 0 ? typeDefine.getLength() : 1);
+                builder.columnLength(charOrBinaryLength);
                 break;
             case IRIS_NTEXT:
             case IRIS_CLOB:
@@ -240,7 +245,7 @@ public class IrisTypeConverter implements TypeConverter<BasicTypeDefine> {
             case IRIS_RAW:
             case IRIS_VARBINARY:
                 builder.dataType(PrimitiveByteArrayType.INSTANCE);
-                builder.columnLength(typeDefine.getLength() > 0 ? typeDefine.getLength() : 1);
+                builder.columnLength(charOrBinaryLength);
                 break;
             case IRIS_LONGVARBINARY:
             case IRIS_BLOB:
@@ -262,8 +267,11 @@ public class IrisTypeConverter implements TypeConverter<BasicTypeDefine> {
         BasicTypeDefine.BasicTypeDefineBuilder builder =
                 BasicTypeDefine.builder()
                         .name(column.getName())
+                        .precision(column.getColumnLength())
+                        .length(column.getColumnLength())
                         .nullable(column.isNullable())
                         .comment(column.getComment())
+                        .scale(column.getScale())
                         .defaultValue(column.getDefaultValue());
         switch (column.getDataType().getSqlType()) {
             case NULL:
