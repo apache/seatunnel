@@ -89,7 +89,7 @@ select name,age from test
 
 #### fields [Config]
 
-上游数据的schema信息。例如：
+上游数据的schema信息，例如：
 
 ```
 schema {
