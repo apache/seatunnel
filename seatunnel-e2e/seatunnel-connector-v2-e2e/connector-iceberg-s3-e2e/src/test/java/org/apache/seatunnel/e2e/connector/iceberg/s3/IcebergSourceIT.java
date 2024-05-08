@@ -25,7 +25,10 @@ import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceConfig;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.container.TestContainerId;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
 import org.apache.hadoop.conf.Configuration;
@@ -76,6 +79,11 @@ import java.util.Map;
 
 import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCatalogType.HADOOP;
 
+@DisabledOnContainer(
+        value = {TestContainerId.SPARK_2_4},
+        type = {EngineType.FLINK, EngineType.SEATUNNEL},
+        disabledReason =
+                "Needs hadoop-aws,aws-java-sdk jar for flink, spark2.4. For the seatunnel engine, it crashes on seatunnel-hadoop3-3.1.4-uber.jar.")
 @Slf4j
 public class IcebergSourceIT extends TestSuiteBase implements TestResource {
 
@@ -91,14 +99,16 @@ public class IcebergSourceIT extends TestSuiteBase implements TestResource {
                         container.execInContainer(
                                 "bash",
                                 "-c",
-                                "cd /tmp/seatunnel/lib && curl -O " + HADOOP_AWS_DOWNLOAD);
+                                "mkdir -p /tmp/seatunnel/plugins/Iceberg/lib && cd /tmp/seatunnel/plugins/Iceberg/lib && curl -O "
+                                        + HADOOP_AWS_DOWNLOAD);
                 Assertions.assertEquals(0, extraCommands.getExitCode());
 
                 extraCommands =
                         container.execInContainer(
                                 "bash",
                                 "-c",
-                                "cd /tmp/seatunnel/lib && curl -O " + AWS_SDK_DOWNLOAD);
+                                "cd /tmp/seatunnel/plugins/Iceberg/lib && curl -O "
+                                        + AWS_SDK_DOWNLOAD);
                 Assertions.assertEquals(0, extraCommands.getExitCode());
             };
 
@@ -232,9 +242,9 @@ public class IcebergSourceIT extends TestSuiteBase implements TestResource {
         Map<String, String> hadoopProps = new HashMap<>();
         hadoopProps.put("fs.s3a.path.style.access", "true");
         hadoopProps.put("fs.s3a.connection.ssl.enabled", "false");
-        hadoopProps.put("fs.s3a.signing.algorithm", "S3SignerType");
-        hadoopProps.put("fs.s3a.encryption.algorithm", "AES256");
         hadoopProps.put("fs.s3a.connection.timeout", "3000");
+        hadoopProps.put("fs.s3a.impl.disable.cache", "true");
+        hadoopProps.put("fs.s3a.attempts.maximum", "1");
         hadoopProps.put(
                 "fs.s3a.aws.credentials.provider",
                 "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider");
