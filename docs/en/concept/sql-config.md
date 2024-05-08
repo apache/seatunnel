@@ -131,7 +131,7 @@ INSERT INTO sink_table SELECT source_table;
 ```
 
 * The `SELECT` part directly uses the name of the source-mapped table, indicating that all data from the source table will be inserted into the target table.
-* sing this syntax does not generate related `transform` configurations. This syntax is generally used in multi-table synchronization scenarios. For example:
+* Using this syntax does not generate related `transform` configurations. This syntax is generally used in multi-table synchronization scenarios. For example:
 
 ```sql
 CREATE TABLE source_table WITH (
