@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.apache.seatunnel</groupId>
+        <artifactId>seatunnel</artifactId>
+        <version>${revision}</version>
+    </parent>
+    <artifactId>blp-opeartor</artifactId>
+    <packaging>jar</packaging>
+
+    <name>BlP : Operator</name>
+
+    <properties>
+        <maven.compiler.target>1.8</maven.compiler.target>
+        <spring.version>2.7.8</spring.version>
+    </properties>
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+            <version>${spring.version}</version>
+            <scope>provided</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-logging</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <!--        &lt;!&ndash; https://mvnrepository.com/artifact/org.apache.seatunnel/seatunnel-flink-15-starter &ndash;&gt;-->
+        <!--        <dependency>-->
+        <!--            <groupId>org.apache.seatunnel</groupId>-->
+        <!--            <artifactId>seatunnel-flink-15-starter</artifactId>-->
+        <!--            <version>2.3.5</version>-->
+        <!--            <scope>provided</scope>-->
+        <!--        </dependency>-->
+
+        <!--        &lt;!&ndash; https://mvnrepository.com/artifact/org.apache.flink/flink-clients &ndash;&gt;-->
+        <!--        <dependency>-->
+        <!--            <groupId>org.apache.flink</groupId>-->
+        <!--            <artifactId>flink-clients</artifactId>-->
+        <!--            <version>1.15.1</version>-->
+        <!--            <scope>provided</scope>-->
+        <!--        </dependency>-->
+
+        <!--        &lt;!&ndash; https://mvnrepository.com/artifact/org.apache.flink/flink-table-api-java &ndash;&gt;-->
+        <!--        <dependency>-->
+        <!--            <groupId>org.apache.flink</groupId>-->
+        <!--            <artifactId>flink-table-api-java</artifactId>-->
+        <!--            <version>1.15.1</version>-->
+        <!--            <scope>provided</scope>-->
+        <!--        </dependency>-->
+
+        <!--        &lt;!&ndash; https://mvnrepository.com/artifact/org.apache.flink/flink-table-api-java-bridge &ndash;&gt;-->
+        <!--        <dependency>-->
+        <!--            <groupId>org.apache.flink</groupId>-->
+        <!--            <artifactId>flink-table-api-java-bridge</artifactId>-->
+        <!--            <version>1.15.1</version>-->
+        <!--            <scope>provided</scope>-->
+        <!--        </dependency>-->
+
+        <!--        &lt;!&ndash; https://mvnrepository.com/artifact/org.apache.flink/flink-table-planner &ndash;&gt;-->
+        <!--        <dependency>-->
+        <!--            <groupId>org.apache.flink</groupId>-->
+        <!--            <artifactId>flink-table-planner_2.12</artifactId>-->
+        <!--            <version>1.15.1</version>-->
+        <!--            <scope>provided</scope>-->
+        <!--        </dependency>-->
+
+        <!--        &lt;!&ndash; https://mvnrepository.com/artifact/org.apache.seatunnel/connector-fake &ndash;&gt;-->
+        <!--        <dependency>-->
+        <!--            <groupId>org.apache.seatunnel</groupId>-->
+        <!--            <artifactId>connector-fake</artifactId>-->
+        <!--            <version>2.3.4</version>-->
+        <!--            <scope>provided</scope>-->
+        <!--        </dependency>-->
+
+        <!--        &lt;!&ndash; https://mvnrepository.com/artifact/org.apache.seatunnel/connector-console &ndash;&gt;-->
+        <!--        <dependency>-->
+        <!--            <groupId>org.apache.seatunnel</groupId>-->
+        <!--            <artifactId>connector-console</artifactId>-->
+        <!--            <version>2.3.4</version>-->
+        <!--            <scope>provided</scope>-->
+        <!--        </dependency>-->
+
+    </dependencies>
+
+    <build>
+        <finalName>blp-operator-1.0-SNAPSHOT</finalName>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <version>${spring.version}</version>
+                <configuration>
+                    <mainClass>${start.class}</mainClass>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

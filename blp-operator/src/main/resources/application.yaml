@@ -1,0 +1,15 @@
+server:
+    max-http-header-size: 5000000
+    port: 9090
+    servlet:
+        session:
+            timeout: 120m
+spring:
+    autoconfigure:
+        exclude:
+        - org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration
+        - org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+        - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
+    main:
+        allow-circular-references: true
+#debug: true
