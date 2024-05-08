@@ -103,9 +103,10 @@ public class OssFileSource extends BaseFileSource {
                     break;
                 case ORC:
                 case PARQUET:
+                case BINARY:
                     throw new OssJindoConnectorException(
                             CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                            "SeaTunnel does not support user-defined schema for [parquet, orc] files");
+                            "SeaTunnel does not support user-defined schema for [parquet, orc, binary] files");
                 default:
                     // never got in there
                     throw new OssJindoConnectorException(

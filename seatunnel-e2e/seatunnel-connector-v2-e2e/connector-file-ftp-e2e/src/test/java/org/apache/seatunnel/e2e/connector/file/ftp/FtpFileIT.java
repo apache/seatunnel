@@ -107,6 +107,11 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
         ContainerUtil.copyFileIntoContainers(
                 "/excel/e2e.xlsx", "/home/vsftpd/seatunnel/e2e.xlsx", ftpContainer);
 
+        ContainerUtil.copyFileIntoContainers(
+                "/binary/cat.png",
+                "/home/vsftpd/seatunnel/tmp/seatunnel/read/binary/cat.png",
+                ftpContainer);
+
         ftpContainer.execInContainer("sh", "-c", "chmod -R 777 /home/vsftpd/seatunnel/");
         ftpContainer.execInContainer("sh", "-c", "chown -R ftp:ftp /home/vsftpd/seatunnel/");
     }

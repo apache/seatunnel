@@ -99,9 +99,10 @@ public class S3FileSource extends BaseFileSource {
                     break;
                 case ORC:
                 case PARQUET:
+                case BINARY:
                     throw new FileConnectorException(
                             CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                            "SeaTunnel does not support user-defined schema for [parquet, orc] files");
+                            "SeaTunnel does not support user-defined schema for [parquet, orc, binary] files");
                 default:
                     // never got in there
                     throw new FileConnectorException(
