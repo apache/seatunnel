@@ -15,8 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.elasticsearch.state;
+package org.apache.seatunnel.connectors.seatunnel.hive.source.state;
+
+import org.apache.seatunnel.connectors.seatunnel.hive.source.split.HiveSourceSplit;
 
 import java.io.Serializable;
+import java.util.Set;
 
-public class ElasticsearchCommitInfo implements Serializable {}
+public class HiveSourceState implements Serializable {
+
+    private static final long serialVersionUID = 1L;
+
+    private final Set<HiveSourceSplit> assignedSplit;
+
+    public HiveSourceState(Set<HiveSourceSplit> assignedSplit) {
+        this.assignedSplit = assignedSplit;
+    }
+
+    public Set<HiveSourceSplit> getAssignedSplit() {
+        return assignedSplit;
+    }
+}
