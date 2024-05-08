@@ -100,7 +100,18 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
     public static final long POWER_2_24 = (long) Math.pow(2, 24);
     public static final long POWER_2_32 = (long) Math.pow(2, 32);
     public static final long MAX_VARBINARY_LENGTH = POWER_2_16 - 4;
-    public static final MySqlTypeConverter INSTANCE = new MySqlTypeConverter();
+    public static final MySqlTypeConverter DEFAULT_INSTANCE =
+            new MySqlTypeConverter(MySqlVersion.V_5_7);
+
+    private final MySqlVersion version;
+
+    public MySqlTypeConverter(MySqlVersion version) {
+        this.version = version;
+    }
+
+    public MySqlTypeConverter() {
+        this(MySqlVersion.V_5_7);
+    }
 
     @Override
     public String identifier() {
@@ -462,7 +473,9 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
             case TIME:
                 builder.nativeType(MysqlType.TIME);
                 builder.dataType(MYSQL_TIME);
-                if (column.getScale() != null && column.getScale() > 0) {
+                if (version.isAtOrBefore(MySqlVersion.V_5_5)) {
+                    builder.columnType(MYSQL_TIME);
+                } else if (column.getScale() != null && column.getScale() > 0) {
                     int timeScale = column.getScale();
                     if (timeScale > MAX_TIME_SCALE) {
                         timeScale = MAX_TIME_SCALE;
@@ -484,7 +497,9 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
             case TIMESTAMP:
                 builder.nativeType(MysqlType.DATETIME);
                 builder.dataType(MYSQL_DATETIME);
-                if (column.getScale() != null && column.getScale() > 0) {
+                if (version.isAtOrBefore(MySqlVersion.V_5_5)) {
+                    builder.columnType(MYSQL_DATETIME);
+                } else if (column.getScale() != null && column.getScale() > 0) {
                     int timestampScale = column.getScale();
                     if (timestampScale > MAX_TIMESTAMP_SCALE) {
                         timestampScale = MAX_TIMESTAMP_SCALE;

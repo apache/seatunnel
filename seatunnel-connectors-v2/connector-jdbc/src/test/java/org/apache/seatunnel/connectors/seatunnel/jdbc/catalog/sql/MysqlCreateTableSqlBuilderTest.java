@@ -28,6 +28,7 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MysqlCreateTableSqlBuilder;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeConverter;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -91,7 +92,8 @@ public class MysqlCreateTableSqlBuilderTest {
                         "User table");
 
         String createTableSql =
-                MysqlCreateTableSqlBuilder.builder(tablePath, catalogTable)
+                MysqlCreateTableSqlBuilder.builder(
+                                tablePath, catalogTable, MySqlTypeConverter.DEFAULT_INSTANCE)
                         .build(DatabaseIdentifier.MYSQL);
         // create table sql is change; The old unit tests are no longer applicable
         String expect =

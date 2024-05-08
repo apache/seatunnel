@@ -254,6 +254,8 @@ jdbc {
 
 Exactly-once
 
+Turn on exact one-time semantics by setting `is_exactly_once`
+
 ```
 jdbc {
 
@@ -273,6 +275,8 @@ jdbc {
 
 CDC(Change data capture) event
 
+jdbc receive CDC example
+
 ```
 sink {
     jdbc {
@@ -289,6 +293,8 @@ sink {
 ```
 
 Add saveMode function
+
+To facilitate the creation of tables when they do not already exist, set the `schema_save_mode`  to `CREATE_SCHEMA_WHEN_NOT_EXIST`.
 
 ```
 sink {
@@ -308,6 +314,8 @@ sink {
 ```
 
 Postgresql 9.5 version below support CDC(Change data capture) event
+
+For PostgreSQL versions 9.5 and below, setting `compatible_mode` to `postgresLow` to enable support for PostgreSQL Change Data Capture (CDC) operations.
 
 ```
 sink {

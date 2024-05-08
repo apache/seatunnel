@@ -91,6 +91,7 @@ public enum CheckpointType {
         return !isSchemaChangeCheckpoint();
     }
 
+    /** only batch job FINISHED will return true. other case all return false. */
     public boolean notCompletedCheckpoint() {
         return this != COMPLETED_POINT_TYPE;
     }
