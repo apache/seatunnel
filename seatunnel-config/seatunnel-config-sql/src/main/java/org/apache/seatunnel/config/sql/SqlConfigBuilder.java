@@ -283,10 +283,6 @@ public class SqlConfigBuilder {
         sinkConfig.setConnector(connector);
         // original sink table without source_table_name
         options.remove(OPTION_SOURCE_TABLE_NAME_KEY);
-        // String sourceTableName = options.get(OPTION_SOURCE_TABLE_NAME_KEY);
-        // if (sourceTableName != null) {
-        //     sinkConfig.setSourceTableName(sourceTableName);
-        // }
         convertOptions(options, sinkConfig.getOptions());
 
         return sinkConfig;
