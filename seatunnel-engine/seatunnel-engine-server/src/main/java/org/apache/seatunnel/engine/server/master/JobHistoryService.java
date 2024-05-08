@@ -104,7 +104,7 @@ public class JobHistoryService {
         this.finishedJobExpireTime = finishedJobExpireTime;
     }
 
-    // Gets the status of a running and completed job
+    // Gets the status of a running and completed job. (fix loss job 6759)
     public String listAllJob() {
         List<JobStatusData> status = new ArrayList<>();
         final List<JobState> runningJobStateList =
