@@ -129,7 +129,8 @@ When we can't get the job info, the response will be:
 
 ------------------------------------------------------------------------------------------
 
-### Return details of a job. 
+### Return details of a job.
+
 This API has been deprecated, please use /hazelcast/rest/maps/job-info/:jobId instead
 
 <details>
