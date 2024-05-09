@@ -25,6 +25,7 @@ import org.apache.seatunnel.e2e.sink.inmemory.InMemoryAggregatedCommitter;
 import org.apache.seatunnel.e2e.sink.inmemory.InMemorySinkWriter;
 
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnJre;
 import org.junit.jupiter.api.condition.JRE;
@@ -40,6 +41,7 @@ import java.util.Collections;
 import java.util.List;
 
 @Slf4j
+@Order(1)
 public class MultiTableSinkTest {
 
     @Test
