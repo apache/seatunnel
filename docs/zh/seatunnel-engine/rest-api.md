@@ -128,7 +128,7 @@ network:
 
 ------------------------------------------------------------------------------------------
 
-### 返回作业的详细信息(已弃用)。
+### 返回作业的详细信息。此API已经弃用，请使用/hazelcast/rest/maps/job-info/:jobId替代。
 
 <details>
  <summary><code>GET</code> <code><b>/hazelcast/rest/maps/running-job/:jobId</b></code> <code>(返回作业的详细信息。)</code></summary>

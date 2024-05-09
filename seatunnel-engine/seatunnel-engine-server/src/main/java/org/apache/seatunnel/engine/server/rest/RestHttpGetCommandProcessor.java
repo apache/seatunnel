@@ -62,8 +62,14 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 
 import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_500;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.FINISHED_JOBS_INFO;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.JOB_INFO_URL;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_JOBS_URL;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_JOB_URL;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_THREADS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.SYSTEM_MONITORING_INFORMATION;
 
-public static class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCommand> {
+public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCommand> {
 
     private final Log4j2HttpGetCommandProcessor original;
 
@@ -94,10 +100,8 @@ public static class RestHttpGetCommandProcessor extends HttpCommandProcessor<Htt
                 handleRunningJobsInfo(httpGetCommand);
             } else if (uri.startsWith(FINISHED_JOBS_INFO)) {
                 handleFinishedJobsInfo(httpGetCommand, uri);
-            } else if (uri.startsWith(RUNNING_JOB_URL)) {
+            } else if (uri.startsWith(RUNNING_JOB_URL) || uri.startsWith(JOB_INFO_URL)) {
                 handleJobInfoById(httpGetCommand, uri);
-            } else if (uri.startsWith(JOB_INFO_URL)) {
-                handleJobInfoByJobId(httpGetCommand, uri);
             } else if (uri.startsWith(SYSTEM_MONITORING_INFORMATION)) {
                 getSystemMonitoringInformation(httpGetCommand);
             } else if (uri.startsWith(RUNNING_THREADS)) {
@@ -244,59 +248,7 @@ public static class RestHttpGetCommandProcessor extends HttpCommandProcessor<Htt
 
         this.prepareResponse(command, jobs);
     }
-
-    @Deprecated
     private void handleJobInfoById(HttpGetCommand command, String uri) {
-        uri = StringUtil.stripTrailingSlash(uri);
-        int indexEnd = uri.indexOf('/', URI_MAPS.length());
-        String jobId = uri.substring(indexEnd + 1);
-        JobInfo jobInfo =
-                (JobInfo)
-                        this.textCommandService
-                                .getNode()
-                                .getNodeEngine()
-                                .getHazelcastInstance()
-                                .getMap(Constant.IMAP_RUNNING_JOB_INFO)
-                                .get(Long.valueOf(jobId));
-        JobState finishedJobState =
-                (JobState)
-                        this.textCommandService
-                                .getNode()
-                                .getNodeEngine()
-                                .getHazelcastInstance()
-                                .getMap(Constant.IMAP_FINISHED_JOB_STATE)
-                                .get(Long.valueOf(jobId));
-        if (!jobId.isEmpty() && jobInfo != null) {
-            this.prepareResponse(command, convertToJson(jobInfo, Long.parseLong(jobId)));
-        } else if (!jobId.isEmpty() && finishedJobState != null) {
-            JobMetrics finishedJobMetrics =
-                    (JobMetrics)
-                            this.textCommandService
-                                    .getNode()
-                                    .getNodeEngine()
-                                    .getHazelcastInstance()
-                                    .getMap(Constant.IMAP_FINISHED_JOB_METRICS)
-                                    .get(Long.valueOf(jobId));
-            JobDAGInfo finishedJobDAGInfo =
-                    (JobDAGInfo)
-                            this.textCommandService
-                                    .getNode()
-                                    .getNodeEngine()
-                                    .getHazelcastInstance()
-                                    .getMap(Constant.IMAP_FINISHED_JOB_VERTEX_INFO)
-                                    .get(Long.valueOf(jobId));
-            this.prepareResponse(
-                    command,
-                    getJobInfoJson(
-                            finishedJobState,
-                            finishedJobMetrics.toJsonString(),
-                            finishedJobDAGInfo));
-        } else {
-            this.prepareResponse(command, new JsonObject().add(RestConstant.JOB_ID, jobId));
-        }
-    }
-
-    private void handleJobInfoByJobId(HttpGetCommand command, String uri) {
         uri = StringUtil.stripTrailingSlash(uri);
         int indexEnd = uri.indexOf('/', URI_MAPS.length());
         String jobId = uri.substring(indexEnd + 1);
