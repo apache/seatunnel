@@ -33,6 +33,8 @@ import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
+import lombok.NonNull;
+
 import java.io.IOException;
 import java.util.Optional;
 import java.util.regex.Pattern;
@@ -82,28 +84,26 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
 
     private final JsonDeserializationSchema jsonDeserializer;
 
-    private final SeaTunnelRowType physicalRowType;
+    private final SeaTunnelRowType seaTunnelRowType;
 
     private final CatalogTable catalogTable;
 
     public OggJsonDeserializationSchema(
-            SeaTunnelRowType physicalRowType,
+            @NonNull CatalogTable catalogTable,
             String database,
             String table,
-            boolean ignoreParseErrors,
-            CatalogTable catalogTable) {
-        this.physicalRowType = physicalRowType;
-        final SeaTunnelRowType jsonRowType = createJsonRowType(physicalRowType);
+            boolean ignoreParseErrors) {
+        this.catalogTable = catalogTable;
+        this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
         this.jsonDeserializer =
-                new JsonDeserializationSchema(false, ignoreParseErrors, jsonRowType, catalogTable);
+                new JsonDeserializationSchema(catalogTable, false, ignoreParseErrors);
         this.database = database;
         this.table = table;
-        this.fieldNames = physicalRowType.getFieldNames();
-        this.fieldCount = physicalRowType.getTotalFields();
+        this.fieldNames = seaTunnelRowType.getFieldNames();
+        this.fieldCount = seaTunnelRowType.getTotalFields();
         this.ignoreParseErrors = ignoreParseErrors;
         this.databasePattern = database == null ? null : Pattern.compile(database);
         this.tablePattern = table == null ? null : Pattern.compile(table);
-        this.catalogTable = catalogTable;
     }
 
     @Override
@@ -114,7 +114,7 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
 
     @Override
     public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
-        return this.physicalRowType;
+        return this.seaTunnelRowType;
     }
 
     public void deserializeMessage(
@@ -245,8 +245,8 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
     // ------------------------------------------------------------------------------------------
 
     /** Creates A builder for building a {@link OggJsonDeserializationSchema}. */
-    public static Builder builder(SeaTunnelRowType physicalDataType) {
-        return new Builder(physicalDataType);
+    public static Builder builder(CatalogTable catalogTable) {
+        return new Builder(catalogTable);
     }
 
     public static class Builder {
@@ -257,12 +257,10 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
 
         private String table = null;
 
-        private final SeaTunnelRowType physicalDataType;
-
         private CatalogTable catalogTable;
 
-        public Builder(SeaTunnelRowType physicalDataType) {
-            this.physicalDataType = physicalDataType;
+        public Builder(CatalogTable catalogTable) {
+            this.catalogTable = catalogTable;
         }
 
         public Builder setDatabase(String database) {
@@ -280,14 +278,9 @@ public class OggJsonDeserializationSchema implements DeserializationSchema<SeaTu
             return this;
         }
 
-        public Builder setCatalogTable(CatalogTable catalogTable) {
-            this.catalogTable = catalogTable;
-            return this;
-        }
-
         public OggJsonDeserializationSchema build() {
             return new OggJsonDeserializationSchema(
-                    physicalDataType, database, table, ignoreParseErrors, catalogTable);
+                    catalogTable, database, table, ignoreParseErrors);
         }
     }
 }

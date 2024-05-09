@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SupportColumnProjection;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -109,7 +110,7 @@ public class AmazonSqsSource extends AbstractSingleSplitSource<SeaTunnelRow>
 
     private void setDeserialization(Config config) {
         if (config.hasPath(TableSchemaOptions.SCHEMA.key())) {
-            typeInfo = CatalogTableUtil.buildWithConfig(config).getSeaTunnelRowType();
+            CatalogTable catalogTable = CatalogTableUtil.buildWithConfig(config);
             MessageFormat format = ReadonlyConfig.fromConfig(config).get(FORMAT);
             switch (format) {
                 case JSON:
@@ -128,7 +129,7 @@ public class AmazonSqsSource extends AbstractSingleSplitSource<SeaTunnelRow>
                     break;
                 case CANAL_JSON:
                     deserializationSchema =
-                            CanalJsonDeserializationSchema.builder(typeInfo)
+                            CanalJsonDeserializationSchema.builder(catalogTable)
                                     .setIgnoreParseErrors(true)
                                     .build();
                     break;
@@ -138,7 +139,8 @@ public class AmazonSqsSource extends AbstractSingleSplitSource<SeaTunnelRow>
                         includeSchema = config.getBoolean(DEBEZIUM_RECORD_INCLUDE_SCHEMA.key());
                     }
                     deserializationSchema =
-                            new DebeziumJsonDeserializationSchema(typeInfo, true, includeSchema);
+                            new DebeziumJsonDeserializationSchema(
+                                    catalogTable, true, includeSchema);
                     break;
                 default:
                     throw new SeaTunnelJsonFormatException(

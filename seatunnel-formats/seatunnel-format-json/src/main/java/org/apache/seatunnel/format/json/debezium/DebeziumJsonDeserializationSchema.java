@@ -62,37 +62,23 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
 
     private CatalogTable catalogTable;
 
-    public DebeziumJsonDeserializationSchema(SeaTunnelRowType rowType, boolean ignoreParseErrors) {
-        this.rowType = rowType;
+    public DebeziumJsonDeserializationSchema(CatalogTable catalogTable, boolean ignoreParseErrors) {
+        this.catalogTable = catalogTable;
+        this.rowType = catalogTable.getSeaTunnelRowType();
         this.ignoreParseErrors = ignoreParseErrors;
         this.jsonDeserializer =
-                new JsonDeserializationSchema(
-                        false, ignoreParseErrors, createJsonRowType(rowType), null);
+                new JsonDeserializationSchema(catalogTable, false, ignoreParseErrors);
         this.debeziumRowConverter = new DebeziumRowConverter(rowType);
         this.debeziumEnabledSchema = false;
     }
 
     public DebeziumJsonDeserializationSchema(
-            SeaTunnelRowType rowType, boolean ignoreParseErrors, boolean debeziumEnabledSchema) {
-        this.rowType = rowType;
+            CatalogTable catalogTable, boolean ignoreParseErrors, boolean debeziumEnabledSchema) {
+        this.catalogTable = catalogTable;
+        this.rowType = catalogTable.getSeaTunnelRowType();
         this.ignoreParseErrors = ignoreParseErrors;
         this.jsonDeserializer =
-                new JsonDeserializationSchema(
-                        false, ignoreParseErrors, createJsonRowType(rowType), catalogTable);
-        this.debeziumRowConverter = new DebeziumRowConverter(rowType);
-        this.debeziumEnabledSchema = debeziumEnabledSchema;
-    }
-
-    public DebeziumJsonDeserializationSchema(
-            SeaTunnelRowType rowType,
-            boolean ignoreParseErrors,
-            boolean debeziumEnabledSchema,
-            CatalogTable catalogTable) {
-        this.rowType = rowType;
-        this.ignoreParseErrors = ignoreParseErrors;
-        this.jsonDeserializer =
-                new JsonDeserializationSchema(
-                        false, ignoreParseErrors, createJsonRowType(rowType), catalogTable);
+                new JsonDeserializationSchema(catalogTable, false, ignoreParseErrors);
         this.debeziumRowConverter = new DebeziumRowConverter(rowType);
         this.debeziumEnabledSchema = debeziumEnabledSchema;
         this.catalogTable = catalogTable;

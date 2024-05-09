@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SupportParallelism;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -52,7 +53,6 @@ import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.discov
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.format.PulsarCanalDecorator;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.reader.PulsarSourceReader;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.split.PulsarPartitionSplit;
-import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 import org.apache.seatunnel.format.json.canal.CanalJsonDeserializationSchema;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
@@ -300,19 +300,20 @@ public class PulsarSource
 
     private void setDeserialization(Config config) {
         if (config.hasPath(SCHEMA.key())) {
-            typeInfo = CatalogTableUtil.buildWithConfig(config).getSeaTunnelRowType();
+            CatalogTable catalogTable = CatalogTableUtil.buildWithConfig(config);
             String format = FORMAT.defaultValue();
             if (config.hasPath(FORMAT.key())) {
                 format = config.getString(FORMAT.key());
             }
             switch (format.toUpperCase()) {
                 case "JSON":
-                    deserializationSchema = new JsonDeserializationSchema(false, false, typeInfo);
+                    //                    deserializationSchema = new
+                    // JsonDeserializationSchema(false, false, typeInfo);
                     break;
                 case "CANAL_JSON":
                     deserializationSchema =
                             new PulsarCanalDecorator(
-                                    CanalJsonDeserializationSchema.builder(typeInfo)
+                                    CanalJsonDeserializationSchema.builder(catalogTable)
                                             .setIgnoreParseErrors(true)
                                             .build());
                     break;
@@ -323,7 +324,8 @@ public class PulsarSource
             }
         } else {
             typeInfo = CatalogTableUtil.buildSimpleTextSchema();
-            this.deserializationSchema = new JsonDeserializationSchema(false, false, typeInfo);
+            //            this.deserializationSchema = new JsonDeserializationSchema(false, false,
+            // typeInfo);
         }
     }
 

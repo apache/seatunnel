@@ -74,22 +74,19 @@ public class CompatibleKafkaConnectDeserializationSchema
     private final CatalogTable catalogTable;
 
     public CompatibleKafkaConnectDeserializationSchema(
-            @NonNull SeaTunnelRowType seaTunnelRowType,
+            @NonNull CatalogTable catalogTable,
             boolean keySchemaEnable,
             boolean valueSchemaEnable,
             boolean failOnMissingField,
-            boolean ignoreParseErrors,
-            CatalogTable catalogTable) {
-
-        this.seaTunnelRowType = seaTunnelRowType;
+            boolean ignoreParseErrors) {
+        this.catalogTable = catalogTable;
+        this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
         this.keySchemaEnable = keySchemaEnable;
         this.valueSchemaEnable = valueSchemaEnable;
-
         // Runtime converter
         this.runtimeConverter =
                 new JsonToRowConverters(failOnMissingField, ignoreParseErrors)
                         .createRowConverter(checkNotNull(seaTunnelRowType));
-        this.catalogTable = catalogTable;
     }
 
     @Override

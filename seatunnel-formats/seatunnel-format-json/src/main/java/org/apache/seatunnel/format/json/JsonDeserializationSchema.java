@@ -61,29 +61,28 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
     /**
      * Runtime converter that converts {@link JsonNode}s into objects of internal data structures.
      */
-    private final JsonToRowConverters.JsonToObjectConverter runtimeConverter;
+    private JsonToRowConverters.JsonToObjectConverter runtimeConverter;
 
     /** Object mapper for parsing the JSON. */
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    private final CatalogTable catalogTable;
+    private CatalogTable catalogTable;
 
     public JsonDeserializationSchema(
             boolean failOnMissingField, boolean ignoreParseErrors, SeaTunnelRowType rowType) {
-        this(failOnMissingField, ignoreParseErrors, rowType, null);
+        this.failOnMissingField = failOnMissingField;
+        this.ignoreParseErrors = ignoreParseErrors;
+        this.rowType = checkNotNull(rowType);
     }
 
     public JsonDeserializationSchema(
-            boolean failOnMissingField,
-            boolean ignoreParseErrors,
-            SeaTunnelRowType rowType,
-            CatalogTable catalogTable) {
+            CatalogTable catalogTable, boolean failOnMissingField, boolean ignoreParseErrors) {
         if (ignoreParseErrors && failOnMissingField) {
             throw new SeaTunnelJsonFormatException(
                     CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                     "JSON format doesn't support failOnMissingField and ignoreParseErrors are both enabled.");
         }
-        this.rowType = checkNotNull(rowType);
+        this.rowType = checkNotNull(catalogTable.getSeaTunnelRowType());
         this.failOnMissingField = failOnMissingField;
         this.ignoreParseErrors = ignoreParseErrors;
         this.runtimeConverter =

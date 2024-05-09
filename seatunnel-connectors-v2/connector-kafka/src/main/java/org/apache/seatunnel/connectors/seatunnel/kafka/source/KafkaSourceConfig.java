@@ -235,7 +235,7 @@ public class KafkaSourceConfig implements Serializable {
         MessageFormat format = readonlyConfig.get(FORMAT);
         switch (format) {
             case JSON:
-                return new JsonDeserializationSchema(false, false, seaTunnelRowType, catalogTable);
+                return new JsonDeserializationSchema(catalogTable, false, false);
             case TEXT:
                 String delimiter = readonlyConfig.get(FIELD_DELIMITER);
                 return TextDeserializationSchema.builder()
@@ -243,14 +243,12 @@ public class KafkaSourceConfig implements Serializable {
                         .delimiter(delimiter)
                         .build();
             case CANAL_JSON:
-                return CanalJsonDeserializationSchema.builder(seaTunnelRowType)
+                return CanalJsonDeserializationSchema.builder(catalogTable)
                         .setIgnoreParseErrors(true)
-                        .setCatalogTable(catalogTable)
                         .build();
             case OGG_JSON:
-                return OggJsonDeserializationSchema.builder(seaTunnelRowType)
+                return OggJsonDeserializationSchema.builder(catalogTable)
                         .setIgnoreParseErrors(true)
-                        .setCatalogTable(catalogTable)
                         .build();
             case COMPATIBLE_KAFKA_CONNECT_JSON:
                 Boolean keySchemaEnable =
@@ -260,16 +258,10 @@ public class KafkaSourceConfig implements Serializable {
                         readonlyConfig.get(
                                 KafkaConnectJsonFormatOptions.VALUE_CONVERTER_SCHEMA_ENABLED);
                 return new CompatibleKafkaConnectDeserializationSchema(
-                        seaTunnelRowType,
-                        keySchemaEnable,
-                        valueSchemaEnable,
-                        false,
-                        false,
-                        catalogTable);
+                        catalogTable, keySchemaEnable, valueSchemaEnable, false, false);
             case DEBEZIUM_JSON:
                 boolean includeSchema = readonlyConfig.get(DEBEZIUM_RECORD_INCLUDE_SCHEMA);
-                return new DebeziumJsonDeserializationSchema(
-                        seaTunnelRowType, true, includeSchema, catalogTable);
+                return new DebeziumJsonDeserializationSchema(catalogTable, true, includeSchema);
             case AVRO:
                 return new AvroDeserializationSchema(seaTunnelRowType, catalogTable);
             default:
