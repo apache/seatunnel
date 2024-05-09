@@ -248,6 +248,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
 
         this.prepareResponse(command, jobs);
     }
+
     private void handleJobInfoById(HttpGetCommand command, String uri) {
         uri = StringUtil.stripTrailingSlash(uri);
         int indexEnd = uri.indexOf('/', URI_MAPS.length());
