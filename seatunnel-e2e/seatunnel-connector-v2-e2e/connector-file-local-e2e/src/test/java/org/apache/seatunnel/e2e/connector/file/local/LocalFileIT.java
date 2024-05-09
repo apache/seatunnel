@@ -121,55 +121,55 @@ public class LocalFileIT extends TestSuiteBase {
             throws IOException, InterruptedException {
         TestHelper helper = new TestHelper(container);
 
-        //        helper.execute("/excel/fake_to_local_excel.conf");
-        //        helper.execute("/excel/local_excel_to_assert.conf");
-        //        helper.execute("/excel/local_excel_projection_to_assert.conf");
-        //        // test write local text file
-        //        helper.execute("/text/fake_to_local_file_text.conf");
-        //        helper.execute("/text/local_file_text_lzo_to_assert.conf");
-        //        helper.execute("/text/local_file_delimiter_assert.conf");
-        //        helper.execute("/text/local_file_time_format_assert.conf");
-        //        // test read skip header
-        //        helper.execute("/text/local_file_text_skip_headers.conf");
-        //        // test read local text file
-        //        helper.execute("/text/local_file_text_to_assert.conf");
-        //        // test read local text file with projection
-        //        helper.execute("/text/local_file_text_projection_to_assert.conf");
-        //        // test read local csv file with assigning encoding
-        //        helper.execute("/text/fake_to_local_file_with_encoding.conf");
-        //        // test read local csv file with assigning encoding
-        //        helper.execute("/text/local_file_text_to_console_with_encoding.conf");
-        //
-        //        // test write local json file
-        //        helper.execute("/json/fake_to_local_file_json.conf");
-        //        // test read local json file
-        //        helper.execute("/json/local_file_json_to_assert.conf");
-        //        helper.execute("/json/local_file_json_lzo_to_console.conf");
-        //        // test read local json file with assigning encoding
-        //        helper.execute("/json/fake_to_local_file_json_with_encoding.conf");
-        //        // test write local json file with assigning encoding
-        //        helper.execute("/json/local_file_json_to_console_with_encoding.conf");
-        //
-        //        // test write local orc file
-        //        helper.execute("/orc/fake_to_local_file_orc.conf");
-        //        // test read local orc file
-        //        helper.execute("/orc/local_file_orc_to_assert.conf");
-        //        // test read local orc file with projection
-        //        helper.execute("/orc/local_file_orc_projection_to_assert.conf");
-        //        // test read local orc file with projection and type cast
-        //        helper.execute("/orc/local_file_orc_to_assert_with_time_and_cast.conf");
-        //        // test write local parquet file
-        //        helper.execute("/parquet/fake_to_local_file_parquet.conf");
-        //        // test read local parquet file
-        //        helper.execute("/parquet/local_file_parquet_to_assert.conf");
-        //        // test read local parquet file with projection
-        //        helper.execute("/parquet/local_file_parquet_projection_to_assert.conf");
-        //        // test read filtered local file
-        //        helper.execute("/excel/local_filter_excel_to_assert.conf");
-        //
-        //        // test read empty directory
-        //        helper.execute("/json/local_file_to_console.conf");
-        //        helper.execute("/parquet/local_file_to_console.conf");
+        helper.execute("/excel/fake_to_local_excel.conf");
+        helper.execute("/excel/local_excel_to_assert.conf");
+        helper.execute("/excel/local_excel_projection_to_assert.conf");
+        // test write local text file
+        helper.execute("/text/fake_to_local_file_text.conf");
+        helper.execute("/text/local_file_text_lzo_to_assert.conf");
+        helper.execute("/text/local_file_delimiter_assert.conf");
+        helper.execute("/text/local_file_time_format_assert.conf");
+        // test read skip header
+        helper.execute("/text/local_file_text_skip_headers.conf");
+        // test read local text file
+        helper.execute("/text/local_file_text_to_assert.conf");
+        // test read local text file with projection
+        helper.execute("/text/local_file_text_projection_to_assert.conf");
+        // test read local csv file with assigning encoding
+        helper.execute("/text/fake_to_local_file_with_encoding.conf");
+        // test read local csv file with assigning encoding
+        helper.execute("/text/local_file_text_to_console_with_encoding.conf");
+
+        // test write local json file
+        helper.execute("/json/fake_to_local_file_json.conf");
+        // test read local json file
+        helper.execute("/json/local_file_json_to_assert.conf");
+        helper.execute("/json/local_file_json_lzo_to_console.conf");
+        // test read local json file with assigning encoding
+        helper.execute("/json/fake_to_local_file_json_with_encoding.conf");
+        // test write local json file with assigning encoding
+        helper.execute("/json/local_file_json_to_console_with_encoding.conf");
+
+        // test write local orc file
+        helper.execute("/orc/fake_to_local_file_orc.conf");
+        // test read local orc file
+        helper.execute("/orc/local_file_orc_to_assert.conf");
+        // test read local orc file with projection
+        helper.execute("/orc/local_file_orc_projection_to_assert.conf");
+        // test read local orc file with projection and type cast
+        helper.execute("/orc/local_file_orc_to_assert_with_time_and_cast.conf");
+        // test write local parquet file
+        helper.execute("/parquet/fake_to_local_file_parquet.conf");
+        // test read local parquet file
+        helper.execute("/parquet/local_file_parquet_to_assert.conf");
+        // test read local parquet file with projection
+        helper.execute("/parquet/local_file_parquet_projection_to_assert.conf");
+        // test read filtered local file
+        helper.execute("/excel/local_filter_excel_to_assert.conf");
+
+        // test read empty directory
+        helper.execute("/json/local_file_to_console.conf");
+        helper.execute("/parquet/local_file_to_console.conf");
 
         // test binary file
         helper.execute("/binary/local_file_binary_to_local_file_binary.conf");
