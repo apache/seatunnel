@@ -129,6 +129,61 @@ When we can't get the job info, the response will be:
 
 ------------------------------------------------------------------------------------------
 
+### Return details of a job @Deprecated.
+
+<details>
+ <summary><code>GET</code> <code><b>/hazelcast/rest/maps/running-job/:jobId</b></code> <code>(Return details of a job. )</code></summary>
+
+#### Parameters
+
+> | name  |   type   | data type | description |
+> |-------|----------|-----------|-------------|
+> | jobId | required | long      | job id      |
+
+#### Responses
+
+```json
+{
+  "jobId": "",
+  "jobName": "",
+  "jobStatus": "",
+  "createTime": "",
+  "jobDag": {
+    "vertices": [
+    ],
+    "edges": [
+    ]
+  },
+  "metrics": {
+    "sourceReceivedCount": "",
+    "sinkWriteCount": ""
+  },
+  "finishedTime": "",
+  "errorMsg": null,
+  "envOptions": {
+  },
+  "pluginJarsUrls": [
+  ],
+  "isStartWithSavePoint": false
+}
+```
+
+`jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` always be returned.
+`envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` will return when job is running.
+`finishedTime`, `errorMsg` will return when job is finished.
+
+When we can't get the job info, the response will be:
+
+```json
+{
+  "jobId" : ""
+}
+```
+
+</details>
+
+------------------------------------------------------------------------------------------
+
 ### Return all finished Jobs Info.
 
 <details>

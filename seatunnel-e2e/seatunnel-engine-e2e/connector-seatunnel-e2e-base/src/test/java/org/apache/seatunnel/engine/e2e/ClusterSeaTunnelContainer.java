@@ -242,7 +242,7 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
                                                                             + container
                                                                                     .getFirstMappedPort()
                                                                             + RestConstant
-                                                                                    .JOB_INFO_URL
+                                                                                    .RUNNING_JOB_URL
                                                                             + "/"
                                                                             + jobId)
                                                             .then()
@@ -301,7 +301,7 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
                                                                             + container
                                                                                     .getFirstMappedPort()
                                                                             + RestConstant
-                                                                                    .JOB_INFO_URL
+                                                                                    .RUNNING_JOB_URL
                                                                             + "/"
                                                                             + jobId2)
                                                             .then()

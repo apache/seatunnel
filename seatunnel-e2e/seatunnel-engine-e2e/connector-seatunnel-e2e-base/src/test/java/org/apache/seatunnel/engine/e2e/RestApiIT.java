@@ -113,7 +113,7 @@ public class RestApiIT {
                                                             .getLocalMember()
                                                             .getAddress()
                                                             .getPort()
-                                                    + RestConstant.JOB_INFO_URL
+                                                    + RestConstant.RUNNING_JOB_URL
                                                     + "/"
                                                     + clientJobProxy.getJobId())
                                     .then()
@@ -134,7 +134,7 @@ public class RestApiIT {
                                                             .getLocalMember()
                                                             .getAddress()
                                                             .getPort()
-                                                    + RestConstant.JOB_INFO_URL
+                                                    + RestConstant.RUNNING_JOB_URL
                                                     + "/"
                                                     + batchJobProxy.getJobId())
                                     .then()
@@ -155,7 +155,7 @@ public class RestApiIT {
                                                             .getLocalMember()
                                                             .getAddress()
                                                             .getPort()
-                                                    + RestConstant.JOB_INFO_URL
+                                                    + RestConstant.RUNNING_JOB_URL
                                                     + "/"
                                                     + 123)
                                     .then()
@@ -171,7 +171,7 @@ public class RestApiIT {
                                                             .getLocalMember()
                                                             .getAddress()
                                                             .getPort()
-                                                    + RestConstant.JOB_INFO_URL
+                                                    + RestConstant.RUNNING_JOB_URL
                                                     + "/")
                                     .then()
                                     .statusCode(500);
@@ -194,6 +194,27 @@ public class RestApiIT {
                                     .statusCode(200)
                                     .body("[0].jobName", equalTo("fake_to_file"))
                                     .body("[0].jobStatus", equalTo("RUNNING"));
+                        });
+    }
+
+    @Test
+    public void testGetJobInfoByJobId() {
+        Arrays.asList(node2, node1)
+                .forEach(
+                        instance -> {
+                            given().get(
+                                            HOST
+                                                    + instance.getCluster()
+                                                            .getLocalMember()
+                                                            .getAddress()
+                                                            .getPort()
+                                                    + RestConstant.JOB_INFO_URL
+                                                    + "/"
+                                                    + batchJobProxy.getJobId())
+                                    .then()
+                                    .statusCode(200)
+                                    .body("jobName", equalTo("fake_to_console"))
+                                    .body("jobStatus", equalTo("FINISHED"));
                         });
     }
 
