@@ -58,4 +58,11 @@ public interface ResourceManager {
     void memberRemoved(MembershipServiceEvent event);
 
     void close();
+
+    /**
+     * Get all can use slots
+     *
+     * @return
+     */
+    List<SlotProfile> getAllCanUseSlots();
 }
