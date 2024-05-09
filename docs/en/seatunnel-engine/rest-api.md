@@ -77,7 +77,7 @@ network:
 ### Return details of a job.
 
 <details>
- <summary><code>GET</code> <code><b>/hazelcast/rest/maps/job-info/:jobId</b></code> <code>(Return details of a job.)</code></summary>
+ <summary><code>GET</code> <code><b>/hazelcast/rest/maps/job-info/:jobId</b></code> <code>(Return details of a job. )</code></summary>
 
 #### Parameters
 
