@@ -59,10 +59,5 @@ public interface ResourceManager {
 
     void close();
 
-    /**
-     * Get all can use slots
-     *
-     * @return
-     */
     List<SlotProfile> getUnassignedSlots();
 }
