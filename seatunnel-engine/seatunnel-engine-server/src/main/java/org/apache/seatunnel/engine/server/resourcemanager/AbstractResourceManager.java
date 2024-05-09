@@ -218,7 +218,7 @@ public abstract class AbstractResourceManager implements ResourceManager {
     }
 
     @Override
-    public List<SlotProfile> getAllCanUseSlots() {
+    public List<SlotProfile> getUnassignedSlots() {
         return registerWorker.values().stream()
                 .flatMap(workerProfile -> Arrays.stream(workerProfile.getUnassignedSlots()))
                 .collect(Collectors.toList());

@@ -64,5 +64,5 @@ public interface ResourceManager {
      *
      * @return
      */
-    List<SlotProfile> getAllCanUseSlots();
+    List<SlotProfile> getUnassignedSlots();
 }
