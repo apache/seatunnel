@@ -204,7 +204,7 @@ public class KafkaSourceConfig implements Serializable {
                                             new SeaTunnelRowType(
                                                     new String[] {"content"},
                                                     new SeaTunnelDataType<?>[] {
-                                                            BasicType.STRING_TYPE
+                                                        BasicType.STRING_TYPE
                                                     }),
                                             0,
                                             false,
