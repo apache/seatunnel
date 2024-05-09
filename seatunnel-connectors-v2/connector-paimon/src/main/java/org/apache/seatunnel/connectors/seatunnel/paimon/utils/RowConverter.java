@@ -23,8 +23,9 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig;
 import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorException;
 
 import org.apache.paimon.data.BinaryArray;
@@ -120,10 +121,8 @@ public class RowConverter {
                 }
                 return doubles;
             default:
-                String errorMsg =
-                        String.format("Array type not support this genericType [%s]", dataType);
-                throw new PaimonConnectorException(
-                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE, errorMsg);
+                throw CommonError.unsupportedArrayGenericType(
+                        PaimonConfig.CONNECTOR_IDENTITY, dataType.getSqlType().toString());
         }
     }
 
@@ -221,10 +220,8 @@ public class RowConverter {
                 }
                 break;
             default:
-                String errorMsg =
-                        String.format("Array type not support this genericType [%s]", dataType);
-                throw new PaimonConnectorException(
-                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE, errorMsg);
+                throw CommonError.unsupportedArrayGenericType(
+                        PaimonConfig.CONNECTOR_IDENTITY, dataType.getSqlType().toString());
         }
         binaryArrayWriter.complete();
         return binaryArray;
@@ -439,9 +436,9 @@ public class RowConverter {
                     binaryWriter.writeRow(i, paimonRow, new InternalRowSerializer(paimonRowType));
                     break;
                 default:
-                    throw new PaimonConnectorException(
-                            CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
-                            "Unsupported data type " + seaTunnelRowType.getFieldType(i));
+                    throw CommonError.unsupportedDataType(
+                            PaimonConfig.CONNECTOR_IDENTITY,
+                            seaTunnelRowType.getFieldType(i).getSqlType().toString());
             }
         }
         return binaryRow;

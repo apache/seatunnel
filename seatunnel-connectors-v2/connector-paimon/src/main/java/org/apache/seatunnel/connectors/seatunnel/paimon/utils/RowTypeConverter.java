@@ -25,9 +25,8 @@ import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorException;
+import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig;
 
 import org.apache.paimon.schema.TableSchema;
 import org.apache.paimon.types.ArrayType;
@@ -175,11 +174,8 @@ public class RowTypeConverter {
                 seaTunnelDataType = paimonToSeaTunnelTypeVisitor.visit((RowType) dataType);
                 break;
             default:
-                String errorMsg =
-                        String.format(
-                                "Paimon dataType not support this genericType [%s]",
-                                dataType.asSQLString());
-                throw new PaimonConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, errorMsg);
+                throw CommonError.unsupportedDataType(
+                        PaimonConfig.CONNECTOR_IDENTITY, dataType.asSQLString());
         }
         return physicalColumnBuilder.dataType(seaTunnelDataType).build();
     }
@@ -346,9 +342,8 @@ public class RowTypeConverter {
                             Arrays.stream(fieldTypes).map(this::visit).toArray(DataType[]::new);
                     return DataTypes.ROW(dataTypes);
                 default:
-                    throw new PaimonConnectorException(
-                            CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                            "Unsupported data type: " + dataType.getSqlType());
+                    throw CommonError.unsupportedDataType(
+                            PaimonConfig.CONNECTOR_IDENTITY, dataType.getSqlType().toString());
             }
         }
     }
@@ -462,12 +457,9 @@ public class RowTypeConverter {
                 case DOUBLE:
                     return org.apache.seatunnel.api.table.type.ArrayType.DOUBLE_ARRAY_TYPE;
                 default:
-                    String errorMsg =
-                            String.format(
-                                    "Array type not support this genericType [%s]",
-                                    seaTunnelArrayType);
-                    throw new PaimonConnectorException(
-                            CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE, errorMsg);
+                    throw CommonError.unsupportedArrayGenericType(
+                            PaimonConfig.CONNECTOR_IDENTITY,
+                            seaTunnelArrayType.getSqlType().toString());
             }
         }
 
@@ -490,9 +482,8 @@ public class RowTypeConverter {
 
         @Override
         protected SeaTunnelDataType defaultMethod(DataType dataType) {
-            throw new PaimonConnectorException(
-                    CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
-                    "Unsupported data type: " + dataType);
+            throw CommonError.unsupportedDataType(
+                    PaimonConfig.CONNECTOR_IDENTITY, dataType.getTypeRoot().name());
         }
     }
 }

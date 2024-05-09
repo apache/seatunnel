@@ -18,8 +18,8 @@
 package org.apache.seatunnel.connectors.seatunnel.paimon.utils;
 
 import org.apache.seatunnel.api.table.type.RowKind;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorException;
+import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig;
 
 import org.apache.paimon.data.InternalRow;
 
@@ -43,9 +43,8 @@ public class RowKindConverter {
             case INSERT:
                 return org.apache.paimon.types.RowKind.INSERT;
             default:
-                throw new PaimonConnectorException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                        "Unsupported rowKind type " + seaTunnelRowInd.shortString());
+                throw CommonError.unsupportedRowKind(
+                        PaimonConfig.CONNECTOR_IDENTITY, seaTunnelRowInd.shortString());
         }
     }
 }

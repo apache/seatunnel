@@ -37,8 +37,11 @@ import static org.apache.seatunnel.common.exception.CommonErrorCode.GET_CATALOG_
 import static org.apache.seatunnel.common.exception.CommonErrorCode.GET_CATALOG_TABLE_WITH_UNSUPPORTED_TYPE_ERROR;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.JSON_OPERATION_FAILED;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.SQL_TEMPLATE_HANDLED_ERROR;
+import static org.apache.seatunnel.common.exception.CommonErrorCode.UNSUPPORTED_ARRAY_GENERIC_TYPE;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.UNSUPPORTED_DATA_TYPE;
+import static org.apache.seatunnel.common.exception.CommonErrorCode.UNSUPPORTED_DATA_TYPE_SIMPLE;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.UNSUPPORTED_ENCODING;
+import static org.apache.seatunnel.common.exception.CommonErrorCode.UNSUPPORTED_ROW_KIND;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.WRITE_SEATUNNEL_ROW_ERROR;
 
 /**
@@ -85,6 +88,14 @@ public class CommonError {
         params.put("connector", connector);
         params.put("seaTunnelRow", row);
         return new SeaTunnelRuntimeException(WRITE_SEATUNNEL_ROW_ERROR, params, cause);
+    }
+
+    public static SeaTunnelRuntimeException unsupportedDataType(
+            String identifier, String dataType) {
+        Map<String, String> params = new HashMap<>();
+        params.put("identifier", identifier);
+        params.put("dataType", dataType);
+        return new SeaTunnelRuntimeException(UNSUPPORTED_DATA_TYPE_SIMPLE, params);
     }
 
     public static SeaTunnelRuntimeException unsupportedDataType(
@@ -198,5 +209,20 @@ public class CommonError {
         params.put("placeholder", placeholder);
         params.put("optionName", optionName);
         return new SeaTunnelRuntimeException(SQL_TEMPLATE_HANDLED_ERROR, params);
+    }
+
+    public static SeaTunnelRuntimeException unsupportedArrayGenericType(
+            String identifier, String dataType) {
+        Map<String, String> params = new HashMap<>();
+        params.put("identifier", identifier);
+        params.put("dataType", dataType);
+        return new SeaTunnelRuntimeException(UNSUPPORTED_ARRAY_GENERIC_TYPE, params);
+    }
+
+    public static SeaTunnelRuntimeException unsupportedRowKind(String identifier, String rowKind) {
+        Map<String, String> params = new HashMap<>();
+        params.put("identifier", identifier);
+        params.put("rowKind", rowKind);
+        return new SeaTunnelRuntimeException(UNSUPPORTED_ROW_KIND, params);
     }
 }
