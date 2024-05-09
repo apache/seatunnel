@@ -76,7 +76,7 @@ network:
 ### 返回作业的详细信息。
 
 <details>
- <summary><code>GET</code> <code><b>/hazelcast/rest/maps/running-job/:jobId</b></code> <code>(返回作业的详细信息。)</code></summary>
+ <summary><code>GET</code> <code><b>/hazelcast/rest/maps/job_info/:jobId</b></code> <code>(返回作业的详细信息。)</code></summary>
 
 #### 参数
 

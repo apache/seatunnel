@@ -64,7 +64,7 @@ import java.util.concurrent.ExecutionException;
 import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_500;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.FINISHED_JOBS_INFO;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_JOBS_URL;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_JOB_URL;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.JOB_INFO_URL;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_THREADS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.SYSTEM_MONITORING_INFORMATION;
 
@@ -99,7 +99,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                 handleRunningJobsInfo(httpGetCommand);
             } else if (uri.startsWith(FINISHED_JOBS_INFO)) {
                 handleFinishedJobsInfo(httpGetCommand, uri);
-            } else if (uri.startsWith(RUNNING_JOB_URL)) {
+            } else if (uri.startsWith(JOB_INFO_URL)) {
                 handleJobInfoById(httpGetCommand, uri);
             } else if (uri.startsWith(SYSTEM_MONITORING_INFORMATION)) {
                 getSystemMonitoringInformation(httpGetCommand);
@@ -252,24 +252,24 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         uri = StringUtil.stripTrailingSlash(uri);
         int indexEnd = uri.indexOf('/', URI_MAPS.length());
         String jobId = uri.substring(indexEnd + 1);
+        IMap<Object, Object> jobInfoMap =
+                this.textCommandService
+                        .getNode()
+                        .getNodeEngine()
+                        .getHazelcastInstance()
+                        .getMap(Constant.IMAP_RUNNING_JOB_INFO);
 
-        JobInfo jobInfo =
-                (JobInfo)
-                        this.textCommandService
-                                .getNode()
-                                .getNodeEngine()
-                                .getHazelcastInstance()
-                                .getMap(Constant.IMAP_RUNNING_JOB_INFO)
-                                .get(Long.valueOf(jobId));
+        JobInfo jobInfo = (JobInfo) jobInfoMap.get(Long.valueOf(jobId));
 
-        JobState finishedJobState =
-                (JobState)
-                        this.textCommandService
-                                .getNode()
-                                .getNodeEngine()
-                                .getHazelcastInstance()
-                                .getMap(Constant.IMAP_FINISHED_JOB_STATE)
-                                .get(Long.valueOf(jobId));
+        IMap<Object, Object> finishedJobStateMap =
+                this.textCommandService
+                        .getNode()
+                        .getNodeEngine()
+                        .getHazelcastInstance()
+                        .getMap(Constant.IMAP_FINISHED_JOB_STATE);
+
+        JobState finishedJobState = (JobState) finishedJobStateMap.get(Long.valueOf(jobId));
+
         if (!jobId.isEmpty() && jobInfo != null) {
             this.prepareResponse(command, convertToJson(jobInfo, Long.parseLong(jobId)));
         } else if (!jobId.isEmpty() && finishedJobState != null) {

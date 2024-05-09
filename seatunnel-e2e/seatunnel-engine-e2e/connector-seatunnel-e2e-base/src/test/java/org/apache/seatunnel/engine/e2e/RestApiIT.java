@@ -113,7 +113,7 @@ public class RestApiIT {
                                                             .getLocalMember()
                                                             .getAddress()
                                                             .getPort()
-                                                    + RestConstant.RUNNING_JOB_URL
+                                                    + RestConstant.JOB_INFO_URL
                                                     + "/"
                                                     + clientJobProxy.getJobId())
                                     .then()
@@ -134,7 +134,7 @@ public class RestApiIT {
                                                             .getLocalMember()
                                                             .getAddress()
                                                             .getPort()
-                                                    + RestConstant.RUNNING_JOB_URL
+                                                    + RestConstant.JOB_INFO_URL
                                                     + "/"
                                                     + batchJobProxy.getJobId())
                                     .then()
@@ -155,7 +155,7 @@ public class RestApiIT {
                                                             .getLocalMember()
                                                             .getAddress()
                                                             .getPort()
-                                                    + RestConstant.RUNNING_JOB_URL
+                                                    + RestConstant.JOB_INFO_URL
                                                     + "/"
                                                     + 123)
                                     .then()
@@ -171,7 +171,7 @@ public class RestApiIT {
                                                             .getLocalMember()
                                                             .getAddress()
                                                             .getPort()
-                                                    + RestConstant.RUNNING_JOB_URL
+                                                    + RestConstant.JOB_INFO_URL
                                                     + "/")
                                     .then()
                                     .statusCode(500);
