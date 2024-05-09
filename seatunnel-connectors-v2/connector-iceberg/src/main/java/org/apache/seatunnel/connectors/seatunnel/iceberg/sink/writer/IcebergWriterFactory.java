@@ -81,6 +81,10 @@ public class IcebergWriterFactory {
                                     tableLoader.getTableIdentifier(),
                                     config,
                                     rowType);
+                    // Create an empty snapshot for the branch
+                    if (config.getCommitBranch() != null) {
+                        table.manageSnapshots().createBranch(config.getCommitBranch()).commit();
+                    }
                     break;
                 default:
                     throw exception;

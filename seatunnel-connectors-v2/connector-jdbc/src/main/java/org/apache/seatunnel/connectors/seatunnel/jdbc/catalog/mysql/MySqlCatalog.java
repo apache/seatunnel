@@ -30,6 +30,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalo
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeMapper;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlVersion;
 
 import com.google.common.base.Preconditions;
 import com.mysql.cj.MysqlType;
@@ -39,6 +40,7 @@ import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
@@ -56,9 +58,14 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
         SYS_DATABASES.add("sys");
     }
 
+    private MySqlVersion version;
+    private MySqlTypeConverter typeConverter;
+
     public MySqlCatalog(
             String catalogName, String username, String pwd, JdbcUrlUtil.UrlInfo urlInfo) {
         super(catalogName, username, pwd, urlInfo, null);
+        this.version = resolveVersion();
+        this.typeConverter = new MySqlTypeConverter(version);
     }
 
     @Override
@@ -130,7 +137,8 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
         // e.g. `varchar(10)` is 40
         long charOctetLength = resultSet.getLong("CHARACTER_OCTET_LENGTH");
         // e.g. `timestamp(3)` is 3
-        int timePrecision = resultSet.getInt("DATETIME_PRECISION");
+        int timePrecision =
+                MySqlVersion.V_5_5.equals(version) ? 0 : resultSet.getInt("DATETIME_PRECISION");
 
         Preconditions.checkArgument(!(numberPrecision > 0 && charOctetLength > 0));
         Preconditions.checkArgument(!(numberScale > 0 && timePrecision > 0));
@@ -152,12 +160,13 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
                         .defaultValue(defaultValue)
                         .comment(comment)
                         .build();
-        return MySqlTypeConverter.INSTANCE.convert(typeDefine);
+        return typeConverter.convert(typeDefine);
     }
 
     @Override
     protected String getCreateTableSql(TablePath tablePath, CatalogTable table) {
-        return MysqlCreateTableSqlBuilder.builder(tablePath, table).build(table.getCatalogName());
+        return MysqlCreateTableSqlBuilder.builder(tablePath, table, typeConverter)
+                .build(table.getCatalogName());
     }
 
     @Override
@@ -179,7 +188,8 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
     @Override
     public CatalogTable getTable(String sqlQuery) throws SQLException {
         Connection defaultConnection = getConnection(defaultUrl);
-        return CatalogUtils.getCatalogTable(defaultConnection, sqlQuery, new MySqlTypeMapper());
+        return CatalogUtils.getCatalogTable(
+                defaultConnection, sqlQuery, new MySqlTypeMapper(typeConverter));
     }
 
     @Override
@@ -192,5 +202,19 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
         return String.format(
                 "SELECT * FROM `%s`.`%s` LIMIT 1;",
                 tablePath.getDatabaseName(), tablePath.getTableName());
+    }
+
+    private MySqlVersion resolveVersion() {
+        try (Statement statement = getConnection(defaultUrl).createStatement();
+                ResultSet resultSet = statement.executeQuery("SELECT VERSION()")) {
+            resultSet.next();
+            return MySqlVersion.parse(resultSet.getString(1));
+        } catch (Exception e) {
+            log.info(
+                    "Failed to get mysql version, fallback to default version: {}",
+                    MySqlVersion.V_5_7,
+                    e);
+            return MySqlVersion.V_5_7;
+        }
     }
 }

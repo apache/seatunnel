@@ -1,6 +1,6 @@
 # Email
 
-> Email source connector
+> Email sink connector
 
 ## Description
 

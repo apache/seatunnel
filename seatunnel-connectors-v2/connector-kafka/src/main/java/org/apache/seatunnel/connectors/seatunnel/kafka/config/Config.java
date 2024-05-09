@@ -182,5 +182,5 @@ public class Config {
                     .type(new TypeReference<List<Map<String, Object>>>() {})
                     .noDefaultValue()
                     .withDescription(
-                            "Topic list config You can configure only one `table_list` and one `topic` at the same time");
+                            "Topic list config. You can configure only one `table_list` or one `topic` at the same time");
 }

@@ -92,6 +92,6 @@ public class MySqlTypeUtils {
             default:
                 break;
         }
-        return MySqlTypeConverter.INSTANCE.convert(builder.build());
+        return MySqlTypeConverter.DEFAULT_INSTANCE.convert(builder.build());
     }
 }
