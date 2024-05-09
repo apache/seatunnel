@@ -15,21 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.kudu;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.iris;
 
-import org.apache.seatunnel.connectors.seatunnel.kudu.catalog.KuduCatalogFactory;
-import org.apache.seatunnel.connectors.seatunnel.kudu.sink.KuduSinkFactory;
-import org.apache.seatunnel.connectors.seatunnel.kudu.source.KuduSourceFactory;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectFactory;
 
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
+import com.google.auto.service.AutoService;
 
-class KuduFactoryTest {
+import javax.annotation.Nonnull;
 
-    @Test
-    void optionRule() {
-        Assertions.assertNotNull((new KuduSourceFactory()).optionRule());
-        Assertions.assertNotNull((new KuduSinkFactory()).optionRule());
-        Assertions.assertNotNull((new KuduCatalogFactory()).optionRule());
+/** Factory for {@link IrisDialect}. */
+@AutoService(JdbcDialectFactory.class)
+public class IrisDialectFactory implements JdbcDialectFactory {
+
+    @Override
+    public boolean acceptsURL(String url) {
+        return url.startsWith("jdbc:IRIS:");
+    }
+
+    @Override
+    public JdbcDialect create() {
+        return new IrisDialect();
+    }
+
+    @Override
+    public JdbcDialect create(@Nonnull String compatibleMode, String fieldIde) {
+        return new IrisDialect(fieldIde);
     }
 }

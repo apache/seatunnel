@@ -407,6 +407,10 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
             try (InputStream inputStream = ((Blob) data).getBinaryStream()) {
                 return ByteStreams.toByteArray(inputStream);
             }
+        } else if (data instanceof InputStream) {
+            try (InputStream inputStream = (InputStream) data) {
+                return ByteStreams.toByteArray(inputStream);
+            }
         } else if (data instanceof Array) {
             Object[] jdbcArray = (Object[]) ((Array) data).getArray();
             Object[] javaArray = new Object[jdbcArray.length];

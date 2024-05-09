@@ -15,8 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.elasticsearch.state;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.iris;
 
-import java.io.Serializable;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.AbstractJdbcRowConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
-public class ElasticsearchCommitInfo implements Serializable {}
+public class IrisJdbcRowConverter extends AbstractJdbcRowConverter {
+
+    @Override
+    public String converterName() {
+        return DatabaseIdentifier.IRIS;
+    }
+}
