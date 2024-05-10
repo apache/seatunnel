@@ -56,7 +56,9 @@ public enum CommonErrorCode implements SeaTunnelErrorCode {
 
     VERSION_NOT_SUPPORTED("COMMON-25", "<identifier> <version> is unsupported."),
 
-    OPERATION_NOT_SUPPORTED("COMMON-26", "<identifier> <operation> is unsupported.");
+    OPERATION_NOT_SUPPORTED("COMMON-26", "<identifier> <operation> is unsupported."),
+    CONVERT_TO_SEATUNNEL_PROPS_BLANK_ERROR(
+            "COMMON-27", "The props named '<props>' of '<connector>' is blank.");
 
     private final String code;
     private final String description;
