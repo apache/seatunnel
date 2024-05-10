@@ -25,12 +25,19 @@ import org.apache.seatunnel.core.starter.spark.multitable.MultiTableSinkTest;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnJre;
+import org.junit.jupiter.api.condition.JRE;
 
 import java.io.FileNotFoundException;
 import java.net.URISyntaxException;
 
 import static org.apache.seatunnel.api.common.CommonOptions.PLUGIN_NAME;
 
+@DisabledOnJre(
+        value = JRE.JAVA_11,
+        disabledReason =
+                "We should update apache common lang3 version to 3.8 to avoid NPE, "
+                        + "see https://github.com/apache/commons-lang/commit/50ce8c44e1601acffa39f5568f0fc140aade0564")
 public class SparkCommandArgsTest {
     @Test
     public void testExecuteClientCommandArgsWithPluginName()
@@ -63,6 +70,7 @@ public class SparkCommandArgsTest {
         sparkCommandArgs.setConfigFile(configFile);
         sparkCommandArgs.setCheckConfig(false);
         sparkCommandArgs.setVariables(null);
+        sparkCommandArgs.setDeployMode(DeployMode.CLIENT);
         return sparkCommandArgs;
     }
 }
