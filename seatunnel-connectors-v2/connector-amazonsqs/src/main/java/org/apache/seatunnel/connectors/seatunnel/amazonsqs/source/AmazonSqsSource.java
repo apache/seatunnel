@@ -67,6 +67,7 @@ public class AmazonSqsSource extends AbstractSingleSplitSource<SeaTunnelRow>
     private AmazonSqsSourceOptions amazonSqsSourceOptions;
     private DeserializationSchema<SeaTunnelRow> deserializationSchema;
     private SeaTunnelRowType typeInfo;
+    private CatalogTable catalogTable;
 
     @Override
     public String getPluginName() {
@@ -85,9 +86,9 @@ public class AmazonSqsSource extends AbstractSingleSplitSource<SeaTunnelRow>
                             "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
-        amazonSqsSourceOptions = new AmazonSqsSourceOptions(pluginConfig);
-        typeInfo = CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
-
+        this.amazonSqsSourceOptions = new AmazonSqsSourceOptions(pluginConfig);
+        this.catalogTable = CatalogTableUtil.buildWithConfig(pluginConfig);
+        this.typeInfo = catalogTable.getSeaTunnelRowType();
         setDeserialization(pluginConfig);
     }
 
@@ -110,11 +111,11 @@ public class AmazonSqsSource extends AbstractSingleSplitSource<SeaTunnelRow>
 
     private void setDeserialization(Config config) {
         if (config.hasPath(TableSchemaOptions.SCHEMA.key())) {
-            CatalogTable catalogTable = CatalogTableUtil.buildWithConfig(config);
             MessageFormat format = ReadonlyConfig.fromConfig(config).get(FORMAT);
             switch (format) {
                 case JSON:
-                    deserializationSchema = new JsonDeserializationSchema(false, false, typeInfo);
+                    deserializationSchema =
+                            new JsonDeserializationSchema(catalogTable, false, false);
                     break;
                 case TEXT:
                     String delimiter = DEFAULT_FIELD_DELIMITER;

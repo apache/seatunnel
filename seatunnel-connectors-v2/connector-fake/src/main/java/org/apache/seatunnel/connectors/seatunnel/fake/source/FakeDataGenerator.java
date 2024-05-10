@@ -53,8 +53,7 @@ public class FakeDataGenerator {
         this.jsonDeserializationSchema =
                 fakeConfig.getFakeRows() == null
                         ? null
-                        : new JsonDeserializationSchema(
-                                false, false, catalogTable.getSeaTunnelRowType());
+                        : new JsonDeserializationSchema(catalogTable, false, false);
         this.fakeDataRandomUtils = new FakeDataRandomUtils(fakeConfig);
     }
 

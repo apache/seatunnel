@@ -82,6 +82,7 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
                     CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                     "JSON format doesn't support failOnMissingField and ignoreParseErrors are both enabled.");
         }
+        this.catalogTable = catalogTable;
         this.rowType = checkNotNull(catalogTable.getSeaTunnelRowType());
         this.failOnMissingField = failOnMissingField;
         this.ignoreParseErrors = ignoreParseErrors;
@@ -93,7 +94,6 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
             objectMapper.enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS);
         }
         objectMapper.configure(JsonReadFeature.ALLOW_UNESCAPED_CONTROL_CHARS.mappedFeature(), true);
-        this.catalogTable = catalogTable;
     }
 
     private static boolean hasDecimalType(SeaTunnelDataType<?> dataType) {

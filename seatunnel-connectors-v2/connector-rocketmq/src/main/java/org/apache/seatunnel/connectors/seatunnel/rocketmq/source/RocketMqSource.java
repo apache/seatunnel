@@ -30,6 +30,7 @@ import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SupportParallelism;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -252,14 +253,15 @@ public class RocketMqSource
 
     private void setDeserialization(Config config) {
         if (config.hasPath(ConsumerConfig.SCHEMA.key())) {
-            typeInfo = CatalogTableUtil.buildWithConfig(config).getSeaTunnelRowType();
+            CatalogTable catalogTable = CatalogTableUtil.buildWithConfig(config);
             SchemaFormat format = SchemaFormat.JSON;
             if (config.hasPath(FORMAT.key())) {
                 format = SchemaFormat.find(config.getString(FORMAT.key()));
             }
             switch (format) {
                 case JSON:
-                    deserializationSchema = new JsonDeserializationSchema(false, false, typeInfo);
+                    deserializationSchema =
+                            new JsonDeserializationSchema(catalogTable, false, false);
                     break;
                 case TEXT:
                     String delimiter = DEFAULT_FIELD_DELIMITER;
