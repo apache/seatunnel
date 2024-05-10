@@ -11,7 +11,7 @@ import com.blp.operator.DataIngestionRequest;
 
 /** */
 @RestController
-@RequestMapping("/dataIngestion")
+@RequestMapping("/ingestion")
 public class DataIngestionOperatorController {
 
     @Autowired DataIngestionOperator operator;

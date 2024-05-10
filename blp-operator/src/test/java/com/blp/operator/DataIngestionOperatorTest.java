@@ -49,8 +49,8 @@ class DataIngestionOperatorTest {
     @Test
     void testPrepareSubmit() throws IOException {
         DataIngestionRequest request = new DataIngestionRequest();
-        request.configMap = config;
-        request.jobname = "jn";
+        request.configJson = config;
+        request.instanceName = "jn";
         String filename = "/tmp/config.json";
         Path path = Paths.get("/tmp/config.json");
         Boolean result = operator.prepareSubmit(request, filename);

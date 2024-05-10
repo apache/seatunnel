@@ -33,7 +33,7 @@ public class DataIngestionOperator {
             directory.mkdirs(); // mkdirs() creates parent directories if needed
         }
 
-        String configFileStr = request.getConfigMap();
+        String configFileStr = request.getConfigJson();
         if (Objects.nonNull(configFileStr)) {
             try (BufferedWriter writer = new BufferedWriter(new FileWriter(fileName))) {
                 writer.write(configFileStr);
@@ -48,14 +48,14 @@ public class DataIngestionOperator {
 
     public Boolean submit(DataIngestionRequest request, String dir) {
         String configFilePath =
-                String.format("%s/%s%s", dir, request.getJobname(), CONFIG_FILE_NAME_SUFFIX);
+                String.format("%s/%s%s", dir, request.getInstanceName(), CONFIG_FILE_NAME_SUFFIX);
         prepareSubmit(request, configFilePath);
         ;
         // submit to the thread pool
         executor.submit(
                 () -> {
                     try {
-                        doSubmit(configFilePath, request.getJobname());
+                        doSubmit(configFilePath, request.getInstanceName());
                     } catch (Exception e) {
                         // call the hookurl to change the status to failure with the reason
                         e.printStackTrace();
@@ -65,7 +65,7 @@ public class DataIngestionOperator {
         return true;
     }
 
-    public void doSubmit(String configFilePath, String jobname)
+    public void doSubmit(String configFilePath, String instanceName)
             throws Exception { // Create a thread instance
         // Command to start a new JVM process
 
@@ -77,7 +77,7 @@ public class DataIngestionOperator {
                         "-cp",
                         getClasspath(),
                         setLogConfig(),
-                        setLogFileName(jobname),
+                        setLogFileName(instanceName),
                         FLINK_MAIN_CLASS);
         processBuilder.command().addAll(Arrays.asList("--config", configFilePath));
         try {
@@ -114,6 +114,10 @@ public class DataIngestionOperator {
         List<String> seatunnelLibJars =
                 listJars(String.format("%s/lib", System.getenv(ENV_VAR_SEATUNNEL_HOME)));
         jars.addAll(seatunnelLibJars);
+        // seatunnel connectors
+        List<String> seatunnelConnectorsJars =
+                listJars(String.format("%s/connectors", System.getenv(ENV_VAR_SEATUNNEL_HOME)));
+        jars.addAll(seatunnelConnectorsJars);
         // starter jar
         jars.add(
                 String.format(
