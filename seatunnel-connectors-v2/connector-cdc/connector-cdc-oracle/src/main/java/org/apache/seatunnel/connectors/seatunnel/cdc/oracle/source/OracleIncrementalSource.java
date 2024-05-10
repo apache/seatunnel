@@ -57,7 +57,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @NoArgsConstructor
-@AutoService(SeaTunnelSource.class)
 public class OracleIncrementalSource<T> extends IncrementalSource<T, JdbcSourceConfig>
         implements SupportParallelism {
 
