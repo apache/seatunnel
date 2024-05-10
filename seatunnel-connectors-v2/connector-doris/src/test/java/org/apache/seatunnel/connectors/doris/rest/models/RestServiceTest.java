@@ -43,14 +43,14 @@ public class RestServiceTest {
                         "fe_host4:fe_http_port4",
                         "fe_host5:fe_http_port5");
 
-        boolean hasDifferentWorker = false;
+        boolean hasDifferentAddress = false;
         for (int i = 0; i < 5; i++) {
             Set<String> addresses =
                     list.stream()
                             .map(address -> RestService.randomEndpoint(String.join(",", list), log))
                             .collect(Collectors.toSet());
-            hasDifferentWorker = addresses.size() > 1;
+            hasDifferentAddress = addresses.size() > 1;
         }
-        Assertions.assertTrue(hasDifferentWorker);
+        Assertions.assertTrue(hasDifferentAddress);
     }
 }
