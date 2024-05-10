@@ -45,6 +45,8 @@ public class SparkSink<StateT, CommitInfoT, AggregatedCommitInfoT>
 
     private volatile CatalogTable catalogTable;
 
+    private volatile String jobId;
+
     private void init(DataSourceOptions options) {
         if (sink == null) {
             this.sink =
@@ -66,6 +68,9 @@ public class SparkSink<StateT, CommitInfoT, AggregatedCommitInfoT>
                                                             "can not find sink "
                                                                     + "catalog table string in DataSourceOptions")));
         }
+        if (jobId == null) {
+            this.jobId = options.get(SparkSinkInjector.JOB_ID).orElse(null);
+        }
     }
 
     @Override
@@ -74,7 +79,7 @@ public class SparkSink<StateT, CommitInfoT, AggregatedCommitInfoT>
         init(options);
 
         try {
-            return new SparkStreamWriter<>(sink, catalogTable);
+            return new SparkStreamWriter<>(sink, catalogTable, jobId);
         } catch (IOException e) {
             throw new RuntimeException("find error when createStreamWriter", e);
         }
@@ -86,7 +91,7 @@ public class SparkSink<StateT, CommitInfoT, AggregatedCommitInfoT>
         init(options);
 
         try {
-            return Optional.of(new SparkDataSourceWriter<>(sink, catalogTable));
+            return Optional.of(new SparkDataSourceWriter<>(sink, catalogTable, jobId));
         } catch (IOException e) {
             throw new RuntimeException("find error when createStreamWriter", e);
         }

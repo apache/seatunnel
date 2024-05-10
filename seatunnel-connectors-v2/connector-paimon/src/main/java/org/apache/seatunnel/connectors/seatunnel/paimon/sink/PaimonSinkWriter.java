@@ -22,8 +22,10 @@ import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonHadoopConfiguration;
 import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.paimon.security.PaimonSecurityContext;
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.commit.PaimonCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.state.PaimonSinkState;
 import org.apache.seatunnel.connectors.seatunnel.paimon.utils.JobContextUtil;
@@ -82,7 +84,8 @@ public class PaimonSinkWriter
             Context context,
             Table table,
             SeaTunnelRowType seaTunnelRowType,
-            JobContext jobContext) {
+            JobContext jobContext,
+            PaimonHadoopConfiguration paimonHadoopConfiguration) {
         this.table = table;
         this.tableWriteBuilder =
                 JobContextUtil.isBatchJob(jobContext)
@@ -93,6 +96,7 @@ public class PaimonSinkWriter
         this.context = context;
         this.jobContext = jobContext;
         this.tableSchema = ((FileStoreTable) table).schema();
+        PaimonSecurityContext.shouldEnableKerberos(paimonHadoopConfiguration);
     }
 
     public PaimonSinkWriter(
@@ -100,8 +104,9 @@ public class PaimonSinkWriter
             Table table,
             SeaTunnelRowType seaTunnelRowType,
             List<PaimonSinkState> states,
-            JobContext jobContext) {
-        this(context, table, seaTunnelRowType, jobContext);
+            JobContext jobContext,
+            PaimonHadoopConfiguration paimonHadoopConfiguration) {
+        this(context, table, seaTunnelRowType, jobContext, paimonHadoopConfiguration);
         if (Objects.isNull(states) || states.isEmpty()) {
             return;
         }
@@ -131,7 +136,11 @@ public class PaimonSinkWriter
     public void write(SeaTunnelRow element) throws IOException {
         InternalRow rowData = RowConverter.reconvert(element, seaTunnelRowType, tableSchema);
         try {
-            tableWrite.write(rowData);
+            PaimonSecurityContext.runSecured(
+                    () -> {
+                        tableWrite.write(rowData);
+                        return null;
+                    });
         } catch (Exception e) {
             throw new PaimonConnectorException(
                     PaimonConnectorErrorCode.TABLE_WRITE_RECORD_FAILED,

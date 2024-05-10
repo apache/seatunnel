@@ -44,6 +44,12 @@ public interface EnvCommonOptions {
                     .defaultValue(JobMode.BATCH)
                     .withDescription("The job mode of this job, support Batch and Stream");
 
+    Option<Integer> JOB_RETRY_TIMES =
+            Options.key("job.retry.times")
+                    .intType()
+                    .defaultValue(3)
+                    .withDescription("The retry times of this job");
+
     Option<Long> CHECKPOINT_INTERVAL =
             Options.key("checkpoint.interval")
                     .longType()

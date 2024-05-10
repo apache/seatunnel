@@ -94,9 +94,11 @@ public class AmazondynamodbIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     public void testAmazondynamodb(TestContainer container) throws Exception {
+        assertHasData(SOURCE_TABLE);
         Container.ExecResult execResult = container.executeJob(AMAZONDYNAMODB_JOB_CONFIG);
         Assertions.assertEquals(0, execResult.getExitCode());
-        assertHasData();
+        assertHasData(SOURCE_TABLE);
+        assertHasData(SINK_TABLE);
         compareResult();
         clearSinkTable();
     }
@@ -168,10 +170,12 @@ public class AmazondynamodbIT extends TestSuiteBase implements TestResource {
         createTable(dynamoDbClient, SINK_TABLE);
     }
 
-    private void assertHasData() {
+    private void assertHasData(String tableName) {
         ScanResponse scan =
-                dynamoDbClient.scan(ScanRequest.builder().tableName(SINK_TABLE).build());
-        Assertions.assertTrue(scan.hasItems(), "sink table is empty.");
+                dynamoDbClient.scan(
+                        ScanRequest.builder().tableName(tableName).consistentRead(true).build());
+        Assertions.assertTrue(
+                !scan.items().isEmpty(), String.format("table %s is empty.", tableName));
     }
 
     private void compareResult() {

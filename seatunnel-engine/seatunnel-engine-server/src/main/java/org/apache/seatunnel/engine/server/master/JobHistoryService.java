@@ -104,16 +104,17 @@ public class JobHistoryService {
         this.finishedJobExpireTime = finishedJobExpireTime;
     }
 
-    // Gets the status of a running and completed job
+    // Gets the status of a running and completed job.
     public String listAllJob() {
         List<JobStatusData> status = new ArrayList<>();
-        Set<Long> runningJonIds =
+        final List<JobState> runningJobStateList =
                 runningJobMasterMap.values().stream()
-                        .map(master -> master.getJobImmutableInformation().getJobId())
-                        .collect(Collectors.toSet());
+                        .map(master -> toJobStateMapper(master, true))
+                        .collect(Collectors.toList());
+        Set<Long> runningJonIds =
+                runningJobStateList.stream().map(JobState::getJobId).collect(Collectors.toSet());
         Stream.concat(
-                        runningJobMasterMap.values().stream()
-                                .map(master -> toJobStateMapper(master, true)),
+                        runningJobStateList.stream(),
                         finishedJobStateImap.values().stream()
                                 .filter(jobState -> !runningJonIds.contains(jobState.getJobId())))
                 .forEach(
@@ -248,7 +249,7 @@ public class JobHistoryService {
         private Long jobId;
         private String jobName;
         private JobStatus jobStatus;
-        private long submitTime;
+        private Long submitTime;
         private Long finishTime;
         private Map<PipelineLocation, PipelineStateData> pipelineStateMapperMap;
         private String errorMessage;

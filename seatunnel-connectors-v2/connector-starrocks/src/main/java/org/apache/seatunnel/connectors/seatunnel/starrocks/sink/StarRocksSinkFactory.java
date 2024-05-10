@@ -89,13 +89,15 @@ public class StarRocksSinkFactory implements TableSinkFactory {
         String sinkDatabaseName = sinkConfig.getDatabase();
         String sinkTableName = sinkConfig.getTable();
         // to replace
-        String finalDatabaseName =
-                sinkDatabaseName.replace(REPLACE_DATABASE_NAME_KEY, sourceDatabaseName);
+        sinkDatabaseName =
+                sinkDatabaseName.replace(
+                        REPLACE_DATABASE_NAME_KEY,
+                        sourceDatabaseName != null ? sourceDatabaseName : "");
         String finalTableName = this.replaceFullTableName(sinkTableName, tableId);
         // rebuild TableIdentifier and catalogTable
         TableIdentifier newTableId =
                 TableIdentifier.of(
-                        tableId.getCatalogName(), finalDatabaseName, null, finalTableName);
+                        tableId.getCatalogName(), sinkDatabaseName, null, finalTableName);
         catalogTable =
                 CatalogTable.of(
                         newTableId,
@@ -107,7 +109,7 @@ public class StarRocksSinkFactory implements TableSinkFactory {
         CatalogTable finalCatalogTable = catalogTable;
         // reset
         sinkConfig.setTable(finalTableName);
-        sinkConfig.setDatabase(finalDatabaseName);
+        sinkConfig.setDatabase(sinkDatabaseName);
         return () -> new StarRocksSink(sinkConfig, finalCatalogTable, context.getOptions());
     }
 

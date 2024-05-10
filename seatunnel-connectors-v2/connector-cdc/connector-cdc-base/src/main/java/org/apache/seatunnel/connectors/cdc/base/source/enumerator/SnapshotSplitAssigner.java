@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.cdc.base.source.enumerator;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
+
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.splitter.ChunkSplitter;
@@ -44,6 +46,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.stream.Collectors;
+
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 
 /** Assigner for snapshot split. */
 public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssigner {
@@ -277,5 +281,29 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
      */
     private boolean allSplitsCompleted() {
         return noMoreSplits() && assignedSplits.size() == splitCompletedOffsets.size();
+    }
+
+    @VisibleForTesting
+    Map<String, SnapshotSplit> getAssignedSplits() {
+        return assignedSplits;
+    }
+
+    @VisibleForTesting
+    Map<String, SnapshotSplitWatermark> getSplitCompletedOffsets() {
+        return splitCompletedOffsets;
+    }
+
+    public boolean completedSnapshotPhase(List<TableId> tableIds) {
+        checkArgument(isCompleted() && allSplitsCompleted());
+
+        for (String splitKey : new ArrayList<>(assignedSplits.keySet())) {
+            SnapshotSplit assignedSplit = assignedSplits.get(splitKey);
+            if (tableIds.contains(assignedSplit.getTableId())) {
+                assignedSplits.remove(splitKey);
+                splitCompletedOffsets.remove(assignedSplit.splitId());
+            }
+        }
+
+        return assignedSplits.isEmpty() && splitCompletedOffsets.isEmpty();
     }
 }

@@ -233,7 +233,17 @@ public class JdbcCatalogUtils {
         boolean schemaEquals =
                 schemaIncludeAllColumns && columnsOfMerge.size() == columnsOfPath.size();
         if (schemaEquals) {
-            return tableOfPath;
+            // Reorder the field list
+            return CatalogTable.of(
+                    tableOfPath.getTableId(),
+                    TableSchema.builder()
+                            .primaryKey(tableSchemaOfPath.getPrimaryKey())
+                            .constraintKey(tableSchemaOfPath.getConstraintKeys())
+                            .columns(columnsOfMerge)
+                            .build(),
+                    tableOfPath.getOptions(),
+                    tableOfPath.getPartitionKeys(),
+                    tableOfPath.getComment());
         }
 
         PrimaryKey primaryKeyOfPath = tableSchemaOfPath.getPrimaryKey();

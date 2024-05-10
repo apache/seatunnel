@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.e2e.common.container.seatunnel;
 
+import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.e2e.common.container.AbstractTestContainer;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
@@ -45,8 +46,12 @@ import groovy.lang.Tuple2;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.File;
 import java.io.IOException;
+import java.net.URL;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -56,6 +61,8 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
+import static org.apache.seatunnel.e2e.common.util.ContainerUtil.adaptPathForWin;
+import static org.apache.seatunnel.e2e.common.util.ContainerUtil.copyAllConnectorJarToContainer;
 
 @NoArgsConstructor
 @Slf4j
@@ -65,12 +72,17 @@ public class SeaTunnelContainer extends AbstractTestContainer {
     protected static final String JDK_DOCKER_IMAGE = "openjdk:8";
     private static final String CLIENT_SHELL = "seatunnel.sh";
     protected static final String SERVER_SHELL = "seatunnel-cluster.sh";
+    protected static final String CONNECTOR_CHECK_SHELL = "seatunnel-connector.sh";
     protected GenericContainer<?> server;
     private final AtomicInteger runningCount = new AtomicInteger();
 
     @Override
     public void startUp() throws Exception {
-        server =
+        server = createSeaTunnelServer();
+    }
+
+    private GenericContainer<?> createSeaTunnelServer() throws IOException, InterruptedException {
+        GenericContainer<?> server =
                 new GenericContainer<>(getDockerImage())
                         .withNetwork(NETWORK)
                         .withEnv("TZ", "UTC")
@@ -97,9 +109,79 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                         PROJECT_ROOT_PATH
                                 + "/seatunnel-shade/seatunnel-hadoop3-3.1.4-uber/target/seatunnel-hadoop3-3.1.4-uber.jar"),
                 Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop3-3.1.4-uber.jar").toString());
+        // execute extra commands
+        executeExtraCommands(server);
+
+        server.start();
+        return server;
+    }
+
+    protected GenericContainer<?> createSeaTunnelContainerWithFakeSourceAndInMemorySink(
+            String configFilePath) throws IOException, InterruptedException {
+        GenericContainer<?> server =
+                new GenericContainer<>(getDockerImage())
+                        .withNetwork(NETWORK)
+                        .withEnv("TZ", "UTC")
+                        .withCommand(
+                                ContainerUtil.adaptPathForWin(
+                                        Paths.get(SEATUNNEL_HOME, "bin", SERVER_SHELL).toString()))
+                        .withNetworkAliases("server")
+                        .withExposedPorts()
+                        .withLogConsumer(
+                                new Slf4jLogConsumer(
+                                        DockerLoggerFactory.getLogger(
+                                                "seatunnel-engine:" + JDK_DOCKER_IMAGE)))
+                        .waitingFor(Wait.forListeningPort());
+        copySeaTunnelStarterToContainer(server);
+        server.setPortBindings(Collections.singletonList("5801:5801"));
+        server.setExposedPorts(Collections.singletonList(5801));
+
+        server.withCopyFileToContainer(
+                MountableFile.forHostPath(
+                        PROJECT_ROOT_PATH
+                                + "/seatunnel-e2e/seatunnel-engine-e2e/connector-seatunnel-e2e-base/src/test/resources/"),
+                Paths.get(SEATUNNEL_HOME, "config").toString());
+
+        server.withCopyFileToContainer(
+                MountableFile.forHostPath(configFilePath),
+                Paths.get(SEATUNNEL_HOME, "config", "seatunnel.yaml").toString());
+
+        server.withCopyFileToContainer(
+                MountableFile.forHostPath(
+                        PROJECT_ROOT_PATH
+                                + "/seatunnel-shade/seatunnel-hadoop3-3.1.4-uber/target/seatunnel-hadoop3-3.1.4-uber.jar"),
+                Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop3-3.1.4-uber.jar").toString());
+
         server.start();
         // execute extra commands
         executeExtraCommands(server);
+
+        File module = new File(PROJECT_ROOT_PATH + File.separator + getConnectorModulePath());
+        List<File> connectorFiles =
+                ContainerUtil.getConnectorFiles(
+                        module, Collections.singleton("connector-fake"), getConnectorNamePrefix());
+        URL url =
+                FileUtils.searchJarFiles(
+                                Paths.get(
+                                        PROJECT_ROOT_PATH
+                                                + File.separator
+                                                + "seatunnel-e2e/seatunnel-e2e-common/target"))
+                        .stream()
+                        .filter(jar -> jar.toString().endsWith("-tests.jar"))
+                        .findFirst()
+                        .get();
+        connectorFiles.add(new File(url.getFile()));
+        connectorFiles.forEach(
+                jar ->
+                        server.copyFileToContainer(
+                                MountableFile.forHostPath(jar.getAbsolutePath()),
+                                Paths.get(SEATUNNEL_HOME, "connectors", jar.getName()).toString()));
+        server.copyFileToContainer(
+                MountableFile.forHostPath(
+                        PROJECT_ROOT_PATH
+                                + "/seatunnel-e2e/seatunnel-engine-e2e/connector-seatunnel-e2e-base/src/test/resources/fake-and-inmemory/plugin-mapping.properties"),
+                Paths.get(SEATUNNEL_HOME, "connectors", "plugin-mapping.properties").toString());
+        return server;
     }
 
     @Override
@@ -166,12 +248,35 @@ public class SeaTunnelContainer extends AbstractTestContainer {
     }
 
     @Override
+    public Container.ExecResult executeConnectorCheck(String[] args)
+            throws IOException, InterruptedException {
+        // copy all connectors
+        copyAllConnectorJarToContainer(
+                server,
+                getConnectorModulePath(),
+                getConnectorNamePrefix(),
+                getConnectorType(),
+                SEATUNNEL_HOME);
+        final List<String> command = new ArrayList<>();
+        String binPath = Paths.get(SEATUNNEL_HOME, "bin", CONNECTOR_CHECK_SHELL).toString();
+        command.add(adaptPathForWin(binPath));
+        Arrays.stream(args).forEach(arg -> command.add(arg));
+        return executeCommand(server, command);
+    }
+
+    @Override
     public Container.ExecResult executeJob(String confFile)
+            throws IOException, InterruptedException {
+        return executeJob(confFile, null);
+    }
+
+    @Override
+    public Container.ExecResult executeJob(String confFile, List<String> variables)
             throws IOException, InterruptedException {
         log.info("test in container: {}", identifier());
         List<String> beforeThreads = ContainerUtil.getJVMThreadNames(server);
         runningCount.incrementAndGet();
-        Container.ExecResult result = executeJob(server, confFile);
+        Container.ExecResult result = executeJob(server, confFile, variables);
         if (runningCount.decrementAndGet() > 0) {
             // only check thread when job all finished.
             return result;
@@ -247,10 +352,17 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 || s.startsWith("Timer-")
                 || s.contains("InterruptTimer")
                 || s.contains("Java2D Disposer")
+                || s.contains("OkHttp ConnectionPool")
+                || s.startsWith("http-report-event-scheduler")
+                || s.startsWith("event-forwarder")
                 || s.contains(
                         "org.apache.hadoop.fs.FileSystem$Statistics$StatisticsDataReferenceCleaner")
                 || s.startsWith("Log4j2-TF-")
-                || aqsThread.matcher(s).matches();
+                || aqsThread.matcher(s).matches()
+                // The renewed background thread of the hdfs client
+                || s.startsWith("LeaseRenewer")
+                // The read of hdfs which has the thread that is all in running status
+                || s.startsWith("org.apache.hadoop.hdfs.PeerCache");
     }
 
     private void classLoaderObjectCheck(Integer maxSize) throws IOException, InterruptedException {
