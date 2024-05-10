@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 
+import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -89,7 +91,8 @@ public class FixedChunkSplitter extends ChunkSplitter {
     }
 
     @Override
-    protected PreparedStatement createSplitStatement(JdbcSourceSplit split) throws SQLException {
+    protected PreparedStatement createSplitStatement(JdbcSourceSplit split, TableSchema schema)
+            throws SQLException {
         if (SqlType.STRING.equals(split.getSplitKeyType().getSqlType())) {
             return createStringColumnSplitStatement(split);
         }
@@ -103,6 +106,11 @@ public class FixedChunkSplitter extends ChunkSplitter {
     private Collection<JdbcSourceSplit> createStringColumnSplits(
             JdbcSourceTable table, String splitKeyName, SeaTunnelDataType splitKeyType) {
         List<JdbcSourceSplit> splits = new ArrayList<>(table.getPartitionNumber());
+        Column column =
+                table.getCatalogTable().getTableSchema().getColumns().stream()
+                        .filter(c -> c.getName().equals(splitKeyName))
+                        .findAny()
+                        .get();
         for (int i = 0; i < table.getPartitionNumber(); i++) {
             String splitQuery;
             if (StringUtils.isNotBlank(table.getQuery())) {
@@ -111,14 +119,18 @@ public class FixedChunkSplitter extends ChunkSplitter {
                                 "SELECT * FROM (%s) st_jdbc_splitter WHERE %s = ?",
                                 table.getQuery(),
                                 jdbcDialect.hashModForField(
-                                        splitKeyName, table.getPartitionNumber()));
+                                        column.getSourceType(),
+                                        splitKeyName,
+                                        table.getPartitionNumber()));
             } else {
                 splitQuery =
                         String.format(
                                 "SELECT * FROM %s WHERE %s = ?",
                                 jdbcDialect.tableIdentifier(table.getTablePath()),
                                 jdbcDialect.hashModForField(
-                                        splitKeyName, table.getPartitionNumber()));
+                                        column.getSourceType(),
+                                        splitKeyName,
+                                        table.getPartitionNumber()));
             }
 
             JdbcSourceSplit split =

@@ -76,7 +76,11 @@ public class InMemorySinkWriter
     private InMemoryMultiTableResourceManager resourceManager;
 
     @Override
-    public void write(SeaTunnelRow element) throws IOException {}
+    public void write(SeaTunnelRow element) throws IOException {
+        if (config.get(InMemorySinkFactory.THROW_OUT_OF_MEMORY)) {
+            throw new OutOfMemoryError();
+        }
+    }
 
     @Override
     public Optional<InMemoryCommitInfo> prepareCommit() throws IOException {

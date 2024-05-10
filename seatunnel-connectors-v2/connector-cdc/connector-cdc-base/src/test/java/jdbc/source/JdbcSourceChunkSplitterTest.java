@@ -106,7 +106,7 @@ public class JdbcSourceChunkSplitterTest {
 
         @Override
         public String buildSplitScanQuery(
-                TableId tableId,
+                Table table,
                 SeaTunnelRowType splitKeyType,
                 boolean isFirstSplit,
                 boolean isLastSplit) {

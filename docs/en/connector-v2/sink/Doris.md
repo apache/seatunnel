@@ -77,6 +77,7 @@ Default template:
 
 ```sql
 CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}` (
+${rowtype_primary_key},
 ${rowtype_fields}
 ) ENGINE=OLAP
  UNIQUE KEY (${rowtype_primary_key})
