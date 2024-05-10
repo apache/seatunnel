@@ -62,6 +62,9 @@ public class BinaryReadStrategy extends AbstractReadStrategy {
                         path.substring(
                                 path.indexOf(basePath.getAbsolutePath())
                                         + basePath.getAbsolutePath().length());
+                if (relativePath.startsWith(File.separator)) {
+                    relativePath = relativePath.substring(File.separator.length());
+                }
             }
             // TODO config this size
             int maxSize = 1024;
