@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.source;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
 import java.io.Serializable;
 
@@ -30,7 +30,7 @@ public class Web3jSourceParameter implements Serializable {
         return url;
     }
 
-    public Web3jSourceParameter(Config config) {
-        this.url = config.getString(URL.key());
+    public Web3jSourceParameter(ReadonlyConfig config) {
+        this.url = config.get(URL);
     }
 }

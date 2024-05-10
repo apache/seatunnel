@@ -39,7 +39,7 @@ import java.util.Map;
 public class Web3jSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     private final Web3jSourceParameter parameter;
     private final SingleSplitReaderContext context;
-
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private Web3j web3;
 
     Web3jSourceReader(Web3jSourceParameter parameter, SingleSplitReaderContext context) {
@@ -62,7 +62,6 @@ public class Web3jSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
-        ObjectMapper objectMapper = new ObjectMapper();
         web3.ethBlockNumber()
                 .flowable()
                 .subscribe(
@@ -71,7 +70,7 @@ public class Web3jSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                             data.put("timestamp", Instant.now().toString());
                             data.put("blockNumber", blockNumber.getBlockNumber());
 
-                            String json = objectMapper.writeValueAsString(data);
+                            String json = OBJECT_MAPPER.writeValueAsString(data);
 
                             output.collect(new SeaTunnelRow(new Object[] {json}));
 

@@ -17,34 +17,33 @@
 
 package org.apache.seatunnel.connectors.seatunnel.source;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import org.apache.seatunnel.api.common.JobContext;
-import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Boundedness;
-import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.JobMode;
-import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitSource;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
-import org.apache.seatunnel.connectors.seatunnel.exception.Web3jConnectorException;
 
-import com.google.auto.service.AutoService;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
 
-import static org.apache.seatunnel.connectors.seatunnel.config.Web3jConfig.URL;
-
-@AutoService(SeaTunnelSource.class)
 public class Web3jSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     private Web3jSourceParameter parameter;
     private JobContext jobContext;
+
+    public Web3jSource(ReadonlyConfig readonlyConfig) {
+        this.parameter = new Web3jSourceParameter(readonlyConfig);
+    }
 
     @Override
     public Boundedness getBoundedness() {
@@ -59,27 +58,23 @@ public class Web3jSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     }
 
     @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, URL.key());
-        if (!result.isSuccess()) {
-            throw new Web3jConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SOURCE, result.getMsg()));
-        }
-        this.parameter = new Web3jSourceParameter(pluginConfig);
-    }
-
-    @Override
     public void setJobContext(JobContext jobContext) {
         this.jobContext = jobContext;
     }
 
     @Override
-    public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
-        return new SeaTunnelRowType(
-                new String[] {"value"}, new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE});
+    public List<CatalogTable> getProducedCatalogTables() {
+        return Collections.singletonList(
+                CatalogTable.of(
+                        TableIdentifier.of("Web3j", TablePath.DEFAULT),
+                        TableSchema.builder()
+                                .column(
+                                        PhysicalColumn.of(
+                                                "value", BasicType.STRING_TYPE, 0L, true, null, ""))
+                                .build(),
+                        new HashMap<>(),
+                        new ArrayList<>(),
+                        ""));
     }
 
     @Override
