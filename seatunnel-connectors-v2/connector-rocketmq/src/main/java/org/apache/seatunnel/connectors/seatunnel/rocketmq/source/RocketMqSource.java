@@ -77,6 +77,7 @@ public class RocketMqSource
     private final ConsumerMetadata metadata = new ConsumerMetadata();
     private JobContext jobContext;
     private SeaTunnelRowType typeInfo;
+    private CatalogTable catalogTable;
     private DeserializationSchema<SeaTunnelRow> deserializationSchema;
     private long discoveryIntervalMillis =
             ConsumerConfig.KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS.defaultValue();
@@ -216,6 +217,8 @@ public class RocketMqSource
             this.discoveryIntervalMillis =
                     config.getLong(ConsumerConfig.KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS.key());
         }
+        this.catalogTable = CatalogTableUtil.buildWithConfig(config);
+        this.typeInfo = catalogTable.getSeaTunnelRowType();
 
         // set deserialization
         setDeserialization(config);
@@ -253,7 +256,6 @@ public class RocketMqSource
 
     private void setDeserialization(Config config) {
         if (config.hasPath(ConsumerConfig.SCHEMA.key())) {
-            CatalogTable catalogTable = CatalogTableUtil.buildWithConfig(config);
             SchemaFormat format = SchemaFormat.JSON;
             if (config.hasPath(FORMAT.key())) {
                 format = SchemaFormat.find(config.getString(FORMAT.key()));
