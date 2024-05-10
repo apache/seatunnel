@@ -19,6 +19,8 @@ package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -59,6 +61,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
 
     protected HadoopConf hadoopConf;
     protected SeaTunnelRowType seaTunnelRowType;
+    protected CatalogTable catalogTable;
     protected SeaTunnelRowType seaTunnelRowTypeWithPartition;
     protected Config pluginConfig;
     protected List<String> fileNames = new ArrayList<>();
@@ -146,6 +149,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                     pluginConfig.getString(BaseSourceConfigOptions.FILE_FILTER_PATTERN.key());
             this.pattern = Pattern.compile(Matcher.quoteReplacement(filterPattern));
         }
+        this.catalogTable = CatalogTableUtil.buildWithConfig(pluginConfig);
     }
 
     @Override
