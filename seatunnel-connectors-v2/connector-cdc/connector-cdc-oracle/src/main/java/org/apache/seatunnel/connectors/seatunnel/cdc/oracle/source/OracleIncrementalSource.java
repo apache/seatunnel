@@ -46,7 +46,6 @@ import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.TableId;
 import io.debezium.relational.history.ConnectTableChangeSerializer;
 import io.debezium.relational.history.TableChanges;
-import lombok.NoArgsConstructor;
 
 import java.time.ZoneId;
 import java.util.List;
@@ -54,7 +53,6 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-@NoArgsConstructor
 public class OracleIncrementalSource<T> extends IncrementalSource<T, JdbcSourceConfig>
         implements SupportParallelism {
 
