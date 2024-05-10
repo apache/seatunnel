@@ -29,6 +29,9 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+
+import static org.awaitility.Awaitility.await;
 
 public class FixSlotResourceTest extends AbstractSeaTunnelServerTest<FixSlotResourceTest> {
 
@@ -75,6 +78,17 @@ public class FixSlotResourceTest extends AbstractSeaTunnelServerTest<FixSlotReso
         } catch (ExecutionException e) {
             Assertions.assertTrue(e.getMessage().contains("NoEnoughResourceException"));
         }
+        // wait for release resource complete
+        await().atMost(20000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertEquals(
+                                    3,
+                                    server.getCoordinatorService()
+                                            .getResourceManager()
+                                            .getUnassignedSlots()
+                                            .size());
+                        });
         resourceProfiles.remove(0);
         List<SlotProfile> slotProfiles =
                 server.getCoordinatorService()

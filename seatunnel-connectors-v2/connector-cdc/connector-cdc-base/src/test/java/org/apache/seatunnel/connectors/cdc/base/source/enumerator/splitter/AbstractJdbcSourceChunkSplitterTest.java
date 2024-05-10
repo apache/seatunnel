@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test;
 
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.Column;
+import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
 
 import java.sql.SQLException;
@@ -217,7 +218,7 @@ public class AbstractJdbcSourceChunkSplitterTest {
 
         @Override
         public String buildSplitScanQuery(
-                TableId tableId,
+                Table table,
                 SeaTunnelRowType splitKeyType,
                 boolean isFirstSplit,
                 boolean isLastSplit) {

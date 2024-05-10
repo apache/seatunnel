@@ -23,6 +23,7 @@ import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.Column;
+import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
 
 import java.sql.SQLException;
@@ -35,16 +36,29 @@ public interface JdbcSourceChunkSplitter extends ChunkSplitter {
     @Override
     Collection<SnapshotSplit> generateSplits(TableId tableId);
 
+    /** @deprecated instead by {@link this#queryMinMax(JdbcConnection, TableId, Column)} */
+    @Deprecated
+    Object[] queryMinMax(JdbcConnection jdbc, TableId tableId, String columnName)
+            throws SQLException;
+
     /**
      * Query the maximum and minimum value of the column in the table. e.g. query string <code>
      * SELECT MIN(%s) FROM %s WHERE %s > ?</code>
      *
      * @param jdbc JDBC connection.
      * @param tableId table identity.
-     * @param columnName column name.
+     * @param column column.
      * @return maximum and minimum value.
      */
-    Object[] queryMinMax(JdbcConnection jdbc, TableId tableId, String columnName)
+    default Object[] queryMinMax(JdbcConnection jdbc, TableId tableId, Column column)
+            throws SQLException {
+        return queryMinMax(jdbc, tableId, column.name());
+    }
+
+    /** @deprecated instead by {@link this#queryMin(JdbcConnection, TableId, Column, Object)} */
+    @Deprecated
+    Object queryMin(
+            JdbcConnection jdbc, TableId tableId, String columnName, Object excludedLowerBound)
             throws SQLException;
 
     /**
@@ -54,12 +68,19 @@ public interface JdbcSourceChunkSplitter extends ChunkSplitter {
      *
      * @param jdbc JDBC connection.
      * @param tableId table identity.
-     * @param columnName column name.
+     * @param column column.
      * @param excludedLowerBound the minimum value should be greater than this value.
      * @return minimum value.
      */
-    Object queryMin(
-            JdbcConnection jdbc, TableId tableId, String columnName, Object excludedLowerBound)
+    default Object queryMin(
+            JdbcConnection jdbc, TableId tableId, Column column, Object excludedLowerBound)
+            throws SQLException {
+        return queryMin(jdbc, tableId, column.name(), excludedLowerBound);
+    }
+
+    @Deprecated
+    Object[] sampleDataFromColumn(
+            JdbcConnection jdbc, TableId tableId, String columnName, int samplingRate)
             throws SQLException;
 
     /**
@@ -68,14 +89,29 @@ public interface JdbcSourceChunkSplitter extends ChunkSplitter {
      *
      * @param jdbc The JDBC connection object used to connect to the database.
      * @param tableId The ID of the table in which the column resides.
-     * @param columnName The name of the column to be sampled.
+     * @param column The column to be sampled.
      * @param samplingRate samplingRate The inverse of the fraction of the data to be sampled from
      *     the column. For example, a value of 1000 would mean 1/1000 of the data will be sampled.
      * @return Returns a List of sampled data from the specified column.
      * @throws SQLException If an SQL error occurs during the sampling operation.
      */
-    Object[] sampleDataFromColumn(
-            JdbcConnection jdbc, TableId tableId, String columnName, int samplingRate)
+    default Object[] sampleDataFromColumn(
+            JdbcConnection jdbc, TableId tableId, Column column, int samplingRate)
+            throws SQLException {
+        return sampleDataFromColumn(jdbc, tableId, column.name(), samplingRate);
+    }
+
+    /**
+     * @deprecated instead by {@link this#queryNextChunkMax(JdbcConnection, TableId, Column, int,
+     *     Object)}
+     */
+    @Deprecated
+    Object queryNextChunkMax(
+            JdbcConnection jdbc,
+            TableId tableId,
+            String columnName,
+            int chunkSize,
+            Object includedLowerBound)
             throws SQLException;
 
     /**
@@ -85,18 +121,20 @@ public interface JdbcSourceChunkSplitter extends ChunkSplitter {
      *
      * @param jdbc JDBC connection.
      * @param tableId table identity.
-     * @param columnName column name.
+     * @param column column.
      * @param chunkSize chunk size.
      * @param includedLowerBound the previous chunk end value.
      * @return next chunk end value.
      */
-    Object queryNextChunkMax(
+    default Object queryNextChunkMax(
             JdbcConnection jdbc,
             TableId tableId,
-            String columnName,
+            Column column,
             int chunkSize,
             Object includedLowerBound)
-            throws SQLException;
+            throws SQLException {
+        return queryNextChunkMax(jdbc, tableId, column.name(), chunkSize, includedLowerBound);
+    }
 
     /**
      * Approximate total number of entries in the lookup table.
@@ -110,17 +148,14 @@ public interface JdbcSourceChunkSplitter extends ChunkSplitter {
     /**
      * Build the scan query sql of the {@link SnapshotSplit}.
      *
-     * @param tableId table identity.
+     * @param table table.
      * @param splitKeyType primary key type.
      * @param isFirstSplit whether the first split.
      * @param isLastSplit whether the last split.
      * @return query sql.
      */
     String buildSplitScanQuery(
-            TableId tableId,
-            SeaTunnelRowType splitKeyType,
-            boolean isFirstSplit,
-            boolean isLastSplit);
+            Table table, SeaTunnelRowType splitKeyType, boolean isFirstSplit, boolean isLastSplit);
 
     /**
      * Checks whether split column is evenly distributed across its range.
