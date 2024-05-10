@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonError;
@@ -56,17 +57,16 @@ public class JsonReadStrategy extends AbstractReadStrategy {
                     pluginConfig.getString(BaseSourceConfigOptions.COMPRESS_CODEC.key());
             compressFormat = CompressFormat.valueOf(compressCodec.toUpperCase());
         }
-        encoding =
+        this.encoding =
                 ReadonlyConfig.fromConfig(pluginConfig)
                         .getOptional(BaseSourceConfigOptions.ENCODING)
                         .orElse(StandardCharsets.UTF_8.name());
-        CatalogTable catalogTable1 = super.catalogTable;
+        this.catalogTable = CatalogTableUtil.buildWithConfig(pluginConfig);
     }
 
     @Override
     public void setSeaTunnelRowTypeInfo(SeaTunnelRowType seaTunnelRowType) {
         super.setSeaTunnelRowTypeInfo(seaTunnelRowType);
-        catalogTable = super.catalogTable;
         if (isMergePartition) {
             deserializationSchema = new JsonDeserializationSchema(catalogTable, false, false);
         } else {
