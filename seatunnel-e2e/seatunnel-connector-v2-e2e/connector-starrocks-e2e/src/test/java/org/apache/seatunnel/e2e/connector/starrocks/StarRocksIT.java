@@ -485,7 +485,7 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
         batchInsertData(INIT_DATA_SQL_3);
         assertHasData(SOURCE_TABLE_3);
         Container.ExecResult execResult =
-                container.executeJob("/starrocks_to_assert_with_multipletable.conf");
+                container.executeJob("/starrocks-to-assert-with-multipletable.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
         deleteTable(SOURCE_TABLE_3);
     }
