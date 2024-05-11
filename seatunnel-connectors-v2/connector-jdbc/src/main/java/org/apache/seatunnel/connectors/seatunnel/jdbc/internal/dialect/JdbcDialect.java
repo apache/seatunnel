@@ -75,6 +75,10 @@ public interface JdbcDialect extends Serializable {
      */
     JdbcDialectTypeMapper getJdbcDialectTypeMapper();
 
+    default String hashModForField(String nativeType, String fieldName, int mod) {
+        return hashModForField(fieldName, mod);
+    }
+
     default String hashModForField(String fieldName, int mod) {
         return "ABS(MD5(" + quoteIdentifier(fieldName) + ") % " + mod + ")";
     }
@@ -404,5 +408,16 @@ public interface JdbcDialect extends Serializable {
     default JdbcConnectionProvider getJdbcConnectionProvider(
             JdbcConnectionConfig jdbcConnectionConfig) {
         return new SimpleJdbcConnectionProvider(jdbcConnectionConfig);
+    }
+
+    /**
+     * Cast column type e.g. CAST(column AS type)
+     *
+     * @param columnName
+     * @param columnType
+     * @return the text of converted column type.
+     */
+    default String convertType(String columnName, String columnType) {
+        return columnName;
     }
 }
