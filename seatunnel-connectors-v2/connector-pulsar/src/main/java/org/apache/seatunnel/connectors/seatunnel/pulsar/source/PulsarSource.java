@@ -53,6 +53,7 @@ import org.apache.seatunnel.connectors.seatunnel.pulsar.source.enumerator.discov
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.format.PulsarCanalDecorator;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.reader.PulsarSourceReader;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.split.PulsarPartitionSplit;
+import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 import org.apache.seatunnel.format.json.canal.CanalJsonDeserializationSchema;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
@@ -307,8 +308,7 @@ public class PulsarSource
             }
             switch (format.toUpperCase()) {
                 case "JSON":
-                    //                    deserializationSchema = new
-                    // JsonDeserializationSchema(false, false, typeInfo);
+                    deserializationSchema = new JsonDeserializationSchema(false, false, typeInfo);
                     break;
                 case "CANAL_JSON":
                     deserializationSchema =
@@ -324,8 +324,7 @@ public class PulsarSource
             }
         } else {
             typeInfo = CatalogTableUtil.buildSimpleTextSchema();
-            //            this.deserializationSchema = new JsonDeserializationSchema(false, false,
-            // typeInfo);
+            this.deserializationSchema = new JsonDeserializationSchema(false, false, typeInfo);
         }
     }
 
