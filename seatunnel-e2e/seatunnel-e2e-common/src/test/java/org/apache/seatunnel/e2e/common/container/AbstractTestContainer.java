@@ -104,12 +104,12 @@ public abstract class AbstractTestContainer implements TestContainer {
         final String confInContainerPath = copyConfigFileToContainer(container, confFile);
         // copy connectors
         LOG.info(
-                "Container[{}] Server SR Log:"
+                "Container[{}] Server SR Log: \n"
                         + "\n==================== Server SR Log====================\n"
-                        + "{}"
-                        + "ModulePath: {}"
-                        + "namePrefix: {}"
-                        + "connectorType: {}"
+                        + "{}\n"
+                        + "ModulePath: {}\n"
+                        + "namePrefix: {}\n"
+                        + "connectorType: {}\n"
                         + "\n==================== Server SR Log end   ====================",
                 container.getDockerImageName(),
                 confFile,
