@@ -177,12 +177,26 @@ public class ZetaSQLType {
             SeaTunnelDataType<?> leftType = getExpressionType(binaryExpression.getLeftExpression());
             SeaTunnelDataType<?> rightType =
                     getExpressionType(binaryExpression.getRightExpression());
-            if (leftType.getSqlType() == SqlType.INT && rightType.getSqlType() == SqlType.INT) {
+            if ((leftType.getSqlType() == SqlType.TINYINT
+                            || leftType.getSqlType() == SqlType.SMALLINT
+                            || leftType.getSqlType() == SqlType.INT)
+                    && (rightType.getSqlType() == SqlType.TINYINT
+                            || rightType.getSqlType() == SqlType.SMALLINT
+                            || rightType.getSqlType() == SqlType.INT)) {
                 return BasicType.INT_TYPE;
             }
-            if ((leftType.getSqlType() == SqlType.INT || leftType.getSqlType() == SqlType.BIGINT)
-                    && (rightType.getSqlType() == SqlType.INT
-                            || rightType.getSqlType() == SqlType.BIGINT)) {
+            if ((leftType.getSqlType() == SqlType.TINYINT
+                            || leftType.getSqlType() == SqlType.SMALLINT
+                            || leftType.getSqlType() == SqlType.INT
+                            || leftType.getSqlType() == SqlType.BIGINT)
+                    && rightType.getSqlType() == SqlType.BIGINT) {
+                return BasicType.LONG_TYPE;
+            }
+            if ((rightType.getSqlType() == SqlType.TINYINT
+                            || rightType.getSqlType() == SqlType.SMALLINT
+                            || rightType.getSqlType() == SqlType.INT
+                            || rightType.getSqlType() == SqlType.BIGINT)
+                    && leftType.getSqlType() == SqlType.BIGINT) {
                 return BasicType.LONG_TYPE;
             }
             if (leftType.getSqlType() == SqlType.DECIMAL

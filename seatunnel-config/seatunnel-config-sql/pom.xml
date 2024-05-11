@@ -22,43 +22,40 @@
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>org.apache.seatunnel</groupId>
-        <artifactId>seatunnel-core</artifactId>
+        <artifactId>seatunnel-config</artifactId>
         <version>${revision}</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
+    <artifactId>seatunnel-config-sql</artifactId>
+    <name>SeaTunnel : Config : SQL</name>
 
-    <artifactId>seatunnel-core-starter</artifactId>
-    <name>SeaTunnel : Core : Core Starter</name>
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <maven.compiler.source>${java.version}</maven.compiler.source>
+        <maven.compiler.target>${java.version}</maven.compiler.target>
+        <skip.pmd.check>true</skip.pmd.check>
+    </properties>
 
     <dependencies>
-
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-api</artifactId>
             <version>${project.version}</version>
         </dependency>
-
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-config-sql</artifactId>
+            <artifactId>seatunnel-common</artifactId>
             <version>${project.version}</version>
         </dependency>
-
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-plugin-discovery</artifactId>
+            <artifactId>seatunnel-config-shade</artifactId>
             <version>${project.version}</version>
         </dependency>
-
         <dependency>
-            <groupId>org.apache.commons</groupId>
-            <artifactId>commons-compress</artifactId>
+            <groupId>com.github.jsqlparser</groupId>
+            <artifactId>jsqlparser</artifactId>
+            <version>${jsqlparser.version}</version>
         </dependency>
-
-        <dependency>
-            <groupId>com.beust</groupId>
-            <artifactId>jcommander</artifactId>
-        </dependency>
-
     </dependencies>
 </project>
