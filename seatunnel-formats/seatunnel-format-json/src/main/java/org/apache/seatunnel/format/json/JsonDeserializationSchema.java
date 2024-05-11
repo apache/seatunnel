@@ -73,6 +73,14 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
         this.failOnMissingField = failOnMissingField;
         this.ignoreParseErrors = ignoreParseErrors;
         this.rowType = checkNotNull(rowType);
+        this.runtimeConverter =
+                new JsonToRowConverters(failOnMissingField, ignoreParseErrors)
+                        .createRowConverter(checkNotNull(rowType));
+
+        if (hasDecimalType(rowType)) {
+            objectMapper.enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS);
+        }
+        objectMapper.configure(JsonReadFeature.ALLOW_UNESCAPED_CONTROL_CHARS.mappedFeature(), true);
     }
 
     public JsonDeserializationSchema(
