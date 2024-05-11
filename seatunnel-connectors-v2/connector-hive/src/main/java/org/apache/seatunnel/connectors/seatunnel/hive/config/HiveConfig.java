@@ -17,10 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hive.config;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
+
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class HiveConfig {
@@ -29,11 +32,17 @@ public class HiveConfig {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("Hive table name");
+
     public static final Option<String> METASTORE_URI =
             Options.key("metastore_uri")
                     .stringType()
                     .noDefaultValue()
                     .withDescription("Hive metastore uri");
+    public static final Option<String> HIVE_JDBC_URL =
+            Options.key("hive_jdbc_url")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("hive jdbc url.");
 
     public static final Option<Boolean> ABORT_DROP_PARTITION_METADATA =
             Options.key("abort_drop_partition_metadata")
@@ -60,4 +69,10 @@ public class HiveConfig {
                     .noDefaultValue()
                     .withDescription(
                             "The specified loading path for the 'core-site.xml', 'hdfs-site.xml' files");
+    public static final Option<List<Map<String, Object>>> TABLE_CONFIGS =
+            Options.key("tables_configs")
+                    .type(new TypeReference<List<Map<String, Object>>>() {})
+                    .noDefaultValue()
+                    .withDescription(
+                            "Local file source configs, used to create multiple local file source.");
 }

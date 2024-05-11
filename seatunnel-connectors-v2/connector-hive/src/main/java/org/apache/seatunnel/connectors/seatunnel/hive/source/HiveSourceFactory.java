@@ -27,7 +27,6 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConstants;
-import org.apache.seatunnel.connectors.seatunnel.hive.source.config.HiveSourceOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -49,9 +48,8 @@ public class HiveSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .optional(HiveConfig.TABLE_NAME)
-                .optional(HiveConfig.METASTORE_URI)
-                .optional(HiveSourceOptions.TABLE_CONFIGS)
+                .required(HiveConfig.METASTORE_URI, HiveConfig.TABLE_NAME)
+                .optional(HiveConfig.TABLE_CONFIGS)
                 .optional(BaseSourceConfigOptions.READ_PARTITIONS)
                 .optional(BaseSourceConfigOptions.READ_COLUMNS)
                 .optional(BaseSourceConfigOptions.KERBEROS_PRINCIPAL)

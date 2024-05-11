@@ -66,6 +66,5 @@
             <artifactId>connector-assert</artifactId>
             <version>${project.version}</version>
         </dependency>
-
     </dependencies>
 </project>

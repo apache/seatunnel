@@ -15,40 +15,37 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.hive.utils;
+package org.apache.seatunnel.connectors.seatunnel.hive.catalog;
 
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConstants;
-import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.hive.source.config.HiveSourceOptions;
 
-import org.apache.hadoop.hive.metastore.api.Table;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 
-public class HiveTableUtils {
+import java.util.Map;
 
-    public static Table getTableInfo(ReadonlyConfig readonlyConfig) {
-        String table = readonlyConfig.get(HiveSourceOptions.TABLE_NAME);
-        TablePath tablePath = TablePath.of(table);
-        if (tablePath.getDatabaseName() == null || tablePath.getTableName() == null) {
-            throw new SeaTunnelRuntimeException(
-                    HiveConnectorErrorCode.HIVE_TABLE_NAME_ERROR, "Current table name is " + table);
-        }
-        HiveMetaStoreProxy hiveMetaStoreProxy = HiveMetaStoreProxy.getInstance(readonlyConfig);
-        try {
-            return hiveMetaStoreProxy.getTable(
-                    tablePath.getDatabaseName(), tablePath.getTableName());
-        } finally {
-            hiveMetaStoreProxy.close();
-        }
+@Getter
+@AllArgsConstructor
+public class HiveTable {
+
+    private CatalogTable catalogTable;
+    private Map<String, String> tableParameters;
+    private FileFormat inputFormat;
+    private String location;
+
+    public static HiveTable of(
+            CatalogTable catalogTable,
+            Map<String, String> tableParameters,
+            String inputFormat,
+            String location) {
+        return new HiveTable(catalogTable, tableParameters, parseFormat(inputFormat), location);
     }
 
-    public static FileFormat parseFileFormat(Table table) {
-        String inputFormat = table.getSd().getInputFormat();
+    private static FileFormat parseFormat(String inputFormat) {
         if (HiveConstants.TEXT_INPUT_FORMAT_CLASSNAME.equals(inputFormat)) {
             return FileFormat.TEXT;
         }

@@ -15,20 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.hive.storage;
+package org.apache.seatunnel.e2e.connector.hive;
 
-public class StorageFactory {
-    public static Storage getStorageType(String hiveSdLocation) {
-        if (hiveSdLocation.startsWith(StorageType.S3.name().toLowerCase())) {
-            return new S3Storage();
-        } else if (hiveSdLocation.startsWith(StorageType.OSS.name().toLowerCase())) {
-            return new OSSStorage();
-        } else if (hiveSdLocation.startsWith(StorageType.COS.name().toLowerCase())) {
-            return new COSStorage();
-        } else if (hiveSdLocation.startsWith(StorageType.FILE.name().toLowerCase())) {
-            return new LocalFileStorage();
-        } else {
-            return new HDFSStorage(hiveSdLocation);
-        }
-    }
-}
+import org.junit.jupiter.api.Disabled;
+
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
+@Disabled(
+        "Need both start hive metastore and hive server2, you can start the docker-compose in your local env, and run the test within example module.")
+public class HiveSaveModeIT {}

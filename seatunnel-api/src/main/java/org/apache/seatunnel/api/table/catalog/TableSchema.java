@@ -93,6 +93,10 @@ public final class TableSchema implements Serializable {
             return this;
         }
 
+        public int currentColumnSize() {
+            return columns.size();
+        }
+
         public TableSchema build() {
             return new TableSchema(columns, primaryKey, constraintKeys);
         }

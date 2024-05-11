@@ -31,6 +31,7 @@
 
     <properties>
         <hive.exec.version>3.1.3</hive.exec.version>
+        <hive.jdbc.version>3.1.3</hive.jdbc.version>
         <connector.name>connector.hive</connector.name>
     </properties>
 
@@ -59,6 +60,11 @@
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-file-cos</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>connector-file-local</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
@@ -115,6 +121,18 @@
                 <exclusion>
                     <groupId>org.apache.avro</groupId>
                     <artifactId>avro</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.hive</groupId>
+            <artifactId>hive-jdbc</artifactId>
+            <version>${hive.jdbc.version}</version>
+            <scope>provided</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>jdk.tools</groupId>
+                    <artifactId>jdk.tools</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
