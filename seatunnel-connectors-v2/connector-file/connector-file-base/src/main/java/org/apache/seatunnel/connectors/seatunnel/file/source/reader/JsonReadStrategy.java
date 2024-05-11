@@ -20,8 +20,6 @@ package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
-import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonError;
@@ -47,7 +45,6 @@ public class JsonReadStrategy extends AbstractReadStrategy {
     private DeserializationSchema<SeaTunnelRow> deserializationSchema;
     private CompressFormat compressFormat = BaseSourceConfigOptions.COMPRESS_CODEC.defaultValue();
     private String encoding = BaseSourceConfigOptions.ENCODING.defaultValue();
-    private CatalogTable catalogTable;
 
     @Override
     public void init(HadoopConf conf) {
@@ -57,20 +54,21 @@ public class JsonReadStrategy extends AbstractReadStrategy {
                     pluginConfig.getString(BaseSourceConfigOptions.COMPRESS_CODEC.key());
             compressFormat = CompressFormat.valueOf(compressCodec.toUpperCase());
         }
-        this.encoding =
+        encoding =
                 ReadonlyConfig.fromConfig(pluginConfig)
                         .getOptional(BaseSourceConfigOptions.ENCODING)
                         .orElse(StandardCharsets.UTF_8.name());
-        this.catalogTable = CatalogTableUtil.buildWithConfig(pluginConfig);
     }
 
     @Override
     public void setSeaTunnelRowTypeInfo(SeaTunnelRowType seaTunnelRowType) {
         super.setSeaTunnelRowTypeInfo(seaTunnelRowType);
         if (isMergePartition) {
-            deserializationSchema = new JsonDeserializationSchema(catalogTable, false, false);
+            deserializationSchema =
+                    new JsonDeserializationSchema(false, false, this.seaTunnelRowTypeWithPartition);
         } else {
-            deserializationSchema = new JsonDeserializationSchema(catalogTable, false, false);
+            deserializationSchema =
+                    new JsonDeserializationSchema(false, false, this.seaTunnelRowType);
         }
     }
 

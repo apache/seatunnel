@@ -68,12 +68,12 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
 
     private CatalogTable catalogTable;
 
-    //    public JsonDeserializationSchema(
-    //            boolean failOnMissingField, boolean ignoreParseErrors, SeaTunnelRowType rowType) {
-    //        this.failOnMissingField = failOnMissingField;
-    //        this.ignoreParseErrors = ignoreParseErrors;
-    //        this.rowType = checkNotNull(rowType);
-    //    }
+    public JsonDeserializationSchema(
+            boolean failOnMissingField, boolean ignoreParseErrors, SeaTunnelRowType rowType) {
+        this.failOnMissingField = failOnMissingField;
+        this.ignoreParseErrors = ignoreParseErrors;
+        this.rowType = checkNotNull(rowType);
+    }
 
     public JsonDeserializationSchema(
             CatalogTable catalogTable, boolean failOnMissingField, boolean ignoreParseErrors) {
