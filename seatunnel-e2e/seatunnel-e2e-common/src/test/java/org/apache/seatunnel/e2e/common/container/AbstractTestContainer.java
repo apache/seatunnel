@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.e2e.common.container;
 
+import groovy.util.logging.Slf4j;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
 import org.slf4j.Logger;
@@ -34,7 +35,6 @@ import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PA
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.adaptPathForWin;
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.copyConfigFileToContainer;
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.copyConnectorJarToContainer;
-
 public abstract class AbstractTestContainer implements TestContainer {
 
     protected static final Logger LOG = LoggerFactory.getLogger(AbstractTestContainer.class);
@@ -103,6 +103,19 @@ public abstract class AbstractTestContainer implements TestContainer {
             throws IOException, InterruptedException {
         final String confInContainerPath = copyConfigFileToContainer(container, confFile);
         // copy connectors
+        LOG.info(
+                "Container[{}] Server SR Log:"
+                        + "\n==================== Server SR Log====================\n"
+                        + "{}"
+                        + "ModulePath: {}"
+                        + "namePrefix: {}"
+                        + "connectorType: {}"
+                        + "\n==================== Server SR Log end   ====================",
+                container.getDockerImageName(),
+                confFile,
+                getConnectorModulePath(),
+                getConnectorNamePrefix(),
+                getConnectorType());
         copyConnectorJarToContainer(
                 container,
                 confFile,

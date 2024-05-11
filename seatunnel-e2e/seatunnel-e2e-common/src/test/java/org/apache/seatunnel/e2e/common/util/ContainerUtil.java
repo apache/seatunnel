@@ -91,6 +91,8 @@ public final class ContainerUtil {
         connectorNames.addAll(getConnectors(jobConfig, connectors, "sink"));
         File module = new File(PROJECT_ROOT_PATH + File.separator + connectorsRootPath);
 
+        log.info("sr-module: {}", module);
+        log.info("sr-module-PATH: {}", module.getAbsolutePath());
         List<File> connectorFiles = getConnectorFiles(module, connectorNames, connectorPrefix);
         connectorFiles.forEach(
                 jar ->
@@ -224,6 +226,7 @@ public final class ContainerUtil {
     public static List<File> getConnectorFiles(
             File currentModule, Set<String> connectorNames, String connectorPrefix) {
         List<File> connectorFiles = new ArrayList<>();
+
         for (File file : Objects.requireNonNull(currentModule.listFiles())) {
             getConnectorFiles(file, connectorNames, connectorPrefix, connectorFiles);
         }
