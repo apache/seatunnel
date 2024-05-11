@@ -20,10 +20,13 @@ package org.apache.seatunnel.e2e.sink.inmemory;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
+import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSink;
+import org.apache.seatunnel.api.sink.SupportSaveMode;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import java.io.IOException;
@@ -35,11 +38,14 @@ public class InMemorySink
                         InMemoryState,
                         InMemoryCommitInfo,
                         InMemoryAggregatedCommitInfo>,
-                SupportMultiTableSink {
+                SupportMultiTableSink,
+                SupportSaveMode {
 
     private ReadonlyConfig config;
+    private CatalogTable catalogTable;
 
-    public InMemorySink(ReadonlyConfig config) {
+    public InMemorySink(CatalogTable catalogTable, ReadonlyConfig config) {
+        this.catalogTable = catalogTable;
         this.config = config;
     }
 
@@ -68,5 +74,10 @@ public class InMemorySink
     @Override
     public Optional<Serializer<InMemoryAggregatedCommitInfo>> getAggregatedCommitInfoSerializer() {
         return Optional.of(new DefaultSerializer<>());
+    }
+
+    @Override
+    public Optional<SaveModeHandler> getSaveModeHandler() {
+        return Optional.of(new InMemorySaveModeHandler(catalogTable));
     }
 }

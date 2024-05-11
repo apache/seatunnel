@@ -77,6 +77,11 @@ public class JdbcSinkWriter
     public MultiTableResourceManager<ConnectionPoolManager> initMultiTableResourceManager(
             int tableSize, int queueSize) {
         HikariDataSource ds = new HikariDataSource();
+        try {
+            Class.forName(jdbcSinkConfig.getJdbcConnectionConfig().getDriverName());
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
         ds.setIdleTimeout(30 * 1000);
         ds.setMaximumPoolSize(queueSize);
         ds.setJdbcUrl(jdbcSinkConfig.getJdbcConnectionConfig().getUrl());
