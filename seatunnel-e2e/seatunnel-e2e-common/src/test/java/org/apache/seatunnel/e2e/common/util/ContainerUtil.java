@@ -242,12 +242,21 @@ public final class ContainerUtil {
             Set<String> connectorNames,
             String connectorPrefix,
             List<File> connectors) {
+
+        log.error("getConnectorFiles-connectorNames.size(): {}. \n ", connectorNames.size());
+        log.error("getConnectorFiles-connectors.size(): {}. \n ", connectors.size());
         if (currentModule.isFile() || connectorNames.size() == connectors.size()) {
             return;
         }
         if (connectorNames.contains(currentModule.getName())) {
+            log.error(
+                    "getConnectorFiles-currentModule.getName()(): {}. \n ",
+                    currentModule.getName());
             File targetPath = new File(currentModule.getAbsolutePath() + File.separator + "target");
+            log.error("getConnectorFiles-targetPath: {}. \n ", targetPath);
             for (File file : Objects.requireNonNull(targetPath.listFiles())) {
+                log.error("getConnectorFiles-file: {}. \n ", file);
+                log.error("getConnectorFiles-file.getName(): {}. \n ", file.getName());
                 if (file.getName().startsWith(currentModule.getName())
                         && !file.getName().endsWith("javadoc.jar")
                         && !file.getName().endsWith("tests.jar")) {
