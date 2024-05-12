@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.serialize;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
-import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -171,7 +170,7 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
                 return AttributeValue.builder().m(resultMap).build();
             case L:
                 ArrayType<?, ?> arrayType = (ArrayType<?, ?>) seaTunnelDataType;
-                BasicType<?> elementType = arrayType.getElementType();
+                SeaTunnelDataType<?> elementType = arrayType.getElementType();
                 Object[] l = (Object[]) value;
                 return AttributeValue.builder()
                         .l(

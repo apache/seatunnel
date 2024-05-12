@@ -24,14 +24,21 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import io.debezium.relational.Column;
+import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
 
 public class PostgresUtilsTest {
     @Test
     public void testSplitScanQuery() {
+        Table table =
+                Table.editor()
+                        .tableId(TableId.parse("db1.schema1.table1"))
+                        .addColumn(Column.editor().name("id").type("int8").create())
+                        .create();
         String splitScanSQL =
                 PostgresUtils.buildSplitScanQuery(
-                        TableId.parse("db1.schema1.table1"),
+                        table,
                         new SeaTunnelRowType(
                                 new String[] {"id"}, new SeaTunnelDataType[] {BasicType.LONG_TYPE}),
                         false,
@@ -42,7 +49,7 @@ public class PostgresUtilsTest {
 
         splitScanSQL =
                 PostgresUtils.buildSplitScanQuery(
-                        TableId.parse("db1.schema1.table1"),
+                        table,
                         new SeaTunnelRowType(
                                 new String[] {"id"}, new SeaTunnelDataType[] {BasicType.LONG_TYPE}),
                         true,
@@ -51,7 +58,7 @@ public class PostgresUtilsTest {
 
         splitScanSQL =
                 PostgresUtils.buildSplitScanQuery(
-                        TableId.parse("db1.schema1.table1"),
+                        table,
                         new SeaTunnelRowType(
                                 new String[] {"id"}, new SeaTunnelDataType[] {BasicType.LONG_TYPE}),
                         true,
@@ -60,14 +67,20 @@ public class PostgresUtilsTest {
                 "SELECT * FROM \"schema1\".\"table1\" WHERE \"id\" <= ? AND NOT (\"id\" = ?)",
                 splitScanSQL);
 
+        table =
+                Table.editor()
+                        .tableId(TableId.parse("db1.schema1.table1"))
+                        .addColumn(Column.editor().name("id").type("uuid").create())
+                        .create();
         splitScanSQL =
                 PostgresUtils.buildSplitScanQuery(
-                        TableId.parse("db1.schema1.table1"),
+                        table,
                         new SeaTunnelRowType(
-                                new String[] {"id"}, new SeaTunnelDataType[] {BasicType.LONG_TYPE}),
+                                new String[] {"id"},
+                                new SeaTunnelDataType[] {BasicType.STRING_TYPE}),
                         false,
                         true);
         Assertions.assertEquals(
-                "SELECT * FROM \"schema1\".\"table1\" WHERE \"id\" >= ?", splitScanSQL);
+                "SELECT * FROM \"schema1\".\"table1\" WHERE \"id\"::text >= ?", splitScanSQL);
     }
 }

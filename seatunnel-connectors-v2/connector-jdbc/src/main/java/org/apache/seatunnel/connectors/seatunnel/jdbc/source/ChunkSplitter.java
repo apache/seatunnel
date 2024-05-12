@@ -113,15 +113,16 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
     protected abstract Collection<JdbcSourceSplit> createSplits(
             JdbcSourceTable table, SeaTunnelRowType splitKeyType) throws SQLException;
 
-    public PreparedStatement generateSplitStatement(JdbcSourceSplit split) throws SQLException {
+    public PreparedStatement generateSplitStatement(JdbcSourceSplit split, TableSchema schema)
+            throws SQLException {
         if (split.getSplitKeyName() == null) {
             return createSingleSplitStatement(split);
         }
-        return createSplitStatement(split);
+        return createSplitStatement(split, schema);
     }
 
-    protected abstract PreparedStatement createSplitStatement(JdbcSourceSplit split)
-            throws SQLException;
+    protected abstract PreparedStatement createSplitStatement(
+            JdbcSourceSplit split, TableSchema schema) throws SQLException;
 
     protected PreparedStatement createPreparedStatement(String sql) throws SQLException {
         Connection connection = getOrEstablishConnection();
@@ -174,7 +175,13 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
     protected Object queryMin(JdbcSourceTable table, String columnName, Object excludedLowerBound)
             throws SQLException {
         String minQuery;
+        Map<String, Column> columns =
+                table.getCatalogTable().getTableSchema().getColumns().stream()
+                        .collect(Collectors.toMap(c -> c.getName(), c -> c));
+        Column column = columns.get(columnName);
+
         columnName = jdbcDialect.quoteIdentifier(columnName);
+        columnName = jdbcDialect.convertType(columnName, column.getSourceType());
         if (StringUtils.isNotBlank(table.getQuery())) {
             minQuery =
                     String.format(
@@ -206,7 +213,13 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
     protected Pair<Object, Object> queryMinMax(JdbcSourceTable table, String columnName)
             throws SQLException {
         String sqlQuery;
+        Map<String, Column> columns =
+                table.getCatalogTable().getTableSchema().getColumns().stream()
+                        .collect(Collectors.toMap(c -> c.getName(), c -> c));
+        Column column = columns.get(columnName);
+
         columnName = jdbcDialect.quoteIdentifier(columnName);
+        columnName = jdbcDialect.convertType(columnName, column.getSourceType());
         if (StringUtils.isNotBlank(table.getQuery())) {
             sqlQuery =
                     String.format(

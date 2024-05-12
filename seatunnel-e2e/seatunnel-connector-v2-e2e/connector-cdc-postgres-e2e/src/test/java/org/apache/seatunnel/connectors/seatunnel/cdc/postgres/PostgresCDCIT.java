@@ -307,7 +307,7 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
 
             Pattern jobIdPattern =
                     Pattern.compile(
-                            ".*Init JobMaster for Job SeaTunnel_Job \\(([0-9]*)\\).*",
+                            ".*Init JobMaster for Job pgcdc_to_pg_with_multi_table_mode_one_table.conf \\(([0-9]*)\\).*",
                             Pattern.DOTALL);
             Matcher matcher = jobIdPattern.matcher(container.getServerLogs());
             String jobId;
@@ -412,7 +412,7 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
 
             Pattern jobIdPattern =
                     Pattern.compile(
-                            ".*Init JobMaster for Job SeaTunnel_Job \\(([0-9]*)\\).*",
+                            ".*Init JobMaster for Job postgrescdc_to_postgres_test_add_Filed.conf \\(([0-9]*)\\).*",
                             Pattern.DOTALL);
             Matcher matcher = jobIdPattern.matcher(container.getServerLogs());
             String jobId;

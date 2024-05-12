@@ -343,7 +343,7 @@ public class RowTypeConverter {
                                     .getValueType();
                     return DataTypes.MAP(visit(fieldName, keyType), visit(fieldName, valueType));
                 case ARRAY:
-                    BasicType<?> elementType =
+                    SeaTunnelDataType<?> elementType =
                             ((org.apache.seatunnel.api.table.type.ArrayType<?, ?>) dataType)
                                     .getElementType();
                     return DataTypes.ARRAY(visit(fieldName, elementType));

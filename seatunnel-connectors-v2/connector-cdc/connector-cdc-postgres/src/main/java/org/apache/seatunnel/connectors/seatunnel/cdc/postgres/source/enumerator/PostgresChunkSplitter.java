@@ -27,6 +27,7 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.utils.PostgresUtil
 
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.Column;
+import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
 import lombok.extern.slf4j.Slf4j;
 
@@ -43,14 +44,27 @@ public class PostgresChunkSplitter extends AbstractJdbcSourceChunkSplitter {
     @Override
     public Object[] queryMinMax(JdbcConnection jdbc, TableId tableId, String columnName)
             throws SQLException {
-        return PostgresUtils.queryMinMax(jdbc, tableId, columnName);
+        return PostgresUtils.queryMinMax(jdbc, tableId, columnName, null);
+    }
+
+    @Override
+    public Object[] queryMinMax(JdbcConnection jdbc, TableId tableId, Column column)
+            throws SQLException {
+        return PostgresUtils.queryMinMax(jdbc, tableId, column.name(), column);
     }
 
     @Override
     public Object queryMin(
             JdbcConnection jdbc, TableId tableId, String columnName, Object excludedLowerBound)
             throws SQLException {
-        return PostgresUtils.queryMin(jdbc, tableId, columnName, excludedLowerBound);
+        return PostgresUtils.queryMin(jdbc, tableId, columnName, null, excludedLowerBound);
+    }
+
+    @Override
+    public Object queryMin(
+            JdbcConnection jdbc, TableId tableId, Column column, Object excludedLowerBound)
+            throws SQLException {
+        return PostgresUtils.queryMin(jdbc, tableId, column.name(), column, excludedLowerBound);
     }
 
     @Override
@@ -58,7 +72,15 @@ public class PostgresChunkSplitter extends AbstractJdbcSourceChunkSplitter {
             JdbcConnection jdbc, TableId tableId, String columnName, int inverseSamplingRate)
             throws SQLException {
         return PostgresUtils.skipReadAndSortSampleData(
-                jdbc, tableId, columnName, inverseSamplingRate);
+                jdbc, tableId, columnName, null, inverseSamplingRate);
+    }
+
+    @Override
+    public Object[] sampleDataFromColumn(
+            JdbcConnection jdbc, TableId tableId, Column column, int inverseSamplingRate)
+            throws SQLException {
+        return PostgresUtils.skipReadAndSortSampleData(
+                jdbc, tableId, column.name(), column, inverseSamplingRate);
     }
 
     @Override
@@ -70,7 +92,19 @@ public class PostgresChunkSplitter extends AbstractJdbcSourceChunkSplitter {
             Object includedLowerBound)
             throws SQLException {
         return PostgresUtils.queryNextChunkMax(
-                jdbc, tableId, columnName, chunkSize, includedLowerBound);
+                jdbc, tableId, columnName, null, chunkSize, includedLowerBound);
+    }
+
+    @Override
+    public Object queryNextChunkMax(
+            JdbcConnection jdbc,
+            TableId tableId,
+            Column column,
+            int chunkSize,
+            Object includedLowerBound)
+            throws SQLException {
+        return PostgresUtils.queryNextChunkMax(
+                jdbc, tableId, column.name(), column, chunkSize, includedLowerBound);
     }
 
     @Override
@@ -80,11 +114,8 @@ public class PostgresChunkSplitter extends AbstractJdbcSourceChunkSplitter {
 
     @Override
     public String buildSplitScanQuery(
-            TableId tableId,
-            SeaTunnelRowType splitKeyType,
-            boolean isFirstSplit,
-            boolean isLastSplit) {
-        return PostgresUtils.buildSplitScanQuery(tableId, splitKeyType, isFirstSplit, isLastSplit);
+            Table table, SeaTunnelRowType splitKeyType, boolean isFirstSplit, boolean isLastSplit) {
+        return PostgresUtils.buildSplitScanQuery(table, splitKeyType, isFirstSplit, isLastSplit);
     }
 
     @Override
