@@ -220,8 +220,8 @@ public class CommonError {
         return new SeaTunnelRuntimeException(UNSUPPORTED_ARRAY_GENERIC_TYPE, params);
     }
 
-    public static SeaTunnelRuntimeException unsupportedRowKind(String identifier,
-                                                               String tableId, String rowKind) {
+    public static SeaTunnelRuntimeException unsupportedRowKind(
+            String identifier, String tableId, String rowKind) {
         Map<String, String> params = new HashMap<>();
         params.put("identifier", identifier);
         params.put("tableId", tableId);
