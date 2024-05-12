@@ -18,8 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.paimon.utils;
 
 import org.apache.seatunnel.api.table.type.RowKind;
-import org.apache.seatunnel.common.exception.CommonError;
-import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig;
 
 import org.apache.paimon.data.InternalRow;
 
@@ -27,12 +25,11 @@ public class RowKindConverter {
 
     /**
      * Convert SeaTunnel RowKind {@link RowKind} to Paimon RowKind {@link InternalRow}
-     * @param tableId Table identifier
+     *
      * @param seaTunnelRowKind The kind of change that a row describes in a changelog.
      * @return
      */
     public static org.apache.paimon.types.RowKind convertSeaTunnelRowKind2PaimonRowKind(
-            String tableId,
             RowKind seaTunnelRowKind) {
         switch (seaTunnelRowKind) {
             case DELETE:
@@ -44,8 +41,7 @@ public class RowKindConverter {
             case INSERT:
                 return org.apache.paimon.types.RowKind.INSERT;
             default:
-                throw CommonError.unsupportedRowKind(
-                        PaimonConfig.CONNECTOR_IDENTITY, seaTunnelRowKind.shortString(), tableId);
+                return null;
         }
     }
 }

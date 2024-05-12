@@ -54,7 +54,6 @@ import org.apache.paimon.types.TinyIntType;
 import org.apache.paimon.types.VarBinaryType;
 import org.apache.paimon.types.VarCharType;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
@@ -169,7 +168,8 @@ public class RowTypeConverter {
                 if (seaTunnelDataType == null) {
                     throw CommonError.unsupportedArrayGenericType(
                             PaimonConfig.CONNECTOR_IDENTITY,
-                            dataType.getTypeRoot().toString(), typeDefine.getName());
+                            dataType.getTypeRoot().toString(),
+                            typeDefine.getName());
                 }
                 break;
             case MAP:
@@ -180,7 +180,9 @@ public class RowTypeConverter {
                 break;
             default:
                 throw CommonError.unsupportedDataType(
-                        PaimonConfig.CONNECTOR_IDENTITY, dataType.asSQLString(), typeDefine.getName());
+                        PaimonConfig.CONNECTOR_IDENTITY,
+                        dataType.asSQLString(),
+                        typeDefine.getName());
         }
         return physicalColumnBuilder.dataType(seaTunnelDataType).build();
     }
@@ -195,21 +197,13 @@ public class RowTypeConverter {
         SeaTunnelDataType<?>[] fieldTypes = seaTunnelRowType.getFieldTypes();
         String[] fieldNames = seaTunnelRowType.getFieldNames();
         int totalFields = seaTunnelRowType.getTotalFields();
-        DataType[] dataTypes = new DataType[totalFields];
-        for (int i = 0; i < totalFields; i++) {
-            DataType dataType = SeaTunnelTypeToPaimonVisitor.INSTANCE.visit(fieldNames[i], fieldTypes[i]);
-            dataTypes[i] = dataType;
-        }
         List<DataField> fields = tableSchema.fields();
-//        DataType[] dataTypes =
-//                Arrays.stream(fieldTypes)
-//                        .map(SeaTunnelTypeToPaimonVisitor.INSTANCE::visit)
-//                        .toArray(DataType[]::new);
-        DataField[] dataFields = new DataField[dataTypes.length];
-        for (int i = 0; i < dataTypes.length; i++) {
-            DataType dataType = dataTypes[i];
+        DataField[] dataFields = new DataField[totalFields];
+        for (int i = 0; i < totalFields; i++) {
+            String fieldName = fieldNames[i];
+            DataType dataType =
+                    SeaTunnelTypeToPaimonVisitor.INSTANCE.visit(fieldName, fieldTypes[i]);
             DataTypeRoot typeRoot = dataType.getTypeRoot();
-            String fieldName = seaTunnelRowType.getFieldName(i);
             if (typeRoot.equals(DataTypeRoot.TIMESTAMP_WITHOUT_TIME_ZONE)
                     || typeRoot.equals(DataTypeRoot.TIMESTAMP_WITH_LOCAL_TIME_ZONE)) {
                 DataField dataField = SchemaUtil.getDataField(fields, fieldName);
@@ -232,7 +226,9 @@ public class RowTypeConverter {
     }
 
     /**
-     * Mapping SeaTunnel data type {@link SeaTunnelDataType} to Paimon data type {@link DataType}
+     * Mapping SeaTunnel data type {@link SeaTunnelDataType} of fieldName to Paimon data type {@link
+     * DataType}
+     *
      * @param fieldName SeaTunnel field name
      * @param dataType SeaTunnel data type {@link SeaTunnelDataType}
      * @return Paimon data type {@link DataType}
@@ -354,12 +350,16 @@ public class RowTypeConverter {
                     int totalFields = row.getTotalFields();
                     DataType[] dataTypes = new DataType[totalFields];
                     for (int i = 0; i < totalFields; i++) {
-                        dataTypes[i] = SeaTunnelTypeToPaimonVisitor.INSTANCE.visit(fieldNames[i], fieldTypes[i]);
+                        dataTypes[i] =
+                                SeaTunnelTypeToPaimonVisitor.INSTANCE.visit(
+                                        fieldNames[i], fieldTypes[i]);
                     }
                     return DataTypes.ROW(dataTypes);
                 default:
                     throw CommonError.unsupportedDataType(
-                            PaimonConfig.CONNECTOR_IDENTITY, dataType.getSqlType().toString(), fieldName);
+                            PaimonConfig.CONNECTOR_IDENTITY,
+                            dataType.getSqlType().toString(),
+                            fieldName);
             }
         }
     }
