@@ -212,10 +212,11 @@ public class CommonError {
     }
 
     public static SeaTunnelRuntimeException unsupportedArrayGenericType(
-            String identifier, String dataType) {
+            String identifier, String dataType, String fieldName) {
         Map<String, String> params = new HashMap<>();
         params.put("identifier", identifier);
         params.put("dataType", dataType);
+        params.put("fieldName", fieldName);
         return new SeaTunnelRuntimeException(UNSUPPORTED_ARRAY_GENERIC_TYPE, params);
     }
 

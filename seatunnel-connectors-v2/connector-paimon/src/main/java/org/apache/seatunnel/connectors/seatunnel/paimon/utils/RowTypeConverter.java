@@ -166,6 +166,11 @@ public class RowTypeConverter {
                 break;
             case ARRAY:
                 seaTunnelDataType = paimonToSeaTunnelTypeVisitor.visit((ArrayType) dataType);
+                if (seaTunnelDataType == null) {
+                    throw CommonError.unsupportedArrayGenericType(
+                            PaimonConfig.CONNECTOR_IDENTITY,
+                            dataType.getTypeRoot().toString(), typeDefine.getName());
+                }
                 break;
             case MAP:
                 seaTunnelDataType = paimonToSeaTunnelTypeVisitor.visit((MapType) dataType);
@@ -468,9 +473,7 @@ public class RowTypeConverter {
                 case DOUBLE:
                     return org.apache.seatunnel.api.table.type.ArrayType.DOUBLE_ARRAY_TYPE;
                 default:
-                    throw CommonError.unsupportedArrayGenericType(
-                            PaimonConfig.CONNECTOR_IDENTITY,
-                            seaTunnelArrayType.getSqlType().toString());
+                    return null;
             }
         }
 

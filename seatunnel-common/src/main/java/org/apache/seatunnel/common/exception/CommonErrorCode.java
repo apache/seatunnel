@@ -54,7 +54,7 @@ public enum CommonErrorCode implements SeaTunnelErrorCode {
             "The table of <tableName> has no <keyName>, but the template \n <template> \n which has the place holder named <placeholder>. Please use the option named <optionName> to specify sql template"),
     UNSUPPORTED_DATA_TYPE_SIMPLE("COMMON-25", "'<identifier>' unsupported data type '<dataType>'"),
     UNSUPPORTED_ARRAY_GENERIC_TYPE(
-            "COMMON-26", "'<identifier>' array type not support genericType '<genericType>'"),
+            "COMMON-26", "'<identifier>' array type not support genericType '<genericType>' of '<fieldName>'"),
     UNSUPPORTED_ROW_KIND("COMMON-27", "'<identifier>' table '<table>' not support rowKind  '<rowKind>'");
 
     private final String code;
