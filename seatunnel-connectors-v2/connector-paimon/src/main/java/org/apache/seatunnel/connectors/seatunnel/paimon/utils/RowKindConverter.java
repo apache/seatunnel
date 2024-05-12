@@ -27,13 +27,14 @@ public class RowKindConverter {
 
     /**
      * Convert SeaTunnel RowKind {@link RowKind} to Paimon RowKind {@link InternalRow}
-     *
-     * @param seaTunnelRowInd
+     * @param tableId Table identifier
+     * @param seaTunnelRowKind The kind of change that a row describes in a changelog.
      * @return
      */
     public static org.apache.paimon.types.RowKind convertSeaTunnelRowKind2PaimonRowKind(
-            RowKind seaTunnelRowInd) {
-        switch (seaTunnelRowInd) {
+            String tableId,
+            RowKind seaTunnelRowKind) {
+        switch (seaTunnelRowKind) {
             case DELETE:
                 return org.apache.paimon.types.RowKind.DELETE;
             case UPDATE_AFTER:
@@ -44,7 +45,7 @@ public class RowKindConverter {
                 return org.apache.paimon.types.RowKind.INSERT;
             default:
                 throw CommonError.unsupportedRowKind(
-                        PaimonConfig.CONNECTOR_IDENTITY, seaTunnelRowInd.shortString());
+                        PaimonConfig.CONNECTOR_IDENTITY, seaTunnelRowKind.shortString(), tableId);
         }
     }
 }

@@ -175,7 +175,7 @@ public class RowTypeConverter {
                 break;
             default:
                 throw CommonError.unsupportedDataType(
-                        PaimonConfig.CONNECTOR_IDENTITY, dataType.asSQLString());
+                        PaimonConfig.CONNECTOR_IDENTITY, dataType.asSQLString(), typeDefine.getName());
         }
         return physicalColumnBuilder.dataType(seaTunnelDataType).build();
     }
@@ -188,11 +188,18 @@ public class RowTypeConverter {
      */
     public static RowType reconvert(SeaTunnelRowType seaTunnelRowType, TableSchema tableSchema) {
         SeaTunnelDataType<?>[] fieldTypes = seaTunnelRowType.getFieldTypes();
+        String[] fieldNames = seaTunnelRowType.getFieldNames();
+        int totalFields = seaTunnelRowType.getTotalFields();
+        DataType[] dataTypes = new DataType[totalFields];
+        for (int i = 0; i < totalFields; i++) {
+            DataType dataType = SeaTunnelTypeToPaimonVisitor.INSTANCE.visit(fieldNames[i], fieldTypes[i]);
+            dataTypes[i] = dataType;
+        }
         List<DataField> fields = tableSchema.fields();
-        DataType[] dataTypes =
-                Arrays.stream(fieldTypes)
-                        .map(SeaTunnelTypeToPaimonVisitor.INSTANCE::visit)
-                        .toArray(DataType[]::new);
+//        DataType[] dataTypes =
+//                Arrays.stream(fieldTypes)
+//                        .map(SeaTunnelTypeToPaimonVisitor.INSTANCE::visit)
+//                        .toArray(DataType[]::new);
         DataField[] dataFields = new DataField[dataTypes.length];
         for (int i = 0; i < dataTypes.length; i++) {
             DataType dataType = dataTypes[i];
@@ -221,12 +228,12 @@ public class RowTypeConverter {
 
     /**
      * Mapping SeaTunnel data type {@link SeaTunnelDataType} to Paimon data type {@link DataType}
-     *
+     * @param fieldName SeaTunnel field name
      * @param dataType SeaTunnel data type {@link SeaTunnelDataType}
      * @return Paimon data type {@link DataType}
      */
-    public static DataType reconvert(SeaTunnelDataType<?> dataType) {
-        return SeaTunnelTypeToPaimonVisitor.INSTANCE.visit(dataType);
+    public static DataType reconvert(String fieldName, SeaTunnelDataType<?> dataType) {
+        return SeaTunnelTypeToPaimonVisitor.INSTANCE.visit(fieldName, dataType);
     }
 
     /**
@@ -282,7 +289,7 @@ public class RowTypeConverter {
                     builder.length(column.getColumnLength());
                     return builder.build();
                 default:
-                    builder.nativeType(visit(dataType));
+                    builder.nativeType(visit(column.getName(), dataType));
                     builder.columnType(dataType.toString());
                     builder.length(column.getColumnLength());
                     builder.dataType(dataType.getSqlType().name());
@@ -290,7 +297,7 @@ public class RowTypeConverter {
             }
         }
 
-        public DataType visit(SeaTunnelDataType<?> dataType) {
+        public DataType visit(String fieldName, SeaTunnelDataType<?> dataType) {
             switch (dataType.getSqlType()) {
                 case TINYINT:
                     return DataTypes.TINYINT();
@@ -329,21 +336,25 @@ public class RowTypeConverter {
                     SeaTunnelDataType<?> valueType =
                             ((org.apache.seatunnel.api.table.type.MapType<?, ?>) dataType)
                                     .getValueType();
-                    return DataTypes.MAP(visit(keyType), visit(valueType));
+                    return DataTypes.MAP(visit(fieldName, keyType), visit(fieldName, valueType));
                 case ARRAY:
                     BasicType<?> elementType =
                             ((org.apache.seatunnel.api.table.type.ArrayType<?, ?>) dataType)
                                     .getElementType();
-                    return DataTypes.ARRAY(visit(elementType));
+                    return DataTypes.ARRAY(visit(fieldName, elementType));
                 case ROW:
-                    SeaTunnelDataType<?>[] fieldTypes =
-                            ((SeaTunnelRowType) dataType).getFieldTypes();
-                    DataType[] dataTypes =
-                            Arrays.stream(fieldTypes).map(this::visit).toArray(DataType[]::new);
+                    SeaTunnelRowType row = (SeaTunnelRowType) dataType;
+                    SeaTunnelDataType<?>[] fieldTypes = row.getFieldTypes();
+                    String[] fieldNames = row.getFieldNames();
+                    int totalFields = row.getTotalFields();
+                    DataType[] dataTypes = new DataType[totalFields];
+                    for (int i = 0; i < totalFields; i++) {
+                        dataTypes[i] = SeaTunnelTypeToPaimonVisitor.INSTANCE.visit(fieldNames[i], fieldTypes[i]);
+                    }
                     return DataTypes.ROW(dataTypes);
                 default:
                     throw CommonError.unsupportedDataType(
-                            PaimonConfig.CONNECTOR_IDENTITY, dataType.getSqlType().toString());
+                            PaimonConfig.CONNECTOR_IDENTITY, dataType.getSqlType().toString(), fieldName);
             }
         }
     }

@@ -55,7 +55,7 @@ public enum CommonErrorCode implements SeaTunnelErrorCode {
     UNSUPPORTED_DATA_TYPE_SIMPLE("COMMON-25", "'<identifier>' unsupported data type '<dataType>'"),
     UNSUPPORTED_ARRAY_GENERIC_TYPE(
             "COMMON-26", "'<identifier>' array type not support genericType '<genericType>'"),
-    UNSUPPORTED_ROW_KIND("COMMON-27", "'<identifier>' unsupported rowKind type  '<rowKind>'");
+    UNSUPPORTED_ROW_KIND("COMMON-27", "'<identifier>' table '<table>' not support rowKind  '<rowKind>'");
 
     private final String code;
     private final String description;
