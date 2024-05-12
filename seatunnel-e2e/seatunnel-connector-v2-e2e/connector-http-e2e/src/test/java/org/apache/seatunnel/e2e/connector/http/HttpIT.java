@@ -75,6 +75,7 @@ public class HttpIT extends TestSuiteBase implements TestResource {
                         .withEnv(
                                 "MOCKSERVER_INITIALIZATION_JSON_PATH",
                                 TMP_DIR + getMockServerConfig())
+                        .withEnv("MOCKSERVER_LOG_LEVEL", "WARN")
                         .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)))
                         .waitingFor(new HttpWaitStrategy().forPath("/").forStatusCode(404));
         Startables.deepStart(Stream.of(mockserverContainer)).join();
@@ -88,6 +89,10 @@ public class HttpIT extends TestSuiteBase implements TestResource {
         }
     }
 
+    @DisabledOnContainer(
+        value = {},
+        type = {EngineType.SPARK, EngineType.FLINK},
+        disabledReason = "Currently SPARK/FLINK do not support multiple table read")
     @TestTemplate
     public void testSourceToAssertSink(TestContainer container)
             throws IOException, InterruptedException {
