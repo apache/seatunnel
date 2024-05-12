@@ -95,7 +95,7 @@ public class JdbcInputFormat implements Serializable {
             splitTableSchema = tables.get(inputSplit.getTablePath()).getTableSchema();
             splitTableId = inputSplit.getTablePath().toString();
 
-            statement = chunkSplitter.generateSplitStatement(inputSplit);
+            statement = chunkSplitter.generateSplitStatement(inputSplit, splitTableSchema);
             resultSet = statement.executeQuery();
             hasNext = resultSet.next();
         } catch (SQLException se) {

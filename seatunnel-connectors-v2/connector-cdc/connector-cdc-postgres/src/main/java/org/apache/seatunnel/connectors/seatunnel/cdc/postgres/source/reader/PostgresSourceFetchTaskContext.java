@@ -47,7 +47,6 @@ import io.debezium.connector.postgresql.PostgresTopicSelector;
 import io.debezium.connector.postgresql.TypeRegistry;
 import io.debezium.connector.postgresql.connection.PostgresConnection;
 import io.debezium.connector.postgresql.connection.ReplicationConnection;
-import io.debezium.connector.postgresql.spi.SlotCreationResult;
 import io.debezium.connector.postgresql.spi.SlotState;
 import io.debezium.connector.postgresql.spi.Snapshotter;
 import io.debezium.data.Envelope;
@@ -181,18 +180,20 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
             }
 
             if (snapshotter.shouldStream()) {
-                if (sourceSplitBase.isIncrementalSplit() || slotInfo == null) {
-                    final boolean doSnapshot = snapshotter.shouldSnapshot();
-                    createReplicationConnection(
-                            doSnapshot, connectorConfig.maxRetries(), connectorConfig.retryDelay());
-                }
                 // we need to create the slot before we start streaming if it doesn't exist
                 // otherwise we can't stream back changes happening while the snapshot is taking
                 // place
-                if (slotInfo == null) {
+                if (this.replicationConnection == null) {
+                    this.replicationConnection =
+                            createReplicationConnection(
+                                    this.taskContext,
+                                    snapshotter.shouldSnapshot(),
+                                    connectorConfig.maxRetries(),
+                                    connectorConfig.retryDelay());
                     try {
-                        SlotCreationResult slotCreatedInfo =
-                                replicationConnection.createReplicationSlot().orElse(null);
+                        // create the slot if it doesn't exist, otherwise update slot to add new
+                        // table(job restore and add table)
+                        replicationConnection.createReplicationSlot().orElse(null);
                     } catch (SQLException ex) {
                         String message = "Creation of replication slot failed";
                         if (ex.getMessage().contains("already exists")) {
@@ -264,20 +265,6 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                         .getDbzConfiguration()
                         .getString(EmbeddedDatabaseHistory.DATABASE_HISTORY_INSTANCE_NAME),
                 engineHistory);
-    }
-
-    public void createReplicationConnection(
-            boolean doSnapshot, int maxRetries, Duration retryDelay) {
-        if (this.replicationConnection != null) {
-            return;
-        }
-        synchronized (this) {
-            if (this.replicationConnection == null) {
-                this.replicationConnection =
-                        createReplicationConnection(
-                                this.taskContext, doSnapshot, maxRetries, retryDelay);
-            }
-        }
     }
 
     @Override

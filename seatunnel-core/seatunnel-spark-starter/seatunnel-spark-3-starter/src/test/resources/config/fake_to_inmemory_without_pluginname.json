@@ -1,0 +1,30 @@
+{
+  "env": {
+    "parallelism": 4,
+    "job.mode": "BATCH",
+    "spark.executor.instances": 1,
+    "spark.executor.cores": 1,
+    "spark.executor.memory": "1g",
+    "spark.master": "local"
+  },
+  "source": [
+    {
+      "result_table_name": "fake_to_inmemory_wtih_spark",
+      "row.num": 10,
+      "schema": {
+        "fields": {
+          "name": "string",
+          "age": "int",
+          "card": "int"
+        }
+      }
+    }
+  ],
+  "transform": [
+  ],
+  "sink": [
+    {
+      "source_table_name": "fake_to_inmemory_wtih_spark"
+    }
+  ]
+}

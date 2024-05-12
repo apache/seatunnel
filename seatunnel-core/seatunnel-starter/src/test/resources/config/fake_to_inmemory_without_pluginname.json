@@ -1,0 +1,26 @@
+{
+  "env": {
+    "parallelism": 4,
+    "job.mode": "BATCH"
+  },
+  "source": [
+    {
+      "result_table_name": "fake_to_inmemory_wtih_zeta",
+      "row.num": 10,
+      "schema": {
+        "fields": {
+          "name": "string",
+          "age": "int",
+          "card": "int"
+        }
+      }
+    }
+  ],
+  "transform": [
+  ],
+  "sink": [
+    {
+      "source_table_name": "fake_to_inmemory_wtih_zeta"
+    }
+  ]
+}

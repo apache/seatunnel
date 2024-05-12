@@ -25,6 +25,7 @@ import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.source.event.CompletedSnapshotPhaseEvent;
 import org.apache.seatunnel.connectors.cdc.base.source.event.CompletedSnapshotSplitsReportEvent;
 import org.apache.seatunnel.connectors.cdc.base.source.event.SnapshotSplitWatermark;
+import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceRecords;
@@ -71,6 +72,8 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
     private final DebeziumDeserializationSchema<T> debeziumDeserializationSchema;
 
     private final DataSourceDialect<C> dataSourceDialect;
+
+    private transient volatile Offset snapshotChangeLogOffset;
 
     private final AtomicBoolean needSendSplitRequest = new AtomicBoolean(false);
 
@@ -119,7 +122,7 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
 
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
-        dataSourceDialect.notifyCheckpointComplete(checkpointId);
+        dataSourceDialect.commitChangeLogOffset(snapshotChangeLogOffset);
     }
 
     @Override
@@ -244,7 +247,9 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
         unfinishedSplits.addAll(finishedUnackedSplits.values());
 
         if (isIncrementalSplitPhase(unfinishedSplits)) {
-            return snapshotCheckpointDataType(unfinishedSplits);
+            IncrementalSplit incrementalSplit = unfinishedSplits.get(0).asIncrementalSplit();
+            snapshotChangeLogOffset = incrementalSplit.getStartupOffset();
+            return snapshotCheckpointDataType(incrementalSplit);
         }
 
         return unfinishedSplits;
@@ -259,12 +264,7 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
         return stateSplits.size() == 1 && stateSplits.get(0).isIncrementalSplit();
     }
 
-    private List<SourceSplitBase> snapshotCheckpointDataType(List<SourceSplitBase> stateSplits) {
-        if (!isIncrementalSplitPhase(stateSplits)) {
-            throw new IllegalStateException(
-                    "The splits should be incremental split when snapshot  checkpoint datatype");
-        }
-        IncrementalSplit incrementalSplit = stateSplits.get(0).asIncrementalSplit();
+    private List<SourceSplitBase> snapshotCheckpointDataType(IncrementalSplit incrementalSplit) {
         // Snapshot current datatype to checkpoint
         SeaTunnelDataType<T> checkpointDataType = debeziumDeserializationSchema.getProducedType();
         IncrementalSplit newIncrementalSplit =
