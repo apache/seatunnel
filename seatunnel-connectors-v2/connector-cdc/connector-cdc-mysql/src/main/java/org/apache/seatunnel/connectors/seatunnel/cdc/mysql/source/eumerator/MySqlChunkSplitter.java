@@ -27,8 +27,8 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlUtils;
 
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.Column;
-import io.debezium.relational.Table;
 import io.debezium.relational.RelationalDatabaseConnectorConfig;
+import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
 import lombok.extern.slf4j.Slf4j;
 
