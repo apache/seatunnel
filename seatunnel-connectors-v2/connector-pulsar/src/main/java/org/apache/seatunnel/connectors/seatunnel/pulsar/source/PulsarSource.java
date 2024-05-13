@@ -308,7 +308,8 @@ public class PulsarSource
             }
             switch (format.toUpperCase()) {
                 case "JSON":
-                    deserializationSchema = new JsonDeserializationSchema(false, false, typeInfo);
+                    deserializationSchema =
+                            new JsonDeserializationSchema(catalogTable, false, false);
                     break;
                 case "CANAL_JSON":
                     deserializationSchema =
