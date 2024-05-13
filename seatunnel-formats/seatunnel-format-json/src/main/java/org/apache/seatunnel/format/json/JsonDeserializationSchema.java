@@ -70,9 +70,14 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
 
     public JsonDeserializationSchema(
             boolean failOnMissingField, boolean ignoreParseErrors, SeaTunnelRowType rowType) {
+        if (ignoreParseErrors && failOnMissingField) {
+            throw new SeaTunnelJsonFormatException(
+                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                    "JSON format doesn't support failOnMissingField and ignoreParseErrors are both enabled.");
+        }
+        this.rowType = checkNotNull(rowType);
         this.failOnMissingField = failOnMissingField;
         this.ignoreParseErrors = ignoreParseErrors;
-        this.rowType = checkNotNull(rowType);
         this.runtimeConverter =
                 new JsonToRowConverters(failOnMissingField, ignoreParseErrors)
                         .createRowConverter(checkNotNull(rowType));
