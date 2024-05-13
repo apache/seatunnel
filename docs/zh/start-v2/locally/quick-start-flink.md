@@ -106,7 +106,7 @@ row=16 : SGZCr, 94186144
 
 ## 此外
 
-现在,您已经快速浏览了SeaTunnel使用Flink引擎的方式，你可以通过在[连接器](/docs/category/connector-v2)中找到SeaTunnel所支持的所有source和sink。
+现在,您已经快速浏览了SeaTunnel使用Flink引擎的方式，你可以通过在[连接器](/docs/zh/connector-v2/source/)中找到SeaTunnel所支持的所有source和sink。
 如果您想要了解更多关于SeaTunnel运行在Flink上的信息，请参阅[基于Flink的SeaTunnel](../../other-engine/flink.md)。
 
 SeaTunnel有自己的名为`Zeta`的引擎，同时`Zeta`是SeaTunnel的默认引擎。您可以参考[快速开始](quick-start-seatunnel-engine.md)配置和运行数据同步作业。
