@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.format.avro;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -158,11 +160,12 @@ class AvroSerializationSchemaTest {
     @Test
     public void testSerialization() throws IOException {
         SeaTunnelRowType rowType = buildSeaTunnelRowType();
+        CatalogTable catalogTable = CatalogTableUtil.getCatalogTable("", "", "", "", rowType);
         SeaTunnelRow seaTunnelRow = buildSeaTunnelRow();
         AvroSerializationSchema serializationSchema = new AvroSerializationSchema(rowType);
         byte[] bytes = serializationSchema.serialize(seaTunnelRow);
         AvroDeserializationSchema deserializationSchema =
-                new AvroDeserializationSchema(rowType, null);
+                new AvroDeserializationSchema(catalogTable);
         SeaTunnelRow deserialize = deserializationSchema.deserialize(bytes);
         String[] strArray1 = (String[]) seaTunnelRow.getField(1);
         String[] strArray2 = (String[]) deserialize.getField(1);

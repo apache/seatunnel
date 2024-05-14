@@ -263,7 +263,7 @@ public class KafkaSourceConfig implements Serializable {
                 boolean includeSchema = readonlyConfig.get(DEBEZIUM_RECORD_INCLUDE_SCHEMA);
                 return new DebeziumJsonDeserializationSchema(catalogTable, true, includeSchema);
             case AVRO:
-                return new AvroDeserializationSchema(seaTunnelRowType, catalogTable);
+                return new AvroDeserializationSchema(catalogTable);
             default:
                 throw new SeaTunnelJsonFormatException(
                         CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
