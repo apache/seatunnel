@@ -25,6 +25,8 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.api.source.SupportColumnProjection;
+import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -47,7 +49,9 @@ import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.ZOOKEEPER_QUORUM;
 
 public class HbaseSource
-        implements SeaTunnelSource<SeaTunnelRow, HbaseSourceSplit, HbaseSourceState> {
+        implements SeaTunnelSource<SeaTunnelRow, HbaseSourceSplit, HbaseSourceState>,
+                SupportParallelism,
+                SupportColumnProjection {
     private static final Logger LOG = LoggerFactory.getLogger(HbaseSource.class);
     public static final String PLUGIN_NAME = "Hbase";
     private Config pluginConfig;
