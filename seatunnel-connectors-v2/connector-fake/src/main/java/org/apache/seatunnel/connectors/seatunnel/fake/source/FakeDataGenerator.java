@@ -19,7 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.fake.source;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.ArrayType;
-import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.RowKind;
@@ -109,7 +108,7 @@ public class FakeDataGenerator {
         switch (fieldType.getSqlType()) {
             case ARRAY:
                 ArrayType<?, ?> arrayType = (ArrayType<?, ?>) fieldType;
-                BasicType<?> elementType = arrayType.getElementType();
+                SeaTunnelDataType<?> elementType = arrayType.getElementType();
                 int length = fakeConfig.getArraySize();
                 Object array = Array.newInstance(elementType.getTypeClass(), length);
                 for (int i = 0; i < length; i++) {

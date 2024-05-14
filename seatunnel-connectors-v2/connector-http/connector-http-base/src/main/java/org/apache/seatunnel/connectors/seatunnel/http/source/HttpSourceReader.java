@@ -116,7 +116,7 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                         this.httpParameter.getHeaders(),
                         this.httpParameter.getParams(),
                         this.httpParameter.getBody());
-        if (HttpResponse.STATUS_OK == response.getCode()) {
+        if (response.getCode() >= 200 && response.getCode() <= 207) {
             String content = response.getContent();
             if (!Strings.isNullOrEmpty(content)) {
                 if (this.httpParameter.isEnableMultilines()) {

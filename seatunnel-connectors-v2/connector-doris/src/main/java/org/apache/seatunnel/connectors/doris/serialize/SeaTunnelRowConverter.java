@@ -17,19 +17,24 @@
 
 package org.apache.seatunnel.connectors.doris.serialize;
 
+import org.apache.seatunnel.api.table.type.ArrayType;
+import org.apache.seatunnel.api.table.type.DecimalArrayType;
+import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
-import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorException;
 
 import lombok.Builder;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 public class SeaTunnelRowConverter {
     @Builder.Default private DateUtils.Formatter dateFormatter = DateUtils.Formatter.YYYY_MM_DD;
@@ -62,8 +67,9 @@ public class SeaTunnelRowConverter {
             case TIMESTAMP:
                 return DateTimeUtils.toString((LocalDateTime) val, dateTimeFormatter);
             case ARRAY:
+                return convertArray(dataType, val);
             case MAP:
-                return JsonUtils.toJsonString(val);
+                return convertMap(dataType, val);
             case BYTES:
                 return new String((byte[]) val);
             default:
@@ -71,5 +77,31 @@ public class SeaTunnelRowConverter {
                         CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                         dataType + " is not supported ");
         }
+    }
+
+    public Object[] convertArray(SeaTunnelDataType dataType, Object val) {
+        if (dataType instanceof DecimalArrayType) {
+            return (BigDecimal[]) val;
+        }
+
+        SeaTunnelDataType elementType = ((ArrayType) dataType).getElementType();
+        Object[] realValue = (Object[]) val;
+        Object[] newArrayValue = new Object[realValue.length];
+        for (int i = 0; i < realValue.length; i++) {
+            newArrayValue[i] = convert(elementType, realValue[i]);
+        }
+        return newArrayValue;
+    }
+
+    public Map<Object, Object> convertMap(SeaTunnelDataType dataType, Object val) {
+        MapType valueMapType = (MapType) dataType;
+        Map<Object, Object> realValue = (Map<Object, Object>) val;
+        Map<Object, Object> newMapValue = new LinkedHashMap<>();
+        for (Map.Entry entry : realValue.entrySet()) {
+            newMapValue.put(
+                    convert(valueMapType.getKeyType(), entry.getKey()),
+                    convert(valueMapType.getValueType(), entry.getValue()));
+        }
+        return newMapValue;
     }
 }

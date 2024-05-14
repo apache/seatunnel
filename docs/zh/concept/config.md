@@ -18,6 +18,10 @@ BTW, we also support the `json` format, but you should know that the name of the
 配置文件的主要格式是 `hocon`, 有关该格式类型的更多信息你可以参考[HOCON-GUIDE](https://github.com/lightbend/config/blob/main/HOCON.md),
 顺便提一下，我们也支持 `json`格式，但你应该知道配置文件的名称应该是以 `.json`结尾。
 
+We also support the `SQL` format, for details, please refer to the [SQL configuration](sql-config.md) file.
+
+我们同时提供了以 `SQL` 格式，详细可以参考[SQL配置文件](sql-config.md)。
+
 ## 例子
 
 在你阅读之前，你可以在发布包中的config目录[这里](https://github.com/apache/seatunnel/tree/dev/config)找到配置文件的例子。

@@ -28,6 +28,8 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
+import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions;
 
 import com.google.auto.service.AutoService;
@@ -60,6 +62,10 @@ public class MongodbIncrementalSourceFactory implements TableSourceFactory {
                         MongodbSourceOptions.INCREMENTAL_SNAPSHOT_CHUNK_SIZE_MB,
                         MongodbSourceOptions.STARTUP_MODE,
                         MongodbSourceOptions.STOP_MODE)
+                .conditional(
+                        MongodbSourceOptions.STARTUP_MODE,
+                        StartupMode.TIMESTAMP,
+                        SourceOptions.STARTUP_TIMESTAMP)
                 .build();
     }
 
