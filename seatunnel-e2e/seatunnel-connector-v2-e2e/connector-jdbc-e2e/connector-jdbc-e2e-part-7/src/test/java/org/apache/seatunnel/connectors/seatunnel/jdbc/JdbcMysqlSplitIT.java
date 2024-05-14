@@ -468,7 +468,7 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
 
     private JdbcSourceSplit[] getCheckedSplitArray(
             Map<String, Object> configMap, CatalogTable table, String splitKey, int splitNum)
-            throws SQLException {
+            throws Exception {
         configMap.put("partition_column", splitKey);
         DynamicChunkSplitter splitter = getDynamicChunkSplitter(configMap);
 

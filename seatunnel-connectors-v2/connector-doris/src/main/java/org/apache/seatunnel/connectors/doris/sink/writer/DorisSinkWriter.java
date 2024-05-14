@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.doris.config.DorisConfig;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorErrorCode;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorException;
+import org.apache.seatunnel.connectors.doris.rest.RestService;
 import org.apache.seatunnel.connectors.doris.rest.models.RespContent;
 import org.apache.seatunnel.connectors.doris.serialize.DorisSerializer;
 import org.apache.seatunnel.connectors.doris.serialize.SeaTunnelRowSerializer;
@@ -96,7 +97,7 @@ public class DorisSinkWriter
     }
 
     private void initializeLoad() {
-        String backend = dorisConfig.getFrontends();
+        String backend = RestService.randomEndpoint(dorisConfig.getFrontends(), log);
         try {
             this.dorisStreamLoad =
                     new DorisStreamLoad(

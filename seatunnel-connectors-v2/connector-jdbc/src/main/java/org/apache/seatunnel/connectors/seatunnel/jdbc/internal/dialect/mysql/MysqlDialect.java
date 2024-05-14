@@ -131,7 +131,7 @@ public class MysqlDialect implements JdbcDialect {
             String columnName,
             int samplingRate,
             int fetchSize)
-            throws SQLException {
+            throws Exception {
         String sampleQuery;
         if (StringUtils.isNotBlank(table.getQuery())) {
             sampleQuery =
@@ -157,6 +157,9 @@ public class MysqlDialect implements JdbcDialect {
                     count++;
                     if (count % samplingRate == 0) {
                         results.add(rs.getObject(1));
+                    }
+                    if (Thread.currentThread().isInterrupted()) {
+                        throw new InterruptedException("Thread interrupted");
                     }
                 }
                 Object[] resultsArray = results.toArray();

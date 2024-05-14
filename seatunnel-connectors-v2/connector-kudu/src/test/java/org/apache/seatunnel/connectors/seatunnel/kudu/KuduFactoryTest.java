@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kudu;
 
+import org.apache.seatunnel.connectors.seatunnel.kudu.catalog.KuduCatalogFactory;
 import org.apache.seatunnel.connectors.seatunnel.kudu.sink.KuduSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.kudu.source.KuduSourceFactory;
 
@@ -29,5 +30,6 @@ class KuduFactoryTest {
     void optionRule() {
         Assertions.assertNotNull((new KuduSourceFactory()).optionRule());
         Assertions.assertNotNull((new KuduSinkFactory()).optionRule());
+        Assertions.assertNotNull((new KuduCatalogFactory()).optionRule());
     }
 }
