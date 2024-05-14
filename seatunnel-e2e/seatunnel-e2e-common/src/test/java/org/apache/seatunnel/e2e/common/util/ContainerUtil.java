@@ -91,8 +91,6 @@ public final class ContainerUtil {
         connectorNames.addAll(getConnectors(jobConfig, connectors, "sink"));
         File module = new File(PROJECT_ROOT_PATH + File.separator + connectorsRootPath);
 
-        log.info("sr-module: {} \n", module);
-        log.info("sr-module-PATH: {} \n", module.getAbsolutePath());
         List<File> connectorFiles = getConnectorFiles(module, connectorNames, connectorPrefix);
         connectorFiles.forEach(
                 jar ->
@@ -227,11 +225,7 @@ public final class ContainerUtil {
             File currentModule, Set<String> connectorNames, String connectorPrefix) {
         List<File> connectorFiles = new ArrayList<>();
 
-        log.error("sr-currentModule: {}. \n ", currentModule);
         for (File file : Objects.requireNonNull(currentModule.listFiles())) {
-            log.error("sr-currentModule-file-path: {}. \n ", file.getAbsolutePath());
-            log.error("sr-currentModule-file-name: {}. \n ", file.getName());
-            log.error("sr-currentModule-file: {}. \n ", file.toString());
             getConnectorFiles(file, connectorNames, connectorPrefix, connectorFiles);
         }
         return connectorFiles;
@@ -243,8 +237,8 @@ public final class ContainerUtil {
             String connectorPrefix,
             List<File> connectors) {
 
-        log.error("getConnectorFiles-connectorNames.size(): {}. \n ", connectorNames.size());
-        log.error("getConnectorFiles-connectors.size(): {}. \n ", connectors.size());
+        log.info("getConnectorFiles-connectorNames.size(): {}. \n ", connectorNames.size());
+        log.info("getConnectorFiles-connectors.size(): {}. \n ", connectors.size());
         if (currentModule.isFile() || connectorNames.size() == connectors.size()) {
             return;
         }
@@ -253,10 +247,11 @@ public final class ContainerUtil {
                     "getConnectorFiles-currentModule.getName()(): {}. \n ",
                     currentModule.getName());
             File targetPath = new File(currentModule.getAbsolutePath() + File.separator + "target");
-            log.error("getConnectorFiles-targetPath: {}. \n ", targetPath);
-            for (File file : Objects.requireNonNull(targetPath.listFiles())) {
-                log.error("getConnectorFiles-file: {}. \n ", file);
-                log.error("getConnectorFiles-file.getName(): {}. \n ", file.getName());
+            log.info("getConnectorFiles-targetPath: {}. \n ", targetPath);
+            File[] files = targetPath.listFiles();
+            for (File file : Objects.requireNonNull(files)) {
+                log.info("getConnectorFiles-file: {}. \n ", file);
+                log.info("getConnectorFiles-file.getName(): {}. \n ", file.getName());
                 if (file.getName().startsWith(currentModule.getName())
                         && !file.getName().endsWith("javadoc.jar")
                         && !file.getName().endsWith("tests.jar")) {

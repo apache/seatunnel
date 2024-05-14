@@ -111,7 +111,6 @@ public abstract class AbstractTestSparkContainer extends AbstractTestContainer {
     public Container.ExecResult executeJob(String confFile, List<String> variables)
             throws IOException, InterruptedException {
         log.info("test in container: {}", identifier());
-        log.info("sr-confFile: {}", confFile);
         return executeJob(master, confFile, variables);
     }
 
