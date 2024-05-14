@@ -50,6 +50,7 @@ jobs:
       - name: Run docusaurus build
         run: |
           cd seatunnel-website
+          npm set strict-ssl false
           npm install
           npm run build
 

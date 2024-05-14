@@ -82,6 +82,20 @@ public class SqlServerTypeConverterTest {
     }
 
     @Test
+    public void testConvertTinyintIdentity() {
+        BasicTypeDefine<Object> typeDefine =
+                BasicTypeDefine.builder()
+                        .name("test")
+                        .columnType("tinyint identity")
+                        .dataType("tinyint")
+                        .build();
+        Column column = SqlServerTypeConverter.INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(typeDefine.getName(), column.getName());
+        Assertions.assertEquals(BasicType.SHORT_TYPE, column.getDataType());
+        Assertions.assertEquals(SqlServerTypeConverter.SQLSERVER_TINYINT, column.getSourceType());
+    }
+
+    @Test
     public void testConvertSmallint() {
         BasicTypeDefine<Object> typeDefine =
                 BasicTypeDefine.builder()
@@ -93,6 +107,20 @@ public class SqlServerTypeConverterTest {
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.SHORT_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType().toLowerCase());
+    }
+
+    @Test
+    public void testConvertSmallintIdentity() {
+        BasicTypeDefine<Object> typeDefine =
+                BasicTypeDefine.builder()
+                        .name("test")
+                        .columnType("smallint identity")
+                        .dataType("smallint")
+                        .build();
+        Column column = SqlServerTypeConverter.INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(typeDefine.getName(), column.getName());
+        Assertions.assertEquals(BasicType.SHORT_TYPE, column.getDataType());
+        Assertions.assertEquals(SqlServerTypeConverter.SQLSERVER_SMALLINT, column.getSourceType());
     }
 
     @Test
@@ -114,6 +142,20 @@ public class SqlServerTypeConverterTest {
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.INT_TYPE, column.getDataType());
         Assertions.assertEquals("int", column.getSourceType().toLowerCase());
+    }
+
+    @Test
+    public void testConvertBigintIdentity() {
+        BasicTypeDefine<Object> typeDefine =
+                BasicTypeDefine.builder()
+                        .name("test")
+                        .columnType("bigint identity")
+                        .dataType("bigint")
+                        .build();
+        Column column = SqlServerTypeConverter.INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(typeDefine.getName(), column.getName());
+        Assertions.assertEquals(BasicType.LONG_TYPE, column.getDataType());
+        Assertions.assertEquals(SqlServerTypeConverter.SQLSERVER_BIGINT, column.getSourceType());
     }
 
     @Test

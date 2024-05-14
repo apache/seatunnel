@@ -75,7 +75,7 @@ class SqlServerCatalogTest {
 
     @Test
     void listDatabases() {
-        List<String> list = sqlServerCatalog.listDatabases();
+        sqlServerCatalog.listDatabases();
     }
 
     @Test
