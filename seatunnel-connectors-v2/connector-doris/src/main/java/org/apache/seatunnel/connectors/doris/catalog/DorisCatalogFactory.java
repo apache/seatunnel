@@ -44,7 +44,7 @@ public class DorisCatalogFactory implements CatalogFactory {
 
     @Override
     public String factoryIdentifier() {
-        return "Doris";
+        return DorisConfig.IDENTIFIER;
     }
 
     @Override
