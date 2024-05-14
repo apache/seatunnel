@@ -114,7 +114,7 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
     }
 
     private List<ChunkRange> splitTableIntoChunks(
-            JdbcConnection jdbc, TableId tableId, Column splitColumn) throws SQLException {
+            JdbcConnection jdbc, TableId tableId, Column splitColumn) throws Exception {
         final String splitColumnName = splitColumn.name();
         final Object[] minMax = queryMinMax(jdbc, tableId, splitColumn);
         final Object min = minMax[0];
