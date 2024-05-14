@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.factory.FactoryUtil;
 import org.apache.seatunnel.engine.common.exception.JobDefineCheckException;
 
 import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.StringUtils;
 
 import lombok.extern.slf4j.Slf4j;
 import scala.Tuple2;
@@ -263,7 +264,14 @@ public final class ConfigParserUtil {
     }
 
     public static String getFactoryId(ReadonlyConfig readonlyConfig) {
-        return readonlyConfig.get(PLUGIN_NAME);
+        String pluginName = readonlyConfig.get(PLUGIN_NAME);
+        if (StringUtils.isBlank(pluginName)) {
+            throw new JobDefineCheckException(
+                    String.format(
+                            "The '%s' option is not configured, please configure it.",
+                            PLUGIN_NAME.key()));
+        }
+        return pluginName;
     }
 
     public static String getFactoryId(Config config) {

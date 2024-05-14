@@ -360,7 +360,8 @@ public class MysqlCDCIT extends TestSuiteBase implements TestResource {
 
         Pattern jobIdPattern =
                 Pattern.compile(
-                        ".*Init JobMaster for Job SeaTunnel_Job \\(([0-9]*)\\).*", Pattern.DOTALL);
+                        ".*Init JobMaster for Job mysqlcdc_to_mysql_with_multi_table_mode_one_table.conf \\(([0-9]*)\\).*",
+                        Pattern.DOTALL);
         Matcher matcher = jobIdPattern.matcher(container.getServerLogs());
         String jobId;
         if (matcher.matches()) {

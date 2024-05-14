@@ -198,6 +198,27 @@ public class RestApiIT {
     }
 
     @Test
+    public void testGetJobInfoByJobId() {
+        Arrays.asList(node2, node1)
+                .forEach(
+                        instance -> {
+                            given().get(
+                                            HOST
+                                                    + instance.getCluster()
+                                                            .getLocalMember()
+                                                            .getAddress()
+                                                            .getPort()
+                                                    + RestConstant.JOB_INFO_URL
+                                                    + "/"
+                                                    + batchJobProxy.getJobId())
+                                    .then()
+                                    .statusCode(200)
+                                    .body("jobName", equalTo("fake_to_console"))
+                                    .body("jobStatus", equalTo("FINISHED"));
+                        });
+    }
+
+    @Test
     public void testGetRunningThreads() {
         Arrays.asList(node2, node1)
                 .forEach(

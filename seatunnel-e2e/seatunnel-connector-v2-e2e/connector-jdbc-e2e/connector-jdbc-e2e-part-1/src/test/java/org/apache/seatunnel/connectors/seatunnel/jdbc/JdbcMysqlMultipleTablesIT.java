@@ -201,6 +201,13 @@ public class JdbcMysqlMultipleTablesIT extends TestSuiteBase implements TestReso
                                                                                 table))))
                         .collect(Collectors.toList());
         Assertions.assertAll(asserts);
+
+        clearSinkTables();
+
+        Container.ExecResult sqlConfEexecResult =
+                container.executeJob("/jdbc_mysql_source_and_sink_with_multiple_tables.sql");
+        Assertions.assertEquals(
+                0, sqlConfEexecResult.getExitCode(), sqlConfEexecResult.getStderr());
     }
 
     @AfterAll

@@ -95,6 +95,12 @@ public abstract class AbstractTestContainer implements TestContainer {
 
     protected Container.ExecResult executeJob(GenericContainer<?> container, String confFile)
             throws IOException, InterruptedException {
+        return executeJob(container, confFile, null);
+    }
+
+    protected Container.ExecResult executeJob(
+            GenericContainer<?> container, String confFile, List<String> variables)
+            throws IOException, InterruptedException {
         final String confInContainerPath = copyConfigFileToContainer(container, confFile);
         // copy connectors
         copyConnectorJarToContainer(
@@ -110,7 +116,17 @@ public abstract class AbstractTestContainer implements TestContainer {
         command.add(adaptPathForWin(binPath));
         command.add("--config");
         command.add(adaptPathForWin(confInContainerPath));
-        command.addAll(getExtraStartShellCommands());
+        command.add("--name");
+        command.add(new File(confInContainerPath).getName());
+        List<String> extraStartShellCommands = new ArrayList<>(getExtraStartShellCommands());
+        if (variables != null && !variables.isEmpty()) {
+            variables.forEach(
+                    v -> {
+                        extraStartShellCommands.add("-i");
+                        extraStartShellCommands.add(v);
+                    });
+        }
+        command.addAll(extraStartShellCommands);
         return executeCommand(container, command);
     }
 
