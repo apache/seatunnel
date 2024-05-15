@@ -60,16 +60,15 @@ public class HBaseDeserializationFormat {
             case TINYINT:
             case SMALLINT:
             case INT:
-                return Bytes.toInt(cell);
+                return Integer.valueOf(Bytes.toString(cell));
             case BOOLEAN:
-                return Bytes.toBoolean(cell);
+                return Boolean.valueOf(Bytes.toString(cell));
             case BIGINT:
-                return Bytes.toLong(cell);
+                return Long.valueOf(Bytes.toString(cell));
             case FLOAT:
             case DECIMAL:
-                return Bytes.toFloat(cell);
             case DOUBLE:
-                return Bytes.toDouble(cell);
+                return Double.valueOf(Bytes.toString(cell));
             case BYTES:
                 return cell;
             case DATE:

@@ -21,62 +21,37 @@ import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.CellUtil;
-import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Admin;
-import org.apache.hadoop.hbase.client.ColumnFamilyDescriptor;
-import org.apache.hadoop.hbase.client.ColumnFamilyDescriptorBuilder;
 import org.apache.hadoop.hbase.client.Connection;
-import org.apache.hadoop.hbase.client.ConnectionFactory;
+import org.apache.hadoop.hbase.client.Delete;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.ResultScanner;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.client.Table;
-import org.apache.hadoop.hbase.client.TableDescriptor;
-import org.apache.hadoop.hbase.client.TableDescriptorBuilder;
-import org.apache.hadoop.hbase.io.compress.Compression;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
-import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.output.Slf4jLogConsumer;
-import org.testcontainers.containers.wait.strategy.HostPortWaitStrategy;
-import org.testcontainers.lifecycle.Startables;
-import org.testcontainers.utility.DockerImageName;
-import org.testcontainers.utility.DockerLoggerFactory;
 
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Objects;
-import java.util.stream.Stream;
 
 @Slf4j
-@Disabled(
-        "Hbase docker e2e case need user add mapping information of between container id and ip address in hosts file")
 public class HbaseIT extends TestSuiteBase implements TestResource {
-
-    private static final String IMAGE = "harisekhon/hbase:latest";
-
-    private static final int PORT = 2181;
-
-    private static final String HOST = "hbase-e2e";
 
     private static final String TABLE_NAME = "seatunnel_test";
 
     private static final String FAMILY_NAME = "info";
-
-    private final Configuration hbaseConfiguration = HBaseConfiguration.create();
 
     private Connection hbaseConnection;
 
@@ -84,23 +59,15 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
 
     private TableName table;
 
-    private GenericContainer<?> hbaseContainer;
+    private HbaseCluster hbaseCluster;
 
     @BeforeAll
     @Override
     public void startUp() throws Exception {
-        hbaseContainer =
-                new GenericContainer<>(DockerImageName.parse(IMAGE))
-                        .withNetwork(NETWORK)
-                        .withNetworkAliases(HOST)
-                        .withExposedPorts(PORT)
-                        .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)))
-                        .waitingFor(
-                                new HostPortWaitStrategy()
-                                        .withStartupTimeout(Duration.ofMinutes(2)));
-        Startables.deepStart(Stream.of(hbaseContainer)).join();
-        log.info("Hbase container started");
+        hbaseCluster = new HbaseCluster();
+        hbaseConnection = hbaseCluster.startService();
         this.initialize();
+        table = TableName.valueOf(TABLE_NAME);
     }
 
     @AfterAll
@@ -109,42 +76,53 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
         if (Objects.nonNull(admin)) {
             admin.close();
         }
-        if (Objects.nonNull(hbaseConnection)) {
-            hbaseConnection.close();
-        }
-        if (Objects.nonNull(hbaseContainer)) {
-            hbaseContainer.close();
-        }
+        hbaseCluster.stopService();
     }
 
     private void initialize() throws IOException {
-        hbaseConfiguration.set("hbase.zookeeper.quorum", HOST + ":" + PORT);
-        hbaseConnection = ConnectionFactory.createConnection(hbaseConfiguration);
-        admin = hbaseConnection.getAdmin();
-        table = TableName.valueOf(TABLE_NAME);
-        ColumnFamilyDescriptor familyDescriptor =
-                ColumnFamilyDescriptorBuilder.newBuilder(FAMILY_NAME.getBytes())
-                        .setCompressionType(Compression.Algorithm.SNAPPY)
-                        .setCompactionCompressionType(Compression.Algorithm.SNAPPY)
-                        .build();
-        TableDescriptor tableDescriptor =
-                TableDescriptorBuilder.newBuilder(table).setColumnFamily(familyDescriptor).build();
-        admin.createTable(tableDescriptor);
+        // Create table for hbase sink test
+        hbaseCluster.createTable(TABLE_NAME, Arrays.asList(FAMILY_NAME));
+        // Create table and insert data for hbase source test
+        hbaseCluster.createTable("test_table", Arrays.asList("cf1", "cf2"));
+        hbaseCluster.putRow("test_table", "row1", "cf1", "col1", "True"); // boolean
+        hbaseCluster.putRow("test_table", "row1", "cf1", "col2", "3.923"); // double
+        hbaseCluster.putRow("test_table", "row1", "cf2", "col1", "4537654375638"); // bigint
+        hbaseCluster.putRow("test_table", "row1", "cf2", "col2", "33"); // int
+        hbaseCluster.putRow("test_table", "row1", "cf2", "col_date", "2024-08-12"); // date
+        hbaseCluster.putRow(
+                "test_table", "row1", "cf2", "col_timestamp", "2024-08-27 03:15:10"); // timestamp
+        hbaseCluster.putRow("test_table", "row1", "cf2", "col_time", "04:44:09"); // time
+        hbaseCluster.putRow("test_table", "row2", "cf1", "col1", "False"); // boolean
+        hbaseCluster.putRow("test_table", "row2", "cf1", "col2", "465.573"); // double
+        hbaseCluster.putRow("test_table", "row2", "cf2", "col1", "7893658245220"); // bigint
+        hbaseCluster.putRow("test_table", "row2", "cf2", "col2", "31"); // int
+        hbaseCluster.putRow("test_table", "row2", "cf2", "col_date", "2024-04-03"); // date
+        hbaseCluster.putRow(
+                "test_table", "row2", "cf2", "col_timestamp", "2024-11-22 10:41:49"); // timestamp
+        hbaseCluster.putRow("test_table", "row2", "cf2", "col_time", "14:24:38"); // time
         log.info("Hbase table has been initialized");
     }
 
     @TestTemplate
     public void testHbaseSink(TestContainer container) throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/fake-to-hbase.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
         Table hbaseTable = hbaseConnection.getTable(table);
         Scan scan = new Scan();
-        ArrayList<Result> results = new ArrayList<>();
         ResultScanner scanner = hbaseTable.getScanner(scan);
+        // Delete the data generated by the test
+        for (Result result = scanner.next(); result != null; result = scanner.next()) {
+            Delete deleteRow = new Delete(result.getRow());
+            hbaseTable.delete(deleteRow);
+        }
+
+        Container.ExecResult execResult = container.executeJob("/fake-to-hbase.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        scanner = hbaseTable.getScanner(scan);
+        ArrayList<Result> results = new ArrayList<>();
         for (Result result : scanner) {
             results.add(result);
         }
         Assertions.assertEquals(results.size(), 5);
+        scanner.close();
     }
 
     @TestTemplate
@@ -156,12 +134,19 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testHbaseSinkWithArray(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/fake-to-hbase-array.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
         Table hbaseTable = hbaseConnection.getTable(table);
         Scan scan = new Scan();
         ArrayList<Result> results = new ArrayList<>();
         ResultScanner scanner = hbaseTable.getScanner(scan);
+        // Delete the data generated by the test
+        for (Result result = scanner.next(); result != null; result = scanner.next()) {
+            Delete deleteRow = new Delete(result.getRow());
+            hbaseTable.delete(deleteRow);
+        }
+
+        Container.ExecResult execResult = container.executeJob("/fake-to-hbase-array.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        scanner = hbaseTable.getScanner(scan);
         for (Result result : scanner) {
             String rowKey = Bytes.toString(result.getRow());
             for (Cell cell : result.listCells()) {
@@ -177,5 +162,6 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
             results.add(result);
         }
         Assertions.assertEquals(results.size(), 3);
+        scanner.close();
     }
 }
