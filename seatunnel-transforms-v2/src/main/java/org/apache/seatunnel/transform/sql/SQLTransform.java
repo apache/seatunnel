@@ -163,14 +163,16 @@ public class SQLTransform extends AbstractCatalogSupportTransform {
             Column column;
             if (simpleColumn != null) {
                 column =
-                        PhysicalColumn.of(
+                        new PhysicalColumn(
                                 fieldNames[i],
                                 fieldTypes[i],
                                 simpleColumn.getColumnLength(),
                                 simpleColumn.getScale(),
                                 simpleColumn.isNullable(),
                                 simpleColumn.getDefaultValue(),
-                                simpleColumn.getComment());
+                                simpleColumn.getComment(),
+                                simpleColumn.getSourceType(),
+                                simpleColumn.getOptions());
             } else {
                 column = PhysicalColumn.of(fieldNames[i], fieldTypes[i], 0, true, null, null);
             }
