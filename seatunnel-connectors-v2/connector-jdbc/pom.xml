@@ -41,7 +41,7 @@
         <sqlite.version>3.39.3.0</sqlite.version>
         <tablestore.version>5.13.9</tablestore.version>
         <teradata.version>17.20.00.12</teradata.version>
-        <redshift.version>2.1.0.9</redshift.version>
+        <redshift.version>2.1.0.28</redshift.version>
         <saphana.version>2.14.7</saphana.version>
         <snowflake.version>3.13.29</snowflake.version>
         <vertica.version>12.0.3-0</vertica.version>
