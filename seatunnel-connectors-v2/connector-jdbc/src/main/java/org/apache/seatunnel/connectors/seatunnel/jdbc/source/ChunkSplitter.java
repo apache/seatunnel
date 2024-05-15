@@ -85,7 +85,7 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
         }
     }
 
-    public Collection<JdbcSourceSplit> generateSplits(JdbcSourceTable table) throws SQLException {
+    public Collection<JdbcSourceSplit> generateSplits(JdbcSourceTable table) throws Exception {
         log.info("Start splitting table {} into chunks...", table.getTablePath());
         long start = System.currentTimeMillis();
 
@@ -111,7 +111,7 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
     }
 
     protected abstract Collection<JdbcSourceSplit> createSplits(
-            JdbcSourceTable table, SeaTunnelRowType splitKeyType) throws SQLException;
+            JdbcSourceTable table, SeaTunnelRowType splitKeyType) throws SQLException, Exception;
 
     public PreparedStatement generateSplitStatement(JdbcSourceSplit split, TableSchema schema)
             throws SQLException {
