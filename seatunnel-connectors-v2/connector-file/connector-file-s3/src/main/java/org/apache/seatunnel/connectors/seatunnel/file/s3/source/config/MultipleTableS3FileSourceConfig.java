@@ -15,21 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.s3.source;
+package org.apache.seatunnel.connectors.seatunnel.file.s3.source.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
-import org.apache.seatunnel.connectors.seatunnel.file.s3.source.config.MultipleTableS3FileSourceConfig;
-import org.apache.seatunnel.connectors.seatunnel.file.source.BaseMultipleTableFileSource;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseFileSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseMultipleTableFileSourceConfig;
 
-public class S3FileSource extends BaseMultipleTableFileSource {
+public class MultipleTableS3FileSourceConfig extends BaseMultipleTableFileSourceConfig {
 
-    public S3FileSource(ReadonlyConfig readonlyConfig) {
-        super(new MultipleTableS3FileSourceConfig(readonlyConfig));
+    public MultipleTableS3FileSourceConfig(ReadonlyConfig s3FileSourceRootConfig) {
+        super(s3FileSourceRootConfig);
     }
 
     @Override
-    public String getPluginName() {
-        return FileSystemType.S3.getFileSystemPluginName();
+    public BaseFileSourceConfig getBaseSourceConfig(ReadonlyConfig readonlyConfig) {
+        return new S3FileSourceConfig(readonlyConfig);
     }
 }
