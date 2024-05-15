@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.server.dag.physical;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
+
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
@@ -31,6 +33,7 @@ import org.apache.seatunnel.engine.server.dag.execution.ExecutionVertex;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskDeployState;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
+import org.apache.seatunnel.engine.server.execution.TaskGroup;
 import org.apache.seatunnel.engine.server.execution.TaskGroupDefaultImpl;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
@@ -348,6 +351,11 @@ public class PhysicalVertex {
                 nodeEngine.getSerializationService().toData(this.taskGroup),
                 this.pluginJarsUrls,
                 this.connectorJarIdentifiers);
+    }
+
+    @VisibleForTesting
+    public TaskGroup getTaskGroup() {
+        return taskGroup;
     }
 
     public synchronized void updateTaskState(@NonNull ExecutionState targetState) {

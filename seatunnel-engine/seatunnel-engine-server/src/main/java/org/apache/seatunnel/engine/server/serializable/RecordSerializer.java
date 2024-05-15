@@ -45,6 +45,8 @@ public class RecordSerializer implements StreamSerializer<Record> {
             out.writeLong(checkpointBarrier.getId());
             out.writeLong(checkpointBarrier.getTimestamp());
             out.writeString(checkpointBarrier.getCheckpointType().getName());
+            out.writeObject(checkpointBarrier.getPrepareCloseTasks());
+            out.writeObject(checkpointBarrier.getClosedTasks());
         } else if (data instanceof SeaTunnelRow) {
             SeaTunnelRow row = (SeaTunnelRow) data;
             out.writeByte(RecordDataType.SEATUNNEL_ROW.ordinal());
@@ -67,7 +69,11 @@ public class RecordSerializer implements StreamSerializer<Record> {
         if (dataType == RecordDataType.CHECKPOINT_BARRIER.ordinal()) {
             data =
                     new CheckpointBarrier(
-                            in.readLong(), in.readLong(), CheckpointType.fromName(in.readString()));
+                            in.readLong(),
+                            in.readLong(),
+                            CheckpointType.fromName(in.readString()),
+                            in.readObject(),
+                            in.readObject());
         } else if (dataType == RecordDataType.SEATUNNEL_ROW.ordinal()) {
             String tableId = in.readString();
             byte rowKind = in.readByte();

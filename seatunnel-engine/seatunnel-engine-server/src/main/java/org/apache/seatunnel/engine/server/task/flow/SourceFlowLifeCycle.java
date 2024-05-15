@@ -268,7 +268,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
 
         // Block the reader from adding barrier to the collector.
         synchronized (collector.getCheckpointLock()) {
-            if (barrier.prepareClose()) {
+            if (barrier.prepareClose(this.currentTaskLocation)) {
                 this.prepareClose = true;
             }
             if (barrier.snapshot()) {
