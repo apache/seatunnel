@@ -30,7 +30,7 @@
     <name>SeaTunnel : Connectors V2 : S3 Redshift</name>
 
     <properties>
-        <redshift.version>2.1.0.9</redshift.version>
+        <redshift.version>2.1.0.28</redshift.version>
     </properties>
 
     <dependencies>
