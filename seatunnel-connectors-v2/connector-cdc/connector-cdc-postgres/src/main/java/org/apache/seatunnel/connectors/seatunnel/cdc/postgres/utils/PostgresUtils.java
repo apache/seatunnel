@@ -23,7 +23,9 @@ import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.offset.LsnOffset;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.SQLUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresDialect;
 
 import org.apache.kafka.connect.source.SourceRecord;
 
@@ -52,15 +54,20 @@ import java.util.Optional;
 @Slf4j
 public class PostgresUtils {
     private static final int DEFAULT_FETCH_SIZE = 1024;
+    private static final JdbcDialect JDBC_DIALECT = new PostgresDialect();
 
     private PostgresUtils() {}
 
-    public static Object[] queryMinMax(JdbcConnection jdbc, TableId tableId, String columnName)
+    public static Object[] queryMinMax(
+            JdbcConnection jdbc, TableId tableId, String columnName, Column column)
             throws SQLException {
+        columnName = quote(columnName);
+        if (column != null) {
+            columnName = JDBC_DIALECT.convertType(columnName, column.typeName());
+        }
         final String minMaxQuery =
                 String.format(
-                        "SELECT MIN(%s), MAX(%s) FROM %s",
-                        quote(columnName), quote(columnName), quote(tableId));
+                        "SELECT MIN(%s), MAX(%s) FROM %s", columnName, columnName, quote(tableId));
         return jdbc.queryAndMap(
                 minMaxQuery,
                 rs -> {
@@ -109,12 +116,20 @@ public class PostgresUtils {
     }
 
     public static Object queryMin(
-            JdbcConnection jdbc, TableId tableId, String columnName, Object excludedLowerBound)
+            JdbcConnection jdbc,
+            TableId tableId,
+            String columnName,
+            Column column,
+            Object excludedLowerBound)
             throws SQLException {
+        columnName = quote(columnName);
+        if (column != null) {
+            columnName = JDBC_DIALECT.convertType(columnName, column.typeName());
+        }
         final String minQuery =
                 String.format(
                         "SELECT MIN(%s) FROM %s WHERE %s > ?",
-                        quote(columnName), quote(tableId), quote(columnName));
+                        columnName, quote(tableId), columnName);
         return jdbc.prepareQueryAndMap(
                 minQuery,
                 ps -> ps.setObject(1, excludedLowerBound),
@@ -154,10 +169,17 @@ public class PostgresUtils {
     }
 
     public static Object[] skipReadAndSortSampleData(
-            JdbcConnection jdbc, TableId tableId, String columnName, int inverseSamplingRate)
-            throws SQLException {
-        final String sampleQuery =
-                String.format("SELECT %s FROM %s", quote(columnName), quote(tableId));
+            JdbcConnection jdbc,
+            TableId tableId,
+            String columnName,
+            Column column,
+            int inverseSamplingRate)
+            throws Exception {
+        columnName = quote(columnName);
+        if (column != null) {
+            columnName = JDBC_DIALECT.convertType(columnName, column.typeName());
+        }
+        final String sampleQuery = String.format("SELECT %s FROM %s", columnName, quote(tableId));
 
         Statement stmt = null;
         ResultSet rs = null;
@@ -177,6 +199,9 @@ public class PostgresUtils {
                 count++;
                 if (count % 100000 == 0) {
                     log.info("Processing row index: {}", count);
+                }
+                if (Thread.currentThread().isInterrupted()) {
+                    throw new InterruptedException("Thread interrupted");
                 }
                 if (count % inverseSamplingRate == 0) {
                     results.add(rs.getObject(1));
@@ -211,10 +236,14 @@ public class PostgresUtils {
             JdbcConnection jdbc,
             TableId tableId,
             String splitColumnName,
+            Column splitColumn,
             int chunkSize,
             Object includedLowerBound)
             throws SQLException {
         String quotedColumn = quote(splitColumnName);
+        if (splitColumn != null) {
+            quotedColumn = JDBC_DIALECT.convertType(quotedColumn, splitColumn.typeName());
+        }
         String query =
                 String.format(
                         "SELECT MAX(%s) FROM ("
@@ -286,8 +315,8 @@ public class PostgresUtils {
 
     /** Get split scan query for the given table. */
     public static String buildSplitScanQuery(
-            TableId tableId, SeaTunnelRowType rowType, boolean isFirstSplit, boolean isLastSplit) {
-        return buildSplitQuery(tableId, rowType, isFirstSplit, isLastSplit, -1, true);
+            Table table, SeaTunnelRowType rowType, boolean isFirstSplit, boolean isLastSplit) {
+        return buildSplitQuery(table, rowType, isFirstSplit, isLastSplit, -1, true);
     }
 
     /** Get table split data PreparedStatement. */
@@ -341,7 +370,7 @@ public class PostgresUtils {
     }
 
     private static String buildSplitQuery(
-            TableId tableId,
+            Table table,
             SeaTunnelRowType rowType,
             boolean isFirstSplit,
             boolean isLastSplit,
@@ -353,37 +382,37 @@ public class PostgresUtils {
             condition = null;
         } else if (isFirstSplit) {
             final StringBuilder sql = new StringBuilder();
-            addPrimaryKeyColumnsToCondition(rowType, sql, " <= ?");
+            addPrimaryKeyColumnsToCondition(table, rowType, sql, " <= ?");
             if (isScanningData) {
                 sql.append(" AND NOT (");
-                addPrimaryKeyColumnsToCondition(rowType, sql, " = ?");
+                addPrimaryKeyColumnsToCondition(table, rowType, sql, " = ?");
                 sql.append(")");
             }
             condition = sql.toString();
         } else if (isLastSplit) {
             final StringBuilder sql = new StringBuilder();
-            addPrimaryKeyColumnsToCondition(rowType, sql, " >= ?");
+            addPrimaryKeyColumnsToCondition(table, rowType, sql, " >= ?");
             condition = sql.toString();
         } else {
             final StringBuilder sql = new StringBuilder();
-            addPrimaryKeyColumnsToCondition(rowType, sql, " >= ?");
+            addPrimaryKeyColumnsToCondition(table, rowType, sql, " >= ?");
             if (isScanningData) {
                 sql.append(" AND NOT (");
-                addPrimaryKeyColumnsToCondition(rowType, sql, " = ?");
+                addPrimaryKeyColumnsToCondition(table, rowType, sql, " = ?");
                 sql.append(")");
             }
             sql.append(" AND ");
-            addPrimaryKeyColumnsToCondition(rowType, sql, " <= ?");
+            addPrimaryKeyColumnsToCondition(table, rowType, sql, " <= ?");
             condition = sql.toString();
         }
 
         if (isScanningData) {
             return buildSelectWithRowLimits(
-                    tableId, limitSize, "*", Optional.ofNullable(condition), Optional.empty());
+                    table.id(), limitSize, "*", Optional.ofNullable(condition), Optional.empty());
         } else {
             final String orderBy = String.join(", ", rowType.getFieldNames());
             return buildSelectWithBoundaryRowLimits(
-                    tableId,
+                    table.id(),
                     limitSize,
                     getPrimaryKeyColumnsProjection(rowType),
                     getMaxPrimaryKeyColumnsProjection(rowType),
@@ -454,11 +483,14 @@ public class PostgresUtils {
     }
 
     private static void addPrimaryKeyColumnsToCondition(
-            SeaTunnelRowType rowType, StringBuilder sql, String predicate) {
-        for (Iterator<String> fieldNamesIt = Arrays.stream(rowType.getFieldNames()).iterator();
-                fieldNamesIt.hasNext(); ) {
-            sql.append(fieldNamesIt.next()).append(predicate);
-            if (fieldNamesIt.hasNext()) {
+            Table table, SeaTunnelRowType rowType, StringBuilder sql, String predicate) {
+        for (int i = 0; i < rowType.getTotalFields(); i++) {
+            String fieldName = quote(rowType.getFieldName(i));
+            fieldName =
+                    JDBC_DIALECT.convertType(
+                            fieldName, table.columnWithName(rowType.getFieldName(i)).typeName());
+            sql.append(fieldName).append(predicate);
+            if (i < rowType.getTotalFields() - 1) {
                 sql.append(" AND ");
             }
         }

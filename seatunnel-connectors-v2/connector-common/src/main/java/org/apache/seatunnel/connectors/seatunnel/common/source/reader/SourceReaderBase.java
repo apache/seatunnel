@@ -65,7 +65,7 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
     private RecordsWithSplitIds<E> currentFetch;
     protected SplitContext<T, SplitStateT> currentSplitContext;
     private Collector<T> currentSplitOutput;
-    private boolean noMoreSplitsAssignment;
+    @Getter private volatile boolean noMoreSplitsAssignment;
 
     public SourceReaderBase(
             BlockingQueue<RecordsWithSplitIds<E>> elementsQueue,
@@ -94,10 +94,11 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
             if (recordsWithSplitId == null) {
                 if (Boundedness.BOUNDED.equals(context.getBoundedness())
                         && noMoreSplitsAssignment
-                        && splitFetcherManager.maybeShutdownFinishedFetchers()
-                        && elementsQueue.isEmpty()) {
+                        && isNoMoreElement()) {
                     context.signalNoMoreElement();
-                    log.info("Send NoMoreElement event");
+                    log.info(
+                            "Reader {} into idle state, send NoMoreElement event",
+                            context.getIndexOfSubtask());
                 }
                 return;
             }
@@ -137,7 +138,7 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
 
     @Override
     public void handleNoMoreSplits() {
-        log.info("Reader received NoMoreSplits event.");
+        log.info("Reader {} received NoMoreSplits event.", context.getIndexOfSubtask());
         noMoreSplitsAssignment = true;
     }
 
@@ -146,9 +147,15 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
         log.info("Received unhandled source event: {}", sourceEvent);
     }
 
+    protected boolean isNoMoreElement() {
+        return splitFetcherManager.maybeShutdownFinishedFetchers()
+                && elementsQueue.isEmpty()
+                && currentFetch == null;
+    }
+
     @Override
     public void close() {
-        log.info("Closing Source Reader.");
+        log.info("Closing Source Reader {}.", context.getIndexOfSubtask());
         try {
             splitFetcherManager.close(options.getSourceReaderCloseTimeout());
         } catch (Exception e) {

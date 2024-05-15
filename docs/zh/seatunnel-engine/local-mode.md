@@ -11,7 +11,7 @@ sidebar_position: 2
 
 ## 本地模式部署SeaTunnel Engine
 
-[部署SeaTunnel Engine本地模式参考](../../en/start-v2/locally/deployment.md)
+[部署SeaTunnel Engine本地模式参考](../../zh/start-v2/locally/deployment.md)
 
 ## 修改SeaTunnel Engine配置
 

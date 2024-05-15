@@ -35,6 +35,9 @@ import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErr
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.format.text.TextDeserializationSchema;
 import org.apache.seatunnel.format.text.constant.TextFormatConstant;
+import org.apache.seatunnel.format.text.splitor.CsvLineSplitor;
+import org.apache.seatunnel.format.text.splitor.DefaultTextLineSplitor;
+import org.apache.seatunnel.format.text.splitor.TextLineSplitor;
 
 import io.airlift.compress.lzo.LzopCodec;
 import lombok.extern.slf4j.Slf4j;
@@ -56,6 +59,7 @@ public class TextReadStrategy extends AbstractReadStrategy {
             BaseSourceConfigOptions.DATETIME_FORMAT.defaultValue();
     private TimeUtils.Formatter timeFormat = BaseSourceConfigOptions.TIME_FORMAT.defaultValue();
     private CompressFormat compressFormat = BaseSourceConfigOptions.COMPRESS_CODEC.defaultValue();
+    private TextLineSplitor textLineSplitor;
     private int[] indexes;
     private String encoding = BaseSourceConfigOptions.ENCODING.defaultValue();
 
@@ -143,9 +147,7 @@ public class TextReadStrategy extends AbstractReadStrategy {
         TextDeserializationSchema.Builder builder =
                 TextDeserializationSchema.builder()
                         .delimiter(TextFormatConstant.PLACEHOLDER)
-                        .dateFormatter(dateFormat)
-                        .dateTimeFormatter(datetimeFormat)
-                        .timeFormatter(timeFormat);
+                        .textLineSplitor(textLineSplitor);
         if (isMergePartition) {
             deserializationSchema =
                     builder.seaTunnelRowType(this.seaTunnelRowTypeWithPartition).build();
@@ -182,9 +184,7 @@ public class TextReadStrategy extends AbstractReadStrategy {
         TextDeserializationSchema.Builder builder =
                 TextDeserializationSchema.builder()
                         .delimiter(fieldDelimiter)
-                        .dateFormatter(dateFormat)
-                        .dateTimeFormatter(datetimeFormat)
-                        .timeFormatter(timeFormat);
+                        .textLineSplitor(textLineSplitor);
         if (isMergePartition) {
             deserializationSchema =
                     builder.seaTunnelRowType(userDefinedRowTypeWithPartition).build();
@@ -231,6 +231,15 @@ public class TextReadStrategy extends AbstractReadStrategy {
             String compressCodec =
                     pluginConfig.getString(BaseSourceConfigOptions.COMPRESS_CODEC.key());
             compressFormat = CompressFormat.valueOf(compressCodec.toUpperCase());
+        }
+        if (FileFormat.CSV.equals(
+                FileFormat.valueOf(
+                        pluginConfig
+                                .getString(BaseSourceConfigOptions.FILE_FORMAT_TYPE.key())
+                                .toUpperCase()))) {
+            textLineSplitor = new CsvLineSplitor();
+        } else {
+            textLineSplitor = new DefaultTextLineSplitor();
         }
     }
 }

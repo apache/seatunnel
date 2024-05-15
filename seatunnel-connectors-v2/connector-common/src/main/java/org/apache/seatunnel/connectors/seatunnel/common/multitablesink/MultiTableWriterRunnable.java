@@ -66,7 +66,7 @@ public class MultiTableWriterRunnable implements Runnable {
                 // exception.
                 throwable = e;
                 break;
-            } catch (Exception e) {
+            } catch (Throwable e) {
                 log.error("MultiTableWriterRunnable error", e);
                 throwable = e;
                 break;

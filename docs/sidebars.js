@@ -90,6 +90,7 @@ const sidebars = {
                 "concept/connector-v2-features",
                 'concept/schema-feature',
                 'concept/JobEnvConfig',
+                'concept/sql-config',
                 'concept/speed-limit',
                 'concept/event-listener'
             ]
@@ -161,7 +162,8 @@ const sidebars = {
             "type": "category",
             "label": "Command",
             "items": [
-                "command/usage"
+                "command/usage",
+                "command/connector-check"
             ]
         },
         {

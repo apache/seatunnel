@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.common.metrics.Counter;
 import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
+import org.apache.seatunnel.api.source.event.MessageDelayedEvent;
 import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
 import org.apache.seatunnel.connectors.cdc.base.source.event.CompletedSnapshotPhaseEvent;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
@@ -28,6 +29,7 @@ import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceRecords;
 import org.apache.seatunnel.connectors.cdc.base.source.split.state.IncrementalSplitState;
 import org.apache.seatunnel.connectors.cdc.base.source.split.state.SourceSplitStateBase;
+import org.apache.seatunnel.connectors.cdc.base.utils.MessageDelayedEventLimiter;
 import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationSchema;
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.RecordEmitter;
 
@@ -35,6 +37,7 @@ import org.apache.kafka.connect.source.SourceRecord;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -71,6 +74,8 @@ public class IncrementalSourceRecordEmitter<T>
     protected final Counter recordFetchDelay;
     protected final Counter recordEmitDelay;
     protected final EventListener eventListener;
+    protected final MessageDelayedEventLimiter delayedEventLimiter =
+            new MessageDelayedEventLimiter(Duration.ofSeconds(1), 0.5d);
 
     public IncrementalSourceRecordEmitter(
             DebeziumDeserializationSchema<T> debeziumDeserializationSchema,
@@ -113,6 +118,11 @@ public class IncrementalSourceRecordEmitter<T>
             // report emit delay
             long emitDelay = now - messageTimestamp;
             recordEmitDelay.set(emitDelay > 0 ? emitDelay : 0);
+
+            // limit the emit event frequency
+            if (delayedEventLimiter.acquire(messageTimestamp)) {
+                eventListener.onEvent(new MessageDelayedEvent(emitDelay, element.toString()));
+            }
         }
     }
 

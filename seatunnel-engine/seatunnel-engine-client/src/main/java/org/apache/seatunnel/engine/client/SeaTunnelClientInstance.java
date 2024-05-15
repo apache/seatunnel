@@ -24,6 +24,8 @@ import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 
 import lombok.NonNull;
 
+import java.util.List;
+
 public interface SeaTunnelClientInstance {
 
     ClientJobExecutionEnvironment createExecutionContext(
@@ -31,8 +33,21 @@ public interface SeaTunnelClientInstance {
             @NonNull JobConfig config,
             @NonNull SeaTunnelConfig seaTunnelConfig);
 
+    ClientJobExecutionEnvironment createExecutionContext(
+            @NonNull String filePath,
+            List<String> variables,
+            @NonNull JobConfig config,
+            @NonNull SeaTunnelConfig seaTunnelConfig);
+
     ClientJobExecutionEnvironment restoreExecutionContext(
             @NonNull String filePath,
+            @NonNull JobConfig config,
+            @NonNull SeaTunnelConfig seaTunnelConfig,
+            @NonNull Long jobId);
+
+    ClientJobExecutionEnvironment restoreExecutionContext(
+            @NonNull String filePath,
+            List<String> variables,
             @NonNull JobConfig config,
             @NonNull SeaTunnelConfig seaTunnelConfig,
             @NonNull Long jobId);

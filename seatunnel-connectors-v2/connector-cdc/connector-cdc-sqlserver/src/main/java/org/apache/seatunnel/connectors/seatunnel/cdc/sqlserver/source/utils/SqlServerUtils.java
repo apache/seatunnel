@@ -164,7 +164,7 @@ public class SqlServerUtils {
 
     public static Object[] skipReadAndSortSampleData(
             JdbcConnection jdbc, TableId tableId, String columnName, int inverseSamplingRate)
-            throws SQLException {
+            throws Exception {
         final String sampleQuery =
                 String.format("SELECT %s FROM %s", quote(columnName), quote(tableId));
 
@@ -189,6 +189,9 @@ public class SqlServerUtils {
                 }
                 if (count % inverseSamplingRate == 0) {
                     results.add(rs.getObject(1));
+                }
+                if (Thread.currentThread().isInterrupted()) {
+                    throw new InterruptedException("Thread interrupted");
                 }
             }
         } finally {
@@ -480,7 +483,7 @@ public class SqlServerUtils {
             SeaTunnelRowType rowType, StringBuilder sql, String predicate) {
         for (Iterator<String> fieldNamesIt = Arrays.stream(rowType.getFieldNames()).iterator();
                 fieldNamesIt.hasNext(); ) {
-            sql.append(fieldNamesIt.next()).append(predicate);
+            sql.append(quote(fieldNamesIt.next())).append(predicate);
             if (fieldNamesIt.hasNext()) {
                 sql.append(" AND ");
             }

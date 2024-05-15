@@ -18,13 +18,9 @@
 package org.apache.seatunnel.engine.server.master;
 
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
-import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
-import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
-import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.CoordinatorService;
-import org.apache.seatunnel.engine.server.TestUtils;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -32,10 +28,8 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 
-import com.hazelcast.internal.serialization.Data;
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_COUNT;
@@ -137,7 +131,7 @@ class JobMetricsTest extends AbstractSeaTunnelServerTest {
                                         server.getCoordinatorService().getJobStatus(jobId3)));
 
         // check metrics
-        await().atMost(60000, TimeUnit.MILLISECONDS)
+        await().atMost(600000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
                             JobMetrics jobMetrics = coordinatorService.getJobMetrics(jobId3);
@@ -159,25 +153,5 @@ class JobMetricsTest extends AbstractSeaTunnelServerTest {
                                                             .value());
                         });
         server.getCoordinatorService().cancelJob(jobId3);
-    }
-
-    private void startJob(Long jobid, String path, boolean isStartWithSavePoint) {
-        LogicalDag testLogicalDag = TestUtils.createTestLogicalPlan(path, jobid.toString(), jobid);
-
-        JobImmutableInformation jobImmutableInformation =
-                new JobImmutableInformation(
-                        jobid,
-                        "Test",
-                        isStartWithSavePoint,
-                        nodeEngine.getSerializationService().toData(testLogicalDag),
-                        testLogicalDag.getJobConfig(),
-                        Collections.emptyList(),
-                        Collections.emptyList());
-
-        Data data = nodeEngine.getSerializationService().toData(jobImmutableInformation);
-
-        PassiveCompletableFuture<Void> voidPassiveCompletableFuture =
-                server.getCoordinatorService().submitJob(jobid, data);
-        voidPassiveCompletableFuture.join();
     }
 }

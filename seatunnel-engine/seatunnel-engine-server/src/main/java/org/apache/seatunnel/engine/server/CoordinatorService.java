@@ -516,7 +516,12 @@ public class CoordinatorService {
                             CompletableFuture.supplyAsync(
                                     () -> {
                                         JobMaster runningJobMaster = runningJobMasterMap.get(jobId);
-                                        runningJobMaster.savePoint().join();
+                                        if (!runningJobMaster.savePoint().join()) {
+                                            throw new SavePointFailedException(
+                                                    "The job with id '"
+                                                            + jobId
+                                                            + "' save point failed");
+                                        }
                                         return null;
                                     },
                                     executorService));
