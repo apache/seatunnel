@@ -12,4 +12,6 @@ spring:
         - org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration
     main:
         allow-circular-references: true
-#debug: true
+logging:
+    file:
+        name: /tmp/log/blp_operator.log
