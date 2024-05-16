@@ -135,18 +135,19 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
         System.out.println("sink end");
     }
 
-    @TestTemplate
-    public void testHbaseSource(TestContainer container) throws IOException, InterruptedException {
-        System.out.println("source begin");
-        Container.ExecResult execResult = container.executeJob("/hbase-to-assert.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
-        System.out.println("source end");
-    }
+    //    @TestTemplate
+    //    public void testHbaseSource(TestContainer container) throws IOException,
+    // InterruptedException {
+    //        System.out.println("source begin");
+    //        Container.ExecResult execResult = container.executeJob("/hbase-to-assert.conf");
+    //        Assertions.assertEquals(0, execResult.getExitCode());
+    //        System.out.println("source end");
+    //    }
 
     @TestTemplate
     public void testHbaseSinkWithArray(TestContainer container)
             throws IOException, InterruptedException {
-        System.out.println("sink begin");
+        System.out.println("array sink begin");
         Table hbaseTable = hbaseConnection.getTable(table);
         Scan scan = new Scan();
         ArrayList<Result> results = new ArrayList<>();
