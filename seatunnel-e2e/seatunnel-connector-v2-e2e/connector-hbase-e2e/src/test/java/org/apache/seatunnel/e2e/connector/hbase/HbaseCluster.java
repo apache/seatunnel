@@ -97,13 +97,15 @@ public class HbaseCluster {
 
         String zookeeperQuorum = getZookeeperQuorum();
         LOG.info("Successfully start hbase service, zookeeper quorum: {}", zookeeperQuorum);
+        System.out.println(
+                "Successfully start hbase service, zookeeper quorum: " + zookeeperQuorum);
         Configuration configuration = HBaseConfiguration.create();
         configuration.set("hbase.zookeeper.quorum", zookeeperQuorum);
         configuration.set("hbase.security.authentication", "simple");
         configuration.set("hbase.master.port", String.valueOf(MASTER_PORT));
         configuration.set("hbase.regionserver.port", String.valueOf(REGION_PORT));
         connection = ConnectionFactory.createConnection(configuration);
-
+        System.out.println("connection success");
         return connection;
     }
 
