@@ -19,6 +19,7 @@
 package org.apache.seatunnel.e2e.connector.hbase;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Admin;
 import org.apache.hadoop.hbase.client.ColumnFamilyDescriptor;
@@ -34,30 +35,69 @@ import org.apache.hadoop.hbase.util.Bytes;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
+import org.testcontainers.utility.DockerLoggerFactory;
 
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Stream;
+
+import static org.apache.seatunnel.e2e.common.container.TestContainer.NETWORK;
 
 public class HbaseCluster {
 
     private static final Logger LOG = LoggerFactory.getLogger(HbaseCluster.class);
 
-    private static final DockerImageName HBASE_DOCKER_IMAGE =
-            DockerImageName.parse("jcjabouille/hbase-standalone:2.4.9");
+    private static final int ZOOKEEPER_PORT = 2181;
+    private static final int MASTER_PORT = 16000;
+    private static final int REGION_PORT = 16020;
+    private static final String HOST = "hbase_e2e";
 
-    private HbaseContainer hbaseContainer;
+    private static final String DOCKER_NAME = "jcjabouille/hbase-standalone:2.4.9";
+    private static final DockerImageName HBASE_DOCKER_IMAGE = DockerImageName.parse(DOCKER_NAME);
+
     private Connection connection;
+    private GenericContainer<?> hbaseContainer;
 
     public Connection startService() throws IOException {
-        hbaseContainer = new HbaseContainer(HBASE_DOCKER_IMAGE);
-        hbaseContainer.start();
-        String zookeeperQuorum = hbaseContainer.getZookeeperQuorum();
+        String hostname = InetAddress.getLocalHost().getHostName();
+        hbaseContainer =
+                new GenericContainer<>(HBASE_DOCKER_IMAGE)
+                        .withNetwork(NETWORK)
+                        .withNetworkAliases(HOST)
+                        .withExposedPorts(MASTER_PORT)
+                        .withExposedPorts(REGION_PORT)
+                        .withExposedPorts(ZOOKEEPER_PORT)
+                        .withCreateContainerCmdModifier(cmd -> cmd.withHostName(hostname))
+                        .withEnv("HBASE_MASTER_PORT", String.valueOf(MASTER_PORT))
+                        .withEnv("HBASE_REGION_PORT", String.valueOf(REGION_PORT))
+                        .withEnv(
+                                "HBASE_ZOOKEEPER_PROPERTY_CLIENTPORT",
+                                String.valueOf(ZOOKEEPER_PORT))
+                        .withEnv("HBASE_ZOOKEEPER_QUORUM", HOST)
+                        .withLogConsumer(
+                                new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DOCKER_NAME)));
+        hbaseContainer.setPortBindings(
+                Arrays.asList(
+                        String.format("%s:%s", MASTER_PORT, MASTER_PORT),
+                        String.format("%s:%s", REGION_PORT, REGION_PORT),
+                        String.format("%s:%s", ZOOKEEPER_PORT, ZOOKEEPER_PORT)));
+        Startables.deepStart(Stream.of(hbaseContainer)).join();
+        LOG.info("HBase container started");
+
+        String zookeeperQuorum = getZookeeperQuorum();
         LOG.info("Successfully start hbase service, zookeeper quorum: {}", zookeeperQuorum);
-        Configuration configuration = hbaseContainer.getConfiguration();
+        Configuration configuration = HBaseConfiguration.create();
         configuration.set("hbase.zookeeper.quorum", zookeeperQuorum);
+        configuration.set("hbase.security.authentication", "simple");
         connection = ConnectionFactory.createConnection(configuration);
 
         return connection;
@@ -117,5 +157,15 @@ public class HbaseCluster {
             hbaseContainer.close();
         }
         hbaseContainer = null;
+    }
+
+    public static String getZookeeperQuorum() {
+        String host = null;
+        try {
+            host = InetAddress.getLocalHost().getHostAddress();
+        } catch (UnknownHostException e) {
+            throw new RuntimeException(e);
+        }
+        return String.format("%s:%s", host, ZOOKEEPER_PORT);
     }
 }

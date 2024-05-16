@@ -19,7 +19,9 @@ package org.apache.seatunnel.e2e.connector.hbase;
 
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.CellUtil;
@@ -47,6 +49,11 @@ import java.util.Arrays;
 import java.util.Objects;
 
 @Slf4j
+@DisabledOnContainer(
+        value = {},
+        type = {EngineType.SEATUNNEL},
+        disabledReason =
+                "After the Zeta engine finishes syncing, hbase thread pool threads remain in the container. To prevent errors, it's disabled.")
 public class HbaseIT extends TestSuiteBase implements TestResource {
 
     private static final String TABLE_NAME = "seatunnel_test";
