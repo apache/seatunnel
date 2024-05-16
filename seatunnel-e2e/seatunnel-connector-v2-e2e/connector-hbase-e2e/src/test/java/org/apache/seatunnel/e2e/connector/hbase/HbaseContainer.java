@@ -22,7 +22,6 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 
 import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerImageName;
 
 import lombok.Getter;
@@ -53,8 +52,6 @@ public class HbaseContainer extends GenericContainer<HbaseContainer> {
         withNetwork(NETWORK);
         withNetworkAliases(HOST);
         withCreateContainerCmdModifier(cmd -> cmd.withHostName(hostname));
-        withLogConsumer(frame -> System.out.print(frame.getUtf8String()));
-        waitingFor(Wait.forLogMessage(".*0 row.*", 1));
         withStartupTimeout(Duration.ofMinutes(STARTUP_TIMEOUT));
         withEnv("HBASE_MASTER_PORT", String.valueOf(MASTER_PORT));
         withEnv("HBASE_REGION_PORT", String.valueOf(REGION_PORT));
@@ -66,14 +63,6 @@ public class HbaseContainer extends GenericContainer<HbaseContainer> {
                         String.format("%s:%s", MASTER_PORT, MASTER_PORT),
                         String.format("%s:%s", REGION_PORT, REGION_PORT),
                         String.format("%s:%s", ZOOKEEPER_PORT, ZOOKEEPER_PORT)));
-    }
-
-    @Override
-    protected void doStart() {
-        super.doStart();
-        configuration.set("hbase.zookeeper.quorum", HOST);
-        configuration.set("hbase.master.port", String.valueOf(MASTER_PORT));
-        configuration.set("hbase.regionserver.port", String.valueOf(REGION_PORT));
     }
 
     public String getZookeeperQuorum() {
