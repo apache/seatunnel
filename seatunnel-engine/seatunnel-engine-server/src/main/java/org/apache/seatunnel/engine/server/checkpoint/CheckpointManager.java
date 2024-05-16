@@ -217,6 +217,15 @@ public class CheckpointManager {
     }
 
     /**
+     * Called by the {@link SourceSplitEnumeratorTask}. <br>
+     * used by SourceSplitEnumeratorTask to tell CheckpointCoordinator pipeline will trigger close
+     * barrier of idle task by SourceSplitEnumeratorTask.
+     */
+    public void readyToCloseIdleTask(TaskLocation taskLocation) {
+        getCheckpointCoordinator(taskLocation).readyToCloseIdleTask(taskLocation);
+    }
+
+    /**
      * Called by the JobMaster. <br>
      * Listen to the {@link PipelineStatus} of the {@link Pipeline}, which is used to shut down the
      * running {@link CheckpointIDCounter} at the end of the pipeline.

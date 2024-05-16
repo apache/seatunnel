@@ -99,7 +99,7 @@
                 <snowflake.version>3.13.29</snowflake.version>
 
                 <!-- Imap storage dependency package  -->
-                <hadoop-aliyun.version>3.0.0</hadoop-aliyun.version>
+                <hadoop-aliyun.version>3.1.4</hadoop-aliyun.version>
                 <json-smart.version>2.4.7</json-smart.version>
                 <hadoop-aws.version>3.1.4</hadoop-aws.version>
                 <aws-java-sdk.version>1.11.271</aws-java-sdk.version>
@@ -308,6 +308,12 @@
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
                     <artifactId>connector-dingtalk</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-web3j</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
                 </dependency>

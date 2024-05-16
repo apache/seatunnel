@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
-import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -139,7 +138,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
     public static TypeDescription buildFieldWithRowType(SeaTunnelDataType<?> type) {
         switch (type.getSqlType()) {
             case ARRAY:
-                BasicType<?> elementType = ((ArrayType<?, ?>) type).getElementType();
+                SeaTunnelDataType<?> elementType = ((ArrayType<?, ?>) type).getElementType();
                 return TypeDescription.createList(buildFieldWithRowType(elementType));
             case MAP:
                 SeaTunnelDataType<?> keyType = ((MapType<?, ?>) type).getKeyType();

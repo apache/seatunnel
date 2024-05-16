@@ -475,7 +475,7 @@ transform {
 sink {
 S3File {
     bucket = "s3a://seatunnel-test"
-    tmp_path = "/tmp/seatunnel"
+    tmp_path = "/tmp/seatunnel/${table_name}"
     path="/test/${table_name}"
     fs.s3a.endpoint="s3.cn-north-1.amazonaws.com.cn"
     fs.s3a.aws.credentials.provider="org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"

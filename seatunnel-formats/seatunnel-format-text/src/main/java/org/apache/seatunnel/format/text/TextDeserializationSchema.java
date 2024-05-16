@@ -19,7 +19,6 @@ package org.apache.seatunnel.format.text;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.table.type.ArrayType;
-import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -187,7 +186,7 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
         }
         switch (fieldType.getSqlType()) {
             case ARRAY:
-                BasicType<?> elementType = ((ArrayType<?, ?>) fieldType).getElementType();
+                SeaTunnelDataType<?> elementType = ((ArrayType<?, ?>) fieldType).getElementType();
                 String[] elements = field.split(separators[level + 1]);
                 ArrayList<Object> objectArrayList = new ArrayList<>();
                 for (String element : elements) {
@@ -210,6 +209,14 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
                         return objectArrayList.toArray(new Float[0]);
                     case DOUBLE:
                         return objectArrayList.toArray(new Double[0]);
+                    case DECIMAL:
+                        return objectArrayList.toArray(new BigDecimal[0]);
+                    case DATE:
+                        return objectArrayList.toArray(new LocalDate[0]);
+                    case TIME:
+                        return objectArrayList.toArray(new LocalTime[0]);
+                    case TIMESTAMP:
+                        return objectArrayList.toArray(new LocalDateTime[0]);
                     default:
                         throw new SeaTunnelTextFormatException(
                                 CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
