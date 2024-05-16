@@ -34,7 +34,6 @@ import org.apache.hadoop.hbase.util.Bytes;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerImageName;
 
 import java.io.IOException;
@@ -55,7 +54,6 @@ public class HbaseCluster {
     public Connection startService() throws IOException {
         hbaseContainer = new HbaseContainer(HBASE_DOCKER_IMAGE);
         hbaseContainer.start();
-        hbaseContainer.waitingFor(Wait.defaultWaitStrategy());
         String zookeeperQuorum = hbaseContainer.getZookeeperQuorum();
         LOG.info("Successfully start hbase service, zookeeper quorum: {}", zookeeperQuorum);
         Configuration configuration = hbaseContainer.getConfiguration();
