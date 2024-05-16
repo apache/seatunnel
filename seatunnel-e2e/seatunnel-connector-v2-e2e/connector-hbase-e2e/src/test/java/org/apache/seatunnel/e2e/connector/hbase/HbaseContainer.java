@@ -23,7 +23,6 @@ import org.apache.hadoop.hbase.HBaseConfiguration;
 
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
-import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 
 import lombok.Getter;
@@ -60,15 +59,13 @@ public class HbaseContainer extends GenericContainer<HbaseContainer> {
         withEnv("HBASE_MASTER_PORT", String.valueOf(MASTER_PORT));
         withEnv("HBASE_REGION_PORT", String.valueOf(REGION_PORT));
         withEnv("HBASE_ZOOKEEPER_PROPERTY_CLIENTPORT", String.valueOf(ZOOKEEPER_PORT));
-        String host = InetAddress.getLocalHost().getHostAddress();
-        withEnv("HBASE_ZOOKEEPER_QUORUM", host);
+        withEnv("HBASE_ZOOKEEPER_QUORUM", HOST);
 
         setPortBindings(
                 Arrays.asList(
                         String.format("%s:%s", MASTER_PORT, MASTER_PORT),
                         String.format("%s:%s", REGION_PORT, REGION_PORT),
                         String.format("%s:%s", ZOOKEEPER_PORT, ZOOKEEPER_PORT)));
-        Startables.deepStart().join();
     }
 
     @Override
