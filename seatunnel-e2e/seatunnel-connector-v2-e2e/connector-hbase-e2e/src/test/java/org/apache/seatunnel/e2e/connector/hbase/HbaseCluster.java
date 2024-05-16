@@ -90,7 +90,9 @@ public class HbaseCluster {
                         String.format("%s:%s", MASTER_PORT, MASTER_PORT),
                         String.format("%s:%s", REGION_PORT, REGION_PORT),
                         String.format("%s:%s", ZOOKEEPER_PORT, ZOOKEEPER_PORT)));
+        System.out.println("hbase container ready");
         Startables.deepStart(Stream.of(hbaseContainer)).join();
+        System.out.println("HBase container started");
         LOG.info("HBase container started");
 
         String zookeeperQuorum = getZookeeperQuorum();
@@ -98,6 +100,8 @@ public class HbaseCluster {
         Configuration configuration = HBaseConfiguration.create();
         configuration.set("hbase.zookeeper.quorum", zookeeperQuorum);
         configuration.set("hbase.security.authentication", "simple");
+        configuration.set("hbase.master.port", String.valueOf(MASTER_PORT));
+        configuration.set("hbase.regionserver.port", String.valueOf(REGION_PORT));
         connection = ConnectionFactory.createConnection(configuration);
 
         return connection;
