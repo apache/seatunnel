@@ -457,6 +457,26 @@ public class PaimonSinkCDCIT extends TestSuiteBase implements TestResource {
                         });
     }
 
+    @TestTemplate
+    public void testFakeSinkPaimonWithFullTypeAndReadWithFilter(TestContainer container)
+            throws Exception {
+        Container.ExecResult writeResult =
+                container.executeJob("/fake_to_paimon_with_full_type.conf");
+        Assertions.assertEquals(0, writeResult.getExitCode());
+        Container.ExecResult readResult =
+                container.executeJob("/paimon_to_assert_with_filter1.conf");
+        Assertions.assertEquals(0, readResult.getExitCode());
+        Container.ExecResult readResult2 =
+                container.executeJob("/paimon_to_assert_with_filter2.conf");
+        Assertions.assertEquals(0, readResult2.getExitCode());
+        Container.ExecResult readResult3 =
+                container.executeJob("/paimon_to_assert_with_filter3.conf");
+        Assertions.assertEquals(0, readResult3.getExitCode());
+        Container.ExecResult readResult4 =
+                container.executeJob("/paimon_to_assert_with_filter4.conf");
+        Assertions.assertEquals(0, readResult4.getExitCode());
+    }
+
     protected final ContainerExtendedFactory containerExtendedFactory =
             container -> {
                 FileUtils.deleteFile(CATALOG_ROOT_DIR + NAMESPACE_TAR);

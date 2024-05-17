@@ -31,8 +31,10 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.paimon.source.converter.SqlToPaimonPredicateConverter;
 import org.apache.seatunnel.connectors.seatunnel.paimon.utils.RowTypeConverter;
 
 import org.apache.hadoop.conf.Configuration;
@@ -42,6 +44,7 @@ import org.apache.paimon.catalog.CatalogContext;
 import org.apache.paimon.catalog.CatalogFactory;
 import org.apache.paimon.catalog.Identifier;
 import org.apache.paimon.options.Options;
+import org.apache.paimon.predicate.Predicate;
 import org.apache.paimon.table.Table;
 
 import com.google.auto.service.AutoService;
@@ -68,6 +71,8 @@ public class PaimonSource
     private SeaTunnelRowType seaTunnelRowType;
 
     private Table table;
+
+    private Predicate predicate;
 
     @Override
     public String getPluginName() {
@@ -112,6 +117,11 @@ public class PaimonSource
         }
         // TODO: Support column projection
         seaTunnelRowType = RowTypeConverter.convert(this.table.rowType());
+        // TODO: We can use this to realize the column projection feature later
+        String filterSql = this.pluginConfig.getString(PaimonSourceConfig.FILTER_SQL.key());
+        this.predicate =
+                SqlToPaimonPredicateConverter.convertSqlWhereToPaimonPredicate(
+                        this.table.rowType(), filterSql);
     }
 
     @Override
@@ -127,13 +137,14 @@ public class PaimonSource
     @Override
     public SourceReader<SeaTunnelRow, PaimonSourceSplit> createReader(
             SourceReader.Context readerContext) throws Exception {
-        return new PaimonSourceReader(readerContext, table, seaTunnelRowType);
+
+        return new PaimonSourceReader(readerContext, table, seaTunnelRowType, predicate);
     }
 
     @Override
     public SourceSplitEnumerator<PaimonSourceSplit, PaimonSourceState> createEnumerator(
             SourceSplitEnumerator.Context<PaimonSourceSplit> enumeratorContext) throws Exception {
-        return new PaimonSourceSplitEnumerator(enumeratorContext, table);
+        return new PaimonSourceSplitEnumerator(enumeratorContext, table, predicate);
     }
 
     @Override
@@ -141,6 +152,7 @@ public class PaimonSource
             SourceSplitEnumerator.Context<PaimonSourceSplit> enumeratorContext,
             PaimonSourceState checkpointState)
             throws Exception {
-        return new PaimonSourceSplitEnumerator(enumeratorContext, table, checkpointState);
+        return new PaimonSourceSplitEnumerator(
+                enumeratorContext, table, checkpointState, predicate);
     }
 }

@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig;
+import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSourceConfig;
 
 import com.google.auto.service.AutoService;
 
@@ -39,7 +40,7 @@ public class PaimonSourceFactory implements TableSourceFactory {
                 .required(PaimonConfig.WAREHOUSE)
                 .required(PaimonConfig.DATABASE)
                 .required(PaimonConfig.TABLE)
-                .optional(PaimonConfig.HDFS_SITE_PATH)
+                .optional(PaimonConfig.HDFS_SITE_PATH, PaimonSourceConfig.FILTER_SQL)
                 .build();
     }
 
