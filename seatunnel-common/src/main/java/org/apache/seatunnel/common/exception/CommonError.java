@@ -40,7 +40,6 @@ import static org.apache.seatunnel.common.exception.CommonErrorCode.OPERATION_NO
 import static org.apache.seatunnel.common.exception.CommonErrorCode.SQL_TEMPLATE_HANDLED_ERROR;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.UNSUPPORTED_ARRAY_GENERIC_TYPE;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.UNSUPPORTED_DATA_TYPE;
-import static org.apache.seatunnel.common.exception.CommonErrorCode.UNSUPPORTED_DATA_TYPE_SIMPLE;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.UNSUPPORTED_ENCODING;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.UNSUPPORTED_ROW_KIND;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.VERSION_NOT_SUPPORTED;
@@ -90,14 +89,6 @@ public class CommonError {
         params.put("connector", connector);
         params.put("seaTunnelRow", row);
         return new SeaTunnelRuntimeException(WRITE_SEATUNNEL_ROW_ERROR, params, cause);
-    }
-
-    public static SeaTunnelRuntimeException unsupportedDataType(
-            String identifier, String dataType) {
-        Map<String, String> params = new HashMap<>();
-        params.put("identifier", identifier);
-        params.put("dataType", dataType);
-        return new SeaTunnelRuntimeException(UNSUPPORTED_DATA_TYPE_SIMPLE, params);
     }
 
     public static SeaTunnelRuntimeException unsupportedDataType(

@@ -54,11 +54,16 @@ import org.apache.paimon.types.TinyIntType;
 import org.apache.paimon.types.VarBinaryType;
 import org.apache.paimon.types.VarCharType;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.List;
 import java.util.Objects;
 
+@Slf4j
 /** The converter for converting {@link RowType} and {@link SeaTunnelRowType} */
 public class RowTypeConverter {
+
+    private static String UNKNOWN_FIELD = "UNKNOWN";
 
     private RowTypeConverter() {}
 
@@ -278,13 +283,65 @@ public class RowTypeConverter {
                     builder.length(column.getColumnLength());
                     return builder.build();
                 case DECIMAL:
-                    int precision =
-                            ((org.apache.seatunnel.api.table.type.DecimalType) dataType)
-                                    .getPrecision();
-                    DecimalType decimalType = DataTypes.DECIMAL(precision, scale);
-                    builder.nativeType(decimalType);
-                    builder.columnType(decimalType.toString());
-                    builder.dataType(decimalType.getTypeRoot().name());
+                    org.apache.seatunnel.api.table.type.DecimalType seatunnelDecimalType =
+                            (org.apache.seatunnel.api.table.type.DecimalType) dataType;
+                    int precision = seatunnelDecimalType.getPrecision();
+                    scale = seatunnelDecimalType.getScale();
+                    if (precision <= 0) {
+                        precision = DecimalType.DEFAULT_PRECISION;
+                        scale = DecimalType.DEFAULT_SCALE;
+                        log.warn(
+                                "The decimal column {} type decimal({},{}) is out of range, "
+                                        + "which is precision less than 0, "
+                                        + "it will be converted to decimal({},{})",
+                                column.getName(),
+                                seatunnelDecimalType.getPrecision(),
+                                seatunnelDecimalType.getScale(),
+                                precision,
+                                scale);
+                    } else if (precision > DecimalType.MAX_PRECISION) {
+                        scale = (int) Math.max(0, scale - (precision - DecimalType.MAX_PRECISION));
+                        precision = DecimalType.MAX_PRECISION;
+                        log.warn(
+                                "The decimal column {} type decimal({},{}) is out of range, "
+                                        + "which exceeds the maximum precision of {}, "
+                                        + "it will be converted to decimal({},{})",
+                                column.getName(),
+                                seatunnelDecimalType.getPrecision(),
+                                seatunnelDecimalType.getScale(),
+                                DecimalType.MAX_PRECISION,
+                                precision,
+                                scale);
+                    }
+                    if (scale < 0) {
+                        scale = DecimalType.DEFAULT_SCALE;
+                        log.warn(
+                                "The decimal column {} type decimal({},{}) is out of range, "
+                                        + "which is scale less than 0, "
+                                        + "it will be converted to decimal({},{})",
+                                column.getName(),
+                                seatunnelDecimalType.getPrecision(),
+                                seatunnelDecimalType.getScale(),
+                                precision,
+                                scale);
+                    } else if (scale > DecimalType.MAX_PRECISION) {
+                        scale = DecimalType.MAX_PRECISION;
+                        log.warn(
+                                "The decimal column {} type decimal({},{}) is out of range, "
+                                        + "which exceeds the maximum scale of {}, "
+                                        + "it will be converted to decimal({},{})",
+                                column.getName(),
+                                seatunnelDecimalType.getPrecision(),
+                                seatunnelDecimalType.getScale(),
+                                DecimalType.MAX_PRECISION,
+                                precision,
+                                scale);
+                    }
+
+                    DecimalType paimonDecimalType = DataTypes.DECIMAL(precision, scale);
+                    builder.nativeType(paimonDecimalType);
+                    builder.columnType(paimonDecimalType.toString());
+                    builder.dataType(paimonDecimalType.getTypeRoot().name());
                     builder.scale(scale);
                     builder.precision((long) precision);
                     builder.length(column.getColumnLength());
@@ -497,7 +554,7 @@ public class RowTypeConverter {
         @Override
         protected SeaTunnelDataType defaultMethod(DataType dataType) {
             throw CommonError.unsupportedDataType(
-                    PaimonConfig.CONNECTOR_IDENTITY, dataType.getTypeRoot().name());
+                    PaimonConfig.CONNECTOR_IDENTITY, dataType.getTypeRoot().name(), UNKNOWN_FIELD);
         }
     }
 }
