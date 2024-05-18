@@ -58,17 +58,20 @@ public class HBaseDeserializationFormat {
 
         switch (typeInfo.getSqlType()) {
             case TINYINT:
+                return cell[0];
             case SMALLINT:
+                return (short) ((cell[0] & 0xFF) << 8 | (cell[1] & 0xFF));
             case INT:
-                return Integer.valueOf(Bytes.toString(cell));
+                return Bytes.toInt(cell);
             case BOOLEAN:
-                return Boolean.valueOf(Bytes.toString(cell));
+                return Bytes.toBoolean(cell);
             case BIGINT:
-                return Long.valueOf(Bytes.toString(cell));
+                return Bytes.toLong(cell);
             case FLOAT:
             case DECIMAL:
+                return Bytes.toFloat(cell);
             case DOUBLE:
-                return Double.valueOf(Bytes.toString(cell));
+                return Bytes.toDouble(cell);
             case BYTES:
                 return cell;
             case DATE:

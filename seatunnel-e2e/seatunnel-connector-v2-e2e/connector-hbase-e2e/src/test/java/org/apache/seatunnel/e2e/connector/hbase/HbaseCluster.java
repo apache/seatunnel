@@ -26,10 +26,6 @@ import org.apache.hadoop.hbase.client.ColumnFamilyDescriptor;
 import org.apache.hadoop.hbase.client.ColumnFamilyDescriptorBuilder;
 import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.ConnectionFactory;
-import org.apache.hadoop.hbase.client.Get;
-import org.apache.hadoop.hbase.client.Put;
-import org.apache.hadoop.hbase.client.Result;
-import org.apache.hadoop.hbase.client.Table;
 import org.apache.hadoop.hbase.client.TableDescriptorBuilder;
 import org.apache.hadoop.hbase.util.Bytes;
 
@@ -117,37 +113,6 @@ public class HbaseCluster {
         tableDesc.setColumnFamilies(colFamilyList);
         Admin hbaseAdmin = connection.getAdmin();
         hbaseAdmin.createTable(tableDesc.build());
-    }
-
-    public void putRow(
-            String tableName,
-            String rowKey,
-            String columnFamilyName,
-            String qualifier,
-            String value)
-            throws IOException {
-        Table table = connection.getTable(TableName.valueOf(tableName));
-
-        Put put = new Put(Bytes.toBytes(rowKey));
-        put.addColumn(
-                Bytes.toBytes(columnFamilyName), Bytes.toBytes(qualifier), Bytes.toBytes(value));
-        table.put(put);
-        table.close();
-    }
-
-    public String getCell(String tableName, String rowKey, String columnFamily, String qualifier)
-            throws IOException {
-        Table table = connection.getTable(TableName.valueOf(tableName));
-        Get get = new Get(Bytes.toBytes(rowKey));
-        if (!get.isCheckExistenceOnly()) {
-            get.addColumn(Bytes.toBytes(columnFamily), Bytes.toBytes(qualifier));
-            Result result = table.get(get);
-            byte[] resultValue =
-                    result.getValue(Bytes.toBytes(columnFamily), Bytes.toBytes(qualifier));
-            return Bytes.toString(resultValue);
-        } else {
-            return null;
-        }
     }
 
     public void stopService() throws IOException {

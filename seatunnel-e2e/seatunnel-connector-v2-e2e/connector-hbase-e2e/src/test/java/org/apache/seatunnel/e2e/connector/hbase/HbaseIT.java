@@ -73,7 +73,9 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
     public void startUp() throws Exception {
         hbaseCluster = new HbaseCluster();
         hbaseConnection = hbaseCluster.startService();
-        this.initialize();
+        // Create table for hbase sink test
+        log.info("initial");
+        hbaseCluster.createTable(TABLE_NAME, Arrays.asList(FAMILY_NAME));
         table = TableName.valueOf(TABLE_NAME);
     }
 
@@ -86,35 +88,11 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
         hbaseCluster.stopService();
     }
 
-    private void initialize() throws IOException {
-        // Create table for hbase sink test
-        log.info("initial");
-        hbaseCluster.createTable(TABLE_NAME, Arrays.asList(FAMILY_NAME));
-        // Create table and insert data for hbase source test
-        hbaseCluster.createTable("test_table", Arrays.asList("cf1", "cf2"));
-        hbaseCluster.putRow("test_table", "row1", "cf1", "col1", "True"); // boolean
-        hbaseCluster.putRow("test_table", "row1", "cf1", "col2", "3.923"); // double
-        hbaseCluster.putRow("test_table", "row1", "cf2", "col1", "4537654375638"); // bigint
-        hbaseCluster.putRow("test_table", "row1", "cf2", "col2", "33"); // int
-        hbaseCluster.putRow("test_table", "row1", "cf2", "col_date", "2024-08-12"); // date
-        hbaseCluster.putRow(
-                "test_table", "row1", "cf2", "col_timestamp", "2024-08-27 03:15:10"); // timestamp
-        hbaseCluster.putRow("test_table", "row1", "cf2", "col_time", "04:44:09"); // time
-        hbaseCluster.putRow("test_table", "row2", "cf1", "col1", "False"); // boolean
-        hbaseCluster.putRow("test_table", "row2", "cf1", "col2", "465.573"); // double
-        hbaseCluster.putRow("test_table", "row2", "cf2", "col1", "7893658245220"); // bigint
-        hbaseCluster.putRow("test_table", "row2", "cf2", "col2", "31"); // int
-        hbaseCluster.putRow("test_table", "row2", "cf2", "col_date", "2024-04-03"); // date
-        hbaseCluster.putRow(
-                "test_table", "row2", "cf2", "col_timestamp", "2024-11-22 10:41:49"); // timestamp
-        hbaseCluster.putRow("test_table", "row2", "cf2", "col_time", "14:24:38"); // time
-    }
-
     @TestTemplate
     public void testHbaseSink(TestContainer container) throws IOException, InterruptedException {
         deleteData(table);
-        Container.ExecResult execResult = container.executeJob("/fake-to-hbase.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
+        Container.ExecResult sinkExecResult = container.executeJob("/fake-to-hbase.conf");
+        Assertions.assertEquals(0, sinkExecResult.getExitCode());
         Table hbaseTable = hbaseConnection.getTable(table);
         Scan scan = new Scan();
         ResultScanner scanner = hbaseTable.getScanner(scan);
@@ -124,12 +102,8 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
         }
         Assertions.assertEquals(results.size(), 5);
         scanner.close();
-    }
-
-    @TestTemplate
-    public void testHbaseSource(TestContainer container) throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/hbase-to-assert.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
+        Container.ExecResult sourceExecResult = container.executeJob("/hbase-to-assert.conf");
+        Assertions.assertEquals(0, sourceExecResult.getExitCode());
     }
 
     @TestTemplate
