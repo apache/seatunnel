@@ -111,7 +111,13 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
             context.sendSplitRequest();
             needSendSplitRequest.compareAndSet(true, false);
         }
-        super.pollNext(output);
+
+        if (isNoMoreSplitsAssignment() && isNoMoreElement()) {
+            log.info("Reader {} send NoMoreElement event", context.getIndexOfSubtask());
+            context.signalNoMoreElement();
+        } else {
+            super.pollNext(output);
+        }
     }
 
     @Override

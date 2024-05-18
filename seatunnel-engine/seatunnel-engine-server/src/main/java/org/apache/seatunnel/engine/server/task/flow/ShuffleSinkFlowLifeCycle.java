@@ -78,7 +78,7 @@ public class ShuffleSinkFlowLifeCycle extends AbstractFlowLifeCycle
             shuffleFlush();
 
             Barrier barrier = (Barrier) record.getData();
-            if (barrier.prepareClose()) {
+            if (barrier.prepareClose(runningTask.getTaskLocation())) {
                 prepareClose = true;
             }
             if (barrier.snapshot()) {
