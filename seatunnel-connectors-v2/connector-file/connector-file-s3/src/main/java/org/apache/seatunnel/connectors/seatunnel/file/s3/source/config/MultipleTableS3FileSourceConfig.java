@@ -15,22 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source;
+package org.apache.seatunnel.connectors.seatunnel.file.s3.source.config;
 
-import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
-import org.apache.seatunnel.connectors.cdc.base.relational.connection.JdbcConnectionPoolFactory;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseFileSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseMultipleTableFileSourceConfig;
 
-/** A MySQL datasource factory. */
-public class MysqlPooledDataSourceFactory extends JdbcConnectionPoolFactory {
+public class MultipleTableS3FileSourceConfig extends BaseMultipleTableFileSourceConfig {
 
-    public static final String JDBC_URL_PATTERN =
-            "jdbc:mysql://%s:%s/?useInformationSchema=true&nullCatalogMeansCurrent=false&useUnicode=true&characterEncoding=UTF-8&characterSetResults=UTF-8&zeroDateTimeBehavior=CONVERT_TO_NULL";
+    public MultipleTableS3FileSourceConfig(ReadonlyConfig s3FileSourceRootConfig) {
+        super(s3FileSourceRootConfig);
+    }
 
     @Override
-    public String getJdbcUrl(JdbcSourceConfig sourceConfig) {
-        String hostName = sourceConfig.getHostname();
-        int port = sourceConfig.getPort();
-
-        return String.format(JDBC_URL_PATTERN, hostName, port);
+    public BaseFileSourceConfig getBaseSourceConfig(ReadonlyConfig readonlyConfig) {
+        return new S3FileSourceConfig(readonlyConfig);
     }
 }

@@ -15,21 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source;
+package org.apache.seatunnel.connectors.seatunnel.source;
 
-import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
-import org.apache.seatunnel.connectors.cdc.base.relational.connection.JdbcConnectionPoolFactory;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
-/** Factory to create {@link JdbcConnectionPoolFactory} for SQL Server. */
-public class SqlServerPooledDataSourceFactory extends JdbcConnectionPoolFactory {
+import java.io.Serializable;
 
-    private static final String URL_PATTERN = "jdbc:sqlserver://%s:%s;databaseName=%s";
+import static org.apache.seatunnel.connectors.seatunnel.config.Web3jConfig.URL;
 
-    @Override
-    public String getJdbcUrl(JdbcSourceConfig sourceConfig) {
-        String hostName = sourceConfig.getHostname();
-        int port = sourceConfig.getPort();
-        String database = sourceConfig.getDatabaseList().get(0);
-        return String.format(URL_PATTERN, hostName, port, database);
+public class Web3jSourceParameter implements Serializable {
+    private final String url;
+
+    public String getUrl() {
+        return url;
+    }
+
+    public Web3jSourceParameter(ReadonlyConfig config) {
+        this.url = config.get(URL);
     }
 }

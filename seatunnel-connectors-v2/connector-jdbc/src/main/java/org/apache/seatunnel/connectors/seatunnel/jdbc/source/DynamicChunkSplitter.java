@@ -62,7 +62,7 @@ public class DynamicChunkSplitter extends ChunkSplitter {
 
     @Override
     protected Collection<JdbcSourceSplit> createSplits(
-            JdbcSourceTable table, SeaTunnelRowType splitKey) throws SQLException {
+            JdbcSourceTable table, SeaTunnelRowType splitKey) throws Exception {
         return createDynamicSplits(table, splitKey);
     }
 
@@ -73,7 +73,7 @@ public class DynamicChunkSplitter extends ChunkSplitter {
     }
 
     private Collection<JdbcSourceSplit> createDynamicSplits(
-            JdbcSourceTable table, SeaTunnelRowType splitKey) throws SQLException {
+            JdbcSourceTable table, SeaTunnelRowType splitKey) throws Exception {
         String splitKeyName = splitKey.getFieldNames()[0];
         SeaTunnelDataType splitKeyType = splitKey.getFieldType(0);
         List<ChunkRange> chunks = splitTableIntoChunks(table, splitKeyName, splitKeyType);
@@ -105,7 +105,7 @@ public class DynamicChunkSplitter extends ChunkSplitter {
 
     private List<ChunkRange> splitTableIntoChunks(
             JdbcSourceTable table, String splitColumnName, SeaTunnelDataType splitColumnType)
-            throws SQLException {
+            throws Exception {
         Pair<Object, Object> minMax = queryMinMax(table, splitColumnName);
         Object min = minMax.getLeft();
         Object max = minMax.getRight();
@@ -136,7 +136,7 @@ public class DynamicChunkSplitter extends ChunkSplitter {
 
     private List<ChunkRange> evenlyColumnSplitChunks(
             JdbcSourceTable table, String splitColumnName, Object min, Object max, int chunkSize)
-            throws SQLException {
+            throws Exception {
         TablePath tablePath = table.getTablePath();
         double distributionFactorUpper = config.getSplitEvenDistributionFactorUpperBound();
         double distributionFactorLower = config.getSplitEvenDistributionFactorLowerBound();

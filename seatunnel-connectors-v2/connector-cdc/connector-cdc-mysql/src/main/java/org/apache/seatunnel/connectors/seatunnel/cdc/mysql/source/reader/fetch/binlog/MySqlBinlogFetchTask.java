@@ -29,6 +29,7 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.reader.fetch.s
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.github.shyiko.mysql.binlog.BinaryLogClient;
 import com.github.shyiko.mysql.binlog.event.Event;
 import io.debezium.DebeziumException;
 import io.debezium.connector.mysql.MySqlConnection;
@@ -40,12 +41,15 @@ import io.debezium.connector.mysql.MySqlTaskContext;
 import io.debezium.pipeline.ErrorHandler;
 import io.debezium.pipeline.source.spi.ChangeEventSource;
 import io.debezium.util.Clock;
+import lombok.extern.slf4j.Slf4j;
 
+import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.offset.BinlogOffset.NO_STOPPING_OFFSET;
 
+@Slf4j
 public class MySqlBinlogFetchTask implements FetchTask<SourceSplitBase> {
     private final IncrementalSplit split;
     private volatile boolean taskRunning = false;
@@ -71,6 +75,22 @@ public class MySqlBinlogFetchTask implements FetchTask<SourceSplitBase> {
 
         BinlogSplitChangeEventSourceContext changeEventSourceContext =
                 new BinlogSplitChangeEventSourceContext();
+
+        sourceFetchContext
+                .getBinaryLogClient()
+                .registerLifecycleListener(
+                        new BinaryLogClient.AbstractLifecycleListener() {
+                            @Override
+                            public void onConnect(BinaryLogClient client) {
+                                try {
+                                    sourceFetchContext.getConnection().close();
+                                    log.info(
+                                            "Binlog client connected, closed idle jdbc connection.");
+                                } catch (SQLException e) {
+                                    throw new RuntimeException(e);
+                                }
+                            }
+                        });
 
         mySqlStreamingChangeEventSource.execute(
                 changeEventSourceContext, sourceFetchContext.getOffsetContext());

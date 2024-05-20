@@ -15,21 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source;
+package org.apache.seatunnel.connectors.seatunnel.config;
 
-import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
-import org.apache.seatunnel.connectors.cdc.base.relational.connection.JdbcConnectionPoolFactory;
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
 
-/** Factory to create {@link JdbcConnectionPoolFactory} for Postgre SQL. */
-public class PostgresPooledDataSourceFactory extends JdbcConnectionPoolFactory {
+public class Web3jConfig {
 
-    private static final String URL_PATTERN = "jdbc:postgresql://%s:%s/%s";
-
-    @Override
-    public String getJdbcUrl(JdbcSourceConfig sourceConfig) {
-        String hostName = sourceConfig.getHostname();
-        int port = sourceConfig.getPort();
-        String database = sourceConfig.getDatabaseList().get(0);
-        return String.format(URL_PATTERN, hostName, port, database);
-    }
+    public static final Option<String> URL =
+            Options.key("url")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "your infura project url like : https://mainnet.infura.io/v3/xxxxxxxxxxxx");
 }

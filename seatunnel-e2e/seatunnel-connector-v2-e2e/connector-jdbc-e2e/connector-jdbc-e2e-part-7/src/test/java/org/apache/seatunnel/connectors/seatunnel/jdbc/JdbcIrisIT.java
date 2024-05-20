@@ -288,7 +288,7 @@ public class JdbcIrisIT extends AbstractJdbcIT {
             };
 
     @Test
-    public void testSampleDataFromColumnSuccess() throws SQLException {
+    public void testSampleDataFromColumnSuccess() throws Exception {
         JdbcDialect dialect = new IrisDialect();
         JdbcSourceTable table =
                 JdbcSourceTable.builder()

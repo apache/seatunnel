@@ -177,8 +177,16 @@ public class IncrementalSourceEnumerator
                 awaitingReader.remove();
                 LOG.debug("Assign split {} to subtask {}", sourceSplit, nextAwaiting);
             } else {
-                // there is no available splits by now, skip assigning
-                break;
+                if (splitAssigner.waitingForCompletedSplits()) {
+                    // there is no available splits by now, skip assigning
+                    break;
+                } else {
+                    LOG.info(
+                            "No more splits available, signal no more splits to subtask {}",
+                            nextAwaiting);
+                    context.signalNoMoreSplits(nextAwaiting);
+                    awaitingReader.remove();
+                }
             }
         }
     }
