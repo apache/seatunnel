@@ -48,7 +48,11 @@ public class PaimonSourceFactory implements TableSourceFactory {
                 .required(PaimonConfig.WAREHOUSE)
                 .required(PaimonConfig.DATABASE)
                 .required(PaimonConfig.TABLE)
-                .optional(PaimonConfig.HDFS_SITE_PATH, PaimonSourceConfig.FILTER_SQL)
+                .optional(
+                        PaimonConfig.HDFS_SITE_PATH,
+                        PaimonSourceConfig.FILTER_SQL,
+                        PaimonConfig.HADOOP_CONF,
+                        PaimonConfig.HADOOP_CONF_PATH)
                 .build();
     }
 

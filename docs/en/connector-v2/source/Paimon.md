@@ -17,13 +17,15 @@ Read data from Apache Paimon.
 
 ## Options
 
-|          name          |  type  | required | default value |
-|------------------------|--------|----------|---------------|
-| warehouse              | String | Yes      | -             |
-| database               | String | Yes      | -             |
-| table                  | String | Yes      | -             |
-| hdfs_site_path         | String | No       | -             |
-| paimon.read.filter.sql | String | No       | -             |
+|          name           |  type  | required | default value |
+|-------------------------|--------|----------|---------------|
+| warehouse               | String | Yes      | -             |
+| database                | String | Yes      | -             |
+| table                   | String | Yes      | -             |
+| hdfs_site_path          | String | No       | -             |
+| paimon.read.filter.sql  | String | No       | -             |
+| paimon.hadoop.conf      | Map    | No       | -             |
+| paimon.hadoop.conf-path | String | No       | -             |
 
 ### warehouse [string]
 
@@ -58,6 +60,14 @@ The field data types currently supported by where conditions are as follows::
 - date
 - timestamp
 
+### paimon.hadoop.conf [string]
+
+Properties in hadoop conf
+
+### paimon.hadoop.conf-path [string]
+
+The specified loading path for the 'core-site.xml', 'hdfs-site.xml', 'hive-site.xml' files
+
 ## Examples
 
 ### Simple example
@@ -81,6 +91,29 @@ source {
     database = "full_type"
     table = "st_test"
     paimon.read.filter.sql = "select * from st_test where c_boolean= 'true' and c_tinyint > 116 and c_smallint = 15987 or c_decimal='2924137191386439303744.39292213'"
+  }
+}
+```
+
+### Hadoop conf example
+
+```hocon
+source {
+  Paimon {
+    catalog_name="seatunnel_test"
+    warehouse="hdfs:///tmp/paimon"
+    database="seatunnel_namespace1"
+    table="st_test"
+    paimon.read.filter.sql = "select * from st_test where pk_id is not null and pk_id < 3"
+    paimon.hadoop.conf = {
+      fs.defaultFS = "hdfs://nameservice1"
+      dfs.nameservices = "nameservice1"
+      dfs.ha.namenodes.nameservice1 = "nn1,nn2"
+      dfs.namenode.rpc-address.nameservice1.nn1 = "hadoop03:8020"
+      dfs.namenode.rpc-address.nameservice1.nn2 = "hadoop04:8020"
+      dfs.client.failover.proxy.provider.nameservice1 = "org.apache.hadoop.hdfs.server.namenode.ha.ConfiguredFailoverProxyProvider"
+      dfs.client.use.datanode.hostname = "true"
+    }
   }
 }
 ```

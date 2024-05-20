@@ -148,6 +148,10 @@ public class PaimonSinkHdfsIT extends TestSuiteBase {
                                         }
                                     });
                         });
+
+        Container.ExecResult readResult =
+                container.executeJob("/read_from_paimon_with_hdfs_ha_to_assert.conf");
+        Assertions.assertEquals(0, readResult.getExitCode());
     }
 
     @TestTemplate
