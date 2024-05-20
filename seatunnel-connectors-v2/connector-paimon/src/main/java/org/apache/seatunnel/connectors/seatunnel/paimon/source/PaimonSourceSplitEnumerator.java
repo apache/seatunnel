@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.paimon.source;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.connectors.seatunnel.paimon.catalog.PaimonCatalog;
 
 import org.apache.paimon.predicate.Predicate;
 import org.apache.paimon.table.Table;
@@ -29,6 +30,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -50,24 +52,31 @@ public class PaimonSourceSplitEnumerator
     private final Table table;
 
     private final Predicate predicate;
+    private final PaimonCatalog paimonCatalog;
 
     public PaimonSourceSplitEnumerator(
-            Context<PaimonSourceSplit> context, Table table, Predicate predicate) {
+            Context<PaimonSourceSplit> context,
+            Table table,
+            Predicate predicate,
+            PaimonCatalog paimonCatalog) {
         this.context = context;
         this.table = table;
         this.assignedSplit = new HashSet<>();
         this.predicate = predicate;
+        this.paimonCatalog = paimonCatalog;
     }
 
     public PaimonSourceSplitEnumerator(
             Context<PaimonSourceSplit> context,
             Table table,
             PaimonSourceState sourceState,
-            Predicate predicate) {
+            Predicate predicate,
+            PaimonCatalog paimonCatalog) {
         this.context = context;
         this.table = table;
         this.assignedSplit = sourceState.getAssignedSplits();
         this.predicate = predicate;
+        this.paimonCatalog = paimonCatalog;
     }
 
     @Override
@@ -83,6 +92,9 @@ public class PaimonSourceSplitEnumerator
     @Override
     public void close() throws IOException {
         // do nothing
+        if (Objects.nonNull(paimonCatalog)) {
+            paimonCatalog.close();
+        }
     }
 
     @Override
