@@ -13,12 +13,12 @@ SeaTunnel 还支持将 SeaTunnel 中的 INSERT/UPDATE/DELETE 消息转化为 Ogg
 
 # 格式选项
 
-| 选项                       |  默认值   | 是否需要 |                                         描述                                         |
-|--------------------------|--------|------|------------------------------------------------------------------------------------|
-| format                   | (none) | 是    | 指定要使用的格式，这里应该是`-json`                                                              |
-| ignore-parse-errors      | false  | 否    | 跳过有解析错误的字段和行而不是失败。如果出现错误，字段将设置为 null                                               |
-| database.include         | (none) | 否    | 正则表达式，可选，通过正则匹配 Canal 记录中的`database`元字段来仅读取特定数据库变更日志行。此字符串Pattern模式与Java的Pattern兼容 |
-| table.include            | (none) | 否    | 正则表达式，可选，通过正则匹配 Canal 记录中的 `table` 元字段来仅读取特定表的更改日志行。此字符串Pattern模式与Java的Pattern兼容   |
+|         选项          |  默认值   | 是否需要 |                                         描述                                         |
+|---------------------|--------|------|------------------------------------------------------------------------------------|
+| format              | (none) | 是    | 指定要使用的格式，这里应该是`-json`                                                              |
+| ignore-parse-errors | false  | 否    | 跳过有解析错误的字段和行而不是失败。如果出现错误，字段将设置为 null                                               |
+| database.include    | (none) | 否    | 正则表达式，可选，通过正则匹配 Canal 记录中的`database`元字段来仅读取特定数据库变更日志行。此字符串Pattern模式与Java的Pattern兼容 |
+| table.include       | (none) | 否    | 正则表达式，可选，通过正则匹配 Canal 记录中的 `table` 元字段来仅读取特定表的更改日志行。此字符串Pattern模式与Java的Pattern兼容   |
 
 # 如何使用 Ogg 格式
 
