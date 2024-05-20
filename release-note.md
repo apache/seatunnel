@@ -55,7 +55,7 @@
 - [Connector-v2] [File] Fix WriteStrategy parallel writing thread unsafe issue #5546
 - [Connector-v2] [File] Inject FileSystem to OrcWriteStrategy
 - [Connector-v2] [File] Support assign encoding for file source/sink (#5973)
-
+- [Connector-v2] [Kafka] Translate the issue of being unable to read specified table data with ogg_json and canal_json (#6870).
 ### Zeta(ST-Engine)
 
 - [Zeta] Fix LogicalDagGeneratorTest testcase (#4401)
