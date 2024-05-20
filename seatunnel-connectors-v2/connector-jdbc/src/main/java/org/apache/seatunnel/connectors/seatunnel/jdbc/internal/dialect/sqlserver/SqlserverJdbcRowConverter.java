@@ -25,7 +25,7 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.AbstractJdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcFieldTypeUtils;
 
 import java.math.BigDecimal;
 import java.sql.PreparedStatement;
@@ -46,7 +46,7 @@ public class SqlserverJdbcRowConverter extends AbstractJdbcRowConverter {
 
     @Override
     protected LocalTime readTime(ResultSet rs, int resultSetIndex) throws SQLException {
-        Timestamp sqlTime = JdbcUtils.getTimestamp(rs, resultSetIndex);
+        Timestamp sqlTime = JdbcFieldTypeUtils.getTimestamp(rs, resultSetIndex);
         return Optional.ofNullable(sqlTime)
                 .map(e -> e.toLocalDateTime().toLocalTime())
                 .orElse(null);

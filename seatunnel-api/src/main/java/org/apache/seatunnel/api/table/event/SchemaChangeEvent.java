@@ -17,13 +17,12 @@
 
 package org.apache.seatunnel.api.table.event;
 
+import org.apache.seatunnel.api.event.Event;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 
-import java.io.Serializable;
-
 /** Represents a structural change to a table schema. */
-public interface SchemaChangeEvent extends Serializable {
+public interface SchemaChangeEvent extends Event {
 
     /**
      * Path of the change table object

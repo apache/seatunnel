@@ -39,7 +39,7 @@ Output data to aws s3 file system.
 > If you use spark/flink, In order to use this connector, You must ensure your spark/flink cluster already integrated hadoop. The tested hadoop version is 2.x.
 >
 > If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you download and install SeaTunnel Engine. You can check the jar package under `${SEATUNNEL_HOME}/lib` to confirm this.
-> To use this connector you need put `hadoop-aws-3.1.4.jar` and `aws-java-sdk-bundle-1.11.271.jar` in `${SEATUNNEL_HOME}/lib` dir.
+> To use this connector you need put `hadoop-aws-3.1.4.jar` and `aws-java-sdk-bundle-1.12.692.jar` in `${SEATUNNEL_HOME}/lib` dir.
 
 ## Data Type Mapping
 
@@ -123,6 +123,7 @@ If write to `csv`, `text` file type, All column will be string.
 | hadoop_s3_properties             | map     | no       |                                                       | If you need to add a other option, you could add it here and refer to this [link](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html)       |
 | schema_save_mode                 | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST                          | Before turning on the synchronous task, do different treatment of the target path                                                                                     |
 | data_save_mode                   | Enum    | no       | APPEND_DATA                                           | Before opening the synchronous task, the data file in the target path is differently processed                                                                        |
+| encoding                         | string  | no       | "UTF-8"                                               | Only used when file_format_type is json,text,csv,xml.                                                                                                                 |
 
 ### path [string]
 
@@ -277,6 +278,11 @@ Option introduction：
 `DROP_DATA`： use the path but delete data files in the path.
 `APPEND_DATA`：use the path, and add new files in the path for write data.   
 `ERROR_WHEN_DATA_EXISTS`：When there are some data files in the path, an error will is reported.
+
+### encoding [string]
+
+Only used when file_format_type is json,text,csv,xml.
+The encoding of the file to write. This param will be parsed by `Charset.forName(encoding)`.
 
 ## Example
 
@@ -468,7 +474,7 @@ transform {
 sink {
 S3File {
     bucket = "s3a://seatunnel-test"
-    tmp_path = "/tmp/seatunnel"
+    tmp_path = "/tmp/seatunnel/${table_name}"
     path="/test/${table_name}"
     fs.s3a.endpoint="s3.cn-north-1.amazonaws.com.cn"
     fs.s3a.aws.credentials.provider="org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"

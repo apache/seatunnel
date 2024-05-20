@@ -44,12 +44,13 @@ import static org.apache.seatunnel.connectors.doris.config.DorisOptions.TABLE;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.TABLE_IDENTIFIER;
 
 @AutoService(Factory.class)
-public class DorisSinkFactory
-        implements TableSinkFactory<
-                SeaTunnelRow, DorisSinkState, DorisCommitInfo, DorisCommitInfo> {
+public class DorisSinkFactory implements TableSinkFactory {
+
+    public static final String IDENTIFIER = "Doris";
+
     @Override
     public String factoryIdentifier() {
-        return "Doris";
+        return IDENTIFIER;
     }
 
     @Override

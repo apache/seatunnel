@@ -48,7 +48,7 @@ public class FlinkTaskExecuteCommand implements Command<FlinkCommandArgs> {
     public void execute() throws CommandExecuteException {
         Path configFile = FileUtils.getConfigPath(flinkCommandArgs);
         checkConfigExist(configFile);
-        Config config = ConfigBuilder.of(configFile);
+        Config config = ConfigBuilder.of(configFile, flinkCommandArgs.getVariables());
         // if user specified job name using command line arguments, override config option
         if (!flinkCommandArgs.getJobName().equals(Constants.LOGO)) {
             config =

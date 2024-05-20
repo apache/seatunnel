@@ -19,7 +19,6 @@
 package org.apache.seatunnel.format.avro;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
-import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -78,7 +77,8 @@ public class SeaTunnelRowTypeToAvroSchemaConverter {
                 SeaTunnelDataType<?> valueType = ((MapType<?, ?>) seaTunnelDataType).getValueType();
                 return Schema.createMap(seaTunnelDataType2AvroDataType(fieldName, valueType));
             case ARRAY:
-                BasicType<?> elementType = ((ArrayType<?, ?>) seaTunnelDataType).getElementType();
+                SeaTunnelDataType<?> elementType =
+                        ((ArrayType<?, ?>) seaTunnelDataType).getElementType();
                 return Schema.createArray(seaTunnelDataType2AvroDataType(fieldName, elementType));
             case ROW:
                 SeaTunnelDataType<?>[] fieldTypes =

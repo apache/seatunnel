@@ -42,6 +42,8 @@ public class ClientJobExecutionEnvironment extends AbstractJobEnvironment {
 
     private final String jobFilePath;
 
+    private final List<String> variables;
+
     private final SeaTunnelHazelcastClient seaTunnelHazelcastClient;
 
     private final JobClient jobClient;
@@ -54,12 +56,14 @@ public class ClientJobExecutionEnvironment extends AbstractJobEnvironment {
     public ClientJobExecutionEnvironment(
             JobConfig jobConfig,
             String jobFilePath,
+            List<String> variables,
             SeaTunnelHazelcastClient seaTunnelHazelcastClient,
             SeaTunnelConfig seaTunnelConfig,
             boolean isStartWithSavePoint,
             Long jobId) {
         super(jobConfig, isStartWithSavePoint);
         this.jobFilePath = jobFilePath;
+        this.variables = variables;
         this.seaTunnelHazelcastClient = seaTunnelHazelcastClient;
         this.jobClient = new JobClient(seaTunnelHazelcastClient);
         this.seaTunnelConfig = seaTunnelConfig;
@@ -71,16 +75,29 @@ public class ClientJobExecutionEnvironment extends AbstractJobEnvironment {
     public ClientJobExecutionEnvironment(
             JobConfig jobConfig,
             String jobFilePath,
+            List<String> variables,
             SeaTunnelHazelcastClient seaTunnelHazelcastClient,
             SeaTunnelConfig seaTunnelConfig) {
-        this(jobConfig, jobFilePath, seaTunnelHazelcastClient, seaTunnelConfig, false, null);
+        this(
+                jobConfig,
+                jobFilePath,
+                variables,
+                seaTunnelHazelcastClient,
+                seaTunnelConfig,
+                false,
+                null);
     }
 
     /** Search all jars in SEATUNNEL_HOME/plugins */
     @Override
     protected MultipleTableJobConfigParser getJobConfigParser() {
         return new MultipleTableJobConfigParser(
-                jobFilePath, idGenerator, jobConfig, commonPluginJars, isStartWithSavePoint);
+                jobFilePath,
+                variables,
+                idGenerator,
+                jobConfig,
+                commonPluginJars,
+                isStartWithSavePoint);
     }
 
     @Override

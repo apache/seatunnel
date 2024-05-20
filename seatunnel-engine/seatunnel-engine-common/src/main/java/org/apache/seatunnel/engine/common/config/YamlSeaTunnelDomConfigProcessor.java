@@ -29,7 +29,9 @@ import org.apache.seatunnel.engine.common.config.server.ThreadShareMode;
 
 import org.apache.commons.lang3.StringUtils;
 
+import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
 
 import com.hazelcast.config.InvalidConfigurationException;
 import com.hazelcast.internal.config.AbstractDomConfigProcessor;
@@ -38,6 +40,7 @@ import com.hazelcast.logging.Logger;
 
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 
@@ -145,6 +148,23 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                 engineConfig.setConnectorJarStorageConfig(parseConnectorJarStorageConfig(node));
             } else if (ServerConfigOptions.CLASSLOADER_CACHE_MODE.key().equals(name)) {
                 engineConfig.setClassloaderCacheMode(getBooleanValue(getTextContent(node)));
+            } else if (ServerConfigOptions.EVENT_REPORT_HTTP.equalsIgnoreCase(name)) {
+                NamedNodeMap attributes = node.getAttributes();
+                Node urlNode = attributes.getNamedItem(ServerConfigOptions.EVENT_REPORT_HTTP_URL);
+                if (urlNode != null) {
+                    engineConfig.setEventReportHttpApi(getTextContent(urlNode));
+                    Node headersNode =
+                            attributes.getNamedItem(ServerConfigOptions.EVENT_REPORT_HTTP_HEADERS);
+                    if (headersNode != null) {
+                        Map<String, String> headers = new LinkedHashMap<>();
+                        NodeList nodeList = headersNode.getChildNodes();
+                        for (int i = 0; i < nodeList.getLength(); i++) {
+                            Node item = nodeList.item(i);
+                            headers.put(cleanNodeName(item), getTextContent(item));
+                        }
+                        engineConfig.setEventReportHttpHeaders(headers);
+                    }
+                }
             } else {
                 LOGGER.warning("Unrecognized element: " + name);
             }

@@ -88,6 +88,19 @@
             <classifier>optional</classifier>
             <scope>provided</scope>
         </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-e2e-common</artifactId>
+            <version>${project.version}</version>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.squareup.okhttp</groupId>
+            <artifactId>mockwebserver</artifactId>
+            <version>2.7.5</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
 </project>

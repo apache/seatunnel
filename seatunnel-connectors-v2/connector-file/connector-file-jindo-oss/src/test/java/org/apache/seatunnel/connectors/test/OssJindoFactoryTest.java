@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.connectors.test;
 
-import org.apache.seatunnel.connectors.seatunnel.file.oss.sink.OssFileSinkFactory;
-import org.apache.seatunnel.connectors.seatunnel.file.oss.source.OssFileSourceFactory;
+import org.apache.seatunnel.connectors.seatunnel.file.oss.jindo.sink.OssFileSinkFactory;
+import org.apache.seatunnel.connectors.seatunnel.file.oss.jindo.source.OssFileSourceFactory;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;

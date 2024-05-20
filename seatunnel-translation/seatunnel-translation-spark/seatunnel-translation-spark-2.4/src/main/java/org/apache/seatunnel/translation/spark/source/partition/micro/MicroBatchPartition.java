@@ -34,6 +34,7 @@ import java.util.Map;
 public class MicroBatchPartition implements InputPartition<InternalRow> {
     protected final SeaTunnelSource<SeaTunnelRow, ?, ?> source;
     protected final Integer parallelism;
+    protected final String jobId;
     protected final Integer subtaskId;
     protected final Integer checkpointId;
     protected final Integer checkpointInterval;
@@ -45,6 +46,7 @@ public class MicroBatchPartition implements InputPartition<InternalRow> {
     public MicroBatchPartition(
             SeaTunnelSource<SeaTunnelRow, ?, ?> source,
             Integer parallelism,
+            String jobId,
             Integer subtaskId,
             Integer checkpointId,
             Integer checkpointInterval,
@@ -54,6 +56,7 @@ public class MicroBatchPartition implements InputPartition<InternalRow> {
             Map<String, String> envOptions) {
         this.source = source;
         this.parallelism = parallelism;
+        this.jobId = jobId;
         this.subtaskId = subtaskId;
         this.checkpointId = checkpointId;
         this.checkpointInterval = checkpointInterval;
@@ -71,6 +74,7 @@ public class MicroBatchPartition implements InputPartition<InternalRow> {
                     new CoordinatedMicroBatchPartitionReader(
                             source,
                             parallelism,
+                            jobId,
                             subtaskId,
                             checkpointId,
                             checkpointInterval,
@@ -83,6 +87,7 @@ public class MicroBatchPartition implements InputPartition<InternalRow> {
                     new ParallelMicroBatchPartitionReader(
                             source,
                             parallelism,
+                            jobId,
                             subtaskId,
                             checkpointId,
                             checkpointInterval,

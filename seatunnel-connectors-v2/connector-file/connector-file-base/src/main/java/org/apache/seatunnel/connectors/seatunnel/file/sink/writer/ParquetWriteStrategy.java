@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
-import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -139,25 +138,33 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
         dataModel.addLogicalTypeConversion(new TimeConversions.LocalTimestampMillisConversion());
         if (writer == null) {
             Path path = new Path(filePath);
-            try {
-                HadoopOutputFile outputFile =
-                        HadoopOutputFile.fromPath(path, getConfiguration(hadoopConf));
-                ParquetWriter<GenericRecord> newWriter =
-                        AvroParquetWriter.<GenericRecord>builder(outputFile)
-                                .withWriteMode(ParquetFileWriter.Mode.OVERWRITE)
-                                .withDataModel(dataModel)
-                                // use parquet v1 to improve compatibility
-                                .withWriterVersion(ParquetProperties.WriterVersion.PARQUET_1_0)
-                                .withCompressionCodec(compressFormat.getParquetCompression())
-                                .withSchema(schema)
-                                .build();
-                this.beingWrittenWriter.put(filePath, newWriter);
-                return newWriter;
-            } catch (IOException e) {
-                String errorMsg = String.format("Get parquet writer for file [%s] error", filePath);
-                throw new FileConnectorException(
-                        CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED, errorMsg, e);
-            }
+            // initialize the kerberos login
+            return hadoopFileSystemProxy.doWithHadoopAuth(
+                    (configuration, userGroupInformation) -> {
+                        try {
+                            HadoopOutputFile outputFile =
+                                    HadoopOutputFile.fromPath(path, getConfiguration(hadoopConf));
+                            ParquetWriter<GenericRecord> newWriter =
+                                    AvroParquetWriter.<GenericRecord>builder(outputFile)
+                                            .withWriteMode(ParquetFileWriter.Mode.OVERWRITE)
+                                            .withDataModel(dataModel)
+                                            // use parquet v1 to improve compatibility
+                                            .withWriterVersion(
+                                                    ParquetProperties.WriterVersion.PARQUET_1_0)
+                                            .withCompressionCodec(
+                                                    compressFormat.getParquetCompression())
+                                            .withSchema(schema)
+                                            .build();
+                            this.beingWrittenWriter.put(filePath, newWriter);
+                            return newWriter;
+                        } catch (IOException e) {
+                            String errorMsg =
+                                    String.format(
+                                            "Get parquet writer for file [%s] error", filePath);
+                            throw new FileConnectorException(
+                                    CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED, errorMsg, e);
+                        }
+                    });
         }
         return writer;
     }
@@ -168,7 +175,8 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
         }
         switch (seaTunnelDataType.getSqlType()) {
             case ARRAY:
-                BasicType<?> elementType = ((ArrayType<?, ?>) seaTunnelDataType).getElementType();
+                SeaTunnelDataType<?> elementType =
+                        ((ArrayType<?, ?>) seaTunnelDataType).getElementType();
                 ArrayList<Object> records = new ArrayList<>(((Object[]) data).length);
                 for (Object object : (Object[]) data) {
                     Object resolvedObject = resolveObject(object, elementType);
@@ -228,7 +236,8 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
             String fieldName, SeaTunnelDataType<?> seaTunnelDataType) {
         switch (seaTunnelDataType.getSqlType()) {
             case ARRAY:
-                BasicType<?> elementType = ((ArrayType<?, ?>) seaTunnelDataType).getElementType();
+                SeaTunnelDataType<?> elementType =
+                        ((ArrayType<?, ?>) seaTunnelDataType).getElementType();
                 return Types.optionalGroup()
                         .as(OriginalType.LIST)
                         .addField(

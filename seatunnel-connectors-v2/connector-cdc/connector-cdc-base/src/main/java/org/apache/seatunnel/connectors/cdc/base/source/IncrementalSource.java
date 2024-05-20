@@ -17,14 +17,12 @@
 
 package org.apache.seatunnel.connectors.cdc.base.source;
 
-import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
-import org.apache.seatunnel.api.source.SupportCoordinate;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -80,7 +78,7 @@ import java.util.stream.Stream;
 
 @NoArgsConstructor
 public abstract class IncrementalSource<T, C extends SourceConfig>
-        implements SeaTunnelSource<T, SourceSplitBase, PendingSplitsState>, SupportCoordinate {
+        implements SeaTunnelSource<T, SourceSplitBase, PendingSplitsState> {
 
     protected ReadonlyConfig readonlyConfig;
     protected SourceConfig.Factory<C> configFactory;
@@ -182,7 +180,7 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                 dataSourceDialect,
                 elementsQueue,
                 splitReaderSupplier,
-                createRecordEmitter(sourceConfig, readerContext.getMetricsContext()),
+                createRecordEmitter(sourceConfig, readerContext),
                 new SourceReaderOptions(readonlyConfig),
                 readerContext,
                 sourceConfig,
@@ -190,9 +188,8 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
     }
 
     protected RecordEmitter<SourceRecords, T, SourceSplitStateBase> createRecordEmitter(
-            SourceConfig sourceConfig, MetricsContext metricsContext) {
-        return new IncrementalSourceRecordEmitter<>(
-                deserializationSchema, offsetFactory, metricsContext);
+            SourceConfig sourceConfig, SourceReader.Context context) {
+        return new IncrementalSourceRecordEmitter<>(deserializationSchema, offsetFactory, context);
     }
 
     @Override

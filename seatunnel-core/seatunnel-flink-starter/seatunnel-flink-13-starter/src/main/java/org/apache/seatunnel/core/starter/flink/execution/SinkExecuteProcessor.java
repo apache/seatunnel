@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.sink.SaveModeExecuteWrapper;
 import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SupportSaveMode;
@@ -123,7 +124,7 @@ public class SinkExecuteProcessor
                 Optional<SaveModeHandler> saveModeHandler = saveModeSink.getSaveModeHandler();
                 if (saveModeHandler.isPresent()) {
                     try (SaveModeHandler handler = saveModeHandler.get()) {
-                        handler.handleSaveMode();
+                        new SaveModeExecuteWrapper(handler).execute();
                     } catch (Exception e) {
                         throw new SeaTunnelRuntimeException(HANDLE_SAVE_MODE_FAILED, e);
                     }

@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.serializable;
 
 import org.apache.seatunnel.engine.common.serializeable.SeaTunnelFactoryIdConstant;
+import org.apache.seatunnel.engine.server.event.JobEventReportOperation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.Progress;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
@@ -36,6 +37,7 @@ import org.apache.seatunnel.engine.server.task.operation.checkpoint.CloseRequest
 import org.apache.seatunnel.engine.server.task.operation.sink.SinkPrepareCommitOperation;
 import org.apache.seatunnel.engine.server.task.operation.sink.SinkRegisterOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.AssignSplitOperation;
+import org.apache.seatunnel.engine.server.task.operation.source.CloseIdleReaderOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.LastCheckpointNotifyOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.RequestSplitOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.RestoredSplitOperation;
@@ -97,6 +99,10 @@ public class TaskDataSerializerHook implements DataSerializerHook {
     public static final int SEND_CONNECTOR_JAR_TO_MEMBER_NODE_OPERATION = 23;
 
     public static final int DELETE_CONNECTOR_JAR_IN_EXECUTION_NODE = 24;
+
+    public static final int REPORT_JOB_EVENT = 25;
+
+    public static final int CLOSE_READER_OPERATION = 26;
 
     public static final int FACTORY_ID =
             FactoryIdHelper.getFactoryId(
@@ -166,6 +172,10 @@ public class TaskDataSerializerHook implements DataSerializerHook {
                     return new SendConnectorJarToMemberNodeOperation();
                 case DELETE_CONNECTOR_JAR_IN_EXECUTION_NODE:
                     return new DeleteConnectorJarInExecutionNode();
+                case REPORT_JOB_EVENT:
+                    return new JobEventReportOperation();
+                case CLOSE_READER_OPERATION:
+                    return new CloseIdleReaderOperation();
                 default:
                     throw new IllegalArgumentException("Unknown type id " + typeId);
             }

@@ -30,7 +30,6 @@ import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
-import org.apache.seatunnel.engine.common.loader.ClassLoaderUtil;
 import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
@@ -217,8 +216,6 @@ public class JobMaster {
                         jobImmutableInformation.getJobId(),
                         jobImmutableInformation.getPluginJarsUrls());
 
-        ClassLoaderUtil.recycleClassLoaderFromThread(classLoader);
-
         final Tuple2<PhysicalPlan, Map<Integer, CheckpointPlan>> planTuple =
                 PlanUtils.fromLogicalDAG(
                         logicalDag,
@@ -390,6 +387,46 @@ public class JobMaster {
                             logicalDag, jobImmutableInformation, engineConfig, isPhysicalDAGIInfo);
         }
         return jobDAGInfo;
+    }
+
+    public void releaseTaskGroupResource(
+            PipelineLocation pipelineLocation, TaskGroupLocation taskGroupLocation) {
+        Map<TaskGroupLocation, SlotProfile> taskGroupLocationSlotProfileMap =
+                ownedSlotProfilesIMap.get(pipelineLocation);
+        if (taskGroupLocationSlotProfileMap == null) {
+            return;
+        }
+        SlotProfile taskGroupSlotProfile = taskGroupLocationSlotProfileMap.get(taskGroupLocation);
+        if (taskGroupSlotProfile == null) {
+            return;
+        }
+
+        try {
+            RetryUtils.retryWithException(
+                    () -> {
+                        LOGGER.info(
+                                String.format(
+                                        "release the task group resource %s", taskGroupLocation));
+
+                        resourceManager
+                                .releaseResources(
+                                        jobImmutableInformation.getJobId(),
+                                        Collections.singletonList(taskGroupSlotProfile))
+                                .join();
+
+                        return null;
+                    },
+                    new RetryUtils.RetryMaterial(
+                            Constant.OPERATION_RETRY_TIME,
+                            true,
+                            exception -> ExceptionUtil.isOperationNeedRetryException(exception),
+                            Constant.OPERATION_RETRY_SLEEP));
+        } catch (Exception e) {
+            LOGGER.warning(
+                    String.format(
+                            "release the task group resource failed %s, with exception: %s ",
+                            taskGroupLocation, ExceptionUtils.getMessage(e)));
+        }
     }
 
     public void releasePipelineResource(SubPlan subPlan) {
@@ -666,12 +703,19 @@ public class JobMaster {
 
                                                 task.updateStateByExecutionService(
                                                         taskExecutionState);
+                                                if (taskExecutionState
+                                                        .getExecutionState()
+                                                        .isEndState()) {
+                                                    releaseTaskGroupResource(
+                                                            pipeline.getPipelineLocation(),
+                                                            task.getTaskGroupLocation());
+                                                }
                                             });
                         });
     }
 
     /** Execute savePoint, which will cause the job to end. */
-    public CompletableFuture<Void> savePoint() {
+    public CompletableFuture<Boolean> savePoint() {
         LOGGER.info(
                 String.format(
                         "Begin do save point for Job %s (%s) ",
@@ -680,7 +724,17 @@ public class JobMaster {
         physicalPlan.savepointJob();
         PassiveCompletableFuture<CompletedCheckpoint>[] passiveCompletableFutures =
                 checkpointManager.triggerSavePoints();
-        return CompletableFuture.allOf(passiveCompletableFutures);
+        return CompletableFuture.supplyAsync(
+                () ->
+                        Arrays.stream(passiveCompletableFutures)
+                                .allMatch(
+                                        future -> {
+                                            try {
+                                                return future.get() != null;
+                                            } catch (Exception e) {
+                                                throw new SeaTunnelEngineException(e);
+                                            }
+                                        }));
     }
 
     public void setOwnedSlotProfiles(

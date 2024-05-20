@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.task.context;
 
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
+import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.sink.SinkWriter;
 
 public class SinkWriterContext implements SinkWriter.Context {
@@ -25,10 +26,13 @@ public class SinkWriterContext implements SinkWriter.Context {
     private static final long serialVersionUID = -3082515319043725121L;
     private final int indexID;
     private final MetricsContext metricsContext;
+    private final EventListener eventListener;
 
-    public SinkWriterContext(int indexID, MetricsContext metricsContext) {
+    public SinkWriterContext(
+            int indexID, MetricsContext metricsContext, EventListener eventListener) {
         this.indexID = indexID;
         this.metricsContext = metricsContext;
+        this.eventListener = eventListener;
     }
 
     @Override
@@ -39,5 +43,10 @@ public class SinkWriterContext implements SinkWriter.Context {
     @Override
     public MetricsContext getMetricsContext() {
         return metricsContext;
+    }
+
+    @Override
+    public EventListener getEventListener() {
+        return eventListener;
     }
 }

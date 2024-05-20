@@ -37,7 +37,9 @@ import org.apache.seatunnel.connectors.seatunnel.rocketmq.exception.RocketMqConn
 import org.apache.seatunnel.connectors.seatunnel.rocketmq.serialize.DefaultSeaTunnelRowSerializer;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.engine.common.Constant;
 
 import org.apache.rocketmq.client.consumer.DefaultLitePullConsumer;
@@ -68,10 +70,12 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.apache.seatunnel.e2e.connector.rocketmq.RocketMqContainer.NAMESRV_PORT;
@@ -212,6 +216,27 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
         Container.ExecResult execResult =
                 container.executeJob("/rocketmq-source_text_to_console.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "flink and spark won't commit offset when batch job finished")
+    public void testSourceRocketMqTextToConsoleWithOffsetCheck(TestContainer container)
+            throws IOException, InterruptedException {
+        DefaultSeaTunnelRowSerializer serializer =
+                new DefaultSeaTunnelRowSerializer(
+                        "test_topic_text_offset_check",
+                        SEATUNNEL_ROW_TYPE,
+                        SchemaFormat.TEXT,
+                        DEFAULT_FIELD_DELIMITER);
+        generateTestData(
+                row -> serializer.serializeRow(row), "test_topic_text_offset_check", 0, 10);
+        Container.ExecResult execResult =
+                container.executeJob("/rocketmq-source_tex_with_offset_check.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+        checkOffsetNoDiff("test_topic_text_offset_check", "SeaTunnel-Consumer-Group");
     }
 
     @TestTemplate
@@ -373,6 +398,26 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
             throw new RuntimeException(ex);
         }
         return data;
+    }
+
+    private void checkOffsetNoDiff(String topicName, String consumerGroup) {
+        RocketMqBaseConfiguration config = newConfiguration();
+        config.setGroupId(consumerGroup);
+        List<Map<MessageQueue, TopicOffset>> offsetTopics =
+                RocketMqAdminUtil.offsetTopics(config, Arrays.asList(topicName));
+        Map<MessageQueue, TopicOffset> offsetMap = offsetTopics.get(0);
+        Set<MessageQueue> messageQueues = offsetMap.keySet();
+        Map<MessageQueue, Long> currentOffsets =
+                RocketMqAdminUtil.currentOffsets(config, Arrays.asList(topicName), messageQueues);
+        for (Map.Entry<MessageQueue, TopicOffset> offsetEntry : offsetMap.entrySet()) {
+            MessageQueue messageQueue = offsetEntry.getKey();
+            long maxOffset = offsetEntry.getValue().getMaxOffset();
+            Long consumeOffset = currentOffsets.get(messageQueue);
+            Assertions.assertEquals(
+                    maxOffset,
+                    consumeOffset,
+                    "Offset different,maxOffset=" + maxOffset + ",consumeOffset=" + consumeOffset);
+        }
     }
 
     public RocketMqBaseConfiguration newConfiguration() {

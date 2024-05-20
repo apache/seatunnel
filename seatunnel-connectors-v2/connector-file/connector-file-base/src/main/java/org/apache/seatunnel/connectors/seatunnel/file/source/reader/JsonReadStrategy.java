@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -43,6 +44,7 @@ import java.util.Map;
 public class JsonReadStrategy extends AbstractReadStrategy {
     private DeserializationSchema<SeaTunnelRow> deserializationSchema;
     private CompressFormat compressFormat = BaseSourceConfigOptions.COMPRESS_CODEC.defaultValue();
+    private String encoding = BaseSourceConfigOptions.ENCODING.defaultValue();
 
     @Override
     public void init(HadoopConf conf) {
@@ -52,6 +54,10 @@ public class JsonReadStrategy extends AbstractReadStrategy {
                     pluginConfig.getString(BaseSourceConfigOptions.COMPRESS_CODEC.key());
             compressFormat = CompressFormat.valueOf(compressCodec.toUpperCase());
         }
+        encoding =
+                ReadonlyConfig.fromConfig(pluginConfig)
+                        .getOptional(BaseSourceConfigOptions.ENCODING)
+                        .orElse(StandardCharsets.UTF_8.name());
     }
 
     @Override
@@ -87,13 +93,14 @@ public class JsonReadStrategy extends AbstractReadStrategy {
                 break;
         }
         try (BufferedReader reader =
-                new BufferedReader(new InputStreamReader(inputStream, StandardCharsets.UTF_8))) {
+                new BufferedReader(new InputStreamReader(inputStream, encoding))) {
             reader.lines()
                     .forEach(
                             line -> {
                                 try {
                                     SeaTunnelRow seaTunnelRow =
-                                            deserializationSchema.deserialize(line.getBytes());
+                                            deserializationSchema.deserialize(
+                                                    line.getBytes(StandardCharsets.UTF_8));
                                     if (isMergePartition) {
                                         int index = seaTunnelRowType.getTotalFields();
                                         for (String value : partitionsMap.values()) {

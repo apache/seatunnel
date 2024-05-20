@@ -112,6 +112,7 @@ If write to `csv`, `text` file type, All column will be string.
 | xml_root_tag                     | string  | no       | RECORDS                                    | Only used when file_format is xml.                                                                                |
 | xml_row_tag                      | string  | no       | RECORD                                     | Only used when file_format is xml.                                                                                |
 | xml_use_attr_format              | boolean | no       | -                                          | Only used when file_format is xml.                                                                                |
+| encoding                         | string  | no       | "UTF-8"                                    | Only used when file_format_type is json,text,csv,xml.                                                             |
 
 ### path [string]
 
@@ -255,6 +256,11 @@ Specifies the tag name of the data rows within the XML file.
 ### xml_use_attr_format [boolean]
 
 Specifies Whether to process data using the tag attribute format.
+
+### encoding [string]
+
+Only used when file_format_type is json,text,csv,xml.
+The encoding of the file to write. This param will be parsed by `Charset.forName(encoding)`.
 
 ## How to Create an Oss Data Synchronization Jobs
 

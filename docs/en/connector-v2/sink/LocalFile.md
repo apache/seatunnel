@@ -56,6 +56,7 @@ By default, we use 2PC commit to ensure `exactly-once`
 | xml_row_tag                      | string  | no       | RECORD                                     | Only used when file_format is xml.                                                                |
 | xml_use_attr_format              | boolean | no       | -                                          | Only used when file_format is xml.                                                                |
 | enable_header_write              | boolean | no       | false                                      | Only used when file_format_type is text,csv.<br/> false:don't write header,true:write header.     |
+| encoding                         | string  | no       | "UTF-8"                                    | Only used when file_format_type is json,text,csv,xml.                                             |
 
 ### path [string]
 
@@ -188,6 +189,11 @@ Specifies Whether to process data using the tag attribute format.
 
 Only used when file_format_type is text,csv.false:don't write header,true:write header.
 
+### encoding [string]
+
+Only used when file_format_type is json,text,csv,xml.
+The encoding of the file to write. This param will be parsed by `Charset.forName(encoding)`.
+
 ## Example
 
 For orc file format simple config
@@ -197,6 +203,18 @@ For orc file format simple config
 LocalFile {
     path = "/tmp/hive/warehouse/test2"
     file_format_type = "orc"
+}
+
+```
+
+For json, text, csv or xml file format with `encoding`
+
+```hocon
+
+LocalFile {
+    path = "/tmp/hive/warehouse/test2"
+    file_format_type = "text"
+    encoding = "gbk"
 }
 
 ```

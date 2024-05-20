@@ -76,6 +76,63 @@ network:
 ### 返回作业的详细信息。
 
 <details>
+ <summary><code>GET</code> <code><b>/hazelcast/rest/maps/job-info/:jobId</b></code> <code>(返回作业的详细信息。)</code></summary>
+
+#### 参数
+
+> | name  |   type   | data type | description |
+> |-------|----------|-----------|-------------|
+> | jobId | required | long      | job id      |
+
+#### 响应
+
+```json
+{
+  "jobId": "",
+  "jobName": "",
+  "jobStatus": "",
+  "createTime": "",
+  "jobDag": {
+    "vertices": [
+    ],
+    "edges": [
+    ]
+  },
+  "metrics": {
+    "sourceReceivedCount": "",
+    "sinkWriteCount": ""
+  },
+  "finishedTime": "",
+  "errorMsg": null,
+  "envOptions": {
+  },
+  "pluginJarsUrls": [
+  ],
+  "isStartWithSavePoint": false
+}
+```
+
+`jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` 字段总会返回.
+`envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` 字段在Job在RUNNING状态时会返回
+`finishedTime`, `errorMsg` 字段在Job结束时会返回，结束状态为不为RUNNING，可能为FINISHED，可能为CANCEL
+
+当我们查询不到这个Job时，返回结果为：
+
+```json
+{
+  "jobId" : ""
+}
+```
+
+</details>
+
+------------------------------------------------------------------------------------------
+
+### 返回作业的详细信息
+
+此API已经弃用，请使用/hazelcast/rest/maps/job-info/:jobId替代。
+
+<details>
  <summary><code>GET</code> <code><b>/hazelcast/rest/maps/running-job/:jobId</b></code> <code>(返回作业的详细信息。)</code></summary>
 
 #### 参数
@@ -91,8 +148,6 @@ network:
   "jobId": "",
   "jobName": "",
   "jobStatus": "",
-  "envOptions": {
-  },
   "createTime": "",
   "jobDag": {
     "vertices": [
@@ -100,13 +155,29 @@ network:
     "edges": [
     ]
   },
-  "pluginJarsUrls": [
-  ],
-  "isStartWithSavePoint": false,
   "metrics": {
     "sourceReceivedCount": "",
     "sinkWriteCount": ""
-  }
+  },
+  "finishedTime": "",
+  "errorMsg": null,
+  "envOptions": {
+  },
+  "pluginJarsUrls": [
+  ],
+  "isStartWithSavePoint": false
+}
+```
+
+`jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` 字段总会返回.
+`envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` 字段在Job在RUNNING状态时会返回
+`finishedTime`, `errorMsg` 字段在Job结束时会返回，结束状态为不为RUNNING，可能为FINISHED，可能为CANCEL
+
+当我们查询不到这个Job时，返回结果为：
+
+```json
+{
+  "jobId" : ""
 }
 ```
 

@@ -42,6 +42,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /** Utils contains some common methods for construct CatalogTable. */
 @Slf4j
@@ -115,14 +117,14 @@ public class CatalogTableUtil implements Serializable {
         return optionalCatalog
                 .map(
                         c -> {
-                            long startTime = System.currentTimeMillis();
                             try (Catalog catalog = c) {
+                                long startTime = System.currentTimeMillis();
                                 catalog.open();
                                 List<CatalogTable> catalogTables =
                                         catalog.getTables(readonlyConfig);
                                 log.info(
                                         String.format(
-                                                "Get catalog tables, cost time: %d",
+                                                "Get catalog tables, cost time: %d ms",
                                                 System.currentTimeMillis() - startTime));
                                 if (catalogTables.isEmpty()) {
                                     throw new SeaTunnelException(
@@ -233,5 +235,42 @@ public class CatalogTableUtil implements Serializable {
 
     public static CatalogTable buildSimpleTextTable() {
         return getCatalogTable("default", buildSimpleTextSchema());
+    }
+
+    public static CatalogTable newCatalogTable(
+            CatalogTable catalogTable, SeaTunnelRowType seaTunnelRowType) {
+        TableSchema tableSchema = catalogTable.getTableSchema();
+
+        Map<String, Column> columnMap =
+                tableSchema.getColumns().stream()
+                        .collect(Collectors.toMap(Column::getName, Function.identity()));
+        String[] fieldNames = seaTunnelRowType.getFieldNames();
+        SeaTunnelDataType<?>[] fieldTypes = seaTunnelRowType.getFieldTypes();
+
+        List<Column> finalColumns = new ArrayList<>();
+        for (int i = 0; i < fieldNames.length; i++) {
+            Column column = columnMap.get(fieldNames[i]);
+            if (column != null) {
+                finalColumns.add(column);
+            } else {
+                finalColumns.add(
+                        PhysicalColumn.of(fieldNames[i], fieldTypes[i], 0, false, null, null));
+            }
+        }
+
+        TableSchema finalSchema =
+                TableSchema.builder()
+                        .columns(finalColumns)
+                        .primaryKey(tableSchema.getPrimaryKey())
+                        .constraintKey(tableSchema.getConstraintKeys())
+                        .build();
+
+        return CatalogTable.of(
+                catalogTable.getTableId(),
+                finalSchema,
+                catalogTable.getOptions(),
+                catalogTable.getPartitionKeys(),
+                catalogTable.getComment(),
+                catalogTable.getCatalogName());
     }
 }

@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.doris.catalog;
 
+import org.apache.seatunnel.api.sink.SaveModePlaceHolder;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
@@ -28,7 +29,13 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.connectors.doris.config.DorisOptions;
+import org.apache.seatunnel.connectors.doris.datatype.DorisTypeConverterV1;
 import org.apache.seatunnel.connectors.doris.util.DorisCatalogUtil;
+
+import org.apache.commons.lang3.StringUtils;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -110,12 +117,13 @@ public class DorisCreateTableTest {
                                         .build(),
                                 Collections.emptyMap(),
                                 Collections.emptyList(),
-                                ""));
+                                ""),
+                        DorisTypeConverterV1.INSTANCE);
         Assertions.assertEquals(
                 result,
                 "CREATE TABLE IF NOT EXISTS `test1`.`test2` (                                                                                                                                                   \n"
-                        + "`id` BIGINT(1) NULL ,`age` INT(1) NULL   ,       \n"
-                        + "`name` STRING NULL ,`score` INT(1) NULL  , \n"
+                        + "`id` BIGINT NULL ,`age` INT NULL   ,       \n"
+                        + "`name` STRING NULL ,`score` INT NULL  , \n"
                         + "`create_time` DATETIME NOT NULL ,  \n"
                         + "`gender` TINYINT NULL   \n"
                         + ") ENGINE=OLAP  \n"
@@ -130,6 +138,41 @@ public class DorisCreateTableTest {
                         + "\"storage_format\" = \"V2\",\n"
                         + "\"disable_auto_compaction\" = \"false\"\n"
                         + ")");
+
+        String createTemplate = DorisOptions.SAVE_MODE_CREATE_TEMPLATE.defaultValue();
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("test", "test1", "test2"),
+                        TableSchema.builder()
+                                .primaryKey(
+                                        PrimaryKey.of(StringUtils.EMPTY, Collections.emptyList()))
+                                .constraintKey(Collections.emptyList())
+                                .columns(columns)
+                                .build(),
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        "");
+        TablePath tablePath = TablePath.of("test1.test2");
+        SeaTunnelRuntimeException actualSeaTunnelRuntimeException =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () ->
+                                DorisCatalogUtil.getCreateTableStatement(
+                                        createTemplate,
+                                        tablePath,
+                                        catalogTable,
+                                        DorisTypeConverterV1.INSTANCE));
+        String primaryKeyHolder = SaveModePlaceHolder.ROWTYPE_PRIMARY_KEY.getPlaceHolder();
+        SeaTunnelRuntimeException exceptSeaTunnelRuntimeException =
+                CommonError.sqlTemplateHandledError(
+                        tablePath.getFullName(),
+                        SaveModePlaceHolder.getDisplay(primaryKeyHolder),
+                        createTemplate,
+                        primaryKeyHolder,
+                        DorisOptions.SAVE_MODE_CREATE_TEMPLATE.key());
+        Assertions.assertEquals(
+                exceptSeaTunnelRuntimeException.getMessage(),
+                actualSeaTunnelRuntimeException.getMessage());
     }
 
     @Test
@@ -218,13 +261,14 @@ public class DorisCreateTableTest {
                                         .build(),
                                 Collections.emptyMap(),
                                 Collections.emptyList(),
-                                ""));
+                                ""),
+                        DorisTypeConverterV1.INSTANCE);
         String expected =
                 "CREATE TABLE IF NOT EXISTS `tpch`.`lineitem` (\n"
                         + "`L_COMMITDATE` DATEV2 NOT NULL ,\n"
-                        + "`L_ORDERKEY` INT(1) NOT NULL ,`L_LINENUMBER` INT(1) NOT NULL ,\n"
+                        + "`L_ORDERKEY` INT NOT NULL ,`L_LINENUMBER` INT NOT NULL ,\n"
                         + "L_SUPPKEY BIGINT NOT NULL,\n"
-                        + "`L_PARTKEY` INT(1) NOT NULL ,\n"
+                        + "`L_PARTKEY` INT NOT NULL ,\n"
                         + "`L_QUANTITY` DECIMALV3(15,2) NOT NULL ,\n"
                         + "`L_EXTENDEDPRICE` DECIMALV3(15,2) NOT NULL ,\n"
                         + "`L_DISCOUNT` DECIMALV3(15,2) NOT NULL ,\n"
@@ -282,12 +326,13 @@ public class DorisCreateTableTest {
                                         .build(),
                                 Collections.emptyMap(),
                                 Collections.emptyList(),
-                                ""));
+                                ""),
+                        DorisTypeConverterV1.INSTANCE);
 
         Assertions.assertEquals(
                 result,
                 "CREATE TABLE IF NOT EXISTS `test1`.`test2` (                                                                                                                                                   \n"
-                        + "`id` BIGINT(1) NULL ,`age` INT(1) NULL   ,       \n"
+                        + "`id` BIGINT NULL ,`age` INT NULL   ,       \n"
                         + "`create_time` DATETIME NOT NULL ,  \n"
                         + "`name` STRING NULL ,\n"
                         + "`comment` VARCHAR(500) NULL ,\n"
@@ -304,5 +349,47 @@ public class DorisCreateTableTest {
                         + "    \"dynamic_partition.end\" = \"3\", \n"
                         + "    \"dynamic_partition.prefix\" = \"p\"                                                                                                                                                                           \n"
                         + ");");
+    }
+
+    @Test
+    public void testWithThreePrimaryKeys() {
+        List<Column> columns = new ArrayList<>();
+
+        columns.add(PhysicalColumn.of("id", BasicType.LONG_TYPE, (Long) null, true, null, ""));
+        columns.add(PhysicalColumn.of("name", BasicType.STRING_TYPE, (Long) null, true, null, ""));
+        columns.add(PhysicalColumn.of("age", BasicType.INT_TYPE, (Long) null, true, null, ""));
+        columns.add(PhysicalColumn.of("comment", BasicType.STRING_TYPE, 500, true, null, ""));
+        columns.add(PhysicalColumn.of("description", BasicType.STRING_TYPE, 70000, true, null, ""));
+
+        String result =
+                DorisCatalogUtil.getCreateTableStatement(
+                        "create table '${database}'.'${table_name}'(\n"
+                                + "     ${rowtype_fields}\n"
+                                + " )\n"
+                                + " partitioned by ${rowtype_primary_key};",
+                        TablePath.of("test1", "test2"),
+                        CatalogTable.of(
+                                TableIdentifier.of("test", "test1", "test2"),
+                                TableSchema.builder()
+                                        .primaryKey(
+                                                PrimaryKey.of(
+                                                        "test", Arrays.asList("id", "age", "name")))
+                                        .columns(columns)
+                                        .build(),
+                                Collections.emptyMap(),
+                                Collections.emptyList(),
+                                ""),
+                        DorisTypeConverterV1.INSTANCE);
+
+        Assertions.assertEquals(
+                "create table 'test1'.'test2'(\n"
+                        + "     `id` BIGINT NULL ,\n"
+                        + "`name` STRING NULL ,\n"
+                        + "`age` INT NULL ,\n"
+                        + "`comment` VARCHAR(500) NULL ,\n"
+                        + "`description` STRING NULL \n"
+                        + " )\n"
+                        + " partitioned by `id`,`age`,`name`;",
+                result);
     }
 }

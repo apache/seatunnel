@@ -37,6 +37,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.source.BaseFileSource;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategyFactory;
 
 import java.io.IOException;
+import java.util.Objects;
 
 public abstract class BaseHdfsFileSource extends BaseFileSource {
 
@@ -56,8 +57,13 @@ public abstract class BaseHdfsFileSource extends BaseFileSource {
                             getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
         String path = pluginConfig.getString(HdfsSourceConfigOptions.FILE_PATH.key());
-        hadoopConf =
-                new HadoopConf(pluginConfig.getString(HdfsSourceConfigOptions.DEFAULT_FS.key()));
+        // Avoid overwriting hadoopConf for subclass initialization. If a subclass is initialized,
+        // it is not initialized here.
+        if (Objects.isNull(hadoopConf)) {
+            hadoopConf =
+                    new HadoopConf(
+                            pluginConfig.getString(HdfsSourceConfigOptions.DEFAULT_FS.key()));
+        }
         if (pluginConfig.hasPath(HdfsSourceConfigOptions.HDFS_SITE_PATH.key())) {
             hadoopConf.setHdfsSitePath(
                     pluginConfig.getString(HdfsSourceConfigOptions.HDFS_SITE_PATH.key()));

@@ -22,7 +22,6 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.source.SupportCoordinate;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.core.starter.enums.PluginType;
 import org.apache.seatunnel.core.starter.execution.PluginUtil;
@@ -70,9 +69,6 @@ public class SourceExecuteProcessor extends FlinkAbstractPluginExecuteProcessor<
             SourceTableInfo sourceTableInfo = plugins.get(i);
             SeaTunnelSource internalSource = sourceTableInfo.getSource();
             Config pluginConfig = pluginConfigs.get(i);
-            if (internalSource instanceof SupportCoordinate) {
-                registerAppendStream(pluginConfig);
-            }
             FlinkSource flinkSource = new FlinkSource<>(internalSource, envConfig);
 
             DataStreamSource sourceStream =

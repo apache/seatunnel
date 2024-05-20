@@ -22,13 +22,17 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import lombok.Setter;
 import lombok.ToString;
 
 @Getter
 @ToString
 @RequiredArgsConstructor
 public abstract class TableEvent implements SchemaChangeEvent {
+    private long createdTime = System.currentTimeMillis();
     protected final TableIdentifier tableIdentifier;
+    @Getter @Setter private String jobId;
+    @Getter @Setter private String statement;
 
     @Override
     public TableIdentifier tableIdentifier() {
@@ -37,5 +41,10 @@ public abstract class TableEvent implements SchemaChangeEvent {
 
     public TablePath getTablePath() {
         return tablePath();
+    }
+
+    @Override
+    public long getCreatedTime() {
+        return createdTime;
     }
 }
