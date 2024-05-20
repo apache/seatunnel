@@ -70,4 +70,9 @@ public abstract class BaseSourceConfig implements SourceConfig {
     public Configuration getDbzConfiguration() {
         return Configuration.from(dbzProperties);
     }
+
+    @Override
+    public boolean isIncludeSchemaChanges() {
+        return Boolean.parseBoolean(String.valueOf(dbzProperties.get("include.schema.changes")));
+    }
 }
