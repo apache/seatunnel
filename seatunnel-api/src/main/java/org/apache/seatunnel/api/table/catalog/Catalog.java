@@ -131,6 +131,21 @@ public interface Catalog extends AutoCloseable {
      */
     CatalogTable getTable(TablePath tablePath) throws CatalogException, TableNotExistException;
 
+    /**
+     * Return a {@link CatalogTable} identified by the given {@link TablePath} and field names. The
+     * framework will resolve the metadata objects when necessary.
+     *
+     * @param tablePath Path of the table
+     * @param fieldNames The field names need read
+     * @return The requested table
+     * @throws CatalogException in case of any runtime exception
+     */
+    default CatalogTable getTable(TablePath tablePath, List<String> fieldNames)
+            throws CatalogException, TableNotExistException {
+        throw CommonError.unsupportedOperation(
+                name(), "get table with tablePath " + tablePath + ", fieldNames: " + fieldNames);
+    }
+
     default List<CatalogTable> getTables(ReadonlyConfig config) throws CatalogException {
         // Get the list of specified tables
         List<String> tableNames = config.get(CatalogOptions.TABLE_NAMES);

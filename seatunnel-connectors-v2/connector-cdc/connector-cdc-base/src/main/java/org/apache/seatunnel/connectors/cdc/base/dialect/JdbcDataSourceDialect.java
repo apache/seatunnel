@@ -71,7 +71,9 @@ public interface JdbcDataSourceDialect extends DataSourceDialect<JdbcSourceConfi
     }
 
     /** Get a connection pool factory to create connection pool. */
-    JdbcConnectionPoolFactory getPooledDataSourceFactory();
+    default JdbcConnectionPoolFactory getPooledDataSourceFactory() {
+        throw new UnsupportedOperationException();
+    }
 
     /** Query and build the schema of table. */
     TableChanges.TableChange queryTableSchema(JdbcConnection jdbc, TableId tableId);

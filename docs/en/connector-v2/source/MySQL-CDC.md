@@ -23,9 +23,9 @@ describes how to set up the MySQL CDC connector to run SQL queries against MySQL
 
 ## Supported DataSource Info
 
-| Datasource |                                                               Supported versions                                                                |          Driver          |               Url                |                                Maven                                 |
-|------------|-------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------|----------------------------------|----------------------------------------------------------------------|
-| MySQL      | <li> [MySQL](https://dev.mysql.com/doc): 5.6, 5.7, 8.0.x </li><li> [RDS MySQL](https://www.aliyun.com/product/rds/mysql): 5.6, 5.7, 8.0.x </li> | com.mysql.cj.jdbc.Driver | jdbc:mysql://localhost:3306/test | https://mvnrepository.com/artifact/mysql/mysql-connector-java/8.0.28 |
+| Datasource |                                                                  Supported versions                                                                  |          Driver          |               Url                |                                Maven                                 |
+|------------|------------------------------------------------------------------------------------------------------------------------------------------------------|--------------------------|----------------------------------|----------------------------------------------------------------------|
+| MySQL      | <li> [MySQL](https://dev.mysql.com/doc): 5.5, 5.6, 5.7, 8.0.x </li><li> [RDS MySQL](https://www.aliyun.com/product/rds/mysql): 5.6, 5.7, 8.0.x </li> | com.mysql.cj.jdbc.Driver | jdbc:mysql://localhost:3306/test | https://mvnrepository.com/artifact/mysql/mysql-connector-java/8.0.28 |
 
 ## Using Dependency
 
@@ -92,9 +92,11 @@ server-id         = 223344
 log_bin           = mysql-bin
 expire_logs_days  = 10
 binlog_format     = row
+# mysql 5.6+ requires binlog_row_image to be set to FULL
 binlog_row_image  = FULL
 
 # enable gtid mode
+# mysql 5.6+ requires gtid_mode to be set to ON
 gtid_mode = on
 enforce_gtid_consistency = on
 ```
@@ -106,6 +108,21 @@ enforce_gtid_consistency = on
 ```
 
 4. Confirm your changes by checking the binlog status once more:
+
+MySQL 5.5:
+
+```sql
+mysql> show variables where variable_name in ('log_bin', 'binlog_format', 'binlog_row_image', 'gtid_mode', 'enforce_gtid_consistency');
++--------------------------+----------------+
+| Variable_name            | Value          |
++--------------------------+----------------+
+| binlog_format            | ROW            |
+| log_bin                  | ON             |
++--------------------------+----------------+
+5 rows in set (0.00 sec)
+```
+
+MySQL 5.6+:
 
 ```sql
 mysql> show variables where variable_name in ('log_bin', 'binlog_format', 'binlog_row_image', 'gtid_mode', 'enforce_gtid_consistency');

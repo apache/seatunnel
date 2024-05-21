@@ -63,8 +63,8 @@ public class MysqlCDCIT extends TestSuiteBase implements TestResource {
 
     // mysql
     private static final String MYSQL_HOST = "mysql_cdc_e2e";
-    private static final String MYSQL_USER_NAME = "st_user";
-    private static final String MYSQL_USER_PASSWORD = "seatunnel";
+    private static final String MYSQL_USER_NAME = "mysqluser";
+    private static final String MYSQL_USER_PASSWORD = "mysqlpw";
     private static final String MYSQL_DATABASE = "mysql_cdc";
     private static final String MYSQL_DATABASE2 = "mysql_cdc2";
     private static final MySqlContainer MYSQL_CONTAINER = createMySqlContainer(MySqlVersion.V8_0);
@@ -357,10 +357,17 @@ public class MysqlCDCIT extends TestSuiteBase implements TestResource {
                                                                 getSourceQuerySQL(
                                                                         MYSQL_DATABASE2,
                                                                         SOURCE_TABLE_1)))));
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .pollInterval(1000, TimeUnit.MILLISECONDS)
+                .until(() -> getConnectionStatus("st_user_source").size() == 1);
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .pollInterval(1000, TimeUnit.MILLISECONDS)
+                .until(() -> getConnectionStatus("st_user_sink").size() == 1);
 
         Pattern jobIdPattern =
                 Pattern.compile(
-                        ".*Init JobMaster for Job SeaTunnel_Job \\(([0-9]*)\\).*", Pattern.DOTALL);
+                        ".*Init JobMaster for Job mysqlcdc_to_mysql_with_multi_table_mode_one_table.conf \\(([0-9]*)\\).*",
+                        Pattern.DOTALL);
         Matcher matcher = jobIdPattern.matcher(container.getServerLogs());
         String jobId;
         if (matcher.matches()) {
@@ -411,6 +418,13 @@ public class MysqlCDCIT extends TestSuiteBase implements TestResource {
                                                                 getSourceQuerySQL(
                                                                         MYSQL_DATABASE2,
                                                                         SOURCE_TABLE_2)))));
+
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .pollInterval(1000, TimeUnit.MILLISECONDS)
+                .until(() -> getConnectionStatus("st_user_source").size() == 1);
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .pollInterval(1000, TimeUnit.MILLISECONDS)
+                .until(() -> getConnectionStatus("st_user_sink").size() == 1);
 
         log.info("****************** container logs start ******************");
         String containerLogs = container.getServerLogs();
@@ -476,6 +490,13 @@ public class MysqlCDCIT extends TestSuiteBase implements TestResource {
                 MYSQL_CONTAINER.getJdbcUrl(),
                 MYSQL_CONTAINER.getUsername(),
                 MYSQL_CONTAINER.getPassword());
+    }
+
+    private List<List<Object>> getConnectionStatus(String user) {
+        return query(
+                "select USER,HOST,DB,COMMAND,TIME,STATE from information_schema.processlist where USER = '"
+                        + user
+                        + "'");
     }
 
     private List<List<Object>> query(String sql) {

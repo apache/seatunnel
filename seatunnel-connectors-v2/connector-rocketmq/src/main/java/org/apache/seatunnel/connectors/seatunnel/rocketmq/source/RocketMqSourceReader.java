@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.rocketmq.source;
 
 import org.apache.seatunnel.shade.com.google.common.collect.Maps;
-import org.apache.seatunnel.shade.com.google.common.collect.Sets;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
@@ -37,6 +36,7 @@ import java.io.IOException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -50,7 +50,7 @@ public class RocketMqSourceReader implements SourceReader<SeaTunnelRow, RocketMq
 
     private static final long THREAD_WAIT_TIME = 500L;
 
-    private final SourceReader.Context context;
+    private final Context context;
     private final ConsumerMetadata metadata;
     private final Set<RocketMqSourceSplit> sourceSplits;
     private final Map<Long, Map<MessageQueue, Long>> checkpointOffsets;
@@ -65,7 +65,7 @@ public class RocketMqSourceReader implements SourceReader<SeaTunnelRow, RocketMq
     public RocketMqSourceReader(
             ConsumerMetadata metadata,
             DeserializationSchema<SeaTunnelRow> deserializationSchema,
-            SourceReader.Context context) {
+            Context context) {
         this.metadata = metadata;
         this.context = context;
         this.sourceSplits = new HashSet<>();
@@ -115,21 +115,16 @@ public class RocketMqSourceReader implements SourceReader<SeaTunnelRow, RocketMq
                 sourceSplit -> {
                     CompletableFuture<Void> completableFuture = new CompletableFuture<>();
                     try {
-                        consumerThreads
-                                .get(sourceSplit.getMessageQueue())
+                        RocketMqConsumerThread rocketMqConsumerThread =
+                                consumerThreads.get(sourceSplit.getMessageQueue());
+                        rocketMqConsumerThread
                                 .getTasks()
                                 .put(
                                         consumer -> {
                                             try {
-                                                Set<MessageQueue> messageQueues =
-                                                        Sets.newHashSet(
-                                                                sourceSplit.getMessageQueue());
-                                                consumer.assign(messageQueues);
-                                                if (sourceSplit.getStartOffset() >= 0) {
-                                                    consumer.seek(
-                                                            sourceSplit.getMessageQueue(),
-                                                            sourceSplit.getStartOffset());
-                                                }
+                                                rocketMqConsumerThread.assign(sourceSplit);
+                                                MessageQueue assignedMessageQueue =
+                                                        sourceSplit.getMessageQueue();
                                                 List<MessageExt> records =
                                                         consumer.poll(
                                                                 metadata.getBaseConfig()
@@ -141,46 +136,35 @@ public class RocketMqSourceReader implements SourceReader<SeaTunnelRow, RocketMq
                                                             sourceSplit.getStartOffset(),
                                                             sourceSplit.getEndOffset());
                                                 }
-                                                Map<MessageQueue, List<MessageExt>> groupRecords =
+                                                List<MessageExt> messages =
                                                         records.stream()
-                                                                .collect(
-                                                                        Collectors.groupingBy(
-                                                                                record ->
-                                                                                        new MessageQueue(
-                                                                                                record
-                                                                                                        .getTopic(),
-                                                                                                record
-                                                                                                        .getBrokerName(),
-                                                                                                record
-                                                                                                        .getQueueId())));
-                                                for (MessageQueue messageQueue : messageQueues) {
-                                                    if (!groupRecords.containsKey(messageQueue)) {
-                                                        continue;
+                                                                .filter(
+                                                                        record ->
+                                                                                isQueueMatch(
+                                                                                        assignedMessageQueue,
+                                                                                        record))
+                                                                .collect(Collectors.toList());
+                                                long lastOffset = -1;
+                                                for (MessageExt record : messages) {
+                                                    deserializationSchema.deserialize(
+                                                            record.getBody(), output);
+                                                    lastOffset = record.getQueueOffset();
+                                                    if (Boundedness.BOUNDED.equals(
+                                                                    context.getBoundedness())
+                                                            && record.getQueueOffset()
+                                                                    >= sourceSplit.getEndOffset()) {
+                                                        break;
                                                     }
-                                                    List<MessageExt> messages =
-                                                            groupRecords.get(messageQueue);
-                                                    for (MessageExt record : messages) {
-                                                        deserializationSchema.deserialize(
-                                                                record.getBody(), output);
-                                                        if (Boundedness.BOUNDED.equals(
-                                                                        context.getBoundedness())
-                                                                && record.getQueueOffset()
-                                                                        >= sourceSplit
-                                                                                .getEndOffset()) {
-                                                            break;
-                                                        }
-                                                    }
-                                                    long lastOffset = -1;
-                                                    if (!messages.isEmpty()) {
-                                                        lastOffset =
-                                                                messages.get(messages.size() - 1)
-                                                                        .getQueueOffset();
-                                                        sourceSplit.setStartOffset(lastOffset);
-                                                    }
-
-                                                    if (lastOffset >= sourceSplit.getEndOffset()) {
-                                                        sourceSplit.setEndOffset(lastOffset);
-                                                    }
+                                                }
+                                                if (lastOffset >= 0) {
+                                                    // set start offset for next poll cycleLife
+                                                    sourceSplit.setStartOffset(lastOffset + 1);
+                                                    rocketMqConsumerThread.markLastPolledOffset(
+                                                            lastOffset);
+                                                }
+                                                if (lastOffset >= sourceSplit.getEndOffset()) {
+                                                    // just for bounded mode
+                                                    sourceSplit.setEndOffset(lastOffset);
                                                 }
                                             } catch (Exception e) {
                                                 completableFuture.completeExceptionally(e);
@@ -198,6 +182,12 @@ public class RocketMqSourceReader implements SourceReader<SeaTunnelRow, RocketMq
             // signal to the source that we have reached the end of the data.
             context.signalNoMoreElement();
         }
+    }
+
+    private boolean isQueueMatch(MessageQueue assignedMessageQueue, MessageExt record) {
+        return Objects.equals(assignedMessageQueue.getTopic(), record.getTopic())
+                && Objects.equals(assignedMessageQueue.getBrokerName(), record.getBrokerName())
+                && Objects.equals(assignedMessageQueue.getQueueId(), record.getQueueId());
     }
 
     @Override

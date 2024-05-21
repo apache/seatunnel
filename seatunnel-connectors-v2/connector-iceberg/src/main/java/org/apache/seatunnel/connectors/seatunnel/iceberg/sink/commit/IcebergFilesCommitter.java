@@ -39,10 +39,12 @@ import static java.util.stream.Collectors.toList;
 public class IcebergFilesCommitter implements Serializable {
     private IcebergTableLoader icebergTableLoader;
     private boolean caseSensitive;
+    private String branch;
 
     private IcebergFilesCommitter(SinkConfig config, IcebergTableLoader icebergTableLoader) {
         this.icebergTableLoader = icebergTableLoader;
         this.caseSensitive = config.isCaseSensitive();
+        this.branch = config.getCommitBranch();
     }
 
     public static IcebergFilesCommitter of(
@@ -77,10 +79,16 @@ public class IcebergFilesCommitter implements Serializable {
         } else {
             if (deleteFiles.isEmpty()) {
                 AppendFiles append = table.newAppend();
+                if (branch != null) {
+                    append.toBranch(branch);
+                }
                 dataFiles.forEach(append::appendFile);
                 append.commit();
             } else {
                 RowDelta delta = table.newRowDelta();
+                if (branch != null) {
+                    delta.toBranch(branch);
+                }
                 delta.caseSensitive(caseSensitive);
                 dataFiles.forEach(delta::addRows);
                 deleteFiles.forEach(delta::addDeletes);
