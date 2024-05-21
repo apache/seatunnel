@@ -33,7 +33,7 @@ libfb303-xxx.jar
 |             名称              | 类型  | 是否必须 |             默认值              |                                                描述                                                 |
 |-----------------------------|-----|------|------------------------------|---------------------------------------------------------------------------------------------------|---|
 | warehouse                   | 字符串 | 是    | -                            | Paimon warehouse路径                                                                                |
-| catalog_type                | 字符串 | 否    | hadoop                       | Paimon的catalog类型，目前支持filesystem和hive                                                              |
+| catalog_type                | 字符串 | 否    | filesystem                   | Paimon的catalog类型，目前支持filesystem和hive                                                              |
 | catalog_uri                 | 字符串 | 否    | -                            | Paimon catalog的uri，仅当catalog_type为hive时需要配置                                                       |   |
 | database                    | 字符串 | 是    | -                            | 数据库名称                                                                                             |
 | table                       | 字符串 | 是    | -                            | 表名                                                                                                |
