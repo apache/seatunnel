@@ -60,7 +60,7 @@ public class TablestoreSinkClient {
         initialize = true;
     }
 
-    public void write(RowPutChange rowPutChange) throws IOException {
+    public synchronized void write(RowPutChange rowPutChange) throws IOException {
         tryInit();
         checkFlushException();
         batchList.add(rowPutChange);
