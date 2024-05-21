@@ -38,9 +38,11 @@ import org.apache.seatunnel.format.compatible.kafka.connect.json.CompatibleKafka
 import org.apache.seatunnel.format.compatible.kafka.connect.json.KafkaConnectJsonFormatOptions;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 import org.apache.seatunnel.format.json.canal.CanalJsonDeserializationSchema;
+import org.apache.seatunnel.format.json.canal.CanalJsonFormatOptions;
 import org.apache.seatunnel.format.json.debezium.DebeziumJsonDeserializationSchema;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 import org.apache.seatunnel.format.json.ogg.OggJsonDeserializationSchema;
+import org.apache.seatunnel.format.json.ogg.OggJsonFormatOptions;
 import org.apache.seatunnel.format.text.TextDeserializationSchema;
 import org.apache.seatunnel.format.text.constant.TextFormatConstant;
 
@@ -218,11 +220,17 @@ public class KafkaSourceConfig implements Serializable {
                         .build();
             case CANAL_JSON:
                 return CanalJsonDeserializationSchema.builder(seaTunnelRowType)
-                        .setIgnoreParseErrors(true)
+                        .setIgnoreParseErrors(
+                                readonlyConfig.get(CanalJsonFormatOptions.IGNORE_PARSE_ERRORS))
+                        .setDatabase(readonlyConfig.get(CanalJsonFormatOptions.DATABASE_INCLUDE))
+                        .setTable(readonlyConfig.get(CanalJsonFormatOptions.TABLE_INCLUDE))
                         .build();
             case OGG_JSON:
                 return OggJsonDeserializationSchema.builder(seaTunnelRowType)
-                        .setIgnoreParseErrors(true)
+                        .setIgnoreParseErrors(
+                                readonlyConfig.get(OggJsonFormatOptions.IGNORE_PARSE_ERRORS))
+                        .setDatabase(readonlyConfig.get(OggJsonFormatOptions.DATABASE_INCLUDE))
+                        .setTable(readonlyConfig.get(OggJsonFormatOptions.TABLE_INCLUDE))
                         .build();
             case COMPATIBLE_KAFKA_CONNECT_JSON:
                 Boolean keySchemaEnable =
