@@ -1,0 +1,77 @@
+{
+  "env": {
+    "job.name": "Excel输入测试",
+    "job.mode": "batch"
+  },
+  "preHandler": [
+  ],
+  "source": [
+    {
+      "plugin_name": "S3File",
+      "resourceType": "file",
+      "path": "/file-node/excel/66432f33055b1b13aca6a8fe.xlsx",
+      "fs.s3a.endpoint": "http://172.16.11.131:9000",
+      "fs.s3a.aws.credentials.provider": "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider",
+      "access_key": "P7HpCVa0Eth8X3dM",
+      "secret_key": "xxM9cJL5QKqq9M7jvwkQ5LJgsQSVvIay",
+      "bucket": "s3a://ottomi",
+      "file_format_type": "excel",
+      "sheet_name": "device",
+      "skip_header_row_number": 1,
+      "date_format": "yyyy-MM-dd",
+      "datetime_format": "yyyy-MM-dd HH:mm:ss",
+      "time_format": "HH:mm:ss",
+      "schema": {
+        "fields": {
+          "device_id": "string",
+          "name": "string",
+          "type": "string",
+          "longitude": "double",
+          "latitude": "double",
+          "height": "double",
+          "radius": "double",
+          "distance": "double",
+          "service_address": "string",
+          "status": "int",
+          "term_type": "string",
+          "properties": "string",
+          "runway_name": "string",
+          "direction": "string",
+          "runway_code": "int",
+          "delay": "int"
+        }
+      },
+      "resources": [
+        "device.xlsx"
+      ],
+      "result_table_name": "ot_bb3aaebb75cb4177833327a86463df70"
+    }
+  ],
+  "transform": [
+  ],
+  "sink": [
+    {
+      "plugin_name": "StarRocks",
+      "base-url": "jdbc:mysql://172.16.11.106:9030/test",
+      "nodeUrls": [
+        "172.16.11.106:8030",
+        "172.16.11.107:8030",
+        "172.16.11.108:8030"
+      ],
+      "username": "root",
+      "password": "Ocean@2023",
+      "database": "test",
+      "table": "device_excel_test",
+      "batch_max_rows": 2048,
+      "starrocks.config": {
+        "format": "JSON",
+        "strip_outer_array": true
+      },
+      "schema_save_mode": "ERROR_WHEN_SCHEMA_NOT_EXIST",
+      "result_table_name": "ot_b2f42d38ecc7431f8c0bedff912ae690",
+      "source_table_name": [
+        "ot_bb3aaebb75cb4177833327a86463df70"
+      ]
+    }
+  ]
+}
