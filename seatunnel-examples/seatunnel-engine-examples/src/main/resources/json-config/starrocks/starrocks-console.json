@@ -1,0 +1,41 @@
+{
+  "env": {
+    "job.name": "唯一id测试",
+    "job.mode": "batch"
+  },
+  "preHandler": [],
+  "source": [
+    {
+      "plugin_name": "StarRocks",
+      "nodeUrls": [
+        "172.16.11.106:8030",
+        "172.16.11.107:8030",
+        "172.16.11.108:8030"
+      ],
+      "username": "root",
+      "password": "Ocean@2023",
+      "database": "dwd",
+      "table": "device",
+      "scan_batch_rows": 2000,
+      "max_retries": 3,
+      "schema": {
+        "fields": {
+          "device_id": "STRING",
+          "longitude": "DOUBLE",
+          "latitude": "DOUBLE"
+        }
+      },
+      "result_table_name": "ot_6f6f3d07f529482da2d54b3aaeabf807"
+    }
+  ],
+  "transform": [
+  ],
+  "sink": [
+    {
+      "plugin_name": "Console",
+      "source_table_name": [
+        "ot_6f6f3d07f529482da2d54b3aaeabf807"
+      ]
+    }
+  ]
+}

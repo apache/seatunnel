@@ -1,21 +1,21 @@
-package org.apache.seatunnel.transform.crypto;
+package org.apache.seatunnel.transform.crypto.decrypt;
 
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.transform.sql.zeta.ZetaUDF;
 
+import cn.hutool.core.codec.Base64;
 import cn.hutool.core.util.StrUtil;
-import cn.hutool.crypto.SecureUtil;
 import com.google.auto.service.AutoService;
 
 import java.util.List;
 
 @AutoService(ZetaUDF.class)
-public class AesEncrypt implements ZetaUDF {
+public class Base64Decrypt implements ZetaUDF {
 
     @Override
     public String functionName() {
-        return "AES_ENC";
+        return "BASE64_DEC";
     }
 
     @Override
@@ -25,15 +25,9 @@ public class AesEncrypt implements ZetaUDF {
 
     @Override
     public Object evaluate(List<Object> args) {
-        String data = (String) args.get(0);
+        String data = String.valueOf(args.get(0));
         if (StrUtil.isNotEmpty(data)) {
-            byte[] key;
-            if (args.size() == 2) {
-                key = ((String) args.get(1)).getBytes();
-            } else {
-                key = Constants.DEFAULT_DES_KEY;
-            }
-            return SecureUtil.aes(key).encryptHex(data, Constants.CRYPTO_CHARSET);
+            return Base64.decodeStr(data);
         }
         return null;
     }
