@@ -36,9 +36,8 @@ import java.util.List;
 @Slf4j
 public class TablestoreSinkClient {
     private final TablestoreOptions tablestoreOptions;
-    private volatile boolean initialize;
     private volatile Exception flushException;
-    private SyncClient syncClient;
+    private transient SyncClient syncClient;
     private final List<RowPutChange> batchList;
 
     public TablestoreSinkClient(TablestoreOptions tablestoreOptions, SeaTunnelRowType typeInfo) {
@@ -47,17 +46,18 @@ public class TablestoreSinkClient {
     }
 
     private void tryInit() throws IOException {
-        if (initialize) {
-            return;
+        if (syncClient == null) {
+            synchronized (TablestoreSinkClient.class) {
+                if (syncClient == null) {
+                    syncClient =
+                            new SyncClient(
+                                    tablestoreOptions.getEndpoint(),
+                                    tablestoreOptions.getAccessKeyId(),
+                                    tablestoreOptions.getAccessKeySecret(),
+                                    tablestoreOptions.getInstanceName());
+                }
+            }
         }
-        syncClient =
-                new SyncClient(
-                        tablestoreOptions.getEndpoint(),
-                        tablestoreOptions.getAccessKeyId(),
-                        tablestoreOptions.getAccessKeySecret(),
-                        tablestoreOptions.getInstanceName());
-
-        initialize = true;
     }
 
     public void write(RowPutChange rowPutChange) throws IOException {
