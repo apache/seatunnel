@@ -29,6 +29,7 @@ import java.util.Map;
 
 import static org.apache.seatunnel.common.exception.CommonErrorCode.CONVERT_TO_CONNECTOR_TYPE_ERROR;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.CONVERT_TO_CONNECTOR_TYPE_ERROR_SIMPLE;
+import static org.apache.seatunnel.common.exception.CommonErrorCode.CONVERT_TO_SEATUNNEL_PROPS_BLANK_ERROR;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.CONVERT_TO_SEATUNNEL_TYPE_ERROR;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.CONVERT_TO_SEATUNNEL_TYPE_ERROR_SIMPLE;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.FILE_NOT_EXISTED;
@@ -139,6 +140,14 @@ public class CommonError {
         params.put("dataType", dataType);
         params.put("field", field);
         return new SeaTunnelRuntimeException(CONVERT_TO_CONNECTOR_TYPE_ERROR, params);
+    }
+
+    public static SeaTunnelRuntimeException convertToConnectorPropsBlankError(
+            String connector, String props) {
+        Map<String, String> params = new HashMap<>();
+        params.put("connector", connector);
+        params.put("props", props);
+        return new SeaTunnelRuntimeException(CONVERT_TO_SEATUNNEL_PROPS_BLANK_ERROR, params);
     }
 
     public static SeaTunnelRuntimeException convertToConnectorTypeError(

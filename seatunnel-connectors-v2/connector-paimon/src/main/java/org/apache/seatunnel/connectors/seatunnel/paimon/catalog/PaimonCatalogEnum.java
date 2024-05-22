@@ -15,21 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source;
+package org.apache.seatunnel.connectors.seatunnel.paimon.catalog;
 
-import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
-import org.apache.seatunnel.connectors.cdc.base.relational.connection.JdbcConnectionPoolFactory;
+public enum PaimonCatalogEnum {
+    FILESYSTEM("filesystem"),
+    HIVE("hive");
 
-/** Factory to create {@link JdbcConnectionPoolFactory} for SQL Server. */
-public class SqlServerPooledDataSourceFactory extends JdbcConnectionPoolFactory {
+    final String type;
 
-    private static final String URL_PATTERN = "jdbc:sqlserver://%s:%s;databaseName=%s";
+    PaimonCatalogEnum(String type) {
+        this.type = type;
+    }
 
-    @Override
-    public String getJdbcUrl(JdbcSourceConfig sourceConfig) {
-        String hostName = sourceConfig.getHostname();
-        int port = sourceConfig.getPort();
-        String database = sourceConfig.getDatabaseList().get(0);
-        return String.format(URL_PATTERN, hostName, port, database);
+    public String getType() {
+        return type;
     }
 }

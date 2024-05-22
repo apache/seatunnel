@@ -20,6 +20,8 @@ package org.apache.seatunnel.e2e.connector.kafka;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -370,8 +372,10 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
             subRow
         };
         SeaTunnelRowType fake_source_row_type = new SeaTunnelRowType(fieldNames, fieldTypes);
+        CatalogTable catalogTable =
+                CatalogTableUtil.getCatalogTable("", "", "", "", fake_source_row_type);
         AvroDeserializationSchema avroDeserializationSchema =
-                new AvroDeserializationSchema(fake_source_row_type);
+                new AvroDeserializationSchema(catalogTable);
         List<SeaTunnelRow> kafkaSTRow =
                 getKafkaSTRow(
                         "test_avro_topic_fake_source",
@@ -420,8 +424,11 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         Container.ExecResult execResult = container.executeJob("/avro/kafka_avro_to_assert.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
 
+        CatalogTable catalogTable =
+                CatalogTableUtil.getCatalogTable("", "", "", "", SEATUNNEL_ROW_TYPE);
+
         AvroDeserializationSchema avroDeserializationSchema =
-                new AvroDeserializationSchema(SEATUNNEL_ROW_TYPE);
+                new AvroDeserializationSchema(catalogTable);
         List<SeaTunnelRow> kafkaSTRow =
                 getKafkaSTRow(
                         "test_avro_topic",

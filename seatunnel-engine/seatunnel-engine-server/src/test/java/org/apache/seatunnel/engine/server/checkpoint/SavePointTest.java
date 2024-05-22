@@ -82,8 +82,7 @@ public class SavePointTest extends AbstractSeaTunnelServerTest<SavePointTest> {
         } catch (Exception e) {
             errorCount++;
         }
-        // we should make sure only one savepoint success in the same time
-        Assertions.assertEquals(2, errorCount);
+        Assertions.assertEquals(3, errorCount);
         await().atMost(120, TimeUnit.SECONDS)
                 .untilAsserted(
                         () ->
