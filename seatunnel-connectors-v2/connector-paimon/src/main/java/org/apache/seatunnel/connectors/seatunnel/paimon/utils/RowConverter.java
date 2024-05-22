@@ -55,6 +55,7 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /** The converter for converting {@link InternalRow} and {@link SeaTunnelRow} */
 public class RowConverter {
@@ -238,7 +239,8 @@ public class RowConverter {
      * @param seaTunnelRowType SeaTunnel row type
      * @return SeaTunnel row
      */
-    public static SeaTunnelRow convert(InternalRow rowData, SeaTunnelRowType seaTunnelRowType) {
+    public static SeaTunnelRow convert(
+            InternalRow rowData, SeaTunnelRowType seaTunnelRowType, TableSchema tableSchema) {
         Object[] objects = new Object[seaTunnelRowType.getTotalFields()];
         for (int i = 0; i < objects.length; i++) {
             // judge the field is or not equals null
@@ -289,9 +291,15 @@ public class RowConverter {
                     objects[i] = DateTimeUtils.toLocalDate(dateInt);
                     break;
                 case TIMESTAMP:
-                    // Now SeaTunnel not supported assigned the timezone for timestamp,
-                    // so we use the default precision 6
-                    Timestamp timestamp = rowData.getTimestamp(i, 6);
+                    int precision = TimestampType.DEFAULT_PRECISION;
+                    Optional<DataField> precisionOptional =
+                            tableSchema.fields().stream()
+                                    .filter(dataField -> dataField.name().equals(fieldName))
+                                    .findFirst();
+                    if (precisionOptional.isPresent()) {
+                        precision = ((TimestampType) precisionOptional.get().type()).getPrecision();
+                    }
+                    Timestamp timestamp = rowData.getTimestamp(i, precision);
                     objects[i] = timestamp.toLocalDateTime();
                     break;
                 case ARRAY:
@@ -320,7 +328,7 @@ public class RowConverter {
                     SeaTunnelDataType<?> rowType = seaTunnelRowType.getFieldType(i);
                     InternalRow row =
                             rowData.getRow(i, ((SeaTunnelRowType) rowType).getTotalFields());
-                    objects[i] = convert(row, (SeaTunnelRowType) rowType);
+                    objects[i] = convert(row, (SeaTunnelRowType) rowType, tableSchema);
                     break;
                 default:
                     throw CommonError.unsupportedDataType(

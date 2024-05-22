@@ -341,7 +341,8 @@ public class PaimonSinkCDCIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    public void testFakeCDCSinkPaimonWithTimestampN(TestContainer container) throws Exception {
+    public void testFakeCDCSinkPaimonWithTimestampNAndRead(TestContainer container)
+            throws Exception {
         Container.ExecResult execResult = container.executeJob("/fake_cdc_sink_paimon_case7.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
 
@@ -404,6 +405,10 @@ public class PaimonSinkCDCIT extends TestSuiteBase implements TestResource {
                                         "2024-03-10T10:00:00.123456789");
                             }
                         });
+
+        Container.ExecResult readResult =
+                container.executeJob("/paimon_to_assert_with_timestampN.conf");
+        Assertions.assertEquals(0, readResult.getExitCode());
     }
 
     @TestTemplate

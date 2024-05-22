@@ -28,6 +28,7 @@ import org.apache.paimon.data.InternalRow;
 import org.apache.paimon.predicate.Predicate;
 import org.apache.paimon.reader.RecordReader;
 import org.apache.paimon.reader.RecordReaderIterator;
+import org.apache.paimon.table.FileStoreTable;
 import org.apache.paimon.table.Table;
 
 import lombok.extern.slf4j.Slf4j;
@@ -94,7 +95,8 @@ public class PaimonSourceReader implements SourceReader<SeaTunnelRow, PaimonSour
                     while (rowIterator.hasNext()) {
                         final InternalRow row = rowIterator.next();
                         final SeaTunnelRow seaTunnelRow =
-                                RowConverter.convert(row, seaTunnelRowType);
+                                RowConverter.convert(
+                                        row, seaTunnelRowType, ((FileStoreTable) table).schema());
                         output.collect(seaTunnelRow);
                     }
                 }
