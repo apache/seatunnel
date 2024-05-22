@@ -127,8 +127,7 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
             switch (format) {
                 case JSON:
                     this.deserializationSchema =
-                            new JsonDeserializationSchema(
-                                    false, false, catalogTable.getSeaTunnelRowType());
+                            new JsonDeserializationSchema(catalogTable, false, false);
                     if (pluginConfig.hasPath(HttpConfig.JSON_FIELD.key())) {
                         jsonField =
                                 getJsonField(pluginConfig.getConfig(HttpConfig.JSON_FIELD.key()));
