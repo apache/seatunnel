@@ -64,7 +64,6 @@ public enum CommonErrorCode implements SeaTunnelErrorCode {
     UNSUPPORTED_ROW_KIND(
             "COMMON-29", "'<identifier>' table '<tableId>' not support rowKind  '<rowKind>'");
 
-
     private final String code;
     private final String description;
 
