@@ -1,0 +1,56 @@
+{
+  "env": {
+    "job.name": "Json输入测试",
+    "job.mode": "batch"
+  },
+  "preHandler": [
+  ],
+  "source": [
+    {
+      "plugin_name": "S3File",
+      "resourceType": "file",
+      "path": "/file-node/json/664564f3055b3f84ff3f551a.json",
+      "fs.s3a.endpoint": "http://172.16.11.131:9000",
+      "fs.s3a.aws.credentials.provider": "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider",
+      "access_key": "P7HpCVa0Eth8X3dM",
+      "secret_key": "xxM9cJL5QKqq9M7jvwkQ5LJgsQSVvIay",
+      "bucket": "s3a://ottomi",
+      "file_format_type": "json",
+      "date_format": "yyyy-MM-dd",
+      "datetime_format": "yyyy-MM-dd HH:mm:ss",
+      "time_format": "HH:mm:ss",
+      "schema": {
+        "fields": {
+          "device_id": "string",
+          "name": "string",
+          "type": "string",
+          "longitude": "string",
+          "latitude": "string",
+          "height": "string",
+          "radius": "string",
+          "distance": "string",
+          "service_address": "string",
+          "status": "string",
+          "term_type": "string",
+          "properties": "string",
+          "runway_name": "string",
+          "direction": "string",
+          "runway_code": "string",
+          "delay": "string"
+        }
+      },
+      "encoding": "UTF-8",
+      "resources": [
+        "device.json"
+      ],
+      "result_table_name": "ot_d63b6f75317e46dca3e9aa96e943efc1"
+    }
+  ],
+  "transform": [
+  ],
+  "sink": [
+    {
+      "plugin_name": "Console"
+    }
+  ]
+}
