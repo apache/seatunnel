@@ -1,21 +1,21 @@
-package org.apache.seatunnel.transform.crypto;
+package org.apache.seatunnel.transform.crypto.encrypt;
 
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.transform.sql.zeta.ZetaUDF;
 
+import cn.hutool.core.codec.Base64;
 import cn.hutool.core.util.StrUtil;
-import cn.hutool.crypto.SecureUtil;
 import com.google.auto.service.AutoService;
 
 import java.util.List;
 
 @AutoService(ZetaUDF.class)
-public class MD5Encrypt implements ZetaUDF {
+public class Base64Encrypt implements ZetaUDF {
 
     @Override
     public String functionName() {
-        return "MD5";
+        return "BASE64_ENC";
     }
 
     @Override
@@ -25,9 +25,9 @@ public class MD5Encrypt implements ZetaUDF {
 
     @Override
     public Object evaluate(List<Object> args) {
-        String data = (String) args.get(0);
+        String data = String.valueOf(args.get(0));
         if (StrUtil.isNotEmpty(data)) {
-            return SecureUtil.md5(data);
+            return Base64.encode(data.getBytes());
         }
         return null;
     }

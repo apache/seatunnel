@@ -1,35 +1,59 @@
 {
   "env": {
-    "execution.parallelism": "1",
-    "job.mode": "BATCH"
+    "job.name": "starrocks输出测试",
+    "job.mode": "batch"
   },
+  "preHandler": [
+
+  ],
   "source": [
     {
-      "plugin_name": "jdbc",
-      "url": "jdbc:mysql://172.16.8.137:3306/showdata?remarks=true&useInformationSchema=true&useCursorFetch=true&defaultFetchSize=2048&rewriteBatchedStatements=true",
-      "password": "oceanDatum",
-      "user": "root",
+      "plugin_name": "Jdbc",
+      "dsId": "1729017202372284417",
+      "dsName": "mysql_data",
+      "dsType": "mysql",
+      "resourceType": "table",
       "driver": "com.mysql.cj.jdbc.Driver",
-      "query": "SELECT t1.`id`, t1.`普查机构代码`, t1.`序号`, t1.`户号`, t1.`户籍地址`, t1.`姓名`, t1.`性别`, t1.`民族`, t1.`与户主关系`, t1.`公民身份号码`, t1.`户类型`, t1.`联系电话`, t1.`文化程度`  FROM 钓鱼巷 t1",
-      "result_table_name": "fake"
+      "connection_check_timeout_sec": 100,
+      "query": "SELECT\n `id`,\n `xingm`\nFROM\n `test1`",
+      "database": "test_data",
+      "url": "jdbc:mysql://172.16.11.183:3306/test_data?remarks=true&useInformationSchema=true&useCursorFetch=true&defaultFetchSize=2048&rewriteBatchedStatements=true",
+      "user": "kaifa",
+      "password": "kaifa",
+      "resources": [
+        "test1"
+      ],
+      "result_table_name": "ot_bb2a64d29e614ac99e42f6e656766476"
     }
+  ],
+  "transform": [
+
   ],
   "sink": [
     {
-      "plugin_name": "Jdbc",
-      "url": "jdbc:mysql://172.16.11.131:3306/mysql_test?remarks=true&useInformationSchema=true&useCursorFetch=true&defaultFetchSize=2048&rewriteBatchedStatements=true",
-      "driver": "com.mysql.cj.jdbc.Driver",
-      "user": "mysql",
-      "password": "mysql",
-      "database": "mysql_test",
-      "batch_size": 2000,
-      "primary_keys": [
-        "user_id"
+      "plugin_name": "StarRocks",
+      "base-url": "jdbc:mysql://172.16.11.106:9030/test",
+      "nodeUrls": [
+        "172.16.11.106:8030",
+        "172.16.11.107:8030",
+        "172.16.11.108:8030"
       ],
-      "source_table_name": "test",
-      "enable_upsert": true,
-      "generate_sink_sql": true,
-      "table": "doris_test"
+      "username": "root",
+      "password": "Ocean@2023",
+      "database": "test",
+      "table": "debug_test",
+      "batch_max_rows": 2048,
+      "starrocks.config": {
+        "format": "JSON",
+        "strip_outer_array": true
+      },
+      "schema_save_mode": "ERROR_WHEN_SCHEMA_NOT_EXIST",
+      "data_save_mode": "CUSTOM_PROCESSING",
+      "custom_sql ": "truncate table test.debug_test",
+      "result_table_name": "ot_50286ad6a1fe450b95668632c5b25745",
+      "source_table_name": [
+        "ot_bb2a64d29e614ac99e42f6e656766476"
+      ]
     }
   ]
 }
