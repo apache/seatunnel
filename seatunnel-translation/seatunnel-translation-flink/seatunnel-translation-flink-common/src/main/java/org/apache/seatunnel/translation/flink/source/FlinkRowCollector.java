@@ -33,10 +33,13 @@ import org.apache.seatunnel.translation.flink.serialization.FlinkRowConverter;
 import org.apache.flink.api.connector.source.ReaderOutput;
 import org.apache.flink.types.Row;
 
+import lombok.extern.slf4j.Slf4j;
+
 /**
  * The implementation of {@link Collector} for flink engine, as a container for {@link SeaTunnelRow}
  * and convert {@link SeaTunnelRow} to {@link Row}.
  */
+@Slf4j
 public class FlinkRowCollector implements Collector<SeaTunnelRow> {
 
     private ReaderOutput<Row> readerOutput;
@@ -64,7 +67,8 @@ public class FlinkRowCollector implements Collector<SeaTunnelRow> {
     public void collect(SeaTunnelRow record) {
         flowControlGate.audit(record);
         try {
-            readerOutput.collect(rowSerialization.convert(record));
+            Row row = rowSerialization.convert(record);
+            readerOutput.collect(row);
             sourceReadCount.inc();
             sourceReadBytes.inc(record.getBytesSize());
             sourceReadQPS.markEvent();

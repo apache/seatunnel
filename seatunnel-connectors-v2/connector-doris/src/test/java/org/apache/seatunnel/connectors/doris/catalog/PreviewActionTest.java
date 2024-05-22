@@ -104,7 +104,7 @@ public class PreviewActionTest {
                 catalog,
                 Catalog.ActionType.CREATE_TABLE,
                 "CREATE TABLE IF NOT EXISTS `testddatabase`.`testtable` (\n"
-                        + "`id` BIGINT(1) NOT NULL ,\n"
+                        + "`id` BIGINT NOT NULL ,\n"
                         + "`test` STRING NULL \n"
                         + ") ENGINE=OLAP\n"
                         + " UNIQUE KEY (`id`)\n"

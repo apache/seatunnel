@@ -40,7 +40,6 @@ import com.google.common.collect.Lists;
 
 import java.math.BigDecimal;
 import java.sql.Date;
-import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -104,7 +103,7 @@ public class JdbcOracleIT extends AbstractJdbcIT {
             };
 
     @Test
-    public void testSampleDataFromColumnSuccess() throws SQLException {
+    public void testSampleDataFromColumnSuccess() throws Exception {
         JdbcDialect dialect = new OracleDialect();
         JdbcSourceTable table =
                 JdbcSourceTable.builder()

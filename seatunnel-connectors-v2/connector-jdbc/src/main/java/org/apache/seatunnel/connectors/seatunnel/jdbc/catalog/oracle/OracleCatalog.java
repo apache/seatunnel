@@ -121,6 +121,21 @@ public class OracleCatalog extends AbstractJdbcCatalog {
     }
 
     @Override
+    protected void createTableInternal(TablePath tablePath, CatalogTable table)
+            throws CatalogException {
+        String dbUrl = getUrlFromDatabaseName(tablePath.getDatabaseName());
+        try {
+            String createTableSQL = getCreateTableSql(tablePath, table);
+            for (String sql : createTableSQL.split(";")) {
+                executeInternal(dbUrl, sql);
+            }
+        } catch (Exception e) {
+            // fallback to super
+            super.createTableInternal(tablePath, table);
+        }
+    }
+
+    @Override
     protected String getDropTableSql(TablePath tablePath) {
         return String.format("DROP TABLE %s", tablePath.getSchemaAndTableName("\""));
     }

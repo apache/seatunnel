@@ -130,7 +130,7 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                     collect(output, content);
                 }
             }
-            log.info(
+            log.debug(
                     "http client execute success request param:[{}], http response status code:[{}], content:[{}]",
                     httpParameter.getParams(),
                     response.getCode(),

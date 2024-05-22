@@ -77,7 +77,7 @@ public class CheckpointStorageTest extends AbstractSeaTunnelServerTest {
                                                 .getJobStatus(jobId)
                                                 .equals(JobStatus.RUNNING)));
         Thread.sleep(1000);
-        CompletableFuture<Void> future1 =
+        CompletableFuture<Boolean> future1 =
                 server.getCoordinatorService().getJobMaster(jobId).savePoint();
         future1.join();
         await().atMost(120000, TimeUnit.MILLISECONDS)

@@ -297,7 +297,7 @@ public class ElasticSearchTypeConverter implements BasicTypeConverter<BasicTypeD
                 builder.nativeType(new EsType(FLATTENED, new HashMap<>()));
                 break;
             case ARRAY:
-                BasicType type = ((ArrayType) column.getDataType()).getElementType();
+                SeaTunnelDataType type = ((ArrayType) column.getDataType()).getElementType();
                 if (type.equals(BasicType.BYTE_TYPE)) {
                     builder.columnType(BINARY);
                     builder.dataType(BINARY);

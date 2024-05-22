@@ -81,7 +81,7 @@ public interface JdbcSourceChunkSplitter extends ChunkSplitter {
     @Deprecated
     Object[] sampleDataFromColumn(
             JdbcConnection jdbc, TableId tableId, String columnName, int samplingRate)
-            throws SQLException;
+            throws Exception;
 
     /**
      * Performs a sampling operation on the specified column of a table in a JDBC-connected
@@ -97,7 +97,7 @@ public interface JdbcSourceChunkSplitter extends ChunkSplitter {
      */
     default Object[] sampleDataFromColumn(
             JdbcConnection jdbc, TableId tableId, Column column, int samplingRate)
-            throws SQLException {
+            throws Exception {
         return sampleDataFromColumn(jdbc, tableId, column.name(), samplingRate);
     }
 

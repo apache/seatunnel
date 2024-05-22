@@ -18,27 +18,46 @@
 package org.apache.seatunnel.engine.server.checkpoint;
 
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 
 import com.google.common.base.Objects;
+import lombok.Getter;
 
 import java.io.Serializable;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+@Getter
 public class CheckpointBarrier implements Barrier, Serializable {
     private final long id;
     private final long timestamp;
     private final CheckpointType checkpointType;
+    private final Set<TaskLocation> prepareCloseTasks;
+    private final Set<TaskLocation> closedTasks;
 
     public CheckpointBarrier(long id, long timestamp, CheckpointType checkpointType) {
+        this(id, timestamp, checkpointType, Collections.emptySet(), Collections.emptySet());
+    }
+
+    public CheckpointBarrier(
+            long id,
+            long timestamp,
+            CheckpointType checkpointType,
+            Set<TaskLocation> prepareCloseTasks,
+            Set<TaskLocation> closedTasks) {
         this.id = id;
         this.timestamp = timestamp;
         this.checkpointType = checkNotNull(checkpointType);
-    }
-
-    public long getId() {
-        return id;
+        this.prepareCloseTasks = prepareCloseTasks;
+        this.closedTasks = closedTasks;
+        if (new HashSet(prepareCloseTasks).removeAll(closedTasks)) {
+            throw new IllegalArgumentException(
+                    "The prepareCloseTasks collection should not contain elements of the closedTasks collection");
+        }
     }
 
     @Override
@@ -51,12 +70,17 @@ public class CheckpointBarrier implements Barrier, Serializable {
         return checkpointType.isFinalCheckpoint();
     }
 
-    public long getTimestamp() {
-        return timestamp;
+    @Override
+    public boolean prepareClose(TaskLocation task) {
+        if (prepareClose()) {
+            return true;
+        }
+        return prepareCloseTasks.contains(task);
     }
 
-    public CheckpointType getCheckpointType() {
-        return checkpointType;
+    @Override
+    public Set<TaskLocation> closedTasks() {
+        return Collections.unmodifiableSet(closedTasks);
     }
 
     @Override
@@ -81,7 +105,8 @@ public class CheckpointBarrier implements Barrier, Serializable {
     @Override
     public String toString() {
         return String.format(
-                "CheckpointBarrier %d @ %d Options: %s", id, timestamp, checkpointType);
+                "CheckpointBarrier %d @ %d type: %s, prepareClose: %s, closed: %s",
+                id, timestamp, checkpointType, prepareCloseTasks, closedTasks);
     }
 
     public boolean isAuto() {

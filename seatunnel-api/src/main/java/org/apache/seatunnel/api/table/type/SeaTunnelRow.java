@@ -142,6 +142,26 @@ public final class SeaTunnelRow implements Serializable {
             case TIMESTAMP:
                 return 48;
             case ARRAY:
+                SeaTunnelDataType elementType = ((ArrayType) dataType).getElementType();
+                if (elementType instanceof DecimalType) {
+                    return ((Object[]) v).length * 36;
+                }
+
+                if (elementType instanceof LocalTimeType) {
+                    SqlType eleSqlType = elementType.getSqlType();
+                    switch (eleSqlType) {
+                        case DATE:
+                            return ((Object[]) v).length * 24;
+                        case TIME:
+                            return ((Object[]) v).length * 12;
+                        case TIMESTAMP:
+                            return ((Object[]) v).length * 48;
+                        default:
+                            throw new UnsupportedOperationException(
+                                    "Unsupported type in LocalTimeArrayType: " + eleSqlType);
+                    }
+                }
+
                 return getBytesForArray(v, ((ArrayType) dataType).getElementType());
             case MAP:
                 int size = 0;
@@ -166,7 +186,7 @@ public final class SeaTunnelRow implements Serializable {
         }
     }
 
-    private int getBytesForArray(Object v, BasicType<?> dataType) {
+    private int getBytesForArray(Object v, SeaTunnelDataType<?> dataType) {
         switch (dataType.getSqlType()) {
             case STRING:
                 int s = 0;
