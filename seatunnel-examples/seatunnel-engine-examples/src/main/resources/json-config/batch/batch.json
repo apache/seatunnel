@@ -29,7 +29,7 @@
       "plugin_name": "sql",
       "source_table_name": "ot_6f6f3d07f529482da2d54b3aaeabf807",
       "result_table_name": "ot_test",
-      "query": "select SHA1_ENC(id,'juHyTYMIkxkq4LIt') from ot_6f6f3d07f529482da2d54b3aaeabf807"
+      "query": "select AES_ENC(id,'juHyTYMIkxkq4LIt') from ot_6f6f3d07f529482da2d54b3aaeabf807"
     }
   ],
   "sink": [
