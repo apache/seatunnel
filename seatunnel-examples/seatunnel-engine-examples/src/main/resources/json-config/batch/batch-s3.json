@@ -1,0 +1,49 @@
+{
+  "env": {
+    "job.name": "唯一id测试",
+    "job.mode": "batch"
+  },
+  "preHandler": [],
+  "source": [
+    {
+      "plugin_name": "Jdbc",
+      "dsId": "1584788710849748994",
+      "dsName": "mysql8.4",
+      "dsType": "mysql",
+      "resourceType": "table",
+      "driver": "com.mysql.cj.jdbc.Driver",
+      "connection_check_timeout_sec": 100,
+      "query": "SELECT\n `id`,\n `name`,\n `age`,\n `sex`,\n `birthday`,\n `create_time`,\n `county`\nFROM\n `test_tb`",
+      "database": "mysql_test",
+      "url": "jdbc:mysql://172.16.8.4:3306/mysql_test?remarks=true&useInformationSchema=true&useCursorFetch=true&defaultFetchSize=2048&rewriteBatchedStatements=true",
+      "user": "root",
+      "password": "123456",
+      "resources": [
+        "test_tb"
+      ],
+      "result_table_name": "ot_6f6f3d07f529482da2d54b3aaeabf807"
+    }
+  ],
+  "transform": [],
+  "sink": [
+    {
+      "plugin_name": "S3File",
+      "bucket": "s3a://ottomi",
+      "tmp_path": "/tmp/seatunnel",
+      "path": "/seatunnel/text",
+      "fs.s3a.endpoint": "http://172.16.11.131:9000",
+      "fs.s3a.aws.credentials.provider": "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider",
+      "access_key": "P7HpCVa0Eth8X3dM",
+      "secret_key": "xxM9cJL5QKqq9M7jvwkQ5LJgsQSVvIay",
+      "file_format_type": "text",
+      "field_delimiter": "\t",
+      "row_delimiter": "\n",
+      "custom_filename": true,
+      "file_name_expression": "测试文件_${transactionId}",
+      "is_enable_transaction": true,
+      "source_table_name": [
+        "ot_6f6f3d07f529482da2d54b3aaeabf807"
+      ]
+    }
+  ]
+}
