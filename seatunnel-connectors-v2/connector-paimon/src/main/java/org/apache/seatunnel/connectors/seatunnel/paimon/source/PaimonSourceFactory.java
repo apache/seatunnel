@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.paimon.catalog.PaimonCatalog;
+import org.apache.seatunnel.connectors.seatunnel.paimon.catalog.PaimonCatalogEnum;
 import org.apache.seatunnel.connectors.seatunnel.paimon.catalog.PaimonCatalogFactory;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSourceConfig;
@@ -45,14 +46,15 @@ public class PaimonSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(PaimonConfig.WAREHOUSE)
-                .required(PaimonConfig.DATABASE)
-                .required(PaimonConfig.TABLE)
+                .required(PaimonConfig.WAREHOUSE, PaimonConfig.DATABASE, PaimonConfig.TABLE)
                 .optional(
+                        PaimonConfig.CATALOG_TYPE,
                         PaimonConfig.HDFS_SITE_PATH,
                         PaimonSourceConfig.FILTER_SQL,
                         PaimonConfig.HADOOP_CONF,
                         PaimonConfig.HADOOP_CONF_PATH)
+                .conditional(
+                        PaimonConfig.CATALOG_TYPE, PaimonCatalogEnum.HIVE, PaimonConfig.CATALOG_URI)
                 .build();
     }
 

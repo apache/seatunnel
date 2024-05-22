@@ -155,7 +155,8 @@ public class PaimonSinkHdfsIT extends TestSuiteBase {
     }
 
     @TestTemplate
-    public void testFakeCDCSinkPaimonWithHiveCatalog(TestContainer container) throws Exception {
+    public void testFakeCDCSinkPaimonWithHiveCatalogAndRead(TestContainer container)
+            throws Exception {
         Container.ExecResult execResult =
                 container.executeJob("/fake_cdc_sink_paimon_with_hdfs_with_hive_catalog.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
@@ -198,5 +199,9 @@ public class PaimonSinkHdfsIT extends TestSuiteBase {
                                         }
                                     });
                         });
+
+        Container.ExecResult readResult =
+                container.executeJob("/paimon_to_assert_with_hivecatalog.conf");
+        Assertions.assertEquals(0, readResult.getExitCode());
     }
 }

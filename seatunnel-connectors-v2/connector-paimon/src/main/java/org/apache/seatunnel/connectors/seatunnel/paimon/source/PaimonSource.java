@@ -59,6 +59,7 @@ public class PaimonSource
         PaimonSourceConfig paimonSourceConfig = new PaimonSourceConfig(readonlyConfig);
         TablePath tablePath =
                 TablePath.of(paimonSourceConfig.getNamespace(), paimonSourceConfig.getTable());
+        this.paimonCatalog = paimonCatalog;
         this.catalogTable = paimonCatalog.getTable(tablePath);
         this.paimonTable = paimonCatalog.getPaimonTable(tablePath);
         this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();

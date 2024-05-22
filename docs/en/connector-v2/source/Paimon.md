@@ -20,6 +20,8 @@ Read data from Apache Paimon.
 |          name           |  type  | required | default value |
 |-------------------------|--------|----------|---------------|
 | warehouse               | String | Yes      | -             |
+| catalog_type            | String | No       | filesystem    |
+| catalog_uri             | String | No       | -             |
 | database                | String | Yes      | -             |
 | table                   | String | Yes      | -             |
 | hdfs_site_path          | String | No       | -             |
@@ -30,6 +32,14 @@ Read data from Apache Paimon.
 ### warehouse [string]
 
 Paimon warehouse path
+
+### catalog_type [string]
+
+Catalog type of Paimon, support filesystem and hive
+
+### catalog_uri [string]
+
+Catalog uri of Paimon, only needed when catalog_type is hive
 
 ### database [string]
 
@@ -56,7 +66,6 @@ The field data types currently supported by where conditions are as follows::
 - bigint
 - float
 - double
-- decimal
 - date
 - timestamp
 
@@ -105,6 +114,30 @@ source {
     database="seatunnel_namespace1"
     table="st_test"
     paimon.read.filter.sql = "select * from st_test where pk_id is not null and pk_id < 3"
+    paimon.hadoop.conf = {
+      fs.defaultFS = "hdfs://nameservice1"
+      dfs.nameservices = "nameservice1"
+      dfs.ha.namenodes.nameservice1 = "nn1,nn2"
+      dfs.namenode.rpc-address.nameservice1.nn1 = "hadoop03:8020"
+      dfs.namenode.rpc-address.nameservice1.nn2 = "hadoop04:8020"
+      dfs.client.failover.proxy.provider.nameservice1 = "org.apache.hadoop.hdfs.server.namenode.ha.ConfiguredFailoverProxyProvider"
+      dfs.client.use.datanode.hostname = "true"
+    }
+  }
+}
+```
+
+### Hive catalog example
+
+```hocon
+source {
+  Paimon {
+    catalog_name="seatunnel_test"
+    catalog_type="hive"
+    catalog_uri="thrift://hadoop04:9083"
+    warehouse="hdfs:///tmp/seatunnel"
+    database="seatunnel_test"
+    table="st_test3"
     paimon.hadoop.conf = {
       fs.defaultFS = "hdfs://nameservice1"
       dfs.nameservices = "nameservice1"
