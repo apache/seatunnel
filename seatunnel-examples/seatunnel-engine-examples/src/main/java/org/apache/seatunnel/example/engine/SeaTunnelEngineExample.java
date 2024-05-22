@@ -39,7 +39,7 @@ public class SeaTunnelEngineExample {
         clientCommandArgs.setJobName(Paths.get(configFile).getFileName().toString());
         // Change Execution Mode to CLUSTER to use client mode, before do this, you should start
         // SeaTunnelEngineServerExample
-        clientCommandArgs.setMasterType(MasterType.LOCAL);
+        clientCommandArgs.setMasterType(MasterType.CLUSTER);
         SeaTunnel.run(clientCommandArgs.buildCommand());
     }
 

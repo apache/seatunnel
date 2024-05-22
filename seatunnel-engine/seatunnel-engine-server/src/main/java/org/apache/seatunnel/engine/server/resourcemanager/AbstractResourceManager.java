@@ -223,4 +223,16 @@ public abstract class AbstractResourceManager implements ResourceManager {
                 .flatMap(workerProfile -> Arrays.stream(workerProfile.getUnassignedSlots()))
                 .collect(Collectors.toList());
     }
+
+    @Override
+    public List<SlotProfile> getAssignedSlots() {
+        return registerWorker.values().stream()
+                .flatMap(workerProfile -> Arrays.stream(workerProfile.getAssignedSlots()))
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public int workCount() {
+        return registerWorker.size();
+    }
 }

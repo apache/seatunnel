@@ -60,4 +60,8 @@ public interface ResourceManager {
     void close();
 
     List<SlotProfile> getUnassignedSlots();
+
+    List<SlotProfile> getAssignedSlots();
+
+    int workCount();
 }
