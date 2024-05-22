@@ -89,7 +89,7 @@ public class PaimonSinkWriter
         this.table = table;
         this.tableWriteBuilder =
                 JobContextUtil.isBatchJob(jobContext)
-                        ? this.table.newBatchWriteBuilder().withOverwrite()
+                        ? this.table.newBatchWriteBuilder()
                         : this.table.newStreamWriteBuilder();
         this.tableWrite = tableWriteBuilder.newWrite();
         this.seaTunnelRowType = seaTunnelRowType;

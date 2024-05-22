@@ -72,7 +72,7 @@ public class RedisSource extends AbstractSingleSplitSource<SeaTunnelRow> {
                 this.catalogTable = CatalogTableUtil.buildWithConfig(readonlyConfig);
                 this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
                 this.deserializationSchema =
-                        new JsonDeserializationSchema(false, false, seaTunnelRowType);
+                        new JsonDeserializationSchema(catalogTable, false, false);
             }
         } else {
             this.catalogTable = CatalogTableUtil.buildSimpleTextTable();
