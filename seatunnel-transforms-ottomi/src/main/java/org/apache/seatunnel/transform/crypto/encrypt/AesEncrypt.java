@@ -2,11 +2,11 @@ package org.apache.seatunnel.transform.crypto.encrypt;
 
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.transform.crypto.Constants;
 import org.apache.seatunnel.transform.sql.zeta.ZetaUDF;
 
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.SecureUtil;
+import cn.hutool.crypto.symmetric.AES;
 import com.google.auto.service.AutoService;
 
 import java.util.List;
@@ -28,13 +28,13 @@ public class AesEncrypt implements ZetaUDF {
     public Object evaluate(List<Object> args) {
         String data = String.valueOf(args.get(0));
         if (StrUtil.isNotEmpty(data)) {
-            byte[] key;
+            AES aes;
             if (args.size() == 2) {
-                key = ((String) args.get(1)).getBytes();
+                aes = SecureUtil.aes(String.valueOf(args.get(1)).getBytes());
             } else {
-                key = Constants.DEFAULT_DES_KEY;
+                aes = SecureUtil.aes();
             }
-            return SecureUtil.aes(key).encryptBase64(data, Constants.CRYPTO_CHARSET);
+            return aes.encryptBase64(data);
         }
         return null;
     }

@@ -2,11 +2,11 @@ package org.apache.seatunnel.transform.crypto.encrypt;
 
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.transform.crypto.Constants;
 import org.apache.seatunnel.transform.sql.zeta.ZetaUDF;
 
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.crypto.SmUtil;
+import cn.hutool.crypto.symmetric.SM4;
 import com.google.auto.service.AutoService;
 
 import java.util.List;
@@ -28,13 +28,13 @@ public class Sm4Encrypt implements ZetaUDF {
     public Object evaluate(List<Object> args) {
         String data = String.valueOf(args.get(0));
         if (StrUtil.isNotEmpty(data)) {
-            byte[] key;
+            SM4 sm4;
             if (args.size() == 2) {
-                key = ((String) args.get(1)).getBytes();
+                sm4 = SmUtil.sm4(String.valueOf(args.get(1)).getBytes());
             } else {
-                key = Constants.DEFAULT_DES_KEY;
+                sm4 = SmUtil.sm4();
             }
-            return SmUtil.sm4(key).encryptBase64(data);
+            return sm4.encryptBase64(data);
         }
         return null;
     }
