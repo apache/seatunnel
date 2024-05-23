@@ -165,6 +165,11 @@ public class JdbcSourceChunkSplitterTest {
         }
 
         @Override
+        public JdbcConnection openJdbcConnection(JdbcSourceConfig sourceConfig) {
+            return null;
+        }
+
+        @Override
         public JdbcConnectionPoolFactory getPooledDataSourceFactory() {
             return null;
         }

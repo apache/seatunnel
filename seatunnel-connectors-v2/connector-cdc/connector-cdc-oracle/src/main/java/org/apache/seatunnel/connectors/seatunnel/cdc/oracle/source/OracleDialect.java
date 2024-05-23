@@ -81,7 +81,7 @@ public class OracleDialect implements JdbcDataSourceDialect {
 
     @Override
     public JdbcConnection openJdbcConnection(JdbcSourceConfig sourceConfig) {
-        return createOracleConnection(sourceConfig.getDbzConfiguration());
+        return createOracleConnection(sourceConfig.getDbzConnectorConfig().getJdbcConfig());
     }
 
     @Override
