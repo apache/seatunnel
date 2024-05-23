@@ -55,19 +55,22 @@ The file path of `hdfs-site.xml`
 
 ### paimon.read.filter.sql [string]
 
-The filter condition of the table read. For example: `select * from st_test where id > 100`. If not specified, all rows are read. Currently, where conditions only support <, <=, >, >=, =, !=, or, and,is null, is not null, and others are not supported.</br>
+The filter condition of the table read. For example: `select * from st_test where id > 100`. If not specified, all rows are read.
+Currently, where conditions only support <, <=, >, >=, =, !=, or, and,is null, is not null, and others are not supported.
+
 Note: When the field after the where condition is a string or boolean value, its value must be enclosed in single quotes, otherwise an error will be reported. `For example: name='abc' or tag='true'`
-The field data types currently supported by where conditions are as follows::
-- string
-- boolean
-- tinyint
-- smallint
-- int
-- bigint
-- float
-- double
-- date
-- timestamp
+The field data types currently supported by where conditions are as follows:
+
+* string
+* boolean
+* tinyint
+* smallint
+* int
+* bigint
+* float
+* double
+* date
+* timestamp
 
 ### paimon.hadoop.conf [string]
 
