@@ -59,7 +59,7 @@ connector-console
 
 您可以在`${SEATUNNEL_HOME}/connectors/plugins-mapping.properties`下找到所有支持的连接器和相应的plugin_config配置名称。
 
-:::提示
+:::tip 提示
 
 如果您想通过手动下载连接器的方式来安装连接器插件，则需要特别注意以下事项
 
