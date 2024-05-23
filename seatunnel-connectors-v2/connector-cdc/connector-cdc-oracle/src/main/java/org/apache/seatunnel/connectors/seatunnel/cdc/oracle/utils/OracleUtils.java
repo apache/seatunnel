@@ -28,6 +28,7 @@ import org.apache.kafka.connect.source.SourceRecord;
 import io.debezium.connector.oracle.OracleConnection;
 import io.debezium.connector.oracle.OracleConnectorConfig;
 import io.debezium.connector.oracle.OracleDatabaseSchema;
+import io.debezium.connector.oracle.OracleDefaultValueConverter;
 import io.debezium.connector.oracle.OracleTopicSelector;
 import io.debezium.connector.oracle.OracleValueConverters;
 import io.debezium.connector.oracle.StreamingAdapter;
@@ -349,12 +350,15 @@ public class OracleUtils {
         SchemaNameAdjuster schemaNameAdjuster = SchemaNameAdjuster.create();
         OracleValueConverters oracleValueConverters =
                 new OracleValueConverters(dbzOracleConfig, connection);
+        OracleDefaultValueConverter defaultValueConverter =
+                new OracleDefaultValueConverter(oracleValueConverters, connection);
         StreamingAdapter.TableNameCaseSensitivity tableNameCaseSensitivity =
                 dbzOracleConfig.getAdapter().getTableNameCaseSensitivity(connection);
 
         return new OracleDatabaseSchema(
                 dbzOracleConfig,
                 oracleValueConverters,
+                defaultValueConverter,
                 schemaNameAdjuster,
                 topicSelector,
                 tableNameCaseSensitivity);
@@ -369,6 +373,8 @@ public class OracleUtils {
         SchemaNameAdjuster schemaNameAdjuster = SchemaNameAdjuster.create();
         OracleValueConverters oracleValueConverters =
                 new OracleValueConverters(dbzOracleConfig, connection);
+        OracleDefaultValueConverter defaultValueConverter =
+                new OracleDefaultValueConverter(oracleValueConverters, connection);
         StreamingAdapter.TableNameCaseSensitivity tableNameCaseSensitivity =
                 tableIdCaseInsensitive
                         ? StreamingAdapter.TableNameCaseSensitivity.SENSITIVE
@@ -376,6 +382,7 @@ public class OracleUtils {
         return new OracleDatabaseSchema(
                 dbzOracleConfig,
                 oracleValueConverters,
+                defaultValueConverter,
                 schemaNameAdjuster,
                 topicSelector,
                 tableNameCaseSensitivity);
