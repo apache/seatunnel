@@ -24,7 +24,6 @@ import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.paimon.catalog.PaimonCatalog;
@@ -33,6 +32,9 @@ import org.apache.seatunnel.connectors.seatunnel.paimon.source.converter.SqlToPa
 
 import org.apache.paimon.predicate.Predicate;
 import org.apache.paimon.table.Table;
+
+import java.util.Collections;
+import java.util.List;
 
 /** Paimon connector source class. */
 public class PaimonSource
@@ -81,8 +83,8 @@ public class PaimonSource
     }
 
     @Override
-    public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
-        return seaTunnelRowType;
+    public List<CatalogTable> getProducedCatalogTables() {
+        return Collections.singletonList(catalogTable);
     }
 
     @Override
