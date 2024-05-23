@@ -36,7 +36,7 @@ import java.util.List;
 @Slf4j
 public class GetOverviewOperation extends Operation implements IdentifiedDataSerializable {
 
-    private OverviewInfo overviewInfo;
+    private final OverviewInfo overviewInfo = new OverviewInfo();
 
     @Override
     public void run() throws Exception {
