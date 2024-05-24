@@ -19,7 +19,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iceberg.utils;
 
-import org.apache.commons.collections.CollectionUtils;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
@@ -37,6 +36,7 @@ import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.schema.SchemaChang
 import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.schema.SchemaDeleteColumn;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.sink.schema.SchemaModifyColumn;
 
+import org.apache.commons.collections.CollectionUtils;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
@@ -49,9 +49,9 @@ import org.apache.iceberg.types.Types;
 import org.apache.iceberg.util.Pair;
 import org.apache.iceberg.util.Tasks;
 
-import com.google.common.annotations.VisibleForTesting;
 import org.jetbrains.annotations.NotNull;
 
+import com.google.common.annotations.VisibleForTesting;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
@@ -168,27 +168,40 @@ public class SchemaUtils {
     }
 
     @VisibleForTesting
-    @NotNull
-    protected static Schema toIcebergSchema(SeaTunnelRowType rowType, ReadonlyConfig readonlyConfig) {
+    @NotNull protected static Schema toIcebergSchema(
+            SeaTunnelRowType rowType, ReadonlyConfig readonlyConfig) {
         Types.StructType structType = SchemaUtils.toIcebergType(rowType).asStructType();
         Set<Integer> identifierFieldIds = new HashSet<>();
         if (Objects.nonNull(readonlyConfig)) {
-            List<String> pks = SinkConfig.stringToList(readonlyConfig.get(SinkConfig.TABLE_PRIMARY_KEYS), ",");
+            List<String> pks =
+                    SinkConfig.stringToList(readonlyConfig.get(SinkConfig.TABLE_PRIMARY_KEYS), ",");
             if (CollectionUtils.isNotEmpty(pks)) {
                 for (String pk : pks) {
-                    Optional<Integer> pkId = structType.fields().stream().filter(nestedField -> nestedField.name().equals(pk)).map(nestedField -> nestedField.fieldId())
-                            .findFirst();
+                    Optional<Integer> pkId =
+                            structType.fields().stream()
+                                    .filter(nestedField -> nestedField.name().equals(pk))
+                                    .map(nestedField -> nestedField.fieldId())
+                                    .findFirst();
                     if (!pkId.isPresent()) {
-                        throw new IllegalArgumentException(String.format("iceberg table pk:%s not present in the incoming struct", pk));
+                        throw new IllegalArgumentException(
+                                String.format(
+                                        "iceberg table pk:%s not present in the incoming struct",
+                                        pk));
                     }
                     identifierFieldIds.add(pkId.get());
                 }
             }
         }
         List<Types.NestedField> fields = new ArrayList<>();
-        structType.fields().forEach(field -> {
-            fields.add(identifierFieldIds.contains(field.fieldId()) ? field.asRequired() : field.asOptional());
-        });
+        structType
+                .fields()
+                .forEach(
+                        field -> {
+                            fields.add(
+                                    identifierFieldIds.contains(field.fieldId())
+                                            ? field.asRequired()
+                                            : field.asOptional());
+                        });
         return new Schema(fields, identifierFieldIds);
     }
 
