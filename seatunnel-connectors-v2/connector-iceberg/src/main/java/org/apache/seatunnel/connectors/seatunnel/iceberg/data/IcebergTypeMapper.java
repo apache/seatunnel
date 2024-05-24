@@ -138,13 +138,13 @@ public class IcebergTypeMapper {
             case ARRAY:
                 ArrayType arrayType = (ArrayType) dataType;
                 // converter elementType
-                Type elementType = toIcebergType(arrayType.getElementType());
+                Type elementType = toIcebergType(arrayType.getElementType(), nextId);
                 return Types.ListType.ofOptional(nextId.getAndIncrement(), elementType);
             case MAP:
                 org.apache.seatunnel.api.table.type.MapType mapType =
                         (org.apache.seatunnel.api.table.type.MapType) dataType;
-                Type keyType = toIcebergType(mapType.getKeyType());
-                Type valueType = toIcebergType(mapType.getValueType());
+                Type keyType = toIcebergType(mapType.getKeyType(), nextId);
+                Type valueType = toIcebergType(mapType.getValueType(), nextId);
                 return Types.MapType.ofOptional(
                         nextId.getAndIncrement(), nextId.getAndIncrement(), keyType, valueType);
             case ROW:
@@ -158,7 +158,7 @@ public class IcebergTypeMapper {
                                     nextId.getAndIncrement(),
                                     true,
                                     field,
-                                    toIcebergType(fieldType)));
+                                    toIcebergType(fieldType, nextId)));
                 }
                 return Types.StructType.of(structFields);
             case DATE:
