@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.paimon.sink.commit;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkAggregatedCommitter;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonHadoopConfiguration;
 import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorException;
@@ -53,7 +54,7 @@ public class PaimonAggregatedCommitter
 
     private final Lock.Factory localFactory = Lock.emptyFactory();
 
-    private final WriteBuilder tableWriteBuilder;
+    private final TableCommit tableCommit;
 
     private final JobContext jobContext;
 
@@ -62,17 +63,18 @@ public class PaimonAggregatedCommitter
             JobContext jobContext,
             PaimonHadoopConfiguration paimonHadoopConfiguration) {
         this.jobContext = jobContext;
-        this.tableWriteBuilder =
+        WriteBuilder tableWriteBuilder =
                 JobContextUtil.isBatchJob(jobContext)
                         ? table.newBatchWriteBuilder()
                         : table.newStreamWriteBuilder();
+        this.tableCommit = tableWriteBuilder.newCommit();
         PaimonSecurityContext.shouldEnableKerberos(paimonHadoopConfiguration);
     }
 
     @Override
     public List<PaimonAggregatedCommitInfo> commit(
             List<PaimonAggregatedCommitInfo> aggregatedCommitInfo) throws IOException {
-        try (TableCommit tableCommit = tableWriteBuilder.newCommit()) {
+        try {
             List<CommitMessage> fileCommittables =
                     aggregatedCommitInfo.stream()
                             .map(PaimonAggregatedCommitInfo::getCommittables)
@@ -113,5 +115,14 @@ public class PaimonAggregatedCommitter
     }
 
     @Override
-    public void close() throws IOException {}
+    public void close() throws IOException {
+        if (Objects.nonNull(tableCommit)) {
+            try {
+                tableCommit.close();
+            } catch (Exception e) {
+                log.error("Close tableCommit error: ", e);
+                throw new SeaTunnelException(e);
+            }
+        }
+    }
 }
