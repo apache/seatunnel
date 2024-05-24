@@ -94,6 +94,7 @@ public class HbaseCluster {
         Configuration configuration = HBaseConfiguration.create();
         configuration.set("hbase.zookeeper.quorum", zookeeperQuorum);
         configuration.set("hbase.security.authentication", "simple");
+        configuration.set("hbase.rpc.timeout", "10000");
         configuration.set("hbase.master.port", String.valueOf(MASTER_PORT));
         configuration.set("hbase.regionserver.port", String.valueOf(REGION_PORT));
         connection = ConnectionFactory.createConnection(configuration);

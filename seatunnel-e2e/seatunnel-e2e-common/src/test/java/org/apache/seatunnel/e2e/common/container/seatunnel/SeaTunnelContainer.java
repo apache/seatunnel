@@ -428,9 +428,11 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 // Iceberg
                 || threadName.startsWith("iceberg")
                 // Hbase
-                || threadName.contains("htable")
+                || threadName.contains("hbase_e2e")
+                || threadName.startsWith("htable")
                 || threadName.contains("Rpc")
-                || threadName.contains("RPC");
+                || threadName.contains("RPC")
+                || threadName.startsWith("hconnection");
     }
 
     @Override
