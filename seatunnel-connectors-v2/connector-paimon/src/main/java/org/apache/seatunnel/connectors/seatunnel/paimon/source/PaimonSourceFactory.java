@@ -68,12 +68,13 @@ public class PaimonSourceFactory implements TableSourceFactory {
             TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
         ReadonlyConfig readonlyConfig = context.getOptions();
         PaimonCatalogFactory paimonCatalogFactory = new PaimonCatalogFactory();
-        PaimonCatalog paimonCatalog =
+        try (PaimonCatalog paimonCatalog =
                 (PaimonCatalog)
-                        paimonCatalogFactory.createCatalog(factoryIdentifier(), readonlyConfig);
-        paimonCatalog.open();
-        return () ->
-                (SeaTunnelSource<T, SplitT, StateT>)
-                        new PaimonSource(readonlyConfig, paimonCatalog);
+                        paimonCatalogFactory.createCatalog(factoryIdentifier(), readonlyConfig)) {
+            paimonCatalog.open();
+            return () ->
+                    (SeaTunnelSource<T, SplitT, StateT>)
+                            new PaimonSource(readonlyConfig, paimonCatalog);
+        }
     }
 }

@@ -50,8 +50,6 @@ public class PaimonSource
 
     private Table paimonTable;
 
-    private PaimonCatalog paimonCatalog;
-
     private Predicate predicate;
 
     private CatalogTable catalogTable;
@@ -61,7 +59,6 @@ public class PaimonSource
         PaimonSourceConfig paimonSourceConfig = new PaimonSourceConfig(readonlyConfig);
         TablePath tablePath =
                 TablePath.of(paimonSourceConfig.getNamespace(), paimonSourceConfig.getTable());
-        this.paimonCatalog = paimonCatalog;
         this.catalogTable = paimonCatalog.getTable(tablePath);
         this.paimonTable = paimonCatalog.getPaimonTable(tablePath);
         this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
@@ -91,15 +88,13 @@ public class PaimonSource
     public SourceReader<SeaTunnelRow, PaimonSourceSplit> createReader(
             SourceReader.Context readerContext) throws Exception {
 
-        return new PaimonSourceReader(
-                readerContext, paimonTable, seaTunnelRowType, predicate, paimonCatalog);
+        return new PaimonSourceReader(readerContext, paimonTable, seaTunnelRowType, predicate);
     }
 
     @Override
     public SourceSplitEnumerator<PaimonSourceSplit, PaimonSourceState> createEnumerator(
             SourceSplitEnumerator.Context<PaimonSourceSplit> enumeratorContext) throws Exception {
-        return new PaimonSourceSplitEnumerator(
-                enumeratorContext, paimonTable, predicate, paimonCatalog);
+        return new PaimonSourceSplitEnumerator(enumeratorContext, paimonTable, predicate);
     }
 
     @Override
@@ -108,6 +103,6 @@ public class PaimonSource
             PaimonSourceState checkpointState)
             throws Exception {
         return new PaimonSourceSplitEnumerator(
-                enumeratorContext, paimonTable, checkpointState, predicate, paimonCatalog);
+                enumeratorContext, paimonTable, checkpointState, predicate);
     }
 }

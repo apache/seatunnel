@@ -21,7 +21,6 @@ import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.paimon.catalog.PaimonCatalog;
 import org.apache.seatunnel.connectors.seatunnel.paimon.utils.RowConverter;
 
 import org.apache.paimon.data.InternalRow;
@@ -50,19 +49,13 @@ public class PaimonSourceReader implements SourceReader<SeaTunnelRow, PaimonSour
     private final SeaTunnelRowType seaTunnelRowType;
     private volatile boolean noMoreSplit;
     private final Predicate predicate;
-    private final PaimonCatalog paimonCatalog;
 
     public PaimonSourceReader(
-            Context context,
-            Table table,
-            SeaTunnelRowType seaTunnelRowType,
-            Predicate predicate,
-            PaimonCatalog paimonCatalog) {
+            Context context, Table table, SeaTunnelRowType seaTunnelRowType, Predicate predicate) {
         this.context = context;
         this.table = table;
         this.seaTunnelRowType = seaTunnelRowType;
         this.predicate = predicate;
-        this.paimonCatalog = paimonCatalog;
     }
 
     @Override
@@ -73,9 +66,6 @@ public class PaimonSourceReader implements SourceReader<SeaTunnelRow, PaimonSour
     @Override
     public void close() throws IOException {
         // do nothing
-        if (Objects.nonNull(paimonCatalog)) {
-            paimonCatalog.close();
-        }
     }
 
     @Override
