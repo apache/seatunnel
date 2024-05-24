@@ -63,7 +63,7 @@ Debezium 提供了一个统一的变更日志格式，下面是一个 MySQL prod
 }
 ```
 
-注：请参考 [Debezium 文档](https://debezium.io/documentation/reference/2.5/connectors/mysql.html#mysql-events) 以了解每个字段的含义
+注：请参考 [Debezium 文档](https://github.com/debezium/debezium/blob/v1.9.8.Final/documentation/modules/ROOT/pages/connectors/mysql.adoc#data-change-events) 以了解每个字段的含义
 
 MySQL 的 products 表有 4 列（id、name、description 和 weight）
 上述 JSON 消息是产品表的一个更新变更事件，其中 id = 111 的行的 weight 值从 5.18 变为 5.17
