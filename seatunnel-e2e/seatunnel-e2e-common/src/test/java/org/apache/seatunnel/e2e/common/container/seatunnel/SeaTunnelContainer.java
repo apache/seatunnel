@@ -426,13 +426,7 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 || threadName.startsWith("MaintenanceTimer")
                 || threadName.startsWith("cluster-")
                 // Iceberg
-                || threadName.startsWith("iceberg")
-                // Hbase
-                || threadName.contains("hbase_e2e")
-                || threadName.startsWith("htable")
-                || threadName.contains("Rpc")
-                || threadName.contains("RPC")
-                || threadName.startsWith("hconnection");
+                || threadName.startsWith("iceberg");
     }
 
     @Override
