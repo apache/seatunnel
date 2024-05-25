@@ -51,7 +51,7 @@ Ogg 为变更日志提供了统一的格式，下面是从 Oracle PRODUCTS 表�
 }
 ```
 
-注：各字段含义请参考 [Debezium 文档](https://debezium.io/documentation/reference/2.5/connectors/oracle.html#oracle-events)注：各字段含义请参考 [Debezium 文档](https://debezium.io/documentation/reference/2.5/connectors/oracle.html#oracle-events)
+注：各字段含义请参考 [Debezium 文档](https://github.com/debezium/debezium/blob/v1.9.8.Final/documentation/modules/ROOT/pages/connectors/oracle.adoc#data-change-events)
 
 此 Oracle PRODUCTS 表有 4 列 (id, name, description 和 weight)
 上面的 JSON 消息是 products 表上的更新更改事件，其中 id = 111 的行的字段 `weight` 的值从 5.18 更改为 5.15。
