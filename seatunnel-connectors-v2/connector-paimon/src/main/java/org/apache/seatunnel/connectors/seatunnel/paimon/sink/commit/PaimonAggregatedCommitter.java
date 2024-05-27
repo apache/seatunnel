@@ -32,7 +32,6 @@ import org.apache.paimon.table.Table;
 import org.apache.paimon.table.sink.BatchTableCommit;
 import org.apache.paimon.table.sink.CommitMessage;
 import org.apache.paimon.table.sink.StreamTableCommit;
-import org.apache.paimon.table.sink.TableCommit;
 import org.apache.paimon.table.sink.WriteBuilder;
 
 import lombok.extern.slf4j.Slf4j;
@@ -54,7 +53,7 @@ public class PaimonAggregatedCommitter
 
     private final Lock.Factory localFactory = Lock.emptyFactory();
 
-    private final TableCommit tableCommit;
+    private final PaimonTableCommit tableCommit;
 
     private final JobContext jobContext;
 
@@ -67,7 +66,7 @@ public class PaimonAggregatedCommitter
                 JobContextUtil.isBatchJob(jobContext)
                         ? table.newBatchWriteBuilder()
                         : table.newStreamWriteBuilder();
-        this.tableCommit = tableWriteBuilder.newCommit();
+        this.tableCommit = (PaimonTableCommit) tableWriteBuilder.newCommit();
         PaimonSecurityContext.shouldEnableKerberos(paimonHadoopConfiguration);
     }
 
