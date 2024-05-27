@@ -145,6 +145,8 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                             NodeEngineUtil.sendOperationToMasterNode(
                                             getNode().nodeEngine, new GetOverviewOperation())
                                     .join();
+            overviewInfo.setProjectVersion(version.getProjectVersion());
+            overviewInfo.setGitCommitAbbrev(version.getGitCommitAbbrev());
         } else {
 
             overviewInfo = new OverviewInfo();
