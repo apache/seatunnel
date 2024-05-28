@@ -68,7 +68,7 @@ public class QueryPartition implements Serializable, Comparable<QueryPartition> 
         similar.retainAll(o.tabletIds);
         diffSelf.removeAll(similar);
         diffOther.removeAll(similar);
-        if (diffSelf.size() == 0) {
+        if (diffSelf.isEmpty()) {
             return 0;
         }
         long diff = Collections.min(diffSelf) - Collections.min(diffOther);
@@ -103,7 +103,7 @@ public class QueryPartition implements Serializable, Comparable<QueryPartition> 
     @Override
     public String toString() {
         return "QueryPartition{"
-                + ", database='"
+                + "database='"
                 + database
                 + '\''
                 + ", table='"

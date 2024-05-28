@@ -103,6 +103,19 @@ public abstract class AbstractTestContainer implements TestContainer {
             throws IOException, InterruptedException {
         final String confInContainerPath = copyConfigFileToContainer(container, confFile);
         // copy connectors
+        LOG.info(
+                "Container[{}] Server SR Log: \n"
+                        + "\n==================== Server SR Log====================\n"
+                        + "{}\n"
+                        + "ModulePath: {}\n"
+                        + "namePrefix: {}\n"
+                        + "connectorType: {}\n"
+                        + "\n==================== Server SR Log end   ====================",
+                container.getDockerImageName(),
+                confFile,
+                getConnectorModulePath(),
+                getConnectorNamePrefix(),
+                getConnectorType());
         copyConnectorJarToContainer(
                 container,
                 confFile,

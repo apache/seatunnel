@@ -70,13 +70,11 @@ public class CommonConfig implements Serializable {
     private String username;
     private String password;
     private String database;
-    private String table;
 
     public CommonConfig(ReadonlyConfig config) {
         this.nodeUrls = config.get(NODE_URLS);
         this.username = config.get(USERNAME);
         this.password = config.get(PASSWORD);
         this.database = config.get(DATABASE);
-        this.table = config.get(TABLE);
     }
 }

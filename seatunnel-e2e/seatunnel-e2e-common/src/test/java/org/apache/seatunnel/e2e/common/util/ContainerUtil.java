@@ -224,6 +224,7 @@ public final class ContainerUtil {
     public static List<File> getConnectorFiles(
             File currentModule, Set<String> connectorNames, String connectorPrefix) {
         List<File> connectorFiles = new ArrayList<>();
+
         for (File file : Objects.requireNonNull(currentModule.listFiles())) {
             getConnectorFiles(file, connectorNames, connectorPrefix, connectorFiles);
         }
@@ -235,12 +236,22 @@ public final class ContainerUtil {
             Set<String> connectorNames,
             String connectorPrefix,
             List<File> connectors) {
+
+        log.info("getConnectorFiles-connectorNames.size(): {}. \n ", connectorNames.size());
+        log.info("getConnectorFiles-connectors.size(): {}. \n ", connectors.size());
         if (currentModule.isFile() || connectorNames.size() == connectors.size()) {
             return;
         }
         if (connectorNames.contains(currentModule.getName())) {
+            log.error(
+                    "getConnectorFiles-currentModule.getName()(): {}. \n ",
+                    currentModule.getName());
             File targetPath = new File(currentModule.getAbsolutePath() + File.separator + "target");
-            for (File file : Objects.requireNonNull(targetPath.listFiles())) {
+            log.info("getConnectorFiles-targetPath: {}. \n ", targetPath);
+            File[] files = targetPath.listFiles();
+            for (File file : Objects.requireNonNull(files)) {
+                log.info("getConnectorFiles-file: {}. \n ", file);
+                log.info("getConnectorFiles-file.getName(): {}. \n ", file.getName());
                 if (file.getName().startsWith(currentModule.getName())
                         && !file.getName().endsWith("javadoc.jar")
                         && !file.getName().endsWith("tests.jar")) {
