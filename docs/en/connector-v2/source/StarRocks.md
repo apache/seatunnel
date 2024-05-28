@@ -153,21 +153,23 @@ source {
     table = "e2e_table_source"
     scan_batch_rows = 10
     max_retries = 3
-    fields {
-       BIGINT_COL = BIGINT
-       LARGEINT_COL = STRING
-       SMALLINT_COL = SMALLINT
-       TINYINT_COL = TINYINT
-       BOOLEAN_COL = BOOLEAN
-       DECIMAL_COL = "DECIMAL(20, 1)"
-       DOUBLE_COL = DOUBLE
-       FLOAT_COL = FLOAT
-       INT_COL = INT
-       CHAR_COL = STRING
-       VARCHAR_11_COL = STRING
-       STRING_COL = STRING
-       DATETIME_COL = TIMESTAMP
-       DATE_COL = DATE
+    schema {
+        fields {
+           BIGINT_COL = BIGINT
+           LARGEINT_COL = STRING
+           SMALLINT_COL = SMALLINT
+           TINYINT_COL = TINYINT
+           BOOLEAN_COL = BOOLEAN
+           DECIMAL_COL = "DECIMAL(20, 1)"
+           DOUBLE_COL = DOUBLE
+           FLOAT_COL = FLOAT
+           INT_COL = INT
+           CHAR_COL = STRING
+           VARCHAR_11_COL = STRING
+           STRING_COL = STRING
+           DATETIME_COL = TIMESTAMP
+           DATE_COL = DATE
+        }
     }
     scan.params.scanner_thread_pool_thread_num = "3"
     
