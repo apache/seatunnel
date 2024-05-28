@@ -23,7 +23,7 @@ seatunnel:
     print-execution-info-interval: 10
     slot-service:
       dynamic-slot: false
-      slot-num: 3
+      slot-num: 20
     checkpoint:
       interval: 300000
       timeout: 100000
