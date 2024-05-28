@@ -216,7 +216,13 @@ public class FixedChunkSplitter extends ChunkSplitter {
             } else if (param instanceof Float) {
                 statement.setFloat(i + 1, (Float) param);
             } else if (param instanceof BigDecimal) {
-                statement.setBigDecimal(i + 1, (BigDecimal) param);
+                BigDecimal bdParam = (BigDecimal) param;
+                try {
+                    Instant instant = Instant.ofEpochMilli(bdParam.longValueExact());
+                    statement.setTimestamp(i + 1, Timestamp.from(instant));
+                } catch (ArithmeticException e) {
+                    statement.setBigDecimal(i + 1, bdParam);
+                }
             } else if (param instanceof Byte) {
                 statement.setByte(i + 1, (Byte) param);
             } else if (param instanceof Short) {
