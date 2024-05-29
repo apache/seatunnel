@@ -54,8 +54,13 @@
 
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>connector-fake</artifactId>
+            <artifactId>connector-jdbc</artifactId>
             <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>mysql</groupId>
+            <artifactId>mysql-connector-java</artifactId>
+            <version>8.0.27</version>
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
