@@ -64,7 +64,7 @@ public class KafkaPartitionSplitReader
 
     private static final long POLL_TIMEOUT = 10000L;
     private static final String CLIENT_ID_PREFIX = "seatunnel";
-    private final ConsumerMetadata metadata;
+    private final KafkaSourceConfig kafkaSourceConfig;
 
     private final KafkaConsumer<byte[], byte[]> consumer;
 
@@ -74,11 +74,13 @@ public class KafkaPartitionSplitReader
 
     private final Set<String> emptySplits = new HashSet<>();
 
-    public KafkaPartitionSplitReader(ConsumerMetadata metadata, SourceReader.Context context) {
-        this.metadata = metadata;
-        this.consumer = initConsumer(metadata, context.getIndexOfSubtask());
+    public KafkaPartitionSplitReader(
+            KafkaSourceConfig kafkaSourceConfig, SourceReader.Context context) {
+        this.kafkaSourceConfig = kafkaSourceConfig;
+        this.consumer = initConsumer(kafkaSourceConfig, context.getIndexOfSubtask());
         this.stoppingOffsets = new HashMap<>();
-        this.groupId = metadata.getProperties().getProperty(ConsumerConfig.GROUP_ID_CONFIG);
+        this.groupId =
+                kafkaSourceConfig.getProperties().getProperty(ConsumerConfig.GROUP_ID_CONFIG);
     }
 
     @Override
@@ -310,6 +312,7 @@ public class KafkaPartitionSplitReader
             Map<TopicPartition, Long> partitionsStartingFromSpecifiedOffsets) {
         TopicPartition tp = split.getTopicPartition();
         // Parse starting offsets.
+        ConsumerMetadata metadata = kafkaSourceConfig.getMapMetadata().get(split.getTablePath());
         if (metadata.getStartMode() == StartMode.EARLIEST) {
             partitionsStartingFromEarliest.add(tp);
         } else if (metadata.getStartMode() == StartMode.LATEST) {
@@ -338,26 +341,28 @@ public class KafkaPartitionSplitReader
         consumer.commitAsync(offsetsToCommit, offsetCommitCallback);
     }
 
-    private KafkaConsumer<byte[], byte[]> initConsumer(ConsumerMetadata metadata, int subtaskId) {
+    private KafkaConsumer<byte[], byte[]> initConsumer(
+            KafkaSourceConfig kafkaSourceConfig, int subtaskId) {
 
         try (TemporaryClassLoaderContext ignored =
-                TemporaryClassLoaderContext.of(metadata.getClass().getClassLoader())) {
+                TemporaryClassLoaderContext.of(kafkaSourceConfig.getClass().getClassLoader())) {
             Properties props = new Properties();
-            metadata.getProperties()
+            kafkaSourceConfig
+                    .getProperties()
                     .forEach(
                             (key, value) ->
                                     props.setProperty(String.valueOf(key), String.valueOf(value)));
-            props.setProperty(ConsumerConfig.GROUP_ID_CONFIG, metadata.getConsumerGroup());
+            props.setProperty(ConsumerConfig.GROUP_ID_CONFIG, kafkaSourceConfig.getConsumerGroup());
             props.setProperty(
-                    ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, metadata.getBootstrapServers());
-            if (this.metadata.getProperties().get("client.id") == null) {
+                    ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaSourceConfig.getBootstrap());
+            if (this.kafkaSourceConfig.getProperties().get("client.id") == null) {
                 props.setProperty(
                         ConsumerConfig.CLIENT_ID_CONFIG,
                         CLIENT_ID_PREFIX + "-consumer-" + subtaskId);
             } else {
                 props.setProperty(
                         ConsumerConfig.CLIENT_ID_CONFIG,
-                        this.metadata.getProperties().get("client.id").toString()
+                        this.kafkaSourceConfig.getProperties().get("client.id").toString()
                                 + "-"
                                 + subtaskId);
             }
@@ -369,7 +374,7 @@ public class KafkaPartitionSplitReader
                     ByteArrayDeserializer.class.getName());
             props.setProperty(
                     ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG,
-                    String.valueOf(metadata.isCommitOnCheckpoint()));
+                    String.valueOf(kafkaSourceConfig.isCommitOnCheckpoint()));
 
             // Disable auto create topics feature
             props.setProperty(ConsumerConfig.ALLOW_AUTO_CREATE_TOPICS_CONFIG, "false");

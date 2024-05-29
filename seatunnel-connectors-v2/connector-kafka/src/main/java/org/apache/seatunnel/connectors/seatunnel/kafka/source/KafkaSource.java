@@ -35,11 +35,11 @@ import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSourceState;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 
 import com.google.common.base.Supplier;
-import com.google.common.collect.Lists;
 
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.stream.Collectors;
 
 public class KafkaSource
         implements SeaTunnelSource<SeaTunnelRow, KafkaSourceSplit, KafkaSourceState>,
@@ -69,7 +69,9 @@ public class KafkaSource
 
     @Override
     public List<CatalogTable> getProducedCatalogTables() {
-        return Lists.newArrayList(kafkaSourceConfig.getCatalogTable());
+        return kafkaSourceConfig.getMapMetadata().values().stream()
+                .map(ConsumerMetadata::getCatalogTable)
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -80,14 +82,14 @@ public class KafkaSource
                 new LinkedBlockingQueue<>();
 
         Supplier<KafkaPartitionSplitReader> kafkaPartitionSplitReaderSupplier =
-                () -> new KafkaPartitionSplitReader(kafkaSourceConfig.getMetadata(), readerContext);
+                () -> new KafkaPartitionSplitReader(kafkaSourceConfig, readerContext);
 
         KafkaSourceFetcherManager kafkaSourceFetcherManager =
                 new KafkaSourceFetcherManager(
                         elementsQueue, kafkaPartitionSplitReaderSupplier::get);
         KafkaRecordEmitter kafkaRecordEmitter =
                 new KafkaRecordEmitter(
-                        kafkaSourceConfig.getDeserializationSchema(),
+                        kafkaSourceConfig.getMapMetadata(),
                         kafkaSourceConfig.getMessageFormatErrorHandleWay());
 
         return new KafkaSourceReader(
@@ -95,19 +97,14 @@ public class KafkaSource
                 kafkaSourceFetcherManager,
                 kafkaRecordEmitter,
                 new SourceReaderOptions(readonlyConfig),
-                kafkaSourceConfig.getMetadata(),
-                kafkaSourceConfig.getDeserializationSchema(),
-                readerContext,
-                kafkaSourceConfig.getMessageFormatErrorHandleWay());
+                kafkaSourceConfig,
+                readerContext);
     }
 
     @Override
     public SourceSplitEnumerator<KafkaSourceSplit, KafkaSourceState> createEnumerator(
             SourceSplitEnumerator.Context<KafkaSourceSplit> enumeratorContext) {
-        return new KafkaSourceSplitEnumerator(
-                kafkaSourceConfig.getMetadata(),
-                enumeratorContext,
-                kafkaSourceConfig.getDiscoveryIntervalMillis());
+        return new KafkaSourceSplitEnumerator(kafkaSourceConfig, enumeratorContext, null);
     }
 
     @Override
@@ -115,10 +112,7 @@ public class KafkaSource
             SourceSplitEnumerator.Context<KafkaSourceSplit> enumeratorContext,
             KafkaSourceState checkpointState) {
         return new KafkaSourceSplitEnumerator(
-                kafkaSourceConfig.getMetadata(),
-                enumeratorContext,
-                checkpointState,
-                kafkaSourceConfig.getDiscoveryIntervalMillis());
+                kafkaSourceConfig, enumeratorContext, checkpointState);
     }
 
     @Override

@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.kafka.source;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.RecordEmitter;
@@ -31,20 +32,21 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.Map;
 
 public class KafkaRecordEmitter
         implements RecordEmitter<
                 ConsumerRecord<byte[], byte[]>, SeaTunnelRow, KafkaSourceSplitState> {
 
     private static final Logger logger = LoggerFactory.getLogger(KafkaRecordEmitter.class);
-    private final DeserializationSchema<SeaTunnelRow> deserializationSchema;
+    private final Map<TablePath, ConsumerMetadata> mapMetadata;
     private final OutputCollector<SeaTunnelRow> outputCollector;
     private final MessageFormatErrorHandleWay messageFormatErrorHandleWay;
 
     public KafkaRecordEmitter(
-            DeserializationSchema<SeaTunnelRow> deserializationSchema,
+            Map<TablePath, ConsumerMetadata> mapMetadata,
             MessageFormatErrorHandleWay messageFormatErrorHandleWay) {
-        this.deserializationSchema = deserializationSchema;
+        this.mapMetadata = mapMetadata;
         this.messageFormatErrorHandleWay = messageFormatErrorHandleWay;
         this.outputCollector = new OutputCollector<>();
     }
@@ -56,6 +58,9 @@ public class KafkaRecordEmitter
             KafkaSourceSplitState splitState)
             throws Exception {
         outputCollector.output = collector;
+        // todo there is an additional loss in this place for non-multi-table scenarios
+        DeserializationSchema<SeaTunnelRow> deserializationSchema =
+                mapMetadata.get(splitState.getTablePath()).getDeserializationSchema();
         try {
             if (deserializationSchema instanceof CompatibleKafkaConnectDeserializationSchema) {
                 ((CompatibleKafkaConnectDeserializationSchema) deserializationSchema)

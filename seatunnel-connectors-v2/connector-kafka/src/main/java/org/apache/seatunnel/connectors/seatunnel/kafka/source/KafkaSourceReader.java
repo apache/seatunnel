@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.source;
 
-import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.RecordEmitter;
@@ -25,7 +24,6 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.reader.RecordsWit
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.SingleThreadMultiplexSourceReaderBase;
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.SourceReaderOptions;
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.fetcher.SingleThreadFetcherManager;
-import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormatErrorHandleWay;
 import org.apache.seatunnel.connectors.seatunnel.kafka.source.fetch.KafkaSourceFetcherManager;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -54,7 +52,8 @@ public class KafkaSourceReader
 
     private static final Logger logger = LoggerFactory.getLogger(KafkaSourceReader.class);
     private final SourceReader.Context context;
-    private final ConsumerMetadata metadata;
+
+    private final KafkaSourceConfig kafkaSourceConfig;
     private final SortedMap<Long, Map<TopicPartition, OffsetAndMetadata>> checkpointOffsetMap;
 
     private final ConcurrentMap<TopicPartition, OffsetAndMetadata> offsetsOfFinishedSplits;
@@ -66,12 +65,10 @@ public class KafkaSourceReader
             RecordEmitter<ConsumerRecord<byte[], byte[]>, SeaTunnelRow, KafkaSourceSplitState>
                     recordEmitter,
             SourceReaderOptions options,
-            ConsumerMetadata metadata,
-            DeserializationSchema<SeaTunnelRow> deserializationSchema,
-            Context context,
-            MessageFormatErrorHandleWay messageFormatErrorHandleWay) {
+            KafkaSourceConfig kafkaSourceConfig,
+            Context context) {
         super(elementsQueue, splitFetcherManager, recordEmitter, options, context);
-        this.metadata = metadata;
+        this.kafkaSourceConfig = kafkaSourceConfig;
         this.context = context;
         this.checkpointOffsetMap = Collections.synchronizedSortedMap(new TreeMap<>());
         this.offsetsOfFinishedSplits = new ConcurrentHashMap<>();
@@ -102,7 +99,7 @@ public class KafkaSourceReader
     @Override
     public List<KafkaSourceSplit> snapshotState(long checkpointId) {
         List<KafkaSourceSplit> sourceSplits = super.snapshotState(checkpointId);
-        if (!metadata.isCommitOnCheckpoint()) {
+        if (!kafkaSourceConfig.isCommitOnCheckpoint()) {
             return sourceSplits;
         }
         if (sourceSplits.isEmpty() && offsetsOfFinishedSplits.isEmpty()) {
@@ -127,7 +124,7 @@ public class KafkaSourceReader
     @Override
     public void notifyCheckpointComplete(long checkpointId) {
         logger.debug("Committing offsets for checkpoint {}", checkpointId);
-        if (!metadata.isCommitOnCheckpoint()) {
+        if (!kafkaSourceConfig.isCommitOnCheckpoint()) {
             logger.debug("Submitting offsets after snapshot completion is prohibited");
             return;
         }
