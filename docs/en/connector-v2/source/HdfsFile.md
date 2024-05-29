@@ -110,7 +110,7 @@ source {
     }
   }
   path = "/apps/hive/demo/student"
-  type = "json"
+  file_format_type = "json"
   fs.defaultFS = "hdfs://namenode001"
   }
   # If you would like to get more information about how to configure seatunnel and see full list of source plugins,
