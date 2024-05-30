@@ -35,15 +35,18 @@
       "fs.s3a.aws.credentials.provider": "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider",
       "access_key": "P7HpCVa0Eth8X3dM",
       "secret_key": "xxM9cJL5QKqq9M7jvwkQ5LJgsQSVvIay",
-      "file_format_type": "text",
-      "field_delimiter": "\t",
-      "row_delimiter": "\n",
+      "file_format_type": "xml",
       "custom_filename": true,
       "file_name_expression": "测试文件_${transactionId}",
       "is_enable_transaction": true,
       "source_table_name": [
         "ot_6f6f3d07f529482da2d54b3aaeabf807"
-      ]
+      ],
+      "hadoop_s3_properties": {
+        "fs.s3a.buffer.dir": "/data/st_test/s3a",
+        "fs.s3a.fast.upload.buffer": "disk"
+      },
+      "xml_use_attr_format": false
     }
   ]
 }

@@ -1,10 +1,5 @@
 package org.apache.seatunnel.transform.groovy;
 
-import cn.hutool.core.util.StrUtil;
-import com.google.auto.service.AutoService;
-import groovy.lang.GroovyClassLoader;
-import lombok.NonNull;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
@@ -14,7 +9,14 @@ import org.apache.seatunnel.transform.common.AbstractCatalogSupportTransform;
 import org.apache.seatunnel.transform.common.SeaTunnelRowContainerGenerator;
 import org.apache.seatunnel.transform.exception.TransformException;
 import org.apache.seatunnel.transform.execption.GroovyTransformErrorCode;
+
 import org.codehaus.groovy.control.CompilationFailedException;
+
+import cn.hutool.core.util.StrUtil;
+import com.google.auto.service.AutoService;
+import groovy.lang.GroovyClassLoader;
+import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
 

@@ -1,0 +1,66 @@
+{
+  "env": {
+    "job.name": "数据质量检测",
+    "job.mode": "batch"
+  },
+  "preHandler": [],
+  "source": [
+    {
+      "plugin_name": "Jdbc",
+      "dsId": "1795692521564749825",
+      "dsName": "mysql-血缘测试数据湖",
+      "dsType": "mysql",
+      "resourceType": "table",
+      "driver": "com.mysql.cj.jdbc.Driver",
+      "connection_check_timeout_sec": 100,
+      "query": "SELECT\n `id`,\n `name`,\n `type`,\n `longitude`,\n `latitude`,\n `height`,\n `radius`,\n `distance`,\n `service_address`,\n `status`,\n `term_type`,\n `properties`,\n `runway_name`,\n `direction`,\n `runway_code`,\n `delay`\nFROM\n `ods_device`",
+      "database": "ods",
+      "url": "jdbc:mysql://172.16.11.135:3306/ods?remarks=true&useInformationSchema=true&useCursorFetch=true&defaultFetchSize=2048&rewriteBatchedStatements=true",
+      "user": "root",
+      "password": "1qaz@WSX",
+      "resources": [
+        "ods_device"
+      ],
+      "result_table_name": "ot_0dc155147e574e55a4795d12a6d11d38"
+    }
+  ],
+  "transform": [
+    {
+      "plugin_name": "QualityRule",
+      "columns_index": [
+        0,
+        3
+      ],
+      "rule_id": "1343460072446623745",
+      "quality_result": "true",
+      "api_url": "http://172.16.11.245/api/quality/rule/extern/",
+      "result_table_name": "ot_18f4129871a24ee7b026ce2cac8489e2",
+      "source_table_name": [
+        "ot_0dc155147e574e55a4795d12a6d11d38"
+      ]
+    }
+  ],
+  "sink": [
+    {
+      "plugin_name": "Jdbc",
+      "driver": "com.mysql.cj.jdbc.Driver",
+      "url": "jdbc:mysql://172.16.11.135:3306/dwd?remarks=true&useInformationSchema=true&useCursorFetch=true&defaultFetchSize=2048&rewriteBatchedStatements=true",
+      "user": "root",
+      "password": "1qaz@WSX",
+      "primary_keys": [
+        "id"
+      ],
+      "batch_size": 2048,
+      "generate_sink_sql": true,
+      "database": "dwd",
+      "table": "dwd.quality_test",
+      "schema_save_mode": "ERROR_WHEN_SCHEMA_NOT_EXIST",
+      "data_save_mode": "CUSTOM_PROCESSING",
+      "custom_sql ": "truncate table quality_test",
+      "result_table_name": "ot_27af8c1bd95042d6998b3c5df7b0de62",
+      "source_table_name": [
+        "ot_18f4129871a24ee7b026ce2cac8489e2"
+      ]
+    }
+  ]
+}
