@@ -24,7 +24,7 @@ import org.apache.seatunnel.connectors.seatunnel.kudu.config.KuduSourceTableConf
 import org.apache.seatunnel.connectors.seatunnel.kudu.exception.KuduConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.kudu.exception.KuduConnectorException;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.security.authentication.util.KerberosName;

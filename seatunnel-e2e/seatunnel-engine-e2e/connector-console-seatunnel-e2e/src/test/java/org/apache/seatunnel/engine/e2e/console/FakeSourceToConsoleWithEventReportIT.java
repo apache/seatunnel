@@ -33,9 +33,9 @@ import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.utility.MountableFile;
 
-import com.squareup.okhttp.mockwebserver.MockResponse;
-import com.squareup.okhttp.mockwebserver.MockWebServer;
-import com.squareup.okhttp.mockwebserver.RecordedRequest;
+import com.squareup.okhttp3.mockwebserver.MockResponse;
+import com.squareup.okhttp3.mockwebserver.MockWebServer;
+import com.squareup.okhttp3.mockwebserver.RecordedRequest;
 import lombok.extern.slf4j.Slf4j;
 import okio.Buffer;
 

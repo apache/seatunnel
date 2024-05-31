@@ -17,24 +17,21 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hive.utils;
 
+import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hive.metastore.HiveMetaStoreClient;
+import org.apache.hadoop.hive.metastore.api.AlreadyExistsException;
+import org.apache.hadoop.hive.metastore.api.MetaException;
+import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopLoginFactory;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.hive.source.config.HiveSourceOptions;
-
-import org.apache.commons.lang3.StringUtils;
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hive.conf.HiveConf;
-import org.apache.hadoop.hive.metastore.HiveMetaStoreClient;
-import org.apache.hadoop.hive.metastore.api.AlreadyExistsException;
-import org.apache.hadoop.hive.metastore.api.MetaException;
-import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.thrift.TException;
-
-import lombok.NonNull;
-import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
 import java.net.MalformedURLException;
@@ -48,7 +45,7 @@ public class HiveMetaStoreProxy {
 
     private HiveMetaStoreProxy(ReadonlyConfig readonlyConfig) {
         String metastoreUri = readonlyConfig.get(HiveSourceOptions.METASTORE_URI);
-        HiveConf hiveConf = new HiveConf();
+        Configuration hiveConf = new Configuration();
         hiveConf.set("hive.metastore.uris", metastoreUri);
         try {
             if (StringUtils.isNotEmpty(readonlyConfig.get(HiveSourceOptions.HIVE_SITE_PATH))) {

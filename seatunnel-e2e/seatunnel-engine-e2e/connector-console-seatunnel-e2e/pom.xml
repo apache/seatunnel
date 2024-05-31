@@ -40,7 +40,7 @@
             <groupId>com.squareup.okhttp</groupId>
             <artifactId>mockwebserver</artifactId>
             <version>2.7.5</version>
-            <scope>test</scope>
+<!--            <scope>test</scope>-->
         </dependency>
 
         <!-- SeaTunnel connectors -->
