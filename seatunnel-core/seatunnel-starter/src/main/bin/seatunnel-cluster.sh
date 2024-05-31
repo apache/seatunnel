@@ -38,8 +38,11 @@ APP_DIR=`cd "$PRG_DIR/.." >/dev/null; pwd`
 CONF_DIR=${APP_DIR}/config
 APP_JAR=${APP_DIR}/starter/seatunnel-starter.jar
 APP_MAIN="org.apache.seatunnel.core.starter.seatunnel.SeaTunnelServer"
+MASTER_OUT="${APP_DIR}/logs/seatunnel-engine-master.out"
+WORKER_OUT="${APP_DIR}/logs/seatunnel-engine-worker.out"
 OUT="${APP_DIR}/logs/seatunnel-server.out"
 HELP=false
+NODE_RULE="master_and_worker"
 
 if [ -f "${CONF_DIR}/seatunnel-env.sh" ]; then
     . "${CONF_DIR}/seatunnel-env.sh"
@@ -73,6 +76,8 @@ do
     JAVA_OPTS="${JAVA_OPTS} ${JVM_OPTION#*=}"
   elif [[ "${i}" == "-d" || "${i}" == "--daemon" ]]; then
     DAEMON=true
+  elif [[ "${i}" == "-r" || "${i}" == "--rule" ]]; then
+    NODE_RULE="${i#*=}"
   elif [[ "${i}" == "-h" || "${i}" == "--help" ]]; then
     HELP=true
   fi
@@ -86,7 +91,19 @@ JAVA_OPTS="${JAVA_OPTS} -Dlog4j2.contextSelector=org.apache.logging.log4j.core.a
 if [ -e "${CONF_DIR}/log4j2.properties" ]; then
   JAVA_OPTS="${JAVA_OPTS} -Dhazelcast.logging.type=log4j2 -Dlog4j2.configurationFile=${CONF_DIR}/log4j2.properties"
   JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.logs.path=${APP_DIR}/logs"
+fi
+
+if [[ $NODE_RULE == "master" ]]; then
+  OUT=$MASTER_OUT
+  JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.logs.file_name=seatunnel-engine-master"
+elif [[ $NODE_RULE == "worker" ]]; then
+  OUT=$WORKER_OUT
+  JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.logs.file_name=seatunnel-engine-worker"
+elif [[ $NODE_RULE == "master_and_worker" ]]; then
   JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.logs.file_name=seatunnel-engine-server"
+else
+  echo "Unknown node rule: $NODE_RULE"
+  exit 1
 fi
 
 # Server Debug Config
@@ -102,6 +119,8 @@ while IFS= read -r line || [[ -n "$line" ]]; do
         JAVA_OPTS="$JAVA_OPTS $line"
     fi
 done < ${APP_DIR}/config/jvm_options
+
+echo ""NODE_RULE
 
 if [[ $DAEMON == true && $HELP == false ]]; then
   if [[ ! -d ${APP_DIR}/logs ]]; then

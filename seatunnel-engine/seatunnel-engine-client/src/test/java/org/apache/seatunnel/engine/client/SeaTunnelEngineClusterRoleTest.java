@@ -21,6 +21,7 @@ import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
@@ -32,8 +33,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.concurrent.TimeUnit;
 
-import static org.awaitility.Awaitility.await;
-
 @DisabledOnOs(OS.WINDOWS)
 @Slf4j
 public class SeaTunnelEngineClusterRoleTest {
@@ -43,8 +42,9 @@ public class SeaTunnelEngineClusterRoleTest {
     public void testClusterWillDownWhenNoMasterNode() {
         HazelcastInstanceImpl workerNode1 = null;
         HazelcastInstanceImpl workerNode2 = null;
+        HazelcastInstanceImpl masterNode = null;
 
-        String testClusterName = "Test_testElection";
+        String testClusterName = "Test_testClusterWillDownWhenNoMasterNode";
 
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         seaTunnelConfig
@@ -52,53 +52,48 @@ public class SeaTunnelEngineClusterRoleTest {
                 .setClusterName(TestUtils.getClusterName(testClusterName));
 
         try {
-            workerNode1 = SeaTunnelServerStarter.createWorkerHazelcastInstance(seaTunnelConfig);
-            workerNode2 = SeaTunnelServerStarter.createWorkerHazelcastInstance(seaTunnelConfig);
-            await().atMost(30000, TimeUnit.MILLISECONDS)
+            // master node must start first
+            masterNode = SeaTunnelServerStarter.createMasterHazelcastInstance(seaTunnelConfig);
+            HazelcastInstanceImpl finalMasterNode = masterNode;
+            Awaitility.await()
+                    .atMost(10000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () ->
-                                    Assertions.assertTrue(
-                                            jobClient.getJobDetailStatus(jobId).contains("RUNNING")
-                                                    && jobClient
-                                                    .listJobStatus(true)
-                                                    .contains("RUNNING")));
-
-        } finally {
-
-            if (node1 != null) {
-                node1.shutdown();
-            }
-        }
-    }
-
-    @SneakyThrows
-    @Test
-    public void testClusterElectionInMixedCluster() {
-        HazelcastInstanceImpl masterAndWorkerNode1 = null;
-        HazelcastInstanceImpl masterAndWorkerNode2 = null;
-        HazelcastInstanceImpl masterNode1 = null;
-        HazelcastInstanceImpl masterNode2 = null;
-        HazelcastInstanceImpl workerNode1 = null;
-        HazelcastInstanceImpl workerNode2 = null;
-
-        String testClusterName = "Test_testElection";
-
-        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
-        seaTunnelConfig
-                .getHazelcastConfig()
-                .setClusterName(TestUtils.getClusterName(testClusterName));
-
-        try {
+                                    Assertions.assertEquals(
+                                            1, finalMasterNode.getCluster().getMembers().size()));
+            // start two worker nodes
             workerNode1 = SeaTunnelServerStarter.createWorkerHazelcastInstance(seaTunnelConfig);
             workerNode2 = SeaTunnelServerStarter.createWorkerHazelcastInstance(seaTunnelConfig);
-            while (true && node1.getLifecycleService().isRunning()) {
-                Thread.sleep(1000);
-            }
+
+            HazelcastInstanceImpl finalWorkerNode = workerNode1;
+            Awaitility.await()
+                    .atMost(10000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            3, finalWorkerNode.getCluster().getMembers().size()));
+
+            masterNode.shutdown();
+            HazelcastInstanceImpl finalWorkerNode1 = workerNode2;
+            Awaitility.await()
+                    .atMost(20000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            true, !finalWorkerNode.node.isRunning() && !finalWorkerNode1.node.isRunning() && !finalMasterNode.node.isRunning()));
 
         } finally {
 
-            if (node1 != null) {
-                node1.shutdown();
+            if (workerNode1 != null) {
+                workerNode1.shutdown();
+            }
+
+            if (workerNode2 != null) {
+                workerNode2.shutdown();
+            }
+
+            if (masterNode != null) {
+                masterNode.shutdown();
             }
         }
     }

@@ -264,18 +264,27 @@ hazelcast-client:
       - hostname1:5801
 ```
 
-## 7. Start SeaTunnel Engine Server Node
+## 7. Start SeaTunnel Engine Server Master Node
 
 Can be started by a daemon with `-d`.
 
 ```shell
 mkdir -p $SEATUNNEL_HOME/logs
-./bin/seatunnel-cluster.sh -d
+./bin/seatunnel-cluster.sh -d -r master
+```
+
+## 8. Start SeaTunnel Engine Server Worker Node
+
+Can be started by a daemon with `-d`.
+
+```shell
+mkdir -p $SEATUNNEL_HOME/logs
+./bin/seatunnel-cluster.sh -d -r worker
 ```
 
 The logs will write in `$SEATUNNEL_HOME/logs/seatunnel-engine-server.log`
 
-## 8. Install SeaTunnel Engine Client
+## 9. Install SeaTunnel Engine Client
 
 You only need to copy the `$SEATUNNEL_HOME` directory on the SeaTunnel Engine node to the Client node and config the `SEATUNNEL_HOME` like SeaTunnel Engine Server Node.
 

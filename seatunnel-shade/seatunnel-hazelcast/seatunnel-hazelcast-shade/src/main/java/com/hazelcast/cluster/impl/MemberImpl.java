@@ -285,7 +285,8 @@ public final class MemberImpl extends AbstractMember
             sb.append(" lite");
         }
 
-        if (instance.node.getClusterService().getMasterAddress().equals(address)) {
+        if (instance.node.getClusterService().getMasterAddress() != null
+                && instance.node.getClusterService().getMasterAddress().equals(address)) {
             sb.append(" master");
         }
         return sb.toString();
