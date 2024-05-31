@@ -18,6 +18,10 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql;
 
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
@@ -25,6 +29,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDiale
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.SQLUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcUtils;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -213,5 +218,24 @@ public class MysqlDialect implements JdbcDialect {
         }
 
         return SQLUtils.countForSubquery(connection, table.getQuery());
+    }
+
+    @Override
+    public void refreshPhysicalTableSchemaBySchemaChangeEvent(
+            SchemaChangeEvent event,
+            JdbcConnectionProvider jdbcConnectionProvider,
+            TablePath sinkTablePath) {
+        try {
+            Connection connection = jdbcConnectionProvider.getOrEstablishConnection();
+            Statement stmt = connection.createStatement();
+            String alterTableSql = JdbcUtils.generateAlterTableSql(event, sinkTablePath);
+            log.info("Apply schema change with sql: {}", alterTableSql);
+            stmt.execute(alterTableSql);
+        } catch (Exception e) {
+            throw new JdbcConnectorException(
+                    JdbcConnectorErrorCode.CONNECT_DATABASE_FAILED,
+                    "unable to open JDBC writer",
+                    e);
+        }
     }
 }

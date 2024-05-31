@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect;
 
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.SimpleJdbcConnectionProvider;
@@ -423,4 +424,16 @@ public interface JdbcDialect extends Serializable {
     default String convertType(String columnName, String columnType) {
         return columnName;
     }
+
+    /**
+     * Refresh physical table schema by schema change event
+     *
+     * @param event
+     * @param jdbcConnectionProvider
+     * @param sinkTablePath
+     */
+    default void refreshPhysicalTableSchemaBySchemaChangeEvent(
+            SchemaChangeEvent event,
+            JdbcConnectionProvider jdbcConnectionProvider,
+            TablePath sinkTablePath) {};
 }
