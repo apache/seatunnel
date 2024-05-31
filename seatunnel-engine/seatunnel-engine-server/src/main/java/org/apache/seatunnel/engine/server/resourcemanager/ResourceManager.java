@@ -63,5 +63,5 @@ public interface ResourceManager {
 
     List<SlotProfile> getAssignedSlots();
 
-    int workCount();
+    int workerCount();
 }

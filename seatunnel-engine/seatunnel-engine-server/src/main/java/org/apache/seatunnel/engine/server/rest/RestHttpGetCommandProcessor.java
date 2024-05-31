@@ -39,10 +39,8 @@ import org.apache.seatunnel.engine.server.master.JobHistoryService.JobState;
 import org.apache.seatunnel.engine.server.operation.GetClusterHealthMetricsOperation;
 import org.apache.seatunnel.engine.server.operation.GetJobMetricsOperation;
 import org.apache.seatunnel.engine.server.operation.GetJobStatusOperation;
-import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.GetOverviewOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.OverviewInfo;
-import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import com.hazelcast.cluster.Address;
@@ -59,11 +57,11 @@ import com.hazelcast.internal.util.StringUtil;
 import com.hazelcast.jet.impl.execution.init.CustomClassLoadedObject;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
+import com.hazelcast.spi.impl.NodeEngineImpl;
 
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -149,55 +147,8 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
             overviewInfo.setGitCommitAbbrev(version.getGitCommitAbbrev());
         } else {
 
-            overviewInfo = new OverviewInfo();
-            ResourceManager resourceManager =
-                    seaTunnelServer.getCoordinatorService().getResourceManager();
-
-            List<SlotProfile> assignedSlots = resourceManager.getAssignedSlots();
-            List<SlotProfile> unassignedSlots = resourceManager.getUnassignedSlots();
-            overviewInfo.setTotalSlot(assignedSlots.size() + unassignedSlots.size());
-            overviewInfo.setUnassignedSlot(unassignedSlots.size());
-            overviewInfo.setProjectVersion(version.getProjectVersion());
-            overviewInfo.setGitCommitAbbrev(version.getGitCommitAbbrev());
-            overviewInfo.setWorks(resourceManager.workCount());
-            IMap<Long, JobState> finishedJob =
-                    this.textCommandService
-                            .getNode()
-                            .getNodeEngine()
-                            .getHazelcastInstance()
-                            .getMap(Constant.IMAP_FINISHED_JOB_STATE);
-
-            overviewInfo.setFinishedJobs(
-                    finishedJob.values().stream()
-                            .filter(
-                                    jobState ->
-                                            jobState.getJobStatus()
-                                                    .name()
-                                                    .equals(JobStatus.FINISHED.toString()))
-                            .count());
-            overviewInfo.setFailedJobs(
-                    finishedJob.values().stream()
-                            .filter(
-                                    jobState ->
-                                            jobState.getJobStatus()
-                                                    .name()
-                                                    .equals(JobStatus.FAILED.toString()))
-                            .count());
-            overviewInfo.setCancelledJobs(
-                    finishedJob.values().stream()
-                            .filter(
-                                    jobState ->
-                                            jobState.getJobStatus()
-                                                    .name()
-                                                    .equals(JobStatus.CANCELED.toString()))
-                            .count());
-            overviewInfo.setRunningJobs(
-                    this.textCommandService
-                            .getNode()
-                            .getNodeEngine()
-                            .getHazelcastInstance()
-                            .getMap(Constant.IMAP_RUNNING_JOB_INFO)
-                            .size());
+            NodeEngineImpl nodeEngine = this.textCommandService.getNode().getNodeEngine();
+            overviewInfo = GetOverviewOperation.getOverviewInfo(seaTunnelServer, nodeEngine);
         }
 
         this.prepareResponse(

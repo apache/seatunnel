@@ -232,7 +232,7 @@ public abstract class AbstractResourceManager implements ResourceManager {
     }
 
     @Override
-    public int workCount() {
+    public int workerCount() {
         return registerWorker.size();
     }
 }

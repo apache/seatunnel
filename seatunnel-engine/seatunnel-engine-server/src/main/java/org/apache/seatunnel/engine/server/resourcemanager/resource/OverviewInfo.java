@@ -31,5 +31,5 @@ public class OverviewInfo implements Serializable {
     private long finishedJobs;
     private long failedJobs;
     private long cancelledJobs;
-    private int works;
+    private int workers;
 }
