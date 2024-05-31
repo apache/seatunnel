@@ -79,6 +79,11 @@ public class ClientCommandArgs extends AbstractCommandArgs {
     private String metricsJobId;
 
     @Parameter(
+            names = {"--set-job-id"},
+            description = "Set custom job id for job")
+    private String customJobId;
+
+    @Parameter(
             names = {"--get_running_job_metrics"},
             description = "Gets metrics for running jobs")
     private boolean getRunningJobMetrics = false;
