@@ -56,9 +56,11 @@ public class HiveMetaStoreProxy {
                 hiveConf.addResource(new File(hiveSitePath).toURI().toURL());
             }
             if (HiveMetaStoreProxyUtils.enableKerberos(readonlyConfig)) {
+                Configuration hadoopConfig = new Configuration();
+                hadoopConfig.set("hadoop.security.authentication", "kerberos");
                 this.hiveMetaStoreClient =
                         HadoopLoginFactory.loginWithKerberos(
-                                new Configuration(),
+                                hadoopConfig,
                                 readonlyConfig.get(BaseSourceConfigOptions.KRB5_PATH),
                                 readonlyConfig.get(BaseSourceConfigOptions.KERBEROS_PRINCIPAL),
                                 readonlyConfig.get(BaseSourceConfigOptions.KERBEROS_KEYTAB_PATH),
