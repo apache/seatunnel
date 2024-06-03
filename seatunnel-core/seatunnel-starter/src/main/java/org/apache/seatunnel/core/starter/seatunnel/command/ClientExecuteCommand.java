@@ -99,32 +99,39 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
             }
             engineClient = new SeaTunnelClient(clientConfig);
             if (clientCommandArgs.isListJob()) {
+                // 获取job状态
                 String jobStatus = engineClient.getJobClient().listJobStatus(true);
                 System.out.println(jobStatus);
             } else if (clientCommandArgs.isGetRunningJobMetrics()) {
+                // 获取监控数据
                 String runningJobMetrics = engineClient.getJobClient().getRunningJobMetrics();
                 System.out.println(runningJobMetrics);
             } else if (null != clientCommandArgs.getJobId()) {
+                // 获取某个job的状态
                 String jobState =
                         engineClient
                                 .getJobClient()
                                 .getJobDetailStatus(Long.parseLong(clientCommandArgs.getJobId()));
                 System.out.println(jobState);
             } else if (null != clientCommandArgs.getCancelJobId()) {
+                // 取消job
                 engineClient
                         .getJobClient()
                         .cancelJob(Long.parseLong(clientCommandArgs.getCancelJobId()));
             } else if (null != clientCommandArgs.getMetricsJobId()) {
+                // 获取某个job的监控数据
                 String jobMetrics =
                         engineClient
                                 .getJobClient()
                                 .getJobMetrics(Long.parseLong(clientCommandArgs.getMetricsJobId()));
                 System.out.println(jobMetrics);
             } else if (null != clientCommandArgs.getSavePointJobId()) {
+                // 获取job的savepoint
                 engineClient
                         .getJobClient()
                         .savePointJob(Long.parseLong(clientCommandArgs.getSavePointJobId()));
             } else {
+                // 运行
                 Path configFile = FileUtils.getConfigPath(clientCommandArgs);
                 checkConfigExist(configFile);
                 JobConfig jobConfig = new JobConfig();
@@ -220,8 +227,12 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                                 Duration.between(startTime, endTime).getSeconds(),
                                 "Total Read Count",
                                 jobMetricsSummary.getSourceReadCount(),
+                                "Total Read Bytes",
+                                jobMetricsSummary.getSourceReadBytes(),
                                 "Total Write Count",
                                 jobMetricsSummary.getSinkWriteCount(),
+                                "Total Write Bytes",
+                                jobMetricsSummary.getSinkWriteBytes(),
                                 "Total Failed Count",
                                 jobMetricsSummary.getSourceReadCount()
                                         - jobMetricsSummary.getSinkWriteCount()));

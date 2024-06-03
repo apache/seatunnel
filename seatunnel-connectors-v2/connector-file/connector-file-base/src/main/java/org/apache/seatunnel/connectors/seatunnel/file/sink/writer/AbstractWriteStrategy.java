@@ -355,6 +355,20 @@ public abstract class AbstractWriteStrategy implements WriteStrategy {
         return String.join(File.separator, strings);
     }
 
+    public String getOrCreateFilePathBeingWritten(@NonNull String filename) {
+        // get filePath from beingWrittenFile
+        String[] pathSegments = new String[] {transactionDirectory, filename};
+        String newBeingWrittenFilePath = String.join(File.separator, pathSegments);
+
+        String beingWrittenFilePath = beingWrittenFile.get(newBeingWrittenFilePath);
+        if (beingWrittenFilePath != null) {
+            return beingWrittenFilePath;
+        } else {
+            beingWrittenFile.put(newBeingWrittenFilePath, newBeingWrittenFilePath);
+            return newBeingWrittenFilePath;
+        }
+    }
+
     public String getOrCreateFilePathBeingWritten(@NonNull SeaTunnelRow seaTunnelRow) {
         LinkedHashMap<String, List<String>> dataPartitionDirAndValuesMap =
                 generatorPartitionDir(seaTunnelRow);

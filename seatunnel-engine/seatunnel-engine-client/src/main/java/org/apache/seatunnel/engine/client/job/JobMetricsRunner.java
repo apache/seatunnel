@@ -82,5 +82,7 @@ public class JobMetricsRunner implements Runnable {
     public static class JobMetricsSummary {
         private long sourceReadCount;
         private long sinkWriteCount;
+        private long sourceReadBytes;
+        private long sinkWriteBytes;
     }
 }

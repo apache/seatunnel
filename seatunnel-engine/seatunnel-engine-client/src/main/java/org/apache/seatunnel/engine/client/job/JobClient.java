@@ -151,22 +151,32 @@ public class JobClient {
 
     public JobMetricsRunner.JobMetricsSummary getJobMetricsSummary(Long jobId) {
         long sourceReadCount = 0L;
+        long sourceReadBytes = 0L;
         long sinkWriteCount = 0L;
+        long sinkWriteBytes = 0L;
         String jobMetrics = getJobMetrics(jobId);
         try {
             JsonNode jsonNode = OBJECT_MAPPER.readTree(jobMetrics);
             JsonNode sourceReaders = jsonNode.get("SourceReceivedCount");
+            JsonNode sourceReaderBytes = jsonNode.get("SourceReceivedBytes");
             JsonNode sinkWriters = jsonNode.get("SinkWriteCount");
+            JsonNode sinkWriterBytes = jsonNode.get("SinkWriteBytes");
             for (int i = 0; i < sourceReaders.size(); i++) {
                 JsonNode sourceReader = sourceReaders.get(i);
+                JsonNode sourceBytes = sourceReaderBytes.get(i);
                 JsonNode sinkWriter = sinkWriters.get(i);
+                JsonNode sinkBytes = sinkWriterBytes.get(i);
                 sourceReadCount += sourceReader.get("value").asLong();
+                sourceReadBytes += sourceBytes.get("value").asLong();
                 sinkWriteCount += sinkWriter.get("value").asLong();
+                sinkWriteBytes += sinkBytes.get("value").asLong();
             }
-            return new JobMetricsRunner.JobMetricsSummary(sourceReadCount, sinkWriteCount);
+            return new JobMetricsRunner.JobMetricsSummary(
+                    sourceReadCount, sinkWriteCount, sourceReadBytes, sinkWriteBytes);
             // Add NullPointerException because of metrics information can be empty like {}
         } catch (JsonProcessingException | NullPointerException e) {
-            return new JobMetricsRunner.JobMetricsSummary(sourceReadCount, sinkWriteCount);
+            return new JobMetricsRunner.JobMetricsSummary(
+                    sourceReadCount, sinkWriteCount, sourceReadBytes, sinkWriteBytes);
         }
     }
 }

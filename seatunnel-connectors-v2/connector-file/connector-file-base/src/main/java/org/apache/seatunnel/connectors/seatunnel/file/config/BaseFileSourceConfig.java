@@ -90,6 +90,7 @@ public abstract class BaseFileSourceConfig implements Serializable {
             return catalogTable;
         }
         switch (fileFormat) {
+            case BINARY:
             case CSV:
             case TEXT:
             case JSON:
