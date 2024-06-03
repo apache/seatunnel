@@ -234,7 +234,7 @@ public class RestApiIT {
                                     .statusCode(200)
                                     .body("projectVersion", notNullValue())
                                     .body("totalSlot", equalTo("40"))
-                                    .body("works", equalTo("2"));
+                                    .body("workers", equalTo("2"));
                         });
     }
 
