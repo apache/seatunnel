@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonHadoopConfiguration;
 import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorException;
@@ -89,7 +90,7 @@ public class PaimonSinkWriter
         this.table = table;
         this.tableWriteBuilder =
                 JobContextUtil.isBatchJob(jobContext)
-                        ? this.table.newBatchWriteBuilder().withOverwrite()
+                        ? this.table.newBatchWriteBuilder()
                         : this.table.newStreamWriteBuilder();
         this.tableWrite = tableWriteBuilder.newWrite();
         this.seaTunnelRowType = seaTunnelRowType;
@@ -182,5 +183,14 @@ public class PaimonSinkWriter
     public void abortPrepare() {}
 
     @Override
-    public void close() throws IOException {}
+    public void close() throws IOException {
+        if (Objects.nonNull(tableWrite)) {
+            try {
+                tableWrite.close();
+            } catch (Exception e) {
+                log.error("Failed to close table writer in paimon sink writer.", e);
+                throw new SeaTunnelException(e);
+            }
+        }
+    }
 }

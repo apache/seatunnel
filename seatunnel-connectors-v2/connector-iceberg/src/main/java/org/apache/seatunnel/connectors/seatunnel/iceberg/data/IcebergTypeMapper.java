@@ -34,9 +34,9 @@ import lombok.NonNull;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class IcebergTypeMapper {
-    private static int fieldId = 1;
 
     public static SeaTunnelDataType<?> mapping(String field, @NonNull Type icebergType) {
         switch (icebergType.typeId()) {
@@ -113,6 +113,10 @@ public class IcebergTypeMapper {
     }
 
     public static Type toIcebergType(SeaTunnelDataType dataType) {
+        return toIcebergType(dataType, new AtomicInteger(1));
+    }
+
+    private static Type toIcebergType(SeaTunnelDataType dataType, AtomicInteger nextId) {
         switch (dataType.getSqlType()) {
             case BOOLEAN:
                 return Types.BooleanType.get();
@@ -134,14 +138,15 @@ public class IcebergTypeMapper {
             case ARRAY:
                 ArrayType arrayType = (ArrayType) dataType;
                 // converter elementType
-                Type elementType = toIcebergType(arrayType.getElementType());
-                return Types.ListType.ofOptional(nextId(), elementType);
+                Type elementType = toIcebergType(arrayType.getElementType(), nextId);
+                return Types.ListType.ofOptional(nextId.getAndIncrement(), elementType);
             case MAP:
                 org.apache.seatunnel.api.table.type.MapType mapType =
                         (org.apache.seatunnel.api.table.type.MapType) dataType;
-                Type keyType = toIcebergType(mapType.getKeyType());
-                Type valueType = toIcebergType(mapType.getValueType());
-                return Types.MapType.ofOptional(nextId(), nextId(), keyType, valueType);
+                Type keyType = toIcebergType(mapType.getKeyType(), nextId);
+                Type valueType = toIcebergType(mapType.getValueType(), nextId);
+                return Types.MapType.ofOptional(
+                        nextId.getAndIncrement(), nextId.getAndIncrement(), keyType, valueType);
             case ROW:
                 SeaTunnelRowType seaTunnelRowType = (SeaTunnelRowType) dataType;
                 List<Types.NestedField> structFields = new ArrayList<>();
@@ -149,7 +154,11 @@ public class IcebergTypeMapper {
                     String field = seaTunnelRowType.getFieldName(i);
                     SeaTunnelDataType fieldType = seaTunnelRowType.getFieldType(i);
                     structFields.add(
-                            Types.NestedField.of(nextId(), true, field, toIcebergType(fieldType)));
+                            Types.NestedField.of(
+                                    nextId.getAndIncrement(),
+                                    true,
+                                    field,
+                                    toIcebergType(fieldType, nextId)));
                 }
                 return Types.StructType.of(structFields);
             case DATE:
@@ -162,9 +171,5 @@ public class IcebergTypeMapper {
             default:
                 return Types.StringType.get();
         }
-    }
-
-    private static int nextId() {
-        return fieldId++;
     }
 }

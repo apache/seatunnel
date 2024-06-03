@@ -78,20 +78,12 @@ public class OracleSourceConfigFactory extends JdbcSourceConfigFactory {
         props.setProperty("database.history.skip.unparseable.ddl", String.valueOf(true));
         props.setProperty("database.history.refer.ddl", String.valueOf(true));
 
-        // TODO Not yet supported
-        props.setProperty("include.schema.changes", String.valueOf(false));
-
         props.setProperty("connect.timeout.ms", String.valueOf(connectTimeoutMillis));
         // disable tombstones
         props.setProperty("tombstones.on.delete", String.valueOf(false));
 
-        // If the maximum value is not set, logminer may fail to capture data
-        props.setProperty("log.mining.batch.size.max", String.valueOf(2147483646));
-        props.setProperty("log.mining.batch.size.min", String.valueOf(2000));
-
         // Optimize logminer latency
         props.setProperty("log.mining.strategy", "online_catalog");
-        props.setProperty("log.mining.continuous.mine", String.valueOf(true));
 
         if (originUrl != null) {
             props.setProperty("database.url", originUrl);

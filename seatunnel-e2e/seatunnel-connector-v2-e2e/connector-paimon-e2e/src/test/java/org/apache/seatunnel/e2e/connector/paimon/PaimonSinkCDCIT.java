@@ -87,6 +87,40 @@ public class PaimonSinkCDCIT extends TestSuiteBase implements TestResource {
     public void tearDown() throws Exception {}
 
     @TestTemplate
+    public void testSinkWithMultipleInBatchMode(TestContainer container) throws Exception {
+        Container.ExecResult execOneResult =
+                container.executeJob("/fake_cdc_sink_paimon_case9.conf");
+        Assertions.assertEquals(0, execOneResult.getExitCode());
+
+        Container.ExecResult execTwoResult =
+                container.executeJob("/fake_cdc_sink_paimon_case10.conf");
+        Assertions.assertEquals(0, execTwoResult.getExitCode());
+
+        given().ignoreExceptions()
+                .await()
+                .atLeast(100L, TimeUnit.MILLISECONDS)
+                .atMost(30L, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            // copy paimon to local
+                            container.executeExtraCommands(containerExtendedFactory);
+                            List<PaimonRecord> paimonRecords =
+                                    loadPaimonData("seatunnel_namespace9", TARGET_TABLE);
+                            Assertions.assertEquals(3, paimonRecords.size());
+                            paimonRecords.forEach(
+                                    paimonRecord -> {
+                                        if (paimonRecord.getPkId() == 1) {
+                                            Assertions.assertEquals("A", paimonRecord.getName());
+                                        }
+                                        if (paimonRecord.getPkId() == 2
+                                                || paimonRecord.getPkId() == 3) {
+                                            Assertions.assertEquals("CCC", paimonRecord.getName());
+                                        }
+                                    });
+                        });
+    }
+
+    @TestTemplate
     public void testFakeCDCSinkPaimon(TestContainer container) throws Exception {
         Container.ExecResult execResult = container.executeJob("/fake_cdc_sink_paimon_case1.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
