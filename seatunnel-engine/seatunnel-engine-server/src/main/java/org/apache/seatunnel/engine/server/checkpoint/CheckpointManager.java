@@ -240,12 +240,11 @@ public class CheckpointManager {
      * Called by the JobMaster. <br>
      * Listen to the {@link JobStatus} of the {@link Job}.
      */
-    public CompletableFuture<Void> shutdown(JobStatus jobStatus) {
+    public void clearCheckpointIfNeed(JobStatus jobStatus) {
         if ((jobStatus == JobStatus.FINISHED || jobStatus == JobStatus.CANCELED)
                 && !isSavePointEnd()) {
             checkpointStorage.deleteCheckpoint(jobId + "");
         }
-        return CompletableFuture.completedFuture(null);
     }
 
     /**

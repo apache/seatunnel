@@ -466,6 +466,7 @@ public class JobMaster {
     }
 
     public void cleanJob() {
+        checkpointManager.clearCheckpointIfNeed(physicalPlan.getJobStatus());
         jobHistoryService.storeJobInfo(jobImmutableInformation.getJobId(), getJobDAGInfo());
         jobHistoryService.storeFinishedJobState(this);
         removeJobIMap();
