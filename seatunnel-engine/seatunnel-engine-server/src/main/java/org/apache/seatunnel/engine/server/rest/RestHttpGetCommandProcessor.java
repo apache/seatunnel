@@ -149,6 +149,8 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
 
             NodeEngineImpl nodeEngine = this.textCommandService.getNode().getNodeEngine();
             overviewInfo = GetOverviewOperation.getOverviewInfo(seaTunnelServer, nodeEngine);
+            overviewInfo.setProjectVersion(version.getProjectVersion());
+            overviewInfo.setGitCommitAbbrev(version.getGitCommitAbbrev());
         }
 
         this.prepareResponse(
