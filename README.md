@@ -1,5 +1,5 @@
 # Apache SeaTunnel
-
+主要扩展文件类型连接器的二进制传输
 <img src="https://seatunnel.apache.org/image/logo.png" alt="SeaTunnel Logo" height="200px" align="right" />
 
 [![Build Workflow](https://github.com/apache/seatunnel/actions/workflows/build_main.yml/badge.svg?branch=dev)](https://github.com/apache/seatunnel/actions/workflows/build_main.yml)
