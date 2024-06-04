@@ -99,6 +99,7 @@ public abstract class BaseFileSourceConfig implements Serializable {
                 return newCatalogTable(catalogTable, readStrategy.getActualSeaTunnelRowTypeInfo());
             case ORC:
             case PARQUET:
+            case BINARY:
                 return newCatalogTable(
                         catalogTable,
                         readStrategy.getSeaTunnelRowTypeInfoWithUserConfigRowType(

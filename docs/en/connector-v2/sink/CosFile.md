@@ -30,6 +30,7 @@ By default, we use 2PC commit to ensure `exactly-once`
   - [x] json
   - [x] excel
   - [x] xml
+  - [x] binary
 
 ## Options
 
@@ -115,7 +116,7 @@ When the format in the `file_name_expression` parameter is `xxxx-${now}` , `file
 
 We supported as the following file types:
 
-`text` `json` `csv` `orc` `parquet` `excel` `xml`
+`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary`
 
 Please note that, The final file name will end with the file_format's suffix, the suffix of the text file is `txt`.
 
