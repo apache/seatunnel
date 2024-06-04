@@ -1,7 +1,8 @@
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
 import org.apache.seatunnel.api.source.Collector;
-import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.BinaryType;
+import org.apache.seatunnel.api.table.type.BinaryObject;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -62,6 +63,7 @@ public class BinaryReadStrategy extends AbstractReadStrategy {
                 break;
         }
         try {
+            int isFirst = 1;
             byte[] bys = new byte[1024 * 1024];
             int len = 0;
             int offset = 0;
@@ -69,13 +71,14 @@ public class BinaryReadStrategy extends AbstractReadStrategy {
                 len = inputStream.read(bys, offset, bys.length - offset);
                 offset += len;
                 if (offset >= bys.length) {
-                    putData(tableId, output, path, bys, offset);
+                    putData(tableId, output, path, bys, offset, isFirst);
+                    isFirst = 0;
                     len = 0;
                     offset = 0;
                 }
                 if (len == -1) {
                     if (offset > 0) {
-                        putData(tableId, output, path, bys, offset);
+                        putData(tableId, output, path, bys, offset, isFirst);
                     }
                     break;
                 }
@@ -86,31 +89,26 @@ public class BinaryReadStrategy extends AbstractReadStrategy {
     }
 
     private void putData(
-            String tableId, Collector<SeaTunnelRow> output, String path, byte[] bys, int len) {
-        SeaTunnelRow seaTunnelRow = new SeaTunnelRow(3);
-        seaTunnelRow.setField(0, StringUtils.substringAfterLast(path, File.separator));
-        // seaTunnelRow.setField(1, bys);
-        // TODO 使用Base64解决乱码  新问题-统计的字节大小有误
-        seaTunnelRow.setField(1, Base64.getEncoder().encodeToString(bys));
-        seaTunnelRow.setField(2, len);
+            String tableId, Collector<SeaTunnelRow> output, String path, byte[] bys, int len, int isFirst) {
+        SeaTunnelRow seaTunnelRow = new SeaTunnelRow(1);
+        seaTunnelRow.setField(0,
+                new BinaryObject(
+                        StringUtils.substringAfterLast(path, File.separator),
+                        // TODO 使用Base64解决乱码
+                        Base64.getEncoder().encodeToString(bys),
+                        len,
+                        isFirst));
         seaTunnelRow.setTableId(tableId);
         output.collect(seaTunnelRow);
     }
 
     @Override
     public SeaTunnelRowType getSeaTunnelRowTypeInfo(String path) throws FileConnectorException {
-        int columnsSize = 3;
-        String[] fields = new String[columnsSize];
-        SeaTunnelDataType<?>[] types = new SeaTunnelDataType[columnsSize];
-        // TODO
-        fields[0] = "name";
-        types[0] = BasicType.STRING_TYPE;
-        fields[1] = "bytes";
-        types[1] = BasicType.STRING_TYPE;
-        // types[1] = PrimitiveByteArrayType.INSTANCE;
-        fields[2] = "len";
-        types[2] = BasicType.INT_TYPE;
-        seaTunnelRowType = new SeaTunnelRowType(fields, types);
+        seaTunnelRowType = new SeaTunnelRowType(
+                // TODO
+                new String[]{"binary"},
+                new SeaTunnelDataType[]{BinaryType.INSTANCE}
+        );
         return seaTunnelRowType;
     }
 }

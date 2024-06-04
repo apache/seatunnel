@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 
+import org.apache.seatunnel.api.table.type.BinaryObject;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonError;
@@ -57,10 +58,10 @@ public class BinaryWriteStrategy extends AbstractWriteStrategy {
         String filePath = null;
         FSDataOutputStream fsDataOutputStream;
         try {
-            String filename = (String) seaTunnelRow.getField(0);
-            // byte[] bytes = (byte[])seaTunnelRow.getField(1);
-            byte[] bytes = Base64.getDecoder().decode(((String) seaTunnelRow.getField(1)));
-            int len = (Integer) seaTunnelRow.getField(2);
+            BinaryObject binaryObject = (BinaryObject) seaTunnelRow.getField(0);
+            String filename = binaryObject.getName();
+            byte[] bytes = Base64.getDecoder().decode(binaryObject.getBytes());
+            int len = binaryObject.getLen();
 
             filePath = getOrCreateFilePathBeingWritten(filename);
             fsDataOutputStream = getOrCreateOutputStream(filePath);
