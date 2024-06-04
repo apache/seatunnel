@@ -1,8 +1,8 @@
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
 import org.apache.seatunnel.api.source.Collector;
-import org.apache.seatunnel.api.table.type.BinaryType;
 import org.apache.seatunnel.api.table.type.BinaryObject;
+import org.apache.seatunnel.api.table.type.BinaryType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -89,9 +89,15 @@ public class BinaryReadStrategy extends AbstractReadStrategy {
     }
 
     private void putData(
-            String tableId, Collector<SeaTunnelRow> output, String path, byte[] bys, int len, int isFirst) {
+            String tableId,
+            Collector<SeaTunnelRow> output,
+            String path,
+            byte[] bys,
+            int len,
+            int isFirst) {
         SeaTunnelRow seaTunnelRow = new SeaTunnelRow(1);
-        seaTunnelRow.setField(0,
+        seaTunnelRow.setField(
+                0,
                 new BinaryObject(
                         StringUtils.substringAfterLast(path, File.separator),
                         // TODO 使用Base64解决乱码
@@ -104,11 +110,10 @@ public class BinaryReadStrategy extends AbstractReadStrategy {
 
     @Override
     public SeaTunnelRowType getSeaTunnelRowTypeInfo(String path) throws FileConnectorException {
-        seaTunnelRowType = new SeaTunnelRowType(
-                // TODO
-                new String[]{"binary"},
-                new SeaTunnelDataType[]{BinaryType.INSTANCE}
-        );
+        seaTunnelRowType =
+                new SeaTunnelRowType(
+                        // TODO
+                        new String[] {"binary"}, new SeaTunnelDataType[] {BinaryType.INSTANCE});
         return seaTunnelRowType;
     }
 }
