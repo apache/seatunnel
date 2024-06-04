@@ -100,8 +100,8 @@ public final class SeaTunnelRow implements Serializable {
 
     public int getCount(SeaTunnelRowType rowType) {
         int count = 1;
-        if(rowType.getFieldType(0) != null){
-            switch (rowType.getFieldType(0).getSqlType()){
+        if (rowType.getFieldType(0) != null) {
+            switch (rowType.getFieldType(0).getSqlType()) {
                 case BINARY:
                     return ((BinaryObject) fields[0]).getIsFirst();
                 default:
