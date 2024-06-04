@@ -18,5 +18,4 @@ public class BinaryObject implements Serializable {
     private int len;
 
     private int isFirst;
-
 }
