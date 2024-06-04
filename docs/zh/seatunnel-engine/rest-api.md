@@ -34,6 +34,26 @@ network:
 
 ## API参考
 
+### 返回Zeta集群的概览
+
+#### 参数
+
+#### 响应
+
+```json
+{
+    "projectVersion":"2.3.5-SNAPSHOT",
+    "gitCommitAbbrev":"DeadD0d0",
+    "totalSlot":"0",
+    "unassignedSlot":"0",
+    "runningJobs":"0",
+    "finishedJobs":"0",
+    "failedJobs":"0",
+    "cancelledJobs":"0",
+    "works":"1"
+}
+```
+
 ### 返回所有作业及其当前状态的概览。
 
 <details>
