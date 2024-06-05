@@ -62,6 +62,8 @@ import static org.apache.seatunnel.connectors.doris.config.DorisOptions.USERNAME
 @ToString
 public class DorisConfig implements Serializable {
 
+    public static final String IDENTIFIER = "Doris";
+
     // common option
     private String frontends;
     private String database;

@@ -256,6 +256,12 @@ problems encountered by users.
 |--------------|-------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------|
 | FIRESTORE-01 | Close Firestore client failed | When users encounter this error code, it is usually there are some problems with closing the Firestore client, please check the Firestore is work |
 
+## Hbase Connector Error Codes
+
+|   code   |          description          |                                                            solution                                                             |
+|----------|-------------------------------|---------------------------------------------------------------------------------------------------------------------------------|
+| Hbase-01 | Build hbase connection failed | When users create Hbase database connection, the connection failed. Check the Hbase configuration parameters used and try again |
+
 ## FilterFieldTransform Error Codes
 
 |           code            |      description       |        solution         |

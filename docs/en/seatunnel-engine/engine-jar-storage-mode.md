@@ -5,7 +5,7 @@ sidebar_position: 8
 
 # Config Engine Jar Storage Mode
 
-:::warn
+:::caution warn
 
 Please note that this feature is currently in an experimental stage, and there are many areas that still need improvement. Therefore, we recommend exercising caution when using this feature to avoid potential issues and unnecessary risks.
 We are committed to ongoing efforts to enhance and stabilize this functionality, ensuring a better experience for you.

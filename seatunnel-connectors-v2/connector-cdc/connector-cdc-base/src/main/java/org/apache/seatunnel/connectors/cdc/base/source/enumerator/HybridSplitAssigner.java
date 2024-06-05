@@ -114,7 +114,8 @@ public class HybridSplitAssigner<C extends SourceConfig> implements SplitAssigne
 
     @Override
     public boolean waitingForCompletedSplits() {
-        return snapshotSplitAssigner.waitingForCompletedSplits();
+        return snapshotSplitAssigner.waitingForCompletedSplits()
+                || incrementalSplitAssigner.waitingForAssignedSplits();
     }
 
     @Override

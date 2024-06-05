@@ -54,7 +54,7 @@ public class RecordEventHandler implements EventHandler<RecordEvent> {
             if (record.getData() instanceof Barrier) {
                 CheckpointBarrier barrier = (CheckpointBarrier) record.getData();
                 runningTask.ack(barrier);
-                if (barrier.prepareClose()) {
+                if (barrier.prepareClose(this.runningTask.getTaskLocation())) {
                     this.intermediateQueueFlowLifeCycle.setPrepareClose(true);
                 }
             } else {

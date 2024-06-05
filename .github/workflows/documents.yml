@@ -45,11 +45,12 @@ jobs:
 
       - uses: actions/setup-node@v2
         with:
-          node-version: 14
+          node-version: 16.19.0
 
       - name: Run docusaurus build
         run: |
           cd seatunnel-website
+          npm set strict-ssl false
           npm install
           npm run build
 

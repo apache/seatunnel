@@ -17,201 +17,67 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hive.source;
 
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
-
-import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
-import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
-import org.apache.seatunnel.api.table.type.SqlType;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.common.exception.CommonError;
-import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.common.utils.JsonUtils;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
-import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.source.Boundedness;
+import org.apache.seatunnel.api.source.SourceReader;
+import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.BaseHdfsFileSource;
-import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
-import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
+import org.apache.seatunnel.connectors.seatunnel.file.source.state.FileSourceState;
+import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConstants;
+import org.apache.seatunnel.connectors.seatunnel.hive.source.config.HiveSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.hive.source.config.MultipleTableHiveSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.hive.source.reader.MultipleTableHiveSourceReader;
+import org.apache.seatunnel.connectors.seatunnel.hive.source.split.MultipleTableHiveSourceSplitEnumerator;
 
-import org.apache.commons.lang3.tuple.Pair;
-import org.apache.hadoop.hive.metastore.api.FieldSchema;
-import org.apache.hadoop.hive.metastore.api.Table;
-
-import com.google.auto.service.AutoService;
-
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.stream.Collectors;
 
-import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_KEY;
-import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions.FILE_FORMAT_TYPE;
-import static org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions.FILE_PATH;
-import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.ORC_INPUT_FORMAT_CLASSNAME;
-import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.PARQUET_INPUT_FORMAT_CLASSNAME;
-import static org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig.TEXT_INPUT_FORMAT_CLASSNAME;
-
-@AutoService(SeaTunnelSource.class)
 public class HiveSource extends BaseHdfsFileSource {
-    private Table tableInformation;
+
+    private final MultipleTableHiveSourceConfig multipleTableHiveSourceConfig;
+
+    public HiveSource(ReadonlyConfig readonlyConfig) {
+        this.multipleTableHiveSourceConfig = new MultipleTableHiveSourceConfig(readonlyConfig);
+    }
 
     @Override
     public String getPluginName() {
-        return "Hive";
+        return HiveConstants.CONNECTOR_NAME;
     }
 
     @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result =
-                CheckConfigUtil.checkAllExists(
-                        pluginConfig, HiveConfig.METASTORE_URI.key(), HiveConfig.TABLE_NAME.key());
-        if (!result.isSuccess()) {
-            throw new HiveConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SOURCE, result.getMsg()));
-        }
-        result =
-                CheckConfigUtil.checkAtLeastOneExists(
-                        pluginConfig,
-                        TableSchemaOptions.SCHEMA.key(),
-                        FILE_FORMAT_TYPE.key(),
-                        FILE_PATH.key(),
-                        FS_DEFAULT_NAME_KEY);
-        if (result.isSuccess()) {
-            throw new HiveConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "Hive source connector does not support these setting [%s]",
-                            String.join(
-                                    ",",
-                                    TableSchemaOptions.SCHEMA.key(),
-                                    FILE_FORMAT_TYPE.key(),
-                                    FILE_PATH.key(),
-                                    FS_DEFAULT_NAME_KEY)));
-        }
-        if (pluginConfig.hasPath(BaseSourceConfigOptions.READ_PARTITIONS.key())) {
-            // verify partition list
-            List<String> partitionsList =
-                    pluginConfig.getStringList(BaseSourceConfigOptions.READ_PARTITIONS.key());
-            if (partitionsList.isEmpty()) {
-                throw new HiveConnectorException(
-                        SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                        "Partitions list is empty, please check");
-            }
-            int depth = partitionsList.get(0).replaceAll("\\\\", "/").split("/").length;
-            long count =
-                    partitionsList.stream()
-                            .map(partition -> partition.replaceAll("\\\\", "/").split("/").length)
-                            .filter(length -> length != depth)
-                            .count();
-            if (count > 0) {
-                throw new HiveConnectorException(
-                        SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                        "Every partition that in partition list should has the same directory depth");
-            }
-        }
-        Pair<String[], Table> tableInfo = HiveConfig.getTableInfo(pluginConfig);
-        tableInformation = tableInfo.getRight();
-        String inputFormat = tableInformation.getSd().getInputFormat();
-        if (TEXT_INPUT_FORMAT_CLASSNAME.equals(inputFormat)) {
-            pluginConfig =
-                    pluginConfig.withValue(
-                            FILE_FORMAT_TYPE.key(),
-                            ConfigValueFactory.fromAnyRef(FileFormat.TEXT.toString()));
-            // Build schema from hive table information
-            // Because the entrySet in typesafe config couldn't keep key-value order
-            // So use jackson to keep key-value order
-            Map<String, Object> schema = parseSchema(tableInformation);
-            ConfigRenderOptions options = ConfigRenderOptions.concise();
-            String render = pluginConfig.root().render(options);
-            ObjectNode jsonNodes = JsonUtils.parseObject(render);
-            jsonNodes.putPOJO(TableSchemaOptions.SCHEMA.key(), schema);
-            pluginConfig = ConfigFactory.parseString(jsonNodes.toString());
-        } else if (PARQUET_INPUT_FORMAT_CLASSNAME.equals(inputFormat)) {
-            pluginConfig =
-                    pluginConfig.withValue(
-                            FILE_FORMAT_TYPE.key(),
-                            ConfigValueFactory.fromAnyRef(FileFormat.PARQUET.toString()));
-        } else if (ORC_INPUT_FORMAT_CLASSNAME.equals(inputFormat)) {
-            pluginConfig =
-                    pluginConfig.withValue(
-                            FILE_FORMAT_TYPE.key(),
-                            ConfigValueFactory.fromAnyRef(FileFormat.ORC.toString()));
-        } else {
-            throw new HiveConnectorException(
-                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
-                    "Hive connector only support [text parquet orc] table now");
-        }
-        String hdfsLocation = tableInformation.getSd().getLocation();
-        try {
-            URI uri = new URI(hdfsLocation);
-            String path = uri.getPath();
-            String defaultFs = hdfsLocation.replace(path, "");
-            pluginConfig =
-                    pluginConfig
-                            .withValue(
-                                    BaseSourceConfigOptions.FILE_PATH.key(),
-                                    ConfigValueFactory.fromAnyRef(path))
-                            .withValue(
-                                    FS_DEFAULT_NAME_KEY, ConfigValueFactory.fromAnyRef(defaultFs));
-        } catch (URISyntaxException e) {
-            String errorMsg =
-                    String.format(
-                            "Get hdfs namenode host from table location [%s] failed,"
-                                    + "please check it",
-                            hdfsLocation);
-            throw new HiveConnectorException(
-                    HiveConnectorErrorCode.GET_HDFS_NAMENODE_HOST_FAILED, errorMsg, e);
-        }
-        super.prepare(pluginConfig);
+    public Boundedness getBoundedness() {
+        return Boundedness.BOUNDED;
     }
 
-    private Map<String, Object> parseSchema(Table table) {
-        LinkedHashMap<String, Object> fields = new LinkedHashMap<>();
-        LinkedHashMap<String, Object> schema = new LinkedHashMap<>();
-        List<FieldSchema> cols = table.getSd().getCols();
-        for (FieldSchema col : cols) {
-            String name = col.getName();
-            String type = col.getType();
-            fields.put(name, covertHiveTypeToSeaTunnelType(name, type));
-        }
-        schema.put("fields", fields);
-        return schema;
+    @Override
+    public List<CatalogTable> getProducedCatalogTables() {
+        return multipleTableHiveSourceConfig.getHiveSourceConfigs().stream()
+                .map(HiveSourceConfig::getCatalogTable)
+                .collect(Collectors.toList());
     }
 
-    private Object covertHiveTypeToSeaTunnelType(String name, String hiveType) {
-        if (hiveType.contains("varchar")) {
-            return SqlType.STRING;
-        }
-        if (hiveType.contains("char")) {
-            throw CommonError.convertToSeaTunnelTypeError(
-                    getPluginName(), PluginType.SOURCE, hiveType, name);
-        }
-        if (hiveType.contains("binary")) {
-            return SqlType.BYTES.name();
-        }
-        if (hiveType.contains("struct")) {
-            LinkedHashMap<String, Object> fields = new LinkedHashMap<>();
-            int start = hiveType.indexOf("<");
-            int end = hiveType.lastIndexOf(">");
-            String[] columns = hiveType.substring(start + 1, end).split(",");
-            for (String column : columns) {
-                String[] splits = column.split(":");
-                fields.put(splits[0], covertHiveTypeToSeaTunnelType(splits[0], splits[1]));
-            }
-            return fields;
-        }
-        return hiveType;
+    @Override
+    public SourceReader<SeaTunnelRow, FileSourceSplit> createReader(
+            SourceReader.Context readerContext) {
+        return new MultipleTableHiveSourceReader(readerContext, multipleTableHiveSourceConfig);
+    }
+
+    @Override
+    public SourceSplitEnumerator<FileSourceSplit, FileSourceState> createEnumerator(
+            SourceSplitEnumerator.Context<FileSourceSplit> enumeratorContext) {
+        return new MultipleTableHiveSourceSplitEnumerator(
+                enumeratorContext, multipleTableHiveSourceConfig);
+    }
+
+    @Override
+    public SourceSplitEnumerator<FileSourceSplit, FileSourceState> restoreEnumerator(
+            SourceSplitEnumerator.Context<FileSourceSplit> enumeratorContext,
+            FileSourceState checkpointState) {
+        return new MultipleTableHiveSourceSplitEnumerator(
+                enumeratorContext, multipleTableHiveSourceConfig, checkpointState);
     }
 }

@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.paimon.catalog;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
@@ -27,6 +28,8 @@ import org.apache.seatunnel.api.table.catalog.exception.DatabaseAlreadyExistExce
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
 import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistException;
 import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
+import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.paimon.utils.SchemaUtil;
 
@@ -35,6 +38,7 @@ import org.apache.paimon.schema.Schema;
 import org.apache.paimon.table.FileStoreTable;
 import org.apache.paimon.table.Table;
 import org.apache.paimon.types.DataField;
+import org.apache.paimon.types.DataType;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -47,14 +51,14 @@ public class PaimonCatalog implements Catalog, PaimonTable {
     private static final String DEFAULT_DATABASE = "default";
 
     private String catalogName;
-    private PaimonSinkConfig paimonSinkConfig;
+    private ReadonlyConfig readonlyConfig;
     private PaimonCatalogLoader paimonCatalogLoader;
     private org.apache.paimon.catalog.Catalog catalog;
 
-    public PaimonCatalog(String catalogName, PaimonSinkConfig paimonSinkConfig) {
-        this.paimonSinkConfig = paimonSinkConfig;
+    public PaimonCatalog(String catalogName, ReadonlyConfig readonlyConfig) {
+        this.readonlyConfig = readonlyConfig;
         this.catalogName = catalogName;
-        this.paimonCatalogLoader = new PaimonCatalogLoader(paimonSinkConfig);
+        this.paimonCatalogLoader = new PaimonCatalogLoader(new PaimonConfig(readonlyConfig));
     }
 
     @Override
@@ -135,7 +139,8 @@ public class PaimonCatalog implements Catalog, PaimonTable {
             throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
         try {
             Schema paimonSchema =
-                    SchemaUtil.toPaimonSchema(table.getTableSchema(), this.paimonSinkConfig);
+                    SchemaUtil.toPaimonSchema(
+                            table.getTableSchema(), new PaimonSinkConfig(readonlyConfig));
             catalog.createTable(toIdentifier(tablePath), paimonSchema, ignoreIfExists);
         } catch (org.apache.paimon.catalog.Catalog.TableAlreadyExistException e) {
             throw new TableAlreadyExistException(this.catalogName, tablePath);
@@ -181,7 +186,12 @@ public class PaimonCatalog implements Catalog, PaimonTable {
         TableSchema.Builder builder = TableSchema.builder();
         dataFields.forEach(
                 dataField -> {
-                    Column column = SchemaUtil.toSeaTunnelType(dataField.type());
+                    BasicTypeDefine.BasicTypeDefineBuilder<DataType> typeDefineBuilder =
+                            BasicTypeDefine.<DataType>builder()
+                                    .name(dataField.name())
+                                    .comment(dataField.description())
+                                    .nativeType(dataField.type());
+                    Column column = SchemaUtil.toSeaTunnelType(typeDefineBuilder.build());
                     builder.column(column);
                 });
 

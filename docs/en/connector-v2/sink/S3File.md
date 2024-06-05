@@ -23,6 +23,7 @@ By default, we use 2PC commit to ensure `exactly-once`
   - [x] json
   - [x] excel
   - [x] xml
+  - [x] binary
 
 ## Description
 
@@ -39,7 +40,7 @@ Output data to aws s3 file system.
 > If you use spark/flink, In order to use this connector, You must ensure your spark/flink cluster already integrated hadoop. The tested hadoop version is 2.x.
 >
 > If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you download and install SeaTunnel Engine. You can check the jar package under `${SEATUNNEL_HOME}/lib` to confirm this.
-> To use this connector you need put `hadoop-aws-3.1.4.jar` and `aws-java-sdk-bundle-1.11.271.jar` in `${SEATUNNEL_HOME}/lib` dir.
+> To use this connector you need put `hadoop-aws-3.1.4.jar` and `aws-java-sdk-bundle-1.12.692.jar` in `${SEATUNNEL_HOME}/lib` dir.
 
 ## Data Type Mapping
 
@@ -172,7 +173,7 @@ When the format in the `file_name_expression` parameter is `xxxx-${now}` , `file
 
 We supported as the following file types:
 
-`text` `json` `csv` `orc` `parquet` `excel` `xml`
+`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary`
 
 Please note that, The final file name will end with the file_format_type's suffix, the suffix of the text file is `txt`.
 
@@ -474,7 +475,7 @@ transform {
 sink {
 S3File {
     bucket = "s3a://seatunnel-test"
-    tmp_path = "/tmp/seatunnel"
+    tmp_path = "/tmp/seatunnel/${table_name}"
     path="/test/${table_name}"
     fs.s3a.endpoint="s3.cn-north-1.amazonaws.com.cn"
     fs.s3a.aws.credentials.provider="org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"

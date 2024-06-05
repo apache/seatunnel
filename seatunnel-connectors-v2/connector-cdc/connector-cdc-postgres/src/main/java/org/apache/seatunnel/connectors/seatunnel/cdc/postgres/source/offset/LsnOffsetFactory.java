@@ -24,8 +24,6 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresSou
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.PostgresDialect;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.utils.PostgresUtils;
 
-import io.debezium.connector.postgresql.SourceInfo;
-import io.debezium.connector.postgresql.connection.Lsn;
 import io.debezium.connector.postgresql.connection.PostgresConnection;
 import io.debezium.jdbc.JdbcConnection;
 
@@ -63,7 +61,7 @@ public class LsnOffsetFactory extends OffsetFactory {
 
     @Override
     public Offset specific(Map<String, String> offset) {
-        return new LsnOffset(Lsn.valueOf(Long.valueOf(offset.get(SourceInfo.LSN_KEY))));
+        return new LsnOffset(offset);
     }
 
     @Override

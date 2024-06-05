@@ -35,6 +35,26 @@ network:
 
 ## API reference
 
+### Returns an overview over the Zeta engine cluster.
+
+#### Parameters
+
+#### Responses
+
+```json
+{
+    "projectVersion":"2.3.5-SNAPSHOT",
+    "gitCommitAbbrev":"DeadD0d0",
+    "totalSlot":"0",
+    "unassignedSlot":"0",
+    "runningJobs":"0",
+    "finishedJobs":"0",
+    "failedJobs":"0",
+    "cancelledJobs":"0",
+    "works":"1"
+}
+```
+
 ### Returns an overview over all jobs and their current state.
 
 <details>
@@ -77,7 +97,64 @@ network:
 ### Return details of a job.
 
 <details>
- <summary><code>GET</code> <code><b>/hazelcast/rest/maps/running-job/:jobId</b></code> <code>(Return details of a job.)</code></summary>
+ <summary><code>GET</code> <code><b>/hazelcast/rest/maps/job-info/:jobId</b></code> <code>(Return details of a job. )</code></summary>
+
+#### Parameters
+
+> | name  |   type   | data type | description |
+> |-------|----------|-----------|-------------|
+> | jobId | required | long      | job id      |
+
+#### Responses
+
+```json
+{
+  "jobId": "",
+  "jobName": "",
+  "jobStatus": "",
+  "createTime": "",
+  "jobDag": {
+    "vertices": [
+    ],
+    "edges": [
+    ]
+  },
+  "metrics": {
+    "sourceReceivedCount": "",
+    "sinkWriteCount": ""
+  },
+  "finishedTime": "",
+  "errorMsg": null,
+  "envOptions": {
+  },
+  "pluginJarsUrls": [
+  ],
+  "isStartWithSavePoint": false
+}
+```
+
+`jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` always be returned.
+`envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` will return when job is running.
+`finishedTime`, `errorMsg` will return when job is finished.
+
+When we can't get the job info, the response will be:
+
+```json
+{
+  "jobId" : ""
+}
+```
+
+</details>
+
+------------------------------------------------------------------------------------------
+
+### Return details of a job.
+
+This API has been deprecated, please use /hazelcast/rest/maps/job-info/:jobId instead
+
+<details>
+ <summary><code>GET</code> <code><b>/hazelcast/rest/maps/running-job/:jobId</b></code> <code>(Return details of a job. )</code></summary>
 
 #### Parameters
 

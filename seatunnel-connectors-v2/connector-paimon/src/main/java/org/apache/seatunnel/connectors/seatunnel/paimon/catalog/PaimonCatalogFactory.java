@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSinkConfig;
 
 import com.google.auto.service.AutoService;
@@ -30,7 +31,7 @@ import com.google.auto.service.AutoService;
 public class PaimonCatalogFactory implements CatalogFactory {
     @Override
     public Catalog createCatalog(String catalogName, ReadonlyConfig readonlyConfig) {
-        return new PaimonCatalog(catalogName, new PaimonSinkConfig(readonlyConfig));
+        return new PaimonCatalog(catalogName, readonlyConfig);
     }
 
     @Override
@@ -41,19 +42,19 @@ public class PaimonCatalogFactory implements CatalogFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(
-                        PaimonSinkConfig.WAREHOUSE,
-                        PaimonSinkConfig.DATABASE,
-                        PaimonSinkConfig.TABLE)
+                .required(PaimonConfig.WAREHOUSE, PaimonConfig.DATABASE, PaimonConfig.TABLE)
                 .optional(
-                        PaimonSinkConfig.HDFS_SITE_PATH,
+                        PaimonConfig.HDFS_SITE_PATH,
+                        PaimonConfig.HADOOP_CONF,
+                        PaimonConfig.HADOOP_CONF_PATH,
+                        PaimonConfig.CATALOG_TYPE,
                         PaimonSinkConfig.SCHEMA_SAVE_MODE,
                         PaimonSinkConfig.DATA_SAVE_MODE,
                         PaimonSinkConfig.PRIMARY_KEYS,
                         PaimonSinkConfig.PARTITION_KEYS,
-                        PaimonSinkConfig.WRITE_PROPS,
-                        PaimonSinkConfig.HADOOP_CONF,
-                        PaimonSinkConfig.HADOOP_CONF_PATH)
+                        PaimonSinkConfig.WRITE_PROPS)
+                .conditional(
+                        PaimonConfig.CATALOG_TYPE, PaimonCatalogEnum.HIVE, PaimonConfig.CATALOG_URI)
                 .build();
     }
 }

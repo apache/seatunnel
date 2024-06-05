@@ -23,7 +23,10 @@ import org.apache.seatunnel.connectors.seatunnel.rocketmq.exception.RocketMqConn
 
 import org.apache.rocketmq.client.consumer.DefaultLitePullConsumer;
 import org.apache.rocketmq.client.exception.MQClientException;
+import org.apache.rocketmq.common.message.MessageQueue;
 
+import java.util.Collections;
+import java.util.Objects;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
@@ -32,6 +35,11 @@ public class RocketMqConsumerThread implements Runnable {
     private final DefaultLitePullConsumer consumer;
     private final ConsumerMetadata metadata;
     private final LinkedBlockingQueue<Consumer<DefaultLitePullConsumer>> tasks;
+
+    private MessageQueue assignedMessageQueue;
+
+    /** It is different from the committed offset,just means the last offset that has been polled */
+    private long lastPolledOffset = -2;
 
     public RocketMqConsumerThread(ConsumerMetadata metadata) {
         this.metadata = metadata;
@@ -69,5 +77,27 @@ public class RocketMqConsumerThread implements Runnable {
 
     public LinkedBlockingQueue<Consumer<DefaultLitePullConsumer>> getTasks() {
         return tasks;
+    }
+
+    public void assign(RocketMqSourceSplit sourceSplit) throws MQClientException {
+        boolean messageQueueChanged =
+                assignedMessageQueue == null
+                        || !Objects.equals(assignedMessageQueue, sourceSplit.getMessageQueue());
+        if (messageQueueChanged) {
+            this.assignedMessageQueue = sourceSplit.getMessageQueue();
+            consumer.assign(Collections.singleton(assignedMessageQueue));
+        }
+        if (messageQueueChanged || lastPolledOffset != sourceSplit.getStartOffset() - 1) {
+            if (sourceSplit.getStartOffset() >= 0) {
+                Long committedOffset = consumer.committed(assignedMessageQueue);
+                if (!Objects.equals(committedOffset, sourceSplit.getStartOffset())) {
+                    consumer.seek(assignedMessageQueue, sourceSplit.getStartOffset());
+                }
+            }
+        }
+    }
+
+    public void markLastPolledOffset(long offset) {
+        this.lastPolledOffset = offset;
     }
 }
