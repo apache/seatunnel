@@ -107,7 +107,7 @@ public class SqlServerDialect implements JdbcDataSourceDialect {
     public SqlServerSourceFetchTaskContext createFetchTaskContext(
             SourceSplitBase sourceSplitBase, JdbcSourceConfig taskSourceConfig) {
 
-        return new SqlServerSourceFetchTaskContext(taskSourceConfig, this);
+        return new SqlServerSourceFetchTaskContext((SqlServerSourceConfig) taskSourceConfig, this);
     }
 
     @Override

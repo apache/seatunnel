@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.paimon.catalog;
 
+import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonHadoopConfiguration;
-import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.paimon.security.PaimonSecurityContext;
@@ -28,6 +28,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.paimon.catalog.Catalog;
 import org.apache.paimon.catalog.CatalogContext;
 import org.apache.paimon.catalog.CatalogFactory;
+import org.apache.paimon.options.CatalogOptions;
 import org.apache.paimon.options.Options;
 
 import lombok.extern.slf4j.Slf4j;
@@ -36,8 +37,6 @@ import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
-
-import static org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig.WAREHOUSE;
 
 @Slf4j
 public class PaimonCatalogLoader implements Serializable {
@@ -51,24 +50,35 @@ public class PaimonCatalogLoader implements Serializable {
     private static final String HDFS_IMPL_KEY = "fs.hdfs.impl";
 
     private String warehouse;
+    private PaimonCatalogEnum catalogType;
+    private String catalogUri;
 
     private PaimonHadoopConfiguration paimonHadoopConfiguration;
 
-    public PaimonCatalogLoader(PaimonSinkConfig paimonSinkConfig) {
-        this.warehouse = paimonSinkConfig.getWarehouse();
-        this.paimonHadoopConfiguration = PaimonSecurityContext.loadHadoopConfig(paimonSinkConfig);
+    public PaimonCatalogLoader(PaimonConfig paimonConfig) {
+        this.warehouse = paimonConfig.getWarehouse();
+        this.catalogType = paimonConfig.getCatalogType();
+        this.catalogUri = paimonConfig.getCatalogUri();
+        this.paimonHadoopConfiguration = PaimonSecurityContext.loadHadoopConfig(paimonConfig);
     }
 
     public Catalog loadCatalog() {
         // When using the seatunel engine, set the current class loader to prevent loading failures
         Thread.currentThread().setContextClassLoader(PaimonCatalogLoader.class.getClassLoader());
         final Map<String, String> optionsMap = new HashMap<>(1);
-        optionsMap.put(WAREHOUSE.key(), warehouse);
-        final Options options = Options.fromMap(optionsMap);
+        optionsMap.put(CatalogOptions.WAREHOUSE.key(), warehouse);
+        optionsMap.put(CatalogOptions.METASTORE.key(), catalogType.getType());
         if (warehouse.startsWith(HDFS_PREFIX)) {
             checkConfiguration(paimonHadoopConfiguration, HDFS_DEF_FS_NAME);
             paimonHadoopConfiguration.set(HDFS_IMPL_KEY, HDFS_IMPL);
         }
+        if (PaimonCatalogEnum.HIVE.getType().equals(catalogType.getType())) {
+            optionsMap.put(CatalogOptions.URI.key(), catalogUri);
+            paimonHadoopConfiguration
+                    .getPropsWithPrefix(StringUtils.EMPTY)
+                    .forEach((k, v) -> optionsMap.put(k, v));
+        }
+        final Options options = Options.fromMap(optionsMap);
         PaimonSecurityContext.shouldEnableKerberos(paimonHadoopConfiguration);
         final CatalogContext catalogContext =
                 CatalogContext.create(options, paimonHadoopConfiguration);

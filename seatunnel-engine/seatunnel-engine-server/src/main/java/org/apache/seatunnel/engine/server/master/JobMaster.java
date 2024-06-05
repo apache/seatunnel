@@ -180,7 +180,7 @@ public class JobMaster {
         this.seaTunnelServer = seaTunnelServer;
     }
 
-    public void init(long initializationTimestamp, boolean restart) throws Exception {
+    public synchronized void init(long initializationTimestamp, boolean restart) throws Exception {
         jobImmutableInformation =
                 nodeEngine.getSerializationService().toObject(jobImmutableInformationData);
         jobCheckpointConfig =
@@ -490,7 +490,7 @@ public class JobMaster {
                 "can't find task group address from taskGroupLocation: " + taskGroupLocation);
     }
 
-    public void cancelJob() {
+    public synchronized void cancelJob() {
         physicalPlan.cancelJob();
     }
 

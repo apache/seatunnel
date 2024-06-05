@@ -219,6 +219,26 @@ public class RestApiIT {
     }
 
     @Test
+    public void testOverview() {
+        Arrays.asList(node2, node1)
+                .forEach(
+                        instance -> {
+                            given().get(
+                                            HOST
+                                                    + instance.getCluster()
+                                                            .getLocalMember()
+                                                            .getAddress()
+                                                            .getPort()
+                                                    + RestConstant.OVERVIEW)
+                                    .then()
+                                    .statusCode(200)
+                                    .body("projectVersion", notNullValue())
+                                    .body("totalSlot", equalTo("40"))
+                                    .body("workers", equalTo("2"));
+                        });
+    }
+
+    @Test
     public void testGetRunningThreads() {
         Arrays.asList(node2, node1)
                 .forEach(
