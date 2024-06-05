@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 
+import org.apache.seatunnel.api.table.type.BinaryRow;
+import org.apache.seatunnel.api.table.type.BinaryRowType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonError;
@@ -24,7 +26,6 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
-import org.apache.seatunnel.connectors.seatunnel.file.source.reader.BinaryReadStrategy;
 
 import org.apache.hadoop.fs.FSDataOutputStream;
 
@@ -48,7 +49,7 @@ public class BinaryWriteStrategy extends AbstractWriteStrategy {
     @Override
     public void setSeaTunnelRowTypeInfo(SeaTunnelRowType seaTunnelRowType) {
         super.setSeaTunnelRowTypeInfo(seaTunnelRowType);
-        if (!seaTunnelRowType.equals(BinaryReadStrategy.binaryRowType)) {
+        if (!(seaTunnelRowType.getFieldType(0) instanceof BinaryRowType)) {
             throw new FileConnectorException(
                     FileConnectorErrorCode.FORMAT_NOT_SUPPORT,
                     "BinaryWriteStrategy only supports binary format, please read file with `BINARY` format, and do not change schema in the transform.");
@@ -57,9 +58,10 @@ public class BinaryWriteStrategy extends AbstractWriteStrategy {
 
     @Override
     public void write(SeaTunnelRow seaTunnelRow) throws FileConnectorException {
-        byte[] data = (byte[]) seaTunnelRow.getField(0);
-        String relativePath = (String) seaTunnelRow.getField(1);
-        long partIndex = (long) seaTunnelRow.getField(2);
+        BinaryRow binaryRow = (BinaryRow) seaTunnelRow.getField(0);
+        byte[] data = binaryRow.getData();
+        String relativePath = binaryRow.getRelativePath();
+        long partIndex = binaryRow.getPartIndex();
         String filePath = getOrCreateFilePathBeingWritten(relativePath);
         FSDataOutputStream fsDataOutputStream = getOrCreateOutputStream(filePath);
         if (partIndex - 1 != partIndexMap.get(filePath)) {
