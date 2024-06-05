@@ -53,7 +53,7 @@ import java.util.stream.IntStream;
 
 import static org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig.DATABASE;
 import static org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig.HDFS_SITE_PATH;
-import static org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig.PROJECTION;
+import static org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig.READ_COLUMNS;
 import static org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig.TABLE;
 import static org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig.WAREHOUSE;
 
@@ -117,8 +117,8 @@ public class PaimonSource
             throw new PaimonConnectorException(
                     PaimonConnectorErrorCode.GET_TABLE_FAILED, errorMsg, e);
         }
-        if (pluginConfig.hasPath(PROJECTION.key())) {
-            String projectString = pluginConfig.getString(PROJECTION.key());
+        if (pluginConfig.hasPath(READ_COLUMNS.key())) {
+            String projectString = pluginConfig.getString(READ_COLUMNS.key());
             this.projectionFieldNames = projectString.split(",");
             String[] fieldNames = this.table.rowType().getFieldNames().toArray(new String[0]);
             this.projectionIndex =

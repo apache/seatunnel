@@ -86,11 +86,11 @@ public class PaimonConfig implements Serializable {
                     .noDefaultValue()
                     .withDescription("The table you intend to access");
 
-    public static final Option<List<String>> READ_COLUMNS =
+    public static final Option<String> READ_COLUMNS =
             Options.key("read_columns")
-                    .listType()
+                    .stringType()
                     .noDefaultValue()
-                    .withDescription("The read columns of the flink table store");
+                    .withDescription("The read columns of the paimon table");
 
     @Deprecated
     public static final Option<String> HDFS_SITE_PATH =
@@ -111,12 +111,6 @@ public class PaimonConfig implements Serializable {
                     .noDefaultValue()
                     .withDescription(
                             "The specified loading path for the 'core-site.xml', 'hdfs-site.xml', 'hive-site.xml' files");
-
-    public static final Option<String> PROJECTION =
-            Options.key("projection")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Decides which columns of the paimon table to read");
 
     protected String catalogName;
     protected PaimonCatalogEnum catalogType;

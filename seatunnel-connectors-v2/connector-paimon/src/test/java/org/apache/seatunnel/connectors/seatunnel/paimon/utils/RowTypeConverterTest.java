@@ -194,13 +194,8 @@ public class RowTypeConverterTest {
     }
 
     @Test
-<<<<<<< hudi_sink
-    public void paimonToSeaTunnel() {
-        SeaTunnelRowType convert = RowTypeConverter.convert(rowType, null);
-=======
     public void paimonRowTypeToSeaTunnel() {
-        SeaTunnelRowType convert = RowTypeConverter.convert(rowType);
->>>>>>> dev
+        SeaTunnelRowType convert = RowTypeConverter.convert(rowType, null);
         Assertions.assertEquals(convert, seaTunnelRowType);
     }
 
