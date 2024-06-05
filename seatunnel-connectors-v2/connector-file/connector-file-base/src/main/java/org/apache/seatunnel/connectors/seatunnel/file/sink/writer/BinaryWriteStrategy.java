@@ -27,11 +27,9 @@ import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig
 
 import org.apache.hadoop.fs.FSDataOutputStream;
 
-import io.airlift.compress.lzo.LzopCodec;
 import lombok.NonNull;
 
 import java.io.IOException;
-import java.io.OutputStream;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -73,6 +71,7 @@ public class BinaryWriteStrategy extends AbstractWriteStrategy {
             if (len != -1) {
                 fsDataOutputStream.write(bytes, 0, len);
             }
+            // TODO Do you want to close the completed file in advance
         } catch (IOException e) {
             throw CommonError.fileOperationFailed("BinaryFile", "write", filePath, e);
         }
@@ -105,27 +104,8 @@ public class BinaryWriteStrategy extends AbstractWriteStrategy {
         FSDataOutputStream fsDataOutputStream = beingWrittenOutputStream.get(filePath);
         if (fsDataOutputStream == null) {
             try {
-                switch (compressFormat) {
-                    case LZO:
-                        LzopCodec lzo = new LzopCodec();
-                        OutputStream out =
-                                lzo.createOutputStream(
-                                        hadoopFileSystemProxy.getOutputStream(
-                                                getTargetLocation(filePath)));
-                        fsDataOutputStream = new FSDataOutputStream(out, null);
-                        break;
-                    case NONE:
-                        fsDataOutputStream =
-                                hadoopFileSystemProxy.getOutputStream(getTargetLocation(filePath));
-                        break;
-                    default:
-                        log.warn(
-                                "Binary file does not support this compress type: {}",
-                                compressFormat.getCompressCodec());
-                        fsDataOutputStream =
-                                hadoopFileSystemProxy.getOutputStream(getTargetLocation(filePath));
-                        break;
-                }
+                fsDataOutputStream =
+                        hadoopFileSystemProxy.getOutputStream(getTargetLocation(filePath));
                 beingWrittenOutputStream.put(filePath, fsDataOutputStream);
                 isFirstWrite.put(filePath, true);
             } catch (IOException e) {

@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
 import org.apache.seatunnel.api.source.Collector;
@@ -8,16 +25,13 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
-import org.apache.seatunnel.connectors.seatunnel.file.config.CompressFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
 import org.apache.commons.lang3.StringUtils;
 
-import io.airlift.compress.lzo.LzopCodec;
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Base64;
@@ -25,15 +39,13 @@ import java.util.Base64;
 /** @describe @Author jxm */
 @Slf4j
 public class BinaryReadStrategy extends AbstractReadStrategy {
-    private CompressFormat compressFormat = BaseSourceConfigOptions.COMPRESS_CODEC.defaultValue();
+    private String basePath;
 
     @Override
     public void init(HadoopConf conf) {
         super.init(conf);
-        if (pluginConfig.hasPath(BaseSourceConfigOptions.COMPRESS_CODEC.key())) {
-            String compressCodec =
-                    pluginConfig.getString(BaseSourceConfigOptions.COMPRESS_CODEC.key());
-            compressFormat = CompressFormat.valueOf(compressCodec.toUpperCase());
+        if (pluginConfig.hasPath(BaseSourceConfigOptions.FILE_PATH.key())) {
+            basePath = pluginConfig.getString(BaseSourceConfigOptions.FILE_PATH.key());
         }
     }
 
@@ -45,23 +57,7 @@ public class BinaryReadStrategy extends AbstractReadStrategy {
     @Override
     public void read(String path, String tableId, Collector<SeaTunnelRow> output)
             throws FileConnectorException, IOException {
-        InputStream inputStream;
-        // 压缩格式应该无用
-        switch (compressFormat) {
-            case LZO:
-                LzopCodec lzo = new LzopCodec();
-                inputStream = lzo.createInputStream(hadoopFileSystemProxy.getInputStream(path));
-                break;
-            case NONE:
-                inputStream = hadoopFileSystemProxy.getInputStream(path);
-                break;
-            default:
-                log.warn(
-                        "Binary file does not support this compress type: {}",
-                        compressFormat.getCompressCodec());
-                inputStream = hadoopFileSystemProxy.getInputStream(path);
-                break;
-        }
+        InputStream inputStream = hadoopFileSystemProxy.getInputStream(path);
         try {
             int isFirst = 1;
             byte[] bys = new byte[1024 * 1024];
@@ -99,8 +95,8 @@ public class BinaryReadStrategy extends AbstractReadStrategy {
         seaTunnelRow.setField(
                 0,
                 new BinaryObject(
-                        StringUtils.substringAfterLast(path, File.separator),
-                        // TODO 使用Base64解决乱码
+                        StringUtils.substringAfterLast(path, basePath),
+                        // TODO Base64 Resolve garbled code
                         Base64.getEncoder().encodeToString(bys),
                         len,
                         isFirst));

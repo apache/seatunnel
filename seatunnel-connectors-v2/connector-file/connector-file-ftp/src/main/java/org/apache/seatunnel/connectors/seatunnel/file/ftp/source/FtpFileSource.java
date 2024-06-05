@@ -105,11 +105,12 @@ public class FtpFileSource extends BaseFileSource {
                     readStrategy.setSeaTunnelRowTypeInfo(userDefinedSchema);
                     rowType = readStrategy.getActualSeaTunnelRowTypeInfo();
                     break;
+                case BINARY:
                 case ORC:
                 case PARQUET:
                     throw new FileConnectorException(
                             CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                            "SeaTunnel does not support user-defined schema for [parquet, orc] files");
+                            "SeaTunnel does not support user-defined schema for [binary, parquet, orc] files");
                 default:
                     // never got in there
                     throw new FileConnectorException(

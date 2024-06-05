@@ -37,7 +37,6 @@ import org.apache.seatunnel.connectors.seatunnel.file.source.reader.XmlReadStrat
 
 import java.io.Serializable;
 
-// 文件格式 数据 csv txt parquet orc json xlsx xml   二进制 binary
 public enum FileFormat implements Serializable {
     CSV("csv") {
         @Override
