@@ -23,7 +23,7 @@ Read data from Apache Paimon.
 | database       | String | Yes      | -             |
 | table          | String | Yes      | -             |
 | hdfs_site_path | String | No       | -             |
-| projection     | String | No       | -             |
+| read_columns   | String | No       | -             |
 
 ### warehouse [string]
 
@@ -41,7 +41,7 @@ The table you want to access
 
 The file path of `hdfs-site.xml`
 
-### projection [string]
+### read_columns [string]
 
 Decides which columns of the paimon table to read. For multiple columns you need to use "," for split, such as "column1,column2".
 
