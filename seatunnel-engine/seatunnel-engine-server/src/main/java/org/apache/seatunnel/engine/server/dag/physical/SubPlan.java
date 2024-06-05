@@ -450,6 +450,9 @@ public class SubPlan {
                 reset();
                 jobMaster.getCheckpointManager().reportedPipelineRunning(pipelineId, false);
                 jobMaster.getPhysicalPlan().addPipelineEndCallback(this);
+                // wait 3s and then start the pipeline
+                log.info("Wait 3s and then restore the pipeline " + pipelineFullName);
+                Thread.sleep(3000);
                 return true;
             } catch (Throwable e) {
                 if (this.currPipelineStatus.isEndState()) {

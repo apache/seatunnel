@@ -52,13 +52,14 @@ public abstract class AbstractResourceManager implements ResourceManager {
 
     private final NodeEngine nodeEngine;
 
-    private final ExecutionMode mode = ExecutionMode.LOCAL;
+    private final ExecutionMode mode;
 
     private volatile boolean isRunning = true;
 
-    public AbstractResourceManager(NodeEngine nodeEngine) {
+    public AbstractResourceManager(NodeEngine nodeEngine, ExecutionMode mode) {
         this.registerWorker = new ConcurrentHashMap<>();
         this.nodeEngine = nodeEngine;
+        this.mode = mode;
     }
 
     @Override
@@ -71,6 +72,7 @@ public abstract class AbstractResourceManager implements ResourceManager {
         log.info("initWorker... ");
         List<Address> aliveWorker =
                 nodeEngine.getClusterService().getMembers().stream()
+                        .filter(Member::isLiteMember)
                         .map(Member::getAddress)
                         .collect(Collectors.toList());
         log.info("initWorker live nodes: " + aliveWorker);

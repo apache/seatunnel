@@ -17,8 +17,15 @@
 
 package org.apache.seatunnel.engine.client;
 
+import org.apache.seatunnel.common.config.Common;
+import org.apache.seatunnel.common.config.DeployMode;
+import org.apache.seatunnel.engine.client.job.ClientJobExecutionEnvironment;
+import org.apache.seatunnel.engine.client.job.ClientJobProxy;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
+import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
+import org.apache.seatunnel.engine.core.job.JobResult;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 
 import org.awaitility.Awaitility;
@@ -27,11 +34,15 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 
+import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+
+import static org.awaitility.Awaitility.await;
 
 @DisabledOnOs(OS.WINDOWS)
 @Slf4j
@@ -52,7 +63,7 @@ public class SeaTunnelEngineClusterRoleTest {
                 .setClusterName(TestUtils.getClusterName(testClusterName));
 
         try {
-            // master node must start first
+            // master node must start first in ci
             masterNode = SeaTunnelServerStarter.createMasterHazelcastInstance(seaTunnelConfig);
             HazelcastInstanceImpl finalMasterNode = masterNode;
             Awaitility.await()
@@ -80,7 +91,10 @@ public class SeaTunnelEngineClusterRoleTest {
                     .untilAsserted(
                             () ->
                                     Assertions.assertEquals(
-                                            true, !finalWorkerNode.node.isRunning() && !finalWorkerNode1.node.isRunning() && !finalMasterNode.node.isRunning()));
+                                            true,
+                                            !finalWorkerNode.node.isRunning()
+                                                    && !finalWorkerNode1.node.isRunning()
+                                                    && !finalMasterNode.node.isRunning()));
 
         } finally {
 
@@ -96,5 +110,74 @@ public class SeaTunnelEngineClusterRoleTest {
                 masterNode.shutdown();
             }
         }
+    }
+
+    @SneakyThrows
+    @Test
+    public void canNotSubmitJobWhenHaveNoWorkerNode() {
+        HazelcastInstanceImpl masterNode = null;
+        String testClusterName = "Test_canNotSubmitJobWhenHaveNoWorkerNode";
+        SeaTunnelClient seaTunnelClient = null;
+
+        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+        seaTunnelConfig
+                .getHazelcastConfig()
+                .setClusterName(TestUtils.getClusterName(testClusterName));
+
+        // submit job
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath = TestUtils.getResource("/client_test.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setName("Test_canNotSubmitJobWhenHaveNoWorkerNode");
+
+        try {
+            // master node must start first in ci
+            masterNode = SeaTunnelServerStarter.createMasterHazelcastInstance(seaTunnelConfig);
+
+            HazelcastInstanceImpl finalMasterNode = masterNode;
+            Awaitility.await()
+                    .atMost(10000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            1, finalMasterNode.getCluster().getMembers().size()));
+
+            // new seatunnel client and submit job
+            seaTunnelClient = createSeaTunnelClient(testClusterName);
+            ClientJobExecutionEnvironment jobExecutionEnv =
+                    seaTunnelClient.createExecutionContext(filePath, jobConfig, seaTunnelConfig);
+            final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+            await().atMost(60000, TimeUnit.MILLISECONDS)
+                    .until(
+                            () -> {
+                                try {
+                                    PassiveCompletableFuture<JobResult>
+                                            jobResultPassiveCompletableFuture =
+                                                    clientJobProxy.doWaitForJobComplete();
+                                    return jobResultPassiveCompletableFuture
+                                            .get()
+                                            .getError()
+                                            .contains("NoEnoughResourceException");
+                                } catch (Exception e) {
+                                    return false;
+                                }
+                            });
+
+        } catch (ExecutionException | InterruptedException e) {
+            throw new RuntimeException(e);
+        } finally {
+            if (seaTunnelClient != null) {
+                seaTunnelClient.close();
+            }
+            if (masterNode != null) {
+                masterNode.shutdown();
+            }
+        }
+    }
+
+    private SeaTunnelClient createSeaTunnelClient(String clusterName) {
+        ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+        clientConfig.setClusterName(TestUtils.getClusterName(clusterName));
+        return new SeaTunnelClient(clientConfig);
     }
 }

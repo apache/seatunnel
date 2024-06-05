@@ -15,20 +15,30 @@
 # limitations under the License.
 #
 
-seatunnel:
-  engine:
-    history-job-expire-minutes: 1
-    backup-count: 2
-    queue-type: blockingqueue
-    print-execution-info-interval: 10
-    slot-service:
-      dynamic-slot: false
-      slot-num: 100
-    checkpoint:
-      interval: 300000
-      timeout: 100000
-      storage:
-        type: localfile
-        max-retained: 3
-        plugin-config:
-          namespace: /tmp/seatunnel/checkpoint_snapshot/
+hazelcast:
+  cluster-name: seatunnel
+  network:
+    rest-api:
+      enabled: true
+      endpoint-groups:
+        CLUSTER_WRITE:
+          enabled: true
+        DATA:
+          enabled: true
+    join:
+      tcp-ip:
+        enabled: true
+        member-list:
+          - localhost:5801
+          - localhost:5802
+    port:
+      auto-increment: false
+      port: 5801
+  properties:
+    hazelcast.heartbeat.failuredetector.type: phi-accrual
+    hazelcast.heartbeat.interval.seconds: 2
+    hazelcast.max.no.heartbeat.seconds: 180
+    hazelcast.heartbeat.phiaccrual.failuredetector.threshold: 10
+    hazelcast.heartbeat.phiaccrual.failuredetector.sample.size: 200
+    hazelcast.heartbeat.phiaccrual.failuredetector.min.std.dev.millis: 100
+

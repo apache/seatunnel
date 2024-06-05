@@ -29,11 +29,11 @@ hazelcast:
       tcp-ip:
         enabled: true
         member-list:
-          - seatunnel-0.seatunnel.default.svc.cluster.local
-          - seatunnel-1.seatunnel.default.svc.cluster.local
+          - seatunnel-0.seatunnel.default.svc.cluster.local:5801
+          - seatunnel-1.seatunnel.default.svc.cluster.local:5801
 
     port:
-      auto-increment: true
+      auto-increment: false
       port-count: 100
       port: 5801
   properties:

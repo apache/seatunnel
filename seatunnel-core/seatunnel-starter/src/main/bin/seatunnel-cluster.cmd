@@ -43,11 +43,8 @@ for %%I in (%*) do (
     if "%%I"=="-r" set "NODE_RULE=%%~nI"
 )
 
-REM SeaTunnel Engine Config
-set "HAZELCAST_CONFIG=%CONF_DIR%\hazelcast.yaml"
-set "SEATUNNEL_CONFIG=%CONF_DIR%\seatunnel.yaml"
 set "JAVA_OPTS=%JvmOption%"
-
+set "SEATUNNEL_CONFIG=%CONF_DIR%\seatunnel.yaml"
 for %%I in (%*) do (
     set "arg=%%I"
     if "!arg:~0,10!"=="JvmOption=" (
@@ -55,8 +52,6 @@ for %%I in (%*) do (
     )
 )
 
-set "JAVA_OPTS=%JAVA_OPTS% -Dseatunnel.config=%SEATUNNEL_CONFIG%"
-set "JAVA_OPTS=%JAVA_OPTS% -Dhazelcast.config=%HAZELCAST_CONFIG%"
 set "JAVA_OPTS=%JAVA_OPTS% -Dlog4j2.contextSelector=org.apache.logging.log4j.core.async.AsyncLoggerContextSelector"
 
 REM Server Debug Config
@@ -74,24 +69,48 @@ if exist "%CONF_DIR%\log4j2.properties" (
 if "%NODE_RULE%" == "master" (
     set "OUT=%MASTER_OUT%"
     set "JAVA_OPTS=%JAVA_OPTS% -Dseatunnel.logs.file_name=seatunnel-engine-master"
+    for /f "usebackq delims=" %%I in ("%APP_DIR%\config\jvm_master_options") do (
+        set "line=%%I"
+        if not "!line:~0,1!"=="#" if "!line!" NEQ "" (
+            set "JAVA_OPTS=!JAVA_OPTS! !line!"
+        )
+    )
+    REM SeaTunnel Engine Config
+    set "HAZELCAST_CONFIG=%CONF_DIR%\hazelcast-master.yaml"
+
 ) elseif "%NODE_RULE%" == "worker" (
     set "OUT=%WORKER_OUT%"
     set "JAVA_OPTS=%JAVA_OPTS% -Dseatunnel.logs.file_name=seatunnel-engine-worker"
+    for /f "usebackq delims=" %%I in ("%APP_DIR%\config\jvm_worker_options") do (
+        set "line=%%I"
+        if not "!line:~0,1!"=="#" if "!line!" NEQ "" (
+            set "JAVA_OPTS=!JAVA_OPTS! !line!"
+        )
+    )
+    REM SeaTunnel Engine Config
+    set "HAZELCAST_CONFIG=%CONF_DIR%\hazelcast-worker.yaml"
 ) elseif "%NODE_RULE%" == "master_and_worker" (
     set "JAVA_OPTS=%JAVA_OPTS% -Dseatunnel.logs.file_name=seatunnel-engine-server"
+    for /f "usebackq delims=" %%I in ("%APP_DIR%\config\jvm_options") do (
+        set "line=%%I"
+        if not "!line:~0,1!"=="#" if "!line!" NEQ "" (
+            set "JAVA_OPTS=!JAVA_OPTS! !line!"
+        )
+    )
+    REM SeaTunnel Engine Config
+    set "HAZELCAST_CONFIG=%CONF_DIR%\hazelcast.yaml"
 ) else (
     echo Unknown node rule: %NODE_RULE%
     exit 1
 )
 
-set "CLASS_PATH=%APP_DIR%\lib\*;%APP_JAR%"
-
-for /f "usebackq delims=" %%I in ("%APP_DIR%\config\jvm_options") do (
-    set "line=%%I"
-    if not "!line:~0,1!"=="#" if "!line!" NEQ "" (
-        set "JAVA_OPTS=!JAVA_OPTS! !line!"
-    )
+IF NOT EXIST "%HAZELCAST_CONFIG%" (
+    echo Error: File %HAZELCAST_CONFIG% does not exist.
+    exit /b 1
 )
+set "JAVA_OPTS=%JAVA_OPTS% -Dseatunnel.config=%SEATUNNEL_CONFIG%"
+set "JAVA_OPTS=%JAVA_OPTS% -Dhazelcast.config=%HAZELCAST_CONFIG%"
+set "CLASS_PATH=%APP_DIR%\lib\*;%APP_JAR%"
 
 if "%HELP%"=="false" (
     if not exist "%APP_DIR%\logs\" mkdir "%APP_DIR%\logs"

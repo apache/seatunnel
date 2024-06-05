@@ -56,10 +56,6 @@ else
 fi
 
 set +u
-# SeaTunnel Engine Config
-if [ -z $HAZELCAST_CONFIG ]; then
-  HAZELCAST_CONFIG=${CONF_DIR}/hazelcast.yaml
-fi
 
 if [ -z $SEATUNNEL_CONFIG ]; then
     SEATUNNEL_CONFIG=${CONF_DIR}/seatunnel.yaml
@@ -77,14 +73,14 @@ do
   elif [[ "${i}" == "-d" || "${i}" == "--daemon" ]]; then
     DAEMON=true
   elif [[ "${i}" == "-r" || "${i}" == "--rule" ]]; then
-    NODE_RULE="${i#*=}"
+    RULE_FLAG=true
+  elif [[ "${RULE_FLAG}" == true ]]; then
+    NODE_RULE="${i}"
+    RULE_FLAG=false
   elif [[ "${i}" == "-h" || "${i}" == "--help" ]]; then
     HELP=true
   fi
 done
-
-JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.config=${SEATUNNEL_CONFIG}"
-JAVA_OPTS="${JAVA_OPTS} -Dhazelcast.config=${HAZELCAST_CONFIG}"
 
 # Log4j2 Config
 JAVA_OPTS="${JAVA_OPTS} -Dlog4j2.contextSelector=org.apache.logging.log4j.core.async.AsyncLoggerContextSelector"
@@ -96,16 +92,47 @@ fi
 if [[ $NODE_RULE == "master" ]]; then
   OUT=$MASTER_OUT
   JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.logs.file_name=seatunnel-engine-master"
+  while IFS= read -r line || [[ -n "$line" ]]; do
+      if [[ ! $line == \#* ]]; then
+          JAVA_OPTS="$JAVA_OPTS $line"
+      fi
+  done < ${APP_DIR}/config/jvm_master_options
+  # SeaTunnel Engine Config
+  if [ -z $HAZELCAST_CONFIG ]; then
+    HAZELCAST_CONFIG=${CONF_DIR}/hazelcast-master.yaml
+  fi
 elif [[ $NODE_RULE == "worker" ]]; then
   OUT=$WORKER_OUT
   JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.logs.file_name=seatunnel-engine-worker"
+  while IFS= read -r line || [[ -n "$line" ]]; do
+      if [[ ! $line == \#* ]]; then
+          JAVA_OPTS="$JAVA_OPTS $line"
+      fi
+  done < ${APP_DIR}/config/jvm_worker_options
+  if [ -z $HAZELCAST_CONFIG ]; then
+    HAZELCAST_CONFIG=${CONF_DIR}/hazelcast-worker.yaml
+  fi
 elif [[ $NODE_RULE == "master_and_worker" ]]; then
   JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.logs.file_name=seatunnel-engine-server"
+  while IFS= read -r line || [[ -n "$line" ]]; do
+      if [[ ! $line == \#* ]]; then
+          JAVA_OPTS="$JAVA_OPTS $line"
+      fi
+  done < ${APP_DIR}/config/jvm_options
+  if [ -z $HAZELCAST_CONFIG ]; then
+    HAZELCAST_CONFIG=${CONF_DIR}/hazelcast.yaml
+  fi
 else
   echo "Unknown node rule: $NODE_RULE"
   exit 1
 fi
 
+if [ ! -f "$HAZELCAST_CONFIG" ]; then
+    echo "Error: File $HAZELCAST_CONFIG does not exist."
+    exit 1
+fi
+JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.config=${SEATUNNEL_CONFIG}"
+JAVA_OPTS="${JAVA_OPTS} -Dhazelcast.config=${HAZELCAST_CONFIG}"
 # Server Debug Config
 # Usage instructions:
 # If you need to debug your code in cluster mode, please enable this configuration option and listen to the specified
@@ -114,13 +141,7 @@ fi
 
 CLASS_PATH=${APP_DIR}/lib/*:${APP_JAR}
 
-while IFS= read -r line || [[ -n "$line" ]]; do
-    if [[ ! $line == \#* ]]; then
-        JAVA_OPTS="$JAVA_OPTS $line"
-    fi
-done < ${APP_DIR}/config/jvm_options
-
-echo ""NODE_RULE
+echo "start ${NODE_RULE} node"
 
 if [[ $DAEMON == true && $HELP == false ]]; then
   if [[ ! -d ${APP_DIR}/logs ]]; then

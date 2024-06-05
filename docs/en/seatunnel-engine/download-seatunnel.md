@@ -67,8 +67,4 @@ If you want to install connector plugins by manually downloading connectors, you
 
 Now you have completed the download of the SeaTunnel installation package and the download of the connector plug-in. Next, you can choose different running modes according to your needs to run or deploy SeaTunnel.
 
-If you use Flink to run the synchronization task, in this mode, there is no need to deploy the SeaTunnel Engine service cluster. You can refer to [Quick Start of SeaTunnel Flink Engine](quick-start-flink.md) to run your synchronization task.
-
-If you use Spark to run the synchronization task, in this mode, there is no need to deploy the SeaTunnel Engine service cluster. You can refer to [Quick Start of SeaTunnel Spark Engine](quick-start-spark.md) to run your synchronization task.
-
-If you use the SeaTunnel Engine (Zeta) that comes with SeaTunnel to run tasks, you need to deploy the SeaTunnel Engine service first. Refer to [Deployment of SeaTunnel Engine (Zeta) Service](quick-start-seatunnel-engine.md).
+If you use the SeaTunnel Engine (Zeta) that comes with SeaTunnel to run tasks, you need to deploy the SeaTunnel Engine service first. Refer to [Deployment of SeaTunnel Engine (Zeta) Service](deployment.md).

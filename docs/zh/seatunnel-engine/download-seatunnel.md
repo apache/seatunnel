@@ -1,16 +1,16 @@
 ---
 
-sidebar_position: 1
+sidebar_position: 2
 -------------------
 
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-# 本地部署
+# 下载和制作安装包
 
 ## 步骤 1: 准备工作
 
-在开始本地运行前，您需要确保您已经安装了SeaTunnel所需要的以下软件：
+在开始下载SeaTunnel之前，您需要确保您已经安装了SeaTunnel所需要的以下软件：
 
 * 安装[Java](https://www.java.com/en/download/) (Java 8 或 11， 其他高于Java 8的版本理论上也可以工作) 以及设置 `JAVA_HOME`。
 
@@ -61,21 +61,10 @@ connector-console
 
 :::tip 提示
 
-如果您想通过手动下载连接器的方式来安装连接器插件，则需要特别注意以下事项
-
-连接器目录包含以下子目录，如果他们不存在，则需要手动创建它们
-
-```
-flink
-flink-sql
-seatunnel
-spark
-```
-
-如果您想手动安装V2连接器插件，您只需要下载您所需要的连接器插件即可，并将它们放在seatunnel目录下
+如果您想通过手动下载连接器的方式来安装连接器插件，您只需要下载您所需要的连接器插件即可，并将它们放在`${SEATUNNEL_HOME}/connectors/`目录下
 
 :::
 
-## 此外
+现在你已经完成了SeaTunnel安装包的下载和连接器插件的下载。接下来，您可以根据您的需求选择不同的运行模式来运行或部署SeaTunnel。
 
-现在，您已经完成了SeaTunnel部署。您可以按照[快速开始](quick-start-seatunnel-engine.md)来配置并运行数据同步作业了。
+如果你使用SeaTunnel自带的SeaTunnel Engine(Zeta)来运行任务，需要先部署SeaTunnel Engine服务。参考[SeaTunnel Engine(Zeta)服务部署](deployment.md)

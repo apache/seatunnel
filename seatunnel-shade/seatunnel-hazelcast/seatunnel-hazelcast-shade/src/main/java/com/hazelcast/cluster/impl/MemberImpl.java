@@ -282,10 +282,11 @@ public final class MemberImpl extends AbstractMember
             sb.append(" this");
         }
         if (isLiteMember()) {
-            sb.append(" lite");
+            sb.append(" worker");
         }
 
-        if (instance.node.getClusterService().getMasterAddress() != null
+        if (instance != null
+                && instance.node.getClusterService().getMasterAddress() != null
                 && instance.node.getClusterService().getMasterAddress().equals(address)) {
             sb.append(" master");
         }

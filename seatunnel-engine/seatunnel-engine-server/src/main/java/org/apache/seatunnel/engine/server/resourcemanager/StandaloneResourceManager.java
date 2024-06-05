@@ -17,11 +17,13 @@
 
 package org.apache.seatunnel.engine.server.resourcemanager;
 
+import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
+
 import com.hazelcast.spi.impl.NodeEngine;
 
 public class StandaloneResourceManager extends AbstractResourceManager {
 
-    public StandaloneResourceManager(NodeEngine nodeEngine) {
-        super(nodeEngine);
+    public StandaloneResourceManager(NodeEngine nodeEngine, ExecutionMode mode) {
+        super(nodeEngine, mode);
     }
 }

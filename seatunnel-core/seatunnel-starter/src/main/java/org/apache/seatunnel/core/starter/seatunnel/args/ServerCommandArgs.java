@@ -39,7 +39,7 @@ public class ServerCommandArgs extends CommandArgs {
     private boolean daemonMode = false;
 
     @Parameter(
-            names = {"-m", "--master"},
+            names = {"-r", "--rule"},
             description =
                     "The cluster node role, default is master_and_worker, support master, worker, master_and_worker")
     private String clusterRole;
