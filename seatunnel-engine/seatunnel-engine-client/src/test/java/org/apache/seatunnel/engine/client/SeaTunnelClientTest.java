@@ -47,6 +47,7 @@ import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.ArrayList;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -291,6 +292,44 @@ public class SeaTunnelClientTest {
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
             long jobId = clientJobProxy.getJobId();
+
+            await().atMost(30000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            "RUNNING", jobClient.getJobStatus(jobId)));
+
+            jobClient.cancelJob(jobId);
+
+            await().atMost(30000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            "CANCELED", jobClient.getJobStatus(jobId)));
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        } finally {
+            seaTunnelClient.close();
+        }
+    }
+
+    @Test
+    public void testSetJobId() throws ExecutionException, InterruptedException {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath = TestUtils.getResource("/streaming_fake_to_console.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setName("testSetJobId");
+        long jobId = 12345;
+        SeaTunnelClient seaTunnelClient = createSeaTunnelClient();
+        JobClient jobClient = seaTunnelClient.getJobClient();
+        try {
+            ClientJobExecutionEnvironment jobExecutionEnv =
+                    seaTunnelClient.createExecutionContext(
+                            filePath, new ArrayList<>(), jobConfig, SEATUNNEL_CONFIG, jobId);
+
+            final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+
+            Assertions.assertEquals(jobId, clientJobProxy.getJobId());
 
             await().atMost(30000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
