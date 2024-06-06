@@ -50,7 +50,7 @@ public class PaimonSourceFactory implements TableSourceFactory {
                 .optional(
                         PaimonConfig.CATALOG_TYPE,
                         PaimonConfig.HDFS_SITE_PATH,
-                        PaimonSourceConfig.FILTER_SQL,
+                        PaimonSourceConfig.QUERY_SQL,
                         PaimonConfig.HADOOP_CONF,
                         PaimonConfig.HADOOP_CONF_PATH)
                 .conditional(

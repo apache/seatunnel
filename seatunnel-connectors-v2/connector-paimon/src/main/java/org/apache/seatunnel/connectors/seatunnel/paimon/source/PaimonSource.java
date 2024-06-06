@@ -63,7 +63,7 @@ public class PaimonSource
         this.paimonTable = paimonCatalog.getPaimonTable(tablePath);
         this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
         // TODO: We can use this to realize the column projection feature later
-        String filterSql = readonlyConfig.get(PaimonSourceConfig.FILTER_SQL);
+        String filterSql = readonlyConfig.get(PaimonSourceConfig.QUERY_SQL);
         this.predicate =
                 SqlToPaimonPredicateConverter.convertSqlWhereToPaimonPredicate(
                         this.paimonTable.rowType(), filterSql);

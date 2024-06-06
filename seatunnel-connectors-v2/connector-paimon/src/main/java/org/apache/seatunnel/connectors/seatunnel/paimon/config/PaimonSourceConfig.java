@@ -26,16 +26,16 @@ import lombok.Getter;
 @Getter
 public class PaimonSourceConfig extends PaimonConfig {
 
-    public static final Option<String> FILTER_SQL =
-            Options.key("paimon.read.filter.sql")
+    public static final Option<String> QUERY_SQL =
+            Options.key("query")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("The filter of paimon source");
+                    .withDescription("The query of paimon source");
 
-    private String filter;
+    private String query;
 
     public PaimonSourceConfig(ReadonlyConfig readonlyConfig) {
         super(readonlyConfig);
-        this.filter = readonlyConfig.get(FILTER_SQL);
+        this.query = readonlyConfig.get(QUERY_SQL);
     }
 }
