@@ -1,0 +1,33 @@
+{
+  "env": {
+    "execution.parallelism": "1",
+    "job.mode": "STREAMING",
+    "checkpoint.interval": "5000"
+  },
+  "source": [
+    {
+      "plugin_name": "Postgres-CDC",
+      "username": "postgres",
+      "password": "123123",
+      "startup.mode": "INITIAL",
+      "database-names": [
+        "ocean"
+      ],
+      "schema-names": [
+        "cdc"
+      ],
+      "table-names": [
+        "ocean.cdc.interface_tables"
+      ],
+      "base-url": "jdbc:postgresql://172.16.8.204:55432/ocean?currentSchema=cdc",
+      "result_table_name": "cdc_sink"
+    }
+  ],
+  "transform": [],
+  "sink": [
+    {
+      "source_table_name": "cdc_sink",
+      "plugin_name": "console"
+    }
+  ]
+}

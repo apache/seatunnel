@@ -1,0 +1,29 @@
+{
+  "env": {
+    "execution.parallelism": "1",
+    "job.mode": "BATCH"
+  },
+  "source": [
+    {
+      "plugin_name": "Jdbc",
+      "url": "jdbc:postgresql://172.16.11.83:5432/oceandatum?currentSchema=dw_label",
+      "password": "puser",
+      "user": "puser",
+      "driver": "org.postgresql.Driver",
+      "query": "select CONTACTINFO,REPORTER,CNT from \"dw_label\".\"test_person_data\"",
+      "result_table_name": "sink_table"
+    }
+  ],
+  "sink": [
+    {
+      "plugin_name": "Neo4j",
+      "uri": "neo4j://172.16.11.151:7687",
+      "username": "neo4j",
+      "password": "neo4j@@@",
+      "database": "neo4j",
+      "max_batch_size": 1000,
+      "write_mode": "BATCH",
+      "query": "UNWIND $batch AS row MERGE (p:Person {id: row.CONTACTINFO}) SET p.name = row.REPORTER,p.CONTACTINFO = row.CONTACTINFO,p.REPORTER = row.REPORTER,p.CNT = row.CNT"
+    }
+  ]
+}

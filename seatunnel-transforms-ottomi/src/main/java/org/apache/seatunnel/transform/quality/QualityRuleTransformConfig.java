@@ -35,13 +35,19 @@ public class QualityRuleTransformConfig implements Serializable {
                     .listType(Integer.class)
                     .noDefaultValue()
                     .withDescription("index of columns,eg:[0,1,2].");
-    public static final Option<String> RULE_ID =
-            Options.key("rule_id").stringType().noDefaultValue().withDescription("rule id.");
+    public static final Option<String> RULE_TYPE =
+            Options.key("rule_type")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("rule type,eg: regex,java....");
+    public static final Option<String> RULE_CODE =
+            Options.key("rule_code")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("rule code info.");
     public static final Option<Boolean> QUALITY_RESULT =
             Options.key("quality_result")
                     .booleanType()
                     .noDefaultValue()
                     .withDescription("data quality check result.");
-    public static final Option<String> API_URL =
-            Options.key("api_url").stringType().noDefaultValue().withDescription("rule api url.");
 }

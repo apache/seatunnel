@@ -25,9 +25,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.transform.common.AbstractCatalogSupportTransform;
 
 import cn.hutool.core.lang.Assert;
-import cn.hutool.http.HttpUtil;
-import cn.hutool.json.JSONObject;
-import cn.hutool.json.JSONUtil;
 import com.oceandatum.quality.common.rulebase.IRuleHandler;
 import com.oceandatum.quality.common.rulebase.RuleFactory;
 import lombok.NonNull;
@@ -39,8 +36,6 @@ import java.util.List;
 public class QualityRuleTransform extends AbstractCatalogSupportTransform {
 
     public static final String PLUGIN_NAME = "QualityRule";
-    private static String ruleType;
-    private static String ruleCode;
     private static boolean resultType;
     private static IRuleHandler ruleHandler;
     private static List<Integer> columns;
@@ -95,18 +90,14 @@ public class QualityRuleTransform extends AbstractCatalogSupportTransform {
 
     private void loadRule(ReadonlyConfig config) {
         try {
-            String tempUrl = config.getOptional(QualityRuleTransformConfig.API_URL).get();
-            String ruleId = config.getOptional(QualityRuleTransformConfig.RULE_ID).get();
-            columns = config.getOptional(QualityRuleTransformConfig.COLUMNS_INDEX).get();
+            String ruleType = config.getOptional(QualityRuleTransformConfig.RULE_TYPE).get();
+            String ruleCode = config.getOptional(QualityRuleTransformConfig.RULE_CODE).get();
             resultType = config.getOptional(QualityRuleTransformConfig.QUALITY_RESULT).get();
-            String apiUrl = tempUrl + ruleId;
-            String rs = HttpUtil.get(apiUrl);
-            JSONObject ruleObj = JSONUtil.parseObj(rs);
-            JSONObject dataObj = ruleObj.getJSONObject("data");
-            ruleType = dataObj.getStr("ruleType");
-            ruleCode = dataObj.getStr("ruleValue");
+            columns = config.getOptional(QualityRuleTransformConfig.COLUMNS_INDEX).get();
             Assert.notNull(ruleType);
             Assert.notNull(ruleCode);
+            Assert.notNull(resultType);
+            Assert.notNull(columns);
             ruleHandler = RuleFactory.getRule(ruleType, ruleCode);
         } catch (Exception e) {
             throw new RuntimeException("load quality rule error：", e);

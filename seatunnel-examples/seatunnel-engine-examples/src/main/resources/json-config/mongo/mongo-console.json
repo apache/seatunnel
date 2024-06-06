@@ -1,0 +1,69 @@
+{
+  "env": {
+    "job.name": "Mongo-CDC测试",
+    "job.mode": "streaming",
+    "checkpoint.interval": 5000,
+    "execution.parallelism": 1
+  },
+  "preHandler": [
+
+  ],
+  "source": [
+    {
+      "plugin_name": "MongoDB-CDC",
+      "dsId": "1689184414833025026",
+      "dsName": "mongo-cdc",
+      "dsType": "mongodb",
+      "resourceType": "nosql",
+      "hosts": "172.16.8.205:37017,172.16.8.205:37018,172.16.8.205:37019",
+      "username": "stuser",
+      "password": "stpw",
+      "startup.mode": "initial",
+      "connection.options": "authSource=admin",
+      "exactly_once": true,
+      "database": [
+        "cdc"
+      ],
+      "collection": [
+        "cdc.mongo"
+      ],
+      "schema": {
+        "fields": {
+          "_id": "STRING",
+          "name": "STRING",
+          "age": "INT"
+        }
+      },
+      "resources": [
+        "test"
+      ],
+      "result_table_name": "ot_816acfaf6fb0473288c8b2546111e48e",
+      "ottomi_node_type": "MongoDbCdcSource"
+    }
+  ],
+  "transform": [
+
+  ],
+  "sink": [
+    {
+      "plugin_name": "Console",
+      "driver": "dm.jdbc.driver.DmDriver",
+      "url": "jdbc:dm://172.16.11.202:5236/ODS",
+      "user": "SYSDBA",
+      "password": "SYSDBA",
+      "primary_keys": [
+        "_id"
+      ],
+      "batch_size": 2048,
+      "generate_sink_sql": true,
+      "database": "SYSDBA",
+      "table": "ODS.mongo_cdc_240606",
+      "schema_save_mode": "ERROR_WHEN_SCHEMA_NOT_EXIST",
+      "result_table_name": "ot_04d43a616028498985432b451acf0b02",
+      "ottomi_node_type": "JdbcSink",
+      "source_table_name": [
+        "ot_816acfaf6fb0473288c8b2546111e48e"
+      ]
+    }
+  ]
+}

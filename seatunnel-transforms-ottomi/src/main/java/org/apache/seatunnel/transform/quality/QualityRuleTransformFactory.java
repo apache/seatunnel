@@ -39,10 +39,10 @@ public class QualityRuleTransformFactory implements TableTransformFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(
-                        QualityRuleTransformConfig.RULE_ID,
+                        QualityRuleTransformConfig.RULE_CODE,
                         QualityRuleTransformConfig.COLUMNS_INDEX,
                         QualityRuleTransformConfig.QUALITY_RESULT,
-                        QualityRuleTransformConfig.API_URL)
+                        QualityRuleTransformConfig.RULE_TYPE)
                 .build();
     }
 

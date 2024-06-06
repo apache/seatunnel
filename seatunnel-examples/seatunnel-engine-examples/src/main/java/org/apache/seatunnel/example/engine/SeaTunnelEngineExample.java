@@ -31,8 +31,7 @@ public class SeaTunnelEngineExample {
 
     public static void main(String[] args)
             throws FileNotFoundException, URISyntaxException, CommandException {
-        String configurePath =
-                args.length > 0 ? args[0] : "/json-config/quality/mysql-qualtiy.json";
+        String configurePath = args.length > 0 ? args[0] : "/json-config/batch/batch-neoj.json";
         String configFile = getTestConfigFile(configurePath);
         ClientCommandArgs clientCommandArgs = new ClientCommandArgs();
         clientCommandArgs.setConfigFile(configFile);

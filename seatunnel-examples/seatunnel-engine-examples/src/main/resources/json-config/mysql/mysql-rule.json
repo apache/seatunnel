@@ -1,0 +1,74 @@
+{
+  "env": {
+    "job.name": "MYSQL-CDC测试",
+    "job.mode": "streaming",
+    "checkpoint.interval": 5000,
+    "execution.parallelism": 1
+  },
+  "preHandler": [
+
+  ],
+  "source": [
+    {
+      "plugin_name": "MySQL-CDC",
+      "dsId": "1798264074991116289",
+      "dsName": "mysql-cdc源测试",
+      "dsType": "mysql",
+      "resourceType": "table",
+      "base-url": "jdbc:mysql://172.16.11.155:3306/cdc?remarks=true&useInformationSchema=true&useCursorFetch=true&defaultFetchSize=2048&rewriteBatchedStatements=true",
+      "driver": "com.mysql.cj.jdbc.Driver",
+      "username": "root",
+      "password": "root",
+      "startup.mode": "initial",
+      "database-names": [
+        "cdc"
+      ],
+      "table-names": [
+        "cdc.device"
+      ],
+      "resources": [
+        "device"
+      ],
+      "result_table_name": "ot_455650d6dfea481b8a2b787b3f21617e",
+      "ottomi_node_type": "MysqlCdcSource"
+    }
+  ],
+  "transform": [
+    {
+      "plugin_name": "QualityRule",
+      "columns_index": [
+        0
+      ],
+      "rule_type": "regex",
+      "rule_code": "^[0-9]*$",
+      "quality_result": "true",
+      "result_table_name": "ot_2071ffda9a264eef964829d3fec24814",
+      "ottomi_node_type": "QualityRule",
+      "source_table_name": [
+        "ot_455650d6dfea481b8a2b787b3f21617e"
+      ]
+    }
+  ],
+  "sink": [
+    {
+      "plugin_name": "Jdbc",
+      "driver": "com.mysql.cj.jdbc.Driver",
+      "url": "jdbc:mysql://172.16.11.135:3306/dwd?remarks=true&useInformationSchema=true&useCursorFetch=true&defaultFetchSize=2048&rewriteBatchedStatements=true",
+      "user": "root",
+      "password": "1qaz@WSX",
+      "primary_keys": [
+        "device_id"
+      ],
+      "batch_size": 2048,
+      "generate_sink_sql": true,
+      "database": "dwd",
+      "table": "dwd.dwd_cdc_device",
+      "schema_save_mode": "ERROR_WHEN_SCHEMA_NOT_EXIST",
+      "result_table_name": "ot_2378e33a1d5c4a65b63185b408536b65",
+      "ottomi_node_type": "JdbcSink",
+      "source_table_name": [
+        "ot_2071ffda9a264eef964829d3fec24814"
+      ]
+    }
+  ]
+}

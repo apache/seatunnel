@@ -1,0 +1,33 @@
+{
+  "env": {
+    "execution.parallelism": "1",
+    "job.mode": "STREAMING",
+    "checkpoint.interval": "5000"
+  },
+  "source": [
+    {
+      "plugin_name": "Oracle-CDC",
+      "username": "system",
+      "password": "1qaz@WSX",
+      "startup.mode": "INITIAL",
+      "database-names": [
+        "ORCL"
+      ],
+      "schema-names": [
+        "WANGMENGTING"
+      ],
+      "table-names": [
+        "ORCL.WANGMENGTING.123"
+      ],
+      "base-url": "jdbc:oracle:thin:@172.16.11.193:1521/ORCL?useInformationSchema=true&remarks=true",
+      "result_table_name": "cdc_sink"
+    }
+  ],
+  "transform": [],
+  "sink": [
+    {
+      "source_table_name": "cdc_sink",
+      "plugin_name": "console"
+    }
+  ]
+}

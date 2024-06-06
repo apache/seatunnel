@@ -1,27 +1,28 @@
 {
   "env": {
-    "job.name": "唯一id测试",
+    "job.name": "Excel文件输出",
     "job.mode": "batch"
   },
   "preHandler": [],
   "source": [
     {
       "plugin_name": "Jdbc",
-      "dsId": "1584788710849748994",
-      "dsName": "mysql8.4",
+      "dsId": "1795689697682472962",
+      "dsName": "mysql-血缘测试来源库",
       "dsType": "mysql",
       "resourceType": "table",
       "driver": "com.mysql.cj.jdbc.Driver",
       "connection_check_timeout_sec": 100,
-      "query": "SELECT\n `id`,\n `name`,\n `age`,\n `sex`,\n `birthday`,\n `create_time`,\n `county`\nFROM\n `test_tb`",
-      "database": "mysql_test",
-      "url": "jdbc:mysql://172.16.8.4:3306/mysql_test?remarks=true&useInformationSchema=true&useCursorFetch=true&defaultFetchSize=2048&rewriteBatchedStatements=true",
+      "query": "SELECT\n `device_id`,\n `name`,\n `type`,\n `longitude`,\n `latitude`,\n `height`,\n `radius`,\n `distance`,\n `service_address`,\n `status`,\n `term_type`,\n `properties`,\n `runway_name`,\n `direction`,\n `runway_code`,\n `delay`\nFROM\n `device`",
+      "database": "source",
+      "url": "jdbc:mysql://172.16.11.135:3306/source?remarks=true&useInformationSchema=true&useCursorFetch=true&defaultFetchSize=2048&rewriteBatchedStatements=true",
       "user": "root",
-      "password": "123456",
+      "password": "1qaz@WSX",
       "resources": [
-        "test_tb"
+        "device"
       ],
-      "result_table_name": "ot_6f6f3d07f529482da2d54b3aaeabf807"
+      "result_table_name": "ot_5b0bd83cfc314a5285bc9ad98986f318",
+      "ottomi_node_type": "JdbcSource"
     }
   ],
   "transform": [],
@@ -29,24 +30,24 @@
     {
       "plugin_name": "S3File",
       "bucket": "s3a://ottomi",
-      "tmp_path": "/tmp/seatunnel",
-      "path": "/seatunnel/text",
+      "tmp_path": "/tmp/ottomi",
+      "path": "/file-node/download/1793833255144165377/excel/",
       "fs.s3a.endpoint": "http://172.16.11.131:9000",
       "fs.s3a.aws.credentials.provider": "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider",
       "access_key": "P7HpCVa0Eth8X3dM",
       "secret_key": "xxM9cJL5QKqq9M7jvwkQ5LJgsQSVvIay",
-      "file_format_type": "xml",
+      "file_format_type": "excel",
+      "sheet_name": "ottomi",
       "custom_filename": true,
-      "file_name_expression": "测试文件_${transactionId}",
-      "is_enable_transaction": true,
+      "file_name_expression": "order",
+      "is_enable_transaction": false,
+      "batch_size": 1000000000,
+      "max_rows_in_memory ": 2048,
+      "result_table_name": "ot_35cf038e657249f18a169b0d4d8463e8",
+      "ottomi_node_type": "ExcelSink",
       "source_table_name": [
-        "ot_6f6f3d07f529482da2d54b3aaeabf807"
-      ],
-      "hadoop_s3_properties": {
-        "fs.s3a.buffer.dir": "/data/st_test/s3a",
-        "fs.s3a.fast.upload.buffer": "disk"
-      },
-      "xml_use_attr_format": false
+        "ot_5b0bd83cfc314a5285bc9ad98986f318"
+      ]
     }
   ]
 }

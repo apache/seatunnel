@@ -44,12 +44,6 @@
             <version>${project.version}</version>
         </dependency>
 
-        <dependency>
-            <groupId>org.apache.hadoop</groupId>
-            <artifactId>hadoop-aws</artifactId>
-            <version>3.1.4</version>
-        </dependency>
-
         <!--   seatunnel-connector-v2   -->
 
         <dependency>
@@ -67,11 +61,11 @@
             <artifactId>connector-cdc-mongodb</artifactId>
             <version>${project.version}</version>
         </dependency>
-        <!--        <dependency>-->
-        <!--            <groupId>org.apache.seatunnel</groupId>-->
-        <!--            <artifactId>connector-cdc-oracle</artifactId>-->
-        <!--            <version>${project.version}</version>-->
-        <!--        </dependency>-->
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>connector-cdc-oracle</artifactId>
+            <version>${project.version}</version>
+        </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-cdc-postgres</artifactId>
@@ -102,11 +96,27 @@
             <artifactId>connector-starrocks</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <!--        <dependency>-->
+        <!--            <groupId>org.apache.seatunnel</groupId>-->
+        <!--            <artifactId>connector-file</artifactId>-->
+        <!--            <version>${project.version}</version>-->
+        <!--        </dependency>-->
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>connector-file</artifactId>
+            <artifactId>connector-file-s3</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>org.apache.hadoop</groupId>
+            <artifactId>hadoop-aws</artifactId>
+            <version>3.1.4</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>connector-neo4j</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
         <dependency>
             <groupId>mysql</groupId>
             <artifactId>mysql-connector-java</artifactId>
