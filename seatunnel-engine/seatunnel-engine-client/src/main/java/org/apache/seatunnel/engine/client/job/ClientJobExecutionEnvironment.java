@@ -67,8 +67,13 @@ public class ClientJobExecutionEnvironment extends AbstractJobEnvironment {
         this.seaTunnelHazelcastClient = seaTunnelHazelcastClient;
         this.jobClient = new JobClient(seaTunnelHazelcastClient);
         this.seaTunnelConfig = seaTunnelConfig;
-        this.jobConfig.setJobContext(
-                new JobContext(isStartWithSavePoint ? jobId : jobClient.getNewJobId()));
+        Long finalJobId;
+        if (isStartWithSavePoint || jobId != null) {
+            finalJobId = jobId;
+        } else {
+            finalJobId = jobClient.getNewJobId();
+        }
+        this.jobConfig.setJobContext(new JobContext(finalJobId));
         this.connectorPackageClient = new ConnectorPackageClient(seaTunnelHazelcastClient);
     }
 
@@ -77,7 +82,8 @@ public class ClientJobExecutionEnvironment extends AbstractJobEnvironment {
             String jobFilePath,
             List<String> variables,
             SeaTunnelHazelcastClient seaTunnelHazelcastClient,
-            SeaTunnelConfig seaTunnelConfig) {
+            SeaTunnelConfig seaTunnelConfig,
+            Long jobId) {
         this(
                 jobConfig,
                 jobFilePath,
@@ -85,7 +91,7 @@ public class ClientJobExecutionEnvironment extends AbstractJobEnvironment {
                 seaTunnelHazelcastClient,
                 seaTunnelConfig,
                 false,
-                null);
+                jobId);
     }
 
     /** Search all jars in SEATUNNEL_HOME/plugins */
