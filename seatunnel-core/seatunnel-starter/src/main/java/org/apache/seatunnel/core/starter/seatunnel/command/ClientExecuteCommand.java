@@ -144,7 +144,10 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                                     configFile.toString(),
                                     clientCommandArgs.getVariables(),
                                     jobConfig,
-                                    seaTunnelConfig);
+                                    seaTunnelConfig,
+                                    clientCommandArgs.getCustomJobId() != null
+                                            ? Long.parseLong(clientCommandArgs.getCustomJobId())
+                                            : null);
                 }
 
                 // get job start time
