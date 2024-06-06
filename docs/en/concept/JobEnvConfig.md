@@ -33,6 +33,10 @@ This parameter configures the parallelism of source and sink.
 
 Used to control the default retry times when a job fails. The default value is 3, and it only works in the Zeta engine.
 
+### savemode.execute.location
+
+This parameter is used to specify the location of the savemode when the job is executed in the Zeta engine. The default value is `CLUSTER`, which means that the savemode is executed on the cluster. If you want to execute the savemode on the client, you can set it to `CLIENT`.
+
 ### shade.identifier
 
 Specify the method of encryption, if you didn't have the requirement for encrypting or decrypting config files, this option can be ignored.
