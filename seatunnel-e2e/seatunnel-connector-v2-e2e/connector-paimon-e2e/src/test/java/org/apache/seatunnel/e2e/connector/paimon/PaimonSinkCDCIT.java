@@ -149,6 +149,20 @@ public class PaimonSinkCDCIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testSinkWithIncompatibleSchema(TestContainer container) throws Exception {
+        Container.ExecResult execResult = container.executeJob("/fake_cdc_sink_paimon_case1.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Container.ExecResult errResult =
+                container.executeJob("/fake_cdc_sink_paimon_case1_with_error_schema.conf");
+        Assertions.assertEquals(1, errResult.getExitCode());
+        Assertions.assertTrue(
+                errResult
+                        .getStderr()
+                        .contains(
+                                "[Paimon: The source filed with sql schema 'name INT', except sql schema of sink is '`name` INT'; but the filed in sink table which actual sql schema is '`name` STRING'. Please check schema of sink table.]"));
+    }
+
+    @TestTemplate
     public void testFakeMultipleTableSinkPaimon(TestContainer container) throws Exception {
         Container.ExecResult execResult = container.executeJob("/fake_cdc_sink_paimon_case2.conf");
         Assertions.assertEquals(0, execResult.getExitCode());

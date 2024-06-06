@@ -19,6 +19,7 @@ package org.apache.seatunnel.e2e.connector.paimon;
 
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
@@ -35,6 +36,7 @@ import java.nio.file.Path;
 
 @DisabledOnContainer(
         value = TestContainerId.FLINK_1_13,
+        type = {EngineType.FLINK, EngineType.SPARK},
         disabledReason = "Paimon does not support flink 1.13")
 public class PaimonIT extends TestSuiteBase {
 
