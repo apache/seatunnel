@@ -141,7 +141,7 @@ public class ClickhouseProxy {
             response.records()
                     .forEach(
                             r -> {
-                                if ("MATERIALIZED".equals(r.getValue(2).asString())) {
+                                if (!"MATERIALIZED".equals(r.getValue(2).asString())) {
                                     schema.put(r.getValue(0).asString(), r.getValue(1).asString());
                                 }
                             });
