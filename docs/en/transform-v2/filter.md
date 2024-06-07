@@ -36,7 +36,7 @@ The data read from source is a table like this:
 | Kin Dom  | 20  | 123  |
 | Joy Dom  | 20  | 123  |
 
-If we want to keep the field named `name`, `card`, we can add a `Filter` Transform like below:
+we want to keep the field named `name`, `card`, we can add a `Filter` Transform like below:
 
 ```
 transform {
@@ -48,8 +48,7 @@ transform {
 }
 ```
 
-Or we can delete the field named `age`, we can add a `Filter` Transform with the mode field be set to `DELETE` like below:
-It will be very useful when you want to delete a small number of fields from a large table with tons of fields.
+Or we can delete the field named `age` by adding a `Filter` Transform with the mode field set to `DELETE` like below:
 
 ```
 transform {
@@ -61,6 +60,8 @@ transform {
   }
 }
 ```
+
+It is useful when you want to delete a small number of fields from a large table with tons of fields.
 
 Then the data in result table `fake1` will like this
 
