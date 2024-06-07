@@ -35,16 +35,18 @@ import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
 public class FilterFieldTransform extends AbstractCatalogSupportTransform {
     public static final String PLUGIN_NAME = "Filter";
-    private int[] inputValueIndex;
-    private Set<Integer> inputValueIndexSet;
+    /**
+     * use linkedHashSet for 2 reasons: 1. Keep the order of user-input columns 2. Reduce the
+     * complexity of search operations
+     */
+    private LinkedHashSet<Integer> inputValueIndexSet;
     private final List<String> fields;
     private ExecuteModeEnum mode;
 
@@ -93,8 +95,9 @@ public class FilterFieldTransform extends AbstractCatalogSupportTransform {
         } else {
             // default mode is KEEP
             Object[] values = new Object[fields.size()];
-            for (int i = 0; i < fields.size(); i++) {
-                values[i] = inputRow.getField(inputValueIndex[i]);
+            int index = 0;
+            for (Integer inputValueIndex : inputValueIndexSet) {
+                values[index++] = inputRow.getField(inputValueIndex);
             }
             return values;
         }
@@ -107,17 +110,16 @@ public class FilterFieldTransform extends AbstractCatalogSupportTransform {
         SeaTunnelRowType seaTunnelRowType =
                 inputCatalogTable.getTableSchema().toPhysicalRowDataType();
 
-        inputValueIndex = new int[fields.size()];
+        inputValueIndexSet = new LinkedHashSet<>(fields.size());
         ArrayList<String> outputFieldNames = new ArrayList<>();
         List<Column> inputColumns = inputCatalogTable.getTableSchema().getColumns();
         for (int i = 0; i < fields.size(); i++) {
             String field = fields.get(i);
             int inputFieldIndex = seaTunnelRowType.indexOf(field);
-            inputValueIndex[i] = inputFieldIndex;
+            inputValueIndexSet.add(inputFieldIndex);
         }
 
         if (ExecuteModeEnum.DELETE.equals(mode)) {
-            inputValueIndexSet = Arrays.stream(inputValueIndex).boxed().collect(Collectors.toSet());
             for (int i = 0; i < inputColumns.size(); i++) {
                 // if the field is not in the fields, then add it to the outputColumns
                 if (!fields.contains(inputColumns.get(i).getName())) {
