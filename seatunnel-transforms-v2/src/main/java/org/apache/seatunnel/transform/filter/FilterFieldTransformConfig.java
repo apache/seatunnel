@@ -35,4 +35,13 @@ public class FilterFieldTransformConfig implements Serializable {
                     .noDefaultValue()
                     .withDescription(
                             "The list of fields that need to be kept. Fields not in the list will be deleted");
+
+    public static final Option<ExecuteModeEnum> MODE =
+            Options.key("mode")
+                    .enumType(ExecuteModeEnum.class)
+                    .defaultValue(ExecuteModeEnum.KEEP)
+                    .withDescription(
+                            "The execute mode of this filter, the default value is 'KEEP', which means only the fields in the list will be kept. "
+                                    + "The value 'DELETE' means only the fields in the list will be deleted. "
+                                    + "The value 'KEEP' and 'DELETE' cannot be set at the same time");
 }

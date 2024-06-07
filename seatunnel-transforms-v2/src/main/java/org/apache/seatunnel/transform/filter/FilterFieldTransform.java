@@ -35,20 +35,25 @@ import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
 public class FilterFieldTransform extends AbstractCatalogSupportTransform {
     public static final String PLUGIN_NAME = "Filter";
     private int[] inputValueIndex;
+    private Set<Integer> inputValueIndexSet;
     private final List<String> fields;
+    private ExecuteModeEnum mode;
 
     public FilterFieldTransform(
             @NonNull ReadonlyConfig config, @NonNull CatalogTable catalogTable) {
         super(catalogTable);
         SeaTunnelRowType seaTunnelRowType = catalogTable.getTableSchema().toPhysicalRowDataType();
         fields = config.get(FilterFieldTransformConfig.KEY_FIELDS);
+        mode = config.get(FilterFieldTransformConfig.MODE);
         List<String> canNotFoundFields =
                 fields.stream()
                         .filter(field -> seaTunnelRowType.indexOf(field, false) == -1)
@@ -68,14 +73,31 @@ public class FilterFieldTransform extends AbstractCatalogSupportTransform {
     @Override
     protected SeaTunnelRow transformRow(SeaTunnelRow inputRow) {
         // todo reuse array container if not remove fields
-        Object[] values = new Object[fields.size()];
-        for (int i = 0; i < fields.size(); i++) {
-            values[i] = inputRow.getField(inputValueIndex[i]);
-        }
-        SeaTunnelRow outputRow = new SeaTunnelRow(values);
+        SeaTunnelRow outputRow = new SeaTunnelRow(getValues(inputRow));
         outputRow.setRowKind(inputRow.getRowKind());
         outputRow.setTableId(inputRow.getTableId());
         return outputRow;
+    }
+
+    private Object[] getValues(SeaTunnelRow inputRow) {
+        if (ExecuteModeEnum.DELETE.equals(mode)) {
+            List<Object> objects = new ArrayList<>();
+            for (int i = 0; i < inputRow.getFields().length; i++) {
+                // filed in the inputValueIndexSet will be deleted
+                if (inputValueIndexSet.contains(i)) {
+                    continue;
+                }
+                objects.add(inputRow.getField(i));
+            }
+            return objects.toArray();
+        } else {
+            // default mode is KEEP
+            Object[] values = new Object[fields.size()];
+            for (int i = 0; i < fields.size(); i++) {
+                values[i] = inputRow.getField(inputValueIndex[i]);
+            }
+            return values;
+        }
     }
 
     @Override
@@ -92,8 +114,25 @@ public class FilterFieldTransform extends AbstractCatalogSupportTransform {
             String field = fields.get(i);
             int inputFieldIndex = seaTunnelRowType.indexOf(field);
             inputValueIndex[i] = inputFieldIndex;
-            outputColumns.add(inputColumns.get(inputFieldIndex).copy());
-            outputFieldNames.add(inputColumns.get(inputFieldIndex).getName());
+        }
+
+        if (ExecuteModeEnum.DELETE.equals(mode)) {
+            inputValueIndexSet = Arrays.stream(inputValueIndex).boxed().collect(Collectors.toSet());
+            for (int i = 0; i < inputColumns.size(); i++) {
+                // if the field is not in the fields, then add it to the outputColumns
+                if (!fields.contains(inputColumns.get(i).getName())) {
+                    outputColumns.add(inputColumns.get(i).copy());
+                    outputFieldNames.add(inputColumns.get(i).getName());
+                }
+            }
+        } else {
+            // the default mode is KEEP
+            for (int i = 0; i < fields.size(); i++) {
+                String field = fields.get(i);
+                int inputFieldIndex = seaTunnelRowType.indexOf(field);
+                outputColumns.add(inputColumns.get(inputFieldIndex).copy());
+                outputFieldNames.add(inputColumns.get(inputFieldIndex).getName());
+            }
         }
 
         List<ConstraintKey> outputConstraintKeys =
