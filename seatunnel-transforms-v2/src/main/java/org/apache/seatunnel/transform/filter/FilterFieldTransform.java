@@ -47,6 +47,7 @@ public class FilterFieldTransform extends AbstractCatalogSupportTransform {
      * complexity of search operations
      */
     private LinkedHashSet<Integer> inputValueIndexSet;
+
     private final List<String> fields;
     private ExecuteModeEnum mode;
 
