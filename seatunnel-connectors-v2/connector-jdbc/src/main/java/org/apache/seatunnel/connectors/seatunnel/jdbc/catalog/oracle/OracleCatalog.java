@@ -116,6 +116,22 @@ public class OracleCatalog extends AbstractJdbcCatalog {
     }
 
     @Override
+    public List<String> listDatabases() throws CatalogException {
+        try {
+            return queryString(
+                    defaultUrl,
+                    getListDatabaseSql(),
+                    rs -> {
+                        String s = rs.getString(1).trim();
+                        return SYS_DATABASES.contains(s) ? null : s;
+                    });
+        } catch (Exception e) {
+            log.info("Failed listing database in catalog oracle", e);
+            return Collections.singletonList(defaultDatabase);
+        }
+    }
+
+    @Override
     protected String getCreateTableSql(TablePath tablePath, CatalogTable table) {
         return new OracleCreateTableSqlBuilder(table).build(tablePath);
     }
