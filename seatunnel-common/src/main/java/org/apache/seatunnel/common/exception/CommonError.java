@@ -262,7 +262,7 @@ public class CommonError {
                 WRITE_SEATUNNEL_ROW_ERROR_WITH_SCHEMA_INCOMPATIBLE_SCHEMA, params);
     }
 
-    public static SeaTunnelRuntimeException writeRowErrorWithFiledsNotMatch(
+    public static SeaTunnelRuntimeException writeRowErrorWithFiledsCountNotMatch(
             String connector, int sourceFieldsNum, int sinkFieldsNum) {
         Map<String, String> params = new HashMap<>();
         params.put("connector", connector);

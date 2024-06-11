@@ -66,7 +66,7 @@ public enum CommonErrorCode implements SeaTunnelErrorCode {
 
     WRITE_SEATUNNEL_ROW_ERROR_WITH_SCHEMA_INCOMPATIBLE_SCHEMA(
             "COMMON-30",
-            "<connector>: The source filed with sql schema '<sourceFieldSqlSchema>', except sql schema of sink is '<exceptFieldSqlSchema>'; but the filed in sink table which actual sql schema is '<sinkFieldSqlSchema>'. Please check schema of sink table."),
+            "<connector>: The source filed with schema '<sourceFieldSqlSchema>', except filed schema of sink is '<exceptFieldSqlSchema>'; but the filed in sink table which actual schema is '<sinkFieldSqlSchema>'. Please check schema of sink table."),
 
     WRITE_SEATUNNEL_ROW_ERROR_WITH_FILEDS_NOT_MATCH(
             "COMMON-31",

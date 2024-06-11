@@ -347,7 +347,7 @@ public class RowConverter {
         int sourceTotalFields = seaTunnelRowType.getTotalFields();
         if (sourceTotalFields != sinkTotalFields.size()) {
             throw new CommonError()
-                    .writeRowErrorWithFiledsNotMatch(
+                    .writeRowErrorWithFiledsCountNotMatch(
                             "Paimon", sourceTotalFields, sinkTotalFields.size());
         }
         BinaryRow binaryRow = new BinaryRow(sourceTotalFields);
@@ -480,7 +480,6 @@ public class RowConverter {
                 RowTypeConverter.reconvert(sourceFieldName, seaTunnelRowType.getFieldType(i));
         DataField exceptDataField = new DataField(i, sourceFieldName, exceptDataType);
         DataType sinkDataType = sinkDataField.type();
-        // Check typeRoot
         if (!exceptDataType.getTypeRoot().equals(sinkDataType.getTypeRoot())) {
             throw new CommonError()
                     .writeRowErrorWithSchemaIncompatibleSchema(
