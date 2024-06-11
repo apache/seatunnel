@@ -19,7 +19,7 @@ Notice, you must set one and only one of `include_fields` and `exclude_fields` p
 
 The list of fields that need to be kept. Fields not in the list will be deleted.
 
-### exclude_fields [string]
+### exclude_fields [array]
 
 The list of fields that need to be deleted. Fields not in the list will be kept.
 

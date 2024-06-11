@@ -17,7 +17,7 @@
 
 需要保留的字段列表。不在列表中的字段将被删除。
 
-### exclude_fields [string]
+### exclude_fields [array]
 
 需要删除的字段列表。不在列表中的字段将被保留。
 
