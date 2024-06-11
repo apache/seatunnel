@@ -660,6 +660,8 @@ public class MultipleTableJobConfigParser {
             if (envOptions
                     .get(EnvCommonOptions.SAVEMODE_EXECUTE_LOCATION)
                     .equals(SaveModeExecuteLocation.CLIENT)) {
+                log.warn(
+                        "SaveMode execute location on CLIENT is deprecated, please use SERVER instead.");
                 Optional<SaveModeHandler> saveModeHandler = saveModeSink.getSaveModeHandler();
                 if (saveModeHandler.isPresent()) {
                     try (SaveModeHandler handler = saveModeHandler.get()) {

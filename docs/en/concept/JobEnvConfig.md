@@ -35,7 +35,9 @@ Used to control the default retry times when a job fails. The default value is 3
 
 ### savemode.execute.location
 
-This parameter is used to specify the location of the savemode when the job is executed in the Zeta engine. The default value is `CLUSTER`, which means that the savemode is executed on the cluster. If you want to execute the savemode on the client, you can set it to `CLIENT`.
+This parameter is used to specify the location of the savemode when the job is executed in the Zeta engine.
+The default value is `CLUSTER`, which means that the savemode is executed on the cluster. If you want to execute the savemode on the client,
+you can set it to `CLIENT`. Please use `CLUSTER` mode as much as possible, because when there are no problems with `CLUSTER` mode, we will remove `CLIENT` mode.
 
 ### shade.identifier
 

@@ -18,6 +18,7 @@
 package org.apache.seatunnel.api.sink;
 
 public enum SaveModeExecuteLocation {
+    @Deprecated
     CLIENT,
     CLUSTER
 }
