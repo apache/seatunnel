@@ -9,17 +9,19 @@ Filter the field.
 ## Options
 
 |  name  |  type  | required | default value |
-|--------|--------|----------|---------------|
-| fields | array  | yes      |               |
-| mode   | String | no       | KEEP          |
+|--------|--------|----------|-------------|
+| include_fields | array  | no      |             |
+| exclude_fields   | array | no       |           |
 
-### fields [array]
+Notice, the `include_fields` and `exclude_fields` can not be set at the same time.
 
-The list of fields that need to be processed. The fields in the list are either kept or deleted according to the `mode` parameter.
+### include_fields [array]
 
-### mode [string]
+The list of fields that need to be kept. Fields not in the list will be deleted.
 
-The working mode of this filter, the default value is `KEEP`, which means that only the fields in the `fields` list are kept, and the fields not in the list are deleted. If the value is `DELETE`, the fields in the `fields` list are deleted, and the fields not in the list are kept.
+### exclude_fields [string]
+
+The list of fields that need to be deleted. Fields not in the list will be kept.
 
 ### common options [string]
 
@@ -43,20 +45,19 @@ transform {
   Filter {
     source_table_name = "fake"
     result_table_name = "fake1"
-    fields = [name, card]
+    include_fields = [name, card]
   }
 }
 ```
 
-Or we can delete the field named `age` by adding a `Filter` Transform with the mode field set to `DELETE` like below:
+Or we can delete the field named `age` by adding a `Filter` Transform with `exclude_fields` field set like below:
 
 ```
 transform {
   Filter {
     source_table_name = "fake"
     result_table_name = "fake1"
-    fields = [age]
-    mode = "DELETE"
+    exclude_fields = [age]
   }
 }
 ```

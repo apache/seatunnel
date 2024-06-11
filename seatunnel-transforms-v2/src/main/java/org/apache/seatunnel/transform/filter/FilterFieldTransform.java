@@ -85,9 +85,8 @@ public class FilterFieldTransform extends AbstractCatalogSupportTransform {
     @Override
     protected SeaTunnelRow transformRow(SeaTunnelRow inputRow) {
         Object[] values = new Object[inputValueIndexList.length];
-        int index = 0;
-        for (Integer inputValueIndex : inputValueIndexList) {
-            values[index++] = inputRow.getField(inputValueIndex);
+        for (int i = 0; i < inputValueIndexList.length; i++) {
+            values[i] = inputRow.getField(inputValueIndexList[i]);
         }
         SeaTunnelRow outputRow = new SeaTunnelRow(values);
         outputRow.setRowKind(inputRow.getRowKind());
@@ -107,11 +106,10 @@ public class FilterFieldTransform extends AbstractCatalogSupportTransform {
         // include
         if (Objects.nonNull(includeFields)) {
             inputValueIndexList = new int[includeFields.size()];
-            int index = 0;
             for (int i = 0; i < includeFields.size(); i++) {
                 String fieldName = includeFields.get(i);
                 int inputFieldIndex = seaTunnelRowType.indexOf(fieldName);
-                inputValueIndexList[index++] = inputFieldIndex;
+                inputValueIndexList[i] = inputFieldIndex;
                 outputColumns.add(inputColumns.get(inputFieldIndex).copy());
                 outputFieldNames.add(inputColumns.get(inputFieldIndex).getName());
             }
