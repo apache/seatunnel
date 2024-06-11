@@ -17,11 +17,19 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hbase.sink;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseParameters;
 
 import com.google.auto.service.AutoService;
+
+import java.util.HashMap;
+import java.util.Map;
 
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.ENCODING;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.FAMILY_NAME;
@@ -58,5 +66,18 @@ public class HbaseSinkFactory implements TableSinkFactory {
                         ENCODING,
                         HBASE_EXTRA_CONFIG)
                 .build();
+    }
+
+    @Override
+    public TableSink createSink(TableSinkFactoryContext context) {
+        ReadonlyConfig config = context.getOptions();
+        CatalogTable catalogTable = context.getCatalogTable();
+        if (!config.getOptional(TABLE).isPresent()) {
+            Map<String, String> map = config.toMap();
+            map.put(TABLE.key(), catalogTable.getTableId().toTablePath().getFullName());
+            config = ReadonlyConfig.fromMap(new HashMap<>(map));
+        }
+        HbaseParameters hbaseParameters = HbaseParameters.buildWithConfig(config.toConfig());
+        return () -> new HbaseSink(hbaseParameters, catalogTable);
     }
 }
