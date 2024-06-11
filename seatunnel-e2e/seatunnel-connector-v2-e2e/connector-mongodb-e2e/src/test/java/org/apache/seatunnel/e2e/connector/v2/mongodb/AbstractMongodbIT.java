@@ -138,7 +138,7 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
                                             RANDOM.nextInt()))
                             .append("c_string", randomString())
                             .append("c_boolean", RANDOM.nextBoolean())
-                            .append("c_int", i)
+                            .append("c_int", i == 0 ? null : i)
                             .append("c_bigint", RANDOM.nextLong())
                             .append("c_double", RANDOM.nextDouble() * Double.MAX_VALUE)
                             .append(
