@@ -13,7 +13,7 @@ Filter the field.
 | include_fields | array | no       |               |
 | exclude_fields | array | no       |               |
 
-Notice, the `include_fields` and `exclude_fields` can not be set at the same time.
+Notice, you must set one and only one of `include_fields` and `exclude_fields` properties
 
 ### include_fields [array]
 

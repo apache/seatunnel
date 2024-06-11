@@ -21,7 +21,7 @@
 
 需要删除的字段列表。不在列表中的字段将被保留。
 
-注意，`include_fields` 和 `exclude_fields` 不能同时设置。
+注意，`include_fields` 和 `exclude_fields` 两个属性中，必须设置一个且只能设置一个
 
 ### common options [string]
 
