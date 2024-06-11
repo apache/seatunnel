@@ -56,6 +56,7 @@ public class FilterFieldTransform extends AbstractCatalogSupportTransform {
         SeaTunnelRowType seaTunnelRowType = catalogTable.getTableSchema().toPhysicalRowDataType();
         includeFields = config.get(FilterFieldTransformConfig.INCLUDE_FIELDS);
         excludeFields = config.get(FilterFieldTransformConfig.EXCLUDE_FIELDS);
+        // only one should be set
         if (Objects.nonNull(includeFields) && Objects.nonNull(excludeFields)) {
             throw TransformCommonError.bothIncludeAndExcludeFieldsError(getPluginName());
         }

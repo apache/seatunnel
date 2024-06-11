@@ -40,7 +40,7 @@ import java.util.Map;
 
 class FilterFieldTransformTest {
 
-    static List<String> filterKeys = Arrays.asList("key2", "key3");
+    static List<String> filterKeys = Arrays.asList("key3", "key2");
     static CatalogTable catalogTable;
     static Object[] values;
 
