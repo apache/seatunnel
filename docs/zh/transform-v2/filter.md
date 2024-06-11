@@ -8,10 +8,10 @@
 
 ## 属性
 
-| 名称             |  类型   | 是否必须 | 默认值  |
-|----------------|-------|------|------|
-| include_fields | array | no   |      |
-| exclude_fields | array | no   |  |
+|       名称       |  类型   | 是否必须 | 默认值 |
+|----------------|-------|------|-----|
+| include_fields | array | no   |     |
+| exclude_fields | array | no   |     |
 
 ### include_fields [array]
 

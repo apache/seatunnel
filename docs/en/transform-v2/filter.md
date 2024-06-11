@@ -8,10 +8,10 @@ Filter the field.
 
 ## Options
 
-|  name  |  type  | required | default value |
-|--------|--------|----------|-------------|
-| include_fields | array  | no      |             |
-| exclude_fields   | array | no       |           |
+|      name      | type  | required | default value |
+|----------------|-------|----------|---------------|
+| include_fields | array | no       |               |
+| exclude_fields | array | no       |               |
 
 Notice, the `include_fields` and `exclude_fields` can not be set at the same time.
 
