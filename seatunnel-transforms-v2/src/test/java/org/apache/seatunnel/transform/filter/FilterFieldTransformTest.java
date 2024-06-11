@@ -25,6 +25,8 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.transform.exception.TransformCommonErrorCode;
+import org.apache.seatunnel.transform.exception.TransformException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -97,10 +99,36 @@ class FilterFieldTransformTest {
     }
 
     @Test
-    void testKeepMode() {
-        // default keep mode
+    void testConfig() {
+        // test neither include nor exclude set
+        try {
+            new FilterFieldTransform(ReadonlyConfig.fromMap(new HashMap<>()), catalogTable);
+        } catch (Exception e) {
+            Assertions.assertTrue(e instanceof TransformException);
+            Assertions.assertTrue(
+                    e.getMessage()
+                            .contains(TransformCommonErrorCode.FILTER_CONFIG_MISSING.getCode()));
+        }
+
+        // test both include and exclude set
         Map<String, Object> configMap = new HashMap<>();
-        configMap.put(FilterFieldTransformConfig.KEY_FIELDS.key(), filterKeys);
+        configMap.put(FilterFieldTransformConfig.INCLUDE_FIELDS.key(), filterKeys);
+        configMap.put(FilterFieldTransformConfig.EXCLUDE_FIELDS.key(), filterKeys);
+        try {
+            new FilterFieldTransform(ReadonlyConfig.fromMap(configMap), catalogTable);
+        } catch (Exception e) {
+            Assertions.assertTrue(e instanceof TransformException);
+            Assertions.assertTrue(
+                    e.getMessage()
+                            .contains(TransformCommonErrorCode.FILTER_CONFIG_CONFLICT.getCode()));
+        }
+    }
+
+    @Test
+    void testInclude() {
+        // default include
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(FilterFieldTransformConfig.INCLUDE_FIELDS.key(), filterKeys);
 
         FilterFieldTransform filterFieldTransform =
                 new FilterFieldTransform(ReadonlyConfig.fromMap(configMap), catalogTable);
@@ -130,11 +158,10 @@ class FilterFieldTransformTest {
     }
 
     @Test
-    void testExcludeMode() {
-        // exclude mode
+    void testExclude() {
+        // exclude
         Map<String, Object> configMap = new HashMap<>();
-        configMap.put(FilterFieldTransformConfig.KEY_FIELDS.key(), filterKeys);
-        configMap.put(FilterFieldTransformConfig.MODE.key(), ExecuteModeEnum.DELETE);
+        configMap.put(FilterFieldTransformConfig.EXCLUDE_FIELDS.key(), filterKeys);
         FilterFieldTransform filterFieldTransform =
                 new FilterFieldTransform(ReadonlyConfig.fromMap(configMap), catalogTable);
 

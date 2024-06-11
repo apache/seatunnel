@@ -35,30 +35,39 @@ import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Slf4j
 public class FilterFieldTransform extends AbstractCatalogSupportTransform {
     public static final String PLUGIN_NAME = "Filter";
-    /**
-     * use linkedHashSet for 2 reasons: 1. Keep the order of user-input columns 2. Reduce the
-     * complexity of search operations
-     */
-    private LinkedHashSet<Integer> inputValueIndexSet;
 
-    private final List<String> fields;
-    private ExecuteModeEnum mode;
+    private int[] inputValueIndexList;
+
+    private final List<String> includeFields;
+    private final List<String> excludeFields;
 
     public FilterFieldTransform(
             @NonNull ReadonlyConfig config, @NonNull CatalogTable catalogTable) {
         super(catalogTable);
         SeaTunnelRowType seaTunnelRowType = catalogTable.getTableSchema().toPhysicalRowDataType();
-        fields = config.get(FilterFieldTransformConfig.KEY_FIELDS);
-        mode = config.get(FilterFieldTransformConfig.MODE);
+        includeFields = config.get(FilterFieldTransformConfig.INCLUDE_FIELDS);
+        excludeFields = config.get(FilterFieldTransformConfig.EXCLUDE_FIELDS);
+        if (Objects.nonNull(includeFields) && Objects.nonNull(excludeFields)) {
+            throw TransformCommonError.bothIncludeAndExcludeFieldsError(getPluginName());
+        }
+        if (Objects.isNull(includeFields) && Objects.isNull(excludeFields)) {
+            throw TransformCommonError.noIncludeNorExcludeFieldsError(getPluginName());
+        }
         List<String> canNotFoundFields =
-                fields.stream()
+                Stream.concat(
+                                Optional.ofNullable(includeFields).orElse(new ArrayList<>())
+                                        .stream(),
+                                Optional.ofNullable(excludeFields).orElse(new ArrayList<>())
+                                        .stream())
                         .filter(field -> seaTunnelRowType.indexOf(field, false) == -1)
                         .collect(Collectors.toList());
 
@@ -75,33 +84,15 @@ public class FilterFieldTransform extends AbstractCatalogSupportTransform {
 
     @Override
     protected SeaTunnelRow transformRow(SeaTunnelRow inputRow) {
-        // todo reuse array container if not remove fields
-        SeaTunnelRow outputRow = new SeaTunnelRow(getValues(inputRow));
+        Object[] values = new Object[inputValueIndexList.length];
+        int index = 0;
+        for (Integer inputValueIndex : inputValueIndexList) {
+            values[index++] = inputRow.getField(inputValueIndex);
+        }
+        SeaTunnelRow outputRow = new SeaTunnelRow(values);
         outputRow.setRowKind(inputRow.getRowKind());
         outputRow.setTableId(inputRow.getTableId());
         return outputRow;
-    }
-
-    private Object[] getValues(SeaTunnelRow inputRow) {
-        if (ExecuteModeEnum.DELETE.equals(mode)) {
-            List<Object> objects = new ArrayList<>();
-            for (int i = 0; i < inputRow.getFields().length; i++) {
-                // filed in the inputValueIndexSet will be deleted
-                if (inputValueIndexSet.contains(i)) {
-                    continue;
-                }
-                objects.add(inputRow.getField(i));
-            }
-            return objects.toArray();
-        } else {
-            // default mode is KEEP
-            Object[] values = new Object[fields.size()];
-            int index = 0;
-            for (Integer inputValueIndex : inputValueIndexSet) {
-                values[index++] = inputRow.getField(inputValueIndex);
-            }
-            return values;
-        }
     }
 
     @Override
@@ -111,30 +102,34 @@ public class FilterFieldTransform extends AbstractCatalogSupportTransform {
         SeaTunnelRowType seaTunnelRowType =
                 inputCatalogTable.getTableSchema().toPhysicalRowDataType();
 
-        inputValueIndexSet = new LinkedHashSet<>(fields.size());
         ArrayList<String> outputFieldNames = new ArrayList<>();
         List<Column> inputColumns = inputCatalogTable.getTableSchema().getColumns();
-        for (int i = 0; i < fields.size(); i++) {
-            String field = fields.get(i);
-            int inputFieldIndex = seaTunnelRowType.indexOf(field);
-            inputValueIndexSet.add(inputFieldIndex);
+        // include
+        if (Objects.nonNull(includeFields)) {
+            inputValueIndexList = new int[includeFields.size()];
+            int index = 0;
+            for (int i = 0; i < includeFields.size(); i++) {
+                String fieldName = includeFields.get(i);
+                int inputFieldIndex = seaTunnelRowType.indexOf(fieldName);
+                inputValueIndexList[index++] = inputFieldIndex;
+                outputColumns.add(inputColumns.get(inputFieldIndex).copy());
+                outputFieldNames.add(inputColumns.get(inputFieldIndex).getName());
+            }
         }
 
-        if (ExecuteModeEnum.DELETE.equals(mode)) {
+        // exclude
+        if (Objects.nonNull(excludeFields)) {
+            inputValueIndexList = new int[inputColumns.size() - excludeFields.size()];
+            int index = 0;
             for (int i = 0; i < inputColumns.size(); i++) {
                 // if the field is not in the fields, then add it to the outputColumns
-                if (!fields.contains(inputColumns.get(i).getName())) {
+                if (!excludeFields.contains(inputColumns.get(i).getName())) {
+                    String fieldName = inputColumns.get(i).getName();
+                    int inputFieldIndex = seaTunnelRowType.indexOf(fieldName);
+                    inputValueIndexList[index++] = inputFieldIndex;
                     outputColumns.add(inputColumns.get(i).copy());
                     outputFieldNames.add(inputColumns.get(i).getName());
                 }
-            }
-        } else {
-            // the default mode is KEEP
-            for (int i = 0; i < fields.size(); i++) {
-                String field = fields.get(i);
-                int inputFieldIndex = seaTunnelRowType.indexOf(field);
-                outputColumns.add(inputColumns.get(inputFieldIndex).copy());
-                outputFieldNames.add(inputColumns.get(inputFieldIndex).getName());
             }
         }
 

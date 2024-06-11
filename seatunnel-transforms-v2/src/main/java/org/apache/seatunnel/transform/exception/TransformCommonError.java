@@ -43,4 +43,16 @@ public class TransformCommonError {
         params.put("transform", transform);
         return new TransformException(INPUT_FIELDS_NOT_FOUND, params);
     }
+
+    public static TransformException bothIncludeAndExcludeFieldsError(String pluginName) {
+        Map<String, String> params = new HashMap<>();
+        params.put("transform", pluginName);
+        return new TransformException(TransformCommonErrorCode.FILTER_CONFIG_CONFLICT, params);
+    }
+
+    public static TransformException noIncludeNorExcludeFieldsError(String pluginName) {
+        Map<String, String> params = new HashMap<>();
+        params.put("transform", pluginName);
+        return new TransformException(TransformCommonErrorCode.FILTER_CONFIG_MISSING, params);
+    }
 }
