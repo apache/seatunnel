@@ -56,6 +56,9 @@ import java.util.Objects;
 public class HbaseIT extends TestSuiteBase implements TestResource {
 
     private static final String TABLE_NAME = "seatunnel_test";
+    private static final String MULTI_TABLE_ONE_NAME = "hbase_sink_1";
+
+    private static final String MULTI_TABLE_TWO_NAME = "hbase_sink_2";
 
     private static final String FAMILY_NAME = "info";
 
@@ -76,6 +79,9 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
         log.info("initial");
         hbaseCluster.createTable(TABLE_NAME, Arrays.asList(FAMILY_NAME));
         table = TableName.valueOf(TABLE_NAME);
+        // Create table for hbase multi-table sink test
+        hbaseCluster.createTable(MULTI_TABLE_ONE_NAME, Arrays.asList(FAMILY_NAME));
+        hbaseCluster.createTable(MULTI_TABLE_TWO_NAME, Arrays.asList(FAMILY_NAME));
     }
 
     @AfterAll
@@ -92,15 +98,8 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
         deleteData(table);
         Container.ExecResult sinkExecResult = container.executeJob("/fake-to-hbase.conf");
         Assertions.assertEquals(0, sinkExecResult.getExitCode());
-        Table hbaseTable = hbaseConnection.getTable(table);
-        Scan scan = new Scan();
-        ResultScanner scanner = hbaseTable.getScanner(scan);
-        ArrayList<Result> results = new ArrayList<>();
-        for (Result result : scanner) {
-            results.add(result);
-        }
+        ArrayList<Result> results = readData(table);
         Assertions.assertEquals(results.size(), 5);
-        scanner.close();
         Container.ExecResult sourceExecResult = container.executeJob("/hbase-to-assert.conf");
         Assertions.assertEquals(0, sourceExecResult.getExitCode());
     }
@@ -133,6 +132,26 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
         scanner.close();
     }
 
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "Currently SPARK/FLINK do not support multiple table write")
+    public void testHbaseMultiTableSink(TestContainer container)
+            throws IOException, InterruptedException {
+        TableName multiTable1 = TableName.valueOf(MULTI_TABLE_ONE_NAME);
+        TableName multiTable2 = TableName.valueOf(MULTI_TABLE_TWO_NAME);
+        deleteData(multiTable1);
+        deleteData(multiTable2);
+        Container.ExecResult sinkExecResult =
+                container.executeJob("/fake-to-hbase-with-multipletable.conf");
+        Assertions.assertEquals(0, sinkExecResult.getExitCode());
+        ArrayList<Result> results = readData(multiTable1);
+        Assertions.assertEquals(results.size(), 1);
+        results = readData(multiTable2);
+        Assertions.assertEquals(results.size(), 1);
+    }
+
     private void deleteData(TableName table) throws IOException {
         Table hbaseTable = hbaseConnection.getTable(table);
         Scan scan = new Scan();
@@ -142,5 +161,17 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
             Delete deleteRow = new Delete(result.getRow());
             hbaseTable.delete(deleteRow);
         }
+    }
+
+    public ArrayList<Result> readData(TableName table) throws IOException {
+        Table hbaseTable = hbaseConnection.getTable(table);
+        Scan scan = new Scan();
+        ResultScanner scanner = hbaseTable.getScanner(scan);
+        ArrayList<Result> results = new ArrayList<>();
+        for (Result result : scanner) {
+            results.add(result);
+        }
+        scanner.close();
+        return results;
     }
 }

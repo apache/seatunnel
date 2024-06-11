@@ -56,8 +56,9 @@ public class HbaseSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(ZOOKEEPER_QUORUM, TABLE, ROWKEY_COLUMNS, FAMILY_NAME)
+                .required(ZOOKEEPER_QUORUM, ROWKEY_COLUMNS, FAMILY_NAME)
                 .optional(
+                        TABLE,
                         ROWKEY_DELIMITER,
                         VERSION_COLUMN,
                         NULL_MODE,
@@ -77,7 +78,7 @@ public class HbaseSinkFactory implements TableSinkFactory {
             map.put(TABLE.key(), catalogTable.getTableId().toTablePath().getFullName());
             config = ReadonlyConfig.fromMap(new HashMap<>(map));
         }
-        HbaseParameters hbaseParameters = HbaseParameters.buildWithConfig(config.toConfig());
+        HbaseParameters hbaseParameters = HbaseParameters.buildWithConfig(config);
         return () -> new HbaseSink(hbaseParameters, catalogTable);
     }
 }
