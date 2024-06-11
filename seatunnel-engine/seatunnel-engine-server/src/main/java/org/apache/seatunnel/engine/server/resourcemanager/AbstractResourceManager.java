@@ -109,16 +109,14 @@ public abstract class AbstractResourceManager implements ResourceManager {
     }
 
     private void waitingWorkerRegister() {
-        if (ExecutionMode.LOCAL.equals(mode)) {
-            // Local mode, should wait worker(master node) register.
-            try {
-                while (registerWorker.isEmpty() && isRunning) {
-                    log.info("waiting current worker register to resource manager...");
-                    Thread.sleep(DEFAULT_WORKER_CHECK_INTERVAL);
-                }
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
+        // Local mode, should wait worker(master node) register.
+        try {
+            while (registerWorker.isEmpty() && isRunning) {
+                log.info("waiting current worker register to resource manager...");
+                Thread.sleep(DEFAULT_WORKER_CHECK_INTERVAL);
             }
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
         }
     }
 
