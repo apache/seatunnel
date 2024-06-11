@@ -132,7 +132,6 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
         scanner.close();
     }
 
-    @TestTemplate
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
