@@ -52,7 +52,7 @@ public class MongodbIT extends AbstractMongodbIT {
 
         Assertions.assertIterableEquals(
                 TEST_MATCH_DATASET.stream()
-                        .filter(x -> x.get("c_int").equals(2))
+                        .filter(x -> x.get("c_int") != null && x.get("c_int").equals(2))
                         .peek(e -> e.remove("_id"))
                         .collect(Collectors.toList()),
                 readMongodbData(MONGODB_MATCH_RESULT_TABLE).stream()
