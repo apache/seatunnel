@@ -20,29 +20,17 @@
 -- ----------------------------------------------------------------------------------------------------------------
 CREATE DATABASE IF NOT EXISTS `shop`;
 use shop;
--- Create and populate our products using a single insert with many rows
-CREATE TABLE products (
-  id INTEGER NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  name VARCHAR(255) NOT NULL DEFAULT 'SeaTunnel',
-  description VARCHAR(512),
-  weight FLOAT
-);
-ALTER TABLE products AUTO_INCREMENT = 101;
 
-CREATE TABLE mysql_cdc_e2e_sink_table_with_schema_change (
- id INTEGER NOT NULL AUTO_INCREMENT PRIMARY KEY,
- name VARCHAR(255) NOT NULL DEFAULT 'SeaTunnel',
- description VARCHAR(512),
- weight FLOAT
-);
+alter table products change add_column2 add_column int default 1 not null;
+delete from products where id < 155;
+insert into products
+values (155,"scooter","Small 2-wheel scooter",3.14,1),
+       (156,"car battery","12V car battery",8.1,2),
+       (157,"12-pack drill bits","12-pack of drill bits with sizes ranging from #40 to #3",0.8,3),
+       (158,"hammer","12oz carpenter's hammer",0.75,4),
+       (159,"hammer","14oz carpenter's hammer",0.875,5),
+       (160,"hammer","16oz carpenter's hammer",1.0,6),
+       (161,"rocks","box of assorted rocks",5.3,7),
+       (162,"jacket","water resistent black wind breaker",0.1,8),
+       (163,"spare tire","24 inch spare tire",22.2,9);
 
-INSERT INTO products
-VALUES (101,"scooter","Small 2-wheel scooter",3.14),
-       (102,"car battery","12V car battery",8.1),
-       (103,"12-pack drill bits","12-pack of drill bits with sizes ranging from #40 to #3",0.8),
-       (104,"hammer","12oz carpenter's hammer",0.75),
-       (105,"hammer","14oz carpenter's hammer",0.875),
-       (106,"hammer","16oz carpenter's hammer",1.0),
-       (107,"rocks","box of assorted rocks",5.3),
-       (108,"jacket","water resistent black wind breaker",0.1),
-       (109,"spare tire","24 inch spare tire",22.2);

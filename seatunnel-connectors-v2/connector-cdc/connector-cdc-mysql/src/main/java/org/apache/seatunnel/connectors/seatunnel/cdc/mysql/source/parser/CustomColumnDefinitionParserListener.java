@@ -78,7 +78,7 @@ public class CustomColumnDefinitionParserListener extends MySqlParserBaseListene
         uniqueColumn = false;
         optionalColumn = new AtomicReference<>();
         resolveColumnDataType(ctx.dataType());
-        defaultValueListener = new DefaultValueParserListener(columnEditor, optionalColumn);
+        defaultValueListener = new CustomDefaultValueParserListener(columnEditor, optionalColumn);
         listeners.add(defaultValueListener);
         super.enterColumnDefinition(ctx);
     }

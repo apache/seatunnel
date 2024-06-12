@@ -15,20 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.table.event;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.utils;
 
-import org.apache.seatunnel.api.table.catalog.TableIdentifier;
-
-import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
-
-@ToString(callSuper = true)
-public abstract class AlterTableColumnEvent extends AlterTableEvent {
-
-    @Getter @Setter protected String sourceColumnType;
-
-    public AlterTableColumnEvent(TableIdentifier tableIdentifier) {
-        super(tableIdentifier);
+public class MysqlDefaultValueUtils {
+    public static boolean isSpecialDefaultValue(Object defaultValue) {
+        String defaultValueStr = defaultValue.toString();
+        return defaultValueStr.matches(
+                        "(?i)^(CURRENT_TIMESTAMP|CURRENT_TIME|CURRENT_DATE)\\(?\\d*\\)?$")
+                || defaultValueStr.equalsIgnoreCase("TRUE")
+                || defaultValueStr.equalsIgnoreCase("FALSE");
     }
 }

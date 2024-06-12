@@ -25,6 +25,15 @@
     <artifactId>connector-jdbc-e2e-common</artifactId>
     <name>SeaTunnel : E2E : Connector V2 : Jdbc : Common</name>
 
+    <dependencies>
+        <!-- drivers -->
+        <dependency>
+            <groupId>mysql</groupId>
+            <artifactId>mysql-connector-java</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
     <build>
         <plugins>
             <plugin>

@@ -28,7 +28,6 @@ import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -40,11 +39,11 @@ import org.testcontainers.utility.DockerLoggerFactory;
 
 import lombok.extern.slf4j.Slf4j;
 
-import java.net.URL;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -66,6 +65,10 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
     private static final String MYSQL_HOST = "mysql_cdc_e2e";
     private static final String MYSQL_USER_NAME = "mysqluser";
     private static final String MYSQL_USER_PASSWORD = "mysqlpw";
+
+    private static final String QUERY = "select * from %s.%s";
+    private static final String PROJECTION_QUERY =
+            "select id,name,description,weight,add_column1,add_column2,add_column3 from %s.%s;";
 
     private static final MySqlContainer MYSQL_CONTAINER = createMySqlContainer(MySqlVersion.V8_0);
 
@@ -104,6 +107,7 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
 
     @TestTemplate
     public void testMysqlCdcWithSchemaEvolutionCase(TestContainer container) {
+
         CompletableFuture.runAsync(
                 () -> {
                     try {
@@ -116,55 +120,79 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
 
         await().atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
-                        () -> Assertions.assertIterableEquals(
-                                query(getQuerySql(MYSQL_DATABASE,SOURCE_TABLE)),
-                                query(getQuerySql(MYSQL_DATABASE,SINK_TABLE))));
+                        () ->
+                                Assertions.assertIterableEquals(
+                                        query(String.format(QUERY, MYSQL_DATABASE, SOURCE_TABLE)),
+                                        query(String.format(QUERY, MYSQL_DATABASE, SINK_TABLE))));
 
         // case1 add columns with cdc data at same time
         shopDatabase.setTemplateName("add_columns").createAndInitialize();
         await().atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
-                        () -> Assertions.assertIterableEquals(
-                                query(getQuerySql(MYSQL_DATABASE,SOURCE_TABLE)),
-                                query(getQuerySql(MYSQL_DATABASE,SINK_TABLE))));
+                        () -> {
+                            Assertions.assertIterableEquals(
+                                    query(
+                                            String.format(QUERY, MYSQL_DATABASE, SOURCE_TABLE)
+                                                    + " where id >= 128"),
+                                    query(
+                                            String.format(QUERY, MYSQL_DATABASE, SINK_TABLE)
+                                                    + " where id >= 128"));
 
-    }
+                            Assertions.assertIterableEquals(
+                                    query(
+                                            String.format(
+                                                    PROJECTION_QUERY,
+                                                    MYSQL_DATABASE,
+                                                    SOURCE_TABLE)),
+                                    query(
+                                            String.format(
+                                                    PROJECTION_QUERY, MYSQL_DATABASE, SINK_TABLE)));
 
-    private String getQuerySql(String db, String tb) {
-        return "select * from " + db + "." + tb;
-    }
+                            // The default value of add_column4 is current_timestamp()，so the
+                            // history data of sink table with this column may be different from the
+                            // source table because delay of apply schema change.
+                            String query =
+                                    String.format(
+                                            "SELECT t1.id AS table1_id, t1.add_column4 AS table1_timestamp, "
+                                                    + "t2.id AS table2_id, t2.add_column4 AS table2_timestamp, "
+                                                    + "ABS(TIMESTAMPDIFF(SECOND, t1.add_column4, t2.add_column4)) AS time_diff "
+                                                    + "FROM %s.%s t1 "
+                                                    + "INNER JOIN %s.%s t2 ON t1.id = t2.id",
+                                            MYSQL_DATABASE,
+                                            SOURCE_TABLE,
+                                            MYSQL_DATABASE,
+                                            SINK_TABLE);
+                            try (Connection jdbcConnection = getJdbcConnection();
+                                    Statement statement = jdbcConnection.createStatement();
+                                    ResultSet resultSet = statement.executeQuery(query); ) {
+                                while (resultSet.next()) {
+                                    int timeDiff = resultSet.getInt("time_diff");
+                                    Assertions.assertTrue(
+                                            timeDiff <= 3,
+                                            "Time difference exceeds 3 seconds: "
+                                                    + timeDiff
+                                                    + " seconds");
+                                }
+                            }
+                        });
 
-    private void alterSourceTableDropColumns(String database, String tableName) {
-        executeSql("ALTER TABLE " + database + "." + tableName + " drop COLUMN add_column4");
-        executeSql("update " + database + "." + tableName + " set add_column2=10 where id=112");
-    }
+        // case2 drop columns with cdc data at same time
+        shopDatabase.setTemplateName("drop_columns").createAndInitialize();
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertIterableEquals(
+                                        query(String.format(QUERY, MYSQL_DATABASE, SOURCE_TABLE)),
+                                        query(String.format(QUERY, MYSQL_DATABASE, SINK_TABLE))));
 
-    private void alterSourceTableModifyDataTypeOfColumn(String database, String tableName) {
-        executeSql("ALTER TABLE " + database + "." + tableName + " modify weight double not null");
-        executeSql(
-                "INSERT INTO "
-                        + database
-                        + "."
-                        + tableName
-                        + " VALUES (default,'productNameOne','descriptions',3.1415,'test',12,'test')");
-    }
-
-    private void alterSourceTableRenameColumnName(String database, String tableName) {
-        executeSql(
-                "ALTER TABLE "
-                        + database
-                        + "."
-                        + tableName
-                        + " change name name1 VARCHAR(255)  DEFAULT 'SeaTunnel' NOT NULL");
-        executeSql("delete from " + database + "." + tableName + " WHERE id = 111");
-    }
-
-    private void executeSql(String sql) {
-        try (Connection connection = getJdbcConnection()) {
-            connection.createStatement().execute(sql);
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
+        // case3 change column name with cdc data at same time
+        shopDatabase.setTemplateName("change_columns").createAndInitialize();
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertIterableEquals(
+                                        query(String.format(QUERY, MYSQL_DATABASE, SOURCE_TABLE)),
+                                        query(String.format(QUERY, MYSQL_DATABASE, SINK_TABLE))));
     }
 
     private Connection getJdbcConnection() throws SQLException {

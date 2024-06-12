@@ -60,7 +60,6 @@ public class CustomMySqlAntlrDdlParser extends MySqlAntlrDdlParser {
     // Remove it when debezium fixed this issue.
     @Override
     protected DataTypeResolver initializeDataTypeResolver() {
-        DataTypeResolver dataTypeResolver1 = super.initializeDataTypeResolver();
         DataTypeResolver.Builder dataTypeResolverBuilder = new DataTypeResolver.Builder();
 
         dataTypeResolverBuilder.registerDataTypes(

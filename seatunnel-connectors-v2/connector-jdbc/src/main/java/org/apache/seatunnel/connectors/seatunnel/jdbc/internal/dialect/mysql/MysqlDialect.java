@@ -18,7 +18,8 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql;
 
 import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
+import org.apache.seatunnel.api.table.event.AlterTableColumnEvent;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
@@ -29,10 +30,11 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDiale
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.SQLUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.MysqlDefaultValueUtils;
 
 import org.apache.commons.lang3.StringUtils;
 
+import com.mysql.cj.MysqlType;
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
@@ -50,6 +52,10 @@ import java.util.stream.Collectors;
 
 @Slf4j
 public class MysqlDialect implements JdbcDialect {
+
+    private static final List NOT_SUPPORTED_DEFAULT_VALUES =
+            Arrays.asList(MysqlType.BLOB, MysqlType.TEXT, MysqlType.JSON, MysqlType.GEOMETRY);
+
     public String fieldIde = FieldIdeEnum.ORIGINAL.getValue();
 
     public MysqlDialect() {}
@@ -221,21 +227,64 @@ public class MysqlDialect implements JdbcDialect {
     }
 
     @Override
-    public void refreshPhysicalTableSchemaBySchemaChangeEvent(
-            SchemaChangeEvent event,
+    public void refreshTableSchemaBySchemaChangeEvent(
+            String sourceDialectName,
+            AlterTableColumnEvent event,
             JdbcConnectionProvider jdbcConnectionProvider,
             TablePath sinkTablePath) {
         try {
             Connection connection = jdbcConnectionProvider.getOrEstablishConnection();
             Statement stmt = connection.createStatement();
-            String alterTableSql = JdbcUtils.generateAlterTableSql(event, sinkTablePath);
+            String alterTableSql = generateAlterTableSql(sourceDialectName, event, sinkTablePath);
             log.info("Apply schema change with sql: {}", alterTableSql);
             stmt.execute(alterTableSql);
         } catch (Exception e) {
             throw new JdbcConnectorException(
                     JdbcConnectorErrorCode.CONNECT_DATABASE_FAILED,
-                    "unable to open JDBC writer",
+                    "unable to refreshTableSchemaBySchemaChangeEvent",
                     e);
         }
+    }
+
+    @Override
+    public String decorateWithComment(
+            String basicSql, BasicTypeDefine<MysqlType> mysqlTypeBasicTypeDefine) {
+        MysqlType nativeType = mysqlTypeBasicTypeDefine.getNativeType();
+        if (NOT_SUPPORTED_DEFAULT_VALUES.contains(nativeType)) {
+            return basicSql;
+        }
+        return JdbcDialect.super.decorateWithComment(basicSql, mysqlTypeBasicTypeDefine);
+    }
+
+    @Override
+    public boolean needsQuotesWithDefaultValue(String sqlType) {
+        MysqlType mysqlType = MysqlType.getByName(sqlType);
+        switch (mysqlType) {
+            case CHAR:
+            case VARCHAR:
+            case TEXT:
+            case TINYTEXT:
+            case MEDIUMTEXT:
+            case LONGTEXT:
+            case ENUM:
+            case SET:
+            case BLOB:
+            case TINYBLOB:
+            case MEDIUMBLOB:
+            case LONGBLOB:
+            case DATE:
+            case DATETIME:
+            case TIMESTAMP:
+            case TIME:
+            case YEAR:
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    @Override
+    public boolean isSpecialDefaultValue(Object defaultValue) {
+        return MysqlDefaultValueUtils.isSpecialDefaultValue(defaultValue);
     }
 }

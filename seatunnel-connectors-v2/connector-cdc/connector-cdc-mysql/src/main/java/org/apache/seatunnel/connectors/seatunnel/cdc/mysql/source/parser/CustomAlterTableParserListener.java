@@ -95,18 +95,24 @@ public class CustomAlterTableParserListener extends MySqlParserBaseListener {
                 () -> {
                     Column column = columnDefinitionListener.getColumn();
                     if (ctx.FIRST() != null) {
-                        changes.add(
+                        AlterTableAddColumnEvent alterTableAddColumnEvent =
                                 AlterTableAddColumnEvent.addFirst(
-                                        tableIdentifier, toSeatunnelColumn(column)));
+                                        tableIdentifier, toSeatunnelColumn(column));
+                        alterTableAddColumnEvent.setSourceColumnType(getSourceColumnType(column));
+                        changes.add(alterTableAddColumnEvent);
                     } else if (ctx.AFTER() != null) {
                         String afterColumn = parser.parseName(ctx.uid(1));
-                        changes.add(
+                        AlterTableAddColumnEvent alterTableAddColumnEvent =
                                 AlterTableAddColumnEvent.addAfter(
-                                        tableIdentifier, toSeatunnelColumn(column), afterColumn));
+                                        tableIdentifier, toSeatunnelColumn(column), afterColumn);
+                        alterTableAddColumnEvent.setSourceColumnType(getSourceColumnType(column));
+                        changes.add(alterTableAddColumnEvent);
                     } else {
-                        changes.add(
+                        AlterTableAddColumnEvent alterTableAddColumnEvent =
                                 AlterTableAddColumnEvent.add(
-                                        tableIdentifier, toSeatunnelColumn(column)));
+                                        tableIdentifier, toSeatunnelColumn(column));
+                        alterTableAddColumnEvent.setSourceColumnType(getSourceColumnType(column));
+                        changes.add(alterTableAddColumnEvent);
                     }
                     listeners.remove(columnDefinitionListener);
                 },
@@ -148,18 +154,24 @@ public class CustomAlterTableParserListener extends MySqlParserBaseListener {
                 () -> {
                     Column column = columnDefinitionListener.getColumn();
                     if (ctx.FIRST() != null) {
-                        changes.add(
+                        AlterTableAddColumnEvent alterTableAddColumnEvent =
                                 AlterTableModifyColumnEvent.addFirst(
-                                        tableIdentifier, toSeatunnelColumn(column)));
+                                        tableIdentifier, toSeatunnelColumn(column));
+                        alterTableAddColumnEvent.setSourceColumnType(getSourceColumnType(column));
+                        changes.add(alterTableAddColumnEvent);
                     } else if (ctx.AFTER() != null) {
                         String afterColumn = parser.parseName(ctx.uid(1));
-                        changes.add(
+                        AlterTableAddColumnEvent alterTableAddColumnEvent =
                                 AlterTableModifyColumnEvent.addAfter(
-                                        tableIdentifier, toSeatunnelColumn(column), afterColumn));
+                                        tableIdentifier, toSeatunnelColumn(column), afterColumn);
+                        alterTableAddColumnEvent.setSourceColumnType(getSourceColumnType(column));
+                        changes.add(alterTableAddColumnEvent);
                     } else {
-                        changes.add(
+                        AlterTableAddColumnEvent alterTableAddColumnEvent =
                                 AlterTableModifyColumnEvent.add(
-                                        tableIdentifier, toSeatunnelColumn(column)));
+                                        tableIdentifier, toSeatunnelColumn(column));
+                        alterTableAddColumnEvent.setSourceColumnType(getSourceColumnType(column));
+                        changes.add(alterTableAddColumnEvent);
                     }
                     listeners.remove(columnDefinitionListener);
                 },
@@ -187,13 +199,14 @@ public class CustomAlterTableParserListener extends MySqlParserBaseListener {
                     String oldColumnName = column.name();
                     String newColumnName = parser.parseName(ctx.newColumn);
                     Column newColumn = column.edit().name(newColumnName).create();
+                    AlterTableChangeColumnEvent alterTableChangeColumnEvent =
+                            AlterTableChangeColumnEvent.change(
+                                    tableIdentifier, oldColumnName, toSeatunnelColumn(newColumn));
                     if (StringUtils.isNotBlank(newColumnName)
                             && !StringUtils.equals(oldColumnName, newColumnName)) {
-                        changes.add(
-                                AlterTableChangeColumnEvent.change(
-                                        tableIdentifier,
-                                        oldColumnName,
-                                        toSeatunnelColumn(newColumn)));
+                        alterTableChangeColumnEvent.setSourceColumnType(
+                                getSourceColumnType(newColumn));
+                        changes.add(alterTableChangeColumnEvent);
                     }
                     listeners.remove(columnDefinitionListener);
                 },
@@ -214,5 +227,18 @@ public class CustomAlterTableParserListener extends MySqlParserBaseListener {
 
     private TableIdentifier toTableIdentifier(TableId tableId) {
         return new TableIdentifier("", tableId.catalog(), tableId.schema(), tableId.table());
+    }
+
+    private String getSourceColumnType(Column column) {
+        StringBuilder sb = new StringBuilder(column.typeName());
+        if (column.length() >= 0) {
+            sb.append('(').append(column.length());
+            if (column.scale().isPresent()) {
+                sb.append(", ").append(column.scale().get());
+            }
+
+            sb.append(')');
+        }
+        return sb.toString();
     }
 }

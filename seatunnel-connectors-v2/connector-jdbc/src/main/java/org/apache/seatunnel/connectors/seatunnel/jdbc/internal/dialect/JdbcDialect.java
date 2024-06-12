@@ -17,8 +17,17 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect;
 
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
+import org.apache.seatunnel.api.table.converter.ConverterLoader;
+import org.apache.seatunnel.api.table.converter.TypeConverter;
+import org.apache.seatunnel.api.table.event.AlterTableAddColumnEvent;
+import org.apache.seatunnel.api.table.event.AlterTableChangeColumnEvent;
+import org.apache.seatunnel.api.table.event.AlterTableColumnEvent;
+import org.apache.seatunnel.api.table.event.AlterTableDropColumnEvent;
+import org.apache.seatunnel.api.table.event.AlterTableModifyColumnEvent;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.SimpleJdbcConnectionProvider;
@@ -31,6 +40,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.mysql.cj.MysqlType;
+
 import java.io.Serializable;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -42,6 +53,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -428,12 +440,263 @@ public interface JdbcDialect extends Serializable {
     /**
      * Refresh physical table schema by schema change event
      *
+     * @param sourceDialectName
      * @param event
      * @param jdbcConnectionProvider
      * @param sinkTablePath
      */
-    default void refreshPhysicalTableSchemaBySchemaChangeEvent(
-            SchemaChangeEvent event,
+    default void refreshTableSchemaBySchemaChangeEvent(
+            String sourceDialectName,
+            AlterTableColumnEvent event,
             JdbcConnectionProvider jdbcConnectionProvider,
-            TablePath sinkTablePath) {};
+            TablePath sinkTablePath) {}
+
+    /**
+     * generate alter table sql
+     *
+     * @param sourceDialectName
+     * @param event
+     * @param sinkTablePath
+     * @return
+     */
+    default String generateAlterTableSql(
+            String sourceDialectName, AlterTableColumnEvent event, TablePath sinkTablePath) {
+        String tableIdentifierWithQuoted =
+                tableIdentifier(sinkTablePath.getDatabaseName(), sinkTablePath.getTableName());
+        switch (event.getEventType()) {
+            case SCHEMA_CHANGE_ADD_COLUMN:
+                Column addColumn = ((AlterTableAddColumnEvent) event).getColumn();
+                return buildAlterTableSql(
+                        sourceDialectName,
+                        event.getSourceColumnType(),
+                        AlterType.ADD.name(),
+                        addColumn,
+                        tableIdentifierWithQuoted,
+                        StringUtils.EMPTY);
+            case SCHEMA_CHANGE_DROP_COLUMN:
+                String dropColumn = ((AlterTableDropColumnEvent) event).getColumn();
+                return buildAlterTableSql(
+                        sourceDialectName,
+                        event.getSourceColumnType(),
+                        AlterType.DROP.name(),
+                        null,
+                        tableIdentifierWithQuoted,
+                        dropColumn);
+            case SCHEMA_CHANGE_MODIFY_COLUMN:
+                Column modifyColumn = ((AlterTableModifyColumnEvent) event).getColumn();
+                return buildAlterTableSql(
+                        sourceDialectName,
+                        event.getSourceColumnType(),
+                        AlterType.MODIFY.name(),
+                        modifyColumn,
+                        tableIdentifierWithQuoted,
+                        StringUtils.EMPTY);
+            case SCHEMA_CHANGE_CHANGE_COLUMN:
+                AlterTableChangeColumnEvent alterTableChangeColumnEvent =
+                        (AlterTableChangeColumnEvent) event;
+                Column changeColumn = alterTableChangeColumnEvent.getColumn();
+                String oldColumnName = alterTableChangeColumnEvent.getOldColumn();
+                return buildAlterTableSql(
+                        sourceDialectName,
+                        event.getSourceColumnType(),
+                        AlterType.CHANGE.name(),
+                        changeColumn,
+                        tableIdentifierWithQuoted,
+                        oldColumnName);
+            default:
+                throw new SeaTunnelException(
+                        "Unsupported schemaChangeEvent for event type: " + event.getEventType());
+        }
+    }
+
+    /**
+     * build alter table sql
+     *
+     * @param alterOperation
+     * @param newColumn
+     * @param tableName
+     * @param oldColumnName
+     * @return
+     */
+    default String buildAlterTableSql(
+            String sourceDialectName,
+            String sourceColumnType,
+            String alterOperation,
+            Column newColumn,
+            String tableName,
+            String oldColumnName) {
+        if (StringUtils.equals(alterOperation, AlterType.DROP.name())) {
+            return String.format(
+                    "ALTER TABLE %s drop column %s", tableName, quoteIdentifier(oldColumnName));
+        }
+        TypeConverter<?> typeConverter = ConverterLoader.loadTypeConverter(dialectName());
+        BasicTypeDefine<MysqlType> typeBasicTypeDefine =
+                (BasicTypeDefine<MysqlType>) typeConverter.reconvert(newColumn);
+
+        String basicSql = buildAlterTableBasicSql(alterOperation, tableName);
+        basicSql =
+                decorateWithColumnNameAndType(
+                        sourceDialectName,
+                        sourceColumnType,
+                        basicSql,
+                        alterOperation,
+                        newColumn,
+                        oldColumnName,
+                        typeBasicTypeDefine.getColumnType());
+        basicSql = decorateWithNullable(basicSql, typeBasicTypeDefine);
+        basicSql = decorateWithDefaultValue(basicSql, typeBasicTypeDefine);
+        basicSql = decorateWithComment(basicSql, typeBasicTypeDefine);
+        return basicSql + ";";
+    }
+
+    /**
+     * build the body of alter table sql
+     *
+     * @param alterOperation
+     * @param tableName
+     * @return
+     */
+    default String buildAlterTableBasicSql(String alterOperation, String tableName) {
+        StringBuilder sql =
+                new StringBuilder(
+                        "ALTER TABLE "
+                                + tableName
+                                + StringUtils.SPACE
+                                + alterOperation
+                                + StringUtils.SPACE);
+        return sql.toString();
+    }
+
+    /**
+     * decorate the sql with column name and type
+     *
+     * @param sourceDialectName
+     * @param sourceColumnType
+     * @param basicSql
+     * @param alterOperation
+     * @param newColumn
+     * @param oldColumnName
+     * @param columnType
+     * @return
+     */
+    default String decorateWithColumnNameAndType(
+            String sourceDialectName,
+            String sourceColumnType,
+            String basicSql,
+            String alterOperation,
+            Column newColumn,
+            String oldColumnName,
+            String columnType) {
+        StringBuilder sql = new StringBuilder(basicSql);
+        String oldColumnNameWithQuoted = quoteIdentifier(oldColumnName);
+        String newColumnNameWithQuoted = quoteIdentifier(newColumn.getName());
+        if (alterOperation.equals(AlterType.CHANGE.name())) {
+            sql.append(oldColumnNameWithQuoted)
+                    .append(StringUtils.SPACE)
+                    .append(newColumnNameWithQuoted)
+                    .append(StringUtils.SPACE);
+        } else {
+            sql.append(newColumnNameWithQuoted).append(StringUtils.SPACE);
+        }
+        if (sourceDialectName.equals(dialectName())) {
+            sql.append(sourceColumnType);
+        } else {
+            sql.append(columnType);
+        }
+        sql.append(StringUtils.SPACE);
+        return sql.toString();
+    }
+
+    /**
+     * decorate with nullable
+     *
+     * @param basicSql
+     * @param typeBasicTypeDefine
+     * @return
+     */
+    default String decorateWithNullable(
+            String basicSql, BasicTypeDefine<MysqlType> typeBasicTypeDefine) {
+        StringBuilder sql = new StringBuilder(basicSql);
+        if (typeBasicTypeDefine.isNullable()) {
+            sql.append("NULL ");
+        } else {
+            sql.append("NOT NULL ");
+        }
+        return sql.toString();
+    }
+
+    /**
+     * decorate with default value
+     *
+     * @param basicSql
+     * @param typeBasicTypeDefine
+     * @return
+     */
+    default String decorateWithDefaultValue(
+            String basicSql, BasicTypeDefine<MysqlType> typeBasicTypeDefine) {
+        Object defaultValue = typeBasicTypeDefine.getDefaultValue();
+        if (needsQuotesWithDefaultValue(typeBasicTypeDefine.getColumnType())
+                && !isSpecialDefaultValue(defaultValue)) {
+            defaultValue = quotesDefaultValue(defaultValue);
+        }
+        StringBuilder sql = new StringBuilder(basicSql);
+        if (Objects.nonNull(defaultValue)) {
+            sql.append("DEFAULT ").append(defaultValue).append(StringUtils.SPACE);
+        }
+        return sql.toString();
+    }
+
+    /**
+     * decorate with comment
+     *
+     * @param basicSql
+     * @param typeBasicTypeDefine
+     * @return
+     */
+    default String decorateWithComment(
+            String basicSql, BasicTypeDefine<MysqlType> typeBasicTypeDefine) {
+        String comment = typeBasicTypeDefine.getComment();
+        StringBuilder sql = new StringBuilder(basicSql);
+        if (StringUtils.isNotBlank(comment)) {
+            sql.append("COMMENT '").append(comment).append("'");
+        }
+        return sql.toString();
+    }
+
+    /**
+     * whether quotes with default value
+     *
+     * @param sqlType
+     * @return
+     */
+    default boolean needsQuotesWithDefaultValue(String sqlType) {
+        return false;
+    }
+
+    /**
+     * whether is special default value e.g. current_timestamp
+     *
+     * @param defaultValue
+     * @return
+     */
+    default boolean isSpecialDefaultValue(Object defaultValue) {
+        return false;
+    }
+
+    /**
+     * quotes default value
+     *
+     * @param defaultValue
+     * @return
+     */
+    default String quotesDefaultValue(Object defaultValue) {
+        return "'" + defaultValue + "'";
+    }
+
+    enum AlterType {
+        ADD,
+        DROP,
+        MODIFY,
+        CHANGE
+    }
 }

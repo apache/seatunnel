@@ -41,9 +41,14 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.JdbcBatc
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcSinkState;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.XidInfo;
 
+import org.apache.commons.lang3.StringUtils;
+
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 import java.util.List;
 
+@Slf4j
 public abstract class AbstractJdbcSink implements SinkWriter<SeaTunnelRow, XidInfo, JdbcSinkState> {
 
     protected JdbcDialect dialect;
@@ -57,17 +62,23 @@ public abstract class AbstractJdbcSink implements SinkWriter<SeaTunnelRow, XidIn
     @Override
     public void applySchemaChange(SchemaChangeEvent event) throws IOException {
         if (event instanceof AlterTableColumnsEvent) {
-            List<AlterTableColumnEvent> events = ((AlterTableColumnsEvent) event).getEvents();
+            AlterTableColumnsEvent alterTableColumnsEvent = (AlterTableColumnsEvent) event;
+            String sourceDialectName = alterTableColumnsEvent.getSourceDialectName();
+            if (StringUtils.isBlank(sourceDialectName)) {
+                throw new SeaTunnelException(
+                        "The sourceDialectName in AlterTableColumnEvent can not be empty");
+            }
+            List<AlterTableColumnEvent> events = alterTableColumnsEvent.getEvents();
             for (AlterTableColumnEvent alterTableColumnEvent : events) {
-                processSchemaChangeEvent(alterTableColumnEvent);
+                processSchemaChangeEvent(alterTableColumnEvent, sourceDialectName);
             }
         } else {
-            this.processSchemaChangeEvent(event);
+            log.warn("We only support AlterTableColumnsEvent, but actual event is " + event);
         }
     }
 
-    protected void processSchemaChangeEvent(SchemaChangeEvent event) throws IOException {
-        // apply columns change
+    protected void processSchemaChangeEvent(AlterTableColumnEvent event, String sourceDialectName)
+            throws IOException {
         TableSchema newTableSchema = this.tableSchema.copy();
         List<Column> columns = newTableSchema.getColumns();
         switch (event.getEventType()) {
@@ -94,19 +105,19 @@ public abstract class AbstractJdbcSink implements SinkWriter<SeaTunnelRow, XidIn
                 throw new SeaTunnelException(
                         "Unsupported schemaChangeEvent for event type: " + event.getEventType());
         }
-        // refresh table schema in seatunnel
         this.tableSchema = newTableSchema;
-        reOpenOutputFormat(event);
+        reOpenOutputFormat(event, sourceDialectName);
     }
 
-    protected void reOpenOutputFormat(SchemaChangeEvent event) throws IOException {
+    protected void reOpenOutputFormat(AlterTableColumnEvent event, String sourceDialectName)
+            throws IOException {
         JdbcOutputFormat<SeaTunnelRow, JdbcBatchStatementExecutor<SeaTunnelRow>> oldOutputFormat =
                 this.outputFormat;
         try {
             flushCommit();
             try {
-                dialect.refreshPhysicalTableSchemaBySchemaChangeEvent(
-                        event, connectionProvider, sinkTablePath);
+                dialect.refreshTableSchemaBySchemaChangeEvent(
+                        sourceDialectName, event, connectionProvider, sinkTablePath);
             } catch (Throwable e) {
                 throw new JdbcConnectorException(
                         JdbcConnectorErrorCode.REFRESH_PHYSICAL_TABLESCHEMA_BY_SCHEMA_CHANGE_EVENT,

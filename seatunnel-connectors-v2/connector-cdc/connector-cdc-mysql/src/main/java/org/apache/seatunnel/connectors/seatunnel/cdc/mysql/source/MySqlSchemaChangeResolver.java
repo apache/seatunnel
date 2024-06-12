@@ -28,6 +28,7 @@ import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.schema.AbstractSchemaChangeResolver;
 import org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.parser.CustomMySqlAntlrDdlParser;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.kafka.connect.source.SourceRecord;
@@ -64,14 +65,16 @@ public class MySqlSchemaChangeResolver extends AbstractSchemaChangeResolver {
         customMySqlAntlrDdlParser.parse(ddl, tables);
         List<AlterTableColumnEvent> parsedEvents =
                 customMySqlAntlrDdlParser.getAndClearParsedEvents();
-        return parsedEvents.isEmpty()
-                ? null
-                : new AlterTableColumnsEvent(
+        AlterTableColumnsEvent alterTableColumnsEvent =
+                new AlterTableColumnsEvent(
                         TableIdentifier.of(
                                 StringUtils.EMPTY,
                                 tablePath.getDatabaseName(),
                                 tablePath.getSchemaName(),
                                 tablePath.getTableName()),
                         parsedEvents);
+        alterTableColumnsEvent.setStatement(ddl);
+        alterTableColumnsEvent.setSourceDialectName(DatabaseIdentifier.MYSQL);
+        return parsedEvents.isEmpty() ? null : alterTableColumnsEvent;
     }
 }
