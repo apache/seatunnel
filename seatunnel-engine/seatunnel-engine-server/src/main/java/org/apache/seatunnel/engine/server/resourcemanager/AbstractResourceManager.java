@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.resourcemanager;
 
+import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.ReleaseSlotOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.ResetResourceOperation;
@@ -54,12 +55,15 @@ public abstract class AbstractResourceManager implements ResourceManager {
 
     private final ExecutionMode mode;
 
+    private final EngineConfig engineConfig;
+
     private volatile boolean isRunning = true;
 
-    public AbstractResourceManager(NodeEngine nodeEngine, ExecutionMode mode) {
+    public AbstractResourceManager(NodeEngine nodeEngine, EngineConfig engineConfig) {
         this.registerWorker = new ConcurrentHashMap<>();
         this.nodeEngine = nodeEngine;
-        this.mode = mode;
+        this.engineConfig = engineConfig;
+        this.mode = engineConfig.getMode();
     }
 
     @Override
@@ -109,14 +113,16 @@ public abstract class AbstractResourceManager implements ResourceManager {
     }
 
     private void waitingWorkerRegister() {
-        // Local mode, should wait worker(master node) register.
-        try {
-            while (registerWorker.isEmpty() && isRunning) {
-                log.info("waiting current worker register to resource manager...");
-                Thread.sleep(DEFAULT_WORKER_CHECK_INTERVAL);
+        if (ExecutionMode.LOCAL.equals(mode)) {
+            // Local mode, should wait worker(master node) register.
+            try {
+                while (registerWorker.isEmpty() && isRunning) {
+                    log.info("waiting current worker register to resource manager...");
+                    Thread.sleep(DEFAULT_WORKER_CHECK_INTERVAL);
+                }
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
             }
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
         }
     }
 
@@ -247,7 +253,7 @@ public abstract class AbstractResourceManager implements ResourceManager {
     @Override
     public void heartbeat(WorkerProfile workerProfile) {
         if (!registerWorker.containsKey(workerProfile.getAddress())) {
-            log.debug("received new worker register: " + workerProfile.getAddress());
+            log.info("received new worker register: " + workerProfile.getAddress());
             sendToMember(new ResetResourceOperation(), workerProfile.getAddress()).join();
         } else {
             log.debug("received worker heartbeat from: " + workerProfile.getAddress());

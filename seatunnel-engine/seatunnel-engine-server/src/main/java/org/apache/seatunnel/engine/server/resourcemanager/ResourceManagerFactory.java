@@ -39,11 +39,11 @@ public class ResourceManagerFactory {
     public ResourceManager getResourceManager(DeployType type) {
         ExecutionMode mode = engineConfig.getMode();
         if (DeployType.STANDALONE.equals(type)) {
-            return new StandaloneResourceManager(nodeEngine, mode);
+            return new StandaloneResourceManager(nodeEngine, engineConfig);
         } else if (DeployType.KUBERNETES.equals(type)) {
-            return new KubernetesResourceManager(nodeEngine, mode);
+            return new KubernetesResourceManager(nodeEngine, engineConfig);
         } else if (DeployType.YARN.equals(type)) {
-            return new YarnResourceManager(nodeEngine, mode);
+            return new YarnResourceManager(nodeEngine, engineConfig);
         } else {
             throw new UnsupportedDeployTypeException(type);
         }

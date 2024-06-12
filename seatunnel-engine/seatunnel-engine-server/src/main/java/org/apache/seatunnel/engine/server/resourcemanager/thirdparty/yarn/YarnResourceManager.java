@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.engine.server.resourcemanager.thirdparty.yarn;
 
-import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
+import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.server.resourcemanager.AbstractResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.thirdparty.CreateWorkerResult;
@@ -29,8 +29,8 @@ import java.util.concurrent.CompletableFuture;
 
 public class YarnResourceManager extends AbstractResourceManager
         implements ThirdPartyResourceManager {
-    public YarnResourceManager(NodeEngine nodeEngine, ExecutionMode mode) {
-        super(nodeEngine, mode);
+    public YarnResourceManager(NodeEngine nodeEngine, EngineConfig engineConfig) {
+        super(nodeEngine, engineConfig);
     }
 
     @Override
