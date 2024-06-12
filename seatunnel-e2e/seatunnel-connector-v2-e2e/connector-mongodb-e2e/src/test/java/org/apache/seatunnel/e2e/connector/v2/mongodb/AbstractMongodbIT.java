@@ -58,6 +58,8 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
 
     protected static final List<Document> TEST_SPLIT_DATASET = generateTestDataSet(10);
 
+    protected static final List<Document> TEST_NULL_DATASET = generateTestDataSetWithNull(10);
+
     protected static final String MONGODB_IMAGE = "mongo:latest";
 
     protected static final String MONGODB_CONTAINER_HOST = "e2e_mongodb";
@@ -69,6 +71,10 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
     protected static final String MONGODB_MATCH_TABLE = "test_match_op_db";
 
     protected static final String MONGODB_SPLIT_TABLE = "test_split_op_db";
+
+    protected static final String MONGODB_NULL_TABLE = "test_null_op_db";
+
+    protected static final String MONGODB_NULL_TABLE_RESULT = "test_null_op_db_result";
 
     protected static final String MONGODB_MATCH_RESULT_TABLE = "test_match_op_result_db";
 
@@ -101,15 +107,18 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
     protected void initSourceData() {
         MongoCollection<Document> sourceMatchTable =
                 client.getDatabase(MONGODB_DATABASE).getCollection(MONGODB_MATCH_TABLE);
-
         sourceMatchTable.deleteMany(new Document());
         sourceMatchTable.insertMany(TEST_MATCH_DATASET);
 
         MongoCollection<Document> sourceSplitTable =
                 client.getDatabase(MONGODB_DATABASE).getCollection(MONGODB_SPLIT_TABLE);
-
         sourceSplitTable.deleteMany(new Document());
         sourceSplitTable.insertMany(TEST_SPLIT_DATASET);
+
+        MongoCollection<Document> sourceNullTable =
+                client.getDatabase(MONGODB_DATABASE).getCollection(MONGODB_NULL_TABLE);
+        sourceNullTable.deleteMany(new Document());
+        sourceNullTable.insertMany(TEST_NULL_DATASET);
     }
 
     protected void clearDate(String table) {
@@ -139,7 +148,6 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
                             .append("c_string", randomString())
                             .append("c_boolean", RANDOM.nextBoolean())
                             .append("c_int", i)
-                            .append("c_int2", null)
                             .append("c_bigint", RANDOM.nextLong())
                             .append("c_double", RANDOM.nextDouble() * Double.MAX_VALUE)
                             .append(
@@ -166,6 +174,23 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
                                             .append(
                                                     "c_double",
                                                     RANDOM.nextDouble() * Double.MAX_VALUE)));
+        }
+        return dataSet;
+    }
+
+    public static List<Document> generateTestDataSetWithNull(int count) {
+        List<Document> dataSet = new ArrayList<>();
+
+        for (int i = 0; i < count; i++) {
+            dataSet.add(
+                    new Document("c_map", null)
+                            .append("c_array", null)
+                            .append("c_string", null)
+                            .append("c_boolean", null)
+                            .append("c_int", null)
+                            .append("c_bigint", null)
+                            .append("c_double", null)
+                            .append("c_row", null));
         }
         return dataSet;
     }

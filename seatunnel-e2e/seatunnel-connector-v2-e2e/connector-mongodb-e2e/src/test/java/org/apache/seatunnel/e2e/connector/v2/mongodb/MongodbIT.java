@@ -44,6 +44,15 @@ public class MongodbIT extends AbstractMongodbIT {
     }
 
     @TestTemplate
+    public void testMongodbNullValue(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult nullResult = container.executeJob("/mongodb_null_value.conf");
+        Assertions.assertEquals(0, nullResult.getExitCode(), nullResult.getStderr());
+        clearDate(MONGODB_NULL_TABLE);
+        clearDate(MONGODB_NULL_TABLE_RESULT);
+    }
+
+    @TestTemplate
     public void testMongodbSourceMatch(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult queryResult =
