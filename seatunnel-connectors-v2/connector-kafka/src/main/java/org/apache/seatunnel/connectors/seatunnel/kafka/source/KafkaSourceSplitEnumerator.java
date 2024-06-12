@@ -219,9 +219,9 @@ public class KafkaSourceSplitEnumerator
 
     @Override
     public void registerReader(int subtaskId) {
-        if (!pendingSplit.isEmpty()) {
+        /*        if (!pendingSplit.isEmpty()) {
             assignSplit();
-        }
+        }*/
     }
 
     @Override
