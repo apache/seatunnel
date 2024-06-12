@@ -51,23 +51,31 @@ public class PaimonSourceSplitEnumerator
 
     private final Predicate predicate;
 
+    private int[] projection;
+
     public PaimonSourceSplitEnumerator(
-            Context<PaimonSourceSplit> context, Table table, Predicate predicate) {
+            Context<PaimonSourceSplit> context,
+            Table table,
+            Predicate predicate,
+            int[] projection) {
         this.context = context;
         this.table = table;
         this.assignedSplit = new HashSet<>();
         this.predicate = predicate;
+        this.projection = projection;
     }
 
     public PaimonSourceSplitEnumerator(
             Context<PaimonSourceSplit> context,
             Table table,
             PaimonSourceState sourceState,
-            Predicate predicate) {
+            Predicate predicate,
+            int[] projection) {
         this.context = context;
         this.table = table;
         this.assignedSplit = sourceState.getAssignedSplits();
         this.predicate = predicate;
+        this.projection = projection;
     }
 
     @Override

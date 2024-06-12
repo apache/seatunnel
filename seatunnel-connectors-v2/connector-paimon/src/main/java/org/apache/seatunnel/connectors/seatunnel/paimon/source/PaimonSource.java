@@ -29,25 +29,19 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.paimon.catalog.PaimonCatalog;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.paimon.source.converter.SqlToPaimonPredicateConverter;
-
-
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.stream.IntStream;
-
-import static org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig.DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig.HDFS_SITE_PATH;
-import static org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig.READ_COLUMNS;
-import static org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig.TABLE;
-import static org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig.WAREHOUSE;
+import org.apache.seatunnel.connectors.seatunnel.paimon.utils.RowTypeConverter;
 
 import org.apache.paimon.predicate.Predicate;
 import org.apache.paimon.table.Table;
+import org.apache.paimon.types.RowType;
+
+import net.sf.jsqlparser.statement.select.PlainSelect;
 
 import java.util.Collections;
 import java.util.List;
 
+import static org.apache.seatunnel.connectors.seatunnel.paimon.source.converter.SqlToPaimonPredicateConverter.convertSqlSelectToPaimonProjectionIndex;
+import static org.apache.seatunnel.connectors.seatunnel.paimon.source.converter.SqlToPaimonPredicateConverter.convertToPlainSelect;
 
 /** Paimon connector source class. */
 public class PaimonSource
@@ -65,6 +59,8 @@ public class PaimonSource
 
     private Predicate predicate;
 
+    private int[] projectionIndex;
+
     private CatalogTable catalogTable;
 
     public PaimonSource(ReadonlyConfig readonlyConfig, PaimonCatalog paimonCatalog) {
@@ -74,79 +70,21 @@ public class PaimonSource
                 TablePath.of(paimonSourceConfig.getNamespace(), paimonSourceConfig.getTable());
         this.catalogTable = paimonCatalog.getTable(tablePath);
         this.paimonTable = paimonCatalog.getPaimonTable(tablePath);
-        this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
-        // TODO: We can use this to realize the column projection feature later
+
         String filterSql = readonlyConfig.get(PaimonSourceConfig.QUERY_SQL);
+        PlainSelect plainSelect = convertToPlainSelect(filterSql);
+        RowType paimonRowType = this.paimonTable.rowType();
+        String[] filedNames = paimonRowType.getFieldNames().toArray(new String[0]);
+        this.projectionIndex = convertSqlSelectToPaimonProjectionIndex(filedNames, plainSelect);
         this.predicate =
                 SqlToPaimonPredicateConverter.convertSqlWhereToPaimonPredicate(
-                        this.paimonTable.rowType(), filterSql);
+                        paimonRowType, plainSelect);
+        seaTunnelRowType = RowTypeConverter.convert(paimonRowType, projectionIndex);
     }
-
-    private int[] projectionIndex = null;
-
-    private String[] projectionFieldNames = null;
 
     @Override
     public String getPluginName() {
         return PLUGIN_NAME;
-    }
-
-    @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
-        this.pluginConfig = pluginConfig;
-        final CheckResult result =
-                CheckConfigUtil.checkAllExists(
-                        pluginConfig, WAREHOUSE.key(), DATABASE.key(), TABLE.key());
-        if (!result.isSuccess()) {
-            throw new PaimonConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SOURCE, result.getMsg()));
-        }
-        // initialize paimon table
-        final String warehouse = pluginConfig.getString(WAREHOUSE.key());
-        final String database = pluginConfig.getString(DATABASE.key());
-        final String table = pluginConfig.getString(TABLE.key());
-        final Map<String, String> optionsMap = new HashMap<>();
-        optionsMap.put(WAREHOUSE.key(), warehouse);
-        final Options options = Options.fromMap(optionsMap);
-        final Configuration hadoopConf = new Configuration();
-        if (pluginConfig.hasPath(HDFS_SITE_PATH.key())) {
-            hadoopConf.addResource(new Path(pluginConfig.getString(HDFS_SITE_PATH.key())));
-        }
-        final CatalogContext catalogContext = CatalogContext.create(options, hadoopConf);
-        try (Catalog catalog = CatalogFactory.createCatalog(catalogContext)) {
-            Identifier identifier = Identifier.create(database, table);
-            this.table = catalog.getTable(identifier);
-        } catch (Exception e) {
-            String errorMsg =
-                    String.format(
-                            "Failed to get table [%s] from database [%s] on warehouse [%s]",
-                            database, table, warehouse);
-            throw new PaimonConnectorException(
-                    PaimonConnectorErrorCode.GET_TABLE_FAILED, errorMsg, e);
-        }
-        if (pluginConfig.hasPath(READ_COLUMNS.key())) {
-            String projectString = pluginConfig.getString(READ_COLUMNS.key());
-            this.projectionFieldNames = projectString.split(",");
-            String[] fieldNames = this.table.rowType().getFieldNames().toArray(new String[0]);
-            this.projectionIndex =
-                    IntStream.range(0, projectionFieldNames.length)
-                            .map(
-                                    i -> {
-                                        String fieldName = projectionFieldNames[i];
-                                        int index = Arrays.asList(fieldNames).indexOf(fieldName);
-                                        if (index == -1) {
-                                            throw new IllegalArgumentException(
-                                                    "column " + fieldName + " does not exist.");
-                                        }
-                                        return index;
-                                    })
-                            .toArray();
-        }
-
-        seaTunnelRowType = RowTypeConverter.convert(this.table.rowType(), projectionIndex);
     }
 
     @Override
@@ -162,15 +100,15 @@ public class PaimonSource
     @Override
     public SourceReader<SeaTunnelRow, PaimonSourceSplit> createReader(
             SourceReader.Context readerContext) throws Exception {
-        // return new PaimonSourceReader(readerContext, table, seaTunnelRowType, projectionIndex);
-
-        return new PaimonSourceReader(readerContext, paimonTable, seaTunnelRowType, predicate);
+        return new PaimonSourceReader(
+                readerContext, paimonTable, seaTunnelRowType, predicate, projectionIndex);
     }
 
     @Override
     public SourceSplitEnumerator<PaimonSourceSplit, PaimonSourceState> createEnumerator(
             SourceSplitEnumerator.Context<PaimonSourceSplit> enumeratorContext) throws Exception {
-        return new PaimonSourceSplitEnumerator(enumeratorContext, paimonTable, predicate);
+        return new PaimonSourceSplitEnumerator(
+                enumeratorContext, paimonTable, predicate, projectionIndex);
     }
 
     @Override
@@ -179,6 +117,6 @@ public class PaimonSource
             PaimonSourceState checkpointState)
             throws Exception {
         return new PaimonSourceSplitEnumerator(
-                enumeratorContext, paimonTable, checkpointState, predicate);
+                enumeratorContext, paimonTable, checkpointState, predicate, projectionIndex);
     }
 }

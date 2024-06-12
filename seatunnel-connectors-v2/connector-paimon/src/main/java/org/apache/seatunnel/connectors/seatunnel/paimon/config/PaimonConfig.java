@@ -86,12 +86,6 @@ public class PaimonConfig implements Serializable {
                     .noDefaultValue()
                     .withDescription("The table you intend to access");
 
-    public static final Option<String> READ_COLUMNS =
-            Options.key("read_columns")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("The read columns of the paimon table");
-
     @Deprecated
     public static final Option<String> HDFS_SITE_PATH =
             Options.key("hdfs_site_path")
