@@ -38,8 +38,6 @@ import org.apache.paimon.types.RowType;
 
 import net.sf.jsqlparser.statement.select.PlainSelect;
 
-import java.util.Collections;
-import java.util.List;
 import java.util.Objects;
 
 import static org.apache.seatunnel.connectors.seatunnel.paimon.source.converter.SqlToPaimonPredicateConverter.convertSqlSelectToPaimonProjectionIndex;
@@ -99,11 +97,6 @@ public class PaimonSource
     @Override
     public Boundedness getBoundedness() {
         return Boundedness.BOUNDED;
-    }
-
-    @Override
-    public List<CatalogTable> getProducedCatalogTables() {
-        return Collections.singletonList(catalogTable);
     }
 
     @Override
