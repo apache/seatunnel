@@ -17,15 +17,6 @@ Read data from Apache Paimon.
 
 ## Options
 
-
-<!-- |      name      |  type  | required | default value |
-|----------------|--------|----------|---------------|
-| warehouse      | String | Yes      | -             |
-| database       | String | Yes      | -             |
-| table          | String | Yes      | -             |
-| hdfs_site_path | String | No       | -             |
-| read_columns   | String | No       | -             | -->
-
 |          name           |  type  | required | default value |
 |-------------------------|--------|----------|---------------|
 | warehouse               | String | Yes      | -             |
@@ -37,7 +28,6 @@ Read data from Apache Paimon.
 | query                   | String | No       | -             |
 | paimon.hadoop.conf      | Map    | No       | -             |
 | paimon.hadoop.conf-path | String | No       | -             |
-
 
 ### warehouse [string]
 
@@ -62,11 +52,6 @@ The table you want to access
 ### hdfs_site_path [string]
 
 The file path of `hdfs-site.xml`
-
-
-### read_columns [string]
-
-Decides which columns of the paimon table to read. For multiple columns you need to use "," for split, such as "column1,column2".
 
 ### query [string]
 
@@ -119,7 +104,7 @@ source {
     warehouse = "/tmp/paimon"
     database = "full_type"
     table = "st_test"
-    query = "select * from st_test where c_boolean= 'true' and c_tinyint > 116 and c_smallint = 15987 or c_decimal='2924137191386439303744.39292213'"
+    query = "select c_boolean, c_tinyint from st_test where c_boolean= 'true' and c_tinyint > 116 and c_smallint = 15987 or c_decimal='2924137191386439303744.39292213'"
   }
 }
 ```
