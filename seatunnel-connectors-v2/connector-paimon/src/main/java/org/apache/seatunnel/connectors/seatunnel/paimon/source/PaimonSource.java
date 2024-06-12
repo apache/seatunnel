@@ -39,6 +39,7 @@ import net.sf.jsqlparser.statement.select.PlainSelect;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 import static org.apache.seatunnel.connectors.seatunnel.paimon.source.converter.SqlToPaimonPredicateConverter.convertSqlSelectToPaimonProjectionIndex;
 import static org.apache.seatunnel.connectors.seatunnel.paimon.source.converter.SqlToPaimonPredicateConverter.convertToPlainSelect;
@@ -75,10 +76,12 @@ public class PaimonSource
         PlainSelect plainSelect = convertToPlainSelect(filterSql);
         RowType paimonRowType = this.paimonTable.rowType();
         String[] filedNames = paimonRowType.getFieldNames().toArray(new String[0]);
-        this.projectionIndex = convertSqlSelectToPaimonProjectionIndex(filedNames, plainSelect);
-        this.predicate =
-                SqlToPaimonPredicateConverter.convertSqlWhereToPaimonPredicate(
-                        paimonRowType, plainSelect);
+        if (!Objects.isNull(plainSelect)) {
+            this.projectionIndex = convertSqlSelectToPaimonProjectionIndex(filedNames, plainSelect);
+            this.predicate =
+                    SqlToPaimonPredicateConverter.convertSqlWhereToPaimonPredicate(
+                            paimonRowType, plainSelect);
+        }
         seaTunnelRowType = RowTypeConverter.convert(paimonRowType, projectionIndex);
     }
 
