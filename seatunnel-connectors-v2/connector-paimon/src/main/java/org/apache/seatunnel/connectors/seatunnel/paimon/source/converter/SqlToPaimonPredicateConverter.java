@@ -113,7 +113,6 @@ public class SqlToPaimonPredicateConverter {
             else if (selectItem instanceof SelectExpressionItem) {
                 SelectExpressionItem selectExpressionItem = (SelectExpressionItem) selectItem;
                 String columnName = selectExpressionItem.getExpression().toString();
-                System.out.println("Column Name: " + columnName);
                 columnNames.add(columnName);
             } else {
                 throw new IllegalArgumentException("Error encountered parsing query fields.");
