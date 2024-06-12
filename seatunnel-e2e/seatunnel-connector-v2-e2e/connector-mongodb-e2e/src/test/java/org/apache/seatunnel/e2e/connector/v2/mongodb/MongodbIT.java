@@ -48,12 +48,17 @@ public class MongodbIT extends AbstractMongodbIT {
     @TestTemplate
     @DisabledOnContainer(
             value = {},
-            type = {EngineType.FLINK},
-            disabledReason = "Currently FLINK do not support mongodb null value write")
+            type = {EngineType.FLINK, EngineType.SPARK},
+            disabledReason = "Currently SPARK and FLINK do not support mongodb null value write")
     public void testMongodbNullValue(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult nullResult = container.executeJob("/mongodb_null_value.conf");
         Assertions.assertEquals(0, nullResult.getExitCode(), nullResult.getStderr());
+        Assertions.assertIterableEquals(
+                TEST_NULL_DATASET.stream().peek(e -> e.remove("_id")).collect(Collectors.toList()),
+                readMongodbData(MONGODB_NULL_TABLE_RESULT).stream()
+                        .peek(e -> e.remove("_id"))
+                        .collect(Collectors.toList()));
         clearDate(MONGODB_NULL_TABLE);
         clearDate(MONGODB_NULL_TABLE_RESULT);
     }
