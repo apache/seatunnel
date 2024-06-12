@@ -17,7 +17,9 @@
 
 package org.apache.seatunnel.e2e.connector.v2.mongodb;
 
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.bson.Document;
 import org.junit.jupiter.api.Assertions;
@@ -44,6 +46,10 @@ public class MongodbIT extends AbstractMongodbIT {
     }
 
     @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK},
+            disabledReason = "Currently FLINK do not support mongodb null value write")
     public void testMongodbNullValue(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult nullResult = container.executeJob("/mongodb_null_value.conf");
