@@ -59,9 +59,13 @@ public class FilterFieldTransform extends AbstractCatalogSupportTransform {
         includeFields = config.get(FilterFieldTransformConfig.INCLUDE_FIELDS);
         excludeFields = config.get(FilterFieldTransformConfig.EXCLUDE_FIELDS);
         // exactly only one should be set
-        ConfigValidator.of(config).validate(OptionRule.builder()
-                .exclusive(FilterFieldTransformConfig.INCLUDE_FIELDS, FilterFieldTransformConfig.EXCLUDE_FIELDS)
-                .build());
+        ConfigValidator.of(config)
+                .validate(
+                        OptionRule.builder()
+                                .exclusive(
+                                        FilterFieldTransformConfig.INCLUDE_FIELDS,
+                                        FilterFieldTransformConfig.EXCLUDE_FIELDS)
+                                .build());
         List<String> canNotFoundFields =
                 Stream.concat(
                                 Optional.ofNullable(includeFields).orElse(new ArrayList<>())

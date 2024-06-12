@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -108,22 +109,43 @@ class FilterFieldTransformTest {
 
         // test both include and exclude set
         try {
-            new FilterFieldTransform(ReadonlyConfig.fromMap(new HashMap<String, Object>() {{
-                put(FilterFieldTransformConfig.INCLUDE_FIELDS.key(), filterKeys);
-                put(FilterFieldTransformConfig.EXCLUDE_FIELDS.key(), filterKeys);
-            }}), catalogTable);
+            new FilterFieldTransform(
+                    ReadonlyConfig.fromMap(
+                            new HashMap<String, Object>() {
+                                {
+                                    put(
+                                            FilterFieldTransformConfig.INCLUDE_FIELDS.key(),
+                                            filterKeys);
+                                    put(
+                                            FilterFieldTransformConfig.EXCLUDE_FIELDS.key(),
+                                            filterKeys);
+                                }
+                            }),
+                    catalogTable);
         } catch (Exception e) {
-            Assertions.assertEquals("ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - These options('include_fields', 'exclude_fields') are mutually exclusive, allowing only one set(\"[] for a set\") of options to be configured.", e.getMessage());
+            Assertions.assertEquals(
+                    "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - These options('include_fields', 'exclude_fields') are mutually exclusive, allowing only one set(\"[] for a set\") of options to be configured.",
+                    e.getMessage());
         }
 
         // not exception should be thrown now
-        new FilterFieldTransform(ReadonlyConfig.fromMap(new HashMap<String, Object>() {{
-            put(FilterFieldTransformConfig.INCLUDE_FIELDS.key(), filterKeys);
-        }}), catalogTable);
+        new FilterFieldTransform(
+                ReadonlyConfig.fromMap(
+                        new HashMap<String, Object>() {
+                            {
+                                put(FilterFieldTransformConfig.INCLUDE_FIELDS.key(), filterKeys);
+                            }
+                        }),
+                catalogTable);
 
-        new FilterFieldTransform(ReadonlyConfig.fromMap(new HashMap<String, Object>() {{
-            put(FilterFieldTransformConfig.EXCLUDE_FIELDS.key(), filterKeys);
-        }}), catalogTable);
+        new FilterFieldTransform(
+                ReadonlyConfig.fromMap(
+                        new HashMap<String, Object>() {
+                            {
+                                put(FilterFieldTransformConfig.EXCLUDE_FIELDS.key(), filterKeys);
+                            }
+                        }),
+                catalogTable);
     }
 
     @Test
