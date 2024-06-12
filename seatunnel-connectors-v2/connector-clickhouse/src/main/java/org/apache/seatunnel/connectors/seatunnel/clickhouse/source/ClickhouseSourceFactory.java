@@ -17,12 +17,32 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.source;
 
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.ClickhouseUtil;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.TypeConvertUtil;
 
+import com.clickhouse.client.ClickHouseClient;
+import com.clickhouse.client.ClickHouseException;
+import com.clickhouse.client.ClickHouseFormat;
+import com.clickhouse.client.ClickHouseNode;
+import com.clickhouse.client.ClickHouseResponse;
 import com.google.auto.service.AutoService;
+
+import java.io.Serializable;
+import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.DATABASE;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.HOST;
@@ -38,8 +58,51 @@ public class ClickhouseSourceFactory implements TableSourceFactory {
     }
 
     @Override
+    public <T, SplitT extends SourceSplit, StateT extends Serializable>
+            TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
+        ReadonlyConfig readonlyConfig = context.getOptions();
+        List<ClickHouseNode> nodes = ClickhouseUtil.createNodes(readonlyConfig);
+
+        String sql = readonlyConfig.get(SQL);
+        ClickHouseNode currentServer = nodes.get(ThreadLocalRandom.current().nextInt(nodes.size()));
+        SeaTunnelRowType rowTypeInfo;
+        try (ClickHouseClient client = ClickHouseClient.newInstance(currentServer.getProtocol());
+                ClickHouseResponse response =
+                        client.connect(currentServer)
+                                .format(ClickHouseFormat.RowBinaryWithNamesAndTypes)
+                                .query(modifySQLToLimit1(sql))
+                                .executeAndWait()) {
+
+            int columnSize = response.getColumns().size();
+            String[] fieldNames = new String[columnSize];
+            SeaTunnelDataType<?>[] seaTunnelDataTypes = new SeaTunnelDataType[columnSize];
+
+            for (int i = 0; i < columnSize; i++) {
+                fieldNames[i] = response.getColumns().get(i).getColumnName();
+                seaTunnelDataTypes[i] = TypeConvertUtil.convert(response.getColumns().get(i));
+            }
+
+            rowTypeInfo = new SeaTunnelRowType(fieldNames, seaTunnelDataTypes);
+
+        } catch (ClickHouseException e) {
+            throw new ClickhouseConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "PluginName: %s, PluginType: %s, Message: %s",
+                            factoryIdentifier(), PluginType.SOURCE, e.getMessage()));
+        }
+
+        return () ->
+                (SeaTunnelSource<T, SplitT, StateT>) new ClickhouseSource(nodes, rowTypeInfo, sql);
+    }
+
+    @Override
     public OptionRule optionRule() {
         return OptionRule.builder().required(HOST, DATABASE, SQL, USERNAME, PASSWORD).build();
+    }
+
+    private String modifySQLToLimit1(String sql) {
+        return String.format("SELECT * FROM (%s) s LIMIT 1", sql);
     }
 
     @Override

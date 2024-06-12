@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client;
 
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client.executor.JdbcBatchStatementExecutor;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.tool.IntHolder;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.IntHolder;
 
 import com.clickhouse.jdbc.internal.ClickHouseConnectionImpl;
 
