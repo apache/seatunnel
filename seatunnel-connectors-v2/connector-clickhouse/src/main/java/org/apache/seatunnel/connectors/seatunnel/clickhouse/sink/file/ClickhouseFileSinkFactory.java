@@ -126,6 +126,7 @@ public class ClickhouseFileSinkFactory implements TableSinkFactory {
                         nodeUser,
                         readonlyConfig.get(NODE_FREE_PASSWORD),
                         nodePassword,
+                        context.getCatalogTable().getSeaTunnelRowType(),
                         readonlyConfig.get(COMPATIBLE_MODE),
                         readonlyConfig.get(FILE_TEMP_PATH),
                         readonlyConfig.get(FILE_FIELDS_DELIMITER));

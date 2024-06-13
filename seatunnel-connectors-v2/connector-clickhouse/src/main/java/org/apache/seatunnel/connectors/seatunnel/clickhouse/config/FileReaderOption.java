@@ -51,6 +51,7 @@ public class FileReaderOption implements Serializable {
             Map<String, String> nodeUser,
             boolean nodeFreePass,
             Map<String, String> nodePassword,
+            SeaTunnelRowType seaTunnelRowType,
             boolean compatibleMode,
             String fileTempPath,
             String fileFieldsDelimiter) {
