@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
@@ -64,6 +65,7 @@ public class ClickhouseSinkFactory implements TableSinkFactory {
     public TableSink<SeaTunnelRow, ClickhouseSinkState, CKCommitInfo, CKAggCommitInfo> createSink(
             TableSinkFactoryContext context) {
         ReadonlyConfig readonlyConfig = context.getOptions();
+        CatalogTable catalogTable = context.getCatalogTable();
         List<ClickHouseNode> nodes = ClickhouseUtil.createNodes(readonlyConfig);
         Properties clickhouseProperties = new Properties();
         readonlyConfig
@@ -122,6 +124,7 @@ public class ClickhouseSinkFactory implements TableSinkFactory {
                 ReaderOption.builder()
                         .shardMetadata(metadata)
                         .properties(clickhouseProperties)
+                        .seaTunnelRowType(catalogTable.getSeaTunnelRowType())
                         .tableEngine(table.getEngine())
                         .tableSchema(tableSchema)
                         .bulkSize(readonlyConfig.get(BULK_SIZE))

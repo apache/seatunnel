@@ -23,12 +23,13 @@ import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SupportColumnProjection;
 import org.apache.seatunnel.api.source.SupportParallelism;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.state.ClickhouseSourceState;
 
 import com.clickhouse.client.ClickHouseNode;
 
+import java.util.Collections;
 import java.util.List;
 
 public class ClickhouseSource
@@ -37,13 +38,12 @@ public class ClickhouseSource
                 SupportColumnProjection {
 
     private List<ClickHouseNode> servers;
-    private SeaTunnelRowType rowTypeInfo;
+    private CatalogTable catalogTable;
     private String sql;
 
-    public ClickhouseSource(
-            List<ClickHouseNode> servers, SeaTunnelRowType rowTypeInfo, String sql) {
+    public ClickhouseSource(List<ClickHouseNode> servers, CatalogTable catalogTable, String sql) {
         this.servers = servers;
-        this.rowTypeInfo = rowTypeInfo;
+        this.catalogTable = catalogTable;
         this.sql = sql;
     }
 
@@ -58,14 +58,15 @@ public class ClickhouseSource
     }
 
     @Override
-    public SeaTunnelRowType getProducedType() {
-        return this.rowTypeInfo;
+    public List<CatalogTable> getProducedCatalogTables() {
+        return Collections.singletonList(catalogTable);
     }
 
     @Override
     public SourceReader<SeaTunnelRow, ClickhouseSourceSplit> createReader(
             SourceReader.Context readerContext) throws Exception {
-        return new ClickhouseSourceReader(servers, readerContext, this.rowTypeInfo, sql);
+        return new ClickhouseSourceReader(
+                servers, readerContext, this.catalogTable.getSeaTunnelRowType(), sql);
     }
 
     @Override

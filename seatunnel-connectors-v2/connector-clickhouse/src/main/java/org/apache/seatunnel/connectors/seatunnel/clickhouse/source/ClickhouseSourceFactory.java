@@ -22,12 +22,15 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.ClickhouseUtil;
@@ -41,6 +44,7 @@ import com.clickhouse.client.ClickHouseResponse;
 import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -65,25 +69,34 @@ public class ClickhouseSourceFactory implements TableSourceFactory {
 
         String sql = readonlyConfig.get(SQL);
         ClickHouseNode currentServer = nodes.get(ThreadLocalRandom.current().nextInt(nodes.size()));
-        SeaTunnelRowType rowTypeInfo;
         try (ClickHouseClient client = ClickHouseClient.newInstance(currentServer.getProtocol());
                 ClickHouseResponse response =
                         client.connect(currentServer)
                                 .format(ClickHouseFormat.RowBinaryWithNamesAndTypes)
                                 .query(modifySQLToLimit1(sql))
                                 .executeAndWait()) {
-
+            TableSchema.Builder builder = TableSchema.builder();
             int columnSize = response.getColumns().size();
-            String[] fieldNames = new String[columnSize];
-            SeaTunnelDataType<?>[] seaTunnelDataTypes = new SeaTunnelDataType[columnSize];
-
             for (int i = 0; i < columnSize; i++) {
-                fieldNames[i] = response.getColumns().get(i).getColumnName();
-                seaTunnelDataTypes[i] = TypeConvertUtil.convert(response.getColumns().get(i));
+                String columnName = response.getColumns().get(i).getColumnName();
+                SeaTunnelDataType<?> seaTunnelDataType =
+                        TypeConvertUtil.convert(response.getColumns().get(i));
+                builder.column(
+                        PhysicalColumn.of(
+                                columnName, seaTunnelDataType, Long.MAX_VALUE, true, null, null));
             }
-
-            rowTypeInfo = new SeaTunnelRowType(fieldNames, seaTunnelDataTypes);
-
+            CatalogTable catalogTable =
+                    CatalogTable.of(
+                            TableIdentifier.of(
+                                    factoryIdentifier(), readonlyConfig.get(DATABASE), "default"),
+                            builder.build(),
+                            Collections.emptyMap(),
+                            Collections.emptyList(),
+                            "",
+                            factoryIdentifier());
+            return () ->
+                    (SeaTunnelSource<T, SplitT, StateT>)
+                            new ClickhouseSource(nodes, catalogTable, sql);
         } catch (ClickHouseException e) {
             throw new ClickhouseConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
@@ -91,9 +104,6 @@ public class ClickhouseSourceFactory implements TableSourceFactory {
                             "PluginName: %s, PluginType: %s, Message: %s",
                             factoryIdentifier(), PluginType.SOURCE, e.getMessage()));
         }
-
-        return () ->
-                (SeaTunnelSource<T, SplitT, StateT>) new ClickhouseSource(nodes, rowTypeInfo, sql);
     }
 
     @Override
