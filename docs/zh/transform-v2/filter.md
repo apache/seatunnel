@@ -38,7 +38,7 @@
 | Kin Dom  | 20  | 123  |
 | Joy Dom  | 20  | 123  |
 
-我们想要删除字段 `age`，我们可以像这样添加 `Filter` 转换:
+我们想要保留字段 `name`, `card`，我们可以像这样添加 `Filter` 转换:
 
 ```
 transform {
