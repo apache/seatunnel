@@ -310,6 +310,13 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
                         "lock checkpoint[{}] waiting for complete..., phase: [{}]",
                         barrier.getId(),
                         schemaChangePhase.get().getPhase());
+            } else if (prepareClose) {
+                TaskLocation taskLocation = runningTask.getTaskLocation();
+                log.info(
+                        "Task[{}]({}/{}) prepare close",
+                        taskLocation.getTaskID(),
+                        taskLocation.getPipelineId(),
+                        taskLocation.getJobId());
             } else {
                 throw new IllegalStateException(
                         String.format(
