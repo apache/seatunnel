@@ -24,7 +24,6 @@ import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.paimon.catalog.PaimonCatalog;
@@ -38,6 +37,8 @@ import org.apache.paimon.types.RowType;
 
 import net.sf.jsqlparser.statement.select.PlainSelect;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 
 import static org.apache.seatunnel.connectors.seatunnel.paimon.source.converter.SqlToPaimonPredicateConverter.convertSqlSelectToPaimonProjectionIndex;
@@ -77,6 +78,10 @@ public class PaimonSource
         String[] filedNames = paimonRowType.getFieldNames().toArray(new String[0]);
         if (!Objects.isNull(plainSelect)) {
             this.projectionIndex = convertSqlSelectToPaimonProjectionIndex(filedNames, plainSelect);
+            if (!Objects.isNull(projectionIndex)) {
+                this.catalogTable =
+                        paimonCatalog.getTableWithProjection(tablePath, projectionIndex);
+            }
             this.predicate =
                     SqlToPaimonPredicateConverter.convertSqlWhereToPaimonPredicate(
                             paimonRowType, plainSelect);
@@ -90,8 +95,8 @@ public class PaimonSource
     }
 
     @Override
-    public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
-        return seaTunnelRowType;
+    public List<CatalogTable> getProducedCatalogTables() {
+        return Collections.singletonList(catalogTable);
     }
 
     @Override
