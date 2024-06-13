@@ -89,11 +89,11 @@ if [ -e "${CONF_DIR}/log4j2.properties" ]; then
   JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.logs.path=${APP_DIR}/logs"
 fi
 
-if [[ $NODE_RULE == "master" ]]; then
+if [ "$NODE_RULE" = "master" ]; then
   OUT=$MASTER_OUT
   JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.logs.file_name=seatunnel-engine-master"
-  while IFS= read -r line || [[ -n "$line" ]]; do
-      if [[ ! $line == \#* ]]; then
+  while IFS= read -r line || [ -n "$line" ]; do
+      if [[ ! "$line" =~ ^# ]]; then
           JAVA_OPTS="$JAVA_OPTS $line"
       fi
   done < ${APP_DIR}/config/jvm_master_options
@@ -101,21 +101,21 @@ if [[ $NODE_RULE == "master" ]]; then
   if [ -z $HAZELCAST_CONFIG ]; then
     HAZELCAST_CONFIG=${CONF_DIR}/hazelcast-master.yaml
   fi
-elif [[ $NODE_RULE == "worker" ]]; then
+elif [ "$NODE_RULE" = "worker" ]; then
   OUT=$WORKER_OUT
   JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.logs.file_name=seatunnel-engine-worker"
-  while IFS= read -r line || [[ -n "$line" ]]; do
-      if [[ ! $line == \#* ]]; then
+  while IFS= read -r line || [ -n "$line" ]; do
+      if [[ ! "$line" =~ ^# ]]; then
           JAVA_OPTS="$JAVA_OPTS $line"
       fi
   done < ${APP_DIR}/config/jvm_worker_options
   if [ -z $HAZELCAST_CONFIG ]; then
     HAZELCAST_CONFIG=${CONF_DIR}/hazelcast-worker.yaml
   fi
-elif [[ $NODE_RULE == "master_and_worker" ]]; then
+elif [ "$NODE_RULE" = "master_and_worker" ]; then
   JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.logs.file_name=seatunnel-engine-server"
-  while IFS= read -r line || [[ -n "$line" ]]; do
-      if [[ ! $line == \#* ]]; then
+  while IFS= read -r line || [ -n "$line" ]; do
+      if [[ ! "$line" =~ ^# ]]; then
           JAVA_OPTS="$JAVA_OPTS $line"
       fi
   done < ${APP_DIR}/config/jvm_options
