@@ -240,9 +240,7 @@ public class MysqlDialect implements JdbcDialect {
             stmt.execute(alterTableSql);
         } catch (Exception e) {
             throw new JdbcConnectorException(
-                    JdbcConnectorErrorCode.CONNECT_DATABASE_FAILED,
-                    "unable to refreshTableSchemaBySchemaChangeEvent",
-                    e);
+                    JdbcConnectorErrorCode.REFRESH_PHYSICAL_TABLESCHEMA_BY_SCHEMA_CHANGE_EVENT, e);
         }
     }
 
