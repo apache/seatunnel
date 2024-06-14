@@ -66,6 +66,7 @@ public class DruidIT extends TestSuiteBase implements TestResource {
                                         .withStartupTimeout(Duration.ofSeconds(360)));
         environment.start();
         coordinatorURL = InetAddress.getLocalHost().getHostAddress() + ":8888";
+        System.out.println(coordinatorURL);
         String resourceFilePath = "src/test/resources/fakesource_to_druid.conf";
         Path path = Paths.get(resourceFilePath);
         try {
@@ -105,7 +106,7 @@ public class DruidIT extends TestSuiteBase implements TestResource {
             String datasource = "testDataSource";
             String sqlQuery = "SELECT COUNT(*) FROM " + datasource;
             try (CloseableHttpClient client = HttpClients.createDefault()) {
-                HttpPost request = new HttpPost(coordinatorURL + "/druid/v2/sql");
+                HttpPost request = new HttpPost("http://" + coordinatorURL + "/druid/v2/sql");
                 String jsonRequest = "{\"query\": \"" + sqlQuery + "\"}";
                 StringEntity entity = new StringEntity(jsonRequest);
                 entity.setContentType("application/json");
