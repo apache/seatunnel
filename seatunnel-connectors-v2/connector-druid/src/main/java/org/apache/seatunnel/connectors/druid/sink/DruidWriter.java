@@ -40,6 +40,11 @@ import org.apache.druid.indexing.common.task.batch.parallel.ParallelIndexSupervi
 import org.apache.druid.java.util.common.granularity.Granularities;
 import org.apache.druid.segment.indexing.DataSchema;
 import org.apache.druid.segment.indexing.granularity.UniformGranularitySpec;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,13 +58,9 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.datatype.joda.JodaModule;
 import com.google.common.annotations.VisibleForTesting;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -78,12 +79,12 @@ public class DruidWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     private int batchSize;
     private int currentBatchSize = 0;
 
-    private final HttpURLConnection httpURLConnection;
     private final DataSchema dataSchema;
 
     private final long processTime;
     private final transient StringBuffer data;
 
+    private final CloseableHttpClient httpClient;
     private final ObjectMapper mapper;
     private final String coordinatorUrl;
     private final String datasource;
@@ -100,14 +101,15 @@ public class DruidWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         this.datasource = datasource;
         this.batchSize = batchSize;
         this.mapper = provideDruidSerializer();
-        this.httpURLConnection = provideHttpURLConnection(coordinatorUrl);
+        // this.httpURLConnection = provideHttpURLConnection(coordinatorUrl);
+        this.httpClient = HttpClients.createDefault();
         this.dataSchema = provideDruidDataSchema();
         this.processTime = System.currentTimeMillis();
         this.data = new StringBuffer();
     }
 
     @Override
-    public void write(SeaTunnelRow element) throws IOException {
+    public synchronized void write(SeaTunnelRow element) throws IOException {
         final StringJoiner joiner = new StringJoiner(DEFAULT_FIELD_DELIMITER, "", "");
         for (int i = 0; i < element.getArity(); i++) {
             final Object v = element.getField(i);
@@ -131,25 +133,21 @@ public class DruidWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         final ParallelIndexIOConfig ioConfig = provideDruidIOConfig(data);
         final ParallelIndexSupervisorTask indexTask = provideIndexTask(ioConfig);
         final String inputJSON = provideInputJSONString(indexTask);
-        final byte[] input = inputJSON.getBytes();
-        try (final OutputStream os = httpURLConnection.getOutputStream()) {
-            os.write(input, 0, input.length);
-        }
-        try (final BufferedReader br =
-                new BufferedReader(
-                        new InputStreamReader(
-                                httpURLConnection.getInputStream(), StandardCharsets.UTF_8))) {
-            final StringBuilder response = new StringBuilder();
-            String responseLine;
-            while ((responseLine = br.readLine()) != null) {
-                response.append(responseLine.trim());
-            }
-            LOG.info("Druid write task has been sent, and the response is {}", response);
+        String uri = new String("http://" + this.coordinatorUrl + DRUID_ENDPOINT);
+        HttpPost post = new HttpPost(uri);
+        post.setHeader("Content-Type", "application/json");
+        post.setHeader("Accept", "application/json, text/plain, */*");
+        post.setEntity(new StringEntity(inputJSON));
+
+        try (CloseableHttpResponse response = httpClient.execute(post)) {
+            String responseBody =
+                    response.getEntity() != null ? response.getEntity().toString() : "";
+            LOG.info("Druid write task has been sent, and the response is {}", responseBody);
         }
     }
 
     @Override
-    public void close() throws IOException {
+    public synchronized void close() throws IOException {
         flush();
     }
 

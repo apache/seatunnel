@@ -27,46 +27,61 @@ volumes:
 
 
 services:
+  chmod-service:
+    image: ubuntu:latest
+    user: "0"
+    command: sh -c "mkdir -p /opt/druid/shared && chmod -R a+rwx /opt/druid/shared"
+    volumes:
+      - druid_shared:/opt/druid/shared
+
   postgres:
-    image: postgres:15
+    image: postgres:latest
+    ports:
+      - "5432:5432"
     volumes:
       - metadata_data:/var/lib/postgresql/data
     environment:
       - POSTGRES_PASSWORD=FoolishPassword
       - POSTGRES_USER=druid
       - POSTGRES_DB=druid
+    depends_on:
+      - chmod-service
 
   # Need 3.5 or later for container nodes
   zookeeper:
-    image: zookeeper:3.5
+    image: zookeeper:3.5.10
     ports:
       - "2181:2181"
     environment:
       - ZOO_MY_ID=1
+    depends_on:
+      - chmod-service
 
   coordinator:
-    image: apache/druid:24.0.0
+    image: apache/druid:29.0.1
     volumes:
-      - druid_shared:/opt/shared
+      - druid_shared:/opt/druid/shared
       - coordinator_var:/opt/druid/var
     depends_on:
       - zookeeper
       - postgres
+      - chmod-service
     ports:
-      - "9181:8081"
+      - "8081:8081"
     command:
       - coordinator
     env_file:
       - environment
 
   broker:
-    image: apache/druid:24.0.0
+    image: apache/druid:29.0.1
     volumes:
       - broker_var:/opt/druid/var
     depends_on:
       - zookeeper
       - postgres
       - coordinator
+      - chmod-service
     ports:
       - "8082:8082"
     command:
@@ -75,14 +90,15 @@ services:
       - environment
 
   historical:
-    image: apache/druid:24.0.0
+    image: apache/druid:29.0.1
     volumes:
-      - druid_shared:/opt/shared
+      - druid_shared:/opt/druid/shared
       - historical_var:/opt/druid/var
     depends_on:
       - zookeeper
       - postgres
       - coordinator
+      - chmod-service
     ports:
       - "8083:8083"
     command:
@@ -91,14 +107,15 @@ services:
       - environment
 
   middlemanager:
-    image: apache/druid:24.0.0
+    image: apache/druid:29.0.1
     volumes:
-      - druid_shared:/opt/shared
+      - druid_shared:/opt/druid/shared
       - middle_var:/opt/druid/var
     depends_on:
       - zookeeper
       - postgres
       - coordinator
+      - chmod-service
     ports:
       - "8091:8091"
       - "8100-8105:8100-8105"
@@ -108,13 +125,16 @@ services:
       - environment
 
   router:
-    image: apache/druid:24.0.0
+    image: apache/druid:29.0.1
     volumes:
       - router_var:/opt/druid/var
     depends_on:
       - zookeeper
       - postgres
       - coordinator
+      - chmod-service
+    ports:
+      - "8888:8888"
     command:
       - router
     env_file:

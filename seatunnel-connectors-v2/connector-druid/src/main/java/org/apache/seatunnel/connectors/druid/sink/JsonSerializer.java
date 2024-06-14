@@ -36,7 +36,6 @@ import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
 
-/** Created 2020/3/20. */
 public class JsonSerializer implements Serializable {
 
     private static final long serialVersionUID = -7498603065258697303L;
