@@ -41,17 +41,24 @@ import org.apache.paimon.utils.DateTimeUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import net.sf.jsqlparser.statement.select.PlainSelect;
+
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 
+import static org.apache.seatunnel.connectors.seatunnel.paimon.source.converter.SqlToPaimonPredicateConverter.convertToPlainSelect;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
-public class SqlToPaimonPredicateConverterTest {
+public class SqlToPaimonConverterTest {
 
     private RowType rowType;
+
+    private String[] fieldNames;
 
     @BeforeEach
     public void setUp() {
@@ -71,6 +78,8 @@ public class SqlToPaimonPredicateConverterTest {
                                 new DataField(10, "double_col", new DoubleType()),
                                 new DataField(11, "date_col", new DateType()),
                                 new DataField(12, "timestamp_col", new TimestampType())));
+
+        fieldNames = rowType.getFieldNames().toArray(new String[0]);
     }
 
     @Test
@@ -90,8 +99,10 @@ public class SqlToPaimonPredicateConverterTest {
                         + "date_col = '2022-01-01' AND "
                         + "timestamp_col = '2022-01-01T12:00:00.123'";
 
+        PlainSelect plainSelect = convertToPlainSelect(query);
         Predicate predicate =
-                SqlToPaimonPredicateConverter.convertSqlWhereToPaimonPredicate(rowType, query);
+                SqlToPaimonPredicateConverter.convertSqlWhereToPaimonPredicate(
+                        rowType, plainSelect);
 
         assertNotNull(predicate);
 
@@ -123,8 +134,10 @@ public class SqlToPaimonPredicateConverterTest {
     public void testConvertSqlWhereToPaimonPredicateWithIsNull() {
         String query = "SELECT * FROM table WHERE char_col IS NULL";
 
+        PlainSelect plainSelect = convertToPlainSelect(query);
         Predicate predicate =
-                SqlToPaimonPredicateConverter.convertSqlWhereToPaimonPredicate(rowType, query);
+                SqlToPaimonPredicateConverter.convertSqlWhereToPaimonPredicate(
+                        rowType, plainSelect);
 
         assertNotNull(predicate);
 
@@ -138,8 +151,10 @@ public class SqlToPaimonPredicateConverterTest {
     public void testConvertSqlWhereToPaimonPredicateWithIsNotNull() {
         String query = "SELECT * FROM table WHERE char_col IS NOT NULL";
 
+        PlainSelect plainSelect = convertToPlainSelect(query);
         Predicate predicate =
-                SqlToPaimonPredicateConverter.convertSqlWhereToPaimonPredicate(rowType, query);
+                SqlToPaimonPredicateConverter.convertSqlWhereToPaimonPredicate(
+                        rowType, plainSelect);
 
         assertNotNull(predicate);
 
@@ -153,8 +168,10 @@ public class SqlToPaimonPredicateConverterTest {
     public void testConvertSqlWhereToPaimonPredicateWithAnd() {
         String query = "SELECT * FROM table WHERE int_col > 3 AND double_col < 6.6";
 
+        PlainSelect plainSelect = convertToPlainSelect(query);
         Predicate predicate =
-                SqlToPaimonPredicateConverter.convertSqlWhereToPaimonPredicate(rowType, query);
+                SqlToPaimonPredicateConverter.convertSqlWhereToPaimonPredicate(
+                        rowType, plainSelect);
 
         assertNotNull(predicate);
 
@@ -169,8 +186,10 @@ public class SqlToPaimonPredicateConverterTest {
     public void testConvertSqlWhereToPaimonPredicateWithOr() {
         String query = "SELECT * FROM table WHERE int_col > 3 OR double_col < 6.6";
 
+        PlainSelect plainSelect = convertToPlainSelect(query);
         Predicate predicate =
-                SqlToPaimonPredicateConverter.convertSqlWhereToPaimonPredicate(rowType, query);
+                SqlToPaimonPredicateConverter.convertSqlWhereToPaimonPredicate(
+                        rowType, plainSelect);
 
         assertNotNull(predicate);
 
@@ -179,5 +198,31 @@ public class SqlToPaimonPredicateConverterTest {
                 PredicateBuilder.or(builder.greaterThan(7, 3), builder.lessThan(10, 6.6d));
 
         assertEquals(expectedPredicate.toString(), predicate.toString());
+    }
+
+    @Test
+    public void testConvertSqlSelectToPaimonProjectionArrayWithALL() {
+        String query = "SELECT * FROM table WHERE int_col > 3 OR double_col < 6.6";
+
+        PlainSelect plainSelect = convertToPlainSelect(query);
+        int[] projectionIndex =
+                SqlToPaimonPredicateConverter.convertSqlSelectToPaimonProjectionIndex(
+                        fieldNames, plainSelect);
+
+        assertNull(projectionIndex);
+    }
+
+    @Test
+    public void testConvertSqlSelectToPaimonProjectionArrayWithStar() {
+        String query =
+                "SELECT decimal_col, int_col, char_col, timestamp_col, boolean_col FROM table WHERE int_col > 3 OR double_col < 6.6";
+
+        PlainSelect plainSelect = convertToPlainSelect(query);
+        int[] projectionIndex =
+                SqlToPaimonPredicateConverter.convertSqlSelectToPaimonProjectionIndex(
+                        fieldNames, plainSelect);
+
+        int[] expectedProjectionIndex = {4, 7, 0, 12, 2};
+        assertArrayEquals(projectionIndex, expectedProjectionIndex);
     }
 }
