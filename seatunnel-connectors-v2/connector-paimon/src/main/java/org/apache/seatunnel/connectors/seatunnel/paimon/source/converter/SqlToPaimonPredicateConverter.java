@@ -105,12 +105,9 @@ public class SqlToPaimonPredicateConverter {
 
         List<String> columnNames = new ArrayList<>();
         for (SelectItem selectItem : selectItems) {
-            // Select * return null
             if (selectItem instanceof AllColumns) {
                 return null;
-            }
-            // Gets the select query fields
-            else if (selectItem instanceof SelectExpressionItem) {
+            } else if (selectItem instanceof SelectExpressionItem) {
                 SelectExpressionItem selectExpressionItem = (SelectExpressionItem) selectItem;
                 String columnName = selectExpressionItem.getExpression().toString();
                 columnNames.add(columnName);

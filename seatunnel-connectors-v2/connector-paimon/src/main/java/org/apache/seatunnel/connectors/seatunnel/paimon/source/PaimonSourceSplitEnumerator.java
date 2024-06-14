@@ -162,9 +162,13 @@ public class PaimonSourceSplitEnumerator
     /** Get all splits of table */
     private Set<PaimonSourceSplit> getTableSplits() {
         final Set<PaimonSourceSplit> tableSplits = new HashSet<>();
-        // TODO Support columns projection
         final List<Split> splits =
-                table.newReadBuilder().withFilter(predicate).newScan().plan().splits();
+                table.newReadBuilder()
+                        .withProjection(projection)
+                        .withFilter(predicate)
+                        .newScan()
+                        .plan()
+                        .splits();
         splits.forEach(split -> tableSplits.add(new PaimonSourceSplit(split)));
         return tableSplits;
     }
