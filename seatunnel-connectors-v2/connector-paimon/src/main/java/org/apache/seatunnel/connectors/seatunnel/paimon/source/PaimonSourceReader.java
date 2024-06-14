@@ -24,8 +24,10 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.paimon.utils.RowConverter;
 
 import org.apache.paimon.data.InternalRow;
+import org.apache.paimon.predicate.Predicate;
 import org.apache.paimon.reader.RecordReader;
 import org.apache.paimon.reader.RecordReaderIterator;
+import org.apache.paimon.table.FileStoreTable;
 import org.apache.paimon.table.Table;
 
 import lombok.extern.slf4j.Slf4j;
@@ -46,11 +48,14 @@ public class PaimonSourceReader implements SourceReader<SeaTunnelRow, PaimonSour
     private final Table table;
     private final SeaTunnelRowType seaTunnelRowType;
     private volatile boolean noMoreSplit;
+    private final Predicate predicate;
 
-    public PaimonSourceReader(Context context, Table table, SeaTunnelRowType seaTunnelRowType) {
+    public PaimonSourceReader(
+            Context context, Table table, SeaTunnelRowType seaTunnelRowType, Predicate predicate) {
         this.context = context;
         this.table = table;
         this.seaTunnelRowType = seaTunnelRowType;
+        this.predicate = predicate;
     }
 
     @Override
@@ -70,13 +75,18 @@ public class PaimonSourceReader implements SourceReader<SeaTunnelRow, PaimonSour
             if (Objects.nonNull(split)) {
                 // read logic
                 try (final RecordReader<InternalRow> reader =
-                        table.newReadBuilder().newRead().createReader(split.getSplit())) {
+                        table.newReadBuilder()
+                                .withFilter(predicate)
+                                .newRead()
+                                .executeFilter()
+                                .createReader(split.getSplit())) {
                     final RecordReaderIterator<InternalRow> rowIterator =
                             new RecordReaderIterator<>(reader);
                     while (rowIterator.hasNext()) {
                         final InternalRow row = rowIterator.next();
                         final SeaTunnelRow seaTunnelRow =
-                                RowConverter.convert(row, seaTunnelRowType);
+                                RowConverter.convert(
+                                        row, seaTunnelRowType, ((FileStoreTable) table).schema());
                         output.collect(seaTunnelRow);
                     }
                 }

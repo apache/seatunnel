@@ -97,7 +97,7 @@ public class XuguDialect implements JdbcDialect {
 
     @Override
     public String tableIdentifier(TablePath tablePath) {
-        return tablePath.getSchemaAndTableName();
+        return quoteIdentifier(tablePath.getSchemaAndTableName());
     }
 
     @Override

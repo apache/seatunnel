@@ -35,6 +35,7 @@ import org.apache.seatunnel.engine.server.checkpoint.operation.TaskReportStatusO
 import org.apache.seatunnel.engine.server.checkpoint.operation.TriggerSchemaChangeAfterCheckpointOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TriggerSchemaChangeBeforeCheckpointOperation;
 import org.apache.seatunnel.engine.server.dag.execution.Pipeline;
+import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
 import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
@@ -240,12 +241,11 @@ public class CheckpointManager {
      * Called by the JobMaster. <br>
      * Listen to the {@link JobStatus} of the {@link Job}.
      */
-    public CompletableFuture<Void> shutdown(JobStatus jobStatus) {
+    public void clearCheckpointIfNeed(JobStatus jobStatus) {
         if ((jobStatus == JobStatus.FINISHED || jobStatus == JobStatus.CANCELED)
                 && !isSavePointEnd()) {
             checkpointStorage.deleteCheckpoint(jobId + "");
         }
-        return CompletableFuture.completedFuture(null);
     }
 
     /**
@@ -312,6 +312,10 @@ public class CheckpointManager {
                 .map(CheckpointCoordinator::isEndOfSavePoint)
                 .reduce((v1, v2) -> v1 && v2)
                 .orElse(false);
+    }
+
+    public boolean isPipelineSavePointEnd(PipelineLocation pipelineLocation) {
+        return coordinatorMap.get(pipelineLocation.getPipelineId()).isEndOfSavePoint();
     }
 
     protected InvocationFuture<?> sendOperationToMemberNode(TaskOperation operation) {
