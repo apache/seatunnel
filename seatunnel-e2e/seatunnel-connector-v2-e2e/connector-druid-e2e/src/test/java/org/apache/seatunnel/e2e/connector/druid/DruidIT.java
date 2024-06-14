@@ -39,13 +39,20 @@ import org.testcontainers.containers.wait.strategy.Wait;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.InetAddress;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.Duration;
+import java.util.List;
+import java.util.stream.Collectors;
 
 public class DruidIT extends TestSuiteBase implements TestResource {
 
     private static final String DRUID_SERVICE_NAME = "router";
     private static final int DRUID_SERVICE_PORT = 8888;
     private DockerComposeContainer environment;
+    private String coordinatorURL;
 
     @BeforeAll
     @Override
@@ -58,6 +65,30 @@ public class DruidIT extends TestSuiteBase implements TestResource {
                                 Wait.forListeningPort()
                                         .withStartupTimeout(Duration.ofSeconds(360)));
         environment.start();
+        coordinatorURL = InetAddress.getLocalHost().getHostAddress() + ":8888";
+        String resourceFilePath = "src/test/resources/fakesource_to_druid.conf";
+        Path path = Paths.get(resourceFilePath);
+        try {
+            List<String> lines = Files.readAllLines(path);
+            List<String> newLines =
+                    lines.stream()
+                            .map(
+                                    line -> {
+                                        if (line.contains("coordinatorUrl")) {
+                                            return "    coordinatorUrl = "
+                                                    + "\""
+                                                    + coordinatorURL
+                                                    + "\"";
+                                        }
+                                        return line;
+                                    })
+                            .collect(Collectors.toList());
+            Files.write(path, newLines);
+            System.out.println("Conf has been updated successfully.");
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     @AfterAll
@@ -72,10 +103,9 @@ public class DruidIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, execResult.getExitCode());
         while (true) {
             String datasource = "testDataSource";
-            String coordinatorUrl = "http://localhost:8888";
             String sqlQuery = "SELECT COUNT(*) FROM " + datasource;
             try (CloseableHttpClient client = HttpClients.createDefault()) {
-                HttpPost request = new HttpPost(coordinatorUrl + "/druid/v2/sql");
+                HttpPost request = new HttpPost(coordinatorURL + "/druid/v2/sql");
                 String jsonRequest = "{\"query\": \"" + sqlQuery + "\"}";
                 StringEntity entity = new StringEntity(jsonRequest);
                 entity.setContentType("application/json");
@@ -85,7 +115,7 @@ public class DruidIT extends TestSuiteBase implements TestResource {
                 String responseBody = EntityUtils.toString(response.getEntity());
                 System.out.println(responseBody);
                 if (!responseBody.contains("errorMessage")) {
-                    assert (responseBody.contains("100"));
+                    assert (responseBody.contains("1000"));
                     break;
                 }
                 Thread.sleep(1000);
