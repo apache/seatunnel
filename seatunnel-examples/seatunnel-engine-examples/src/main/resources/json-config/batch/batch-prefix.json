@@ -1,0 +1,62 @@
+{
+  "env": {
+    "execution.parallelism": 1,
+    "job.name": "多表同步测试",
+    "job.mode": "batch"
+  },
+  "preHandler": [
+  ],
+  "source": [
+    {
+      "plugin_name": "Jdbc",
+      "dsId": "1795692521564749825",
+      "dsName": "mysql-血缘测试数据湖",
+      "dsType": "mysql",
+      "resourceType": "table",
+      "driver": "com.mysql.cj.jdbc.Driver",
+      "connection_check_timeout_sec": 100,
+      "table_list": [
+        {
+          "table_path": "ods.ods_device_m1"
+        },
+        {
+          "table_path": "ods.ods_device_m2"
+        }
+      ],
+      "database": "ods",
+      "url": "jdbc:mysql://172.16.11.135:3306/ods?remarks=true&useInformationSchema=true&useCursorFetch=true&defaultFetchSize=2048&rewriteBatchedStatements=true",
+      "user": "root",
+      "password": "1qaz@WSX",
+      "resources": [
+        "ods_device_m1",
+        "ods_device_m2"
+      ],
+      "result_table_name": "ot_6cf7a8ada6ca4fe3881c30b48d812afe",
+      "ottomi_node_type": "JdbcSource"
+    }
+  ],
+  "transform": [
+  ],
+  "sink": [
+    {
+      "plugin_name": "Jdbc",
+      "type": "mysql",
+      "driver": "com.mysql.cj.jdbc.Driver",
+      "url": "jdbc:mysql://172.16.11.135:3306/dwd?remarks=true&useInformationSchema=true&useCursorFetch=true&defaultFetchSize=2048&rewriteBatchedStatements=true",
+      "user": "root",
+      "password": "1qaz@WSX",
+      "batch_size": 2048,
+      "generate_sink_sql": true,
+      "database": "dwd",
+      "table": "dwd.${table_name}_test",
+      "schema_save_mode": "ERROR_WHEN_SCHEMA_NOT_EXIST",
+      "data_save_mode": "CUSTOM_PROCESSING",
+      "custom_sql ": "truncate table dwd_device_m1_test",
+      "result_table_name": "ot_ea17db8bde544144867f0a4ab4f9a334",
+      "ottomi_node_type": "JdbcSink",
+      "source_table_name": [
+        "ot_6cf7a8ada6ca4fe3881c30b48d812afe"
+      ]
+    }
+  ]
+}

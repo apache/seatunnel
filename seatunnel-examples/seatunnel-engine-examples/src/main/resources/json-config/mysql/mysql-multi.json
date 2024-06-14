@@ -1,0 +1,46 @@
+{
+  "env": {
+    "execution.parallelism": 1,
+    "job.mode": "STREAMING",
+    "checkpoint.interval": 5000
+  },
+  "source": [
+    {
+      "plugin_name": "Mysql-CDC",
+      "base-url": "jdbc:mysql://172.16.11.131:3306/test1mysql?remarks=true&useInformationSchema=true&useCursorFetch=true&defaultFetchSize=2048",
+      "username": "mysql",
+      "password": "mysql",
+      "database-names": [
+        "test1mysql"
+      ],
+      "table-names": [
+        "test1mysql.device_m1",
+        "test1mysql.device_m2"
+      ],
+      "startup.mode": "initial",
+      "connect.max-retries": 3,
+      "connect.timeout.ms": 3000,
+      "result_table_name": "test"
+    }
+  ],
+  "sink": [
+    {
+      "plugin_name": "Jdbc",
+      "type": "mysql",
+      "driver": "com.mysql.cj.jdbc.Driver",
+      "url": "jdbc:mysql://172.16.11.135:3306/dwd?remarks=true&useInformationSchema=true&useCursorFetch=true&defaultFetchSize=2048&rewriteBatchedStatements=true",
+      "user": "root",
+      "password": "1qaz@WSX",
+      "batch_size": 2048,
+      "generate_sink_sql": true,
+      "database": "dwd",
+      "table": "dwd.dwd_${table_name}",
+      "schema_save_mode": "CREATE_SCHEMA_WHEN_NOT_EXIST",
+      "result_table_name": "ot_ea17db8bde544144867f0a4ab4f9a334",
+      "ottomi_node_type": "JdbcSink",
+      "source_table_name": [
+        "ot_6cf7a8ada6ca4fe3881c30b48d812afe"
+      ]
+    }
+  ]
+}

@@ -45,7 +45,11 @@
         </dependency>
 
         <!--   seatunnel-connector-v2   -->
-
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>connector-void</artifactId>
+            <version>${project.version}</version>
+        </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-cdc-mysql</artifactId>

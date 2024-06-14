@@ -1,0 +1,125 @@
+{
+  "env": {
+    "execution.parallelism": 1,
+    "job.name": "空跑测试",
+    "job.mode": "batch"
+  },
+  "preHandler": [],
+  "source": [
+    {
+      "plugin_name": "FakeSource",
+      "resourceType": "nosql",
+      "row.num": 100,
+      "schema": {
+        "table": "ottomi",
+        "fields": {
+          "id": "string",
+          "name": "string"
+        }
+      },
+      "resources": [
+        "ottomi"
+      ],
+      "result_table_name": "ot_8a970afc04564107be325d436a1a1fe0",
+      "ottomi_node_type": "FakeSource"
+    },
+    {
+      "plugin_name": "FakeSource",
+      "resourceType": "nosql",
+      "row.num": 100,
+      "schema": {
+        "table": "ottomi",
+        "fields": {
+          "id": "string",
+          "age": "int"
+        }
+      },
+      "resources": [
+        "ottomi"
+      ],
+      "result_table_name": "ot_ae58777722c14e6abe52ba60765444a7",
+      "ottomi_node_type": "FakeSource"
+    },
+    {
+      "plugin_name": "Jdbc",
+      "dsId": "1795692521564749825",
+      "dsName": "mysql-血缘测试数据湖",
+      "dsType": "mysql",
+      "resourceType": "table",
+      "driver": "com.mysql.cj.jdbc.Driver",
+      "connection_check_timeout_sec": 100,
+      "table_list": [
+        {
+          "table_path": "ods.ods_device",
+          "query": "SELECT\n `id`,\n `name`,\n `type`,\n `longitude`,\n `latitude`,\n `height`,\n `radius`,\n `distance`,\n `service_address`,\n `status`,\n `term_type`,\n `properties`,\n `runway_name`,\n `direction`,\n `runway_code`,\n `delay`\nFROM\n `ods_device`"
+        }
+      ],
+      "database": "ods",
+      "url": "jdbc:mysql://172.16.11.135:3306/ods?remarks=true&useInformationSchema=true&useCursorFetch=true&defaultFetchSize=2048&rewriteBatchedStatements=true",
+      "user": "root",
+      "password": "1qaz@WSX",
+      "resources": [
+        "ods_device"
+      ],
+      "result_table_name": "ot_da08604c369c4669ab22734b507c6b05",
+      "ottomi_node_type": "JdbcSource"
+    }
+  ],
+  "transform": [
+    {
+      "plugin_name": "Sql",
+      "query": "select id,name,SNOWFLAKE() as uuid from ot_8a970afc04564107be325d436a1a1fe0",
+      "result_table_name": "ot_b22a05c19f76461bb78c53131d17a79c",
+      "ottomi_node_type": "dx_uuid",
+      "source_table_name": [
+        "ot_8a970afc04564107be325d436a1a1fe0"
+      ]
+    },
+    {
+      "plugin_name": "Sql",
+      "query": "select id,age,UUID() as uuid from ot_ae58777722c14e6abe52ba60765444a7",
+      "result_table_name": "ot_f4caf550bd34443393e468d60829d57c",
+      "ottomi_node_type": "dx_uuid",
+      "source_table_name": [
+        "ot_ae58777722c14e6abe52ba60765444a7"
+      ]
+    }
+  ],
+  "sink": [
+    {
+      "plugin_name": "Jdbc",
+      "type": "mysql",
+      "driver": "com.mysql.cj.jdbc.Driver",
+      "url": "jdbc:mysql://172.16.11.135:3306/dwd?remarks=true&useInformationSchema=true&useCursorFetch=true&defaultFetchSize=2048&rewriteBatchedStatements=true",
+      "user": "root",
+      "password": "1qaz@WSX",
+      "primary_keys": [
+        "id"
+      ],
+      "batch_size": 2048,
+      "generate_sink_sql": true,
+      "database": "dwd",
+      "table": "dwd.dwd_device2",
+      "schema_save_mode": "ERROR_WHEN_SCHEMA_NOT_EXIST",
+      "data_save_mode": "CUSTOM_PROCESSING",
+      "custom_sql ": "truncate table dwd_device2",
+      "result_table_name": "ot_0739ff276b814985b202a3548f6144b2",
+      "ottomi_node_type": "JdbcSink",
+      "source_table_name": [
+        "ot_da08604c369c4669ab22734b507c6b05"
+      ]
+    },
+    {
+      "plugin_name": "Console",
+      "source_table_name": [
+        "ot_b22a05c19f76461bb78c53131d17a79c"
+      ]
+    },
+    {
+      "plugin_name": "Console",
+      "source_table_name": [
+        "ot_f4caf550bd34443393e468d60829d57c"
+      ]
+    }
+  ]
+}
