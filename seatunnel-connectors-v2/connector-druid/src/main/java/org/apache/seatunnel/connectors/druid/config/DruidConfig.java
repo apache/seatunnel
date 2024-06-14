@@ -22,7 +22,7 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
 public class DruidConfig {
-    public static final Integer BATCH_SIZE_DEFAULT = 1024;
+    public static final Integer BATCH_SIZE_DEFAULT = 10000;
 
     public static Option<String> COORDINATOR_URL =
             Options.key("coordinatorUrl")
