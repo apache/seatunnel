@@ -192,7 +192,7 @@ public class JdbcIrisIT extends AbstractJdbcIT {
                     + "    VARCHAR_254_COL                    VARCHAR(254),\n"
                     + "    VARCHAR_254_10_COL                 VARCHAR(254,10),\n"
                     + "    VARCHAR2_10_COL                    VARCHAR2(10)\n"
-                    + ")";
+                    + ");COMMENT ON COLUMN \"BIGINT_10_COL\" IS '123''344'";
 
     private static final String[] fieldNames =
             new String[] {
@@ -317,7 +317,10 @@ public class JdbcIrisIT extends AbstractJdbcIT {
         CatalogTable catalogTable = catalog.getTable(sourceTablePath);
         catalog.createTable(targetTablePath, catalogTable, false);
         Assertions.assertTrue(catalog.tableExists(targetTablePath));
-
+        // comment
+        Assertions.assertEquals(
+                catalog.getTable(targetTablePath).getTableSchema().getColumns().get(1).getComment(),
+                "123'344");
         catalog.dropTable(targetTablePath, false);
         Assertions.assertFalse(catalog.tableExists(targetTablePath));
     }

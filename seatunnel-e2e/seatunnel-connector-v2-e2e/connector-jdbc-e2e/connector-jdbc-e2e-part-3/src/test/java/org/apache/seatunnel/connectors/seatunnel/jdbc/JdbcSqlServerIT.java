@@ -104,7 +104,7 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
                     + "\tVARCHAR_TEST varchar(16) COLLATE Chinese_PRC_CS_AS NULL,\n"
                     + "\tVARCHAR_MAX_TEST varchar(MAX) COLLATE Chinese_PRC_CS_AS DEFAULT NULL NULL,\n"
                     + "\tXML_TEST xml NULL\n"
-                    + ");";
+                    + ");COMMENT ON COLUMN \"BIGINT_TEST\" IS '123''344'";
 
     private static final String SINK_CREATE_SQL =
             "CREATE TABLE %s (\n"
@@ -345,6 +345,14 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
         sqlServerCatalog.createTable(tablePathSqlserver_Sink, catalogTable, true);
         boolean tableExistsAfter = sqlServerCatalog.tableExists(tablePathSqlserver_Sink);
         Assertions.assertTrue(tableExistsAfter);
+        // comment
+        Assertions.assertEquals(
+                catalog.getTable(tablePathSqlserver_Sink)
+                        .getTableSchema()
+                        .getColumns()
+                        .get(1)
+                        .getComment(),
+                "123'344");
         // isExistsData ?
         boolean existsDataBefore = sqlServerCatalog.isExistsData(tablePathSqlserver_Sink);
         Assertions.assertFalse(existsDataBefore);

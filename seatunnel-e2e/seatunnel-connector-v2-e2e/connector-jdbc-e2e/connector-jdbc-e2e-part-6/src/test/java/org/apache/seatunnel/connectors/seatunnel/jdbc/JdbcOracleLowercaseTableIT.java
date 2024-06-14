@@ -78,7 +78,7 @@ public class JdbcOracleLowercaseTableIT extends AbstractJdbcIT {
                     + "    DATE_COL                      date,\n"
                     + "    TIMESTAMP_WITH_3_FRAC_SEC_COL timestamp(3),\n"
                     + "    TIMESTAMP_WITH_LOCAL_TZ       timestamp with local time zone\n"
-                    + ")";
+                    + ");COMMENT ON COLUMN CHAR_10_COL IS '123''344'";
 
     @Override
     JdbcCase getJdbcCase() {
@@ -231,6 +231,10 @@ public class JdbcOracleLowercaseTableIT extends AbstractJdbcIT {
                         SCHEMA);
         oracleCatalog.open();
         Assertions.assertTrue(oracleCatalog.tableExists(tablePathOracle));
+        // comment
+        Assertions.assertEquals(
+                catalog.getTable(tablePathOracle).getTableSchema().getColumns().get(1).getComment(),
+                "123'344");
         oracleCatalog.truncateTable(tablePathOracle, true);
         Assertions.assertFalse(oracleCatalog.isExistsData(tablePathOracle));
         oracleCatalog.close();

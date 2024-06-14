@@ -108,7 +108,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "  json_col json NOT NULL,\n"
                     + "  jsonb_col jsonb NOT NULL,\n"
                     + "  xml_col xml NOT NULL\n"
-                    + ")";
+                    + ");COMMENT ON COLUMN \"public\".\"pg_e2e_source_table\".\"uuid_col\" IS '123''344';";
     private static final String PG_SINK_DDL =
             "CREATE TABLE IF NOT EXISTS pg_e2e_sink_table (\n"
                     + "    gid SERIAL PRIMARY KEY,\n"
@@ -482,6 +482,15 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
         postgresCatalog.createTable(tablePathPgSink, catalogTable, true);
         boolean tableExistsAfter = postgresCatalog.tableExists(tablePathPgSink);
         Assertions.assertTrue(tableExistsAfter);
+        // comment
+        Assertions.assertEquals(
+                postgresCatalog
+                        .getTable(tablePathPgSink)
+                        .getTableSchema()
+                        .getColumns()
+                        .get(1)
+                        .getComment(),
+                "123'344");
         // isExistsData ?
         boolean existsDataBefore = postgresCatalog.isExistsData(tablePathPgSink);
         Assertions.assertFalse(existsDataBefore);

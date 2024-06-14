@@ -113,7 +113,7 @@ public class IrisCreateTableSqlBuilder {
         }
 
         if (StringUtils.isNotBlank(column.getComment())) {
-            columnSql.append(" %Description '" + column.getComment() + "'");
+            columnSql.append(" %Description '" + column.getComment().replace("'", "''") + "'");
         }
 
         return columnSql.toString();

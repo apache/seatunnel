@@ -191,7 +191,7 @@ public class MysqlCreateTableSqlBuilder {
         }
 
         if (column.getComment() != null) {
-            columnSqls.add("COMMENT '" + column.getComment() + "'");
+            columnSqls.add("COMMENT '" + column.getComment().replace("'", "''") + "'");
         }
 
         return String.join(" ", columnSqls);
