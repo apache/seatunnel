@@ -50,6 +50,7 @@ import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.datatype.joda.JodaModule;
 import com.google.common.annotations.VisibleForTesting;
 
 import java.io.BufferedReader;
@@ -63,6 +64,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.StringJoiner;
+import java.util.stream.Collectors;
 
 public class DruidWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
@@ -125,7 +127,7 @@ public class DruidWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         }
     }
 
-    public void flush() throws IOException {
+    public synchronized void flush() throws IOException {
         final ParallelIndexIOConfig ioConfig = provideDruidIOConfig(data);
         final ParallelIndexSupervisorTask indexTask = provideIndexTask(ioConfig);
         final String inputJSON = provideInputJSONString(indexTask);
@@ -147,7 +149,9 @@ public class DruidWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     }
 
     @Override
-    public void close() throws IOException {}
+    public void close() throws IOException {
+        flush();
+    }
 
     private HttpURLConnection provideHttpURLConnection(final String coordinatorURL)
             throws IOException {
@@ -162,6 +166,7 @@ public class DruidWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     private ObjectMapper provideDruidSerializer() {
         final ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule(new JodaModule());
         mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         mapper.configure(MapperFeature.AUTO_DETECT_GETTERS, false);
         mapper.configure(MapperFeature.AUTO_DETECT_FIELDS, false);
@@ -215,15 +220,9 @@ public class DruidWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         return dimensionSchemas;
     }
 
-    /**
-     * Provide ioConfig that influences how data is read from a source system. Here we generate a
-     * CSV file from writing data and use the Native batch Ingestion method
-     * (https://druid.apache.org/docs/latest/ingestion/index.html#batch) to load from CSV file. More
-     * details in https://druid.apache.org/docs/latest/ingestion/ingestion-spec.html#ioconfig.
-     */
-    @VisibleForTesting
     ParallelIndexIOConfig provideDruidIOConfig(final StringBuffer data) {
-        List<String> formatList = Arrays.asList(seaTunnelRowType.getFieldNames());
+        List<String> formatList =
+                Arrays.stream(seaTunnelRowType.getFieldNames()).collect(Collectors.toList());
         formatList.add(TIMESTAMP_SPEC_COLUMN_NAME);
         return new ParallelIndexIOConfig(
                 null,
@@ -247,7 +246,6 @@ public class DruidWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
      * Provide JSON to be sent via HTTP request. Please see payload example in
      * https://druid.apache.org/docs/latest/ingestion/ingestion-spec.html
      */
-    @VisibleForTesting
     String provideInputJSONString(final ParallelIndexSupervisorTask indexTask)
             throws JsonProcessingException {
         String taskJSON = mapper.writeValueAsString(indexTask);
