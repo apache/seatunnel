@@ -71,7 +71,7 @@ public class JdbcXuguIT extends AbstractJdbcIT {
             "create table if not exists %s"
                     + "(\n"
                     + "    XUGU_NUMERIC                   NUMERIC(10,2),\n"
-                    + "    XUGU_NUMBER                    NUMBER(10,2),\n"
+                    + "    XUGU_NUMBER                    NUMBER(10,2) COMMENT '123''344',\n"
                     + "    XUGU_INTEGER                   INTEGER,\n"
                     + "    XUGU_INT                       INT,\n"
                     + "    XUGU_BIGINT                    BIGINT,\n"
@@ -95,7 +95,7 @@ public class JdbcXuguIT extends AbstractJdbcIT {
                     + "    XUGU_GUID                      GUID,\n"
                     + "    XUGU_BOOLEAN                   BOOLEAN,\n"
                     + "    CONSTRAINT \"XUGU_PK\" PRIMARY KEY(XUGU_INT)"
-                    + ");COMMENT ON COLUMN \"XUGU_NUMBER\" IS '123''344'";
+                    + ")";
     private static final String[] fieldNames =
             new String[] {
                 "XUGU_NUMERIC",

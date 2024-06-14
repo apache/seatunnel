@@ -104,7 +104,7 @@ public class JdbcIrisIT extends AbstractJdbcIT {
             "create table %s\n"
                     + "(\n"
                     + "    BIGINT_COL                         BIGINT  primary key,\n"
-                    + "    BIGINT_10_COL                      BIGINT(10),\n"
+                    + "    BIGINT_10_COL                      BIGINT(10) %Description '123''344',\n"
                     + "    BINARY_COL                         BINARY,\n"
                     + "    BINARY_10_COL                      BINARY(10),\n"
                     + "    BINARY_VARYING_COL                 BINARY VARYING,\n"
@@ -192,7 +192,7 @@ public class JdbcIrisIT extends AbstractJdbcIT {
                     + "    VARCHAR_254_COL                    VARCHAR(254),\n"
                     + "    VARCHAR_254_10_COL                 VARCHAR(254,10),\n"
                     + "    VARCHAR2_10_COL                    VARCHAR2(10)\n"
-                    + ");COMMENT ON COLUMN \"BIGINT_10_COL\" IS '123''344'";
+                    + ")";
 
     private static final String[] fieldNames =
             new String[] {
