@@ -17,16 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
-import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.xugu.XuguCatalog;
 
 import org.apache.commons.lang3.tuple.Pair;
 
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.utility.DockerLoggerFactory;
@@ -71,7 +67,7 @@ public class JdbcXuguIT extends AbstractJdbcIT {
             "create table if not exists %s"
                     + "(\n"
                     + "    XUGU_NUMERIC                   NUMERIC(10,2),\n"
-                    + "    XUGU_NUMBER                    NUMBER(10,2) COMMENT '123''344',\n"
+                    + "    XUGU_NUMBER                    NUMBER(10,2),\n"
                     + "    XUGU_INTEGER                   INTEGER,\n"
                     + "    XUGU_INT                       INT,\n"
                     + "    XUGU_BIGINT                    BIGINT,\n"
@@ -246,32 +242,5 @@ public class JdbcXuguIT extends AbstractJdbcIT {
                         JdbcUrlUtil.getUrlInfo(jdbcUrl),
                         XUGU_SCHEMA);
         catalog.open();
-    }
-
-    @Test
-    @Override
-    public void testCatalog() {
-        if (catalog == null) {
-            return;
-        }
-        TablePath sourceTablePath =
-                new TablePath(
-                        jdbcCase.getDatabase(), jdbcCase.getSchema(), jdbcCase.getSourceTable());
-        TablePath targetTablePath =
-                new TablePath(
-                        jdbcCase.getCatalogDatabase(),
-                        jdbcCase.getCatalogSchema(),
-                        jdbcCase.getCatalogTable());
-
-        CatalogTable catalogTable = catalog.getTable(sourceTablePath);
-        Assertions.assertFalse(catalog.tableExists(targetTablePath));
-        catalog.createTable(targetTablePath, catalogTable, false);
-        Assertions.assertTrue(catalog.tableExists(targetTablePath));
-        // comment
-        Assertions.assertEquals(
-                catalog.getTable(targetTablePath).getTableSchema().getColumns().get(1).getComment(),
-                "123'344");
-        catalog.dropTable(targetTablePath, false);
-        Assertions.assertFalse(catalog.tableExists(targetTablePath));
     }
 }

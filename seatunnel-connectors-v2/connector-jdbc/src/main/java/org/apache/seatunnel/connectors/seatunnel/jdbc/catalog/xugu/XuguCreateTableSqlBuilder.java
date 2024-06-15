@@ -134,7 +134,7 @@ public class XuguCreateTableSqlBuilder {
         columnCommentSql
                 .append(CatalogUtils.quoteIdentifier(column.getName(), fieldIde, "\""))
                 .append(CatalogUtils.quoteIdentifier(" IS '", fieldIde))
-                .append(column.getComment().replace("'", "''"))
+                .append(column.getComment())
                 .append("'");
         return columnCommentSql.toString();
     }

@@ -104,7 +104,7 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
                     + "\tVARCHAR_TEST varchar(16) COLLATE Chinese_PRC_CS_AS NULL,\n"
                     + "\tVARCHAR_MAX_TEST varchar(MAX) COLLATE Chinese_PRC_CS_AS DEFAULT NULL NULL,\n"
                     + "\tXML_TEST xml NULL\n"
-                    + ");COMMENT ON COLUMN \"BIGINT_TEST\" IS '123''344'";
+                    + ")";
 
     private static final String SINK_CREATE_SQL =
             "CREATE TABLE %s (\n"
@@ -337,6 +337,10 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
         TablePath tablePathSqlserver = TablePath.of("master", "dbo", "source");
         TablePath tablePathSqlserver_Sink = TablePath.of("master", "dbo", "sink_lw");
         SqlServerCatalog sqlServerCatalog = (SqlServerCatalog) catalog;
+        // add comment
+        String commentSql =
+                "execute sp_addextendedproperty  'MS_Description','123''344',  'user','dbo','table','source','column','BIGINT_TEST'";
+        sqlServerCatalog.executeSql(tablePathSqlserver, commentSql);
         CatalogTable catalogTable = sqlServerCatalog.getTable(tablePathSqlserver);
         // sink tableExists ?
         boolean tableExistsBefore = sqlServerCatalog.tableExists(tablePathSqlserver_Sink);

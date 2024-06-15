@@ -104,7 +104,7 @@ public class JdbcIrisIT extends AbstractJdbcIT {
             "create table %s\n"
                     + "(\n"
                     + "    BIGINT_COL                         BIGINT  primary key,\n"
-                    + "    BIGINT_10_COL                      BIGINT(10) %Description '123''344',\n"
+                    + "    BIGINT_10_COL                      BIGINT(10),\n"
                     + "    BINARY_COL                         BINARY,\n"
                     + "    BINARY_10_COL                      BINARY(10),\n"
                     + "    BINARY_VARYING_COL                 BINARY VARYING,\n"
@@ -317,10 +317,6 @@ public class JdbcIrisIT extends AbstractJdbcIT {
         CatalogTable catalogTable = catalog.getTable(sourceTablePath);
         catalog.createTable(targetTablePath, catalogTable, false);
         Assertions.assertTrue(catalog.tableExists(targetTablePath));
-        // comment
-        Assertions.assertEquals(
-                catalog.getTable(targetTablePath).getTableSchema().getColumns().get(1).getComment(),
-                "123'344");
         catalog.dropTable(targetTablePath, false);
         Assertions.assertFalse(catalog.tableExists(targetTablePath));
     }
