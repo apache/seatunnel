@@ -59,8 +59,6 @@ import com.fasterxml.jackson.datatype.joda.JodaModule;
 import com.google.common.annotations.VisibleForTesting;
 
 import java.io.IOException;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -147,17 +145,9 @@ public class DruidWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     @Override
     public synchronized void close() throws IOException {
         flush();
-    }
-
-    private HttpURLConnection provideHttpURLConnection(final String coordinatorURL)
-            throws IOException {
-        final URL url = new URL("http://" + coordinatorURL + DRUID_ENDPOINT);
-        final HttpURLConnection con = (HttpURLConnection) url.openConnection();
-        con.setRequestMethod("POST");
-        con.setRequestProperty("Content-Type", "application/json");
-        con.setRequestProperty("Accept", "application/json, text/plain, */*");
-        con.setDoOutput(true);
-        return con;
+        if (httpClient != null) {
+            httpClient.close();
+        }
     }
 
     private ObjectMapper provideDruidSerializer() {
