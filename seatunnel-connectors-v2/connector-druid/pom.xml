@@ -28,7 +28,7 @@
     <name>SeaTunnel : Connectors V2 : Druid</name>
 
     <properties>
-        <druid.version>29.0.1</druid.version>
+        <druid.version>0.22.1</druid.version>
         <netty.version>4.1.29.Final</netty.version>
     </properties>
 
@@ -38,7 +38,11 @@
             <artifactId>connector-common</artifactId>
             <version>${project.version}</version>
         </dependency>
-
+        <dependency>
+            <groupId>org.apache.druid</groupId>
+            <artifactId>druid-processing</artifactId>
+            <version>${druid.version}</version>
+        </dependency>
         <dependency>
             <groupId>org.apache.druid</groupId>
             <artifactId>druid-indexing-service</artifactId>
