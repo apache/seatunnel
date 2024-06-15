@@ -131,7 +131,6 @@ public class DruidIT extends TestSuiteBase implements TestResource {
                             .collect(Collectors.toList());
             Files.write(path, newLines);
             log.info("Conf has been updated successfully.");
-
         } catch (IOException e) {
             throw new RuntimeException("Change conf error", e);
         }

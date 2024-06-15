@@ -94,14 +94,12 @@ public class DruidWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             SeaTunnelRowType seaTunnelRowType,
             String coordinatorUrl,
             String datasource,
-            int batchSize)
-            throws IOException {
+            int batchSize) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.coordinatorUrl = coordinatorUrl;
         this.datasource = datasource;
         this.batchSize = batchSize;
         this.mapper = provideDruidSerializer();
-        // this.httpURLConnection = provideHttpURLConnection(coordinatorUrl);
         this.httpClient = HttpClients.createDefault();
         this.dataSchema = provideDruidDataSchema();
         this.processTime = System.currentTimeMillis();

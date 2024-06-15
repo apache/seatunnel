@@ -25,6 +25,11 @@
     <artifactId>connector-druid-e2e</artifactId>
     <name>SeaTunnel : E2E : Connector V2 : Druid</name>
 
+    <properties>
+        <druid.version>24.0.1</druid.version>
+        <httpclient.version>4.5.13</httpclient.version>
+    </properties>
+
     <dependencies>
         <!-- SeaTunnel connectors -->
         <dependency>
@@ -42,19 +47,7 @@
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpclient</artifactId>
-            <version>4.5.13</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.httpcomponents</groupId>
-            <artifactId>httpcore</artifactId>
-            <version>4.4.4</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.json</groupId>
-            <artifactId>json</artifactId>
-            <version>20210307</version>
+            <version>${httpclient.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

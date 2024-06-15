@@ -28,13 +28,13 @@ public class DruidConfig {
             Options.key("coordinatorUrl")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("The coordinatorUrl host and port of Druid");
+                    .withDescription("The coordinatorUrl host and port of Druid.");
 
     public static Option<String> DATASOURCE =
             Options.key("datasource")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("The datasource name need to write");
+                    .withDescription("The datasource name need to write.");
 
     public static Option<Integer> BATCH_SIZE =
             Options.key("batchSize")
