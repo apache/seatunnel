@@ -177,6 +177,7 @@
 - [Connector-V2] [Kafka] Kafka source supports data deserialization failure skipping (#4364)
 - [Connector-V2] [Jdbc] [TiDB] Add TiDB catalog (#4438)
 - [Connector-V2] [File] Add file excel sink and source (#4164)
+- [Connector-V2] [FILE-OBS] Add Huawei Cloud OBS connector (#4577)
 - [Connector-v2] [Snowflake] Add Snowflake Source&Sink connector (#4470)
 - [Connector-V2] [Pular] support read format for pulsar (#4111)
 - [Connector-V2] [Paimon] Introduce paimon connector (#4178)
@@ -193,6 +194,7 @@
 - [Connector-V2] [Assert] Support check the precision and scale of Decimal type (#6110)
 - [Connector-V2] [Assert] Support field type assert and field value equality assert for full data types (#6275)
 - [Connector-V2] [Iceberg] Support iceberg sink #6198
+- [Connector-V2] [FILE-OBS] Add Huawei Cloud OBS connector #4578
 
 ### Zeta(ST-Engine)
 
