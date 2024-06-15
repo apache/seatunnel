@@ -39,9 +39,12 @@ import org.testcontainers.containers.Container;
 import org.testcontainers.containers.DockerComposeContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -49,11 +52,14 @@ import java.time.Duration;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Slf4j
 @DisabledOnContainer(
         value = {TestContainerId.SPARK_2_4},
         disabledReason = "The RoaringBitmap version is not compatible in docker container")
 public class DruidIT extends TestSuiteBase implements TestResource {
 
+    private static final String datasource = "testDataSource";
+    private static final String sqlQuery = "SELECT * FROM " + datasource;
     private static final String DRUID_SERVICE_NAME = "router";
     private static final int DRUID_SERVICE_PORT = 8888;
     private DockerComposeContainer environment;
@@ -70,8 +76,42 @@ public class DruidIT extends TestSuiteBase implements TestResource {
                                 Wait.forListeningPort()
                                         .withStartupTimeout(Duration.ofSeconds(360)));
         environment.start();
+        changeCoordinatorURLConf();
+    }
+
+    @AfterAll
+    @Override
+    public void tearDown() throws Exception {
+        environment.close();
+    }
+
+    @TestTemplate
+    public void testDruidSink(TestContainer container) throws Exception {
+        Container.ExecResult execResult = container.executeJob("/fakesource_to_druid.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        while (true) {
+            try (CloseableHttpClient client = HttpClients.createDefault()) {
+                HttpPost request = new HttpPost("http://" + coordinatorURL + "/druid/v2/sql");
+                String jsonRequest = "{\"query\": \"" + sqlQuery + "\"}";
+                StringEntity entity = new StringEntity(jsonRequest);
+                entity.setContentType("application/json");
+                request.setEntity(entity);
+                HttpResponse response = client.execute(request);
+                String responseBody = EntityUtils.toString(response.getEntity());
+                String expectedData =
+                        "\"c_boolean\":\"true\",\"c_timestamp\":\"2020-02-02T02:02:02\",\"c_string\":\"NEW\",\"c_tinyint\":1,\"c_smallint\":2,\"c_int\":3,\"c_bigint\":4,\"c_float\":4.3,\"c_double\":5.3,\"c_decimal\":6.3";
+                if (!responseBody.contains("errorMessage")) {
+                    // Check sink data
+                    Assertions.assertEquals(responseBody.contains(expectedData), true);
+                    break;
+                }
+                Thread.sleep(1000);
+            }
+        }
+    }
+
+    private void changeCoordinatorURLConf() throws UnknownHostException {
         coordinatorURL = InetAddress.getLocalHost().getHostAddress() + ":8888";
-        System.out.println(coordinatorURL);
         String resourceFilePath = "src/test/resources/fakesource_to_druid.conf";
         Path path = Paths.get(resourceFilePath);
         try {
@@ -90,46 +130,10 @@ public class DruidIT extends TestSuiteBase implements TestResource {
                                     })
                             .collect(Collectors.toList());
             Files.write(path, newLines);
-            System.out.println("Conf has been updated successfully.");
+            log.info("Conf has been updated successfully.");
 
         } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    @AfterAll
-    @Override
-    public void tearDown() throws Exception {
-        environment.close();
-    }
-
-    @TestTemplate
-    public void testDruidSink(TestContainer container) throws Exception {
-        Container.ExecResult execResult = container.executeJob("/fakesource_to_druid.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
-        while (true) {
-            String datasource = "testDataSource";
-            String sqlQuery = "SELECT COUNT(*) FROM " + datasource;
-            try (CloseableHttpClient client = HttpClients.createDefault()) {
-                HttpPost request = new HttpPost("http://" + coordinatorURL + "/druid/v2/sql");
-                String jsonRequest = "{\"query\": \"" + sqlQuery + "\"}";
-                StringEntity entity = new StringEntity(jsonRequest);
-                entity.setContentType("application/json");
-                request.setEntity(entity);
-                HttpResponse response = client.execute(request);
-
-                String responseBody = EntityUtils.toString(response.getEntity());
-                System.out.println(responseBody);
-                if (!responseBody.contains("errorMessage")) {
-                    assert (responseBody.contains("1000"));
-                    break;
-                }
-                Thread.sleep(1000);
-            } catch (IOException e) {
-                e.printStackTrace();
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
+            throw new RuntimeException("Change conf error", e);
         }
     }
 }

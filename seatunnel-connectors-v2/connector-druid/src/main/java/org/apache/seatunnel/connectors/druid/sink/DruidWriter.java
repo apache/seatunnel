@@ -197,16 +197,22 @@ public class DruidWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         for (int i = 0; i < fieldNames.length; i++) {
             String columnName = fieldNames[i];
             switch (fieldTypes[i].getSqlType()) {
+                case BOOLEAN:
+                case TIMESTAMP:
                 case STRING:
                     dimensionSchemas.add(new StringDimensionSchema(columnName));
                     break;
                 case FLOAT:
                     dimensionSchemas.add(new FloatDimensionSchema(columnName));
                     break;
+                case DECIMAL:
                 case DOUBLE:
                     dimensionSchemas.add(new DoubleDimensionSchema(columnName));
                     break;
+                case TINYINT:
+                case SMALLINT:
                 case INT:
+                case BIGINT:
                     dimensionSchemas.add(new LongDimensionSchema(columnName));
                     break;
                 default:
@@ -247,7 +253,7 @@ public class DruidWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     String provideInputJSONString(final ParallelIndexSupervisorTask indexTask)
             throws JsonProcessingException {
         String taskJSON = mapper.writeValueAsString(indexTask);
-        final ObjectNode jsonObject = (ObjectNode) JsonSerializer.parse(taskJSON);
+        final ObjectNode jsonObject = (ObjectNode) mapper.readTree(taskJSON);
         jsonObject.remove("id");
         jsonObject.remove("groupId");
         jsonObject.remove("resource");
