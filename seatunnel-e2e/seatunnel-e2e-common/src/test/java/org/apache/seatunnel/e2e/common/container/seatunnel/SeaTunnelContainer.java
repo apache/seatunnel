@@ -426,7 +426,11 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 || threadName.startsWith("MaintenanceTimer")
                 || threadName.startsWith("cluster-")
                 // Iceberg
-                || threadName.startsWith("iceberg");
+                || threadName.startsWith("iceberg")
+                // Iceberg S3 Hadoop catalog
+                || threadName.contains("java-sdk-http-connection-reaper")
+                || threadName.contains("Timer for 's3a-file-system' metrics system")
+                || threadName.startsWith("MutableQuantiles-");
     }
 
     @Override

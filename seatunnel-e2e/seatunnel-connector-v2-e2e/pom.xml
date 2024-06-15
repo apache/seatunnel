@@ -54,6 +54,7 @@
         <module>connector-cdc-mongodb-e2e</module>
         <module>connector-iceberg-e2e</module>
         <module>connector-iceberg-hadoop3-e2e</module>
+        <module>connector-iceberg-s3-e2e</module>
         <module>connector-tdengine-e2e</module>
         <module>connector-datahub-e2e</module>
         <module>connector-mongodb-e2e</module>
