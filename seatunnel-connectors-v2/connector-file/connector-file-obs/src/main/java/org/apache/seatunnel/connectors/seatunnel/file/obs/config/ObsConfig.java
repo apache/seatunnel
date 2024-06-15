@@ -19,9 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.file.obs.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 
-public class ObsConfig extends BaseSourceConfig {
+public class ObsConfig extends BaseSourceConfigOptions {
     public static final Option<String> ACCESS_KEY =
             Options.key("access_key")
                     .stringType()
