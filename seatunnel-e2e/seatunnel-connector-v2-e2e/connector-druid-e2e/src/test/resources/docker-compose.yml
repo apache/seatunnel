@@ -58,7 +58,7 @@ services:
       - chmod-service
 
   coordinator:
-    image: apache/druid:29.0.1
+    image: apache/druid:24.0.1
     volumes:
       - druid_shared:/opt/druid/shared
       - coordinator_var:/opt/druid/var
@@ -74,7 +74,7 @@ services:
       - environment
 
   broker:
-    image: apache/druid:29.0.1
+    image: apache/druid:24.0.1
     volumes:
       - broker_var:/opt/druid/var
     depends_on:
@@ -90,7 +90,7 @@ services:
       - environment
 
   historical:
-    image: apache/druid:29.0.1
+    image: apache/druid:24.0.1
     volumes:
       - druid_shared:/opt/druid/shared
       - historical_var:/opt/druid/var
@@ -107,7 +107,7 @@ services:
       - environment
 
   middlemanager:
-    image: apache/druid:29.0.1
+    image: apache/druid:24.0.1
     volumes:
       - druid_shared:/opt/druid/shared
       - middle_var:/opt/druid/var
@@ -125,7 +125,7 @@ services:
       - environment
 
   router:
-    image: apache/druid:29.0.1
+    image: apache/druid:24.0.1
     volumes:
       - router_var:/opt/druid/var
     depends_on:

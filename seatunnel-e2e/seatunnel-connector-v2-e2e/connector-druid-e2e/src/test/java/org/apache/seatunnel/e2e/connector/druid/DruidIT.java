@@ -21,6 +21,8 @@ package org.apache.seatunnel.e2e.connector.druid;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.container.TestContainerId;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpPost;
@@ -47,6 +49,9 @@ import java.time.Duration;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@DisabledOnContainer(
+        value = {TestContainerId.SPARK_2_4},
+        disabledReason = "The RoaringBitmap version is not compatible in docker container")
 public class DruidIT extends TestSuiteBase implements TestResource {
 
     private static final String DRUID_SERVICE_NAME = "router";
