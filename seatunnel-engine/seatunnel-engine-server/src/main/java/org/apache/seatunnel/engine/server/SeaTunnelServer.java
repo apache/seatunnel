@@ -190,7 +190,7 @@ public class SeaTunnelServer
                             .getProperty(INVOCATION_MAX_RETRY_COUNT.getName());
             int maxRetry =
                     hazelcastInvocationMaxRetry == null
-                            ? 250 * 2
+                            ? Integer.parseInt(INVOCATION_MAX_RETRY_COUNT.getDefaultValue()) * 2
                             : Integer.parseInt(hazelcastInvocationMaxRetry) * 2;
 
             String hazelcastRetryPause =
@@ -199,12 +199,14 @@ public class SeaTunnelServer
                             .getProperty(INVOCATION_RETRY_PAUSE.getName());
 
             int retryPause =
-                    hazelcastRetryPause == null ? 500 : Integer.parseInt(hazelcastRetryPause);
+                    hazelcastRetryPause == null
+                            ? Integer.parseInt(INVOCATION_RETRY_PAUSE.getDefaultValue())
+                            : Integer.parseInt(hazelcastRetryPause);
 
-            while (isMasterNode()
-                    && !coordinatorService.isCoordinatorActive()
+            while (isRunning
                     && retryCount < maxRetry
-                    && isRunning) {
+                    && !coordinatorService.isCoordinatorActive()
+                    && isMasterNode()) {
                 try {
                     LOGGER.warning(
                             "This is master node, waiting the coordinator service init finished");
@@ -254,13 +256,15 @@ public class SeaTunnelServer
     public boolean isMasterNode() {
         // must retry until the cluster have master node
         try {
-            return RetryUtils.retryWithException(
-                    () -> nodeEngine.getThisAddress().equals(nodeEngine.getMasterAddress()),
-                    new RetryUtils.RetryMaterial(
-                            Constant.OPERATION_RETRY_TIME,
-                            true,
-                            exception -> exception instanceof NullPointerException && isRunning,
-                            Constant.OPERATION_RETRY_SLEEP));
+            return Boolean.TRUE.equals(
+                    RetryUtils.retryWithException(
+                            () -> nodeEngine.getThisAddress().equals(nodeEngine.getMasterAddress()),
+                            new RetryUtils.RetryMaterial(
+                                    Constant.OPERATION_RETRY_TIME,
+                                    true,
+                                    exception ->
+                                            isRunning && exception instanceof NullPointerException,
+                                    Constant.OPERATION_RETRY_SLEEP)));
         } catch (InterruptedException e) {
             LOGGER.info("master node check interrupted");
             return false;

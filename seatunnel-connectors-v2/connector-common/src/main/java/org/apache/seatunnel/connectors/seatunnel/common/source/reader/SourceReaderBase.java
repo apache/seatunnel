@@ -26,6 +26,7 @@ import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.fetcher.SplitFetcherManager;
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.splitreader.SplitReader;
 
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -62,9 +63,9 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
     protected final SourceReader.Context context;
 
     private RecordsWithSplitIds<E> currentFetch;
-    private SplitContext<T, SplitStateT> currentSplitContext;
+    protected SplitContext<T, SplitStateT> currentSplitContext;
     private Collector<T> currentSplitOutput;
-    private boolean noMoreSplitsAssignment;
+    @Getter private volatile boolean noMoreSplitsAssignment;
 
     public SourceReaderBase(
             BlockingQueue<RecordsWithSplitIds<E>> elementsQueue,
@@ -93,10 +94,11 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
             if (recordsWithSplitId == null) {
                 if (Boundedness.BOUNDED.equals(context.getBoundedness())
                         && noMoreSplitsAssignment
-                        && splitFetcherManager.maybeShutdownFinishedFetchers()
-                        && elementsQueue.isEmpty()) {
+                        && isNoMoreElement()) {
                     context.signalNoMoreElement();
-                    log.info("Send NoMoreElement event");
+                    log.info(
+                            "Reader {} into idle state, send NoMoreElement event",
+                            context.getIndexOfSubtask());
                 }
                 return;
             }
@@ -136,7 +138,7 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
 
     @Override
     public void handleNoMoreSplits() {
-        log.info("Reader received NoMoreSplits event.");
+        log.info("Reader {} received NoMoreSplits event.", context.getIndexOfSubtask());
         noMoreSplitsAssignment = true;
     }
 
@@ -145,9 +147,15 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
         log.info("Received unhandled source event: {}", sourceEvent);
     }
 
+    protected boolean isNoMoreElement() {
+        return splitFetcherManager.maybeShutdownFinishedFetchers()
+                && elementsQueue.isEmpty()
+                && currentFetch == null;
+    }
+
     @Override
     public void close() {
-        log.info("Closing Source Reader.");
+        log.info("Closing Source Reader {}.", context.getIndexOfSubtask());
         try {
             splitFetcherManager.close(options.getSourceReaderCloseTimeout());
         } catch (Exception e) {
@@ -234,9 +242,9 @@ public abstract class SourceReaderBase<E, T, SplitT extends SourceSplit, SplitSt
     protected abstract SplitT toSplitType(String splitId, SplitStateT splitState);
 
     @RequiredArgsConstructor
-    private static final class SplitContext<T, SplitStateT> {
+    protected static final class SplitContext<T, SplitStateT> {
         final String splitId;
-        final SplitStateT state;
+        @Getter final SplitStateT state;
         Collector<T> splitOutput;
 
         Collector<T> getOrCreateSplitOutput(Collector<T> output) {

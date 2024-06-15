@@ -30,14 +30,13 @@ import io.debezium.connector.sqlserver.SqlServerConnection;
 import io.debezium.connector.sqlserver.SqlServerConnectorConfig;
 import io.debezium.connector.sqlserver.SqlServerDatabaseSchema;
 import io.debezium.connector.sqlserver.SqlServerOffsetContext;
+import io.debezium.connector.sqlserver.SqlServerPartition;
 import io.debezium.pipeline.EventDispatcher;
 import io.debezium.pipeline.source.AbstractSnapshotChangeEventSource;
 import io.debezium.pipeline.source.spi.ChangeEventSource;
 import io.debezium.pipeline.source.spi.SnapshotProgressListener;
 import io.debezium.pipeline.spi.ChangeRecordEmitter;
-import io.debezium.pipeline.spi.OffsetContext;
 import io.debezium.pipeline.spi.SnapshotResult;
-import io.debezium.relational.Column;
 import io.debezium.relational.RelationalSnapshotChangeEventSource;
 import io.debezium.relational.SnapshotChangeRecordEmitter;
 import io.debezium.relational.Table;
@@ -56,7 +55,8 @@ import java.sql.Types;
 import java.time.Duration;
 
 @Slf4j
-public class SqlServerSnapshotSplitReadTask extends AbstractSnapshotChangeEventSource {
+public class SqlServerSnapshotSplitReadTask
+        extends AbstractSnapshotChangeEventSource<SqlServerPartition, SqlServerOffsetContext> {
 
     /** Interval for showing a log statement with the progress while scanning a single table. */
     private static final Duration LOG_INTERVAL = Duration.ofMillis(10_000);
@@ -64,19 +64,19 @@ public class SqlServerSnapshotSplitReadTask extends AbstractSnapshotChangeEventS
     private final SqlServerConnectorConfig connectorConfig;
     private final SqlServerDatabaseSchema databaseSchema;
     private final SqlServerConnection jdbcConnection;
-    private final JdbcSourceEventDispatcher dispatcher;
+    private final JdbcSourceEventDispatcher<SqlServerPartition> dispatcher;
     private final Clock clock;
     private final SnapshotSplit snapshotSplit;
     private final SqlServerOffsetContext offsetContext;
-    private final SnapshotProgressListener snapshotProgressListener;
+    private final SnapshotProgressListener<SqlServerPartition> snapshotProgressListener;
 
     public SqlServerSnapshotSplitReadTask(
             SqlServerConnectorConfig connectorConfig,
             SqlServerOffsetContext previousOffset,
-            SnapshotProgressListener snapshotProgressListener,
+            SnapshotProgressListener<SqlServerPartition> snapshotProgressListener,
             SqlServerDatabaseSchema databaseSchema,
             SqlServerConnection jdbcConnection,
-            JdbcSourceEventDispatcher dispatcher,
+            JdbcSourceEventDispatcher<SqlServerPartition> dispatcher,
             SnapshotSplit snapshotSplit) {
         super(connectorConfig, snapshotProgressListener);
         this.offsetContext = previousOffset;
@@ -90,13 +90,15 @@ public class SqlServerSnapshotSplitReadTask extends AbstractSnapshotChangeEventS
     }
 
     @Override
-    public SnapshotResult execute(
-            ChangeEventSource.ChangeEventSourceContext context, OffsetContext previousOffset)
+    public SnapshotResult<SqlServerOffsetContext> execute(
+            ChangeEventSource.ChangeEventSourceContext context,
+            SqlServerPartition partition,
+            SqlServerOffsetContext previousOffset)
             throws InterruptedException {
-        SnapshottingTask snapshottingTask = getSnapshottingTask(previousOffset);
-        final SnapshotContext ctx;
+        SnapshottingTask snapshottingTask = getSnapshottingTask(partition, previousOffset);
+        final SnapshotContext<SqlServerPartition, SqlServerOffsetContext> ctx;
         try {
-            ctx = prepare(context);
+            ctx = prepare(partition);
         } catch (Exception e) {
             log.error("Failed to initialize snapshot context.", e);
             throw new RuntimeException(e);
@@ -114,8 +116,8 @@ public class SqlServerSnapshotSplitReadTask extends AbstractSnapshotChangeEventS
     @Override
     protected SnapshotResult doExecute(
             ChangeEventSource.ChangeEventSourceContext context,
-            OffsetContext previousOffset,
-            AbstractSnapshotChangeEventSource.SnapshotContext snapshotContext,
+            SqlServerOffsetContext previousOffset,
+            SnapshotContext<SqlServerPartition, SqlServerOffsetContext> snapshotContext,
             AbstractSnapshotChangeEventSource.SnapshottingTask snapshottingTask)
             throws Exception {
         final SqlSeverSnapshotContext ctx = (SqlSeverSnapshotContext) snapshotContext;
@@ -128,7 +130,7 @@ public class SqlServerSnapshotSplitReadTask extends AbstractSnapshotChangeEventS
                 snapshotSplit);
         ((SnapshotSplitChangeEventSourceContext) context).setLowWatermark(lowWatermark);
         dispatcher.dispatchWatermarkEvent(
-                offsetContext.getPartition(), snapshotSplit, lowWatermark, WatermarkKind.LOW);
+                ctx.partition.getSourcePartition(), snapshotSplit, lowWatermark, WatermarkKind.LOW);
 
         log.info("Snapshot step 2 - Snapshotting data");
         createDataEvents(ctx, snapshotSplit.getTableId());
@@ -140,25 +142,27 @@ public class SqlServerSnapshotSplitReadTask extends AbstractSnapshotChangeEventS
                 snapshotSplit);
         ((SnapshotSplitChangeEventSourceContext) context).setHighWatermark(highWatermark);
         dispatcher.dispatchWatermarkEvent(
-                offsetContext.getPartition(), snapshotSplit, highWatermark, WatermarkKind.HIGH);
+                ctx.partition.getSourcePartition(),
+                snapshotSplit,
+                highWatermark,
+                WatermarkKind.HIGH);
         return SnapshotResult.completed(ctx.offset);
     }
 
     @Override
     protected AbstractSnapshotChangeEventSource.SnapshottingTask getSnapshottingTask(
-            OffsetContext previousOffset) {
+            SqlServerPartition partition, SqlServerOffsetContext previousOffset) {
         return new SnapshottingTask(false, true);
     }
 
     @Override
-    protected AbstractSnapshotChangeEventSource.SnapshotContext prepare(
-            ChangeEventSource.ChangeEventSourceContext changeEventSourceContext) throws Exception {
-        return new SqlSeverSnapshotContext();
+    protected SqlSeverSnapshotContext prepare(SqlServerPartition partition) throws Exception {
+        return new SqlSeverSnapshotContext(partition);
     }
 
     private void createDataEvents(SqlSeverSnapshotContext snapshotContext, TableId tableId)
             throws Exception {
-        EventDispatcher.SnapshotReceiver snapshotReceiver =
+        EventDispatcher.SnapshotReceiver<SqlServerPartition> snapshotReceiver =
                 dispatcher.getSnapshotChangeEventReceiver();
         log.debug("Snapshotting table {}", tableId);
         createDataEventsForTable(
@@ -169,7 +173,7 @@ public class SqlServerSnapshotSplitReadTask extends AbstractSnapshotChangeEventS
     /** Dispatches the data change events for the records of a single table. */
     private void createDataEventsForTable(
             SqlSeverSnapshotContext snapshotContext,
-            EventDispatcher.SnapshotReceiver snapshotReceiver,
+            EventDispatcher.SnapshotReceiver<SqlServerPartition> snapshotReceiver,
             Table table)
             throws InterruptedException {
 
@@ -206,11 +210,8 @@ public class SqlServerSnapshotSplitReadTask extends AbstractSnapshotChangeEventS
 
             while (rs.next()) {
                 rows++;
-                final Object[] row = new Object[columnArray.getGreatestColumnPosition()];
-                for (int i = 0; i < columnArray.getColumns().length; i++) {
-                    Column actualColumn = table.columns().get(i);
-                    row[columnArray.getColumns()[i].position() - 1] = readField(rs, i + 1);
-                }
+                final Object[] row =
+                        jdbcConnection.rowToArray(table, databaseSchema, rs, columnArray);
                 if (logTimer.expired()) {
                     long stop = clock.currentTimeInMillis();
                     log.info(
@@ -218,10 +219,12 @@ public class SqlServerSnapshotSplitReadTask extends AbstractSnapshotChangeEventS
                             rows,
                             snapshotSplit.splitId(),
                             Strings.duration(stop - exportStart));
-                    snapshotProgressListener.rowsScanned(table.id(), rows);
+                    snapshotProgressListener.rowsScanned(
+                            snapshotContext.partition, table.id(), rows);
                     logTimer = getTableScanLogTimer();
                 }
                 dispatcher.dispatchSnapshotEvent(
+                        snapshotContext.partition,
                         table.id(),
                         getChangeRecordEmitter(snapshotContext, table.id(), row),
                         snapshotReceiver);
@@ -239,7 +242,8 @@ public class SqlServerSnapshotSplitReadTask extends AbstractSnapshotChangeEventS
     protected ChangeRecordEmitter getChangeRecordEmitter(
             SqlSeverSnapshotContext snapshotContext, TableId tableId, Object[] row) {
         snapshotContext.offset.event(tableId, clock.currentTime());
-        return new SnapshotChangeRecordEmitter(snapshotContext.offset, row, clock);
+        return new SnapshotChangeRecordEmitter(
+                snapshotContext.partition, snapshotContext.offset, row, clock);
     }
 
     private Threads.Timer getTableScanLogTimer() {
@@ -258,10 +262,11 @@ public class SqlServerSnapshotSplitReadTask extends AbstractSnapshotChangeEventS
     }
 
     private static class SqlSeverSnapshotContext
-            extends RelationalSnapshotChangeEventSource.RelationalSnapshotContext {
+            extends RelationalSnapshotChangeEventSource.RelationalSnapshotContext<
+                    SqlServerPartition, SqlServerOffsetContext> {
 
-        public SqlSeverSnapshotContext() throws SQLException {
-            super("");
+        public SqlSeverSnapshotContext(SqlServerPartition partition) throws SQLException {
+            super(partition, "");
         }
     }
 }

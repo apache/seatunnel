@@ -19,6 +19,7 @@ package org.apache.seatunnel.api.env;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.sink.SaveModeExecuteLocation;
 import org.apache.seatunnel.common.constants.JobMode;
 
 import java.util.Map;
@@ -43,6 +44,12 @@ public interface EnvCommonOptions {
                     .enumType(JobMode.class)
                     .defaultValue(JobMode.BATCH)
                     .withDescription("The job mode of this job, support Batch and Stream");
+
+    Option<Integer> JOB_RETRY_TIMES =
+            Options.key("job.retry.times")
+                    .intType()
+                    .defaultValue(3)
+                    .withDescription("The retry times of this job");
 
     Option<Long> CHECKPOINT_INTERVAL =
             Options.key("checkpoint.interval")
@@ -69,6 +76,12 @@ public interface EnvCommonOptions {
                     .longType()
                     .noDefaultValue()
                     .withDescription("The timeout (in milliseconds) for a checkpoint.");
+
+    Option<SaveModeExecuteLocation> SAVEMODE_EXECUTE_LOCATION =
+            Options.key("savemode.execute.location")
+                    .enumType(SaveModeExecuteLocation.class)
+                    .defaultValue(SaveModeExecuteLocation.CLUSTER)
+                    .withDescription("The location of save mode execute.");
 
     Option<String> JARS =
             Options.key("jars")

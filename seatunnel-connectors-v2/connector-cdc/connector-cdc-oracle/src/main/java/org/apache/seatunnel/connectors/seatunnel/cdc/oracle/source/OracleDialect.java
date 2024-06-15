@@ -23,7 +23,6 @@ import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
-import org.apache.seatunnel.connectors.cdc.base.relational.connection.JdbcConnectionPoolFactory;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.splitter.ChunkSplitter;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.external.FetchTask;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
@@ -82,17 +81,12 @@ public class OracleDialect implements JdbcDataSourceDialect {
 
     @Override
     public JdbcConnection openJdbcConnection(JdbcSourceConfig sourceConfig) {
-        return createOracleConnection(sourceConfig.getDbzConfiguration());
+        return createOracleConnection(sourceConfig.getDbzConnectorConfig().getJdbcConfig());
     }
 
     @Override
     public ChunkSplitter createChunkSplitter(JdbcSourceConfig sourceConfig) {
         return new OracleChunkSplitter(sourceConfig, this);
-    }
-
-    @Override
-    public JdbcConnectionPoolFactory getPooledDataSourceFactory() {
-        return new OraclePooledDataSourceFactory();
     }
 
     @Override

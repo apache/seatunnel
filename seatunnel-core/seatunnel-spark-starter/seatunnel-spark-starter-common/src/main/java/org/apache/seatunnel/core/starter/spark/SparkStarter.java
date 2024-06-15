@@ -18,8 +18,6 @@
 package org.apache.seatunnel.core.starter.spark;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
 
 import org.apache.seatunnel.api.env.EnvCommonOptions;
 import org.apache.seatunnel.common.config.Common;
@@ -129,40 +127,12 @@ public class SparkStarter implements Starter {
 
     /** parse spark configurations from SeaTunnel config file */
     private void setSparkConf() throws FileNotFoundException {
-        commandArgs.getVariables().stream()
-                .filter(Objects::nonNull)
-                .map(variable -> variable.split("=", 2))
-                .filter(pair -> pair.length == 2)
-                .forEach(pair -> System.setProperty(pair[0], pair[1]));
-        this.sparkConf = getSparkConf(commandArgs.getConfigFile());
-        String driverJavaOpts = this.sparkConf.getOrDefault("spark.driver.extraJavaOptions", "");
-        String executorJavaOpts =
-                this.sparkConf.getOrDefault("spark.executor.extraJavaOptions", "");
-        if (!commandArgs.getVariables().isEmpty()) {
-            String properties =
-                    commandArgs.getVariables().stream()
-                            .map(v -> "-D" + v)
-                            .collect(Collectors.joining(" "));
-            driverJavaOpts += " " + properties;
-            executorJavaOpts += " " + properties;
-            this.sparkConf.put("spark.driver.extraJavaOptions", driverJavaOpts.trim());
-            this.sparkConf.put("spark.executor.extraJavaOptions", executorJavaOpts.trim());
-        }
+        this.sparkConf = getSparkConf(commandArgs.getConfigFile(), commandArgs.getVariables());
     }
 
     /** Get spark configurations from SeaTunnel job config file. */
-    static Map<String, String> getSparkConf(String configFile) throws FileNotFoundException {
-        File file = new File(configFile);
-        if (!file.exists()) {
-            throw new FileNotFoundException("config file '" + file + "' does not exists!");
-        }
-        Config appConfig =
-                ConfigFactory.parseFile(file)
-                        .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
-                        .resolveWith(
-                                ConfigFactory.systemProperties(),
-                                ConfigResolveOptions.defaults().setAllowUnresolved(true));
-
+    static Map<String, String> getSparkConf(String configFile, List<String> variables) {
+        Config appConfig = ConfigBuilder.of(configFile, variables);
         return appConfig.getConfig("env").entrySet().stream()
                 .collect(
                         Collectors.toMap(
@@ -175,7 +145,7 @@ public class SparkStarter implements Starter {
         if (!Files.exists(pluginRootDir) || !Files.isDirectory(pluginRootDir)) {
             return Collections.emptyList();
         }
-        Config config = ConfigBuilder.of(commandArgs.getConfigFile());
+        Config config = ConfigBuilder.of(commandArgs.getConfigFile(), commandArgs.getVariables());
         Set<URL> pluginJars = new HashSet<>();
         SeaTunnelSourcePluginDiscovery seaTunnelSourcePluginDiscovery =
                 new SeaTunnelSourcePluginDiscovery();
@@ -217,6 +187,10 @@ public class SparkStarter implements Starter {
         if (this.commandArgs.isCheckConfig()) {
             commands.add("--check");
         }
+        this.commandArgs.getVariables().stream()
+                .filter(Objects::nonNull)
+                .map(String::trim)
+                .forEach(variable -> commands.add("-i " + variable));
         return commands;
     }
 

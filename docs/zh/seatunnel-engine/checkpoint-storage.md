@@ -85,7 +85,6 @@ S3基于hdfs-file，所以你可以参考[hadoop s3文档](https://hadoop.apache
 您可以这样配置:
 
 ```yaml
-``` yaml
 
 seatunnel:
     engine:
@@ -183,5 +182,41 @@ seatunnel:
           storage.type: hdfs
           fs.defaultFS: file:/// # 请确保该目录具有写权限
 
+```
+
+### 开启高速缓存
+
+当storage:type为hdfs时，默认关闭cache。如果您想启用它，请设置为`disable.cache: false`。
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      interval: 6000
+      timeout: 7000
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          storage.type: hdfs
+          disable.cache: false
+          fs.defaultFS: hdfs:/// # Ensure that the directory has written permission
+```
+
+or
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      interval: 6000
+      timeout: 7000
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          storage.type: hdfs
+          disable.cache: false
+          fs.defaultFS: file:/// 
 ```
 

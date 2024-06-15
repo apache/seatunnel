@@ -90,7 +90,7 @@ public class FlinkStarter implements Starter {
         flinkCommandArgs.getVariables().stream()
                 .filter(Objects::nonNull)
                 .map(String::trim)
-                .forEach(variable -> command.add("-D" + variable));
+                .forEach(variable -> command.add("-i " + variable));
         return command;
     }
 }

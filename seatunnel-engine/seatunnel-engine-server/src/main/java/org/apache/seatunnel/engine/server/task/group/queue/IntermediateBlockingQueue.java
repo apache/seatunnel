@@ -64,7 +64,7 @@ public class IntermediateBlockingQueue extends AbstractIntermediateQueue<Blockin
         if (record.getData() instanceof Barrier) {
             CheckpointBarrier barrier = (CheckpointBarrier) record.getData();
             getRunningTask().ack(barrier);
-            if (barrier.prepareClose()) {
+            if (barrier.prepareClose(this.getRunningTask().getTaskLocation())) {
                 getIntermediateQueueFlowLifeCycle().setPrepareClose(true);
             }
             consumer.accept(record);

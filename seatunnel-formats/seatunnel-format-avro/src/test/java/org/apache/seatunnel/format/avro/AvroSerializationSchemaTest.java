@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.format.avro;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -38,13 +40,14 @@ import java.util.Map;
 
 class AvroSerializationSchemaTest {
 
-    private LocalDate localDate = LocalDate.of(2023, 1, 1);
-    private BigDecimal bigDecimal = new BigDecimal("61592600349703735722.724745739637773662");
-    private LocalDateTime localDateTime = LocalDateTime.of(2023, 1, 1, 6, 30, 40);
+    private static final LocalDate localDate = LocalDate.of(2023, 1, 1);
+    private static final BigDecimal bigDecimal =
+            new BigDecimal("61592600349703735722.724745739637773662");
+    private static final LocalDateTime localDateTime = LocalDateTime.of(2023, 1, 1, 6, 30, 40);
 
     private SeaTunnelRow buildSeaTunnelRow() {
         SeaTunnelRow subSeaTunnelRow = new SeaTunnelRow(14);
-        Map<String, String> map = new HashMap<String, String>();
+        Map<String, String> map = new HashMap<>();
         map.put("k1", "v1");
         map.put("k2", "v2");
         String[] strArray = new String[] {"l1", "l2"};
@@ -116,7 +119,6 @@ class AvroSerializationSchemaTest {
             new DecimalType(38, 18),
             LocalTimeType.LOCAL_DATE_TIME_TYPE
         };
-        SeaTunnelRowType subRow = new SeaTunnelRowType(subField, subFieldTypes);
 
         String[] fieldNames = {
             "c_map",
@@ -150,19 +152,20 @@ class AvroSerializationSchemaTest {
             LocalTimeType.LOCAL_DATE_TYPE,
             new DecimalType(38, 18),
             LocalTimeType.LOCAL_DATE_TIME_TYPE,
-            subRow
+            new SeaTunnelRowType(subField, subFieldTypes)
         };
-        SeaTunnelRowType rowType = new SeaTunnelRowType(fieldNames, fieldTypes);
-        return rowType;
+        return new SeaTunnelRowType(fieldNames, fieldTypes);
     }
 
     @Test
     public void testSerialization() throws IOException {
         SeaTunnelRowType rowType = buildSeaTunnelRowType();
+        CatalogTable catalogTable = CatalogTableUtil.getCatalogTable("", "", "", "", rowType);
         SeaTunnelRow seaTunnelRow = buildSeaTunnelRow();
         AvroSerializationSchema serializationSchema = new AvroSerializationSchema(rowType);
         byte[] bytes = serializationSchema.serialize(seaTunnelRow);
-        AvroDeserializationSchema deserializationSchema = new AvroDeserializationSchema(rowType);
+        AvroDeserializationSchema deserializationSchema =
+                new AvroDeserializationSchema(catalogTable);
         SeaTunnelRow deserialize = deserializationSchema.deserialize(bytes);
         String[] strArray1 = (String[]) seaTunnelRow.getField(1);
         String[] strArray2 = (String[]) deserialize.getField(1);

@@ -79,7 +79,8 @@ public class OracleCatalog extends AbstractJdbcCatalog {
                     + "    END as TYPE_NAME,\n"
                     + "    cols.data_type || \n"
                     + "        CASE \n"
-                    + "            WHEN cols.data_type IN ('VARCHAR2', 'NVARCHAR2', 'CHAR', 'NCHAR') THEN '(' || cols.data_length || ')'\n"
+                    + "            WHEN cols.data_type IN ('VARCHAR', 'VARCHAR2', 'CHAR') THEN '(' || cols.data_length || ')'\n"
+                    + "            WHEN cols.data_type IN ('NVARCHAR2', 'NCHAR') THEN '(' || cols.char_length || ')'\n"
                     + "            WHEN cols.data_type IN ('NUMBER') AND cols.data_precision IS NOT NULL AND cols.data_scale IS NOT NULL THEN '(' || cols.data_precision || ', ' || cols.data_scale || ')'\n"
                     + "            WHEN cols.data_type IN ('NUMBER') AND cols.data_precision IS NOT NULL AND cols.data_scale IS NULL THEN '(' || cols.data_precision || ')'\n"
                     + "            WHEN cols.data_type IN ('RAW') THEN '(' || cols.data_length || ')'\n"
@@ -117,6 +118,21 @@ public class OracleCatalog extends AbstractJdbcCatalog {
     @Override
     protected String getCreateTableSql(TablePath tablePath, CatalogTable table) {
         return new OracleCreateTableSqlBuilder(table).build(tablePath);
+    }
+
+    @Override
+    protected void createTableInternal(TablePath tablePath, CatalogTable table)
+            throws CatalogException {
+        String dbUrl = getUrlFromDatabaseName(tablePath.getDatabaseName());
+        try {
+            String createTableSQL = getCreateTableSql(tablePath, table);
+            for (String sql : createTableSQL.split(";")) {
+                executeInternal(dbUrl, sql);
+            }
+        } catch (Exception e) {
+            // fallback to super
+            super.createTableInternal(tablePath, table);
+        }
     }
 
     @Override

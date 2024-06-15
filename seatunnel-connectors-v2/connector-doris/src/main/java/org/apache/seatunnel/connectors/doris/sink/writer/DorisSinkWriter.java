@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.doris.config.DorisConfig;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorErrorCode;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorException;
+import org.apache.seatunnel.connectors.doris.rest.RestService;
 import org.apache.seatunnel.connectors.doris.rest.models.RespContent;
 import org.apache.seatunnel.connectors.doris.serialize.DorisSerializer;
 import org.apache.seatunnel.connectors.doris.serialize.SeaTunnelRowSerializer;
@@ -58,16 +59,14 @@ public class DorisSinkWriter
             new ArrayList<>(Arrays.asList(LoadStatus.SUCCESS, LoadStatus.PUBLISH_TIMEOUT));
     private long lastCheckpointId;
     private DorisStreamLoad dorisStreamLoad;
-    volatile boolean loading;
     private final DorisConfig dorisConfig;
     private final String labelPrefix;
     private final LabelGenerator labelGenerator;
     private final int intervalTime;
     private final DorisSerializer serializer;
     private final CatalogTable catalogTable;
-    private final transient ScheduledExecutorService scheduledExecutorService;
-    private transient Thread executorThread;
-    private transient volatile Exception loadException = null;
+    private final ScheduledExecutorService scheduledExecutorService;
+    private volatile Exception loadException = null;
 
     public DorisSinkWriter(
             SinkWriter.Context context,
@@ -94,12 +93,11 @@ public class DorisSinkWriter
                         1, new ThreadFactoryBuilder().setNameFormat("stream-load-check").build());
         this.serializer = createSerializer(dorisConfig, catalogTable.getSeaTunnelRowType());
         this.intervalTime = dorisConfig.getCheckInterval();
-        this.loading = false;
         this.initializeLoad();
     }
 
     private void initializeLoad() {
-        String backend = dorisConfig.getFrontends();
+        String backend = RestService.randomEndpoint(dorisConfig.getFrontends(), log);
         try {
             this.dorisStreamLoad =
                     new DorisStreamLoad(
@@ -114,8 +112,6 @@ public class DorisSinkWriter
         } catch (Exception e) {
             throw new DorisConnectorException(DorisConnectorErrorCode.STREAM_LOAD_FAILED, e);
         }
-        // get main work thread.
-        executorThread = Thread.currentThread();
         startLoad(labelGenerator.generateLabel(lastCheckpointId + 1));
         // when uploading data in streaming mode, we need to regularly detect whether there are
         // exceptions.
@@ -156,7 +152,6 @@ public class DorisSinkWriter
 
     private RespContent flush() throws IOException {
         // disable exception checker before stop load.
-        loading = false;
         checkState(dorisStreamLoad != null);
         RespContent respContent = dorisStreamLoad.stopLoad();
         if (respContent != null && !DORIS_SUCCESS_STATUS.contains(respContent.getStatus())) {
@@ -179,7 +174,6 @@ public class DorisSinkWriter
 
     private void startLoad(String label) {
         this.dorisStreamLoad.startLoad(label);
-        this.loading = true;
     }
 
     @Override
@@ -196,29 +190,13 @@ public class DorisSinkWriter
     private void checkDone() {
         // the load future is done and checked in prepareCommit().
         // this will check error while loading.
+        String errorMsg;
         log.debug("start timer checker, interval {} ms", intervalTime);
-        if (dorisStreamLoad.getPendingLoadFuture() != null
-                && dorisStreamLoad.getPendingLoadFuture().isDone()) {
-            if (!loading) {
-                log.debug("not loading, skip timer checker");
-                return;
-            }
-            String errorMsg;
-            try {
-                RespContent content =
-                        dorisStreamLoad.handlePreCommitResponse(
-                                dorisStreamLoad.getPendingLoadFuture().get());
-                errorMsg = content.getMessage();
-            } catch (Exception e) {
-                errorMsg = e.getMessage();
-            }
-
+        if ((errorMsg = dorisStreamLoad.getLoadFailedMsg()) != null) {
+            log.error("stream load finished unexpectedly: {}", errorMsg);
             loadException =
                     new DorisConnectorException(
                             DorisConnectorErrorCode.STREAM_LOAD_FAILED, errorMsg);
-            log.error("stream load finished unexpectedly, interrupt worker thread! {}", errorMsg);
-            // set the executor thread interrupted in case blocking in write data.
-            executorThread.interrupt();
         }
     }
 

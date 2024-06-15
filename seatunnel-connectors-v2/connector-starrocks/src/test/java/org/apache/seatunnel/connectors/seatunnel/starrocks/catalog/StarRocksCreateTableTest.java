@@ -17,15 +17,24 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.catalog;
 
+import org.apache.seatunnel.api.sink.SaveModePlaceHolder;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRocksSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.sink.StarRocksSaveModeUtil;
+
+import org.apache.commons.lang3.StringUtils;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -54,7 +63,7 @@ public class StarRocksCreateTableTest {
                 PhysicalColumn.of("create_time", BasicType.LONG_TYPE, (Long) null, true, null, ""));
 
         String result =
-                StarRocksSaveModeUtil.fillingCreateSql(
+                StarRocksSaveModeUtil.getCreateTableSql(
                         "CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}` (                                                                                                                                                   \n"
                                 + "${rowtype_primary_key}  ,       \n"
                                 + "${rowtype_unique_key} , \n"
@@ -119,6 +128,41 @@ public class StarRocksCreateTableTest {
                         + "    \"dynamic_partition.prefix\" = \"p\"                                                                                                                                                                           \n"
                         + ");",
                 result);
+
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("test", "test1", "test2"),
+                        TableSchema.builder()
+                                .primaryKey(
+                                        PrimaryKey.of(StringUtils.EMPTY, Collections.emptyList()))
+                                .constraintKey(Collections.emptyList())
+                                .columns(columns)
+                                .build(),
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        "");
+        TablePath tablePath = TablePath.of("test1.test2");
+        String createTemplate = StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE.defaultValue();
+        RuntimeException actualSeaTunnelRuntimeException =
+                Assertions.assertThrows(
+                        RuntimeException.class,
+                        () ->
+                                StarRocksSaveModeUtil.getCreateTableSql(
+                                        createTemplate,
+                                        tablePath.getDatabaseName(),
+                                        tablePath.getTableName(),
+                                        catalogTable.getTableSchema()));
+        String primaryKeyHolder = SaveModePlaceHolder.ROWTYPE_PRIMARY_KEY.getPlaceHolder();
+        SeaTunnelRuntimeException exceptSeaTunnelRuntimeException =
+                CommonError.sqlTemplateHandledError(
+                        tablePath.getFullName(),
+                        SaveModePlaceHolder.getDisplay(primaryKeyHolder),
+                        createTemplate,
+                        primaryKeyHolder,
+                        StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE.key());
+        Assertions.assertEquals(
+                exceptSeaTunnelRuntimeException.getMessage(),
+                actualSeaTunnelRuntimeException.getMessage());
     }
 
     @Test
@@ -187,7 +231,7 @@ public class StarRocksCreateTableTest {
                         "L_COMMENT", BasicType.STRING_TYPE, (Long) null, false, null, ""));
 
         String result =
-                StarRocksSaveModeUtil.fillingCreateSql(
+                StarRocksSaveModeUtil.getCreateTableSql(
                         "CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}` (\n"
                                 + "`L_COMMITDATE`,\n"
                                 + "${rowtype_primary_key},\n"
@@ -244,7 +288,7 @@ public class StarRocksCreateTableTest {
         columns.add(PhysicalColumn.of("description", BasicType.STRING_TYPE, 70000, true, null, ""));
 
         String result =
-                StarRocksSaveModeUtil.fillingCreateSql(
+                StarRocksSaveModeUtil.getCreateTableSql(
                         "CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}` (                                                                                                                                                   \n"
                                 + "${rowtype_primary_key}  ,       \n"
                                 + "`create_time` DATETIME NOT NULL ,  \n"
@@ -287,6 +331,42 @@ public class StarRocksCreateTableTest {
                         + "    \"dynamic_partition.end\" = \"3\", \n"
                         + "    \"dynamic_partition.prefix\" = \"p\"                                                                                                                                                                           \n"
                         + ");",
+                result);
+    }
+
+    @Test
+    public void testWithThreePrimaryKeys() {
+        List<Column> columns = new ArrayList<>();
+
+        columns.add(PhysicalColumn.of("id", BasicType.LONG_TYPE, (Long) null, true, null, ""));
+        columns.add(PhysicalColumn.of("name", BasicType.STRING_TYPE, (Long) null, true, null, ""));
+        columns.add(PhysicalColumn.of("age", BasicType.INT_TYPE, (Long) null, true, null, ""));
+        columns.add(PhysicalColumn.of("comment", BasicType.STRING_TYPE, 500, true, null, ""));
+        columns.add(PhysicalColumn.of("description", BasicType.STRING_TYPE, 70000, true, null, ""));
+
+        String result =
+                StarRocksSaveModeUtil.getCreateTableSql(
+                        "create table '${database}'.'${table_name}'(\n"
+                                + "     ${rowtype_fields}\n"
+                                + " )\n"
+                                + " partitioned by ${rowtype_primary_key};",
+                        "test1",
+                        "test2",
+                        TableSchema.builder()
+                                .primaryKey(
+                                        PrimaryKey.of("test", Arrays.asList("id", "age", "name")))
+                                .columns(columns)
+                                .build());
+
+        Assertions.assertEquals(
+                "create table 'test1'.'test2'(\n"
+                        + "     `id` BIGINT NULL ,\n"
+                        + "`name` STRING NULL ,\n"
+                        + "`age` INT NULL ,\n"
+                        + "`comment` VARCHAR(500) NULL ,\n"
+                        + "`description` STRING NULL \n"
+                        + " )\n"
+                        + " partitioned by `id`,`age`,`name`;",
                 result);
     }
 }

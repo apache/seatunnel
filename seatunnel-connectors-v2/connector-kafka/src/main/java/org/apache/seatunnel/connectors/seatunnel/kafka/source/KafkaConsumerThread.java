@@ -37,15 +37,15 @@ public class KafkaConsumerThread implements Runnable {
 
     private final LinkedBlockingQueue<Consumer<KafkaConsumer<byte[], byte[]>>> tasks;
 
-    public KafkaConsumerThread(ConsumerMetadata metadata) {
+    public KafkaConsumerThread(KafkaSourceConfig kafkaSourceConfig, ConsumerMetadata metadata) {
         this.metadata = metadata;
         this.tasks = new LinkedBlockingQueue<>();
         this.consumer =
                 initConsumer(
-                        this.metadata.getBootstrapServers(),
-                        this.metadata.getConsumerGroup(),
-                        this.metadata.getProperties(),
-                        !this.metadata.isCommitOnCheckpoint());
+                        kafkaSourceConfig.getBootstrap(),
+                        metadata.getConsumerGroup(),
+                        kafkaSourceConfig.getProperties(),
+                        !kafkaSourceConfig.isCommitOnCheckpoint());
     }
 
     @Override
@@ -64,7 +64,9 @@ public class KafkaConsumerThread implements Runnable {
             }
         } finally {
             try {
-                consumer.close();
+                if (consumer != null) {
+                    consumer.close();
+                }
             } catch (Throwable t) {
                 throw new KafkaConnectorException(KafkaConnectorErrorCode.CONSUMER_CLOSE_FAILED, t);
             }

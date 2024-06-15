@@ -17,7 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
+
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonError;
@@ -39,12 +43,12 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 import static java.math.BigDecimal.ROUND_CEILING;
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
@@ -58,17 +62,18 @@ public class DynamicChunkSplitter extends ChunkSplitter {
 
     @Override
     protected Collection<JdbcSourceSplit> createSplits(
-            JdbcSourceTable table, SeaTunnelRowType splitKey) throws SQLException {
+            JdbcSourceTable table, SeaTunnelRowType splitKey) throws Exception {
         return createDynamicSplits(table, splitKey);
     }
 
     @Override
-    protected PreparedStatement createSplitStatement(JdbcSourceSplit split) throws SQLException {
-        return createDynamicSplitStatement(split);
+    protected PreparedStatement createSplitStatement(JdbcSourceSplit split, TableSchema schema)
+            throws SQLException {
+        return createDynamicSplitStatement(split, schema);
     }
 
     private Collection<JdbcSourceSplit> createDynamicSplits(
-            JdbcSourceTable table, SeaTunnelRowType splitKey) throws SQLException {
+            JdbcSourceTable table, SeaTunnelRowType splitKey) throws Exception {
         String splitKeyName = splitKey.getFieldNames()[0];
         SeaTunnelDataType splitKeyType = splitKey.getFieldType(0);
         List<ChunkRange> chunks = splitTableIntoChunks(table, splitKeyName, splitKeyType);
@@ -90,9 +95,9 @@ public class DynamicChunkSplitter extends ChunkSplitter {
         return splits;
     }
 
-    private PreparedStatement createDynamicSplitStatement(JdbcSourceSplit split)
+    private PreparedStatement createDynamicSplitStatement(JdbcSourceSplit split, TableSchema schema)
             throws SQLException {
-        String splitQuery = createDynamicSplitQuerySQL(split);
+        String splitQuery = createDynamicSplitQuerySQL(split, schema);
         PreparedStatement statement = createPreparedStatement(splitQuery);
         prepareDynamicSplitStatement(statement, split);
         return statement;
@@ -100,7 +105,7 @@ public class DynamicChunkSplitter extends ChunkSplitter {
 
     private List<ChunkRange> splitTableIntoChunks(
             JdbcSourceTable table, String splitColumnName, SeaTunnelDataType splitColumnType)
-            throws SQLException {
+            throws Exception {
         Pair<Object, Object> minMax = queryMinMax(table, splitColumnName);
         Object min = minMax.getLeft();
         Object max = minMax.getRight();
@@ -131,7 +136,7 @@ public class DynamicChunkSplitter extends ChunkSplitter {
 
     private List<ChunkRange> evenlyColumnSplitChunks(
             JdbcSourceTable table, String splitColumnName, Object min, Object max, int chunkSize)
-            throws SQLException {
+            throws Exception {
         TablePath tablePath = table.getTablePath();
         double distributionFactorUpper = config.getSplitEvenDistributionFactorUpperBound();
         double distributionFactorLower = config.getSplitEvenDistributionFactorLowerBound();
@@ -449,7 +454,8 @@ public class DynamicChunkSplitter extends ChunkSplitter {
         return ObjectUtils.compare(obj1, obj2);
     }
 
-    private String createDynamicSplitQuerySQL(JdbcSourceSplit split) {
+    @VisibleForTesting
+    String createDynamicSplitQuerySQL(JdbcSourceSplit split, TableSchema schema) {
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
                         new String[] {split.getSplitKeyName()},
@@ -462,23 +468,23 @@ public class DynamicChunkSplitter extends ChunkSplitter {
             condition = null;
         } else if (isFirstSplit) {
             StringBuilder sql = new StringBuilder();
-            addKeyColumnsToCondition(rowType, sql, " <= ?");
+            addKeyColumnsToCondition(schema, rowType, sql, " <= ?");
             sql.append(" AND NOT (");
-            addKeyColumnsToCondition(rowType, sql, " = ?");
+            addKeyColumnsToCondition(schema, rowType, sql, " = ?");
             sql.append(")");
             condition = sql.toString();
         } else if (isLastSplit) {
             StringBuilder sql = new StringBuilder();
-            addKeyColumnsToCondition(rowType, sql, " >= ?");
+            addKeyColumnsToCondition(schema, rowType, sql, " >= ?");
             condition = sql.toString();
         } else {
             StringBuilder sql = new StringBuilder();
-            addKeyColumnsToCondition(rowType, sql, " >= ?");
+            addKeyColumnsToCondition(schema, rowType, sql, " >= ?");
             sql.append(" AND NOT (");
-            addKeyColumnsToCondition(rowType, sql, " = ?");
+            addKeyColumnsToCondition(schema, rowType, sql, " = ?");
             sql.append(")");
             sql.append(" AND ");
-            addKeyColumnsToCondition(rowType, sql, " <= ?");
+            addKeyColumnsToCondition(schema, rowType, sql, " <= ?");
             condition = sql.toString();
         }
 
@@ -499,12 +505,17 @@ public class DynamicChunkSplitter extends ChunkSplitter {
         return sql.toString();
     }
 
-    private static void addKeyColumnsToCondition(
-            SeaTunnelRowType rowType, StringBuilder sql, String predicate) {
-        for (Iterator<String> fieldNamesIt = Arrays.stream(rowType.getFieldNames()).iterator();
-                fieldNamesIt.hasNext(); ) {
-            sql.append(fieldNamesIt.next()).append(predicate);
-            if (fieldNamesIt.hasNext()) {
+    private void addKeyColumnsToCondition(
+            TableSchema schema, SeaTunnelRowType rowType, StringBuilder sql, String predicate) {
+        Map<String, Column> columns =
+                schema.getColumns().stream().collect(Collectors.toMap(c -> c.getName(), c -> c));
+        for (int i = 0; i < rowType.getTotalFields(); i++) {
+            String fieldName = jdbcDialect.quoteIdentifier(rowType.getFieldName(i));
+            fieldName =
+                    jdbcDialect.convertType(
+                            fieldName, columns.get(rowType.getFieldName(i)).getSourceType());
+            sql.append(fieldName).append(predicate);
+            if (i < rowType.getTotalFields() - 1) {
                 sql.append(" AND ");
             }
         }

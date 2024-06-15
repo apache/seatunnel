@@ -64,6 +64,7 @@ columns = [
 | type         | Yes  | -    | 列的数据类型             |
 | nullable     | No   | true | 列是否可空              |
 | columnLength | No   | 0    | 列的长度，当您需要定义长度时将很有用 |
+| columnScale  | No   | -    | 列的精度，当您需要定义精度时将很有用 |
 | defaultValue | No   | null | 列的默认值              |
 | comment      | No   | null | 列的注释               |
 

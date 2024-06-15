@@ -1,4 +1,4 @@
-# JobEnvConfig
+# Job Env Config
 
 This document describes env configuration information, the common parameters can be used in all engines. In order to better distinguish between engine parameters, the additional parameters of other engine need to carry a prefix.
 In flink engine, we use `flink.` as the prefix. In the spark engine, we do not use any prefixes to modify parameters, because the official spark parameters themselves start with `spark.`
@@ -28,6 +28,16 @@ In `STREAMING` mode, checkpoints is required, if you do not set it, it will be o
 ### parallelism
 
 This parameter configures the parallelism of source and sink.
+
+### job.retry.times
+
+Used to control the default retry times when a job fails. The default value is 3, and it only works in the Zeta engine.
+
+### savemode.execute.location
+
+This parameter is used to specify the location of the savemode when the job is executed in the Zeta engine.
+The default value is `CLUSTER`, which means that the savemode is executed on the cluster. If you want to execute the savemode on the client,
+you can set it to `CLIENT`. Please use `CLUSTER` mode as much as possible, because when there are no problems with `CLUSTER` mode, we will remove `CLIENT` mode.
 
 ### shade.identifier
 

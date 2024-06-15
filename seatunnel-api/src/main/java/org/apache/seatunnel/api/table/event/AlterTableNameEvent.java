@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.api.table.event;
 
+import org.apache.seatunnel.api.event.EventType;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 
@@ -36,5 +37,10 @@ public class AlterTableNameEvent extends AlterTableColumnEvent {
 
     public TablePath getNewTablePath() {
         return newTableIdentifier.toTablePath();
+    }
+
+    @Override
+    public EventType getEventType() {
+        return EventType.SCHEMA_CHANGE_RENAME_TABLE;
     }
 }

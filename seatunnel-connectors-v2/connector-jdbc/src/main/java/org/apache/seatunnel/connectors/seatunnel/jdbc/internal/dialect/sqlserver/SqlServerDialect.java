@@ -119,8 +119,8 @@ public class SqlServerDialect implements JdbcDialect {
                                 + " UPDATE SET %s"
                                 + " WHEN NOT MATCHED THEN"
                                 + " INSERT (%s) VALUES (%s);",
-                        database,
-                        tableName,
+                        quoteDatabaseIdentifier(database),
+                        quoteIdentifier(tableName),
                         usingClause,
                         onConditions,
                         updateSetClause,
@@ -153,6 +153,11 @@ public class SqlServerDialect implements JdbcDialect {
     }
 
     @Override
+    public String tableIdentifier(TablePath tablePath) {
+        return quoteIdentifier(tablePath.getFullName());
+    }
+
+    @Override
     public TablePath parse(String tablePath) {
         return TablePath.of(tablePath, true);
     }
@@ -165,12 +170,16 @@ public class SqlServerDialect implements JdbcDialect {
         // 2. If a query is configured but does not contain a WHERE clause and tablePath is
         // configured, use TABLE STATUS.
         // 3. If a query is configured with a WHERE clause, or a query statement is configured but
-        // tablePath is not, use COUNT(*).
+        // tablePath is TablePath.DEFAULT, use COUNT(*).
 
         boolean useTableStats =
                 StringUtils.isBlank(table.getQuery())
                         || (!table.getQuery().toLowerCase().contains("where")
-                                && table.getTablePath() != null);
+                                && table.getTablePath() != null
+                                && !TablePath.DEFAULT
+                                        .getFullName()
+                                        .equals(table.getTablePath().getFullName()));
+
         if (useTableStats) {
             TablePath tablePath = table.getTablePath();
             try (Statement stmt = connection.createStatement()) {
@@ -233,7 +242,7 @@ public class SqlServerDialect implements JdbcDialect {
                             quotedColumn,
                             chunkSize,
                             quotedColumn,
-                            table.getTablePath().getFullName(),
+                            tableIdentifier(table.getTablePath()),
                             quotedColumn,
                             quotedColumn);
         }
