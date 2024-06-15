@@ -10,13 +10,28 @@ Write data to Druid
 
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
 
+## Data Type Mapping
+
+| Druid Data Type | SeaTunnel Data Type |
+|-----------------|---------------------|
+| LONG            | TINYINT             |
+| LONG            | SMALLINT            |
+| LONG            | INT                 |
+| LONG            | BIGINT              |
+| FLOAT           | FLOAT               |
+| DOUBLE          | DOUBLE              |
+| DOUBLE          | DECIMAL             |
+| STRING          | STRING              |
+| STRING          | BOOLEAN             |
+| STRING          | TIMESTAMP           |
+
 ## Options
 
 |      name      |  type  | required | default value |
 |----------------|--------|----------|---------------|
 | coordinatorUrl | string | yes      | -             |
 | datasource     | string | yes      | -             |
-| batchSize      | int    | no       | 1024          |
+| batchSize      | int    | no       | 10000         |
 | common-options |        | no       | -             |
 
 ### coordinatorUrl [string]
