@@ -51,48 +51,97 @@ import net.sf.jsqlparser.expression.operators.relational.NotEqualsTo;
 import net.sf.jsqlparser.parser.CCJSqlParserUtil;
 import net.sf.jsqlparser.schema.Column;
 import net.sf.jsqlparser.statement.Statement;
+import net.sf.jsqlparser.statement.select.AllColumns;
 import net.sf.jsqlparser.statement.select.PlainSelect;
 import net.sf.jsqlparser.statement.select.Select;
 import net.sf.jsqlparser.statement.select.SelectBody;
+import net.sf.jsqlparser.statement.select.SelectExpressionItem;
+import net.sf.jsqlparser.statement.select.SelectItem;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.IntStream;
 
 public class SqlToPaimonPredicateConverter {
 
-    public static Predicate convertSqlWhereToPaimonPredicate(RowType rowType, String query) {
-        try {
-            if (StringUtils.isBlank(query)) {
-                return null;
-            }
-            Statement statement = CCJSqlParserUtil.parse(query);
-            // Confirm that the SQL statement is a Select statement
-            if (!(statement instanceof Select)) {
-                throw new IllegalArgumentException("Only SELECT statements are supported.");
-            }
-            Select select = (Select) statement;
-            SelectBody selectBody = select.getSelectBody();
-            if (!(selectBody instanceof PlainSelect)) {
-                throw new IllegalArgumentException("Only simple SELECT statements are supported.");
-            }
-            PlainSelect plainSelect = (PlainSelect) selectBody;
-            if (plainSelect.getHaving() != null
-                    || plainSelect.getGroupBy() != null
-                    || plainSelect.getOrderByElements() != null
-                    || plainSelect.getLimit() != null) {
-                throw new IllegalArgumentException(
-                        "Only SELECT statements with WHERE clause are supported. The Having, Group By, Order By, Limit clauses are currently unsupported.");
-            }
-            Expression whereExpression = plainSelect.getWhere();
-            if (Objects.isNull(whereExpression)) {
-                return null;
-            }
-            PredicateBuilder builder = new PredicateBuilder(rowType);
-            return parseExpressionToPredicate(builder, rowType, whereExpression);
-        } catch (JSQLParserException e) {
-            throw new IllegalArgumentException("Error parsing SQL WHERE clause", e);
+    public static PlainSelect convertToPlainSelect(String query) {
+        if (StringUtils.isBlank(query)) {
+            return null;
         }
+        Statement statement = null;
+        try {
+            statement = CCJSqlParserUtil.parse(query);
+        } catch (JSQLParserException e) {
+            throw new IllegalArgumentException("Error parsing SQL.", e);
+        }
+        // Confirm that the SQL statement is a Select statement
+        if (!(statement instanceof Select)) {
+            throw new IllegalArgumentException("Only SELECT statements are supported.");
+        }
+        Select select = (Select) statement;
+        SelectBody selectBody = select.getSelectBody();
+        if (!(selectBody instanceof PlainSelect)) {
+            throw new IllegalArgumentException("Only simple SELECT statements are supported.");
+        }
+        PlainSelect plainSelect = (PlainSelect) selectBody;
+        if (plainSelect.getHaving() != null
+                || plainSelect.getGroupBy() != null
+                || plainSelect.getOrderByElements() != null
+                || plainSelect.getLimit() != null) {
+            throw new IllegalArgumentException(
+                    "Only SELECT statements with WHERE clause are supported. The Having, Group By, Order By, Limit clauses are currently unsupported.");
+        }
+        return plainSelect;
+    }
+
+    public static int[] convertSqlSelectToPaimonProjectionIndex(
+            String[] fieldNames, PlainSelect plainSelect) {
+        int[] projectionIndex = null;
+        List<SelectItem> selectItems = plainSelect.getSelectItems();
+
+        List<String> columnNames = new ArrayList<>();
+        for (SelectItem selectItem : selectItems) {
+            if (selectItem instanceof AllColumns) {
+                return null;
+            } else if (selectItem instanceof SelectExpressionItem) {
+                SelectExpressionItem selectExpressionItem = (SelectExpressionItem) selectItem;
+                String columnName = selectExpressionItem.getExpression().toString();
+                columnNames.add(columnName);
+            } else {
+                throw new IllegalArgumentException("Error encountered parsing query fields.");
+            }
+        }
+
+        String[] columnNamesArray = columnNames.toArray(new String[0]);
+        projectionIndex =
+                IntStream.range(0, columnNamesArray.length)
+                        .map(
+                                i -> {
+                                    String fieldName = columnNamesArray[i];
+                                    int index = Arrays.asList(fieldNames).indexOf(fieldName);
+                                    if (index == -1) {
+                                        throw new IllegalArgumentException(
+                                                "column " + fieldName + " does not exist.");
+                                    }
+                                    return index;
+                                })
+                        .toArray();
+
+        return projectionIndex;
+    }
+
+    public static Predicate convertSqlWhereToPaimonPredicate(
+            RowType rowType, PlainSelect plainSelect) {
+        Expression whereExpression = plainSelect.getWhere();
+        if (Objects.isNull(whereExpression)) {
+            return null;
+        }
+        PredicateBuilder builder = new PredicateBuilder(rowType);
+        return parseExpressionToPredicate(builder, rowType, whereExpression);
     }
 
     private static Predicate parseExpressionToPredicate(
