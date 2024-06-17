@@ -55,7 +55,7 @@
 - [Connector-v2] [File] Fix WriteStrategy parallel writing thread unsafe issue #5546
 - [Connector-v2] [File] Inject FileSystem to OrcWriteStrategy
 - [Connector-v2] [File] Support assign encoding for file source/sink (#5973)
-- [Connector-v2] [MongoDB] Support to convert to double from numeric type that MongoDB saved it as numeric internally (#6997)
+- [Connector-v2] [Mongodb] Support to convert to double from numeric type that mongodb saved it as numeric internally (#6997)
 
 ### Zeta(ST-Engine)
 
