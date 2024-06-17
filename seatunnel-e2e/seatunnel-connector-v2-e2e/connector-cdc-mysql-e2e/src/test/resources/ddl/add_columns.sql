@@ -63,3 +63,7 @@ values (128,"scooter","Small 2-wheel scooter",3.14,'xx',1,1.1,'2023-02-02 09:09:
        (135,"jacket","water resistent black wind breaker",0.1,'xx',8,1.8,'2023-02-02 09:09:09'),
        (136,"spare tire","24 inch spare tire",22.2,'xx',9,1.9,'2023-02-02 09:09:09');
 update products set name = 'dailai' where id = 135;
+
+
+-- add column for irrelevant table
+ALTER TABLE products_on_hand ADD COLUMN add_column5 varchar(64) not null default 'yy';

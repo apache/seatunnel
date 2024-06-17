@@ -39,12 +39,11 @@ import java.util.List;
 import java.util.Objects;
 
 public class MySqlSchemaChangeResolver extends AbstractSchemaChangeResolver {
-    private SourceConfig.Factory<JdbcSourceConfig> sourceConfigFactory;
     private transient Tables tables;
     private transient CustomMySqlAntlrDdlParser customMySqlAntlrDdlParser;
 
     public MySqlSchemaChangeResolver(SourceConfig.Factory<JdbcSourceConfig> sourceConfigFactory) {
-        this.sourceConfigFactory = sourceConfigFactory;
+        super(sourceConfigFactory.create(0));
     }
 
     @Override
@@ -54,7 +53,7 @@ public class MySqlSchemaChangeResolver extends AbstractSchemaChangeResolver {
         if (Objects.isNull(customMySqlAntlrDdlParser)) {
             this.customMySqlAntlrDdlParser =
                     new CustomMySqlAntlrDdlParser(
-                            tablePath, this.sourceConfigFactory.create(0).getDbzConnectorConfig());
+                            tablePath, this.jdbcSourceConfig.getDbzConnectorConfig());
         }
         if (Objects.isNull(tables)) {
             this.tables = new Tables();

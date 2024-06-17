@@ -49,7 +49,8 @@ import java.io.IOException;
 import java.util.List;
 
 @Slf4j
-public abstract class AbstractJdbcSink implements SinkWriter<SeaTunnelRow, XidInfo, JdbcSinkState> {
+public abstract class AbstractJdbcSinkWriter
+        implements SinkWriter<SeaTunnelRow, XidInfo, JdbcSinkState> {
 
     protected JdbcDialect dialect;
     protected TablePath sinkTablePath;
@@ -111,29 +112,22 @@ public abstract class AbstractJdbcSink implements SinkWriter<SeaTunnelRow, XidIn
 
     protected void reOpenOutputFormat(AlterTableColumnEvent event, String sourceDialectName)
             throws IOException {
-        JdbcOutputFormat<SeaTunnelRow, JdbcBatchStatementExecutor<SeaTunnelRow>> oldOutputFormat =
-                this.outputFormat;
+        this.prepareCommit();
         try {
-            flushCommit();
-            try {
-                dialect.refreshTableSchemaBySchemaChangeEvent(
-                        sourceDialectName, event, connectionProvider, sinkTablePath);
-            } catch (Throwable e) {
-                throw new JdbcConnectorException(
-                        JdbcConnectorErrorCode.REFRESH_PHYSICAL_TABLESCHEMA_BY_SCHEMA_CHANGE_EVENT,
-                        e);
-            }
-            isOpen = false;
-            this.outputFormat =
-                    new JdbcOutputFormatBuilder(
-                                    dialect, connectionProvider, jdbcSinkConfig, tableSchema)
-                            .build();
-        } finally {
-            oldOutputFormat.close();
+            JdbcConnectionProvider refreshTableSchemaConnectionProvider =
+                    dialect.getJdbcConnectionProvider(jdbcSinkConfig.getJdbcConnectionConfig());
+            dialect.refreshTableSchemaBySchemaChangeEvent(
+                    sourceDialectName, event, refreshTableSchemaConnectionProvider, sinkTablePath);
+        } catch (Throwable e) {
+            throw new JdbcConnectorException(
+                    JdbcConnectorErrorCode.REFRESH_PHYSICAL_TABLESCHEMA_BY_SCHEMA_CHANGE_EVENT, e);
         }
+        this.outputFormat =
+                new JdbcOutputFormatBuilder(
+                                dialect, connectionProvider, jdbcSinkConfig, tableSchema)
+                        .build();
+        this.outputFormat.open();
     }
-
-    protected abstract void flushCommit() throws IOException;
 
     protected void replaceColumnByIndex(
             List<Column> columns, String oldColumnName, Column newColumn) {

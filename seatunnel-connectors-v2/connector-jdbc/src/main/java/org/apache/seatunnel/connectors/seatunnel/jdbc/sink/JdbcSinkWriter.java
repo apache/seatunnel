@@ -42,7 +42,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Slf4j
-public class JdbcSinkWriter extends AbstractJdbcSink
+public class JdbcSinkWriter extends AbstractJdbcSinkWriter
         implements SupportMultiTableSinkWriter<ConnectionPoolManager> {
     private final Integer primaryKeyIndex;
 
@@ -124,11 +124,6 @@ public class JdbcSinkWriter extends AbstractJdbcSink
     public void write(SeaTunnelRow element) throws IOException {
         tryOpen();
         outputFormat.writeRecord(element);
-    }
-
-    @Override
-    protected void flushCommit() throws IOException {
-        this.prepareCommit();
     }
 
     @Override

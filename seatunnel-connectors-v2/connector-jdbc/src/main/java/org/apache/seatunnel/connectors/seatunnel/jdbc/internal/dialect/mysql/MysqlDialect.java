@@ -230,11 +230,11 @@ public class MysqlDialect implements JdbcDialect {
     public void refreshTableSchemaBySchemaChangeEvent(
             String sourceDialectName,
             AlterTableColumnEvent event,
-            JdbcConnectionProvider jdbcConnectionProvider,
+            JdbcConnectionProvider refreshTableSchemaConnectionProvider,
             TablePath sinkTablePath) {
-        try {
-            Connection connection = jdbcConnectionProvider.getOrEstablishConnection();
-            Statement stmt = connection.createStatement();
+        try (Connection connection =
+                        refreshTableSchemaConnectionProvider.getOrEstablishConnection();
+                Statement stmt = connection.createStatement()) {
             String alterTableSql = generateAlterTableSql(sourceDialectName, event, sinkTablePath);
             log.info("Apply schema change with sql: {}", alterTableSql);
             stmt.execute(alterTableSql);

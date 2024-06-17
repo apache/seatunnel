@@ -31,6 +31,9 @@ import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.MethodOrderer;
+import org.junit.jupiter.api.Order;
+import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -53,6 +56,7 @@ import java.util.stream.Stream;
 import static org.awaitility.Awaitility.await;
 
 @Slf4j
+@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 @DisabledOnContainer(
         value = {},
         type = {EngineType.SPARK, EngineType.FLINK},
@@ -62,6 +66,8 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
     private static final String MYSQL_DATABASE = "shop";
     private static final String SOURCE_TABLE = "products";
     private static final String SINK_TABLE = "mysql_cdc_e2e_sink_table_with_schema_change";
+    private static final String SINK_TABLE2 =
+            "mysql_cdc_e2e_sink_table_with_schema_change_exactly_once";
     private static final String MYSQL_HOST = "mysql_cdc_e2e";
     private static final String MYSQL_USER_NAME = "mysqluser";
     private static final String MYSQL_USER_PASSWORD = "mysqlpw";
@@ -105,6 +111,7 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
                 Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
             };
 
+    @Order(1)
     @TestTemplate
     public void testMysqlCdcWithSchemaEvolutionCase(TestContainer container) {
 
@@ -118,12 +125,35 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
                     }
                 });
 
+        assertSchemaEvolution(MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE);
+    }
+
+    @Order(2)
+    @TestTemplate
+    public void testMysqlCdcWithSchemaEvolutionCaseExactlyOnce(TestContainer container) {
+
+        shopDatabase.setTemplateName("shop").createAndInitialize();
+        CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        container.executeJob(
+                                "/mysqlcdc_to_mysql_with_schema_change_exactly_once.conf");
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        assertSchemaEvolution(MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE2);
+    }
+
+    private void assertSchemaEvolution(String database, String sourceTable, String sinkTable) {
         await().atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertIterableEquals(
-                                        query(String.format(QUERY, MYSQL_DATABASE, SOURCE_TABLE)),
-                                        query(String.format(QUERY, MYSQL_DATABASE, SINK_TABLE))));
+                                        query(String.format(QUERY, database, sourceTable)),
+                                        query(String.format(QUERY, database, sinkTable))));
 
         // case1 add columns with cdc data at same time
         shopDatabase.setTemplateName("add_columns").createAndInitialize();
@@ -132,21 +162,15 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
                         () -> {
                             Assertions.assertIterableEquals(
                                     query(
-                                            String.format(QUERY, MYSQL_DATABASE, SOURCE_TABLE)
+                                            String.format(QUERY, database, sourceTable)
                                                     + " where id >= 128"),
                                     query(
-                                            String.format(QUERY, MYSQL_DATABASE, SINK_TABLE)
+                                            String.format(QUERY, database, sinkTable)
                                                     + " where id >= 128"));
 
                             Assertions.assertIterableEquals(
-                                    query(
-                                            String.format(
-                                                    PROJECTION_QUERY,
-                                                    MYSQL_DATABASE,
-                                                    SOURCE_TABLE)),
-                                    query(
-                                            String.format(
-                                                    PROJECTION_QUERY, MYSQL_DATABASE, SINK_TABLE)));
+                                    query(String.format(PROJECTION_QUERY, database, sourceTable)),
+                                    query(String.format(PROJECTION_QUERY, database, sinkTable)));
 
                             // The default value of add_column4 is current_timestamp()，so the
                             // history data of sink table with this column may be different from the
@@ -158,10 +182,7 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
                                                     + "ABS(TIMESTAMPDIFF(SECOND, t1.add_column4, t2.add_column4)) AS time_diff "
                                                     + "FROM %s.%s t1 "
                                                     + "INNER JOIN %s.%s t2 ON t1.id = t2.id",
-                                            MYSQL_DATABASE,
-                                            SOURCE_TABLE,
-                                            MYSQL_DATABASE,
-                                            SINK_TABLE);
+                                            database, sourceTable, database, sinkTable);
                             try (Connection jdbcConnection = getJdbcConnection();
                                     Statement statement = jdbcConnection.createStatement();
                                     ResultSet resultSet = statement.executeQuery(query); ) {
@@ -182,8 +203,8 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
                 .untilAsserted(
                         () ->
                                 Assertions.assertIterableEquals(
-                                        query(String.format(QUERY, MYSQL_DATABASE, SOURCE_TABLE)),
-                                        query(String.format(QUERY, MYSQL_DATABASE, SINK_TABLE))));
+                                        query(String.format(QUERY, database, sourceTable)),
+                                        query(String.format(QUERY, database, sinkTable))));
 
         // case3 change column name with cdc data at same time
         shopDatabase.setTemplateName("change_columns").createAndInitialize();
@@ -191,8 +212,8 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
                 .untilAsserted(
                         () ->
                                 Assertions.assertIterableEquals(
-                                        query(String.format(QUERY, MYSQL_DATABASE, SOURCE_TABLE)),
-                                        query(String.format(QUERY, MYSQL_DATABASE, SINK_TABLE))));
+                                        query(String.format(QUERY, database, sourceTable)),
+                                        query(String.format(QUERY, database, sinkTable))));
     }
 
     private Connection getJdbcConnection() throws SQLException {

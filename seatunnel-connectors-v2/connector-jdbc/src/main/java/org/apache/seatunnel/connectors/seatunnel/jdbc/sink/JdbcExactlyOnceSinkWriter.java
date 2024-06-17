@@ -53,7 +53,7 @@ import java.util.Optional;
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkState;
 
-public class JdbcExactlyOnceSinkWriter extends AbstractJdbcSink
+public class JdbcExactlyOnceSinkWriter extends AbstractJdbcSinkWriter
         implements SupportMultiTableSinkWriter<Void> {
     private static final Logger LOG = LoggerFactory.getLogger(JdbcExactlyOnceSinkWriter.class);
 
@@ -156,12 +156,6 @@ public class JdbcExactlyOnceSinkWriter extends AbstractJdbcSink
         beginTx();
         checkState(prepareXid != null, "prepare xid must not be null");
         return emptyXaTransaction ? Optional.empty() : Optional.of(new XidInfo(prepareXid, 0));
-    }
-
-    @Override
-    protected void flushCommit() throws IOException {
-        this.prepareCurrentTx();
-        this.currentXid = null;
     }
 
     @Override

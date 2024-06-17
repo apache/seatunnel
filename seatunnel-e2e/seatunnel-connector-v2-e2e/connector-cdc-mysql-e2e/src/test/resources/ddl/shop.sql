@@ -20,6 +20,8 @@
 -- ----------------------------------------------------------------------------------------------------------------
 CREATE DATABASE IF NOT EXISTS `shop`;
 use shop;
+
+drop table if exists products;
 -- Create and populate our products using a single insert with many rows
 CREATE TABLE products (
   id INTEGER NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -27,14 +29,24 @@ CREATE TABLE products (
   description VARCHAR(512),
   weight FLOAT
 );
-ALTER TABLE products AUTO_INCREMENT = 101;
 
-CREATE TABLE mysql_cdc_e2e_sink_table_with_schema_change (
+drop table if exists mysql_cdc_e2e_sink_table_with_schema_change;
+CREATE TABLE if not exists mysql_cdc_e2e_sink_table_with_schema_change (
  id INTEGER NOT NULL AUTO_INCREMENT PRIMARY KEY,
  name VARCHAR(255) NOT NULL DEFAULT 'SeaTunnel',
  description VARCHAR(512),
  weight FLOAT
 );
+
+drop table if exists mysql_cdc_e2e_sink_table_with_schema_change_exactly_once;
+CREATE TABLE if not exists mysql_cdc_e2e_sink_table_with_schema_change_exactly_once (
+ id INTEGER NOT NULL AUTO_INCREMENT PRIMARY KEY,
+ name VARCHAR(255) NOT NULL DEFAULT 'SeaTunnel',
+ description VARCHAR(512),
+ weight FLOAT
+);
+
+ALTER TABLE products AUTO_INCREMENT = 101;
 
 INSERT INTO products
 VALUES (101,"scooter","Small 2-wheel scooter",3.14),
@@ -46,3 +58,21 @@ VALUES (101,"scooter","Small 2-wheel scooter",3.14),
        (107,"rocks","box of assorted rocks",5.3),
        (108,"jacket","water resistent black wind breaker",0.1),
        (109,"spare tire","24 inch spare tire",22.2);
+
+
+drop table if exists products_on_hand;
+CREATE TABLE products_on_hand (
+  product_id INTEGER NOT NULL PRIMARY KEY,
+  quantity INTEGER NOT NULL
+);
+
+
+INSERT INTO products_on_hand VALUES (101,3);
+INSERT INTO products_on_hand VALUES (102,8);
+INSERT INTO products_on_hand VALUES (103,18);
+INSERT INTO products_on_hand VALUES (104,4);
+INSERT INTO products_on_hand VALUES (105,5);
+INSERT INTO products_on_hand VALUES (106,0);
+INSERT INTO products_on_hand VALUES (107,44);
+INSERT INTO products_on_hand VALUES (108,2);
+INSERT INTO products_on_hand VALUES (109,5);
