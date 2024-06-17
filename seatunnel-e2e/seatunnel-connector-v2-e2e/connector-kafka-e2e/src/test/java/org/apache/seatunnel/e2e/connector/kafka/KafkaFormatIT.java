@@ -337,99 +337,93 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
                 .untilAsserted(this::initLocalDataToKafka);
         Thread.sleep(20 * 1000);
     }
-    //
-    //    @DisabledOnContainer(
-    //            value = {},
-    //            type = {EngineType.SPARK, EngineType.FLINK},
-    //            disabledReason = "The multi-catalog does not currently support the Spark Flink
-    // engine")
-    //    @TestTemplate
-    //    public void testMultiFormatCheck(TestContainer container)
-    //            throws IOException, InterruptedException {
-    //        LOG.info(
-    //                "====================== Multi Source Format Canal and Ogg Check
-    // ======================");
-    //        Container.ExecResult execCanalAndOggResultKafka =
-    //                container.executeJob("/multiFormatIT/kafka_multi_source_to_pg.conf");
-    //        Assertions.assertEquals(
-    //                0,
-    //                execCanalAndOggResultKafka.getExitCode(),
-    //                execCanalAndOggResultKafka.getStderr());
-    //        checkFormatCanalAndOgg();
-    //    }
-    //
-    //    @TestTemplate
-    //    public void testFormatCanalCheck(TestContainer container)
-    //            throws IOException, InterruptedException {
-    //        LOG.info("====================== Check Canal======================");
-    //        Container.ExecResult execCanalResultKafka =
-    //                container.executeJob("/canalFormatIT/kafka_source_canal_to_kafka.conf");
-    //        Assertions.assertEquals(
-    //                0, execCanalResultKafka.getExitCode(), execCanalResultKafka.getStderr());
-    //        Container.ExecResult execCanalResultToPgSql =
-    //                container.executeJob("/canalFormatIT/kafka_source_canal_cdc_to_pgsql.conf");
-    //        Assertions.assertEquals(
-    //                0, execCanalResultToPgSql.getExitCode(), execCanalResultToPgSql.getStderr());
-    //        // Check Canal
-    //        checkCanalFormat();
-    //    }
-    //
-    //    @TestTemplate
-    //    public void testFormatOggCheck(TestContainer container)
-    //            throws IOException, InterruptedException {
-    //
-    //        LOG.info("====================== Check Ogg======================");
-    //        Container.ExecResult execOggResultKafka =
-    //                container.executeJob("/oggFormatIT/kafka_source_ogg_to_kafka.conf");
-    //        Assertions.assertEquals(
-    //                0, execOggResultKafka.getExitCode(), execOggResultKafka.getStderr());
-    //        // check ogg kafka to postgresql
-    //        Container.ExecResult execOggResultToPgSql =
-    //                container.executeJob("/oggFormatIT/kafka_source_ogg_to_pgsql.conf");
-    //        Assertions.assertEquals(
-    //                0, execOggResultToPgSql.getExitCode(), execOggResultToPgSql.getStderr());
-    //
-    //        // Check Ogg
-    //        checkOggFormat();
-    //    }
-    //
-    //    @TestTemplate
-    //    public void testFormatDebeziumCheck(TestContainer container)
-    //            throws IOException, InterruptedException {
-    //
-    //        LOG.info("======================  Check Debezium ====================== ");
-    //        Container.ExecResult execDebeziumResultKafka =
-    //                container.executeJob("/debeziumFormatIT/kafkasource_debezium_to_kafka.conf");
-    //        Assertions.assertEquals(
-    //                0, execDebeziumResultKafka.getExitCode(),
-    // execDebeziumResultKafka.getStderr());
-    //
-    //        Container.ExecResult execDebeziumResultToPgSql =
-    //
-    // container.executeJob("/debeziumFormatIT/kafkasource_debezium_cdc_to_pgsql.conf");
-    //        Assertions.assertEquals(
-    //                0, execDebeziumResultToPgSql.getExitCode(),
-    // execDebeziumResultToPgSql.getStderr());
-    //        // Check debezium
-    //        checkDebeziumFormat();
-    //    }
-    //
-    //    @TestTemplate
-    //    public void testFormatCompatibleCheck(TestContainer container)
-    //            throws IOException, InterruptedException {
-    //
-    //        LOG.info("======================  Check Compatible ====================== ");
-    //        Container.ExecResult execCompatibleResultToPgSql =
-    //
-    // container.executeJob("/compatibleFormatIT/kafkasource_jdbc_record_to_pgsql.conf");
-    //        Assertions.assertEquals(
-    //                0,
-    //                execCompatibleResultToPgSql.getExitCode(),
-    //                execCompatibleResultToPgSql.getStderr());
-    //
-    //        // Check Compatible
-    //        checkCompatibleFormat();
-    //    }
+
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "The multi-catalog does not currently support the Spark Flink engine")
+    @TestTemplate
+    public void testMultiFormatCheck(TestContainer container)
+            throws IOException, InterruptedException {
+        LOG.info(
+                "====================== Multi Source Format Canal and Ogg Check  ======================");
+        Container.ExecResult execCanalAndOggResultKafka =
+                container.executeJob("/multiFormatIT/kafka_multi_source_to_pg.conf");
+        Assertions.assertEquals(
+                0,
+                execCanalAndOggResultKafka.getExitCode(),
+                execCanalAndOggResultKafka.getStderr());
+        checkFormatCanalAndOgg();
+    }
+
+    @TestTemplate
+    public void testFormatCanalCheck(TestContainer container)
+            throws IOException, InterruptedException {
+        LOG.info("====================== Check Canal======================");
+        Container.ExecResult execCanalResultKafka =
+                container.executeJob("/canalFormatIT/kafka_source_canal_to_kafka.conf");
+        Assertions.assertEquals(
+                0, execCanalResultKafka.getExitCode(), execCanalResultKafka.getStderr());
+        Container.ExecResult execCanalResultToPgSql =
+                container.executeJob("/canalFormatIT/kafka_source_canal_cdc_to_pgsql.conf");
+        Assertions.assertEquals(
+                0, execCanalResultToPgSql.getExitCode(), execCanalResultToPgSql.getStderr());
+        // Check Canal
+        checkCanalFormat();
+    }
+
+    @TestTemplate
+    public void testFormatOggCheck(TestContainer container)
+            throws IOException, InterruptedException {
+
+        LOG.info("====================== Check Ogg======================");
+        Container.ExecResult execOggResultKafka =
+                container.executeJob("/oggFormatIT/kafka_source_ogg_to_kafka.conf");
+        Assertions.assertEquals(
+                0, execOggResultKafka.getExitCode(), execOggResultKafka.getStderr());
+        // check ogg kafka to postgresql
+        Container.ExecResult execOggResultToPgSql =
+                container.executeJob("/oggFormatIT/kafka_source_ogg_to_pgsql.conf");
+        Assertions.assertEquals(
+                0, execOggResultToPgSql.getExitCode(), execOggResultToPgSql.getStderr());
+
+        // Check Ogg
+        checkOggFormat();
+    }
+
+    @TestTemplate
+    public void testFormatDebeziumCheck(TestContainer container)
+            throws IOException, InterruptedException {
+
+        LOG.info("======================  Check Debezium ====================== ");
+        Container.ExecResult execDebeziumResultKafka =
+                container.executeJob("/debeziumFormatIT/kafkasource_debezium_to_kafka.conf");
+        Assertions.assertEquals(
+                0, execDebeziumResultKafka.getExitCode(), execDebeziumResultKafka.getStderr());
+
+        Container.ExecResult execDebeziumResultToPgSql =
+                container.executeJob("/debeziumFormatIT/kafkasource_debezium_cdc_to_pgsql.conf");
+        Assertions.assertEquals(
+                0, execDebeziumResultToPgSql.getExitCode(), execDebeziumResultToPgSql.getStderr());
+        // Check debezium
+        checkDebeziumFormat();
+    }
+
+    @TestTemplate
+    public void testFormatCompatibleCheck(TestContainer container)
+            throws IOException, InterruptedException {
+
+        LOG.info("======================  Check Compatible ====================== ");
+        Container.ExecResult execCompatibleResultToPgSql =
+                container.executeJob("/compatibleFormatIT/kafkasource_jdbc_record_to_pgsql.conf");
+        Assertions.assertEquals(
+                0,
+                execCompatibleResultToPgSql.getExitCode(),
+                execCompatibleResultToPgSql.getStderr());
+
+        // Check Compatible
+        checkCompatibleFormat();
+    }
 
     @TestTemplate
     public void testFormatMaxWellCheck(TestContainer container)
@@ -505,6 +499,65 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
                                         "0.1"))
                         .collect(Collectors.toList());
         Assertions.assertIterableEquals(postgreSinkTableList, checkArraysResult);
+    }
+
+    private void checkCanalFormat() {
+        List<String> expectedResult =
+                Arrays.asList(
+                        "{\"data\":{\"id\":1101,\"name\":\"scooter\",\"description\":\"Small 2-wheel scooter\",\"weight\":\"3.14\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":1102,\"name\":\"car battery\",\"description\":\"12V car battery\",\"weight\":\"8.1\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":1103,\"name\":\"12-pack drill bits\",\"description\":\"12-pack of drill bits with sizes ranging from #40 to #3\",\"weight\":\"0.8\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":1104,\"name\":\"hammer\",\"description\":\"12oz carpenter's hammer\",\"weight\":\"0.75\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":1105,\"name\":\"hammer\",\"description\":\"14oz carpenter's hammer\",\"weight\":\"0.875\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":1106,\"name\":\"hammer\",\"description\":\"16oz carpenter's hammer\",\"weight\":\"1.0\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":1107,\"name\":\"rocks\",\"description\":\"box of assorted rocks\",\"weight\":\"5.3\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":1108,\"name\":\"jacket\",\"description\":\"water resistent black wind breaker\",\"weight\":\"0.1\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":1109,\"name\":\"spare tire\",\"description\":\"24 inch spare tire\",\"weight\":\"22.2\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":1101,\"name\":\"scooter\",\"description\":\"Small 2-wheel scooter\",\"weight\":\"3.14\"},\"type\":\"DELETE\"}",
+                        "{\"data\":{\"id\":1101,\"name\":\"scooter\",\"description\":\"Small 2-wheel scooter\",\"weight\":\"4.56\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":1107,\"name\":\"rocks\",\"description\":\"box of assorted rocks\",\"weight\":\"5.3\"},\"type\":\"DELETE\"}",
+                        "{\"data\":{\"id\":1107,\"name\":\"rocks\",\"description\":\"box of assorted rocks\",\"weight\":\"7.88\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":1109,\"name\":\"spare tire\",\"description\":\"24 inch spare tire\",\"weight\":\"22.2\"},\"type\":\"DELETE\"}");
+
+        ArrayList<String> result = new ArrayList<>();
+        ArrayList<String> topics = new ArrayList<>();
+        topics.add(CANAL_KAFKA_SINK_TOPIC);
+        kafkaConsumer.subscribe(topics);
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            ConsumerRecords<String, String> consumerRecords =
+                                    kafkaConsumer.poll(Duration.ofMillis(1000));
+                            for (ConsumerRecord<String, String> record : consumerRecords) {
+                                result.add(record.value());
+                            }
+                            Assertions.assertEquals(expectedResult, result);
+                        });
+
+        LOG.info("==================== start kafka canal format to pg check ====================");
+
+        List<List<Object>> postgreSinkTableList = getPostgreSinkTableList(PG_SINK_TABLE1);
+
+        List<List<Object>> expected =
+                Stream.<List<Object>>of(
+                                Arrays.asList(1101, "scooter", "Small 2-wheel scooter", "4.56"),
+                                Arrays.asList(1102, "car battery", "12V car battery", "8.1"),
+                                Arrays.asList(
+                                        1103,
+                                        "12-pack drill bits",
+                                        "12-pack of drill bits with sizes ranging from #40 to #3",
+                                        "0.8"),
+                                Arrays.asList(1104, "hammer", "12oz carpenter's hammer", "0.75"),
+                                Arrays.asList(1105, "hammer", "14oz carpenter's hammer", "0.875"),
+                                Arrays.asList(1106, "hammer", "16oz carpenter's hammer", "1.0"),
+                                Arrays.asList(1107, "rocks", "box of assorted rocks", "7.88"),
+                                Arrays.asList(
+                                        1108,
+                                        "jacket",
+                                        "water resistent black wind breaker",
+                                        "0.1"))
+                        .collect(Collectors.toList());
+        Assertions.assertIterableEquals(expected, postgreSinkTableList);
     }
 
     private void checkMaxWellFormat() {
