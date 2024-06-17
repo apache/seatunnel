@@ -12,18 +12,18 @@ Write data to Druid
 
 ## Data Type Mapping
 
-| Druid Data Type | SeaTunnel Data Type |
-|-----------------|---------------------|
-| LONG            | TINYINT             |
-| LONG            | SMALLINT            |
-| LONG            | INT                 |
-| LONG            | BIGINT              |
-| FLOAT           | FLOAT               |
-| DOUBLE          | DOUBLE              |
-| DOUBLE          | DECIMAL             |
-| STRING          | STRING              |
-| STRING          | BOOLEAN             |
-| STRING          | TIMESTAMP           |
+| SeaTunnel Data Type | Druid Data Type |
+|---------------------|-----------------|
+| TINYINT             | LONG            |
+| SMALLINT            | LONG            |
+| INT                 | LONG            |
+| BIGINT              | LONG            |
+| FLOAT               | FLOAT           |
+| DOUBLE              | DOUBLE          |
+| DECIMAL             | DOUBLE          |
+| STRING              | STRING          |
+| BOOLEAN             | STRING          |
+| TIMESTAMP           | STRING          |
 
 ## Options
 
