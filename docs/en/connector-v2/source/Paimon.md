@@ -104,7 +104,7 @@ source {
     warehouse = "/tmp/paimon"
     database = "full_type"
     table = "st_test"
-    query = "select * from st_test where c_boolean= 'true' and c_tinyint > 116 and c_smallint = 15987 or c_decimal='2924137191386439303744.39292213'"
+    query = "select c_boolean, c_tinyint from st_test where c_boolean= 'true' and c_tinyint > 116 and c_smallint = 15987 or c_decimal='2924137191386439303744.39292213'"
   }
 }
 ```
@@ -161,4 +161,5 @@ source {
 ### next version
 
 - Add Paimon Source Connector
+- Support projection for Paimon Source
 

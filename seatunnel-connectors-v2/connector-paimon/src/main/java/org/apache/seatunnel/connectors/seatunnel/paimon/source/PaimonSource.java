@@ -29,12 +29,20 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.paimon.catalog.PaimonCatalog;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.paimon.source.converter.SqlToPaimonPredicateConverter;
+import org.apache.seatunnel.connectors.seatunnel.paimon.utils.RowTypeConverter;
 
 import org.apache.paimon.predicate.Predicate;
 import org.apache.paimon.table.Table;
+import org.apache.paimon.types.RowType;
+
+import net.sf.jsqlparser.statement.select.PlainSelect;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
+
+import static org.apache.seatunnel.connectors.seatunnel.paimon.source.converter.SqlToPaimonPredicateConverter.convertSqlSelectToPaimonProjectionIndex;
+import static org.apache.seatunnel.connectors.seatunnel.paimon.source.converter.SqlToPaimonPredicateConverter.convertToPlainSelect;
 
 /** Paimon connector source class. */
 public class PaimonSource
@@ -52,6 +60,8 @@ public class PaimonSource
 
     private Predicate predicate;
 
+    private int[] projectionIndex;
+
     private CatalogTable catalogTable;
 
     public PaimonSource(ReadonlyConfig readonlyConfig, PaimonCatalog paimonCatalog) {
@@ -61,12 +71,22 @@ public class PaimonSource
                 TablePath.of(paimonSourceConfig.getNamespace(), paimonSourceConfig.getTable());
         this.catalogTable = paimonCatalog.getTable(tablePath);
         this.paimonTable = paimonCatalog.getPaimonTable(tablePath);
-        this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
-        // TODO: We can use this to realize the column projection feature later
+
         String filterSql = readonlyConfig.get(PaimonSourceConfig.QUERY_SQL);
-        this.predicate =
-                SqlToPaimonPredicateConverter.convertSqlWhereToPaimonPredicate(
-                        this.paimonTable.rowType(), filterSql);
+        PlainSelect plainSelect = convertToPlainSelect(filterSql);
+        RowType paimonRowType = this.paimonTable.rowType();
+        String[] filedNames = paimonRowType.getFieldNames().toArray(new String[0]);
+        if (!Objects.isNull(plainSelect)) {
+            this.projectionIndex = convertSqlSelectToPaimonProjectionIndex(filedNames, plainSelect);
+            if (!Objects.isNull(projectionIndex)) {
+                this.catalogTable =
+                        paimonCatalog.getTableWithProjection(tablePath, projectionIndex);
+            }
+            this.predicate =
+                    SqlToPaimonPredicateConverter.convertSqlWhereToPaimonPredicate(
+                            paimonRowType, plainSelect);
+        }
+        seaTunnelRowType = RowTypeConverter.convert(paimonRowType, projectionIndex);
     }
 
     @Override
@@ -75,26 +95,27 @@ public class PaimonSource
     }
 
     @Override
-    public Boundedness getBoundedness() {
-        return Boundedness.BOUNDED;
-    }
-
-    @Override
     public List<CatalogTable> getProducedCatalogTables() {
         return Collections.singletonList(catalogTable);
     }
 
     @Override
+    public Boundedness getBoundedness() {
+        return Boundedness.BOUNDED;
+    }
+
+    @Override
     public SourceReader<SeaTunnelRow, PaimonSourceSplit> createReader(
             SourceReader.Context readerContext) throws Exception {
-
-        return new PaimonSourceReader(readerContext, paimonTable, seaTunnelRowType, predicate);
+        return new PaimonSourceReader(
+                readerContext, paimonTable, seaTunnelRowType, predicate, projectionIndex);
     }
 
     @Override
     public SourceSplitEnumerator<PaimonSourceSplit, PaimonSourceState> createEnumerator(
             SourceSplitEnumerator.Context<PaimonSourceSplit> enumeratorContext) throws Exception {
-        return new PaimonSourceSplitEnumerator(enumeratorContext, paimonTable, predicate);
+        return new PaimonSourceSplitEnumerator(
+                enumeratorContext, paimonTable, predicate, projectionIndex);
     }
 
     @Override
@@ -103,6 +124,6 @@ public class PaimonSource
             PaimonSourceState checkpointState)
             throws Exception {
         return new PaimonSourceSplitEnumerator(
-                enumeratorContext, paimonTable, checkpointState, predicate);
+                enumeratorContext, paimonTable, checkpointState, predicate, projectionIndex);
     }
 }
