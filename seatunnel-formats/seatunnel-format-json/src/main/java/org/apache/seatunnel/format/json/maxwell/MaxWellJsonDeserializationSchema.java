@@ -23,6 +23,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -76,21 +77,19 @@ public class MaxWellJsonDeserializationSchema implements DeserializationSchema<S
 
     private final JsonDeserializationSchema jsonDeserializer;
 
-    private final SeaTunnelRowType physicalRowType;
+    private final CatalogTable catalogTable;
+    private final SeaTunnelRowType seaTunnelRowType;
 
     public MaxWellJsonDeserializationSchema(
-            SeaTunnelRowType physicalRowType,
-            String database,
-            String table,
-            boolean ignoreParseErrors) {
-        this.physicalRowType = physicalRowType;
-        final SeaTunnelRowType jsonRowType = createJsonRowType(physicalRowType);
+            CatalogTable catalogTable, String database, String table, boolean ignoreParseErrors) {
+        this.catalogTable = catalogTable;
+        this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
         this.jsonDeserializer =
-                new JsonDeserializationSchema(false, ignoreParseErrors, jsonRowType);
+                new JsonDeserializationSchema(false, ignoreParseErrors, seaTunnelRowType);
         this.database = database;
         this.table = table;
-        this.fieldNames = physicalRowType.getFieldNames();
-        this.fieldCount = physicalRowType.getTotalFields();
+        this.fieldNames = seaTunnelRowType.getFieldNames();
+        this.fieldCount = seaTunnelRowType.getTotalFields();
         this.ignoreParseErrors = ignoreParseErrors;
         this.databasePattern = database == null ? null : Pattern.compile(database);
         this.tablePattern = table == null ? null : Pattern.compile(table);
@@ -103,7 +102,7 @@ public class MaxWellJsonDeserializationSchema implements DeserializationSchema<S
 
     @Override
     public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
-        return this.physicalRowType;
+        return this.seaTunnelRowType;
     }
 
     @Override
@@ -189,8 +188,8 @@ public class MaxWellJsonDeserializationSchema implements DeserializationSchema<S
     // ------------------------------------------------------------------------------------------
 
     /** Creates A builder for building a {@link MaxWellJsonDeserializationSchema}. */
-    public static Builder builder(SeaTunnelRowType physicalDataType) {
-        return new Builder(physicalDataType);
+    public static Builder builder(CatalogTable catalogTable) {
+        return new Builder(catalogTable);
     }
 
     public static class Builder {
@@ -201,10 +200,10 @@ public class MaxWellJsonDeserializationSchema implements DeserializationSchema<S
 
         private String table = null;
 
-        private final SeaTunnelRowType physicalDataType;
+        private final CatalogTable catalogTable;
 
-        public Builder(SeaTunnelRowType physicalDataType) {
-            this.physicalDataType = physicalDataType;
+        public Builder(CatalogTable catalogTable) {
+            this.catalogTable = catalogTable;
         }
 
         public Builder setDatabase(String database) {
@@ -224,7 +223,7 @@ public class MaxWellJsonDeserializationSchema implements DeserializationSchema<S
 
         public MaxWellJsonDeserializationSchema build() {
             return new MaxWellJsonDeserializationSchema(
-                    physicalDataType, database, table, ignoreParseErrors);
+                    catalogTable, database, table, ignoreParseErrors);
         }
     }
 }

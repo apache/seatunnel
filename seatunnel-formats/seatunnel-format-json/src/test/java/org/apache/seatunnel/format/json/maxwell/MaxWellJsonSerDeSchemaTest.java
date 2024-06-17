@@ -19,6 +19,8 @@
 package org.apache.seatunnel.format.json.maxwell;
 
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -43,16 +45,18 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class MaxWellJsonSerDeSchemaTest {
 
-    private static final SeaTunnelRowType PHYSICAL_DATA_TYPE =
+    private static final SeaTunnelRowType SEATUNNEL_ROW_TYPE =
             new SeaTunnelRowType(
                     new String[] {"id", "name", "description", "weight"},
                     new SeaTunnelDataType[] {INT_TYPE, STRING_TYPE, STRING_TYPE, FLOAT_TYPE});
+    private static final CatalogTable catalogTables =
+            CatalogTableUtil.getCatalogTable("", "", "", "", SEATUNNEL_ROW_TYPE);
 
     @Test
     public void testFilteringTables() throws Exception {
         List<String> lines = readLines("maxwell-data-filter-table.txt");
         MaxWellJsonDeserializationSchema deserializationSchema =
-                new MaxWellJsonDeserializationSchema.Builder(PHYSICAL_DATA_TYPE)
+                new MaxWellJsonDeserializationSchema.Builder(catalogTables)
                         .setDatabase("^test.*")
                         .setTable("^prod.*")
                         .build();
@@ -109,7 +113,7 @@ public class MaxWellJsonSerDeSchemaTest {
 
         // test Serialization
         MaxWellJsonSerializationSchema serializationSchema =
-                new MaxWellJsonSerializationSchema(PHYSICAL_DATA_TYPE);
+                new MaxWellJsonSerializationSchema(catalogTables.getSeaTunnelRowType());
         List<String> result = new ArrayList<>();
         for (SeaTunnelRow rowData : collector.list) {
             result.add(new String(serializationSchema.serialize(rowData), StandardCharsets.UTF_8));
@@ -152,7 +156,7 @@ public class MaxWellJsonSerDeSchemaTest {
 
     private MaxWellJsonDeserializationSchema createMaxWellJsonDeserializationSchema(
             String database, String table) {
-        return MaxWellJsonDeserializationSchema.builder(PHYSICAL_DATA_TYPE)
+        return MaxWellJsonDeserializationSchema.builder(catalogTables)
                 .setDatabase(database)
                 .setTable(table)
                 .setIgnoreParseErrors(false)

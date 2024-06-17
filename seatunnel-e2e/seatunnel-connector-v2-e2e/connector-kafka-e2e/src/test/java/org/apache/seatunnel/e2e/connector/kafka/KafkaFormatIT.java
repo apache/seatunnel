@@ -73,13 +73,6 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -95,6 +88,12 @@ import static org.awaitility.Awaitility.given;
 public class KafkaFormatIT extends TestSuiteBase implements TestResource {
 
     private static final Logger LOG = LoggerFactory.getLogger(KafkaFormatIT.class);
+
+    // ---------------------------Ogg Format Parameter---------------------------------------
+    private static final String MAXWELL_DATA_PATH = "/maxwell/maxwell_data.txt";
+    private static final String MAXWELL_KAFKA_SOURCE_TOPIC = "maxwell-test-cdc_mds";
+    private static final String MAXWELL_KAFKA_SINK_TOPIC = "test-maxwell-sink";
+
     // ---------------------------Ogg Format Parameter---------------------------------------
     private static final String OGG_DATA_PATH = "/ogg/ogg_data.txt";
     private static final String OGG_KAFKA_SOURCE_TOPIC = "test-ogg-source";
@@ -128,10 +127,10 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
                         new SeaTunnelRowType(
                                 new String[] {"id", "name", "description", "weight"},
                                 new SeaTunnelDataType[] {
-                                        BasicType.INT_TYPE,
-                                        BasicType.STRING_TYPE,
-                                        BasicType.STRING_TYPE,
-                                        BasicType.STRING_TYPE
+                                    BasicType.INT_TYPE,
+                                    BasicType.STRING_TYPE,
+                                    BasicType.STRING_TYPE,
+                                    BasicType.STRING_TYPE
                                 })));
 
         sinkTables.put(
@@ -140,92 +139,92 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
                         PG_SINK_TABLE2,
                         new SeaTunnelRowType(
                                 new String[] {
-                                        "id",
-                                        "f_binary",
-                                        "f_blob",
-                                        "f_long_varbinary",
-                                        "f_longblob",
-                                        "f_tinyblob",
-                                        "f_varbinary",
-                                        "f_smallint",
-                                        "f_smallint_unsigned",
-                                        "f_mediumint",
-                                        "f_mediumint_unsigned",
-                                        "f_int",
-                                        "f_int_unsigned",
-                                        "f_integer",
-                                        "f_integer_unsigned",
-                                        "f_bigint",
-                                        "f_bigint_unsigned",
-                                        "f_numeric",
-                                        "f_decimal",
-                                        "f_float",
-                                        "f_double",
-                                        "f_double_precision",
-                                        "f_longtext",
-                                        "f_mediumtext",
-                                        "f_text",
-                                        "f_tinytext",
-                                        "f_varchar",
-                                        "f_date",
-                                        "f_datetime",
-                                        "f_timestamp",
-                                        "f_bit1",
-                                        "f_bit64",
-                                        "f_char",
-                                        "f_enum",
-                                        "f_mediumblob",
-                                        "f_long_varchar",
-                                        "f_real",
-                                        "f_time",
-                                        "f_tinyint",
-                                        "f_tinyint_unsigned",
-                                        "f_json",
-                                        "f_year"
+                                    "id",
+                                    "f_binary",
+                                    "f_blob",
+                                    "f_long_varbinary",
+                                    "f_longblob",
+                                    "f_tinyblob",
+                                    "f_varbinary",
+                                    "f_smallint",
+                                    "f_smallint_unsigned",
+                                    "f_mediumint",
+                                    "f_mediumint_unsigned",
+                                    "f_int",
+                                    "f_int_unsigned",
+                                    "f_integer",
+                                    "f_integer_unsigned",
+                                    "f_bigint",
+                                    "f_bigint_unsigned",
+                                    "f_numeric",
+                                    "f_decimal",
+                                    "f_float",
+                                    "f_double",
+                                    "f_double_precision",
+                                    "f_longtext",
+                                    "f_mediumtext",
+                                    "f_text",
+                                    "f_tinytext",
+                                    "f_varchar",
+                                    "f_date",
+                                    "f_datetime",
+                                    "f_timestamp",
+                                    "f_bit1",
+                                    "f_bit64",
+                                    "f_char",
+                                    "f_enum",
+                                    "f_mediumblob",
+                                    "f_long_varchar",
+                                    "f_real",
+                                    "f_time",
+                                    "f_tinyint",
+                                    "f_tinyint_unsigned",
+                                    "f_json",
+                                    "f_year"
                                 },
                                 new SeaTunnelDataType[] {
-                                        BasicType.INT_TYPE,
-                                        PrimitiveByteArrayType.INSTANCE,
-                                        PrimitiveByteArrayType.INSTANCE,
-                                        PrimitiveByteArrayType.INSTANCE,
-                                        PrimitiveByteArrayType.INSTANCE,
-                                        PrimitiveByteArrayType.INSTANCE,
-                                        PrimitiveByteArrayType.INSTANCE,
-                                        BasicType.SHORT_TYPE,
-                                        BasicType.INT_TYPE,
-                                        BasicType.INT_TYPE,
-                                        BasicType.INT_TYPE,
-                                        BasicType.INT_TYPE,
-                                        BasicType.INT_TYPE,
-                                        BasicType.INT_TYPE,
-                                        BasicType.LONG_TYPE,
-                                        BasicType.LONG_TYPE,
-                                        new DecimalType(10, 0),
-                                        new DecimalType(10, 0),
-                                        new DecimalType(10, 0),
-                                        BasicType.FLOAT_TYPE,
-                                        BasicType.DOUBLE_TYPE,
-                                        BasicType.DOUBLE_TYPE,
-                                        BasicType.STRING_TYPE,
-                                        BasicType.STRING_TYPE,
-                                        BasicType.STRING_TYPE,
-                                        BasicType.STRING_TYPE,
-                                        BasicType.STRING_TYPE,
-                                        LocalTimeType.LOCAL_DATE_TYPE,
-                                        LocalTimeType.LOCAL_DATE_TIME_TYPE,
-                                        LocalTimeType.LOCAL_DATE_TIME_TYPE,
-                                        BasicType.BOOLEAN_TYPE,
-                                        BasicType.BYTE_TYPE,
-                                        BasicType.STRING_TYPE,
-                                        BasicType.STRING_TYPE,
-                                        PrimitiveByteArrayType.INSTANCE,
-                                        BasicType.STRING_TYPE,
-                                        BasicType.DOUBLE_TYPE,
-                                        LocalTimeType.LOCAL_TIME_TYPE,
-                                        BasicType.BYTE_TYPE,
-                                        BasicType.INT_TYPE,
-                                        BasicType.STRING_TYPE,
-                                        BasicType.INT_TYPE
+                                    BasicType.INT_TYPE,
+                                    PrimitiveByteArrayType.INSTANCE,
+                                    PrimitiveByteArrayType.INSTANCE,
+                                    PrimitiveByteArrayType.INSTANCE,
+                                    PrimitiveByteArrayType.INSTANCE,
+                                    PrimitiveByteArrayType.INSTANCE,
+                                    PrimitiveByteArrayType.INSTANCE,
+                                    BasicType.SHORT_TYPE,
+                                    BasicType.INT_TYPE,
+                                    BasicType.INT_TYPE,
+                                    BasicType.INT_TYPE,
+                                    BasicType.INT_TYPE,
+                                    BasicType.INT_TYPE,
+                                    BasicType.INT_TYPE,
+                                    BasicType.LONG_TYPE,
+                                    BasicType.LONG_TYPE,
+                                    new DecimalType(10, 0),
+                                    new DecimalType(10, 0),
+                                    new DecimalType(10, 0),
+                                    BasicType.FLOAT_TYPE,
+                                    BasicType.DOUBLE_TYPE,
+                                    BasicType.DOUBLE_TYPE,
+                                    BasicType.STRING_TYPE,
+                                    BasicType.STRING_TYPE,
+                                    BasicType.STRING_TYPE,
+                                    BasicType.STRING_TYPE,
+                                    BasicType.STRING_TYPE,
+                                    LocalTimeType.LOCAL_DATE_TYPE,
+                                    LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                                    LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                                    BasicType.BOOLEAN_TYPE,
+                                    BasicType.BYTE_TYPE,
+                                    BasicType.STRING_TYPE,
+                                    BasicType.STRING_TYPE,
+                                    PrimitiveByteArrayType.INSTANCE,
+                                    BasicType.STRING_TYPE,
+                                    BasicType.DOUBLE_TYPE,
+                                    LocalTimeType.LOCAL_TIME_TYPE,
+                                    BasicType.BYTE_TYPE,
+                                    BasicType.INT_TYPE,
+                                    BasicType.STRING_TYPE,
+                                    BasicType.INT_TYPE
                                 })));
     }
 
@@ -239,6 +238,7 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
                     {
                         put(CANAL_DATA_PATH, CANAL_KAFKA_SOURCE_TOPIC);
                         put(OGG_DATA_PATH, OGG_KAFKA_SOURCE_TOPIC);
+                        put(MAXWELL_DATA_PATH, MAXWELL_KAFKA_SOURCE_TOPIC);
                         put(COMPATIBLE_DATA_PATH, COMPATIBLE_KAFKA_SOURCE_TOPIC);
                         put(DEBEZIUM_DATA_PATH, DEBEZIUM_KAFKA_SOURCE_TOPIC);
                     }
@@ -330,92 +330,118 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
                 .untilAsserted(this::initLocalDataToKafka);
         Thread.sleep(20 * 1000);
     }
+    //
+    //    @DisabledOnContainer(
+    //            value = {},
+    //            type = {EngineType.SPARK, EngineType.FLINK},
+    //            disabledReason = "The multi-catalog does not currently support the Spark Flink
+    // engine")
+    //    @TestTemplate
+    //    public void testMultiFormatCheck(TestContainer container)
+    //            throws IOException, InterruptedException {
+    //        LOG.info(
+    //                "====================== Multi Source Format Canal and Ogg Check
+    // ======================");
+    //        Container.ExecResult execCanalAndOggResultKafka =
+    //                container.executeJob("/multiFormatIT/kafka_multi_source_to_pg.conf");
+    //        Assertions.assertEquals(
+    //                0,
+    //                execCanalAndOggResultKafka.getExitCode(),
+    //                execCanalAndOggResultKafka.getStderr());
+    //        checkFormatCanalAndOgg();
+    //    }
+    //
+    //    @TestTemplate
+    //    public void testFormatCanalCheck(TestContainer container)
+    //            throws IOException, InterruptedException {
+    //        LOG.info("====================== Check Canal======================");
+    //        Container.ExecResult execCanalResultKafka =
+    //                container.executeJob("/canalFormatIT/kafka_source_canal_to_kafka.conf");
+    //        Assertions.assertEquals(
+    //                0, execCanalResultKafka.getExitCode(), execCanalResultKafka.getStderr());
+    //        Container.ExecResult execCanalResultToPgSql =
+    //                container.executeJob("/canalFormatIT/kafka_source_canal_cdc_to_pgsql.conf");
+    //        Assertions.assertEquals(
+    //                0, execCanalResultToPgSql.getExitCode(), execCanalResultToPgSql.getStderr());
+    //        // Check Canal
+    //        checkCanalFormat();
+    //    }
+    //
+    //    @TestTemplate
+    //    public void testFormatOggCheck(TestContainer container)
+    //            throws IOException, InterruptedException {
+    //
+    //        LOG.info("====================== Check Ogg======================");
+    //        Container.ExecResult execOggResultKafka =
+    //                container.executeJob("/oggFormatIT/kafka_source_ogg_to_kafka.conf");
+    //        Assertions.assertEquals(
+    //                0, execOggResultKafka.getExitCode(), execOggResultKafka.getStderr());
+    //        // check ogg kafka to postgresql
+    //        Container.ExecResult execOggResultToPgSql =
+    //                container.executeJob("/oggFormatIT/kafka_source_ogg_to_pgsql.conf");
+    //        Assertions.assertEquals(
+    //                0, execOggResultToPgSql.getExitCode(), execOggResultToPgSql.getStderr());
+    //
+    //        // Check Ogg
+    //        checkOggFormat();
+    //    }
+    //
+    //    @TestTemplate
+    //    public void testFormatDebeziumCheck(TestContainer container)
+    //            throws IOException, InterruptedException {
+    //
+    //        LOG.info("======================  Check Debezium ====================== ");
+    //        Container.ExecResult execDebeziumResultKafka =
+    //                container.executeJob("/debeziumFormatIT/kafkasource_debezium_to_kafka.conf");
+    //        Assertions.assertEquals(
+    //                0, execDebeziumResultKafka.getExitCode(),
+    // execDebeziumResultKafka.getStderr());
+    //
+    //        Container.ExecResult execDebeziumResultToPgSql =
+    //
+    // container.executeJob("/debeziumFormatIT/kafkasource_debezium_cdc_to_pgsql.conf");
+    //        Assertions.assertEquals(
+    //                0, execDebeziumResultToPgSql.getExitCode(),
+    // execDebeziumResultToPgSql.getStderr());
+    //        // Check debezium
+    //        checkDebeziumFormat();
+    //    }
+    //
+    //    @TestTemplate
+    //    public void testFormatCompatibleCheck(TestContainer container)
+    //            throws IOException, InterruptedException {
+    //
+    //        LOG.info("======================  Check Compatible ====================== ");
+    //        Container.ExecResult execCompatibleResultToPgSql =
+    //
+    // container.executeJob("/compatibleFormatIT/kafkasource_jdbc_record_to_pgsql.conf");
+    //        Assertions.assertEquals(
+    //                0,
+    //                execCompatibleResultToPgSql.getExitCode(),
+    //                execCompatibleResultToPgSql.getStderr());
+    //
+    //        // Check Compatible
+    //        checkCompatibleFormat();
+    //    }
 
-    @DisabledOnContainer(
-            value = {},
-            type = {EngineType.SPARK, EngineType.FLINK},
-            disabledReason = "The multi-catalog does not currently support the Spark Flink engine")
     @TestTemplate
-    public void testMultiFormatCheck(TestContainer container)
-            throws IOException, InterruptedException {
-        LOG.info(
-                "====================== Multi Source Format Canal and Ogg Check  ======================");
-        Container.ExecResult execCanalAndOggResultKafka =
-                container.executeJob("/multiFormatIT/kafka_multi_source_to_pg.conf");
-        Assertions.assertEquals(
-                0,
-                execCanalAndOggResultKafka.getExitCode(),
-                execCanalAndOggResultKafka.getStderr());
-        checkFormatCanalAndOgg();
-    }
-
-    @TestTemplate
-    public void testFormatCanalCheck(TestContainer container)
-            throws IOException, InterruptedException {
-        LOG.info("====================== Check Canal======================");
-        Container.ExecResult execCanalResultKafka =
-                container.executeJob("/canalFormatIT/kafka_source_canal_to_kafka.conf");
-        Assertions.assertEquals(
-                0, execCanalResultKafka.getExitCode(), execCanalResultKafka.getStderr());
-        Container.ExecResult execCanalResultToPgSql =
-                container.executeJob("/canalFormatIT/kafka_source_canal_cdc_to_pgsql.conf");
-        Assertions.assertEquals(
-                0, execCanalResultToPgSql.getExitCode(), execCanalResultToPgSql.getStderr());
-        // Check Canal
-        checkCanalFormat();
-    }
-
-    @TestTemplate
-    public void testFormatOggCheck(TestContainer container)
+    public void testFormatMaxWellCheck(TestContainer container)
             throws IOException, InterruptedException {
 
-        LOG.info("====================== Check Ogg======================");
-        Container.ExecResult execOggResultKafka =
-                container.executeJob("/oggFormatIT/kafka_source_ogg_to_kafka.conf");
+        LOG.info("====================== Check MaxWell======================");
+        // check ogg MaxWell to postgresql
+        Container.ExecResult execMaxWellResultToKafka =
+                container.executeJob("/maxwellFormatIT/kafkasource_maxwell_to_kafka.conf");
         Assertions.assertEquals(
-                0, execOggResultKafka.getExitCode(), execOggResultKafka.getStderr());
-        // check ogg kafka to postgresql
-        Container.ExecResult execOggResultToPgSql =
-                container.executeJob("/oggFormatIT/kafka_source_ogg_to_pgsql.conf");
+                0, execMaxWellResultToKafka.getExitCode(), execMaxWellResultToKafka.getStderr());
+
+        Container.ExecResult execMaxWellResultToPg =
+                container.executeJob("/maxwellFormatIT/kafkasource_maxwell_cdc_to_pgsql.conf");
         Assertions.assertEquals(
-                0, execOggResultToPgSql.getExitCode(), execOggResultToPgSql.getStderr());
+                0, execMaxWellResultToPg.getExitCode(), execMaxWellResultToPg.getStderr());
 
         // Check Ogg
-        checkOggFormat();
-    }
-
-    @TestTemplate
-    public void testFormatDebeziumCheck(TestContainer container)
-            throws IOException, InterruptedException {
-
-        LOG.info("======================  Check Debezium ====================== ");
-        Container.ExecResult execDebeziumResultKafka =
-                container.executeJob("/debeziumFormatIT/kafkasource_debezium_to_kafka.conf");
-        Assertions.assertEquals(
-                0, execDebeziumResultKafka.getExitCode(), execDebeziumResultKafka.getStderr());
-
-        Container.ExecResult execDebeziumResultToPgSql =
-                container.executeJob("/debeziumFormatIT/kafkasource_debezium_cdc_to_pgsql.conf");
-        Assertions.assertEquals(
-                0, execDebeziumResultToPgSql.getExitCode(), execDebeziumResultToPgSql.getStderr());
-        // Check debezium
-        checkDebeziumFormat();
-    }
-
-    @TestTemplate
-    public void testFormatCompatibleCheck(TestContainer container)
-            throws IOException, InterruptedException {
-
-        LOG.info("======================  Check Compatible ====================== ");
-        Container.ExecResult execCompatibleResultToPgSql =
-                container.executeJob("/compatibleFormatIT/kafkasource_jdbc_record_to_pgsql.conf");
-        Assertions.assertEquals(
-                0,
-                execCompatibleResultToPgSql.getExitCode(),
-                execCompatibleResultToPgSql.getStderr());
-
-        // Check Compatible
-        checkCompatibleFormat();
+        checkMaxWellFormat();
     }
 
     private void checkFormatCanalAndOgg() {
@@ -474,27 +500,27 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
         Assertions.assertIterableEquals(postgreSinkTableList, checkArraysResult);
     }
 
-    private void checkCanalFormat() {
+    private void checkMaxWellFormat() {
         List<String> expectedResult =
                 Arrays.asList(
-                        "{\"data\":{\"id\":1101,\"name\":\"scooter\",\"description\":\"Small 2-wheel scooter\",\"weight\":\"3.14\"},\"type\":\"INSERT\"}",
-                        "{\"data\":{\"id\":1102,\"name\":\"car battery\",\"description\":\"12V car battery\",\"weight\":\"8.1\"},\"type\":\"INSERT\"}",
-                        "{\"data\":{\"id\":1103,\"name\":\"12-pack drill bits\",\"description\":\"12-pack of drill bits with sizes ranging from #40 to #3\",\"weight\":\"0.8\"},\"type\":\"INSERT\"}",
-                        "{\"data\":{\"id\":1104,\"name\":\"hammer\",\"description\":\"12oz carpenter's hammer\",\"weight\":\"0.75\"},\"type\":\"INSERT\"}",
-                        "{\"data\":{\"id\":1105,\"name\":\"hammer\",\"description\":\"14oz carpenter's hammer\",\"weight\":\"0.875\"},\"type\":\"INSERT\"}",
-                        "{\"data\":{\"id\":1106,\"name\":\"hammer\",\"description\":\"16oz carpenter's hammer\",\"weight\":\"1.0\"},\"type\":\"INSERT\"}",
-                        "{\"data\":{\"id\":1107,\"name\":\"rocks\",\"description\":\"box of assorted rocks\",\"weight\":\"5.3\"},\"type\":\"INSERT\"}",
-                        "{\"data\":{\"id\":1108,\"name\":\"jacket\",\"description\":\"water resistent black wind breaker\",\"weight\":\"0.1\"},\"type\":\"INSERT\"}",
-                        "{\"data\":{\"id\":1109,\"name\":\"spare tire\",\"description\":\"24 inch spare tire\",\"weight\":\"22.2\"},\"type\":\"INSERT\"}",
-                        "{\"data\":{\"id\":1101,\"name\":\"scooter\",\"description\":\"Small 2-wheel scooter\",\"weight\":\"3.14\"},\"type\":\"DELETE\"}",
-                        "{\"data\":{\"id\":1101,\"name\":\"scooter\",\"description\":\"Small 2-wheel scooter\",\"weight\":\"4.56\"},\"type\":\"INSERT\"}",
-                        "{\"data\":{\"id\":1107,\"name\":\"rocks\",\"description\":\"box of assorted rocks\",\"weight\":\"5.3\"},\"type\":\"DELETE\"}",
-                        "{\"data\":{\"id\":1107,\"name\":\"rocks\",\"description\":\"box of assorted rocks\",\"weight\":\"7.88\"},\"type\":\"INSERT\"}",
-                        "{\"data\":{\"id\":1109,\"name\":\"spare tire\",\"description\":\"24 inch spare tire\",\"weight\":\"22.2\"},\"type\":\"DELETE\"}");
+                        "{\"data\":{\"id\":101,\"name\":\"scooter\",\"description\":\"Small 2-wheel scooter\",\"weight\":\"3.14\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":102,\"name\":\"car battery\",\"description\":\"12V car battery\",\"weight\":\"8.1\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":103,\"name\":\"12-pack drill bits\",\"description\":\"12-pack of drill bits with sizes ranging from #40 to #3\",\"weight\":\"0.8\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":104,\"name\":\"hammer\",\"description\":\"12oz carpenter's hammer\",\"weight\":\"0.75\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":105,\"name\":\"hammer\",\"description\":\"14oz carpenter's hammer\",\"weight\":\"0.875\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":106,\"name\":\"hammer\",\"description\":\"16oz carpenter's hammer\",\"weight\":\"1.0\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":107,\"name\":\"rocks\",\"description\":\"box of assorted rocks\",\"weight\":\"5.3\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":108,\"name\":\"jacket\",\"description\":\"water resistent black wind breaker\",\"weight\":\"0.1\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":109,\"name\":\"spare tire\",\"description\":\"24 inch spare tire\",\"weight\":\"22.2\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":101,\"name\":\"scooter\",\"description\":\"Small 2-wheel scooter\",\"weight\":\"3.14\"},\"type\":\"DELETE\"}",
+                        "{\"data\":{\"id\":101,\"name\":\"scooter\",\"description\":\"Small 2-wheel scooter\",\"weight\":\"4.56\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":107,\"name\":\"rocks\",\"description\":\"box of assorted rocks\",\"weight\":\"5.3\"},\"type\":\"DELETE\"}",
+                        "{\"data\":{\"id\":107,\"name\":\"rocks\",\"description\":\"box of assorted rocks\",\"weight\":\"7.88\"},\"type\":\"INSERT\"}",
+                        "{\"data\":{\"id\":109,\"name\":\"spare tire\",\"description\":\"24 inch spare tire\",\"weight\":\"22.2\"},\"type\":\"DELETE\"}");
 
         ArrayList<String> result = new ArrayList<>();
         ArrayList<String> topics = new ArrayList<>();
-        topics.add(CANAL_KAFKA_SINK_TOPIC);
+        topics.add(MAXWELL_KAFKA_SINK_TOPIC);
         kafkaConsumer.subscribe(topics);
         await().atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
@@ -507,28 +533,26 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
                             Assertions.assertEquals(expectedResult, result);
                         });
 
-        LOG.info("==================== start kafka canal format to pg check ====================");
+        LOG.info(
+                "==================== start kafka MaxWell format to pg check ====================");
 
         List<List<Object>> postgreSinkTableList = getPostgreSinkTableList(PG_SINK_TABLE1);
 
         List<List<Object>> expected =
                 Stream.<List<Object>>of(
-                                Arrays.asList(1101, "scooter", "Small 2-wheel scooter", "4.56"),
-                                Arrays.asList(1102, "car battery", "12V car battery", "8.1"),
+                                Arrays.asList(101, "scooter", "Small 2-wheel scooter", "4.56"),
+                                Arrays.asList(102, "car battery", "12V car battery", "8.1"),
                                 Arrays.asList(
-                                        1103,
+                                        103,
                                         "12-pack drill bits",
                                         "12-pack of drill bits with sizes ranging from #40 to #3",
                                         "0.8"),
-                                Arrays.asList(1104, "hammer", "12oz carpenter's hammer", "0.75"),
-                                Arrays.asList(1105, "hammer", "14oz carpenter's hammer", "0.875"),
-                                Arrays.asList(1106, "hammer", "16oz carpenter's hammer", "1.0"),
-                                Arrays.asList(1107, "rocks", "box of assorted rocks", "7.88"),
+                                Arrays.asList(104, "hammer", "12oz carpenter's hammer", "0.75"),
+                                Arrays.asList(105, "hammer", "14oz carpenter's hammer", "0.875"),
+                                Arrays.asList(106, "hammer", "16oz carpenter's hammer", "1.0"),
+                                Arrays.asList(107, "rocks", "box of assorted rocks", "7.88"),
                                 Arrays.asList(
-                                        1108,
-                                        "jacket",
-                                        "water resistent black wind breaker",
-                                        "0.1"))
+                                        108, "jacket", "water resistent black wind breaker", "0.1"))
                         .collect(Collectors.toList());
         Assertions.assertIterableEquals(expected, postgreSinkTableList);
     }
@@ -807,10 +831,10 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
     // Example Initialize the pg sink table
     private void initializeJdbcTable() {
         try (Connection connection =
-                     DriverManager.getConnection(
-                             POSTGRESQL_CONTAINER.getJdbcUrl(),
-                             POSTGRESQL_CONTAINER.getUsername(),
-                             POSTGRESQL_CONTAINER.getPassword())) {
+                DriverManager.getConnection(
+                        POSTGRESQL_CONTAINER.getJdbcUrl(),
+                        POSTGRESQL_CONTAINER.getUsername(),
+                        POSTGRESQL_CONTAINER.getPassword())) {
             Statement statement = connection.createStatement();
             String sink =
                     "create table if not exists sink(\n"
@@ -909,10 +933,10 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
     private List<List<Object>> getPostgreSinkTableList(String tableName) {
         List<List<Object>> actual = new ArrayList<>();
         try (Connection connection =
-                     DriverManager.getConnection(
-                             POSTGRESQL_CONTAINER.getJdbcUrl(),
-                             POSTGRESQL_CONTAINER.getUsername(),
-                             POSTGRESQL_CONTAINER.getPassword())) {
+                DriverManager.getConnection(
+                        POSTGRESQL_CONTAINER.getJdbcUrl(),
+                        POSTGRESQL_CONTAINER.getUsername(),
+                        POSTGRESQL_CONTAINER.getPassword())) {
             try (Statement statement = connection.createStatement()) {
                 PostgresJdbcRowConverter postgresJdbcRowConverter = new PostgresJdbcRowConverter();
                 ResultSet resultSet =

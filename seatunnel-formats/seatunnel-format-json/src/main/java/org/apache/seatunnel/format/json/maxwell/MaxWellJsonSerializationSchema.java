@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
@@ -35,6 +36,8 @@ public class MaxWellJsonSerializationSchema implements SerializationSchema {
 
     private static final String OP_INSERT = "INSERT";
     private static final String OP_DELETE = "DELETE";
+
+    public static final String FORMAT = "MAXWELL";
 
     private transient SeaTunnelRow reuse;
 
@@ -53,10 +56,7 @@ public class MaxWellJsonSerializationSchema implements SerializationSchema {
             reuse.setField(1, opType);
             return jsonSerializer.serialize(reuse);
         } catch (Throwable t) {
-            throw new SeaTunnelJsonFormatException(
-                    CommonErrorCodeDeprecated.JSON_OPERATION_FAILED,
-                    String.format("Could not serialize row %s.", row),
-                    t);
+            throw CommonError.jsonOperationError(FORMAT, row.toString(), t);
         }
     }
 

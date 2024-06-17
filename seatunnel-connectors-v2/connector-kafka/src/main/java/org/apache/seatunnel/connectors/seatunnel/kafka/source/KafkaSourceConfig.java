@@ -252,7 +252,7 @@ public class KafkaSourceConfig implements Serializable {
                         .setIgnoreParseErrors(true)
                         .build();
             case MAXWELL_JSON:
-                return MaxWellJsonDeserializationSchema.builder(seaTunnelRowType)
+                return MaxWellJsonDeserializationSchema.builder(catalogTable)
                         .setIgnoreParseErrors(true)
                         .build();
 
