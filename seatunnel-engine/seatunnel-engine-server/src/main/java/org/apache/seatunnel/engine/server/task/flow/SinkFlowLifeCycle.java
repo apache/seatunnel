@@ -183,7 +183,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                 long startTime = System.currentTimeMillis();
 
                 Barrier barrier = (Barrier) record.getData();
-                if (barrier.prepareClose()) {
+                if (barrier.prepareClose(this.taskLocation)) {
                     prepareClose = true;
                 }
                 if (barrier.snapshot()) {

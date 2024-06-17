@@ -57,7 +57,7 @@ public class SourceNoMoreElementOperation extends Operation implements Identifie
                     Thread.currentThread().setContextClassLoader(classLoader);
                     SourceSplitEnumeratorTask<?> task =
                             server.getTaskExecutionService().getTask(enumeratorTaskID);
-                    task.readerFinished(currentTaskID.getTaskID());
+                    task.readerFinished(currentTaskID);
                     Thread.currentThread().setContextClassLoader(oldClassLoader);
                     return null;
                 },

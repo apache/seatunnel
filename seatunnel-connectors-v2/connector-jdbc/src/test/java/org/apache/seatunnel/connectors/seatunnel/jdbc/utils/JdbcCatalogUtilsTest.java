@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.utils;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
@@ -30,6 +31,8 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 public class JdbcCatalogUtilsTest {
@@ -103,20 +106,6 @@ public class JdbcCatalogUtilsTest {
                         TableSchema.builder()
                                 .column(
                                         PhysicalColumn.of(
-                                                "f1",
-                                                BasicType.LONG_TYPE,
-                                                null,
-                                                true,
-                                                null,
-                                                null,
-                                                null,
-                                                false,
-                                                false,
-                                                null,
-                                                null,
-                                                null))
-                                .column(
-                                        PhysicalColumn.of(
                                                 "f2",
                                                 BasicType.STRING_TYPE,
                                                 10,
@@ -143,13 +132,46 @@ public class JdbcCatalogUtilsTest {
                                                 null,
                                                 null,
                                                 null))
+                                .column(
+                                        PhysicalColumn.of(
+                                                "f1",
+                                                BasicType.LONG_TYPE,
+                                                null,
+                                                true,
+                                                null,
+                                                null,
+                                                null,
+                                                false,
+                                                false,
+                                                null,
+                                                null,
+                                                null))
                                 .build(),
                         Collections.emptyMap(),
                         Collections.emptyList(),
                         null);
 
         CatalogTable mergeTable = JdbcCatalogUtils.mergeCatalogTable(DEFAULT_TABLE, tableOfQuery);
-        Assertions.assertEquals(DEFAULT_TABLE, mergeTable);
+        Assertions.assertEquals(DEFAULT_TABLE.getTableId(), mergeTable.getTableId());
+        Assertions.assertEquals(DEFAULT_TABLE.getOptions(), mergeTable.getOptions());
+        Assertions.assertEquals(DEFAULT_TABLE.getComment(), mergeTable.getComment());
+        Assertions.assertEquals(DEFAULT_TABLE.getCatalogName(), mergeTable.getCatalogName());
+        Assertions.assertNotEquals(DEFAULT_TABLE.getTableSchema(), mergeTable.getTableSchema());
+        Assertions.assertEquals(
+                DEFAULT_TABLE.getTableSchema().getPrimaryKey(),
+                mergeTable.getTableSchema().getPrimaryKey());
+        Assertions.assertEquals(
+                DEFAULT_TABLE.getTableSchema().getConstraintKeys(),
+                mergeTable.getTableSchema().getConstraintKeys());
+
+        Map<String, Column> columnMap =
+                DEFAULT_TABLE.getTableSchema().getColumns().stream()
+                        .collect(Collectors.toMap(e -> e.getName(), e -> e));
+        List<Column> sortByQueryColumns =
+                tableOfQuery.getTableSchema().getColumns().stream()
+                        .map(e -> columnMap.get(e.getName()))
+                        .collect(Collectors.toList());
+        Assertions.assertEquals(sortByQueryColumns, mergeTable.getTableSchema().getColumns());
     }
 
     @Test

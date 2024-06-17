@@ -118,7 +118,7 @@ public class CatalogUtils {
         while (rs.next()) {
             String columnName = rs.getString("COLUMN_NAME");
             // all the PK_NAME should be the same
-            pkName = rs.getString("PK_NAME");
+            pkName = cleanKeyName(rs.getString("PK_NAME"));
             int keySeq = rs.getInt("KEY_SEQ");
             // KEY_SEQ is 1-based index
             primaryKeyColumns.add(Pair.of(keySeq, columnName));
@@ -152,7 +152,7 @@ public class CatalogUtils {
             if (columnName == null) {
                 continue;
             }
-            String indexName = resultSet.getString("INDEX_NAME");
+            String indexName = cleanKeyName(resultSet.getString("INDEX_NAME"));
             boolean noUnique = resultSet.getBoolean("NON_UNIQUE");
 
             ConstraintKey constraintKey =
@@ -177,6 +177,15 @@ public class CatalogUtils {
             constraintKey.getColumnNames().add(constraintKeyColumn);
         }
         return new ArrayList<>(constraintKeyMap.values());
+    }
+
+    private static String cleanKeyName(String keyName) {
+        if (keyName != null) {
+            // only keep the characters that are valid in an index name
+            keyName = keyName.replaceAll("[^a-zA-Z0-9_]", "");
+            keyName = keyName.replaceAll("^_+", "");
+        }
+        return keyName;
     }
 
     public static TableSchema getTableSchema(

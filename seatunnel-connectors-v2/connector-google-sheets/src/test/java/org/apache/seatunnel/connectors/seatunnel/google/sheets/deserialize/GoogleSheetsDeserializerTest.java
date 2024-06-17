@@ -18,6 +18,8 @@
 package org.apache.seatunnel.connectors.seatunnel.google.sheets.deserialize;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -39,8 +41,11 @@ public class GoogleSheetsDeserializerTest {
     public void testJsonParseError() {
         SeaTunnelRowType schema =
                 new SeaTunnelRowType(new String[] {"name"}, new SeaTunnelDataType[] {STRING_TYPE});
+
+        CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "", schema);
+
         final DeserializationSchema<SeaTunnelRow> deser =
-                new JsonDeserializationSchema(false, false, schema);
+                new JsonDeserializationSchema(catalogTables, false, false);
         final GoogleSheetsDeserializer googleSheetsDeser =
                 new GoogleSheetsDeserializer(schema.getFieldNames(), deser);
         List<Object> row = new ArrayList<>();

@@ -20,16 +20,18 @@ package org.apache.seatunnel.connectors.seatunnel.kafka.source;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.catalog.schema.ReadonlyConfigParser;
 import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.connectors.seatunnel.kafka.config.Config;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormat;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormatErrorHandleWay;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.StartMode;
@@ -52,13 +54,14 @@ import lombok.Getter;
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.BOOTSTRAP_SERVERS;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.COMMIT_ON_CHECKPOINT;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.CONNECTOR_IDENTITY;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.CONSUMER_GROUP;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.DEBEZIUM_RECORD_INCLUDE_SCHEMA;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.FIELD_DELIMITER;
@@ -76,33 +79,62 @@ public class KafkaSourceConfig implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    @Getter private final ConsumerMetadata metadata;
-
-    @Getter private final DeserializationSchema<SeaTunnelRow> deserializationSchema;
-
-    @Getter private final CatalogTable catalogTable;
-
+    @Getter private final String bootstrap;
+    @Getter private final Map<TablePath, ConsumerMetadata> mapMetadata;
+    @Getter private final boolean commitOnCheckpoint;
+    @Getter private final Properties properties;
+    @Getter private final long discoveryIntervalMillis;
     @Getter private final MessageFormatErrorHandleWay messageFormatErrorHandleWay;
 
-    @Getter private final long discoveryIntervalMillis;
-
     public KafkaSourceConfig(ReadonlyConfig readonlyConfig) {
-        this.metadata = createConsumerMetadata(readonlyConfig);
+        this.bootstrap = readonlyConfig.get(BOOTSTRAP_SERVERS);
+        this.mapMetadata = createMapConsumerMetadata(readonlyConfig);
+        this.commitOnCheckpoint = readonlyConfig.get(COMMIT_ON_CHECKPOINT);
+        this.properties = createKafkaProperties(readonlyConfig);
         this.discoveryIntervalMillis = readonlyConfig.get(KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS);
         this.messageFormatErrorHandleWay =
                 readonlyConfig.get(MESSAGE_FORMAT_ERROR_HANDLE_WAY_OPTION);
-        this.catalogTable = createCatalogTable(readonlyConfig);
-        this.deserializationSchema = createDeserializationSchema(catalogTable, readonlyConfig);
+    }
+
+    private Properties createKafkaProperties(ReadonlyConfig readonlyConfig) {
+        Properties resultProperties = new Properties();
+        readonlyConfig.getOptional(KAFKA_CONFIG).ifPresent(resultProperties::putAll);
+        return resultProperties;
+    }
+
+    private Map<TablePath, ConsumerMetadata> createMapConsumerMetadata(
+            ReadonlyConfig readonlyConfig) {
+        List<ConsumerMetadata> consumerMetadataList;
+        if (readonlyConfig.getOptional(Config.TABLE_LIST).isPresent()) {
+            consumerMetadataList =
+                    readonlyConfig.get(Config.TABLE_LIST).stream()
+                            .map(ReadonlyConfig::fromMap)
+                            .map(config -> createConsumerMetadata(config))
+                            .collect(Collectors.toList());
+        } else {
+            consumerMetadataList =
+                    Collections.singletonList(createConsumerMetadata(readonlyConfig));
+        }
+
+        return consumerMetadataList.stream()
+                .collect(
+                        Collectors.toMap(
+                                consumerMetadata -> TablePath.of(consumerMetadata.getTopic()),
+                                consumerMetadata -> consumerMetadata));
     }
 
     private ConsumerMetadata createConsumerMetadata(ReadonlyConfig readonlyConfig) {
         ConsumerMetadata consumerMetadata = new ConsumerMetadata();
         consumerMetadata.setTopic(readonlyConfig.get(TOPIC));
-        consumerMetadata.setBootstrapServers(readonlyConfig.get(BOOTSTRAP_SERVERS));
         consumerMetadata.setPattern(readonlyConfig.get(PATTERN));
-        consumerMetadata.setProperties(new Properties());
         consumerMetadata.setConsumerGroup(readonlyConfig.get(CONSUMER_GROUP));
-        consumerMetadata.setCommitOnCheckpoint(readonlyConfig.get(COMMIT_ON_CHECKPOINT));
+        consumerMetadata.setProperties(new Properties());
+        // Create a catalog
+        CatalogTable catalogTable = createCatalogTable(readonlyConfig);
+        consumerMetadata.setCatalogTable(catalogTable);
+        consumerMetadata.setDeserializationSchema(
+                createDeserializationSchema(catalogTable, readonlyConfig));
+
         // parse start mode
         readonlyConfig
                 .getOptional(START_MODE)
@@ -153,25 +185,18 @@ public class KafkaSourceConfig implements Serializable {
                             }
                         });
 
-        readonlyConfig
-                .getOptional(KAFKA_CONFIG)
-                .ifPresent(
-                        kafkaConfig ->
-                                kafkaConfig.forEach(
-                                        (key, value) ->
-                                                consumerMetadata.getProperties().put(key, value)));
-
         return consumerMetadata;
     }
 
     private CatalogTable createCatalogTable(ReadonlyConfig readonlyConfig) {
         Optional<Map<String, Object>> schemaOptions =
                 readonlyConfig.getOptional(TableSchemaOptions.SCHEMA);
+        TablePath tablePath = TablePath.of(readonlyConfig.get(TOPIC));
+        TableSchema tableSchema;
         if (schemaOptions.isPresent()) {
-            return CatalogTableUtil.buildWithConfig(readonlyConfig);
+            tableSchema = new ReadonlyConfigParser().parse(readonlyConfig);
         } else {
-            TableIdentifier tableIdentifier = TableIdentifier.of(CONNECTOR_IDENTITY, null, null);
-            TableSchema tableSchema =
+            tableSchema =
                     TableSchema.builder()
                             .column(
                                     PhysicalColumn.of(
@@ -186,13 +211,13 @@ public class KafkaSourceConfig implements Serializable {
                                             null,
                                             null))
                             .build();
-            return CatalogTable.of(
-                    tableIdentifier,
-                    tableSchema,
-                    Collections.emptyMap(),
-                    Collections.emptyList(),
-                    null);
         }
+        return CatalogTable.of(
+                TableIdentifier.of("", tablePath),
+                tableSchema,
+                Collections.emptyMap(),
+                Collections.emptyList(),
+                null);
     }
 
     private DeserializationSchema<SeaTunnelRow> createDeserializationSchema(
@@ -203,13 +228,14 @@ public class KafkaSourceConfig implements Serializable {
             return TextDeserializationSchema.builder()
                     .seaTunnelRowType(seaTunnelRowType)
                     .delimiter(TextFormatConstant.PLACEHOLDER)
+                    .setCatalogTable(catalogTable)
                     .build();
         }
 
         MessageFormat format = readonlyConfig.get(FORMAT);
         switch (format) {
             case JSON:
-                return new JsonDeserializationSchema(false, false, seaTunnelRowType);
+                return new JsonDeserializationSchema(catalogTable, false, false);
             case TEXT:
                 String delimiter = readonlyConfig.get(FIELD_DELIMITER);
                 return TextDeserializationSchema.builder()
@@ -217,11 +243,11 @@ public class KafkaSourceConfig implements Serializable {
                         .delimiter(delimiter)
                         .build();
             case CANAL_JSON:
-                return CanalJsonDeserializationSchema.builder(seaTunnelRowType)
+                return CanalJsonDeserializationSchema.builder(catalogTable)
                         .setIgnoreParseErrors(true)
                         .build();
             case OGG_JSON:
-                return OggJsonDeserializationSchema.builder(seaTunnelRowType)
+                return OggJsonDeserializationSchema.builder(catalogTable)
                         .setIgnoreParseErrors(true)
                         .build();
             case COMPATIBLE_KAFKA_CONNECT_JSON:
@@ -232,12 +258,12 @@ public class KafkaSourceConfig implements Serializable {
                         readonlyConfig.get(
                                 KafkaConnectJsonFormatOptions.VALUE_CONVERTER_SCHEMA_ENABLED);
                 return new CompatibleKafkaConnectDeserializationSchema(
-                        seaTunnelRowType, keySchemaEnable, valueSchemaEnable, false, false);
+                        catalogTable, keySchemaEnable, valueSchemaEnable, false, false);
             case DEBEZIUM_JSON:
                 boolean includeSchema = readonlyConfig.get(DEBEZIUM_RECORD_INCLUDE_SCHEMA);
-                return new DebeziumJsonDeserializationSchema(seaTunnelRowType, true, includeSchema);
+                return new DebeziumJsonDeserializationSchema(catalogTable, true, includeSchema);
             case AVRO:
-                return new AvroDeserializationSchema(seaTunnelRowType);
+                return new AvroDeserializationSchema(catalogTable);
             default:
                 throw new SeaTunnelJsonFormatException(
                         CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,

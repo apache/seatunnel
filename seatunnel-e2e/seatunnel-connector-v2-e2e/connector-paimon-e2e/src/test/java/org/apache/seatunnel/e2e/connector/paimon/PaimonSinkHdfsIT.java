@@ -24,9 +24,11 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.paimon.catalog.PaimonCatalogLoader;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSinkConfig;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
+import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
 import org.apache.paimon.catalog.Catalog;
 import org.apache.paimon.catalog.Identifier;
@@ -57,6 +59,29 @@ import static org.awaitility.Awaitility.given;
 @Disabled(
         "HDFS is not available in CI, if you want to run this test, please set up your own HDFS environment in the test case file and the below setup")
 public class PaimonSinkHdfsIT extends TestSuiteBase {
+
+    private String hiveExecUrl() {
+        return "https://repo1.maven.org/maven2/org/apache/hive/hive-exec/3.1.3/hive-exec-3.1.3.jar";
+    }
+
+    private String libfb303Url() {
+        return "https://repo1.maven.org/maven2/org/apache/thrift/libfb303/0.9.0/libfb303-0.9.0.jar";
+    }
+
+    @TestContainerExtension
+    protected final ContainerExtendedFactory extendedFactory =
+            container -> {
+                Container.ExecResult extraCommands =
+                        container.execInContainer(
+                                "bash",
+                                "-c",
+                                "mkdir -p /tmp/seatunnel/plugins/Paimon/lib && cd /tmp/seatunnel/plugins/Paimon/lib && wget "
+                                        + hiveExecUrl()
+                                        + " && wget "
+                                        + libfb303Url());
+                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
+            };
+
     private Map<String, Object> PAIMON_SINK_PROPERTIES;
 
     @BeforeAll
@@ -123,5 +148,60 @@ public class PaimonSinkHdfsIT extends TestSuiteBase {
                                         }
                                     });
                         });
+
+        Container.ExecResult readResult =
+                container.executeJob("/read_from_paimon_with_hdfs_ha_to_assert.conf");
+        Assertions.assertEquals(0, readResult.getExitCode());
+    }
+
+    @TestTemplate
+    public void testFakeCDCSinkPaimonWithHiveCatalogAndRead(TestContainer container)
+            throws Exception {
+        Container.ExecResult execResult =
+                container.executeJob("/fake_cdc_sink_paimon_with_hdfs_with_hive_catalog.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+
+        given().ignoreExceptions()
+                .await()
+                .atLeast(200L, TimeUnit.MILLISECONDS)
+                .atMost(40L, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            PaimonSinkConfig paimonSinkConfig =
+                                    new PaimonSinkConfig(
+                                            ReadonlyConfig.fromMap(PAIMON_SINK_PROPERTIES));
+                            PaimonCatalogLoader paimonCatalogLoader =
+                                    new PaimonCatalogLoader(paimonSinkConfig);
+                            Catalog catalog = paimonCatalogLoader.loadCatalog();
+                            Table table =
+                                    catalog.getTable(
+                                            Identifier.create("seatunnel_namespace1", "st_test"));
+                            ReadBuilder readBuilder = table.newReadBuilder();
+                            TableScan.Plan plan = readBuilder.newScan().plan();
+                            TableRead tableRead = readBuilder.newRead();
+                            List<PaimonRecord> paimonRecords = new ArrayList<>();
+                            try (RecordReader<InternalRow> reader = tableRead.createReader(plan)) {
+                                reader.forEachRemaining(
+                                        row ->
+                                                paimonRecords.add(
+                                                        new PaimonRecord(
+                                                                row.getLong(0),
+                                                                row.getString(1).toString())));
+                            }
+                            Assertions.assertEquals(2, paimonRecords.size());
+                            paimonRecords.forEach(
+                                    paimonRecord -> {
+                                        if (paimonRecord.getPkId() == 1) {
+                                            Assertions.assertEquals("A_1", paimonRecord.getName());
+                                        }
+                                        if (paimonRecord.getPkId() == 3) {
+                                            Assertions.assertEquals("C", paimonRecord.getName());
+                                        }
+                                    });
+                        });
+
+        Container.ExecResult readResult =
+                container.executeJob("/paimon_to_assert_with_hivecatalog.conf");
+        Assertions.assertEquals(0, readResult.getExitCode());
     }
 }

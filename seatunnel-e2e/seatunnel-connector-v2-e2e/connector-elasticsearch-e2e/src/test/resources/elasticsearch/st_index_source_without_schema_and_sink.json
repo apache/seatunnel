@@ -1,0 +1,64 @@
+{
+        "mappings": {
+            "properties": {
+                "c_array": {
+                    "type": "long"
+                },
+                "c_bigint": {
+                    "type": "long"
+                },
+                "c_boolean": {
+                    "type": "boolean"
+                },
+                "c_bytes": {
+                    "type": "text",
+                    "fields": {
+                        "keyword": {
+                            "type": "keyword",
+                            "ignore_above": 256
+                        }
+                    }
+                },
+                "c_date": {
+                    "type": "date"
+                },
+                "c_decimal": {
+                    "type": "float"
+                },
+                "c_double": {
+                    "type": "float"
+                },
+                "c_float": {
+                    "type": "float"
+                },
+                "c_int": {
+                    "type": "long"
+                },
+                "c_map": {
+                    "properties": {
+                        "key": {
+                            "type": "long"
+                        }
+                    }
+                },
+                "c_smallint": {
+                    "type": "long"
+                },
+                "c_string": {
+                    "type": "text",
+                    "fields": {
+                        "keyword": {
+                            "type": "keyword",
+                            "ignore_above": 256
+                        }
+                    }
+                },
+                "c_timestamp": {
+                    "type": "long"
+                },
+                "c_tinyint": {
+                    "type": "long"
+                }
+            }
+        }
+    }

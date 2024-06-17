@@ -75,6 +75,10 @@ public interface JdbcDialect extends Serializable {
      */
     JdbcDialectTypeMapper getJdbcDialectTypeMapper();
 
+    default String hashModForField(String nativeType, String fieldName, int mod) {
+        return hashModForField(fieldName, mod);
+    }
+
     default String hashModForField(String fieldName, int mod) {
         return "ABS(MD5(" + quoteIdentifier(fieldName) + ") % " + mod + ")";
     }
@@ -308,7 +312,7 @@ public interface JdbcDialect extends Serializable {
             String columnName,
             int samplingRate,
             int fetchSize)
-            throws SQLException {
+            throws Exception {
         String sampleQuery;
         if (StringUtils.isNotBlank(table.getQuery())) {
             sampleQuery =
@@ -332,6 +336,9 @@ public interface JdbcDialect extends Serializable {
                     count++;
                     if (count % samplingRate == 0) {
                         results.add(rs.getObject(1));
+                    }
+                    if (Thread.currentThread().isInterrupted()) {
+                        throw new InterruptedException("Thread interrupted");
                     }
                 }
                 Object[] resultsArray = results.toArray();
@@ -404,5 +411,16 @@ public interface JdbcDialect extends Serializable {
     default JdbcConnectionProvider getJdbcConnectionProvider(
             JdbcConnectionConfig jdbcConnectionConfig) {
         return new SimpleJdbcConnectionProvider(jdbcConnectionConfig);
+    }
+
+    /**
+     * Cast column type e.g. CAST(column AS type)
+     *
+     * @param columnName
+     * @param columnType
+     * @return the text of converted column type.
+     */
+    default String convertType(String columnName, String columnType) {
+        return columnName;
     }
 }

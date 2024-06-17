@@ -237,7 +237,8 @@ public class RestService implements Serializable {
     }
 
     @VisibleForTesting
-    static String randomEndpoint(String feNodes, Logger logger) throws DorisConnectorException {
+    public static String randomEndpoint(String feNodes, Logger logger)
+            throws DorisConnectorException {
         logger.trace("Parse fenodes '{}'.", feNodes);
         if (StringUtils.isEmpty(feNodes)) {
             String errMsg =

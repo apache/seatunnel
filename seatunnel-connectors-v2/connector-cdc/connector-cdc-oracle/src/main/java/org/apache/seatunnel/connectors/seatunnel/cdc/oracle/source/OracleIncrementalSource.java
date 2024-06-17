@@ -19,7 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -43,12 +42,11 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions
 
 import org.apache.kafka.connect.data.Struct;
 
-import com.google.auto.service.AutoService;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.TableId;
 import io.debezium.relational.history.ConnectTableChangeSerializer;
 import io.debezium.relational.history.TableChanges;
-import lombok.NoArgsConstructor;
+import io.debezium.util.SchemaNameAdjuster;
 
 import java.time.ZoneId;
 import java.util.List;
@@ -56,8 +54,6 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-@NoArgsConstructor
-@AutoService(SeaTunnelSource.class)
 public class OracleIncrementalSource<T> extends IncrementalSource<T, JdbcSourceConfig>
         implements SupportParallelism {
 
@@ -135,8 +131,9 @@ public class OracleIncrementalSource<T> extends IncrementalSource<T, JdbcSourceC
         OracleDialect dialect =
                 new OracleDialect((OracleSourceConfigFactory) configFactory, catalogTables);
         List<TableId> discoverTables = dialect.discoverDataCollections(jdbcSourceConfig);
+        SchemaNameAdjuster schemaNameAdjuster = SchemaNameAdjuster.create();
         ConnectTableChangeSerializer connectTableChangeSerializer =
-                new ConnectTableChangeSerializer();
+                new ConnectTableChangeSerializer(schemaNameAdjuster);
         try (JdbcConnection jdbcConnection = dialect.openJdbcConnection(jdbcSourceConfig)) {
             return discoverTables.stream()
                     .collect(

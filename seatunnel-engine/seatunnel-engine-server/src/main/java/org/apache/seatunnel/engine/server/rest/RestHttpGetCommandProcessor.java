@@ -25,6 +25,8 @@ import org.apache.seatunnel.api.common.metrics.JobMetrics;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.env.EnvironmentUtil;
+import org.apache.seatunnel.engine.common.env.Version;
 import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
@@ -37,6 +39,8 @@ import org.apache.seatunnel.engine.server.master.JobHistoryService.JobState;
 import org.apache.seatunnel.engine.server.operation.GetClusterHealthMetricsOperation;
 import org.apache.seatunnel.engine.server.operation.GetJobMetricsOperation;
 import org.apache.seatunnel.engine.server.operation.GetJobStatusOperation;
+import org.apache.seatunnel.engine.server.resourcemanager.opeartion.GetOverviewOperation;
+import org.apache.seatunnel.engine.server.resourcemanager.resource.OverviewInfo;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import com.hazelcast.cluster.Address;
@@ -53,6 +57,7 @@ import com.hazelcast.internal.util.StringUtil;
 import com.hazelcast.jet.impl.execution.init.CustomClassLoadedObject;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
+import com.hazelcast.spi.impl.NodeEngineImpl;
 
 import java.util.Arrays;
 import java.util.Comparator;
@@ -63,6 +68,8 @@ import java.util.concurrent.ExecutionException;
 
 import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_500;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.FINISHED_JOBS_INFO;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.JOB_INFO_URL;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.OVERVIEW;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_JOBS_URL;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_JOB_URL;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.RUNNING_THREADS;
@@ -70,12 +77,9 @@ import static org.apache.seatunnel.engine.server.rest.RestConstant.SYSTEM_MONITO
 
 public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCommand> {
 
-    private final Log4j2HttpGetCommandProcessor original;
-
     private static final String SOURCE_RECEIVED_COUNT = "SourceReceivedCount";
-
     private static final String SINK_WRITE_COUNT = "SinkWriteCount";
-
+    private final Log4j2HttpGetCommandProcessor original;
     private NodeEngine nodeEngine;
 
     public RestHttpGetCommandProcessor(TextCommandService textCommandService) {
@@ -99,12 +103,14 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                 handleRunningJobsInfo(httpGetCommand);
             } else if (uri.startsWith(FINISHED_JOBS_INFO)) {
                 handleFinishedJobsInfo(httpGetCommand, uri);
-            } else if (uri.startsWith(RUNNING_JOB_URL)) {
+            } else if (uri.startsWith(RUNNING_JOB_URL) || uri.startsWith(JOB_INFO_URL)) {
                 handleJobInfoById(httpGetCommand, uri);
             } else if (uri.startsWith(SYSTEM_MONITORING_INFORMATION)) {
                 getSystemMonitoringInformation(httpGetCommand);
             } else if (uri.startsWith(RUNNING_THREADS)) {
                 getRunningThread(httpGetCommand);
+            } else if (uri.startsWith(OVERVIEW)) {
+                overView(httpGetCommand);
             } else {
                 original.handle(httpGetCommand);
             }
@@ -121,6 +127,35 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
     @Override
     public void handleRejection(HttpGetCommand httpGetCommand) {
         handle(httpGetCommand);
+    }
+
+    public void overView(HttpGetCommand command) {
+
+        Version version = EnvironmentUtil.getVersion();
+
+        SeaTunnelServer seaTunnelServer = getSeaTunnelServer(true);
+
+        OverviewInfo overviewInfo;
+
+        if (seaTunnelServer == null) {
+            overviewInfo =
+                    (OverviewInfo)
+                            NodeEngineUtil.sendOperationToMasterNode(
+                                            getNode().nodeEngine, new GetOverviewOperation())
+                                    .join();
+            overviewInfo.setProjectVersion(version.getProjectVersion());
+            overviewInfo.setGitCommitAbbrev(version.getGitCommitAbbrev());
+        } else {
+
+            NodeEngineImpl nodeEngine = this.textCommandService.getNode().getNodeEngine();
+            overviewInfo = GetOverviewOperation.getOverviewInfo(seaTunnelServer, nodeEngine);
+            overviewInfo.setProjectVersion(version.getProjectVersion());
+            overviewInfo.setGitCommitAbbrev(version.getGitCommitAbbrev());
+        }
+
+        this.prepareResponse(
+                command,
+                JsonUtil.toJsonObject(JsonUtils.toMap(JsonUtils.toJsonString(overviewInfo))));
     }
 
     private void getSystemMonitoringInformation(HttpGetCommand command) {
@@ -252,24 +287,20 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         uri = StringUtil.stripTrailingSlash(uri);
         int indexEnd = uri.indexOf('/', URI_MAPS.length());
         String jobId = uri.substring(indexEnd + 1);
-
-        JobInfo jobInfo =
-                (JobInfo)
-                        this.textCommandService
-                                .getNode()
-                                .getNodeEngine()
-                                .getHazelcastInstance()
-                                .getMap(Constant.IMAP_RUNNING_JOB_INFO)
-                                .get(Long.valueOf(jobId));
-
-        JobState finishedJobState =
-                (JobState)
-                        this.textCommandService
-                                .getNode()
-                                .getNodeEngine()
-                                .getHazelcastInstance()
-                                .getMap(Constant.IMAP_FINISHED_JOB_STATE)
-                                .get(Long.valueOf(jobId));
+        IMap<Object, Object> jobInfoMap =
+                this.textCommandService
+                        .getNode()
+                        .getNodeEngine()
+                        .getHazelcastInstance()
+                        .getMap(Constant.IMAP_RUNNING_JOB_INFO);
+        JobInfo jobInfo = (JobInfo) jobInfoMap.get(Long.valueOf(jobId));
+        IMap<Object, Object> finishedJobStateMap =
+                this.textCommandService
+                        .getNode()
+                        .getNodeEngine()
+                        .getHazelcastInstance()
+                        .getMap(Constant.IMAP_FINISHED_JOB_STATE);
+        JobState finishedJobState = (JobState) finishedJobStateMap.get(Long.valueOf(jobId));
         if (!jobId.isEmpty() && jobInfo != null) {
             this.prepareResponse(command, convertToJson(jobInfo, Long.parseLong(jobId)));
         } else if (!jobId.isEmpty() && finishedJobState != null) {

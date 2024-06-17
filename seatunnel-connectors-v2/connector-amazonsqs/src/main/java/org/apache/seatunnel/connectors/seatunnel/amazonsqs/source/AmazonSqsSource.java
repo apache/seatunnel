@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SupportColumnProjection;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -66,6 +67,7 @@ public class AmazonSqsSource extends AbstractSingleSplitSource<SeaTunnelRow>
     private AmazonSqsSourceOptions amazonSqsSourceOptions;
     private DeserializationSchema<SeaTunnelRow> deserializationSchema;
     private SeaTunnelRowType typeInfo;
+    private CatalogTable catalogTable;
 
     @Override
     public String getPluginName() {
@@ -84,9 +86,9 @@ public class AmazonSqsSource extends AbstractSingleSplitSource<SeaTunnelRow>
                             "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
-        amazonSqsSourceOptions = new AmazonSqsSourceOptions(pluginConfig);
-        typeInfo = CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
-
+        this.amazonSqsSourceOptions = new AmazonSqsSourceOptions(pluginConfig);
+        this.catalogTable = CatalogTableUtil.buildWithConfig(pluginConfig);
+        this.typeInfo = catalogTable.getSeaTunnelRowType();
         setDeserialization(pluginConfig);
     }
 
@@ -109,11 +111,11 @@ public class AmazonSqsSource extends AbstractSingleSplitSource<SeaTunnelRow>
 
     private void setDeserialization(Config config) {
         if (config.hasPath(TableSchemaOptions.SCHEMA.key())) {
-            typeInfo = CatalogTableUtil.buildWithConfig(config).getSeaTunnelRowType();
             MessageFormat format = ReadonlyConfig.fromConfig(config).get(FORMAT);
             switch (format) {
                 case JSON:
-                    deserializationSchema = new JsonDeserializationSchema(false, false, typeInfo);
+                    deserializationSchema =
+                            new JsonDeserializationSchema(catalogTable, false, false);
                     break;
                 case TEXT:
                     String delimiter = DEFAULT_FIELD_DELIMITER;
@@ -128,7 +130,7 @@ public class AmazonSqsSource extends AbstractSingleSplitSource<SeaTunnelRow>
                     break;
                 case CANAL_JSON:
                     deserializationSchema =
-                            CanalJsonDeserializationSchema.builder(typeInfo)
+                            CanalJsonDeserializationSchema.builder(catalogTable)
                                     .setIgnoreParseErrors(true)
                                     .build();
                     break;
@@ -138,7 +140,8 @@ public class AmazonSqsSource extends AbstractSingleSplitSource<SeaTunnelRow>
                         includeSchema = config.getBoolean(DEBEZIUM_RECORD_INCLUDE_SCHEMA.key());
                     }
                     deserializationSchema =
-                            new DebeziumJsonDeserializationSchema(typeInfo, true, includeSchema);
+                            new DebeziumJsonDeserializationSchema(
+                                    catalogTable, true, includeSchema);
                     break;
                 default:
                     throw new SeaTunnelJsonFormatException(

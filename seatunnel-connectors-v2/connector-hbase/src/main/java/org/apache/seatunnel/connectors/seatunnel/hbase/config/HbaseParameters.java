@@ -32,6 +32,7 @@ import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.FAMILY_NAME;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.HBASE_EXTRA_CONFIG;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.NULL_MODE;
+import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.QUERY_COLUMNS;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.ROWKEY_COLUMNS;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.ROWKEY_DELIMITER;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.TABLE;
@@ -49,6 +50,8 @@ public class HbaseParameters implements Serializable {
     private String table;
 
     private List<String> rowkeyColumns;
+
+    private List<String> columns;
 
     private Map<String, String> familyNames;
 
@@ -97,6 +100,21 @@ public class HbaseParameters implements Serializable {
             String encoding = pluginConfig.getString(ENCODING.key());
             builder.enCoding(HbaseConfig.EnCoding.valueOf(encoding.toUpperCase()));
         }
+        if (pluginConfig.hasPath(HBASE_EXTRA_CONFIG.key())) {
+            Config extraConfig = pluginConfig.getConfig(HBASE_EXTRA_CONFIG.key());
+            builder.hbaseExtraConfig(TypesafeConfigUtils.configToMap(extraConfig));
+        }
+        return builder.build();
+    }
+
+    public static HbaseParameters buildWithSinkConfig(Config pluginConfig) {
+        HbaseParametersBuilder builder = HbaseParameters.builder();
+
+        // required parameters
+        builder.zookeeperQuorum(pluginConfig.getString(ZOOKEEPER_QUORUM.key()));
+        builder.table(pluginConfig.getString(TABLE.key()));
+        builder.columns(pluginConfig.getStringList(QUERY_COLUMNS.key()));
+
         if (pluginConfig.hasPath(HBASE_EXTRA_CONFIG.key())) {
             Config extraConfig = pluginConfig.getConfig(HBASE_EXTRA_CONFIG.key());
             builder.hbaseExtraConfig(TypesafeConfigUtils.configToMap(extraConfig));
