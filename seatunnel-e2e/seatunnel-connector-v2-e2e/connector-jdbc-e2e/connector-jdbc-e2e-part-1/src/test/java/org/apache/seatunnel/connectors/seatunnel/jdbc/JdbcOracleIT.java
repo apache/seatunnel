@@ -18,12 +18,17 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleURLParser;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
 
 import org.apache.commons.lang3.tuple.Pair;
 
+import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.OracleContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -67,6 +72,7 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                     + "    CHAR_10_COL                   char(10),\n"
                     + "    CLOB_COL                      clob,\n"
                     + "    NUMBER_3_SF_2_DP              number(3, 2),\n"
+                    + "    NUMBER_7_SF_N2_DP             number(7, -2),\n"
                     + "    INTEGER_COL                   integer,\n"
                     + "    FLOAT_COL                     float(10),\n"
                     + "    REAL_COL                      real,\n"
@@ -84,6 +90,7 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                 "CHAR_10_COL",
                 "CLOB_COL",
                 "NUMBER_3_SF_2_DP",
+                "NUMBER_7_SF_N2_DP",
                 "INTEGER_COL",
                 "FLOAT_COL",
                 "REAL_COL",
@@ -94,6 +101,16 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                 "TIMESTAMP_WITH_LOCAL_TZ",
                 "XML_TYPE_COL"
             };
+
+    @Test
+    public void testSampleDataFromColumnSuccess() throws Exception {
+        JdbcDialect dialect = new OracleDialect();
+        JdbcSourceTable table =
+                JdbcSourceTable.builder()
+                        .tablePath(TablePath.of(null, SCHEMA, SOURCE_TABLE))
+                        .build();
+        dialect.sampleDataFromColumn(connection, table, "INTEGER_COL", 1, 1024);
+    }
 
     @Override
     JdbcCase getJdbcCase() {
@@ -154,6 +171,7 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                                 String.format("f%s", i),
                                 String.format("f%s", i),
                                 BigDecimal.valueOf(1.1),
+                                BigDecimal.valueOf(2400),
                                 i,
                                 Float.parseFloat("2.2"),
                                 Float.parseFloat("2.2"),

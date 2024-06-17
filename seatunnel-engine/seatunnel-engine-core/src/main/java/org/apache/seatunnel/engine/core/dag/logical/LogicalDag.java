@@ -61,6 +61,7 @@ public class LogicalDag implements IdentifiedDataSerializable {
     private final Set<LogicalEdge> edges = new LinkedHashSet<>();
     private final Map<Long, LogicalVertex> logicalVertexMap = new LinkedHashMap<>();
     private IdGenerator idGenerator;
+    private boolean isStartWithSavePoint = false;
 
     public LogicalDag() {}
 
@@ -83,6 +84,14 @@ public class LogicalDag implements IdentifiedDataSerializable {
 
     public Map<Long, LogicalVertex> getLogicalVertexMap() {
         return logicalVertexMap;
+    }
+
+    public boolean isStartWithSavePoint() {
+        return isStartWithSavePoint;
+    }
+
+    public void setStartWithSavePoint(boolean startWithSavePoint) {
+        isStartWithSavePoint = startWithSavePoint;
     }
 
     @NonNull public JsonObject getLogicalDagAsJson() {
@@ -143,6 +152,8 @@ public class LogicalDag implements IdentifiedDataSerializable {
 
         out.writeObject(jobConfig);
         out.writeObject(idGenerator);
+
+        out.writeBoolean(isStartWithSavePoint);
     }
 
     @Override
@@ -165,6 +176,8 @@ public class LogicalDag implements IdentifiedDataSerializable {
 
         jobConfig = in.readObject();
         idGenerator = in.readObject();
+
+        isStartWithSavePoint = in.readBoolean();
     }
 
     @Override

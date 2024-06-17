@@ -66,7 +66,8 @@ public class SeaTunnelSourceSupport
         SeaTunnelSource<SeaTunnelRow, ?, ?> seaTunnelSource = getSeaTunnelSource(options);
         int parallelism = options.getInt(CommonOptions.PARALLELISM.key(), 1);
         Map<String, String> envOptions = options.asMap();
-        return new BatchSourceReader(seaTunnelSource, parallelism, envOptions);
+        String applicationId = SparkSession.getActiveSession().get().sparkContext().applicationId();
+        return new BatchSourceReader(seaTunnelSource, applicationId, parallelism, envOptions);
     }
 
     @Override
@@ -76,6 +77,7 @@ public class SeaTunnelSourceSupport
             DataSourceOptions options) {
         SeaTunnelSource<SeaTunnelRow, ?, ?> seaTunnelSource = getSeaTunnelSource(options);
         Integer parallelism = options.getInt(CommonOptions.PARALLELISM.key(), 1);
+        String applicationId = SparkSession.getActiveSession().get().sparkContext().applicationId();
         Integer checkpointInterval =
                 options.getInt(
                         EnvCommonOptions.CHECKPOINT_INTERVAL.key(), CHECKPOINT_INTERVAL_DEFAULT);
@@ -92,6 +94,7 @@ public class SeaTunnelSourceSupport
         return new MicroBatchSourceReader(
                 seaTunnelSource,
                 parallelism,
+                applicationId,
                 checkpointId,
                 checkpointInterval,
                 checkpointPath,

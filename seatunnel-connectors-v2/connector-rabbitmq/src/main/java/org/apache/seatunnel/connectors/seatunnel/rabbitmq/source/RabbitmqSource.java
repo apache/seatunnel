@@ -28,11 +28,11 @@ import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SupportParallelism;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.JobMode;
@@ -134,7 +134,7 @@ public class RabbitmqSource
     private void setDeserialization(Config config) {
         // TODO: format SPI
         // only support json deserializationSchema
-        SeaTunnelRowType rowType = CatalogTableUtil.buildWithConfig(config).getSeaTunnelRowType();
-        this.deserializationSchema = new JsonDeserializationSchema(false, false, rowType);
+        CatalogTable catalogTable = CatalogTableUtil.buildWithConfig(config);
+        this.deserializationSchema = new JsonDeserializationSchema(catalogTable, false, false);
     }
 }

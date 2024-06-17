@@ -76,7 +76,7 @@ public class Neo4jSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     }
 
     @Override
-    public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
+    public void internalPollNext(Collector<SeaTunnelRow> output) throws Exception {
         final Query query = new Query(neo4jSourceQueryInfo.getQuery());
         session.readTransaction(
                 tx -> {
@@ -139,7 +139,8 @@ public class Neo4jSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                 final SeaTunnelDataType<?> valueType = ((MapType<?, ?>) dataType).getValueType();
                 return value.asMap(v -> valueType.getTypeClass().cast(convertType(valueType, v)));
             case ARRAY:
-                final BasicType<?> elementType = ((ArrayType<?, ?>) dataType).getElementType();
+                final SeaTunnelDataType<?> elementType =
+                        ((ArrayType<?, ?>) dataType).getElementType();
                 final List<?> list =
                         value.asList(
                                 v -> elementType.getTypeClass().cast(convertType(elementType, v)));

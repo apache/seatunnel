@@ -35,6 +35,7 @@ import org.apache.seatunnel.engine.server.checkpoint.operation.TaskReportStatusO
 import org.apache.seatunnel.engine.server.checkpoint.operation.TriggerSchemaChangeAfterCheckpointOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TriggerSchemaChangeBeforeCheckpointOperation;
 import org.apache.seatunnel.engine.server.dag.execution.Pipeline;
+import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
 import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
@@ -44,6 +45,7 @@ import org.apache.seatunnel.engine.server.task.operation.TaskOperation;
 import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
@@ -112,20 +114,22 @@ public class CheckpointManager {
                                                     jobId, plan.getPipelineId(), nodeEngine);
                                     try {
                                         idCounter.start();
-                                        PipelineState pipelineState =
-                                                checkpointStorage
-                                                        .getLatestCheckpointByJobIdAndPipelineId(
-                                                                String.valueOf(jobId),
-                                                                String.valueOf(
-                                                                        plan.getPipelineId()));
-                                        if (pipelineState != null) {
-                                            long checkpointId = pipelineState.getCheckpointId();
-                                            idCounter.setCount(checkpointId + 1);
-
-                                            log.info(
-                                                    "pipeline({}) start with savePoint on checkPointId({})",
-                                                    plan.getPipelineId(),
-                                                    checkpointId);
+                                        PipelineState pipelineState = null;
+                                        if (isStartWithSavePoint) {
+                                            pipelineState =
+                                                    checkpointStorage
+                                                            .getLatestCheckpointByJobIdAndPipelineId(
+                                                                    String.valueOf(jobId),
+                                                                    String.valueOf(
+                                                                            plan.getPipelineId()));
+                                            if (pipelineState != null) {
+                                                long checkpointId = pipelineState.getCheckpointId();
+                                                idCounter.setCount(checkpointId + 1);
+                                                log.info(
+                                                        "pipeline({}) start with savePoint on checkPointId({})",
+                                                        plan.getPipelineId(),
+                                                        checkpointId);
+                                            }
                                         }
                                         return new CheckpointCoordinator(
                                                 this,
@@ -161,14 +165,6 @@ public class CheckpointManager {
                 .toArray(PassiveCompletableFuture[]::new);
     }
 
-    /**
-     * Called by the JobMaster, actually triggered by the user. <br>
-     * After the savepoint is triggered, it will cause the pipeline to stop automatically.
-     */
-    public PassiveCompletableFuture<CompletedCheckpoint> triggerSavepoint(int pipelineId) {
-        return getCheckpointCoordinator(pipelineId).startSavepoint();
-    }
-
     public void reportedPipelineRunning(int pipelineId, boolean alreadyStarted) {
         log.info(
                 "reported pipeline running stack: "
@@ -188,7 +184,8 @@ public class CheckpointManager {
         getCheckpointCoordinator(taskLocation).reportCheckpointErrorFromTask(errorMsg);
     }
 
-    private CheckpointCoordinator getCheckpointCoordinator(int pipelineId) {
+    @VisibleForTesting
+    public CheckpointCoordinator getCheckpointCoordinator(int pipelineId) {
         CheckpointCoordinator coordinator = coordinatorMap.get(pipelineId);
         if (coordinator == null) {
             throw new RuntimeException(
@@ -221,6 +218,15 @@ public class CheckpointManager {
     }
 
     /**
+     * Called by the {@link SourceSplitEnumeratorTask}. <br>
+     * used by SourceSplitEnumeratorTask to tell CheckpointCoordinator pipeline will trigger close
+     * barrier of idle task by SourceSplitEnumeratorTask.
+     */
+    public void readyToCloseIdleTask(TaskLocation taskLocation) {
+        getCheckpointCoordinator(taskLocation).readyToCloseIdleTask(taskLocation);
+    }
+
+    /**
      * Called by the JobMaster. <br>
      * Listen to the {@link PipelineStatus} of the {@link Pipeline}, which is used to shut down the
      * running {@link CheckpointIDCounter} at the end of the pipeline.
@@ -235,12 +241,11 @@ public class CheckpointManager {
      * Called by the JobMaster. <br>
      * Listen to the {@link JobStatus} of the {@link Job}.
      */
-    public CompletableFuture<Void> shutdown(JobStatus jobStatus) {
+    public void clearCheckpointIfNeed(JobStatus jobStatus) {
         if ((jobStatus == JobStatus.FINISHED || jobStatus == JobStatus.CANCELED)
                 && !isSavePointEnd()) {
             checkpointStorage.deleteCheckpoint(jobId + "");
         }
-        return CompletableFuture.completedFuture(null);
     }
 
     /**
@@ -249,7 +254,7 @@ public class CheckpointManager {
      * the pipeline has been completed;
      */
     public boolean isCompletedPipeline(int pipelineId) {
-        return getCheckpointCoordinator(pipelineId).isCompleted();
+        return getCheckpointCoordinator(pipelineId).isNoErrorCompleted();
     }
 
     /**
@@ -307,6 +312,10 @@ public class CheckpointManager {
                 .map(CheckpointCoordinator::isEndOfSavePoint)
                 .reduce((v1, v2) -> v1 && v2)
                 .orElse(false);
+    }
+
+    public boolean isPipelineSavePointEnd(PipelineLocation pipelineLocation) {
+        return coordinatorMap.get(pipelineLocation.getPipelineId()).isEndOfSavePoint();
     }
 
     protected InvocationFuture<?> sendOperationToMemberNode(TaskOperation operation) {

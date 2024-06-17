@@ -17,8 +17,10 @@
 
 package org.apache.seatunnel.translation.spark.sink.writer;
 
+import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
+import org.apache.seatunnel.api.sink.SupportResourceShare;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
@@ -46,22 +48,37 @@ public class SparkDataSourceWriter<StateT, CommitInfoT, AggregatedCommitInfoT>
             sinkAggregatedCommitter;
 
     protected final CatalogTable catalogTable;
+    protected final String jobId;
+
+    private MultiTableResourceManager resourceManager;
 
     public SparkDataSourceWriter(
             SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
-            CatalogTable catalogTable)
+            CatalogTable catalogTable,
+            String jobId)
             throws IOException {
         this.sink = sink;
         this.catalogTable = catalogTable;
+        this.jobId = jobId;
         this.sinkAggregatedCommitter = sink.createAggregatedCommitter().orElse(null);
         if (sinkAggregatedCommitter != null) {
+            // TODO close it
+            if (this.sinkAggregatedCommitter instanceof SupportResourceShare) {
+                resourceManager =
+                        ((SupportResourceShare) this.sinkAggregatedCommitter)
+                                .initMultiTableResourceManager(1, 1);
+            }
             sinkAggregatedCommitter.init();
+            if (resourceManager != null) {
+                ((SupportResourceShare) this.sinkAggregatedCommitter)
+                        .setMultiTableResourceManager(resourceManager, 0);
+            }
         }
     }
 
     @Override
     public DataWriterFactory<InternalRow> createWriterFactory() {
-        return new SparkDataWriterFactory<>(sink, catalogTable);
+        return new SparkDataWriterFactory<>(sink, catalogTable, jobId);
     }
 
     @Override

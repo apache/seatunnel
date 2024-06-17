@@ -22,3 +22,6 @@
 # JVM Dump
 -XX:+HeapDumpOnOutOfMemoryError
 -XX:HeapDumpPath=/tmp/seatunnel/dump/zeta-server
+
+# Only used for test!!! We should make sure soft reference be collected ASAP
+-XX:SoftRefLRUPolicyMSPerMB=1

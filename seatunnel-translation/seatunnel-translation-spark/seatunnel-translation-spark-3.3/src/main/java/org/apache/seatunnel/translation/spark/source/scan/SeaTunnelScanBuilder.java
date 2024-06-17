@@ -29,21 +29,24 @@ public class SeaTunnelScanBuilder implements ScanBuilder {
     private final SeaTunnelSource<SeaTunnelRow, ?, ?> source;
 
     private final int parallelism;
+    private final String jobId;
 
     private final CaseInsensitiveStringMap caseInsensitiveStringMap;
 
     public SeaTunnelScanBuilder(
             SeaTunnelSource<SeaTunnelRow, ?, ?> source,
             int parallelism,
+            String jobId,
             CaseInsensitiveStringMap caseInsensitiveStringMap) {
         this.source = source;
         this.parallelism = parallelism;
+        this.jobId = jobId;
         this.caseInsensitiveStringMap = caseInsensitiveStringMap;
     }
 
     /** Returns the {@link SeaTunnelScan} */
     @Override
     public Scan build() {
-        return new SeaTunnelScan(source, parallelism, caseInsensitiveStringMap);
+        return new SeaTunnelScan(source, parallelism, jobId, caseInsensitiveStringMap);
     }
 }

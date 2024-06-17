@@ -151,7 +151,7 @@ public class SqlServerUtils {
 
     public static Object[] skipReadAndSortSampleData(
             JdbcConnection jdbc, TableId tableId, String columnName, int inverseSamplingRate)
-            throws SQLException {
+            throws Exception {
         final String sampleQuery =
                 String.format("SELECT %s FROM %s", quote(columnName), quote(tableId));
 
@@ -165,7 +165,7 @@ public class SqlServerUtils {
                             .createStatement(
                                     ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
 
-            stmt.setFetchSize(Integer.MIN_VALUE);
+            stmt.setFetchSize(1024);
             rs = stmt.executeQuery(sampleQuery);
 
             int count = 0;
@@ -176,6 +176,9 @@ public class SqlServerUtils {
                 }
                 if (count % inverseSamplingRate == 0) {
                     results.add(rs.getObject(1));
+                }
+                if (Thread.currentThread().isInterrupted()) {
+                    throw new InterruptedException("Thread interrupted");
                 }
             }
         } finally {
@@ -272,7 +275,7 @@ public class SqlServerUtils {
     /** Fetch current largest log sequence number (LSN) of the database. */
     public static LsnOffset currentLsn(SqlServerConnection connection) {
         try {
-            Lsn commitLsn = connection.getMaxTransactionLsn();
+            Lsn commitLsn = connection.getMaxTransactionLsn(connection.database());
             return LsnOffset.valueOf(commitLsn.toString());
         } catch (SQLException e) {
             throw new SeaTunnelException(e.getMessage(), e);
@@ -293,13 +296,14 @@ public class SqlServerUtils {
             boolean isLastSplit,
             Object[] splitStart,
             Object[] splitEnd,
-            int primaryKeyNum,
+            SeaTunnelRowType splitKeyType,
             int fetchSize) {
         try {
             final PreparedStatement statement = initStatement(jdbc, sql, fetchSize);
             if (isFirstSplit && isLastSplit) {
                 return statement;
             }
+            int primaryKeyNum = splitKeyType.getTotalFields();
             if (isFirstSplit) {
                 for (int i = 0; i < primaryKeyNum; i++) {
                     statement.setObject(i + 1, splitEnd[i]);
@@ -323,7 +327,7 @@ public class SqlServerUtils {
     }
 
     public static SqlServerDatabaseSchema createSqlServerDatabaseSchema(
-            SqlServerConnectorConfig connectorConfig) {
+            SqlServerConnectorConfig connectorConfig, SqlServerConnection connection) {
         TopicSelector<TableId> topicSelector =
                 SqlServerTopicSelector.defaultSelector(connectorConfig);
         SchemaNameAdjuster schemaNameAdjuster = SchemaNameAdjuster.create();
@@ -334,7 +338,11 @@ public class SqlServerUtils {
                         connectorConfig.binaryHandlingMode());
 
         return new SqlServerDatabaseSchema(
-                connectorConfig, valueConverters, topicSelector, schemaNameAdjuster);
+                connectorConfig,
+                connection.getDefaultValueConverter(),
+                valueConverters,
+                topicSelector,
+                schemaNameAdjuster);
     }
 
     private static String getPrimaryKeyColumnsProjection(SeaTunnelRowType rowType) {
@@ -466,7 +474,7 @@ public class SqlServerUtils {
             SeaTunnelRowType rowType, StringBuilder sql, String predicate) {
         for (Iterator<String> fieldNamesIt = Arrays.stream(rowType.getFieldNames()).iterator();
                 fieldNamesIt.hasNext(); ) {
-            sql.append(fieldNamesIt.next()).append(predicate);
+            sql.append(quote(fieldNamesIt.next())).append(predicate);
             if (fieldNamesIt.hasNext()) {
                 sql.append(" AND ");
             }

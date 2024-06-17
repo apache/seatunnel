@@ -29,7 +29,6 @@ import static org.apache.seatunnel.format.compatible.debezium.json.CompatibleDeb
 
 @RequiredArgsConstructor
 public class CompatibleDebeziumJsonSerializationSchema implements SerializationSchema {
-    public static final String IDENTIFIER = CompatibleDebeziumJsonDeserializationSchema.IDENTIFIER;
 
     private final int index;
 

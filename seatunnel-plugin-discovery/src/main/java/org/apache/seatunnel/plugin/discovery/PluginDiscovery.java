@@ -17,8 +17,14 @@
 
 package org.apache.seatunnel.plugin.discovery;
 
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+
+import org.apache.commons.lang3.tuple.ImmutableTriple;
+
 import java.net.URL;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Optional;
 
@@ -78,4 +84,24 @@ public interface PluginDiscovery<T> {
      * @return plugin instances.
      */
     List<T> getAllPlugins(List<PluginIdentifier> pluginIdentifiers);
+
+    /**
+     * Get all plugins(connectors and transforms)
+     *
+     * @return plugins with optionRules
+     */
+    default LinkedHashMap<PluginIdentifier, OptionRule> getPlugins() {
+        throw new UnsupportedOperationException("Not implemented");
+    }
+
+    /**
+     * Get option rules of the plugin by the plugin identifier
+     *
+     * @param pluginIdentifier
+     * @return left: pluginIdentifier middle: requiredOptions right: optionalOptions
+     */
+    default ImmutableTriple<PluginIdentifier, List<Option<?>>, List<Option<?>>> getOptionRules(
+            String pluginIdentifier) {
+        throw new UnsupportedOperationException("Not implemented");
+    }
 }

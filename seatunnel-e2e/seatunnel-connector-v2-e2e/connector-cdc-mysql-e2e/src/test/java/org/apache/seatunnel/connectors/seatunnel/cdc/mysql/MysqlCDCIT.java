@@ -63,8 +63,8 @@ public class MysqlCDCIT extends TestSuiteBase implements TestResource {
 
     // mysql
     private static final String MYSQL_HOST = "mysql_cdc_e2e";
-    private static final String MYSQL_USER_NAME = "st_user";
-    private static final String MYSQL_USER_PASSWORD = "seatunnel";
+    private static final String MYSQL_USER_NAME = "mysqluser";
+    private static final String MYSQL_USER_PASSWORD = "mysqlpw";
     private static final String MYSQL_DATABASE = "mysql_cdc";
     private static final String MYSQL_DATABASE2 = "mysql_cdc2";
     private static final MySqlContainer MYSQL_CONTAINER = createMySqlContainer(MySqlVersion.V8_0);
@@ -94,6 +94,13 @@ public class MysqlCDCIT extends TestSuiteBase implements TestResource {
 
     private static final String SOURCE_TABLE_1 = "mysql_cdc_e2e_source_table";
     private static final String SOURCE_TABLE_2 = "mysql_cdc_e2e_source_table2";
+    private static final String SOURCE_TABLE_NO_PRIMARY_KEY =
+            "mysql_cdc_e2e_source_table_no_primary_key";
+
+    private static final String SOURCE_TABLE_1_CUSTOM_PRIMARY_KEY =
+            "mysql_cdc_e2e_source_table_1_custom_primary_key";
+    private static final String SOURCE_TABLE_2_CUSTOM_PRIMARY_KEY =
+            "mysql_cdc_e2e_source_table_2_custom_primary_key";
     private static final String SINK_TABLE = "mysql_cdc_e2e_sink_table";
 
     private static MySqlContainer createMySqlContainer(MySqlVersion version) {
@@ -169,6 +176,86 @@ public class MysqlCDCIT extends TestSuiteBase implements TestResource {
                         () -> {
                             Assertions.assertIterableEquals(
                                     query(getSourceQuerySQL(MYSQL_DATABASE, SOURCE_TABLE_1)),
+                                    query(getSinkQuerySQL(MYSQL_DATABASE, SINK_TABLE)));
+                        });
+    }
+
+    @TestTemplate
+    public void testMysqlCdcCheckDataWithDisableExactlyonce(TestContainer container) {
+        // Clear related content to ensure that multiple operations are not affected
+        clearTable(MYSQL_DATABASE, SINK_TABLE);
+
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.executeJob("/mysqlcdc_to_mysql_with_disable_exactly_once.conf");
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            log.info(query(getSinkQuerySQL(MYSQL_DATABASE, SINK_TABLE)).toString());
+                            Assertions.assertIterableEquals(
+                                    query(getSourceQuerySQL(MYSQL_DATABASE, SOURCE_TABLE_1)),
+                                    query(getSinkQuerySQL(MYSQL_DATABASE, SINK_TABLE)));
+                        });
+
+        // insert update delete
+        executeSql("DELETE FROM " + MYSQL_DATABASE + "." + SOURCE_TABLE_1);
+        upsertDeleteSourceTable(MYSQL_DATABASE, SOURCE_TABLE_1);
+
+        // stream stage
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertIterableEquals(
+                                    query(getSourceQuerySQL(MYSQL_DATABASE, SOURCE_TABLE_1)),
+                                    query(getSinkQuerySQL(MYSQL_DATABASE, SINK_TABLE)));
+                        });
+    }
+
+    @TestTemplate
+    public void testMysqlCdcCheckDataWithNoPrimaryKey(TestContainer container) {
+        // Clear related content to ensure that multiple operations are not affected
+        clearTable(MYSQL_DATABASE, SINK_TABLE);
+
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.executeJob("/mysqlcdc_to_mysql_with_no_primary_key.conf");
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            log.info(query(getSinkQuerySQL(MYSQL_DATABASE, SINK_TABLE)).toString());
+                            Assertions.assertIterableEquals(
+                                    query(
+                                            getSourceQuerySQL(
+                                                    MYSQL_DATABASE, SOURCE_TABLE_NO_PRIMARY_KEY)),
+                                    query(getSinkQuerySQL(MYSQL_DATABASE, SINK_TABLE)));
+                        });
+
+        // insert update delete
+        executeSql("DELETE FROM " + MYSQL_DATABASE + "." + SOURCE_TABLE_NO_PRIMARY_KEY);
+        upsertDeleteSourceTable(MYSQL_DATABASE, SOURCE_TABLE_NO_PRIMARY_KEY);
+
+        // stream stage
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertIterableEquals(
+                                    query(
+                                            getSourceQuerySQL(
+                                                    MYSQL_DATABASE, SOURCE_TABLE_NO_PRIMARY_KEY)),
                                     query(getSinkQuerySQL(MYSQL_DATABASE, SINK_TABLE)));
                         });
     }
@@ -270,10 +357,17 @@ public class MysqlCDCIT extends TestSuiteBase implements TestResource {
                                                                 getSourceQuerySQL(
                                                                         MYSQL_DATABASE2,
                                                                         SOURCE_TABLE_1)))));
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .pollInterval(1000, TimeUnit.MILLISECONDS)
+                .until(() -> getConnectionStatus("st_user_source").size() == 1);
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .pollInterval(1000, TimeUnit.MILLISECONDS)
+                .until(() -> getConnectionStatus("st_user_sink").size() == 1);
 
         Pattern jobIdPattern =
                 Pattern.compile(
-                        ".*Init JobMaster for Job SeaTunnel_Job \\(([0-9]*)\\).*", Pattern.DOTALL);
+                        ".*Init JobMaster for Job mysqlcdc_to_mysql_with_multi_table_mode_one_table.conf \\(([0-9]*)\\).*",
+                        Pattern.DOTALL);
         Matcher matcher = jobIdPattern.matcher(container.getServerLogs());
         String jobId;
         if (matcher.matches()) {
@@ -325,6 +419,13 @@ public class MysqlCDCIT extends TestSuiteBase implements TestResource {
                                                                         MYSQL_DATABASE2,
                                                                         SOURCE_TABLE_2)))));
 
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .pollInterval(1000, TimeUnit.MILLISECONDS)
+                .until(() -> getConnectionStatus("st_user_source").size() == 1);
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .pollInterval(1000, TimeUnit.MILLISECONDS)
+                .until(() -> getConnectionStatus("st_user_sink").size() == 1);
+
         log.info("****************** container logs start ******************");
         String containerLogs = container.getServerLogs();
         log.info(containerLogs);
@@ -332,11 +433,70 @@ public class MysqlCDCIT extends TestSuiteBase implements TestResource {
         log.info("****************** container logs end ******************");
     }
 
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "Currently SPARK and FLINK do not support multi table")
+    public void testMysqlCdcMultiTableWithCustomPrimaryKey(TestContainer container) {
+        // Clear related content to ensure that multiple operations are not affected
+        clearTable(MYSQL_DATABASE2, SOURCE_TABLE_1_CUSTOM_PRIMARY_KEY);
+        clearTable(MYSQL_DATABASE2, SOURCE_TABLE_2_CUSTOM_PRIMARY_KEY);
+
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.executeJob("/mysqlcdc_to_mysql_with_custom_primary_key.conf");
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
+
+        // insert update delete
+        upsertDeleteSourceTable(MYSQL_DATABASE, SOURCE_TABLE_1_CUSTOM_PRIMARY_KEY);
+        upsertDeleteSourceTable(MYSQL_DATABASE, SOURCE_TABLE_2_CUSTOM_PRIMARY_KEY);
+
+        // stream stage
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertAll(
+                                        () ->
+                                                Assertions.assertIterableEquals(
+                                                        query(
+                                                                getSourceQuerySQL(
+                                                                        MYSQL_DATABASE,
+                                                                        SOURCE_TABLE_1_CUSTOM_PRIMARY_KEY)),
+                                                        query(
+                                                                getSourceQuerySQL(
+                                                                        MYSQL_DATABASE2,
+                                                                        SOURCE_TABLE_1_CUSTOM_PRIMARY_KEY))),
+                                        () ->
+                                                Assertions.assertIterableEquals(
+                                                        query(
+                                                                getSourceQuerySQL(
+                                                                        MYSQL_DATABASE,
+                                                                        SOURCE_TABLE_2_CUSTOM_PRIMARY_KEY)),
+                                                        query(
+                                                                getSourceQuerySQL(
+                                                                        MYSQL_DATABASE2,
+                                                                        SOURCE_TABLE_2_CUSTOM_PRIMARY_KEY)))));
+    }
+
     private Connection getJdbcConnection() throws SQLException {
         return DriverManager.getConnection(
                 MYSQL_CONTAINER.getJdbcUrl(),
                 MYSQL_CONTAINER.getUsername(),
                 MYSQL_CONTAINER.getPassword());
+    }
+
+    private List<List<Object>> getConnectionStatus(String user) {
+        return query(
+                "select USER,HOST,DB,COMMAND,TIME,STATE from information_schema.processlist where USER = '"
+                        + user
+                        + "'");
     }
 
     private List<List<Object>> query(String sql) {

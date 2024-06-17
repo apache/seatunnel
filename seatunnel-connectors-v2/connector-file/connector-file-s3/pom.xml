@@ -30,7 +30,7 @@
     <name>SeaTunnel : Connectors V2 : File : S3</name>
 
     <properties>
-        <hadoop-aws.version>2.6.5</hadoop-aws.version>
+        <hadoop-aws.version>3.1.4</hadoop-aws.version>
         <guava.version>27.0-jre</guava.version>
     </properties>
 

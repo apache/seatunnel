@@ -19,13 +19,13 @@ package org.apache.seatunnel.connectors.seatunnel.fake.source;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.ArrayType;
-import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.fake.config.FakeConfig;
 import org.apache.seatunnel.connectors.seatunnel.fake.exception.FakeConnectorException;
@@ -52,8 +52,7 @@ public class FakeDataGenerator {
         this.jsonDeserializationSchema =
                 fakeConfig.getFakeRows() == null
                         ? null
-                        : new JsonDeserializationSchema(
-                                false, false, catalogTable.getSeaTunnelRowType());
+                        : new JsonDeserializationSchema(catalogTable, false, false);
         this.fakeDataRandomUtils = new FakeDataRandomUtils(fakeConfig);
     }
 
@@ -67,7 +66,7 @@ public class FakeDataGenerator {
             seaTunnelRow.setTableId(tableId);
             return seaTunnelRow;
         } catch (IOException e) {
-            throw new FakeConnectorException(CommonErrorCodeDeprecated.JSON_OPERATION_FAILED, e);
+            throw CommonError.jsonOperationError("Fake", rowData.getFieldsJson(), e);
         }
     }
 
@@ -108,7 +107,7 @@ public class FakeDataGenerator {
         switch (fieldType.getSqlType()) {
             case ARRAY:
                 ArrayType<?, ?> arrayType = (ArrayType<?, ?>) fieldType;
-                BasicType<?> elementType = arrayType.getElementType();
+                SeaTunnelDataType<?> elementType = arrayType.getElementType();
                 int length = fakeConfig.getArraySize();
                 Object array = Array.newInstance(elementType.getTypeClass(), length);
                 for (int i = 0; i < length; i++) {

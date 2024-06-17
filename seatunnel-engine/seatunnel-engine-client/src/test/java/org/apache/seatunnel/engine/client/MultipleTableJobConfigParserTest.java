@@ -51,10 +51,10 @@ public class MultipleTableJobConfigParserTest {
         jobConfig.setJobContext(new JobContext());
         MultipleTableJobConfigParser jobConfigParser =
                 new MultipleTableJobConfigParser(filePath, new IdGenerator(), jobConfig);
-        ImmutablePair<List<Action>, Set<URL>> parse = jobConfigParser.parse();
+        ImmutablePair<List<Action>, Set<URL>> parse = jobConfigParser.parse(null);
         List<Action> actions = parse.getLeft();
         Assertions.assertEquals(1, actions.size());
-        Assertions.assertEquals("Sink[0]-LocalFile", actions.get(0).getName());
+        Assertions.assertEquals("Sink[0]-LocalFile-MultiTableSink", actions.get(0).getName());
         Assertions.assertEquals(1, actions.get(0).getUpstream().size());
         Assertions.assertEquals(
                 "Source[0]-FakeSource", actions.get(0).getUpstream().get(0).getName());
@@ -71,11 +71,11 @@ public class MultipleTableJobConfigParserTest {
         jobConfig.setJobContext(new JobContext());
         MultipleTableJobConfigParser jobConfigParser =
                 new MultipleTableJobConfigParser(filePath, new IdGenerator(), jobConfig);
-        ImmutablePair<List<Action>, Set<URL>> parse = jobConfigParser.parse();
+        ImmutablePair<List<Action>, Set<URL>> parse = jobConfigParser.parse(null);
         List<Action> actions = parse.getLeft();
         Assertions.assertEquals(1, actions.size());
 
-        Assertions.assertEquals("Sink[0]-LocalFile", actions.get(0).getName());
+        Assertions.assertEquals("Sink[0]-LocalFile-fake", actions.get(0).getName());
         Assertions.assertEquals(2, actions.get(0).getUpstream().size());
 
         String[] expected = {"Source[0]-FakeSource", "Source[1]-FakeSource"};
@@ -102,12 +102,15 @@ public class MultipleTableJobConfigParserTest {
         jobConfig.setJobContext(new JobContext());
         MultipleTableJobConfigParser jobConfigParser =
                 new MultipleTableJobConfigParser(filePath, new IdGenerator(), jobConfig);
-        ImmutablePair<List<Action>, Set<URL>> parse = jobConfigParser.parse();
+        ImmutablePair<List<Action>, Set<URL>> parse = jobConfigParser.parse(null);
         List<Action> actions = parse.getLeft();
         Assertions.assertEquals(2, actions.size());
 
-        Assertions.assertEquals("Sink[0]-LocalFile", actions.get(0).getName());
-        Assertions.assertEquals("Sink[1]-LocalFile", actions.get(1).getName());
+        // This is union sink
+        Assertions.assertEquals("Sink[0]-LocalFile-fake", actions.get(0).getName());
+
+        // This is multiple table sink
+        Assertions.assertEquals("Sink[1]-LocalFile-MultiTableSink", actions.get(1).getName());
     }
 
     @Test
@@ -119,7 +122,7 @@ public class MultipleTableJobConfigParserTest {
         Config config = ConfigBuilder.of(Paths.get(filePath));
         MultipleTableJobConfigParser jobConfigParser =
                 new MultipleTableJobConfigParser(config, new IdGenerator(), jobConfig);
-        ImmutablePair<List<Action>, Set<URL>> parse = jobConfigParser.parse();
+        ImmutablePair<List<Action>, Set<URL>> parse = jobConfigParser.parse(null);
         List<Action> actions = parse.getLeft();
         Assertions.assertEquals(1, actions.size());
         Assertions.assertEquals("Sink[0]-console-MultiTableSink", actions.get(0).getName());
@@ -127,5 +130,21 @@ public class MultipleTableJobConfigParserTest {
                 ((SinkAction) actions.get(0)).getSink().createCommitter().isPresent());
         Assertions.assertFalse(
                 ((SinkAction) actions.get(0)).getSink().createAggregatedCommitter().isPresent());
+    }
+
+    @Test
+    public void testDuplicatedTransformInOnePipeline() {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath =
+                TestUtils.getResource("/batch_fake_to_console_with_duplicated_transform.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setJobContext(new JobContext());
+        Config config = ConfigBuilder.of(Paths.get(filePath));
+        MultipleTableJobConfigParser jobConfigParser =
+                new MultipleTableJobConfigParser(config, new IdGenerator(), jobConfig);
+        ImmutablePair<List<Action>, Set<URL>> parse = jobConfigParser.parse(null);
+        List<Action> actions = parse.getLeft();
+        Assertions.assertEquals("Transform[0]-sql", actions.get(0).getUpstream().get(0).getName());
+        Assertions.assertEquals("Transform[1]-sql", actions.get(1).getUpstream().get(0).getName());
     }
 }

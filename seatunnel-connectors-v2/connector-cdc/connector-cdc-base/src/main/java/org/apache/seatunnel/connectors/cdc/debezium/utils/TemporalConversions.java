@@ -23,8 +23,11 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
+import java.time.OffsetTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
 import java.time.temporal.ChronoField;
 import java.util.concurrent.TimeUnit;
 
@@ -41,6 +44,12 @@ public final class TemporalConversions {
     static final long SECONDS_PER_DAY = TimeUnit.DAYS.toSeconds(1);
     static final long MICROSECONDS_PER_DAY = TimeUnit.DAYS.toMicros(1);
     static final LocalDate EPOCH = LocalDate.ofEpochDay(0);
+    static final DateTimeFormatter TIME_WITH_TIMEZONE_FORMATTER =
+            new DateTimeFormatterBuilder()
+                    .appendPattern("HH:mm:ss")
+                    .appendFraction(ChronoField.MICRO_OF_SECOND, 0, 6, true)
+                    .appendPattern("[XXX][XX][X]")
+                    .toFormatter();
 
     private TemporalConversions() {}
 
@@ -130,6 +139,14 @@ public final class TemporalConversions {
                 throw new IllegalArgumentException(
                         "Time values must use number of milliseconds greater than 0 and less than 86400000000000");
             }
+        }
+        if (obj instanceof String) {
+            // The TIMETZ column is returned as a String which we initially parse here
+            // The parsed offset-time potentially has a zone-offset from the data, shift it after to
+            // GMT.
+            final OffsetTime offsetTime =
+                    OffsetTime.parse((String) obj, TIME_WITH_TIMEZONE_FORMATTER);
+            return offsetTime.toLocalTime();
         }
         throw new IllegalArgumentException(
                 "Unable to convert to LocalTime from unexpected value '"

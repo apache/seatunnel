@@ -28,6 +28,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
 
 import org.apache.commons.lang3.StringUtils;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -38,6 +40,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+@Slf4j
 public class SqlServerDialect implements JdbcDialect {
 
     public String fieldIde = FieldIdeEnum.ORIGINAL.getValue();
@@ -116,8 +119,8 @@ public class SqlServerDialect implements JdbcDialect {
                                 + " UPDATE SET %s"
                                 + " WHEN NOT MATCHED THEN"
                                 + " INSERT (%s) VALUES (%s);",
-                        database,
-                        tableName,
+                        quoteDatabaseIdentifier(database),
+                        quoteIdentifier(tableName),
                         usingClause,
                         onConditions,
                         updateSetClause,
@@ -150,6 +153,11 @@ public class SqlServerDialect implements JdbcDialect {
     }
 
     @Override
+    public String tableIdentifier(TablePath tablePath) {
+        return quoteIdentifier(tablePath.getFullName());
+    }
+
+    @Override
     public TablePath parse(String tablePath) {
         return TablePath.of(tablePath, true);
     }
@@ -157,7 +165,22 @@ public class SqlServerDialect implements JdbcDialect {
     @Override
     public Long approximateRowCntStatement(Connection connection, JdbcSourceTable table)
             throws SQLException {
-        if (StringUtils.isBlank(table.getQuery())) {
+
+        // 1. If no query is configured, use TABLE STATUS.
+        // 2. If a query is configured but does not contain a WHERE clause and tablePath is
+        // configured, use TABLE STATUS.
+        // 3. If a query is configured with a WHERE clause, or a query statement is configured but
+        // tablePath is TablePath.DEFAULT, use COUNT(*).
+
+        boolean useTableStats =
+                StringUtils.isBlank(table.getQuery())
+                        || (!table.getQuery().toLowerCase().contains("where")
+                                && table.getTablePath() != null
+                                && !TablePath.DEFAULT
+                                        .getFullName()
+                                        .equals(table.getTablePath().getFullName()));
+
+        if (useTableStats) {
             TablePath tablePath = table.getTablePath();
             try (Statement stmt = connection.createStatement()) {
                 if (StringUtils.isNotBlank(tablePath.getDatabaseName())) {
@@ -165,6 +188,7 @@ public class SqlServerDialect implements JdbcDialect {
                             String.format(
                                     "USE %s;",
                                     quoteDatabaseIdentifier(tablePath.getDatabaseName()));
+                    log.info("Split Chunk, approximateRowCntStatement: {}", useDatabaseStatement);
                     stmt.execute(useDatabaseStatement);
                 }
                 String rowCountQuery =
@@ -172,6 +196,7 @@ public class SqlServerDialect implements JdbcDialect {
                                 "SELECT Total_Rows = SUM(st.row_count) FROM sys"
                                         + ".dm_db_partition_stats st WHERE object_name(object_id) = '%s' AND index_id < 2;",
                                 tablePath.getTableName());
+                log.info("Split Chunk, approximateRowCntStatement: {}", rowCountQuery);
                 try (ResultSet rs = stmt.executeQuery(rowCountQuery)) {
                     if (!rs.next()) {
                         throw new SQLException(
@@ -217,7 +242,7 @@ public class SqlServerDialect implements JdbcDialect {
                             quotedColumn,
                             chunkSize,
                             quotedColumn,
-                            table.getTablePath().getFullName(),
+                            tableIdentifier(table.getTablePath()),
                             quotedColumn,
                             quotedColumn);
         }

@@ -27,13 +27,15 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
 
 import org.apache.commons.lang3.StringUtils;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.Serializable;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -49,6 +51,8 @@ import static java.lang.String.format;
  * and stateless.
  */
 public interface JdbcDialect extends Serializable {
+
+    Logger log = LoggerFactory.getLogger(JdbcDialect.class.getName());
 
     /**
      * Get the name of jdbc dialect.
@@ -70,6 +74,10 @@ public interface JdbcDialect extends Serializable {
      * @return a type mapper for the database
      */
     JdbcDialectTypeMapper getJdbcDialectTypeMapper();
+
+    default String hashModForField(String nativeType, String fieldName, int mod) {
+        return hashModForField(fieldName, mod);
+    }
 
     default String hashModForField(String fieldName, int mod) {
         return "ABS(MD5(" + quoteIdentifier(fieldName) + ") % " + mod + ")";
@@ -299,8 +307,12 @@ public interface JdbcDialect extends Serializable {
      * @throws SQLException If an SQL error occurs during the sampling operation.
      */
     default Object[] sampleDataFromColumn(
-            Connection connection, JdbcSourceTable table, String columnName, int samplingRate)
-            throws SQLException {
+            Connection connection,
+            JdbcSourceTable table,
+            String columnName,
+            int samplingRate,
+            int fetchSize)
+            throws Exception {
         String sampleQuery;
         if (StringUtils.isNotBlank(table.getQuery())) {
             sampleQuery =
@@ -314,11 +326,9 @@ public interface JdbcDialect extends Serializable {
                             quoteIdentifier(columnName), tableIdentifier(table.getTablePath()));
         }
 
-        try (Statement stmt =
-                connection.createStatement(
-                        ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY)) {
-            stmt.setFetchSize(Integer.MIN_VALUE);
-            try (ResultSet rs = stmt.executeQuery(sampleQuery)) {
+        try (PreparedStatement stmt = creatPreparedStatement(connection, sampleQuery, fetchSize)) {
+            log.info(String.format("Split Chunk, approximateRowCntStatement: %s", sampleQuery));
+            try (ResultSet rs = stmt.executeQuery()) {
                 int count = 0;
                 List<Object> results = new ArrayList<>();
 
@@ -326,6 +336,9 @@ public interface JdbcDialect extends Serializable {
                     count++;
                     if (count % samplingRate == 0) {
                         results.add(rs.getObject(1));
+                    }
+                    if (Thread.currentThread().isInterrupted()) {
+                        throw new InterruptedException("Thread interrupted");
                     }
                 }
                 Object[] resultsArray = results.toArray();
@@ -398,5 +411,16 @@ public interface JdbcDialect extends Serializable {
     default JdbcConnectionProvider getJdbcConnectionProvider(
             JdbcConnectionConfig jdbcConnectionConfig) {
         return new SimpleJdbcConnectionProvider(jdbcConnectionConfig);
+    }
+
+    /**
+     * Cast column type e.g. CAST(column AS type)
+     *
+     * @param columnName
+     * @param columnType
+     * @return the text of converted column type.
+     */
+    default String convertType(String columnName, String columnType) {
+        return columnName;
     }
 }

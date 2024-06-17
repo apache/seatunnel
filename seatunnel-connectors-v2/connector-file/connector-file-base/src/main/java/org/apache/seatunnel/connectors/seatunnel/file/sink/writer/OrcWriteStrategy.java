@@ -18,12 +18,12 @@
 package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
-import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
@@ -86,9 +86,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
             writer.addRowBatch(rowBatch);
             rowBatch.reset();
         } catch (IOException e) {
-            String errorMsg = String.format("Write data to orc file [%s] error", filePath);
-            throw new FileConnectorException(
-                    CommonErrorCodeDeprecated.FILE_OPERATION_FAILED, errorMsg, e);
+            throw CommonError.fileOperationFailed("OrcFile", "write", filePath, e);
         }
     }
 
@@ -123,6 +121,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
                                 .compress(compressFormat.getOrcCompression())
                                 // use orc version 0.12
                                 .version(OrcFile.Version.V_0_12)
+                                .fileSystem(hadoopFileSystemProxy.getFileSystem())
                                 .overwrite(true);
                 Writer newWriter = OrcFile.createWriter(path, options);
                 this.beingWrittenWriter.put(filePath, newWriter);
@@ -139,7 +138,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
     public static TypeDescription buildFieldWithRowType(SeaTunnelDataType<?> type) {
         switch (type.getSqlType()) {
             case ARRAY:
-                BasicType<?> elementType = ((ArrayType<?, ?>) type).getElementType();
+                SeaTunnelDataType<?> elementType = ((ArrayType<?, ?>) type).getElementType();
                 return TypeDescription.createList(buildFieldWithRowType(elementType));
             case MAP:
                 SeaTunnelDataType<?> keyType = ((MapType<?, ?>) type).getKeyType();

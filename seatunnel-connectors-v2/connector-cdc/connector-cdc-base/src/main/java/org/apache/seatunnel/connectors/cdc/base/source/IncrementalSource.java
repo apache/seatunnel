@@ -17,14 +17,12 @@
 
 package org.apache.seatunnel.connectors.cdc.base.source;
 
-import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
-import org.apache.seatunnel.api.source.SupportCoordinate;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -80,7 +78,7 @@ import java.util.stream.Stream;
 
 @NoArgsConstructor
 public abstract class IncrementalSource<T, C extends SourceConfig>
-        implements SeaTunnelSource<T, SourceSplitBase, PendingSplitsState>, SupportCoordinate {
+        implements SeaTunnelSource<T, SourceSplitBase, PendingSplitsState> {
 
     protected ReadonlyConfig readonlyConfig;
     protected SourceConfig.Factory<C> configFactory;
@@ -179,9 +177,10 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                                 sourceConfig,
                                 schemaChangeResolver);
         return new IncrementalSourceReader<>(
+                dataSourceDialect,
                 elementsQueue,
                 splitReaderSupplier,
-                createRecordEmitter(sourceConfig, readerContext.getMetricsContext()),
+                createRecordEmitter(sourceConfig, readerContext),
                 new SourceReaderOptions(readonlyConfig),
                 readerContext,
                 sourceConfig,
@@ -189,9 +188,8 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
     }
 
     protected RecordEmitter<SourceRecords, T, SourceSplitStateBase> createRecordEmitter(
-            SourceConfig sourceConfig, MetricsContext metricsContext) {
-        return new IncrementalSourceRecordEmitter<>(
-                deserializationSchema, offsetFactory, metricsContext);
+            SourceConfig sourceConfig, SourceReader.Context context) {
+        return new IncrementalSourceRecordEmitter<>(deserializationSchema, offsetFactory, context);
     }
 
     @Override
@@ -311,6 +309,24 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                     checkpointSnapshotState.getAssignedSplits().remove(splitId);
                     checkpointSnapshotState.getSplitCompletedOffsets().remove(splitId);
                 });
+
+        if ((!checkpointSnapshotState.getRemainingTables().isEmpty()
+                        || !checkpointSnapshotState.getRemainingSplits().isEmpty())
+                && checkpointSnapshotState.isAssignerCompleted()) {
+            // If there are still unprocessed tables or splits, and the assigner has completed, the
+            // assigner status needs to be reset
+            return new HybridPendingSplitsState(
+                    new SnapshotPhaseState(
+                            checkpointSnapshotState.getAlreadyProcessedTables(),
+                            checkpointSnapshotState.getRemainingSplits(),
+                            checkpointSnapshotState.getAssignedSplits(),
+                            checkpointSnapshotState.getSplitCompletedOffsets(),
+                            false,
+                            checkpointSnapshotState.getRemainingTables(),
+                            checkpointSnapshotState.isTableIdCaseSensitive(),
+                            checkpointSnapshotState.isRemainingTablesCheckpointed()),
+                    checkpointState.getIncrementalPhaseState());
+        }
         return checkpointState;
     }
 }

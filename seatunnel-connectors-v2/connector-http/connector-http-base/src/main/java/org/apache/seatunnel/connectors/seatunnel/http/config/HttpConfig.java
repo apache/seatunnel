@@ -29,6 +29,8 @@ public class HttpConfig {
     public static final int DEFAULT_RETRY_BACKOFF_MULTIPLIER_MS = 100;
     public static final int DEFAULT_RETRY_BACKOFF_MAX_MS = 10000;
     public static final boolean DEFAULT_ENABLE_MULTI_LINES = false;
+    public static final int DEFAULT_CONNECT_TIMEOUT_MS = 6000 * 2;
+    public static final int DEFAULT_SOCKET_TIMEOUT_MS = 6000 * 10;
     public static final Option<String> URL =
             Options.key("url").stringType().noDefaultValue().withDescription("Http request url");
     public static final Option<Long> TOTAL_PAGE_SIZE =
@@ -67,7 +69,7 @@ public class HttpConfig {
     public static final Option<ResponseFormat> FORMAT =
             Options.key("format")
                     .enumType(ResponseFormat.class)
-                    .defaultValue(ResponseFormat.JSON)
+                    .defaultValue(ResponseFormat.TEXT)
                     .withDescription("Http response format");
     public static final Option<Integer> POLL_INTERVAL_MILLS =
             Options.key("poll_interval_millis")
@@ -112,8 +114,21 @@ public class HttpConfig {
                     .withDescription(
                             "SeaTunnel enableMultiLines.This parameter can support http splitting response text by line.");
 
+    public static final Option<Integer> CONNECT_TIMEOUT_MS =
+            Options.key("connect_timeout_ms")
+                    .intType()
+                    .defaultValue(DEFAULT_CONNECT_TIMEOUT_MS)
+                    .withDescription("Connection timeout setting, default 12s.");
+
+    public static final Option<Integer> SOCKET_TIMEOUT_MS =
+            Options.key("socket_timeout_ms")
+                    .intType()
+                    .defaultValue(DEFAULT_SOCKET_TIMEOUT_MS)
+                    .withDescription("Socket timeout setting, default 60s.");
+
     public enum ResponseFormat {
-        JSON("json");
+        JSON("json"),
+        TEXT("text");
 
         private String format;
 

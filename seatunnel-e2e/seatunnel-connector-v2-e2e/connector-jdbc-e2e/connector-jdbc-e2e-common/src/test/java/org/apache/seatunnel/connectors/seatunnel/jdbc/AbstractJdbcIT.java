@@ -193,6 +193,9 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
                                     jdbcCase.getDatabase(),
                                     jdbcCase.getSchema(),
                                     jdbcCase.getSourceTable()));
+            if (jdbcCase.getSinkCreateSql() != null) {
+                createTemplate = jdbcCase.getSinkCreateSql();
+            }
             String createSink =
                     String.format(
                             createTemplate,
@@ -402,6 +405,10 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
             }
         } else if (data instanceof Blob) {
             try (InputStream inputStream = ((Blob) data).getBinaryStream()) {
+                return ByteStreams.toByteArray(inputStream);
+            }
+        } else if (data instanceof InputStream) {
+            try (InputStream inputStream = (InputStream) data) {
                 return ByteStreams.toByteArray(inputStream);
             }
         } else if (data instanceof Array) {

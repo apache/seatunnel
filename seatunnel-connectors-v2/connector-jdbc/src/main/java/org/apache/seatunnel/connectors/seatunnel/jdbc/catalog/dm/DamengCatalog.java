@@ -20,14 +20,14 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.dm;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
-import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dm.DmdbTypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dm.DmdbTypeMapper;
 
 import org.apache.commons.lang3.StringUtils;
@@ -35,18 +35,16 @@ import org.apache.commons.lang3.StringUtils;
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 @Slf4j
 public class DamengCatalog extends AbstractJdbcCatalog {
-    private static final DamengDataTypeConvertor DATA_TYPE_CONVERTOR =
-            new DamengDataTypeConvertor();
     private static final List<String> EXCLUDED_SCHEMAS =
             Collections.unmodifiableList(
                     Arrays.asList("SYS", "SYSDBA", "SYSSSO", "SYSAUDITOR", "CTISYS"));
@@ -59,8 +57,8 @@ public class DamengCatalog extends AbstractJdbcCatalog {
                     + "ON COLUMNS.OWNER = COMMENTS.SCHEMA_NAME "
                     + "AND COLUMNS.TABLE_NAME = COMMENTS.TABLE_NAME "
                     + "AND COLUMNS.COLUMN_NAME = COMMENTS.COLUMN_NAME "
-                    + "WHERE COLUMNS.OWNER = ? "
-                    + "AND COLUMNS.TABLE_NAME = ? "
+                    + "WHERE COLUMNS.OWNER = '%s' "
+                    + "AND COLUMNS.TABLE_NAME = '%s' "
                     + "ORDER BY COLUMNS.COLUMN_ID ASC";
 
     public DamengCatalog(
@@ -117,35 +115,24 @@ public class DamengCatalog extends AbstractJdbcCatalog {
         String typeName = resultSet.getString("DATA_TYPE");
         long columnLength = resultSet.getLong("DATA_LENGTH");
         long columnPrecision = resultSet.getLong("DATA_PRECISION");
-        long columnScale = resultSet.getLong("DATA_SCALE");
+        int columnScale = resultSet.getInt("DATA_SCALE");
         String columnComment = resultSet.getString("COMMENTS");
         Object defaultValue = resultSet.getObject("DATA_DEFAULT");
         boolean isNullable = resultSet.getString("NULLABLE").equals("Y");
 
-        SeaTunnelDataType<?> type =
-                fromJdbcType(columnName, typeName, columnPrecision, columnScale);
-
-        return PhysicalColumn.of(
-                columnName,
-                type,
-                0,
-                isNullable,
-                defaultValue,
-                columnComment,
-                typeName,
-                false,
-                false,
-                0L,
-                null,
-                columnLength);
-    }
-
-    private SeaTunnelDataType<?> fromJdbcType(
-            String columnName, String typeName, long precision, long scale) {
-        Map<String, Object> dataTypeProperties = new HashMap<>();
-        dataTypeProperties.put(DamengDataTypeConvertor.PRECISION, precision);
-        dataTypeProperties.put(DamengDataTypeConvertor.SCALE, scale);
-        return DATA_TYPE_CONVERTOR.toSeaTunnelType(columnName, typeName, dataTypeProperties);
+        BasicTypeDefine typeDefine =
+                BasicTypeDefine.builder()
+                        .name(columnName)
+                        .columnType(typeName)
+                        .dataType(typeName)
+                        .length(columnLength)
+                        .precision(columnPrecision)
+                        .scale(columnScale)
+                        .nullable(isNullable)
+                        .defaultValue(defaultValue)
+                        .comment(columnComment)
+                        .build();
+        return DmdbTypeConverter.INSTANCE.convert(typeDefine);
     }
 
     @Override
@@ -175,6 +162,33 @@ public class DamengCatalog extends AbstractJdbcCatalog {
     private List<String> listTables() {
         List<String> databases = listDatabases();
         return listTables(databases.get(0));
+    }
+
+    @Override
+    public List<String> listTables(String databaseName)
+            throws CatalogException, DatabaseNotExistException {
+        if (!databaseExists(databaseName)) {
+            throw new DatabaseNotExistException(this.catalogName, databaseName);
+        }
+
+        try (PreparedStatement ps =
+                        getConnection(defaultUrl)
+                                .prepareStatement("SELECT OWNER, TABLE_NAME FROM ALL_TABLES");
+                ResultSet rs = ps.executeQuery()) {
+
+            List<String> tables = new ArrayList<>();
+            while (rs.next()) {
+                if (EXCLUDED_SCHEMAS.contains(rs.getString(1))) {
+                    continue;
+                }
+                tables.add(rs.getString(1) + "." + rs.getString(2));
+            }
+
+            return tables;
+        } catch (Exception e) {
+            throw new CatalogException(
+                    String.format("Failed listing table in catalog %s", catalogName), e);
+        }
     }
 
     @Override

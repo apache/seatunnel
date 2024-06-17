@@ -36,10 +36,11 @@ import lombok.NonNull;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public class SeaTunnelClient implements SeaTunnelClientInstance {
+public class SeaTunnelClient implements SeaTunnelClientInstance, AutoCloseable {
     private final SeaTunnelHazelcastClient hazelcastClient;
     @Getter private final JobClient jobClient;
 
@@ -53,8 +54,28 @@ public class SeaTunnelClient implements SeaTunnelClientInstance {
             @NonNull String filePath,
             @NonNull JobConfig jobConfig,
             @NonNull SeaTunnelConfig seaTunnelConfig) {
+        return createExecutionContext(filePath, null, jobConfig, seaTunnelConfig);
+    }
+
+    @Override
+    public ClientJobExecutionEnvironment createExecutionContext(
+            @NonNull String filePath,
+            List<String> variables,
+            @NonNull JobConfig jobConfig,
+            @NonNull SeaTunnelConfig seaTunnelConfig) {
         return new ClientJobExecutionEnvironment(
-                jobConfig, filePath, hazelcastClient, seaTunnelConfig);
+                jobConfig, filePath, variables, hazelcastClient, seaTunnelConfig, null);
+    }
+
+    @Override
+    public ClientJobExecutionEnvironment createExecutionContext(
+            @NonNull String filePath,
+            List<String> variables,
+            @NonNull JobConfig jobConfig,
+            @NonNull SeaTunnelConfig seaTunnelConfig,
+            Long jobId) {
+        return new ClientJobExecutionEnvironment(
+                jobConfig, filePath, variables, hazelcastClient, seaTunnelConfig, jobId);
     }
 
     @Override
@@ -63,8 +84,18 @@ public class SeaTunnelClient implements SeaTunnelClientInstance {
             @NonNull JobConfig jobConfig,
             @NonNull SeaTunnelConfig seaTunnelConfig,
             @NonNull Long jobId) {
+        return restoreExecutionContext(filePath, null, jobConfig, seaTunnelConfig, jobId);
+    }
+
+    @Override
+    public ClientJobExecutionEnvironment restoreExecutionContext(
+            @NonNull String filePath,
+            List<String> variables,
+            @NonNull JobConfig jobConfig,
+            @NonNull SeaTunnelConfig seaTunnelConfig,
+            @NonNull Long jobId) {
         return new ClientJobExecutionEnvironment(
-                jobConfig, filePath, hazelcastClient, seaTunnelConfig, true, jobId);
+                jobConfig, filePath, variables, hazelcastClient, seaTunnelConfig, true, jobId);
     }
 
     @Override
@@ -85,10 +116,6 @@ public class SeaTunnelClient implements SeaTunnelClientInstance {
         return hazelcastClient.requestOnMasterAndDecodeResponse(
                 SeaTunnelPrintMessageCodec.encodeRequest(msg),
                 SeaTunnelPrintMessageCodec::decodeResponse);
-    }
-
-    public void shutdown() {
-        hazelcastClient.shutdown();
     }
 
     /**

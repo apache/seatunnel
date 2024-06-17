@@ -33,8 +33,10 @@ import org.apache.seatunnel.api.sink.SupportSaveMode;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.iris.IrisCatalog;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.iris.savemode.IrisSaveModeHandler;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
@@ -60,7 +62,7 @@ public class JdbcSink
                 SupportSaveMode,
                 SupportMultiTableSink {
 
-    private final SeaTunnelRowType seaTunnelRowType;
+    private final TableSchema tableSchema;
 
     private JobContext jobContext;
 
@@ -89,7 +91,7 @@ public class JdbcSink
         this.schemaSaveMode = schemaSaveMode;
         this.dataSaveMode = dataSaveMode;
         this.catalogTable = catalogTable;
-        this.seaTunnelRowType = catalogTable.getTableSchema().toPhysicalRowDataType();
+        this.tableSchema = catalogTable.getTableSchema();
     }
 
     @Override
@@ -108,20 +110,17 @@ public class JdbcSink
                             jobContext,
                             dialect,
                             jdbcSinkConfig,
-                            seaTunnelRowType,
+                            tableSchema,
                             new ArrayList<>());
         } else {
             if (catalogTable != null && catalogTable.getTableSchema().getPrimaryKey() != null) {
-                String keyName =
-                        catalogTable.getTableSchema().getPrimaryKey().getColumnNames().get(0);
-                int index = seaTunnelRowType.indexOf(keyName);
+                String keyName = tableSchema.getPrimaryKey().getColumnNames().get(0);
+                int index = tableSchema.toPhysicalRowDataType().indexOf(keyName);
                 if (index > -1) {
-                    return new JdbcSinkWriter(
-                            context, dialect, jdbcSinkConfig, seaTunnelRowType, index);
+                    return new JdbcSinkWriter(dialect, jdbcSinkConfig, tableSchema, index);
                 }
             }
-            sinkWriter =
-                    new JdbcSinkWriter(context, dialect, jdbcSinkConfig, seaTunnelRowType, null);
+            sinkWriter = new JdbcSinkWriter(dialect, jdbcSinkConfig, tableSchema, null);
         }
         return sinkWriter;
     }
@@ -131,7 +130,7 @@ public class JdbcSink
             SinkWriter.Context context, List<JdbcSinkState> states) throws IOException {
         if (jdbcSinkConfig.isExactlyOnce()) {
             return new JdbcExactlyOnceSinkWriter(
-                    context, jobContext, dialect, jdbcSinkConfig, seaTunnelRowType, states);
+                    context, jobContext, dialect, jdbcSinkConfig, tableSchema, states);
         }
         return SeaTunnelSink.super.restoreWriter(context, states);
     }
@@ -168,11 +167,20 @@ public class JdbcSink
 
     @Override
     public Optional<SaveModeHandler> getSaveModeHandler() {
+        try {
+            Class.forName(jdbcSinkConfig.getJdbcConnectionConfig().getDriverName());
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
         if (catalogTable != null) {
             if (StringUtils.isBlank(jdbcSinkConfig.getDatabase())) {
                 return Optional.empty();
             }
             if (StringUtils.isBlank(jdbcSinkConfig.getTable())) {
+                return Optional.empty();
+            }
+            // use query to write data can not support savemode
+            if (StringUtils.isNotBlank(jdbcSinkConfig.getSimpleSql())) {
                 return Optional.empty();
             }
             Optional<Catalog> catalogOptional =
@@ -188,11 +196,21 @@ public class JdbcSink
                                     : fieldIdeEnumEnum.getValue();
                     TablePath tablePath =
                             TablePath.of(
-                                    jdbcSinkConfig.getDatabase()
-                                            + "."
-                                            + CatalogUtils.quoteTableIdentifier(
-                                                    jdbcSinkConfig.getTable(), fieldIde));
+                                    catalogTable.getTableId().getDatabaseName(),
+                                    catalogTable.getTableId().getSchemaName(),
+                                    CatalogUtils.quoteTableIdentifier(
+                                            catalogTable.getTableId().getTableName(), fieldIde));
                     catalogTable.getOptions().put("fieldIde", fieldIde);
+                    if (catalog instanceof IrisCatalog) {
+                        return Optional.of(
+                                new IrisSaveModeHandler(
+                                        schemaSaveMode,
+                                        dataSaveMode,
+                                        catalog,
+                                        tablePath,
+                                        catalogTable,
+                                        config.get(JdbcOptions.CUSTOM_SQL)));
+                    }
                     return Optional.of(
                             new DefaultSaveModeHandler(
                                     schemaSaveMode,

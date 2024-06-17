@@ -32,6 +32,8 @@ import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
+import org.apache.seatunnel.engine.core.job.JobResult;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelNodeContext;
 
@@ -46,6 +48,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
@@ -77,6 +80,7 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         try {
             String clusterName = clientCommandArgs.getClusterName();
+            ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
             if (clientCommandArgs.getMasterType().equals(MasterType.LOCAL)) {
                 clusterName =
                         creatRandomClusterName(
@@ -84,12 +88,13 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                                         ? clusterName
                                         : Constant.DEFAULT_SEATUNNEL_CLUSTER_NAME);
                 instance = createServerInLocal(clusterName, seaTunnelConfig);
+                int port = instance.getCluster().getLocalMember().getSocketAddress().getPort();
+                clientConfig
+                        .getNetworkConfig()
+                        .setAddresses(Collections.singletonList("localhost:" + port));
             }
             if (StringUtils.isNotEmpty(clusterName)) {
                 seaTunnelConfig.getHazelcastConfig().setClusterName(clusterName);
-            }
-            ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
-            if (StringUtils.isNotEmpty(clusterName)) {
                 clientConfig.setClusterName(clusterName);
             }
             engineClient = new SeaTunnelClient(clientConfig);
@@ -129,13 +134,20 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                     jobExecutionEnv =
                             engineClient.restoreExecutionContext(
                                     configFile.toString(),
+                                    clientCommandArgs.getVariables(),
                                     jobConfig,
                                     seaTunnelConfig,
                                     Long.parseLong(clientCommandArgs.getRestoreJobId()));
                 } else {
                     jobExecutionEnv =
                             engineClient.createExecutionContext(
-                                    configFile.toString(), jobConfig, seaTunnelConfig);
+                                    configFile.toString(),
+                                    clientCommandArgs.getVariables(),
+                                    jobConfig,
+                                    seaTunnelConfig,
+                                    clientCommandArgs.getCustomJobId() != null
+                                            ? Long.parseLong(clientCommandArgs.getCustomJobId())
+                                            : null);
                 }
 
                 // get job start time
@@ -182,7 +194,12 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                         seaTunnelConfig.getEngineConfig().getPrintJobMetricsInfoInterval(),
                         TimeUnit.SECONDS);
                 // wait for job complete
-                jobStatus = clientJobProxy.waitForJobComplete();
+                JobResult jobResult = clientJobProxy.waitForJobCompleteV2();
+                jobStatus = jobResult.getStatus();
+                if (StringUtils.isNotEmpty(jobResult.getError())
+                        || jobResult.getStatus().equals(JobStatus.FAILED)) {
+                    throw new SeaTunnelEngineException(jobResult.getError());
+                }
                 // get job end time
                 endTime = LocalDateTime.now();
                 // get job statistic information when job finished

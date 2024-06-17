@@ -21,17 +21,33 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ParquetReadStrategy;
 
+import org.apache.avro.Schema;
+import org.apache.avro.generic.GenericArray;
+import org.apache.avro.generic.GenericData;
+import org.apache.avro.generic.GenericRecord;
+import org.apache.avro.util.Utf8;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.parquet.avro.AvroParquetWriter;
+import org.apache.parquet.hadoop.ParquetWriter;
+import org.apache.parquet.hadoop.metadata.CompressionCodecName;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
+import java.io.IOException;
 import java.net.URL;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
@@ -51,8 +67,7 @@ public class ParquetReadStrategyTest {
         ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
         LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
         parquetReadStrategy.init(localConf);
-        SeaTunnelRowType seaTunnelRowTypeInfo =
-                parquetReadStrategy.getSeaTunnelRowTypeInfo(localConf, path);
+        SeaTunnelRowType seaTunnelRowTypeInfo = parquetReadStrategy.getSeaTunnelRowTypeInfo(path);
         Assertions.assertNotNull(seaTunnelRowTypeInfo);
         log.info(seaTunnelRowTypeInfo.toString());
         TestCollector testCollector = new TestCollector();
@@ -67,8 +82,7 @@ public class ParquetReadStrategyTest {
         ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
         LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
         parquetReadStrategy.init(localConf);
-        SeaTunnelRowType seaTunnelRowTypeInfo =
-                parquetReadStrategy.getSeaTunnelRowTypeInfo(localConf, path);
+        SeaTunnelRowType seaTunnelRowTypeInfo = parquetReadStrategy.getSeaTunnelRowTypeInfo(path);
         Assertions.assertNotNull(seaTunnelRowTypeInfo);
         log.info(seaTunnelRowTypeInfo.toString());
         TestCollector testCollector = new TestCollector();
@@ -83,8 +97,7 @@ public class ParquetReadStrategyTest {
         ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
         LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
         parquetReadStrategy.init(localConf);
-        SeaTunnelRowType seaTunnelRowTypeInfo =
-                parquetReadStrategy.getSeaTunnelRowTypeInfo(localConf, path);
+        SeaTunnelRowType seaTunnelRowTypeInfo = parquetReadStrategy.getSeaTunnelRowTypeInfo(path);
         Assertions.assertNotNull(seaTunnelRowTypeInfo);
         log.info(seaTunnelRowTypeInfo.toString());
         int index = seaTunnelRowTypeInfo.indexOf("c_timestamp");
@@ -119,8 +132,7 @@ public class ParquetReadStrategyTest {
         LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
         parquetReadStrategy.init(localConf);
         parquetReadStrategy.setPluginConfig(pluginConfig);
-        SeaTunnelRowType seaTunnelRowTypeInfo =
-                parquetReadStrategy.getSeaTunnelRowTypeInfo(localConf, path);
+        SeaTunnelRowType seaTunnelRowTypeInfo = parquetReadStrategy.getSeaTunnelRowTypeInfo(path);
         Assertions.assertNotNull(seaTunnelRowTypeInfo);
         log.info(seaTunnelRowTypeInfo.toString());
         TestCollector testCollector = new TestCollector();
@@ -149,12 +161,54 @@ public class ParquetReadStrategyTest {
         LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
         parquetReadStrategy.init(localConf);
         parquetReadStrategy.setPluginConfig(pluginConfig);
-        SeaTunnelRowType seaTunnelRowTypeInfo =
-                parquetReadStrategy.getSeaTunnelRowTypeInfo(localConf, path);
+        SeaTunnelRowType seaTunnelRowTypeInfo = parquetReadStrategy.getSeaTunnelRowTypeInfo(path);
         Assertions.assertNotNull(seaTunnelRowTypeInfo);
         log.info(seaTunnelRowTypeInfo.toString());
         TestCollector testCollector = new TestCollector();
         parquetReadStrategy.read(path, "", testCollector);
+    }
+
+    @DisabledOnOs(OS.WINDOWS)
+    @Test
+    public void testParquetReadArray() throws Exception {
+        AutoGenerateParquetData.generateTestData();
+        ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
+        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        parquetReadStrategy.init(localConf);
+        SeaTunnelRowType seaTunnelRowTypeInfo =
+                parquetReadStrategy.getSeaTunnelRowTypeInfo(AutoGenerateParquetData.DATA_FILE_PATH);
+        Assertions.assertNotNull(seaTunnelRowTypeInfo);
+        Assertions.assertEquals(seaTunnelRowTypeInfo.getFieldType(3).getClass(), ArrayType.class);
+        TestCollector testCollector = new TestCollector();
+        parquetReadStrategy.read(AutoGenerateParquetData.DATA_FILE_PATH, "1", testCollector);
+        List<SeaTunnelRow> rows = testCollector.getRows();
+        SeaTunnelRow seaTunnelRow = rows.get(0);
+        Assertions.assertEquals(seaTunnelRow.getField(1).toString(), "Alice");
+        String[] arrayData = (String[]) seaTunnelRow.getField(3);
+        Assertions.assertEquals(arrayData.length, 2);
+        Assertions.assertEquals(arrayData[0], "Java");
+        AutoGenerateParquetData.deleteFile();
+    }
+
+    @DisabledOnOs(OS.WINDOWS)
+    @Test
+    public void testParquetReadUnsupportedType() throws Exception {
+        AutoGenerateParquetDataWithUnsupportedType.generateTestData();
+        ParquetReadStrategy parquetReadStrategy = new ParquetReadStrategy();
+        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        parquetReadStrategy.init(localConf);
+        SeaTunnelRuntimeException exception =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () ->
+                                parquetReadStrategy.getSeaTunnelRowTypeInfo(
+                                        AutoGenerateParquetDataWithUnsupportedType.DATA_FILE_PATH));
+        Assertions.assertEquals(
+                "ErrorCode:[COMMON-20], ErrorDescription:['Parquet' table 'default.default.default' unsupported get catalog table with field data types"
+                        + " '{\"id\":\"required group id (LIST) {\\n  repeated group array (LIST) {\\n    repeated binary array;\\n  }\\n}\",\"id2\":\"required group id2 (LIST) {\\n  repeated group array (LIST)"
+                        + " {\\n    repeated binary array;\\n  }\\n}\"}']",
+                exception.getMessage());
+        AutoGenerateParquetData.deleteFile();
     }
 
     public static class TestCollector implements Collector<SeaTunnelRow> {
@@ -193,6 +247,101 @@ public class ParquetReadStrategyTest {
         @Override
         public String getSchema() {
             return SCHEMA;
+        }
+    }
+
+    public static class AutoGenerateParquetData {
+
+        public static final String DATA_FILE_PATH = "/tmp/data.parquet";
+
+        public static void generateTestData() throws IOException {
+            deleteFile();
+            String schemaString =
+                    "{\"type\":\"record\",\"name\":\"User\",\"fields\":[{\"name\":\"id\",\"type\":\"int\"},{\"name\":\"name\",\"type\":\"string\"},{\"name\":\"salary\",\"type\":\"double\"},{\"name\":\"skills\",\"type\":{\"type\":\"array\",\"items\":\"string\"}}]}";
+            Schema schema = new Schema.Parser().parse(schemaString);
+
+            Configuration conf = new Configuration();
+
+            Path file = new Path(DATA_FILE_PATH);
+
+            ParquetWriter<GenericRecord> writer =
+                    AvroParquetWriter.<GenericRecord>builder(file)
+                            .withSchema(schema)
+                            .withConf(conf)
+                            .withCompressionCodec(CompressionCodecName.SNAPPY)
+                            .build();
+
+            GenericRecord record1 = new GenericData.Record(schema);
+            record1.put("id", 1);
+            record1.put("name", "Alice");
+            record1.put("salary", 50000.0);
+            GenericArray<Utf8> skills1 =
+                    new GenericData.Array<>(2, schema.getField("skills").schema());
+            skills1.add(new Utf8("Java"));
+            skills1.add(new Utf8("Python"));
+            record1.put("skills", skills1);
+            writer.write(record1);
+
+            GenericRecord record2 = new GenericData.Record(schema);
+            record2.put("id", 2);
+            record2.put("name", "Bob");
+            record2.put("salary", 60000.0);
+            GenericArray<Utf8> skills2 =
+                    new GenericData.Array<>(2, schema.getField("skills").schema());
+            skills2.add(new Utf8("C++"));
+            skills2.add(new Utf8("Go"));
+            record2.put("skills", skills2);
+            writer.write(record2);
+
+            writer.close();
+        }
+
+        public static void deleteFile() {
+            File parquetFile = new File(DATA_FILE_PATH);
+            if (parquetFile.exists()) {
+                parquetFile.delete();
+            }
+        }
+    }
+
+    public static class AutoGenerateParquetDataWithUnsupportedType {
+
+        public static final String DATA_FILE_PATH = "/tmp/data_unsupported.parquet";
+
+        public static void generateTestData() throws IOException {
+            deleteFile();
+            String schemaString =
+                    "{\"type\":\"record\",\"name\":\"User\",\"fields\":[{\"name\":\"id\",\"type\":{\"type\": \"array\", \"items\": {\"type\": \"array\", \"items\": \"bytes\"}}},{\"name\":\"id2\",\"type\":{\"type\": \"array\", \"items\": {\"type\": \"array\", \"items\": \"bytes\"}}},{\"name\":\"long\",\"type\":\"long\"}]}";
+            Schema schema = new Schema.Parser().parse(schemaString);
+
+            Configuration conf = new Configuration();
+
+            Path file = new Path(DATA_FILE_PATH);
+
+            ParquetWriter<GenericRecord> writer =
+                    AvroParquetWriter.<GenericRecord>builder(file)
+                            .withSchema(schema)
+                            .withConf(conf)
+                            .withCompressionCodec(CompressionCodecName.SNAPPY)
+                            .build();
+
+            GenericRecord record1 = new GenericData.Record(schema);
+            GenericArray<GenericData.Array<Utf8>> id =
+                    new GenericData.Array<>(2, schema.getField("id").schema());
+            id.add(new GenericData.Array<>(2, schema.getField("id").schema().getElementType()));
+            id.add(new GenericData.Array<>(2, schema.getField("id").schema().getElementType()));
+            record1.put("id", id);
+            record1.put("id2", id);
+            record1.put("long", Long.MAX_VALUE);
+            writer.write(record1);
+            writer.close();
+        }
+
+        public static void deleteFile() {
+            File parquetFile = new File(DATA_FILE_PATH);
+            if (parquetFile.exists()) {
+                parquetFile.delete();
+            }
         }
     }
 }

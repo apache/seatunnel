@@ -76,7 +76,7 @@ public class JdbcCatalogUtils {
                 log.info("Loading catalog tables for catalog : {}", jdbcCatalog.getClass());
 
                 jdbcCatalog.open();
-                Map<String, Map<String, String>> unsupportedTable = new HashMap<>();
+                Map<String, Map<String, String>> unsupportedTable = new LinkedHashMap<>();
                 for (JdbcSourceTableConfig tableConfig : tablesConfig) {
                     try {
                         CatalogTable catalogTable =
@@ -233,7 +233,17 @@ public class JdbcCatalogUtils {
         boolean schemaEquals =
                 schemaIncludeAllColumns && columnsOfMerge.size() == columnsOfPath.size();
         if (schemaEquals) {
-            return tableOfPath;
+            // Reorder the field list
+            return CatalogTable.of(
+                    tableOfPath.getTableId(),
+                    TableSchema.builder()
+                            .primaryKey(tableSchemaOfPath.getPrimaryKey())
+                            .constraintKey(tableSchemaOfPath.getConstraintKeys())
+                            .columns(columnsOfMerge)
+                            .build(),
+                    tableOfPath.getOptions(),
+                    tableOfPath.getPartitionKeys(),
+                    tableOfPath.getComment());
         }
 
         PrimaryKey primaryKeyOfPath = tableSchemaOfPath.getPrimaryKey();
@@ -314,7 +324,9 @@ public class JdbcCatalogUtils {
             TablePath tablePath = jdbcDialect.parse(tableConfig.getTablePath());
             CatalogTable tableOfPath = null;
             try {
-                tableOfPath = CatalogUtils.getCatalogTable(connection, tablePath);
+                tableOfPath =
+                        CatalogUtils.getCatalogTable(
+                                connection, tablePath, jdbcDialect.getJdbcDialectTypeMapper());
             } catch (Exception e) {
                 // ignore
                 log.debug("User-defined table path: {}", tablePath);
@@ -338,7 +350,8 @@ public class JdbcCatalogUtils {
         }
         if (StringUtils.isNotEmpty(tableConfig.getTablePath())) {
             TablePath tablePath = jdbcDialect.parse(tableConfig.getTablePath());
-            return CatalogUtils.getCatalogTable(connection, tablePath);
+            return CatalogUtils.getCatalogTable(
+                    connection, tablePath, jdbcDialect.getJdbcDialectTypeMapper());
         }
 
         return getCatalogTable(connection, tableConfig.getQuery(), jdbcDialect);

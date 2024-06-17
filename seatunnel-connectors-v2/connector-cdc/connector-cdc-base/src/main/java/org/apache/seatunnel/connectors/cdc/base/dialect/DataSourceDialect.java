@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.cdc.base.dialect;
 
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.splitter.ChunkSplitter;
+import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.external.FetchTask;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 
@@ -51,4 +52,10 @@ public interface DataSourceDialect<C extends SourceConfig> extends Serializable 
 
     /** The task context used for fetch task to fetch data from external systems. */
     FetchTask.Context createFetchTaskContext(SourceSplitBase sourceSplitBase, C sourceConfig);
+
+    /**
+     * We have an empty default implementation here because most dialects do not have to implement
+     * the method.
+     */
+    default void commitChangeLogOffset(Offset offset) throws Exception {}
 }

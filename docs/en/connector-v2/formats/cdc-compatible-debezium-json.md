@@ -1,4 +1,4 @@
-# CDC compatible debezium-json
+# CDC Compatible Debezium-json
 
 SeaTunnel supports to interpret cdc record as Debezium-JSON messages publish to mq(kafka) system.
 
@@ -6,11 +6,11 @@ This is useful in many cases to leverage this feature, such as compatible with t
 
 # How To Use
 
-## MySQL-CDC Output To Kafka
+## MySQL-CDC Sink Kafka
 
 ```bash
 env {
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "STREAMING"
   checkpoint.interval = 15000
 }

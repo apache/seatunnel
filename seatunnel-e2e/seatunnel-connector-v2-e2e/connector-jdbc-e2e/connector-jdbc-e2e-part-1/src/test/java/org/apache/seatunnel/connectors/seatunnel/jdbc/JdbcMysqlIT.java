@@ -74,7 +74,7 @@ import java.util.Properties;
 
 public class JdbcMysqlIT extends AbstractJdbcIT {
 
-    private static final String MYSQL_IMAGE = "mysql:latest";
+    private static final String MYSQL_IMAGE = "mysql:8.0";
     private static final String MYSQL_CONTAINER_HOST = "mysql-e2e";
     private static final String MYSQL_DATABASE = "seatunnel";
     private static final String MYSQL_SOURCE = "source";
@@ -95,7 +95,9 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
             Lists.newArrayList(
                     "/jdbc_mysql_source_and_sink.conf",
                     "/jdbc_mysql_source_and_sink_parallel.conf",
-                    "/jdbc_mysql_source_and_sink_parallel_upper_lower.conf");
+                    "/jdbc_mysql_source_and_sink_parallel_upper_lower.conf",
+                    "/jdbc_mysql_source_and_sink.sql",
+                    "/jdbc_mysql_source_and_sink_parallel.sql");
     private static final String CREATE_SQL =
             "CREATE TABLE IF NOT EXISTS %s\n"
                     + "(\n"

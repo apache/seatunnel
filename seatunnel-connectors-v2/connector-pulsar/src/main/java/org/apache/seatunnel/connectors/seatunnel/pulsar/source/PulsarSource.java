@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SupportParallelism;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -53,9 +54,7 @@ import org.apache.seatunnel.connectors.seatunnel.pulsar.source.format.PulsarCana
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.reader.PulsarSourceReader;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.split.PulsarPartitionSplit;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
-import org.apache.seatunnel.format.json.JsonFormatFactory;
 import org.apache.seatunnel.format.json.canal.CanalJsonDeserializationSchema;
-import org.apache.seatunnel.format.json.canal.CanalJsonFormatFactory;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
 import org.apache.pulsar.shade.org.apache.commons.lang3.StringUtils;
@@ -302,19 +301,20 @@ public class PulsarSource
 
     private void setDeserialization(Config config) {
         if (config.hasPath(SCHEMA.key())) {
-            typeInfo = CatalogTableUtil.buildWithConfig(config).getSeaTunnelRowType();
+            CatalogTable catalogTable = CatalogTableUtil.buildWithConfig(config);
+            typeInfo = catalogTable.getSeaTunnelRowType();
             String format = FORMAT.defaultValue();
             if (config.hasPath(FORMAT.key())) {
                 format = config.getString(FORMAT.key());
             }
-            switch (format) {
-                case JsonFormatFactory.IDENTIFIER:
+            switch (format.toUpperCase()) {
+                case "JSON":
                     deserializationSchema = new JsonDeserializationSchema(false, false, typeInfo);
                     break;
-                case CanalJsonFormatFactory.IDENTIFIER:
+                case "CANAL_JSON":
                     deserializationSchema =
                             new PulsarCanalDecorator(
-                                    CanalJsonDeserializationSchema.builder(typeInfo)
+                                    CanalJsonDeserializationSchema.builder(catalogTable)
                                             .setIgnoreParseErrors(true)
                                             .build());
                     break;

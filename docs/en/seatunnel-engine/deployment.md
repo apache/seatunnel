@@ -95,7 +95,7 @@ About the checkpoint storage, you can see [checkpoint storage](checkpoint-storag
 
 ### 4.4 Historical Job expiration Config
 
-The information about each completed Job, such as status, counters, and error logs, is stored in the IMap object. As the number of running jobs increases, the memory increases and eventually the memory will overflow. Therefore, you can adjust the history-job-expire-minutes parameter to solve this problem. The time unit of this parameter is minute. The default value is 1440 minutes, that is, one day.
+The information about each completed Job, such as status, counters, and error logs, is stored in the IMap object. As the number of running jobs increases, the memory increases and eventually the memory will overflow. Therefore, you can adjust the history-job-expire-minutes parameter to solve this problem. The time unit of this parameter is minute. The default value is 1440 minutes, that is one day.
 
 Example
 
@@ -103,6 +103,20 @@ Example
 seatunnel:
   engine:
     history-job-expire-minutes: 1440
+```
+
+### 4.5 ClassLoader Cache Mode
+
+This configuration mainly solves the resource leakage caused by constantly creating and trying to destroy classloaders. If you encounter exceptions related to metaspace overflow, you can try to enable this configuration.
+In order to reduce the frequency of creating classloaders, after enabling on this configuration, SeaTunnel will not try to release the corresponding classloader when the job is completed, so that it can be used by subsequent jobs,
+that is to say, it is more effective when the Source/Sink connectors used in the running job are not too many types. Default value is false.
+
+Example
+
+```
+seatunnel:
+  engine:
+    classloader-cache-mode: true
 ```
 
 ## 5. Config SeaTunnel Engine Server
@@ -183,6 +197,8 @@ map:
            clusterName: seatunnel-cluster
            storage.type: hdfs
            fs.defaultFS: hdfs://localhost:9000
+           // if you need hdfs-site config, you can config like this:
+           hdfs_site_path: /path/to/your/hdfs_site_path
 ```
 
 If there is no HDFS and your cluster only have one node, you can config to use local file like this:

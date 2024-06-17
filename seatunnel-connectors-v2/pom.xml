@@ -74,6 +74,8 @@
         <module>connector-rocketmq</module>
         <module>connector-amazonsqs</module>
         <module>connector-paimon</module>
+        <module>connector-easysearch</module>
+        <module>connector-web3j</module>
     </modules>
 
     <dependencyManagement>

@@ -31,7 +31,7 @@
 
     <properties>
         <kafka.client.version>3.2.0</kafka.client.version>
-        <debezium.version>1.6.4.Final</debezium.version>
+        <debezium.version>1.9.8.Final</debezium.version>
     </properties>
 
     <dependencies>
@@ -72,7 +72,11 @@
             <artifactId>connect-json</artifactId>
             <version>${kafka.client.version}</version>
         </dependency>
-
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-format-avro</artifactId>
+            <version>${project.version}</version>
+        </dependency>
     </dependencies>
 
 </project>

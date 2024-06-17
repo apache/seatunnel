@@ -85,7 +85,7 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
         }
     }
 
-    public Collection<JdbcSourceSplit> generateSplits(JdbcSourceTable table) throws SQLException {
+    public Collection<JdbcSourceSplit> generateSplits(JdbcSourceTable table) throws Exception {
         log.info("Start splitting table {} into chunks...", table.getTablePath());
         long start = System.currentTimeMillis();
 
@@ -111,17 +111,18 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
     }
 
     protected abstract Collection<JdbcSourceSplit> createSplits(
-            JdbcSourceTable table, SeaTunnelRowType splitKeyType) throws SQLException;
+            JdbcSourceTable table, SeaTunnelRowType splitKeyType) throws SQLException, Exception;
 
-    public PreparedStatement generateSplitStatement(JdbcSourceSplit split) throws SQLException {
+    public PreparedStatement generateSplitStatement(JdbcSourceSplit split, TableSchema schema)
+            throws SQLException {
         if (split.getSplitKeyName() == null) {
             return createSingleSplitStatement(split);
         }
-        return createSplitStatement(split);
+        return createSplitStatement(split, schema);
     }
 
-    protected abstract PreparedStatement createSplitStatement(JdbcSourceSplit split)
-            throws SQLException;
+    protected abstract PreparedStatement createSplitStatement(
+            JdbcSourceSplit split, TableSchema schema) throws SQLException;
 
     protected PreparedStatement createPreparedStatement(String sql) throws SQLException {
         Connection connection = getOrEstablishConnection();
@@ -174,7 +175,13 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
     protected Object queryMin(JdbcSourceTable table, String columnName, Object excludedLowerBound)
             throws SQLException {
         String minQuery;
+        Map<String, Column> columns =
+                table.getCatalogTable().getTableSchema().getColumns().stream()
+                        .collect(Collectors.toMap(c -> c.getName(), c -> c));
+        Column column = columns.get(columnName);
+
         columnName = jdbcDialect.quoteIdentifier(columnName);
+        columnName = jdbcDialect.convertType(columnName, column.getSourceType());
         if (StringUtils.isNotBlank(table.getQuery())) {
             minQuery =
                     String.format(
@@ -206,7 +213,13 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
     protected Pair<Object, Object> queryMinMax(JdbcSourceTable table, String columnName)
             throws SQLException {
         String sqlQuery;
+        Map<String, Column> columns =
+                table.getCatalogTable().getTableSchema().getColumns().stream()
+                        .collect(Collectors.toMap(c -> c.getName(), c -> c));
+        Column column = columns.get(columnName);
+
         columnName = jdbcDialect.quoteIdentifier(columnName);
+        columnName = jdbcDialect.convertType(columnName, column.getSourceType());
         if (StringUtils.isNotBlank(table.getQuery())) {
             sqlQuery =
                     String.format(
@@ -221,6 +234,7 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
                             jdbcDialect.tableIdentifier(table.getTablePath()));
         }
         try (Statement stmt = getOrEstablishConnection().createStatement()) {
+            log.info("Split table, query min max: {}", sqlQuery);
             try (ResultSet resultSet = stmt.executeQuery(sqlQuery)) {
                 if (resultSet.next()) {
                     Object min = resultSet.getObject(1);
@@ -251,7 +265,7 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
                                 "Partitioned column(%s) don't exist in the table columns",
                                 partitionColumn));
             }
-            if (!isEvenlySplitColumn(column)) {
+            if (!isSupportSplitColumn(column)) {
                 throw new JdbcConnectorException(
                         CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                         String.format("%s is not numeric/string type", partitionColumn));
@@ -266,7 +280,7 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
         if (pk != null) {
             for (String pkField : pk.getColumnNames()) {
                 Column column = columnMap.get(pkField);
-                if (isEvenlySplitColumn(column)) {
+                if (isSupportSplitColumn(column)) {
                     return Optional.of(
                             new SeaTunnelRowType(
                                     new String[] {pkField},
@@ -290,7 +304,7 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
                             uniqueKey.getColumnNames()) {
                         String uniqueKeyColumnName = uniqueKeyColumn.getColumnName();
                         Column column = columnMap.get(uniqueKeyColumnName);
-                        if (isEvenlySplitColumn(column)) {
+                        if (isSupportSplitColumn(column)) {
                             return Optional.of(
                                     new SeaTunnelRowType(
                                             new String[] {uniqueKeyColumnName},
@@ -305,19 +319,19 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
         return Optional.empty();
     }
 
-    protected boolean isEvenlySplitColumn(Column splitColumn) {
-        return isEvenlySplitColumn(splitColumn.getDataType());
-    }
-
-    protected boolean isEvenlySplitColumn(SeaTunnelDataType columnType) {
+    protected boolean isSupportSplitColumn(Column splitColumn) {
+        SeaTunnelDataType<?> dataType = splitColumn.getDataType();
         // currently, we only support these types.
-        switch (columnType.getSqlType()) {
+        switch (dataType.getSqlType()) {
             case TINYINT:
             case SMALLINT:
             case INT:
             case BIGINT:
+            case DOUBLE:
+            case FLOAT:
             case DECIMAL:
             case STRING:
+            case DATE:
                 return true;
             default:
                 return false;

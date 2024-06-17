@@ -20,11 +20,9 @@
 
 env {
   # You can set SeaTunnel environment configuration here
-  execution.parallelism = 2
+  parallelism = 2
   job.mode = "BATCH"
   checkpoint.interval = 10000
-  #execution.checkpoint.interval = 10000
-  #execution.checkpoint.data-uri = "hdfs://localhost:9000/checkpoint"
 }
 
 source {

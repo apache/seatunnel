@@ -38,6 +38,7 @@ import org.testcontainers.containers.Container;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
+import org.testcontainers.images.PullPolicy;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
 
@@ -200,6 +201,13 @@ public class JdbcMysqlMultipleTablesIT extends TestSuiteBase implements TestReso
                                                                                 table))))
                         .collect(Collectors.toList());
         Assertions.assertAll(asserts);
+
+        clearSinkTables();
+
+        Container.ExecResult sqlConfEexecResult =
+                container.executeJob("/jdbc_mysql_source_and_sink_with_multiple_tables.sql");
+        Assertions.assertEquals(
+                0, sqlConfEexecResult.getExitCode(), sqlConfEexecResult.getStderr());
     }
 
     @AfterAll
@@ -223,6 +231,7 @@ public class JdbcMysqlMultipleTablesIT extends TestSuiteBase implements TestReso
                         .withNetworkAliases(MYSQL_CONTAINER_HOST)
                         .withExposedPorts(MYSQL_PORT)
                         .waitingFor(Wait.forHealthcheck())
+                        .withImagePullPolicy(PullPolicy.alwaysPull())
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(MYSQL_IMAGE)));
 

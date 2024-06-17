@@ -34,6 +34,7 @@ import lombok.NonNull;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class IcebergTypeMapper {
 
@@ -109,5 +110,66 @@ public class IcebergTypeMapper {
 
     private static MapType mappingMapType(String field, Types.MapType mapType) {
         return new MapType(mapping(field, mapType.keyType()), mapping(field, mapType.valueType()));
+    }
+
+    public static Type toIcebergType(SeaTunnelDataType dataType) {
+        return toIcebergType(dataType, new AtomicInteger(1));
+    }
+
+    private static Type toIcebergType(SeaTunnelDataType dataType, AtomicInteger nextId) {
+        switch (dataType.getSqlType()) {
+            case BOOLEAN:
+                return Types.BooleanType.get();
+            case BYTES:
+                return Types.BinaryType.get();
+            case SMALLINT:
+            case TINYINT:
+            case INT:
+                return Types.IntegerType.get();
+            case BIGINT:
+                return Types.LongType.get();
+            case FLOAT:
+                return Types.FloatType.get();
+            case DOUBLE:
+                return Types.DoubleType.get();
+            case DECIMAL:
+                DecimalType decimalType = (DecimalType) dataType;
+                return Types.DecimalType.of(decimalType.getPrecision(), decimalType.getScale());
+            case ARRAY:
+                ArrayType arrayType = (ArrayType) dataType;
+                // converter elementType
+                Type elementType = toIcebergType(arrayType.getElementType(), nextId);
+                return Types.ListType.ofOptional(nextId.getAndIncrement(), elementType);
+            case MAP:
+                org.apache.seatunnel.api.table.type.MapType mapType =
+                        (org.apache.seatunnel.api.table.type.MapType) dataType;
+                Type keyType = toIcebergType(mapType.getKeyType(), nextId);
+                Type valueType = toIcebergType(mapType.getValueType(), nextId);
+                return Types.MapType.ofOptional(
+                        nextId.getAndIncrement(), nextId.getAndIncrement(), keyType, valueType);
+            case ROW:
+                SeaTunnelRowType seaTunnelRowType = (SeaTunnelRowType) dataType;
+                List<Types.NestedField> structFields = new ArrayList<>();
+                for (int i = 0; i < seaTunnelRowType.getFieldNames().length; i++) {
+                    String field = seaTunnelRowType.getFieldName(i);
+                    SeaTunnelDataType fieldType = seaTunnelRowType.getFieldType(i);
+                    structFields.add(
+                            Types.NestedField.of(
+                                    nextId.getAndIncrement(),
+                                    true,
+                                    field,
+                                    toIcebergType(fieldType, nextId)));
+                }
+                return Types.StructType.of(structFields);
+            case DATE:
+                return Types.DateType.get();
+            case TIME:
+                return Types.TimeType.get();
+            case TIMESTAMP:
+                return Types.TimestampType.withZone();
+            case STRING:
+            default:
+                return Types.StringType.get();
+        }
     }
 }
