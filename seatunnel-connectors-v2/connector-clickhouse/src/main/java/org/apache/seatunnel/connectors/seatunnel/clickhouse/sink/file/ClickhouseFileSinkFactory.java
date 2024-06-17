@@ -74,63 +74,68 @@ public class ClickhouseFileSinkFactory implements TableSinkFactory {
         List<ClickHouseNode> nodes = ClickhouseUtil.createNodes(readonlyConfig);
 
         ClickhouseProxy proxy = new ClickhouseProxy(nodes.get(0));
-        Map<String, String> tableSchema = proxy.getClickhouseTableSchema(readonlyConfig.get(TABLE));
-        ClickhouseTable table =
-                proxy.getClickhouseTable(readonlyConfig.get(DATABASE), readonlyConfig.get(TABLE));
-        String shardKey = null;
-        String shardKeyType = null;
-        if (readonlyConfig.getOptional(SHARDING_KEY).isPresent()) {
-            shardKey = readonlyConfig.get(SHARDING_KEY);
-            shardKeyType = tableSchema.get(shardKey);
+        try {
+            Map<String, String> tableSchema =
+                    proxy.getClickhouseTableSchema(readonlyConfig.get(TABLE));
+            ClickhouseTable table =
+                    proxy.getClickhouseTable(
+                            readonlyConfig.get(DATABASE), readonlyConfig.get(TABLE));
+            String shardKey = null;
+            String shardKeyType = null;
+            if (readonlyConfig.getOptional(SHARDING_KEY).isPresent()) {
+                shardKey = readonlyConfig.get(SHARDING_KEY);
+                shardKeyType = tableSchema.get(shardKey);
+            }
+            ShardMetadata shardMetadata =
+                    new ShardMetadata(
+                            shardKey,
+                            shardKeyType,
+                            readonlyConfig.get(DATABASE),
+                            readonlyConfig.get(TABLE),
+                            table.getEngine(),
+                            true,
+                            new Shard(1, 1, nodes.get(0)),
+                            readonlyConfig.get(USERNAME),
+                            readonlyConfig.get(PASSWORD));
+            List<String> fields = new ArrayList<>(tableSchema.keySet());
+            Map<String, String> nodeUser =
+                    readonlyConfig.get(NODE_PASS).stream()
+                            .collect(
+                                    Collectors.toMap(
+                                            configObject -> configObject.getNodeAddress(),
+                                            configObject -> readonlyConfig.get(USERNAME)));
+            Map<String, String> nodePassword =
+                    readonlyConfig.get(NODE_PASS).stream()
+                            .collect(
+                                    Collectors.toMap(
+                                            NodePassConfig::getNodeAddress,
+                                            NodePassConfig::getPassword));
+
+            if (readonlyConfig.get(FILE_FIELDS_DELIMITER).length() != 1) {
+                throw new ClickhouseConnectorException(
+                        SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                        FILE_FIELDS_DELIMITER + " must be a single character");
+            }
+
+            FileReaderOption fileReaderOption =
+                    new FileReaderOption(
+                            shardMetadata,
+                            tableSchema,
+                            fields,
+                            readonlyConfig.get(CLICKHOUSE_LOCAL_PATH),
+                            ClickhouseFileCopyMethod.from(
+                                    readonlyConfig.get(COPY_METHOD).getName()),
+                            nodeUser,
+                            readonlyConfig.get(NODE_FREE_PASSWORD),
+                            nodePassword,
+                            context.getCatalogTable().getSeaTunnelRowType(),
+                            readonlyConfig.get(COMPATIBLE_MODE),
+                            readonlyConfig.get(FILE_TEMP_PATH),
+                            readonlyConfig.get(FILE_FIELDS_DELIMITER));
+            return () -> new ClickhouseFileSink(fileReaderOption);
+        } finally {
+            proxy.close();
         }
-        ShardMetadata shardMetadata =
-                new ShardMetadata(
-                        shardKey,
-                        shardKeyType,
-                        readonlyConfig.get(DATABASE),
-                        readonlyConfig.get(TABLE),
-                        table.getEngine(),
-                        true,
-                        new Shard(1, 1, nodes.get(0)),
-                        readonlyConfig.get(USERNAME),
-                        readonlyConfig.get(PASSWORD));
-        List<String> fields = new ArrayList<>(tableSchema.keySet());
-        Map<String, String> nodeUser =
-                readonlyConfig.get(NODE_PASS).stream()
-                        .collect(
-                                Collectors.toMap(
-                                        configObject -> configObject.getNodeAddress(),
-                                        configObject -> readonlyConfig.get(USERNAME)));
-        Map<String, String> nodePassword =
-                readonlyConfig.get(NODE_PASS).stream()
-                        .collect(
-                                Collectors.toMap(
-                                        NodePassConfig::getNodeAddress,
-                                        NodePassConfig::getPassword));
-
-        proxy.close();
-
-        if (readonlyConfig.get(FILE_FIELDS_DELIMITER).length() != 1) {
-            throw new ClickhouseConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    FILE_FIELDS_DELIMITER + " must be a single character");
-        }
-
-        FileReaderOption fileReaderOption =
-                new FileReaderOption(
-                        shardMetadata,
-                        tableSchema,
-                        fields,
-                        readonlyConfig.get(CLICKHOUSE_LOCAL_PATH),
-                        ClickhouseFileCopyMethod.from(readonlyConfig.get(COPY_METHOD).getName()),
-                        nodeUser,
-                        readonlyConfig.get(NODE_FREE_PASSWORD),
-                        nodePassword,
-                        context.getCatalogTable().getSeaTunnelRowType(),
-                        readonlyConfig.get(COMPATIBLE_MODE),
-                        readonlyConfig.get(FILE_TEMP_PATH),
-                        readonlyConfig.get(FILE_FIELDS_DELIMITER));
-        return () -> new ClickhouseFileSink(fileReaderOption);
     }
 
     @Override

@@ -30,13 +30,13 @@ import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.ClickhouseUtil;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.TypeConvertUtil;
 
 import com.clickhouse.client.ClickHouseClient;
+import com.clickhouse.client.ClickHouseColumn;
 import com.clickhouse.client.ClickHouseException;
 import com.clickhouse.client.ClickHouseFormat;
 import com.clickhouse.client.ClickHouseNode;
@@ -76,24 +76,30 @@ public class ClickhouseSourceFactory implements TableSourceFactory {
                                 .query(modifySQLToLimit1(sql))
                                 .executeAndWait()) {
             TableSchema.Builder builder = TableSchema.builder();
-            int columnSize = response.getColumns().size();
-            for (int i = 0; i < columnSize; i++) {
-                String columnName = response.getColumns().get(i).getColumnName();
-                SeaTunnelDataType<?> seaTunnelDataType =
-                        TypeConvertUtil.convert(response.getColumns().get(i));
-                builder.column(
-                        PhysicalColumn.of(
-                                columnName, seaTunnelDataType, Long.MAX_VALUE, true, null, null));
-            }
+            List<ClickHouseColumn> columns = response.getColumns();
+            columns.forEach(
+                    column -> {
+                        PhysicalColumn physicalColumn =
+                                PhysicalColumn.of(
+                                        column.getColumnName(),
+                                        TypeConvertUtil.convert(column),
+                                        (long) column.getEstimatedLength(),
+                                        column.getScale(),
+                                        column.isNullable(),
+                                        null,
+                                        null);
+                        builder.column(physicalColumn);
+                    });
+            String catalogName = "clickhouse_catalog";
             CatalogTable catalogTable =
                     CatalogTable.of(
                             TableIdentifier.of(
-                                    factoryIdentifier(), readonlyConfig.get(DATABASE), "default"),
+                                    catalogName, readonlyConfig.get(DATABASE), "default"),
                             builder.build(),
                             Collections.emptyMap(),
                             Collections.emptyList(),
                             "",
-                            factoryIdentifier());
+                            catalogName);
             return () ->
                     (SeaTunnelSource<T, SplitT, StateT>)
                             new ClickhouseSource(nodes, catalogTable, sql);
