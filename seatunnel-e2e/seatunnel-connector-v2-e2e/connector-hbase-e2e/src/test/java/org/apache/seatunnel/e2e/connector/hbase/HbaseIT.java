@@ -138,7 +138,8 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    public void testHbaseSinkAssignCfSink(TestContainer container) throws IOException, InterruptedException {
+    public void testHbaseSinkAssignCfSink(TestContainer container)
+            throws IOException, InterruptedException {
         deleteData(tableAssign);
 
         Container.ExecResult sinkExecResult = container.executeJob("/fake-to-assign-cf-hbase.conf");
