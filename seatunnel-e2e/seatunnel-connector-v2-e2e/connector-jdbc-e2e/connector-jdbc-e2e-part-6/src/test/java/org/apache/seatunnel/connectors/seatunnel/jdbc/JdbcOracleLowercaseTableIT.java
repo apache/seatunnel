@@ -234,7 +234,7 @@ public class JdbcOracleLowercaseTableIT extends AbstractJdbcIT {
         oracleCatalog.open();
         catalog.executeSql(
                 tablePathOracle,
-                "comment on column E2E_TABLE_SOURCE_LOWER.CHAR_10_COL is '\"#¥%……&*（）;;'',,..``````//''@特殊注释''\\\\''\"'");
+                "comment on column E2E_TABLE_SOURCE_LOWER.CHAR_10_COL is '\"#¥%……&*（）;;'',,..``````//''@特殊注释''\\''\"'");
         Assertions.assertTrue(oracleCatalog.tableExists(tablePathOracle));
         Assertions.assertEquals(
                 oracleCatalog
