@@ -19,7 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.hbase.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.sink.SinkReplaceNameConstant;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
@@ -56,9 +58,8 @@ public class HbaseSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(ZOOKEEPER_QUORUM, ROWKEY_COLUMNS, FAMILY_NAME)
+                .required(ZOOKEEPER_QUORUM, TABLE, ROWKEY_COLUMNS, FAMILY_NAME)
                 .optional(
-                        TABLE,
                         ROWKEY_DELIMITER,
                         VERSION_COLUMN,
                         NULL_MODE,
@@ -71,14 +72,47 @@ public class HbaseSinkFactory implements TableSinkFactory {
 
     @Override
     public TableSink createSink(TableSinkFactoryContext context) {
-        ReadonlyConfig config = context.getOptions();
+        ReadonlyConfig readonlyConfig = context.getOptions();
         CatalogTable catalogTable = context.getCatalogTable();
-        if (!config.getOptional(TABLE).isPresent()) {
-            Map<String, String> map = config.toMap();
-            map.put(TABLE.key(), catalogTable.getTableId().toTablePath().getFullName());
-            config = ReadonlyConfig.fromMap(new HashMap<>(map));
-        }
-        HbaseParameters hbaseParameters = HbaseParameters.buildWithConfig(config);
+        ReadonlyConfig finalReadonlyConfig =
+                generateCurrentReadonlyConfig(readonlyConfig, catalogTable);
+        HbaseParameters hbaseParameters = HbaseParameters.buildWithConfig(finalReadonlyConfig);
         return () -> new HbaseSink(hbaseParameters, catalogTable);
+    }
+
+    private ReadonlyConfig generateCurrentReadonlyConfig(
+            ReadonlyConfig readonlyConfig, CatalogTable catalogTable) {
+        Map<String, String> configMap = readonlyConfig.toMap();
+
+        readonlyConfig
+                .getOptional(TABLE)
+                .ifPresent(
+                        tableName -> {
+                            String replacedPath =
+                                    replaceCatalogTableInPath(tableName, catalogTable);
+                            configMap.put(TABLE.key(), replacedPath);
+                        });
+
+        return ReadonlyConfig.fromMap(new HashMap<>(configMap));
+    }
+
+    private String replaceCatalogTableInPath(String originTableName, CatalogTable catalogTable) {
+        String tableName = originTableName;
+        TableIdentifier tableIdentifier = catalogTable.getTableId();
+        if (tableIdentifier != null) {
+            if (tableIdentifier.getSchemaName() != null) {
+                tableName =
+                        tableName.replace(
+                                SinkReplaceNameConstant.REPLACE_SCHEMA_NAME_KEY,
+                                tableIdentifier.getSchemaName());
+            }
+            if (tableIdentifier.getTableName() != null) {
+                tableName =
+                        tableName.replace(
+                                SinkReplaceNameConstant.REPLACE_TABLE_NAME_KEY,
+                                tableIdentifier.getTableName());
+            }
+        }
+        return tableName;
     }
 }
