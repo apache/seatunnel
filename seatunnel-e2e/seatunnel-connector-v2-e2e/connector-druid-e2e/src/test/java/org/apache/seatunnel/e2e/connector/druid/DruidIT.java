@@ -98,11 +98,21 @@ public class DruidIT extends TestSuiteBase implements TestResource {
                 request.setEntity(entity);
                 HttpResponse response = client.execute(request);
                 String responseBody = EntityUtils.toString(response.getEntity());
-                String expectedData =
+                String expectedDataRow1 =
                         "\"c_boolean\":\"true\",\"c_timestamp\":\"2020-02-02T02:02:02\",\"c_string\":\"NEW\",\"c_tinyint\":1,\"c_smallint\":2,\"c_int\":3,\"c_bigint\":4,\"c_float\":4.3,\"c_double\":5.3,\"c_decimal\":6.3";
+                String expectedDataRow2 =
+                        "\"c_boolean\":\"false\",\"c_timestamp\":\"2012-12-21T12:34:56\",\"c_string\":\"AAA\",\"c_tinyint\":1,\"c_smallint\":1,\"c_int\":333,\"c_bigint\":323232,\"c_float\":3.1,\"c_double\":9.33333,\"c_decimal\":99999.99999999";
+                String expectedDataRow3 =
+                        "\"c_boolean\":\"true\",\"c_timestamp\":\"2016-03-12T11:29:33\",\"c_string\":\"BBB\",\"c_tinyint\":1,\"c_smallint\":2,\"c_int\":672,\"c_bigint\":546782,\"c_float\":7.9,\"c_double\":6.88888,\"c_decimal\":88888.45623489";
+                String expectedDataRow4 =
+                        "\"c_boolean\":\"false\",\"c_timestamp\":\"2014-04-28T09:13:27\",\"c_string\":\"CCC\",\"c_tinyint\":1,\"c_smallint\":1,\"c_int\":271,\"c_bigint\":683221,\"c_float\":4.8,\"c_double\":4.45271,\"c_decimal\":79277.68219012";
+
                 if (!responseBody.contains("errorMessage")) {
                     // Check sink data
-                    Assertions.assertEquals(responseBody.contains(expectedData), true);
+                    Assertions.assertEquals(responseBody.contains(expectedDataRow1), true);
+                    Assertions.assertEquals(responseBody.contains(expectedDataRow2), true);
+                    Assertions.assertEquals(responseBody.contains(expectedDataRow3), true);
+                    Assertions.assertEquals(responseBody.contains(expectedDataRow4), true);
                     break;
                 }
                 Thread.sleep(1000);
