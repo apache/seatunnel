@@ -67,4 +67,4 @@ SeaTunnel 丰富了<a href="https://landscape.cncf.io/card-mode?category=streami
 
 ## Learn more
 
-您可以参阅[快速入门](/docs/category/start-v2) 了解后续步骤。
+您可以参阅[快速入门](/zh-CN/docs/start-v2/locally/deployment) 了解后续步骤。
