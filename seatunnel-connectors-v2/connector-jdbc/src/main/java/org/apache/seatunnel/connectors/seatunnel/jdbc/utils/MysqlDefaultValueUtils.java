@@ -17,8 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.utils;
 
+import java.util.Objects;
+
 public class MysqlDefaultValueUtils {
     public static boolean isSpecialDefaultValue(Object defaultValue) {
+        if (Objects.isNull(defaultValue)) {
+            return false;
+        }
         String defaultValueStr = defaultValue.toString();
         return defaultValueStr.matches(
                         "(?i)^(CURRENT_TIMESTAMP|CURRENT_TIME|CURRENT_DATE)\\(?\\d*\\)?$")

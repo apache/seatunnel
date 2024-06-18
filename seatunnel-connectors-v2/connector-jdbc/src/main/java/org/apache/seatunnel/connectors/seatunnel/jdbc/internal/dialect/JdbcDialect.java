@@ -635,7 +635,8 @@ public interface JdbcDialect extends Serializable {
     default String decorateWithDefaultValue(
             String basicSql, BasicTypeDefine<MysqlType> typeBasicTypeDefine) {
         Object defaultValue = typeBasicTypeDefine.getDefaultValue();
-        if (needsQuotesWithDefaultValue(typeBasicTypeDefine.getColumnType())
+        if (Objects.nonNull(defaultValue)
+                && needsQuotesWithDefaultValue(typeBasicTypeDefine.getColumnType())
                 && !isSpecialDefaultValue(defaultValue)) {
             defaultValue = quotesDefaultValue(defaultValue);
         }

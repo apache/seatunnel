@@ -214,6 +214,15 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
                                 Assertions.assertIterableEquals(
                                         query(String.format(QUERY, database, sourceTable)),
                                         query(String.format(QUERY, database, sinkTable))));
+
+        // case4 modify column data type with cdc data at same time
+        shopDatabase.setTemplateName("modify_columns").createAndInitialize();
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertIterableEquals(
+                                        query(String.format(QUERY, database, sourceTable)),
+                                        query(String.format(QUERY, database, sinkTable))));
     }
 
     private Connection getJdbcConnection() throws SQLException {
