@@ -221,6 +221,8 @@ public class JdbcOracleLowercaseTableIT extends AbstractJdbcIT {
     @Test
     public void testCatalog() {
         TablePath tablePathOracle = TablePath.of("XE", "TESTUSER", "E2E_TABLE_SOURCE_LOWER");
+        TablePath tablePathOracleCreateTablePath =
+                TablePath.of("XE", "TESTUSER", "E2E_TABLE_SOURCE_LOWER_AUTO");
         OracleCatalog oracleCatalog =
                 new OracleCatalog(
                         "Oracle",
@@ -230,9 +232,32 @@ public class JdbcOracleLowercaseTableIT extends AbstractJdbcIT {
                                 jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost())),
                         SCHEMA);
         oracleCatalog.open();
+        catalog.executeSql(
+                tablePathOracle,
+                "comment on column E2E_TABLE_SOURCE_LOWER.CHAR_10_COL is '\"#¥%……&*（）;;'',,..``````//''@特殊注释''\\\\''\"'");
         Assertions.assertTrue(oracleCatalog.tableExists(tablePathOracle));
+        Assertions.assertEquals(
+                oracleCatalog
+                        .getTable(tablePathOracle)
+                        .getTableSchema()
+                        .getColumns()
+                        .get(1)
+                        .getComment(),
+                "\"#¥%……&*（）;;',,..``````//'@特殊注释'\\'\"");
         oracleCatalog.truncateTable(tablePathOracle, true);
         Assertions.assertFalse(oracleCatalog.isExistsData(tablePathOracle));
+        Assertions.assertFalse(oracleCatalog.tableExists(tablePathOracleCreateTablePath));
+        oracleCatalog.createTable(
+                tablePathOracleCreateTablePath, oracleCatalog.getTable(tablePathOracle), true);
+        Assertions.assertTrue(oracleCatalog.tableExists(tablePathOracleCreateTablePath));
+        Assertions.assertEquals(
+                oracleCatalog
+                        .getTable(tablePathOracleCreateTablePath)
+                        .getTableSchema()
+                        .getColumns()
+                        .get(1)
+                        .getComment(),
+                "\"#¥%……&*（）;;',,..``````//'@特殊注释'\\'\"");
         oracleCatalog.close();
     }
 }
