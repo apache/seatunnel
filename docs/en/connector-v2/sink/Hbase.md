@@ -111,7 +111,6 @@ Hbase {
     all_columns = seatunnel
   }
 }
-
 ```
 
 ## Writes To The Specified Column Family
