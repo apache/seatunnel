@@ -18,6 +18,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleCatalog;
@@ -251,13 +253,12 @@ public class JdbcOracleLowercaseTableIT extends AbstractJdbcIT {
         oracleCatalog.createTable(
                 tablePathOracleCreateTablePath, oracleCatalog.getTable(tablePathOracle), true);
         Assertions.assertTrue(oracleCatalog.tableExists(tablePathOracleCreateTablePath));
+        final CatalogTable table = oracleCatalog.getTable(tablePathOracleCreateTablePath);
+        for (Column column : table.getTableSchema().getColumns()) {
+            log.info("oracle column name: {},comment:{}", column.getName(), column.getComment());
+        }
         Assertions.assertEquals(
-                oracleCatalog
-                        .getTable(tablePathOracleCreateTablePath)
-                        .getTableSchema()
-                        .getColumns()
-                        .get(1)
-                        .getComment(),
+                table.getTableSchema().getColumns().get(1).getComment(),
                 "\"#¥%……&*（）;;',,..``````//'@特殊注释'\\'\"");
         oracleCatalog.close();
     }
