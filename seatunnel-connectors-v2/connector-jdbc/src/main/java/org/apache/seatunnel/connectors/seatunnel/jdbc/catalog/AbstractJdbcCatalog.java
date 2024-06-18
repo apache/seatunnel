@@ -365,6 +365,7 @@ public abstract class AbstractJdbcCatalog implements Catalog {
         try {
             final List<String> createTableSqlList = getCreateTableSqls(tablePath, table);
             for (String sql : createTableSqlList) {
+                LOG.info("oracle special comment : {}", sql);
                 executeInternal(dbUrl, sql);
             }
         } catch (Exception e) {
