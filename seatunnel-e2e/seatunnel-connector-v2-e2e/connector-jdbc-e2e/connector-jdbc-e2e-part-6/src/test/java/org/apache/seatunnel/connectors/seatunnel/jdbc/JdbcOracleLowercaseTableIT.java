@@ -246,6 +246,7 @@ public class JdbcOracleLowercaseTableIT extends AbstractJdbcIT {
                 "\"#¥%……&*（）;;',,..``````//'@特殊注释'\\'\"");
         oracleCatalog.truncateTable(tablePathOracle, true);
         Assertions.assertFalse(oracleCatalog.isExistsData(tablePathOracle));
+        // create table with comment
         Assertions.assertFalse(oracleCatalog.tableExists(tablePathOracleCreateTablePath));
         oracleCatalog.createTable(
                 tablePathOracleCreateTablePath, oracleCatalog.getTable(tablePathOracle), true);
