@@ -20,7 +20,9 @@ package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.common.utils.EncodingUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
@@ -32,6 +34,7 @@ import lombok.NonNull;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.charset.Charset;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -41,12 +44,14 @@ public class JsonWriteStrategy extends AbstractWriteStrategy {
     private SerializationSchema serializationSchema;
     private final LinkedHashMap<String, FSDataOutputStream> beingWrittenOutputStream;
     private final Map<String, Boolean> isFirstWrite;
+    private final Charset charset;
 
     public JsonWriteStrategy(FileSinkConfig textFileSinkConfig) {
         super(textFileSinkConfig);
         this.beingWrittenOutputStream = new LinkedHashMap<>();
         this.isFirstWrite = new HashMap<>();
-        this.rowDelimiter = textFileSinkConfig.getRowDelimiter().getBytes();
+        this.charset = EncodingUtils.tryParseCharset(textFileSinkConfig.getEncoding());
+        this.rowDelimiter = textFileSinkConfig.getRowDelimiter().getBytes(charset);
     }
 
     @Override
@@ -54,7 +59,7 @@ public class JsonWriteStrategy extends AbstractWriteStrategy {
         super.setSeaTunnelRowTypeInfo(seaTunnelRowType);
         this.serializationSchema =
                 new JsonSerializationSchema(
-                        buildSchemaWithRowType(seaTunnelRowType, sinkColumnsIndexInRow));
+                        buildSchemaWithRowType(seaTunnelRowType, sinkColumnsIndexInRow), charset);
     }
 
     @Override
@@ -76,10 +81,7 @@ public class JsonWriteStrategy extends AbstractWriteStrategy {
             }
             fsDataOutputStream.write(rowBytes);
         } catch (IOException e) {
-            throw new FileConnectorException(
-                    CommonErrorCode.FILE_OPERATION_FAILED,
-                    String.format("Write data to file [%s] failed", filePath),
-                    e);
+            throw CommonError.fileOperationFailed("JsonFile", "write", filePath, e);
         }
     }
 
@@ -91,7 +93,7 @@ public class JsonWriteStrategy extends AbstractWriteStrategy {
                         value.flush();
                     } catch (IOException e) {
                         throw new FileConnectorException(
-                                CommonErrorCode.FLUSH_DATA_FAILED,
+                                CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
                                 String.format("Flush data to this file [%s] failed", key),
                                 e);
                     } finally {
@@ -103,6 +105,8 @@ public class JsonWriteStrategy extends AbstractWriteStrategy {
                     }
                     needMoveFiles.put(key, getTargetLocation(key));
                 });
+        beingWrittenOutputStream.clear();
+        isFirstWrite.clear();
     }
 
     private FSDataOutputStream getOrCreateOutputStream(@NonNull String filePath) {
@@ -113,26 +117,24 @@ public class JsonWriteStrategy extends AbstractWriteStrategy {
                     case LZO:
                         LzopCodec lzo = new LzopCodec();
                         OutputStream out =
-                                lzo.createOutputStream(fileSystemUtils.getOutputStream(filePath));
+                                lzo.createOutputStream(
+                                        hadoopFileSystemProxy.getOutputStream(filePath));
                         fsDataOutputStream = new FSDataOutputStream(out, null);
                         break;
                     case NONE:
-                        fsDataOutputStream = fileSystemUtils.getOutputStream(filePath);
+                        fsDataOutputStream = hadoopFileSystemProxy.getOutputStream(filePath);
                         break;
                     default:
                         log.warn(
                                 "Json file does not support this compress type: {}",
                                 compressFormat.getCompressCodec());
-                        fsDataOutputStream = fileSystemUtils.getOutputStream(filePath);
+                        fsDataOutputStream = hadoopFileSystemProxy.getOutputStream(filePath);
                         break;
                 }
                 beingWrittenOutputStream.put(filePath, fsDataOutputStream);
                 isFirstWrite.put(filePath, true);
             } catch (IOException e) {
-                throw new FileConnectorException(
-                        CommonErrorCode.FILE_OPERATION_FAILED,
-                        String.format("Open file output stream [%s] failed", filePath),
-                        e);
+                throw CommonError.fileOperationFailed("JsonFile", "open", filePath, e);
             }
         }
         return fsDataOutputStream;

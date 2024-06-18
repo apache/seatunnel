@@ -27,6 +27,7 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.utils.SqlS
 
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.Column;
+import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
 import lombok.extern.slf4j.Slf4j;
 
@@ -56,8 +57,9 @@ public class SqlServerChunkSplitter extends AbstractJdbcSourceChunkSplitter {
     @Override
     public Object[] sampleDataFromColumn(
             JdbcConnection jdbc, TableId tableId, String columnName, int inverseSamplingRate)
-            throws SQLException {
-        return SqlServerUtils.sampleDataFromColumn(jdbc, tableId, columnName, inverseSamplingRate);
+            throws Exception {
+        return SqlServerUtils.skipReadAndSortSampleData(
+                jdbc, tableId, columnName, inverseSamplingRate);
     }
 
     @Override
@@ -79,11 +81,9 @@ public class SqlServerChunkSplitter extends AbstractJdbcSourceChunkSplitter {
 
     @Override
     public String buildSplitScanQuery(
-            TableId tableId,
-            SeaTunnelRowType splitKeyType,
-            boolean isFirstSplit,
-            boolean isLastSplit) {
-        return SqlServerUtils.buildSplitScanQuery(tableId, splitKeyType, isFirstSplit, isLastSplit);
+            Table table, SeaTunnelRowType splitKeyType, boolean isFirstSplit, boolean isLastSplit) {
+        return SqlServerUtils.buildSplitScanQuery(
+                table.id(), splitKeyType, isFirstSplit, isLastSplit);
     }
 
     @Override

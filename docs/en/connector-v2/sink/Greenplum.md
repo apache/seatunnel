@@ -6,7 +6,7 @@
 
 Write data to Greenplum using [Jdbc connector](Jdbc.md).
 
-## Key features
+## Key Features
 
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
 

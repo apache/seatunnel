@@ -17,13 +17,18 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql;
 
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.AbstractJdbcRowConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcFieldTypeUtils;
 
+import java.sql.Array;
 import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -39,12 +44,12 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
 
     @Override
     public String converterName() {
-        return null;
+        return DatabaseIdentifier.POSTGRESQL;
     }
 
     @Override
-    @SuppressWarnings("checkstyle:Indentation")
-    public SeaTunnelRow toInternal(ResultSet rs, SeaTunnelRowType typeInfo) throws SQLException {
+    public SeaTunnelRow toInternal(ResultSet rs, TableSchema tableSchema) throws SQLException {
+        SeaTunnelRowType typeInfo = tableSchema.toPhysicalRowDataType();
         Object[] fields = new Object[typeInfo.getTotalFields()];
         for (int fieldIndex = 0; fieldIndex < typeInfo.getTotalFields(); fieldIndex++) {
             SeaTunnelDataType<?> seaTunnelDataType = typeInfo.getFieldType(fieldIndex);
@@ -60,62 +65,79 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
                                         ? null
                                         : rs.getObject(resultSetIndex).toString();
                     } else {
-                        fields[fieldIndex] = rs.getString(resultSetIndex);
+                        fields[fieldIndex] = JdbcFieldTypeUtils.getString(rs, resultSetIndex);
                     }
                     break;
                 case BOOLEAN:
-                    fields[fieldIndex] = rs.getBoolean(resultSetIndex);
+                    fields[fieldIndex] = JdbcFieldTypeUtils.getBoolean(rs, resultSetIndex);
                     break;
                 case TINYINT:
-                    fields[fieldIndex] = rs.getByte(resultSetIndex);
+                    fields[fieldIndex] = JdbcFieldTypeUtils.getByte(rs, resultSetIndex);
                     break;
                 case SMALLINT:
-                    fields[fieldIndex] = rs.getShort(resultSetIndex);
+                    fields[fieldIndex] = JdbcFieldTypeUtils.getShort(rs, resultSetIndex);
                     break;
                 case INT:
-                    fields[fieldIndex] = rs.getInt(resultSetIndex);
+                    fields[fieldIndex] = JdbcFieldTypeUtils.getInt(rs, resultSetIndex);
                     break;
                 case BIGINT:
-                    fields[fieldIndex] = rs.getLong(resultSetIndex);
+                    fields[fieldIndex] = JdbcFieldTypeUtils.getLong(rs, resultSetIndex);
                     break;
                 case FLOAT:
-                    fields[fieldIndex] = rs.getFloat(resultSetIndex);
+                    fields[fieldIndex] = JdbcFieldTypeUtils.getFloat(rs, resultSetIndex);
                     break;
                 case DOUBLE:
-                    fields[fieldIndex] = rs.getDouble(resultSetIndex);
+                    fields[fieldIndex] = JdbcFieldTypeUtils.getDouble(rs, resultSetIndex);
                     break;
                 case DECIMAL:
-                    fields[fieldIndex] = rs.getBigDecimal(resultSetIndex);
+                    fields[fieldIndex] = JdbcFieldTypeUtils.getBigDecimal(rs, resultSetIndex);
                     break;
                 case DATE:
-                    Date sqlDate = rs.getDate(resultSetIndex);
+                    Date sqlDate = JdbcFieldTypeUtils.getDate(rs, resultSetIndex);
                     fields[fieldIndex] =
                             Optional.ofNullable(sqlDate).map(e -> e.toLocalDate()).orElse(null);
                     break;
                 case TIME:
-                    Time sqlTime = rs.getTime(resultSetIndex);
+                    Time sqlTime = JdbcFieldTypeUtils.getTime(rs, resultSetIndex);
                     fields[fieldIndex] =
                             Optional.ofNullable(sqlTime).map(e -> e.toLocalTime()).orElse(null);
                     break;
                 case TIMESTAMP:
-                    Timestamp sqlTimestamp = rs.getTimestamp(resultSetIndex);
+                    Timestamp sqlTimestamp = JdbcFieldTypeUtils.getTimestamp(rs, resultSetIndex);
                     fields[fieldIndex] =
                             Optional.ofNullable(sqlTimestamp)
                                     .map(e -> e.toLocalDateTime())
                                     .orElse(null);
                     break;
                 case BYTES:
-                    fields[fieldIndex] = rs.getBytes(resultSetIndex);
+                    fields[fieldIndex] = JdbcFieldTypeUtils.getBytes(rs, resultSetIndex);
                     break;
                 case NULL:
                     fields[fieldIndex] = null;
                     break;
-                case MAP:
                 case ARRAY:
+                    Array jdbcArray = rs.getArray(resultSetIndex);
+                    if (jdbcArray == null) {
+                        fields[fieldIndex] = null;
+                        break;
+                    }
+
+                    Object arrayObject = jdbcArray.getArray();
+                    if (((ArrayType) seaTunnelDataType)
+                            .getTypeClass()
+                            .equals(arrayObject.getClass())) {
+                        fields[fieldIndex] = arrayObject;
+                    } else {
+                        throw new JdbcConnectorException(
+                                CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
+                                "Unexpected value: " + seaTunnelDataType.getTypeClass());
+                    }
+                    break;
+                case MAP:
                 case ROW:
                 default:
                     throw new JdbcConnectorException(
-                            CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                            CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                             "Unexpected value: " + seaTunnelDataType);
             }
         }

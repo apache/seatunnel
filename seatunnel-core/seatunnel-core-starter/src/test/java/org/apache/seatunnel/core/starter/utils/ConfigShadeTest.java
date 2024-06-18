@@ -19,6 +19,7 @@ package org.apache.seatunnel.core.starter.utils;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigObject;
 
 import org.apache.seatunnel.api.configuration.ConfigShade;
 import org.apache.seatunnel.common.utils.JsonUtils;
@@ -65,6 +66,55 @@ public class ConfigShadeTest {
                 config.getConfigList("source").get(0).getString("username"), USERNAME);
         Assertions.assertEquals(
                 config.getConfigList("source").get(0).getString("password"), PASSWORD);
+    }
+
+    @Test
+    public void testVariableReplacement() throws URISyntaxException {
+        String jobName = "seatunnel variable test job";
+        String resName = "fake";
+        int rowNum = 10;
+        String nameType = "string";
+        String username = "seatunnel=2.3.1";
+        String password = "$a^b%c.d~e0*9(";
+        String blankSpace = "2023-12-26 11:30:00";
+        List<String> variables = new ArrayList<>();
+        variables.add("jobName=" + jobName);
+        variables.add("resName=" + resName);
+        variables.add("rowNum=" + rowNum);
+        variables.add("strTemplate=[abc,de~,f h]");
+        variables.add("nameType=" + nameType);
+        variables.add("nameVal=abc");
+        variables.add("username=" + username);
+        variables.add("password=" + password);
+        variables.add("blankSpace=" + blankSpace);
+        URL resource = ConfigShadeTest.class.getResource("/config.variables.conf");
+        Assertions.assertNotNull(resource);
+        Config config = ConfigBuilder.of(Paths.get(resource.toURI()), variables);
+        Config envConfig = config.getConfig("env");
+        Assertions.assertEquals(envConfig.getString("job.name"), jobName);
+        List<? extends ConfigObject> sourceConfigs = config.getObjectList("source");
+        for (ConfigObject configObject : sourceConfigs) {
+            Config sourceConfig = configObject.toConfig();
+            List<String> list1 = sourceConfig.getStringList("string.template");
+            Assertions.assertEquals(list1.get(0), "abc");
+            Assertions.assertEquals(list1.get(1), "de~");
+            Assertions.assertEquals(list1.get(2), "f h");
+            Assertions.assertEquals(sourceConfig.getInt("row.num"), rowNum);
+            Assertions.assertEquals(sourceConfig.getString("result_table_name"), resName);
+        }
+        List<? extends ConfigObject> transformConfigs = config.getObjectList("transform");
+        for (ConfigObject configObject : transformConfigs) {
+            Config transformConfig = configObject.toConfig();
+            Assertions.assertEquals(
+                    transformConfig.getString("query"), "select * from fake where name = 'abc' ");
+        }
+        List<? extends ConfigObject> sinkConfigs = config.getObjectList("sink");
+        for (ConfigObject sinkObject : sinkConfigs) {
+            Config sinkConfig = sinkObject.toConfig();
+            Assertions.assertEquals(sinkConfig.getString("username"), username);
+            Assertions.assertEquals(sinkConfig.getString("password"), password);
+            Assertions.assertEquals(sinkConfig.getString("blankSpace"), blankSpace);
+        }
     }
 
     @Test

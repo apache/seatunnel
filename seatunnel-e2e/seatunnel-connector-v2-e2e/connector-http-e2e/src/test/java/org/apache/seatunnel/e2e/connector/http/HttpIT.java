@@ -19,7 +19,9 @@ package org.apache.seatunnel.e2e.connector.http;
 
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -43,6 +45,8 @@ import java.util.stream.Stream;
 public class HttpIT extends TestSuiteBase implements TestResource {
 
     private static final String TMP_DIR = "/tmp";
+
+    private static final String successCount = "Total Write Count         :                   2";
 
     private static final String IMAGE = "mockserver/mockserver:5.14.0";
 
@@ -71,6 +75,7 @@ public class HttpIT extends TestSuiteBase implements TestResource {
                         .withEnv(
                                 "MOCKSERVER_INITIALIZATION_JSON_PATH",
                                 TMP_DIR + getMockServerConfig())
+                        .withEnv("MOCKSERVER_LOG_LEVEL", "WARN")
                         .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)))
                         .waitingFor(new HttpWaitStrategy().forPath("/").forStatusCode(404));
         Startables.deepStart(Stream.of(mockserverContainer)).join();
@@ -135,6 +140,43 @@ public class HttpIT extends TestSuiteBase implements TestResource {
         Container.ExecResult execResult12 =
                 container.executeJob("/http_multilinejson_to_assert.conf");
         Assertions.assertEquals(0, execResult12.getExitCode());
+
+        // http httpFormRequestbody
+        Container.ExecResult execResult13 =
+                container.executeJob("/http_formrequestbody_to_assert.conf");
+        Assertions.assertEquals(0, execResult13.getExitCode());
+
+        // http httpJsonRequestBody
+        Container.ExecResult execResult14 =
+                container.executeJob("/http_jsonrequestbody_to_assert.conf");
+        Assertions.assertEquals(0, execResult14.getExitCode());
+
+        Container.ExecResult execResult15 =
+                container.executeJob("/http_page_increase_page_num.conf");
+        Assertions.assertEquals(0, execResult15.getExitCode());
+
+        Container.ExecResult execResult16 =
+                container.executeJob("/http_page_increase_no_page_num.conf");
+        Assertions.assertEquals(0, execResult16.getExitCode());
+
+        Container.ExecResult execResult17 =
+                container.executeJob("/http_jsonrequestbody_to_feishu.conf");
+        Assertions.assertEquals(0, execResult17.getExitCode());
+
+        Container.ExecResult execResult18 = container.executeJob("/httpnoschema_to_http.conf");
+        Assertions.assertEquals(0, execResult18.getExitCode());
+    }
+
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "Currently SPARK/FLINK do not support multiple table read")
+    @TestTemplate
+    public void testMultiTableHttp(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeJob("/fake_to_multitable.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertTrue(execResult.getStdout().contains(successCount));
     }
 
     public String getMockServerConfig() {

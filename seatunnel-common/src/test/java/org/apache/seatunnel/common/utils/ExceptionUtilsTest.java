@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.common.utils;
 
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
 import org.junit.jupiter.api.Assertions;
@@ -30,7 +30,8 @@ public class ExceptionUtilsTest {
                 new UnsupportedOperationException(
                         new SeaTunnelException(
                                 new SeaTunnelRuntimeException(
-                                        CommonErrorCode.CLASS_NOT_FOUND, "class not fount")));
+                                        CommonErrorCodeDeprecated.CLASS_NOT_FOUND,
+                                        "class not fount")));
         Throwable throwable = ExceptionUtils.getRootException(exception);
         Assertions.assertTrue(throwable instanceof SeaTunnelRuntimeException);
     }

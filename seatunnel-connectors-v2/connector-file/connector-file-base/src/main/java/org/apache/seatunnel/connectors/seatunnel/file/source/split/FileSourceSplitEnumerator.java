@@ -20,7 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.file.source.split;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.connectors.seatunnel.file.source.state.FileSourceState;
 
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -29,11 +30,13 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-@Slf4j
 public class FileSourceSplitEnumerator
         implements SourceSplitEnumerator<FileSourceSplit, FileSourceState> {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(FileSourceSplitEnumerator.class);
+
     private final Context<FileSourceSplit> context;
-    private Set<FileSourceSplit> pendingSplit;
+    private final Set<FileSourceSplit> pendingSplit = new HashSet<>();
     private Set<FileSourceSplit> assignedSplit;
     private final List<String> filePaths;
 
@@ -54,15 +57,18 @@ public class FileSourceSplitEnumerator
 
     @Override
     public void open() {
-        this.pendingSplit = new HashSet<>();
+        this.pendingSplit.addAll(discoverySplits());
     }
 
     @Override
     public void run() {
-        // do nothing
+        for (int i = 0; i < context.currentParallelism(); i++) {
+            LOGGER.info("Assigned splits to reader [{}]", i);
+            assignSplit(i);
+        }
     }
 
-    private Set<FileSourceSplit> getFileSplit() {
+    private Set<FileSourceSplit> discoverySplits() {
         Set<FileSourceSplit> fileSourceSplits = new HashSet<>();
         filePaths.forEach(k -> fileSourceSplits.add(new FileSourceSplit(k)));
         return fileSourceSplits;
@@ -103,7 +109,7 @@ public class FileSourceSplitEnumerator
         assignedSplit.addAll(currentTaskSplits);
         // remove the assigned splits from pending splits
         currentTaskSplits.forEach(split -> pendingSplit.remove(split));
-        log.info(
+        LOGGER.info(
                 "SubTask {} is assigned to [{}]",
                 taskId,
                 currentTaskSplits.stream()
@@ -123,8 +129,7 @@ public class FileSourceSplitEnumerator
 
     @Override
     public void registerReader(int subtaskId) {
-        pendingSplit = getFileSplit();
-        assignSplit(subtaskId);
+        // do nothing
     }
 
     @Override

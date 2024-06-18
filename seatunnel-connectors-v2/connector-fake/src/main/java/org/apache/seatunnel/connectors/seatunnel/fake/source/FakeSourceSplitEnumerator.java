@@ -18,7 +18,10 @@
 package org.apache.seatunnel.connectors.seatunnel.fake.source;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.api.source.event.EnumeratorCloseEvent;
+import org.apache.seatunnel.api.source.event.EnumeratorOpenEvent;
 import org.apache.seatunnel.connectors.seatunnel.fake.config.FakeConfig;
+import org.apache.seatunnel.connectors.seatunnel.fake.config.MultipleTableFakeSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.fake.state.FakeSourceState;
 
 import lombok.extern.slf4j.Slf4j;
@@ -38,7 +41,7 @@ public class FakeSourceSplitEnumerator
     private final SourceSplitEnumerator.Context<FakeSourceSplit> enumeratorContext;
     private final Map<Integer, Set<FakeSourceSplit>> pendingSplits;
 
-    private final FakeConfig fakeConfig;
+    private final MultipleTableFakeSourceConfig multipleTableFakeSourceConfig;
     /** Partitions that have been assigned to readers. */
     private final Set<FakeSourceSplit> assignedSplits;
 
@@ -46,17 +49,17 @@ public class FakeSourceSplitEnumerator
 
     public FakeSourceSplitEnumerator(
             SourceSplitEnumerator.Context<FakeSourceSplit> enumeratorContext,
-            FakeConfig config,
+            MultipleTableFakeSourceConfig multipleTableFakeSourceConfig,
             Set<FakeSourceSplit> assignedSplits) {
         this.enumeratorContext = enumeratorContext;
         this.pendingSplits = new HashMap<>();
-        this.fakeConfig = config;
+        this.multipleTableFakeSourceConfig = multipleTableFakeSourceConfig;
         this.assignedSplits = new HashSet<>(assignedSplits);
     }
 
     @Override
     public void open() {
-        // No connection needs to be opened
+        enumeratorContext.getEventListener().onEvent(new EnumeratorOpenEvent());
     }
 
     @Override
@@ -67,7 +70,7 @@ public class FakeSourceSplitEnumerator
 
     @Override
     public void close() throws IOException {
-        // nothing
+        enumeratorContext.getEventListener().onEvent(new EnumeratorCloseEvent());
     }
 
     @Override
@@ -99,20 +102,29 @@ public class FakeSourceSplitEnumerator
     }
 
     @Override
-    public void notifyCheckpointComplete(long checkpointId) throws Exception {}
+    public void notifyCheckpointComplete(long checkpointId) {}
 
     private void discoverySplits() {
         Set<FakeSourceSplit> allSplit = new HashSet<>();
         log.info("Starting to calculate splits.");
         int numReaders = enumeratorContext.currentParallelism();
-        int readerRowNum = fakeConfig.getRowNum();
-        int splitNum = fakeConfig.getSplitNum();
-        int splitRowNum = (int) Math.ceil((double) readerRowNum / splitNum);
-        for (int i = 0; i < numReaders; i++) {
-            int index = i;
-            for (int num = 0; num < readerRowNum; index += numReaders, num += splitRowNum) {
-                allSplit.add(new FakeSourceSplit(index, Math.min(splitRowNum, readerRowNum - num)));
+        for (FakeConfig fakeConfig : multipleTableFakeSourceConfig.getFakeConfigs()) {
+            String tableId = fakeConfig.getCatalogTable().getTableId().toTablePath().toString();
+            int readerRowNum = fakeConfig.getRowNum();
+            int splitNum = fakeConfig.getSplitNum();
+            int splitRowNum = (int) Math.ceil((double) readerRowNum / splitNum);
+            for (int i = 0; i < numReaders; i++) {
+                int index = i;
+                for (int num = 0; num < readerRowNum; index += numReaders, num += splitRowNum) {
+                    allSplit.add(
+                            new FakeSourceSplit(
+                                    tableId, index, Math.min(splitRowNum, readerRowNum - num)));
+                }
             }
+            log.info(
+                    "Calculated splits for table {} successfully, the size of splits is {}.",
+                    tableId,
+                    allSplit.size());
         }
 
         assignedSplits.forEach(allSplit::remove);

@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.engine.server.task.operation.sink;
 
-import org.apache.seatunnel.common.utils.SerializationUtils;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.TaskExecutionService;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
@@ -33,7 +32,7 @@ import lombok.NoArgsConstructor;
 import java.io.IOException;
 
 @NoArgsConstructor
-public class SinkPrepareCommitOperation extends BarrierFlowOperation {
+public class SinkPrepareCommitOperation<CommitInfoT> extends BarrierFlowOperation {
     private byte[] commitInfos;
 
     public SinkPrepareCommitOperation(
@@ -73,15 +72,24 @@ public class SinkPrepareCommitOperation extends BarrierFlowOperation {
     public void run() throws Exception {
         TaskExecutionService taskExecutionService =
                 ((SeaTunnelServer) getService()).getTaskExecutionService();
-        SinkAggregatedCommitterTask<?, ?> committerTask =
+        SinkAggregatedCommitterTask<CommitInfoT, ?> committerTask =
                 taskExecutionService.getTask(taskLocation);
-        ClassLoader classLoader =
+        ClassLoader taskClassLoader =
                 taskExecutionService
                         .getExecutionContext(taskLocation.getTaskGroupLocation())
                         .getClassLoader();
+        ClassLoader mainClassLoader = Thread.currentThread().getContextClassLoader();
+
         if (commitInfos != null) {
-            committerTask.receivedWriterCommitInfo(
-                    barrier.getId(), SerializationUtils.deserialize(commitInfos, classLoader));
+            CommitInfoT deserializeCommitInfo = null;
+            try {
+                Thread.currentThread().setContextClassLoader(taskClassLoader);
+                deserializeCommitInfo =
+                        committerTask.getCommitInfoSerializer().deserialize(commitInfos);
+            } finally {
+                Thread.currentThread().setContextClassLoader(mainClassLoader);
+            }
+            committerTask.receivedWriterCommitInfo(barrier.getId(), deserializeCommitInfo);
         }
         committerTask.triggerBarrier(barrier);
     }

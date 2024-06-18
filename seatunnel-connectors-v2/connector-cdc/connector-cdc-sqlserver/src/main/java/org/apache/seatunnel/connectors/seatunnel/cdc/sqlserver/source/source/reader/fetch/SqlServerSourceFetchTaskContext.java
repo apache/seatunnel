@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source.reader.fetch;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.relational.JdbcSourceEventDispatcher;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
@@ -41,6 +40,7 @@ import io.debezium.connector.sqlserver.SqlServerConnectorConfig;
 import io.debezium.connector.sqlserver.SqlServerDatabaseSchema;
 import io.debezium.connector.sqlserver.SqlServerErrorHandler;
 import io.debezium.connector.sqlserver.SqlServerOffsetContext;
+import io.debezium.connector.sqlserver.SqlServerPartition;
 import io.debezium.connector.sqlserver.SqlServerTaskContext;
 import io.debezium.connector.sqlserver.SqlServerTopicSelector;
 import io.debezium.connector.sqlserver.SqlServerValueConverters;
@@ -74,25 +74,25 @@ public class SqlServerSourceFetchTaskContext extends JdbcSourceFetchTaskContext 
 
     private final SqlServerConnection dataConnection;
 
-    private final SqlServerConnection metadataConnection;
+    private SqlServerConnection metadataConnection;
 
     private final SqlServerEventMetadataProvider metadataProvider;
     private SqlServerDatabaseSchema databaseSchema;
     private SqlServerOffsetContext offsetContext;
+    private SqlServerPartition partition;
     private TopicSelector<TableId> topicSelector;
-    private JdbcSourceEventDispatcher dispatcher;
+    private JdbcSourceEventDispatcher<SqlServerPartition> dispatcher;
     private ChangeEventQueue<DataChangeEvent> queue;
     private SqlServerErrorHandler errorHandler;
     private SqlServerTaskContext taskContext;
 
-    private SnapshotChangeEventSourceMetrics snapshotChangeEventSourceMetrics;
+    private SnapshotChangeEventSourceMetrics<SqlServerPartition> snapshotChangeEventSourceMetrics;
 
     public SqlServerSourceFetchTaskContext(
-            JdbcSourceConfig sourceConfig, JdbcDataSourceDialect dataSourceDialect) {
+            SqlServerSourceConfig sourceConfig, JdbcDataSourceDialect dataSourceDialect) {
         super(sourceConfig, dataSourceDialect);
 
         this.dataConnection = createSqlServerConnection(sourceConfig.getDbzConfiguration());
-        this.metadataConnection = createSqlServerConnection(sourceConfig.getDbzConfiguration());
         this.metadataProvider = new SqlServerEventMetadataProvider();
     }
 
@@ -112,8 +112,11 @@ public class SqlServerSourceFetchTaskContext extends JdbcSourceFetchTaskContext 
         this.topicSelector = SqlServerTopicSelector.defaultSelector(connectorConfig);
 
         this.databaseSchema =
-                new SqlServerDatabaseSchema(
-                        connectorConfig, valueConverters, topicSelector, schemaNameAdjuster);
+                SqlServerUtils.createSqlServerDatabaseSchema(connectorConfig, dataConnection);
+
+        String serverName = connectorConfig.getLogicalName();
+        String dbName = connectorConfig.getJdbcConfig().getDatabase();
+        this.partition = new SqlServerPartition(serverName, dbName, false);
 
         this.offsetContext =
                 loadStartingOffsetState(
@@ -122,8 +125,11 @@ public class SqlServerSourceFetchTaskContext extends JdbcSourceFetchTaskContext 
 
         this.taskContext = new SqlServerTaskContext(connectorConfig, databaseSchema);
 
+        // If in the snapshot read phase and enable exactly-once, the queue needs to be set to a
+        // maximum size of `Integer.MAX_VALUE` (buffered a current snapshot all data). otherwise,
+        // use the configuration queue size.
         final int queueSize =
-                sourceSplitBase.isSnapshotSplit()
+                sourceSplitBase.isSnapshotSplit() && isExactlyOnce()
                         ? Integer.MAX_VALUE
                         : getSourceConfig().getDbzConnectorConfig().getMaxQueueSize();
 
@@ -141,7 +147,7 @@ public class SqlServerSourceFetchTaskContext extends JdbcSourceFetchTaskContext 
                         // .buffering()
                         .build();
         this.dispatcher =
-                new JdbcSourceEventDispatcher(
+                new JdbcSourceEventDispatcher<>(
                         connectorConfig,
                         topicSelector,
                         databaseSchema,
@@ -151,21 +157,37 @@ public class SqlServerSourceFetchTaskContext extends JdbcSourceFetchTaskContext 
                         metadataProvider,
                         schemaNameAdjuster);
 
-        final DefaultChangeEventSourceMetricsFactory changeEventSourceMetricsFactory =
-                new DefaultChangeEventSourceMetricsFactory();
+        final DefaultChangeEventSourceMetricsFactory<SqlServerPartition>
+                changeEventSourceMetricsFactory = new DefaultChangeEventSourceMetricsFactory();
 
         this.snapshotChangeEventSourceMetrics =
                 changeEventSourceMetricsFactory.getSnapshotMetrics(
                         taskContext, queue, metadataProvider);
 
-        this.errorHandler = new SqlServerErrorHandler(connectorConfig.getLogicalName(), queue);
+        this.errorHandler = new SqlServerErrorHandler(connectorConfig, queue);
+        if (sourceSplitBase.isIncrementalSplit() || isExactlyOnce()) {
+            initMetadataConnection();
+        }
+    }
+
+    private void initMetadataConnection() {
+        if (this.metadataConnection == null) {
+            synchronized (this) {
+                if (this.metadataConnection == null) {
+                    this.metadataConnection =
+                            createSqlServerConnection(sourceConfig.getDbzConfiguration());
+                }
+            }
+        }
     }
 
     @Override
     public void close() {
         try {
             this.dataConnection.close();
-            this.metadataConnection.close();
+            if (this.metadataConnection != null) {
+                this.metadataConnection.close();
+            }
         } catch (SQLException e) {
             log.warn("Failed to close connection", e);
         }
@@ -184,7 +206,8 @@ public class SqlServerSourceFetchTaskContext extends JdbcSourceFetchTaskContext 
         return metadataConnection;
     }
 
-    public SnapshotChangeEventSourceMetrics getSnapshotChangeEventSourceMetrics() {
+    public SnapshotChangeEventSourceMetrics<SqlServerPartition>
+            getSnapshotChangeEventSourceMetrics() {
         return snapshotChangeEventSourceMetrics;
     }
 
@@ -196,6 +219,11 @@ public class SqlServerSourceFetchTaskContext extends JdbcSourceFetchTaskContext 
     @Override
     public SqlServerOffsetContext getOffsetContext() {
         return offsetContext;
+    }
+
+    @Override
+    public SqlServerPartition getPartition() {
+        return partition;
     }
 
     @Override
@@ -214,7 +242,7 @@ public class SqlServerSourceFetchTaskContext extends JdbcSourceFetchTaskContext 
     }
 
     @Override
-    public JdbcSourceEventDispatcher getDispatcher() {
+    public JdbcSourceEventDispatcher<SqlServerPartition> getDispatcher() {
         return dispatcher;
     }
 
@@ -236,7 +264,7 @@ public class SqlServerSourceFetchTaskContext extends JdbcSourceFetchTaskContext 
     private void validateAndLoadDatabaseHistory(
             SqlServerOffsetContext offset, SqlServerDatabaseSchema schema) {
         schema.initializeStorage();
-        schema.recover(offset);
+        schema.recover(partition, offset);
     }
 
     /** Loads the connector's persistent offset (if present) via the given loader. */

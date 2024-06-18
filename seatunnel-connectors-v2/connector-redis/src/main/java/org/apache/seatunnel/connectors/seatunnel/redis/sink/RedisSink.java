@@ -17,67 +17,36 @@
 
 package org.apache.seatunnel.connectors.seatunnel.redis.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
-import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SinkWriter;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.sink.SupportMultiTableSink;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisConfig;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
-import org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisConnectorException;
-
-import com.google.auto.service.AutoService;
 
 import java.io.IOException;
 
-@AutoService(SeaTunnelSink.class)
-public class RedisSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
+public class RedisSink extends AbstractSimpleSink<SeaTunnelRow, Void>
+        implements SupportMultiTableSink {
     private final RedisParameters redisParameters = new RedisParameters();
     private SeaTunnelRowType seaTunnelRowType;
-    private Config pluginConfig;
+    private ReadonlyConfig readonlyConfig;
+    private CatalogTable catalogTable;
+
+    public RedisSink(ReadonlyConfig config, CatalogTable table) {
+        this.readonlyConfig = config;
+        this.catalogTable = table;
+        this.redisParameters.buildWithConfig(config);
+        this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
+    }
 
     @Override
     public String getPluginName() {
-        return "Redis";
-    }
-
-    @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
-        this.pluginConfig = pluginConfig;
-        CheckResult result =
-                CheckConfigUtil.checkAllExists(
-                        pluginConfig,
-                        RedisConfig.HOST.key(),
-                        RedisConfig.PORT.key(),
-                        RedisConfig.KEY.key(),
-                        RedisConfig.DATA_TYPE.key());
-        if (!result.isSuccess()) {
-            throw new RedisConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SINK, result.getMsg()));
-        }
-        this.redisParameters.buildWithConfig(pluginConfig);
-    }
-
-    @Override
-    public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
-        this.seaTunnelRowType = seaTunnelRowType;
-    }
-
-    @Override
-    public SeaTunnelDataType<SeaTunnelRow> getConsumedType() {
-        return seaTunnelRowType;
+        return RedisConfig.CONNECTOR_IDENTITY;
     }
 
     @Override

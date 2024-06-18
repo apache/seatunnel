@@ -17,25 +17,33 @@
 
 package org.apache.seatunnel.connectors.doris.sink.writer;
 
+import org.apache.seatunnel.connectors.doris.exception.DorisConnectorErrorCode;
+import org.apache.seatunnel.connectors.doris.exception.DorisConnectorException;
+
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkState;
 
 /** Channel of record stream and HTTP data stream. */
 @Slf4j
 public class RecordBuffer {
-    BlockingQueue<ByteBuffer> writeQueue;
-    BlockingQueue<ByteBuffer> readQueue;
-    int bufferCapacity;
-    int queueSize;
-    ByteBuffer currentWriteBuffer;
-    ByteBuffer currentReadBuffer;
+    private final BlockingQueue<ByteBuffer> writeQueue;
+    private final BlockingQueue<ByteBuffer> readQueue;
+    private final int bufferCapacity;
+    private final int queueSize;
+    private ByteBuffer currentWriteBuffer;
+    private ByteBuffer currentReadBuffer;
+    // used to check stream load error by stream load thread
+    @Setter private volatile String errorMessageByStreamLoad;
 
     public RecordBuffer(int capacity, int queueSize) {
         log.info("init RecordBuffer capacity {}, count {}", capacity, queueSize);
@@ -55,7 +63,7 @@ public class RecordBuffer {
                 "start buffer data, read queue size {}, write queue size {}",
                 readQueue.size(),
                 writeQueue.size());
-        checkState(readQueue.size() == 0);
+        checkState(readQueue.isEmpty());
         checkState(writeQueue.size() == queueSize);
         for (ByteBuffer byteBuffer : writeQueue) {
             checkState(byteBuffer.position() == 0);
@@ -68,15 +76,19 @@ public class RecordBuffer {
             // add Empty buffer as finish flag.
             boolean isEmpty = false;
             if (currentWriteBuffer != null) {
-                currentWriteBuffer.flip();
+                ((Buffer) currentWriteBuffer).flip();
                 // check if the current write buffer is empty.
                 isEmpty = currentWriteBuffer.limit() == 0;
                 readQueue.put(currentWriteBuffer);
                 currentWriteBuffer = null;
             }
             if (!isEmpty) {
-                ByteBuffer byteBuffer = writeQueue.take();
-                byteBuffer.flip();
+                ByteBuffer byteBuffer = null;
+                while (byteBuffer == null) {
+                    checkErrorMessageByStreamLoad();
+                    byteBuffer = writeQueue.poll(100, TimeUnit.MILLISECONDS);
+                }
+                ((Buffer) byteBuffer).flip();
                 checkState(byteBuffer.limit() == 0);
                 readQueue.put(byteBuffer);
             }
@@ -88,15 +100,16 @@ public class RecordBuffer {
     public void write(byte[] buf) throws InterruptedException {
         int wPos = 0;
         do {
-            if (currentWriteBuffer == null) {
-                currentWriteBuffer = writeQueue.take();
+            while (currentWriteBuffer == null) {
+                checkErrorMessageByStreamLoad();
+                currentWriteBuffer = writeQueue.poll(100, TimeUnit.MILLISECONDS);
             }
             int available = currentWriteBuffer.remaining();
             int nWrite = Math.min(available, buf.length - wPos);
             currentWriteBuffer.put(buf, wPos, nWrite);
             wPos += nWrite;
             if (currentWriteBuffer.remaining() == 0) {
-                currentWriteBuffer.flip();
+                ((Buffer) currentWriteBuffer).flip();
                 readQueue.put(currentWriteBuffer);
                 currentWriteBuffer = null;
             }
@@ -104,14 +117,15 @@ public class RecordBuffer {
     }
 
     public int read(byte[] buf) throws InterruptedException {
-        if (currentReadBuffer == null) {
-            currentReadBuffer = readQueue.take();
+        while (currentReadBuffer == null) {
+            checkErrorMessageByStreamLoad();
+            currentReadBuffer = readQueue.poll(100, TimeUnit.MILLISECONDS);
         }
         // add empty buffer as end flag
         if (currentReadBuffer.limit() == 0) {
             recycleBuffer(currentReadBuffer);
             currentReadBuffer = null;
-            checkState(readQueue.size() == 0);
+            checkState(readQueue.isEmpty());
             return -1;
         }
         int available = currentReadBuffer.remaining();
@@ -124,16 +138,17 @@ public class RecordBuffer {
         return nRead;
     }
 
+    private void checkErrorMessageByStreamLoad() {
+        if (errorMessageByStreamLoad != null) {
+            throw new DorisConnectorException(
+                    DorisConnectorErrorCode.STREAM_LOAD_FAILED, errorMessageByStreamLoad);
+        }
+    }
+
     private void recycleBuffer(ByteBuffer buffer) throws InterruptedException {
-        buffer.clear();
-        writeQueue.put(buffer);
-    }
-
-    public int getWriteQueueSize() {
-        return writeQueue.size();
-    }
-
-    public int getReadQueueSize() {
-        return readQueue.size();
+        ((Buffer) buffer).clear();
+        while (!writeQueue.offer(buffer, 100, TimeUnit.MILLISECONDS)) {
+            checkErrorMessageByStreamLoad();
+        }
     }
 }

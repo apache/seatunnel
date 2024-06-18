@@ -24,22 +24,28 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
-import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
+
+import lombok.NonNull;
 
 import java.io.IOException;
+import java.util.Optional;
 import java.util.regex.Pattern;
 
 import static java.lang.String.format;
 
 public class CanalJsonDeserializationSchema implements DeserializationSchema<SeaTunnelRow> {
-
     private static final long serialVersionUID = 1L;
+
+    private static final String FORMAT = "Canal";
 
     private static final String FIELD_OLD = "old";
 
@@ -63,9 +69,9 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
 
     private static final String OP_ALTER = "ALTER";
 
-    private String database;
+    private final String database;
 
-    private String table;
+    private final String table;
 
     /** Names of fields. */
     private final String[] fieldNames;
@@ -73,7 +79,7 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
     /** Number of fields. */
     private final int fieldCount;
 
-    private boolean ignoreParseErrors;
+    private final boolean ignoreParseErrors;
 
     /** Pattern of the specific database. */
     private final Pattern databasePattern;
@@ -83,21 +89,22 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
 
     private final JsonDeserializationSchema jsonDeserializer;
 
-    private final SeaTunnelRowType physicalRowType;
+    private final SeaTunnelRowType seaTunnelRowType;
+    private final CatalogTable catalogTable;
 
     public CanalJsonDeserializationSchema(
-            SeaTunnelRowType physicalRowType,
+            @NonNull CatalogTable catalogTable,
             String database,
             String table,
             boolean ignoreParseErrors) {
-        this.physicalRowType = physicalRowType;
-        final SeaTunnelRowType jsonRowType = createJsonRowType(physicalRowType);
+        this.catalogTable = catalogTable;
+        this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
         this.jsonDeserializer =
-                new JsonDeserializationSchema(false, ignoreParseErrors, jsonRowType);
+                new JsonDeserializationSchema(catalogTable, false, ignoreParseErrors);
         this.database = database;
         this.table = table;
-        this.fieldNames = physicalRowType.getFieldNames();
-        this.fieldCount = physicalRowType.getTotalFields();
+        this.fieldNames = seaTunnelRowType.getFieldNames();
+        this.fieldCount = seaTunnelRowType.getTotalFields();
         this.ignoreParseErrors = ignoreParseErrors;
         this.databasePattern = database == null ? null : Pattern.compile(database);
         this.tablePattern = table == null ? null : Pattern.compile(table);
@@ -105,100 +112,117 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
 
     @Override
     public SeaTunnelRow deserialize(byte[] message) throws IOException {
-        throw new UnsupportedOperationException();
+        throw new UnsupportedOperationException(
+                "Please invoke DeserializationSchema#deserialize(byte[], Collector<SeaTunnelRow>) instead.");
     }
 
     @Override
     public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
-        return this.physicalRowType;
+        return this.seaTunnelRowType;
+    }
+
+    public void deserialize(ObjectNode jsonNode, Collector<SeaTunnelRow> out) throws IOException {
+        TablePath tablePath =
+                Optional.ofNullable(catalogTable).map(CatalogTable::getTablePath).orElse(null);
+
+        try {
+            if (database != null
+                    && !databasePattern.matcher(jsonNode.get(FIELD_DATABASE).asText()).matches()) {
+                return;
+            }
+            if (table != null
+                    && !tablePattern.matcher(jsonNode.get(FIELD_TABLE).asText()).matches()) {
+                return;
+            }
+
+            JsonNode dataNode = jsonNode.get(FIELD_DATA);
+            String op = jsonNode.get(FIELD_TYPE).asText();
+            // When a null value is encountered, an exception needs to be thrown for easy sensing
+            if (dataNode == null || dataNode.isNull()) {
+                // We'll skip the query or create or alter event data
+                if (OP_QUERY.equals(op) || OP_CREATE.equals(op) || OP_ALTER.equals(op)) {
+                    return;
+                }
+                throw new IllegalStateException(
+                        format("Null data value '%s' Cannot send downstream", jsonNode));
+            }
+
+            switch (op) {
+                case OP_INSERT:
+                    for (int i = 0; i < dataNode.size(); i++) {
+                        SeaTunnelRow row = convertJsonNode(dataNode.get(i));
+                        if (tablePath != null && !tablePath.toString().isEmpty()) {
+                            row.setTableId(tablePath.toString());
+                        }
+                        out.collect(row);
+                    }
+                    break;
+                case OP_UPDATE:
+                    final ArrayNode oldNode = (ArrayNode) jsonNode.get(FIELD_OLD);
+                    for (int i = 0; i < dataNode.size(); i++) {
+                        SeaTunnelRow after = convertJsonNode(dataNode.get(i));
+                        SeaTunnelRow before = convertJsonNode(oldNode.get(i));
+                        for (int f = 0; f < fieldCount; f++) {
+                            if (before.isNullAt(f) && oldNode.findValue(fieldNames[f]) == null) {
+                                // fields in "old" (before) means the fields are changed
+                                // fields not in "old" (before) means the fields are not changed
+                                // so we just copy the not changed fields into before
+                                before.setField(f, after.getField(f));
+                            }
+                        }
+                        before.setRowKind(RowKind.UPDATE_BEFORE);
+                        if (tablePath != null && !tablePath.toString().isEmpty()) {
+                            before.setTableId(tablePath.toString());
+                        }
+                        after.setRowKind(RowKind.UPDATE_AFTER);
+                        if (tablePath != null && !tablePath.toString().isEmpty()) {
+                            after.setTableId(tablePath.toString());
+                        }
+                        out.collect(before);
+                        out.collect(after);
+                    }
+                    break;
+                case OP_DELETE:
+                    for (int i = 0; i < dataNode.size(); i++) {
+                        SeaTunnelRow row = convertJsonNode(dataNode.get(i));
+                        row.setRowKind(RowKind.DELETE);
+                        if (tablePath != null && !tablePath.toString().isEmpty()) {
+                            row.setTableId(tablePath.toString());
+                        }
+                        out.collect(row);
+                    }
+                    break;
+                default:
+                    throw new IllegalStateException(
+                            String.format("Unknown operation type '%s'.", op));
+            }
+        } catch (RuntimeException e) {
+            if (!ignoreParseErrors) {
+                throw CommonError.jsonOperationError(FORMAT, jsonNode.toString(), e);
+            }
+        }
+    }
+
+    private ObjectNode convertBytes(byte[] message) throws SeaTunnelRuntimeException {
+        if (message == null || message.length == 0) {
+            return null;
+        }
+
+        try {
+            return (ObjectNode) jsonDeserializer.deserializeToJsonNode(message);
+        } catch (Throwable t) {
+            if (!ignoreParseErrors) {
+                throw CommonError.jsonOperationError(FORMAT, new String(message), t);
+            }
+            return null;
+        }
     }
 
     @Override
-    public void deserialize(byte[] message, Collector<SeaTunnelRow> out) {
-        if (message == null) {
-            return;
-        }
-        ObjectNode jsonNode = (ObjectNode) convertBytes(message);
-        assert jsonNode != null;
-        deserialize(jsonNode, out);
-    }
-
-    public void deserialize(ObjectNode jsonNode, Collector<SeaTunnelRow> out) {
-        if (database != null
-                && !databasePattern.matcher(jsonNode.get(FIELD_DATABASE).asText()).matches()) {
-            return;
-        }
-        if (table != null && !tablePattern.matcher(jsonNode.get(FIELD_TABLE).asText()).matches()) {
-            return;
-        }
-        JsonNode dataNode = jsonNode.get(FIELD_DATA);
-        String type = jsonNode.get(FIELD_TYPE).asText();
-        // When a null value is encountered, an exception needs to be thrown for easy sensing
-        if (dataNode == null || dataNode.isNull()) {
-            // We'll skip the query or create or alter event data
-            if (OP_QUERY.equals(type) || OP_CREATE.equals(type) || OP_ALTER.equals(type)) {
-                return;
-            }
-            throw new SeaTunnelJsonFormatException(
-                    CommonErrorCode.JSON_OPERATION_FAILED,
-                    format("Null data value \"%s\" Cannot send downstream", jsonNode));
-        }
-        if (OP_INSERT.equals(type)) {
-            for (int i = 0; i < dataNode.size(); i++) {
-                SeaTunnelRow row = convertJsonNode(dataNode.get(i));
-                out.collect(row);
-            }
-        } else if (OP_UPDATE.equals(type)) {
-            final ArrayNode oldNode = (ArrayNode) jsonNode.get(FIELD_OLD);
-            for (int i = 0; i < dataNode.size(); i++) {
-                SeaTunnelRow after = convertJsonNode(dataNode.get(i));
-                SeaTunnelRow before = convertJsonNode(oldNode.get(i));
-                for (int f = 0; f < fieldCount; f++) {
-                    assert before != null;
-                    if (before.isNullAt(f) && oldNode.findValue(fieldNames[f]) == null) {
-                        // fields in "old" (before) means the fields are changed
-                        // fields not in "old" (before) means the fields are not changed
-                        // so we just copy the not changed fields into before
-                        assert after != null;
-                        before.setField(f, after.getField(f));
-                    }
-                }
-                assert before != null;
-                before.setRowKind(RowKind.UPDATE_BEFORE);
-                assert after != null;
-                after.setRowKind(RowKind.UPDATE_AFTER);
-                out.collect(before);
-                out.collect(after);
-            }
-        } else if (OP_DELETE.equals(type)) {
-            for (int i = 0; i < dataNode.size(); i++) {
-                SeaTunnelRow row = convertJsonNode(dataNode.get(i));
-                assert row != null;
-                row.setRowKind(RowKind.DELETE);
-                out.collect(row);
-            }
-        } else {
-            if (!ignoreParseErrors) {
-                throw new SeaTunnelJsonFormatException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                        format(
-                                "Unknown \"type\" value \"%s\". The Canal JSON message is '%s'",
-                                type, jsonNode.asText()));
-            }
-        }
-    }
-
-    private JsonNode convertBytes(byte[] message) {
-        try {
-            return jsonDeserializer.deserializeToJsonNode(message);
-        } catch (Exception t) {
-            if (ignoreParseErrors) {
-                return null;
-            }
-            throw new SeaTunnelJsonFormatException(
-                    CommonErrorCode.JSON_OPERATION_FAILED,
-                    String.format("Failed to deserialize JSON '%s'.", new String(message)),
-                    t);
+    public void deserialize(byte[] message, Collector<SeaTunnelRow> out) throws IOException {
+        ObjectNode jsonNodes = convertBytes(message);
+        if (jsonNodes != null) {
+            deserialize(convertBytes(message), out);
         }
     }
 
@@ -216,8 +240,8 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
     // ------------------------------------------------------------------------------------------
 
     /** Creates A builder for building a {@link CanalJsonDeserializationSchema}. */
-    public static Builder builder(SeaTunnelRowType physicalDataType) {
-        return new Builder(physicalDataType);
+    public static Builder builder(CatalogTable catalogTable) {
+        return new Builder(catalogTable);
     }
 
     public static class Builder {
@@ -228,10 +252,10 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
 
         private String table = null;
 
-        private final SeaTunnelRowType physicalDataType;
+        private CatalogTable catalogTable;
 
-        public Builder(SeaTunnelRowType physicalDataType) {
-            this.physicalDataType = physicalDataType;
+        public Builder(CatalogTable catalogTable) {
+            this.catalogTable = catalogTable;
         }
 
         public Builder setDatabase(String database) {
@@ -249,9 +273,14 @@ public class CanalJsonDeserializationSchema implements DeserializationSchema<Sea
             return this;
         }
 
+        public Builder setCatalogTable(CatalogTable catalogTable) {
+            this.catalogTable = catalogTable;
+            return this;
+        }
+
         public CanalJsonDeserializationSchema build() {
             return new CanalJsonDeserializationSchema(
-                    physicalDataType, database, table, ignoreParseErrors);
+                    catalogTable, database, table, ignoreParseErrors);
         }
     }
 }

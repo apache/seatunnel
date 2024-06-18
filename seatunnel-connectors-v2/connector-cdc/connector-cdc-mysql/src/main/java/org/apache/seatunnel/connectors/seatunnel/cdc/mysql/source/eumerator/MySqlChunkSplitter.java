@@ -27,15 +27,22 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlUtils;
 
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.Column;
+import io.debezium.relational.RelationalDatabaseConnectorConfig;
+import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
+import lombok.extern.slf4j.Slf4j;
 
 import java.sql.SQLException;
 
 /** The {@code ChunkSplitter} used to split table into a set of chunks for JDBC data source. */
+@Slf4j
 public class MySqlChunkSplitter extends AbstractJdbcSourceChunkSplitter {
+
+    private RelationalDatabaseConnectorConfig dbzConnectorConfig;
 
     public MySqlChunkSplitter(JdbcSourceConfig sourceConfig, JdbcDataSourceDialect dialect) {
         super(sourceConfig, dialect);
+        this.dbzConnectorConfig = sourceConfig.getDbzConnectorConfig();
     }
 
     @Override
@@ -54,8 +61,8 @@ public class MySqlChunkSplitter extends AbstractJdbcSourceChunkSplitter {
     @Override
     public Object[] sampleDataFromColumn(
             JdbcConnection jdbc, TableId tableId, String columnName, int inverseSamplingRate)
-            throws SQLException {
-        return MySqlUtils.sampleDataFromColumn(jdbc, tableId, columnName, inverseSamplingRate);
+            throws Exception {
+        return MySqlUtils.skipReadAndSortSampleData(jdbc, tableId, columnName, inverseSamplingRate);
     }
 
     @Override
@@ -77,15 +84,12 @@ public class MySqlChunkSplitter extends AbstractJdbcSourceChunkSplitter {
 
     @Override
     public String buildSplitScanQuery(
-            TableId tableId,
-            SeaTunnelRowType splitKeyType,
-            boolean isFirstSplit,
-            boolean isLastSplit) {
-        return MySqlUtils.buildSplitScanQuery(tableId, splitKeyType, isFirstSplit, isLastSplit);
+            Table table, SeaTunnelRowType splitKeyType, boolean isFirstSplit, boolean isLastSplit) {
+        return MySqlUtils.buildSplitScanQuery(table.id(), splitKeyType, isFirstSplit, isLastSplit);
     }
 
     @Override
     public SeaTunnelDataType<?> fromDbzColumn(Column splitColumn) {
-        return MySqlTypeUtils.convertFromColumn(splitColumn);
+        return MySqlTypeUtils.convertFromColumn(splitColumn, dbzConnectorConfig);
     }
 }

@@ -35,6 +35,7 @@ done
 
 PRG_DIR=`dirname "$PRG"`
 APP_DIR=`cd "$PRG_DIR/.." >/dev/null; pwd`
+SEATUNNEL_HOME=${APP_DIR}
 CONF_DIR=${APP_DIR}/config
 APP_JAR=${APP_DIR}/starter/seatunnel-starter.jar
 APP_MAIN="org.apache.seatunnel.core.starter.seatunnel.SeaTunnelClient"
@@ -81,9 +82,15 @@ JAVA_OPTS="${JAVA_OPTS} -Dhazelcast.client.config=${HAZELCAST_CLIENT_CONFIG}"
 JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.config=${SEATUNNEL_CONFIG}"
 JAVA_OPTS="${JAVA_OPTS} -Dhazelcast.config=${HAZELCAST_CONFIG}"
 
+# Client Debug Config
+# Usage instructions:
+# If you need to debug your code in cluster mode, please enable this configuration option and listen to the specified
+# port in your IDE. After that, you can happily debug your code.
+# JAVA_OPTS="${JAVA_OPTS} -Xdebug -Xrunjdwp:transport=dt_socket,server=y,address=5000,suspend=y"
+
 # Log4j2 Config
 if [ -e "${CONF_DIR}/log4j2_client.properties" ]; then
-  JAVA_OPTS="${JAVA_OPTS} -Dlog4j2.configurationFile=${CONF_DIR}/log4j2_client.properties"
+  JAVA_OPTS="${JAVA_OPTS} -Dhazelcast.logging.type=log4j2 -Dlog4j2.configurationFile=${CONF_DIR}/log4j2_client.properties"
   JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.logs.path=${APP_DIR}/logs"
   if [[ $args == *" -m local"* || $args == *" --master local"* || $args == *" -e local"* || $args == *" --deploy-mode local"* ]]; then
     ntime=$(echo `date "+%N"`|sed -r 's/^0+//')
@@ -95,9 +102,8 @@ fi
 
 CLASS_PATH=${APP_DIR}/lib/*:${APP_JAR}
 
-while read line
-do
-    if [[ ! $line == \#* ]] && [ -n "$line" ]; then
+while IFS= read -r line || [[ -n "$line" ]]; do
+    if [[ ! $line == \#* ]]; then
         JAVA_OPTS="$JAVA_OPTS $line"
     fi
 done < ${APP_DIR}/config/jvm_client_options

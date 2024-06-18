@@ -8,6 +8,20 @@
 > Flink<br/>
 > SeaTunnel Zeta<br/>
 
+## Description
+
+Read external data source data through JDBC.
+
+## Using Dependency
+
+### For Spark/Flink Engine
+
+> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/com.ibm.db2.jcc/db2jcc) has been placed in directory `${SEATUNNEL_HOME}/plugins/`.
+
+### For SeaTunnel Zeta Engine
+
+> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/com.ibm.db2.jcc/db2jcc) has been placed in directory `${SEATUNNEL_HOME}/lib/`.
+
 ## Key Features
 
 - [x] [batch](../../concept/connector-v2-features.md)
@@ -18,10 +32,6 @@
 - [x] [support user-defined split](../../concept/connector-v2-features.md)
 
 > supports query SQL and can achieve projection effect.
-
-## Description
-
-Read external data source data through JDBC.
 
 ## Supported DataSource Info
 
@@ -36,7 +46,7 @@ Read external data source data through JDBC.
 
 ## Data Type Mapping
 
-|                                            DB2 Data type                                             | SeaTunnel Data type |
+|                                            DB2 Data Type                                             | SeaTunnel Data Type |
 |------------------------------------------------------------------------------------------------------|---------------------|---|
 | BOOLEAN                                                                                              | BOOLEAN             |
 | SMALLINT                                                                                             | SHORT               |
@@ -67,6 +77,7 @@ Read external data source data through JDBC.
 | partition_upper_bound        | BigDecimal | No       | -               | The partition_column max value for scan, if not set SeaTunnel will query database get max value.                                                                                                                                                                  |
 | partition_num                | Int        | No       | job parallelism | The number of partition count, only support positive integer. default value is job parallelism                                                                                                                                                                    |
 | fetch_size                   | Int        | No       | 0               | For queries that return a large number of objects,you can configure<br/> the row fetch size used in the query toimprove performance by<br/> reducing the number database hits required to satisfy the selection criteria.<br/> Zero means use jdbc default value. |
+| properties                   | Map        | No       | -               | Additional connection configuration parameters,when properties and URL have the same parameters, the priority is determined by the <br/>specific implementation of the driver. For example, in MySQL, properties take precedence over the URL.                    |
 | common-options               |            | No       | -               | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details                                                                                                                                                           |
 
 ### Tips
@@ -82,8 +93,7 @@ Read external data source data through JDBC.
 ```
 # Defining the runtime environment
 env {
-  # You can set flink configuration here
-  execution.parallelism = 2
+  parallelism = 2
   job.mode = "BATCH"
 }
 source{

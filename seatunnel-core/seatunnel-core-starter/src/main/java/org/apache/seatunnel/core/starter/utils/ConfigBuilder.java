@@ -19,17 +19,22 @@ package org.apache.seatunnel.core.starter.utils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigParseOptions;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
+import org.apache.seatunnel.shade.com.typesafe.config.impl.Parseable;
 
 import org.apache.seatunnel.api.configuration.ConfigAdapter;
+import org.apache.seatunnel.common.utils.ParserException;
 
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 /** Used to build the {@link Config} from config file. */
@@ -43,14 +48,11 @@ public class ConfigBuilder {
         // utility class and cannot be instantiated
     }
 
-    private static Config ofInner(@NonNull Path filePath) {
+    private static Config ofInner(@NonNull Path filePath, List<String> variables) {
         Config config =
                 ConfigFactory.parseFile(filePath.toFile())
-                        .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
-                        .resolveWith(
-                                ConfigFactory.systemProperties(),
-                                ConfigResolveOptions.defaults().setAllowUnresolved(true));
-        return ConfigShadeUtils.decryptConfig(config);
+                        .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true));
+        return ConfigShadeUtils.decryptConfig(backfillUserVariables(config, variables));
     }
 
     public static Config of(@NonNull String filePath) {
@@ -58,34 +60,77 @@ public class ConfigBuilder {
         return of(path);
     }
 
+    public static Config of(@NonNull String filePath, List<String> variables) {
+        Path path = Paths.get(filePath);
+        return of(path, variables);
+    }
+
     public static Config of(@NonNull Path filePath) {
+        return of(filePath, null);
+    }
+
+    public static Config of(@NonNull Path filePath, List<String> variables) {
         log.info("Loading config file from path: {}", filePath);
         Optional<ConfigAdapter> adapterSupplier = ConfigAdapterUtils.selectAdapter(filePath);
         Config config =
                 adapterSupplier
-                        .map(adapter -> of(adapter, filePath))
-                        .orElseGet(() -> ofInner(filePath));
-        log.info("Parsed config file: {}", config.root().render(CONFIG_RENDER_OPTIONS));
+                        .map(adapter -> of(adapter, filePath, variables))
+                        .orElseGet(() -> ofInner(filePath, variables));
         return config;
     }
 
     public static Config of(@NonNull Map<String, Object> objectMap) {
-        log.info("Loading config file from objectMap");
-        Config config = ConfigFactory.parseMap(objectMap);
-        return ConfigShadeUtils.decryptConfig(config);
+        return of(objectMap, false);
     }
 
-    public static Config of(@NonNull ConfigAdapter configAdapter, @NonNull Path filePath) {
+    public static Config of(@NonNull Map<String, Object> objectMap, boolean isEncrypt) {
+        log.info("Loading config file from objectMap");
+        Config config =
+                ConfigFactory.parseMap(objectMap)
+                        .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
+                        .resolveWith(
+                                ConfigFactory.systemProperties(),
+                                ConfigResolveOptions.defaults().setAllowUnresolved(true));
+        if (!isEncrypt) {
+            config = ConfigShadeUtils.decryptConfig(config);
+        }
+        return config;
+    }
+
+    public static Config of(
+            @NonNull ConfigAdapter configAdapter, @NonNull Path filePath, List<String> variables) {
         log.info("With config adapter spi {}", configAdapter.getClass().getName());
         try {
             Map<String, Object> flattenedMap = configAdapter.loadConfig(filePath);
             Config config = ConfigFactory.parseMap(flattenedMap);
-            return ConfigShadeUtils.decryptConfig(config);
+            return ConfigShadeUtils.decryptConfig(backfillUserVariables(config, variables));
+        } catch (ParserException | IllegalArgumentException e) {
+            throw e;
         } catch (Exception warn) {
             log.warn(
                     "Loading config failed with spi {}, fallback to HOCON loader.",
                     configAdapter.getClass().getName());
-            return ofInner(filePath);
+            return ofInner(filePath, variables);
         }
+    }
+
+    private static Config backfillUserVariables(Config config, List<String> variables) {
+        if (variables != null) {
+            variables.stream()
+                    .filter(Objects::nonNull)
+                    .map(variable -> variable.split("=", 2))
+                    .filter(pair -> pair.length == 2)
+                    .forEach(pair -> System.setProperty(pair[0], pair[1]));
+            Config systemConfig =
+                    Parseable.newProperties(
+                                    System.getProperties(),
+                                    ConfigParseOptions.defaults()
+                                            .setOriginDescription("system properties"))
+                            .parse()
+                            .toConfig();
+            return config.resolveWith(
+                    systemConfig, ConfigResolveOptions.defaults().setAllowUnresolved(true));
+        }
+        return config;
     }
 }

@@ -30,6 +30,10 @@ public class EnvOptionRule {
                         CommonOptions.PARALLELISM,
                         EnvCommonOptions.JARS,
                         EnvCommonOptions.CHECKPOINT_INTERVAL,
+                        EnvCommonOptions.CHECKPOINT_TIMEOUT,
+                        EnvCommonOptions.READ_LIMIT_ROW_PER_SECOND,
+                        EnvCommonOptions.READ_LIMIT_BYTES_PER_SECOND,
+                        EnvCommonOptions.SAVEMODE_EXECUTE_LOCATION,
                         EnvCommonOptions.CUSTOM_PARAMETERS)
                 .build();
     }

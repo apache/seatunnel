@@ -14,6 +14,16 @@ e.g. If you use MySQL, should download and copy `mysql-connector-java-xxx.jar` t
 
 :::
 
+## Using Dependency
+
+### For Spark/Flink Engine
+
+> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/mysql/mysql-connector-java) has been placed in directory `${SEATUNNEL_HOME}/plugins/`.
+
+### For SeaTunnel Zeta Engine
+
+> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/mysql/mysql-connector-java) has been placed in directory `${SEATUNNEL_HOME}/lib/`.
+
 ## Key features
 
 - [x] [batch](../../concept/connector-v2-features.md)
@@ -25,24 +35,34 @@ supports query SQL and can achieve projection effect.
 
 - [x] [parallelism](../../concept/connector-v2-features.md)
 - [x] [support user-defined split](../../concept/connector-v2-features.md)
+- [x] [support multiple table read](../../concept/connector-v2-features.md)
 
 ## Options
 
-|             name             |  type  | required |  default value  |
-|------------------------------|--------|----------|-----------------|
-| url                          | String | Yes      | -               |
-| driver                       | String | Yes      | -               |
-| user                         | String | No       | -               |
-| password                     | String | No       | -               |
-| query                        | String | Yes      | -               |
-| compatible_mode              | String | No       | -               |
-| connection_check_timeout_sec | Int    | No       | 30              |
-| partition_column             | String | No       | -               |
-| partition_upper_bound        | Long   | No       | -               |
-| partition_lower_bound        | Long   | No       | -               |
-| partition_num                | Int    | No       | job parallelism |
-| fetch_size                   | Int    | No       | 0               |
-| common-options               |        | No       | -               |
+|                    name                    |  type  | required |  default value  |
+|--------------------------------------------|--------|----------|-----------------|
+| url                                        | String | Yes      | -               |
+| driver                                     | String | Yes      | -               |
+| user                                       | String | No       | -               |
+| password                                   | String | No       | -               |
+| query                                      | String | No       | -               |
+| compatible_mode                            | String | No       | -               |
+| connection_check_timeout_sec               | Int    | No       | 30              |
+| partition_column                           | String | No       | -               |
+| partition_upper_bound                      | Long   | No       | -               |
+| partition_lower_bound                      | Long   | No       | -               |
+| partition_num                              | Int    | No       | job parallelism |
+| fetch_size                                 | Int    | No       | 0               |
+| properties                                 | Map    | No       | -               |
+| table_path                                 | String | No       | -               |
+| table_list                                 | Array  | No       | -               |
+| where_condition                            | String | No       | -               |
+| split.size                                 | Int    | No       | 8096            |
+| split.even-distribution.factor.lower-bound | Double | No       | 0.05            |
+| split.even-distribution.factor.upper-bound | Double | No       | 100             |
+| split.sample-sharding.threshold            | Int    | No       | 1000            |
+| split.inverse-sampling.rate                | Int    | No       | 1000            |
+| common-options                             |        | No       | -               |
 
 ### driver [string]
 
@@ -72,64 +92,148 @@ The compatible mode of database, required when the database supports multiple co
 
 The time in seconds to wait for the database operation used to validate the connection to complete.
 
-### partition_column [string]
-
-The column name for parallelism's partition, only support numeric type.
-
-### partition_upper_bound [BigDecimal]
-
-The partition_column max value for scan, if not set SeaTunnel will query database get max value.
-
-### partition_lower_bound [BigDecimal]
-
-The partition_column min value for scan, if not set SeaTunnel will query database get min value.
-
-### partition_num [int]
-
-The number of partition count, only support positive integer. default value is job parallelism
-
 ### fetch_size [int]
 
 For queries that return a large number of objects, you can configure the row fetch size used in the query to
 improve performance by reducing the number database hits required to satisfy the selection criteria. Zero means use jdbc default value.
 
+### properties
+
+Additional connection configuration parameters,when properties and URL have the same parameters, the priority is determined by the <br/>specific implementation of the driver. For example, in MySQL, properties take precedence over the URL.
+
+### table_path
+
+The path to the full path of table, you can use this configuration instead of `query`.
+
+examples:
+- mysql: "testdb.table1"
+- oracle: "test_schema.table1"
+- sqlserver: "testdb.test_schema.table1"
+- postgresql: "testdb.test_schema.table1"
+- iris: "test_schema.table1"
+
+### table_list
+
+The list of tables to be read, you can use this configuration instead of `table_path`
+
+example
+
+```hocon
+table_list = [
+  {
+    table_path = "testdb.table1"
+  }
+  {
+    table_path = "testdb.table2"
+    query = "select * from testdb.table2 where id > 100"
+  }
+]
+```
+
+### where_condition
+
+Common row filter conditions for all tables/queries, must start with `where`. for example `where id > 100`
+
 ### common options
 
 Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.
 
+## Parallel Reader
+
+The JDBC Source connector supports parallel reading of data from tables. SeaTunnel will use certain rules to split the data in the table, which will be handed over to readers for reading. The number of readers is determined by the `parallelism` option.
+
+**Split Key Rules:**
+
+1. If `partition_column` is not null, It will be used to calculate split. The column must in **Supported split data type**.
+2. If `partition_column` is null, seatunnel will read the schema from table and get the Primary Key and Unique Index. If there are more than one column in Primary Key and Unique Index, The first column which in the **supported split data type** will be used to split data. For example, the table have Primary Key(nn guid, name varchar), because `guid` id not in **supported split data type**, so the column `name` will be used to split data.
+
+**Supported split data type:**
+* String
+* Number(int, bigint, decimal, ...)
+* Date
+
+### Options Related To Split
+
+#### split.size
+
+How many rows in one split, captured tables are split into multiple splits when read of table.
+
+#### split.even-distribution.factor.lower-bound
+
+> Not recommended for use
+
+The lower bound of the chunk key distribution factor. This factor is used to determine whether the table data is evenly distributed. If the distribution factor is calculated to be greater than or equal to this lower bound (i.e., (MAX(id) - MIN(id) + 1) / row count), the table chunks would be optimized for even distribution. Otherwise, if the distribution factor is less, the table will be considered as unevenly distributed and the sampling-based sharding strategy will be used if the estimated shard count exceeds the value specified by `sample-sharding.threshold`. The default value is 0.05.
+
+#### split.even-distribution.factor.upper-bound
+
+> Not recommended for use
+
+The upper bound of the chunk key distribution factor. This factor is used to determine whether the table data is evenly distributed. If the distribution factor is calculated to be less than or equal to this upper bound (i.e., (MAX(id) - MIN(id) + 1) / row count), the table chunks would be optimized for even distribution. Otherwise, if the distribution factor is greater, the table will be considered as unevenly distributed and the sampling-based sharding strategy will be used if the estimated shard count exceeds the value specified by `sample-sharding.threshold`. The default value is 100.0.
+
+#### split.sample-sharding.threshold
+
+This configuration specifies the threshold of estimated shard count to trigger the sample sharding strategy. When the distribution factor is outside the bounds specified by `chunk-key.even-distribution.factor.upper-bound` and `chunk-key.even-distribution.factor.lower-bound`, and the estimated shard count (calculated as approximate row count / chunk size) exceeds this threshold, the sample sharding strategy will be used. This can help to handle large datasets more efficiently. The default value is 1000 shards.
+
+#### split.inverse-sampling.rate
+
+The inverse of the sampling rate used in the sample sharding strategy. For example, if this value is set to 1000, it means a 1/1000 sampling rate is applied during the sampling process. This option provides flexibility in controlling the granularity of the sampling, thus affecting the final number of shards. It's especially useful when dealing with very large datasets where a lower sampling rate is preferred. The default value is 1000.
+
+#### partition_column [string]
+
+The column name for split data.
+
+#### partition_upper_bound [BigDecimal]
+
+The partition_column max value for scan, if not set SeaTunnel will query database get max value.
+
+#### partition_lower_bound [BigDecimal]
+
+The partition_column min value for scan, if not set SeaTunnel will query database get min value.
+
+#### partition_num [int]
+
+> Not recommended for use, The correct approach is to control the number of split through `split.size`
+
+How many splits do we need to split into, only support positive integer. default value is job parallelism.
+
 ## tips
 
-If partition_column is not set, it will run in single concurrency, and if partition_column is set, it will be executed
-in parallel according to the concurrency of tasks.
+> If the table can not be split(for example, table have no Primary Key or Unique Index, and `partition_column` is not set), it will run in single concurrency.
+>
+> Use `table_path` to replace `query` for single table reading. If you need to read multiple tables, use `table_list`.
 
 ## appendix
 
 there are some reference value for params above.
 
-| datasource |                       driver                        |                                  url                                   |                                                    maven                                                    |
-|------------|-----------------------------------------------------|------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------|
-| mysql      | com.mysql.cj.jdbc.Driver                            | jdbc:mysql://localhost:3306/test                                       | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                               |
-| postgresql | org.postgresql.Driver                               | jdbc:postgresql://localhost:5432/postgres                              | https://mvnrepository.com/artifact/org.postgresql/postgresql                                                |
-| dm         | dm.jdbc.driver.DmDriver                             | jdbc:dm://localhost:5236                                               | https://mvnrepository.com/artifact/com.dameng/DmJdbcDriver18                                                |
-| phoenix    | org.apache.phoenix.queryserver.client.Driver        | jdbc:phoenix:thin:url=http://localhost:8765;serialization=PROTOBUF     | https://mvnrepository.com/artifact/com.aliyun.phoenix/ali-phoenix-shaded-thin-client                        |
-| sqlserver  | com.microsoft.sqlserver.jdbc.SQLServerDriver        | jdbc:sqlserver://localhost:1433                                        | https://mvnrepository.com/artifact/com.microsoft.sqlserver/mssql-jdbc                                       |
-| oracle     | oracle.jdbc.OracleDriver                            | jdbc:oracle:thin:@localhost:1521/xepdb1                                | https://mvnrepository.com/artifact/com.oracle.database.jdbc/ojdbc8                                          |
-| sqlite     | org.sqlite.JDBC                                     | jdbc:sqlite:test.db                                                    | https://mvnrepository.com/artifact/org.xerial/sqlite-jdbc                                                   |
-| gbase8a    | com.gbase.jdbc.Driver                               | jdbc:gbase://e2e_gbase8aDb:5258/test                                   | https://www.gbase8.cn/wp-content/uploads/2020/10/gbase-connector-java-8.3.81.53-build55.5.7-bin_min_mix.jar |
-| starrocks  | com.mysql.cj.jdbc.Driver                            | jdbc:mysql://localhost:3306/test                                       | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                               |
-| db2        | com.ibm.db2.jcc.DB2Driver                           | jdbc:db2://localhost:50000/testdb                                      | https://mvnrepository.com/artifact/com.ibm.db2.jcc/db2jcc/db2jcc4                                           |
-| tablestore | com.alicloud.openservices.tablestore.jdbc.OTSDriver | "jdbc:ots:http s://myinstance.cn-hangzhou.ots.aliyuncs.com/myinstance" | https://mvnrepository.com/artifact/com.aliyun.openservices/tablestore-jdbc                                  |
-| saphana    | com.sap.db.jdbc.Driver                              | jdbc:sap://localhost:39015                                             | https://mvnrepository.com/artifact/com.sap.cloud.db.jdbc/ngdbc                                              |
-| doris      | com.mysql.cj.jdbc.Driver                            | jdbc:mysql://localhost:3306/test                                       | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                               |
-| teradata   | com.teradata.jdbc.TeraDriver                        | jdbc:teradata://localhost/DBS_PORT=1025,DATABASE=test                  | https://mvnrepository.com/artifact/com.teradata.jdbc/terajdbc                                               |
-| Snowflake  | net.snowflake.client.jdbc.SnowflakeDriver           | jdbc:snowflake://<account_name>.snowflakecomputing.com                 | https://mvnrepository.com/artifact/net.snowflake/snowflake-jdbc                                             |
-| Redshift   | com.amazon.redshift.jdbc42.Driver                   | jdbc:redshift://localhost:5439/testdb?defaultRowFetchSize=1000         | https://mvnrepository.com/artifact/com.amazon.redshift/redshift-jdbc42                                      |
-| Vertica    | com.vertica.jdbc.Driver                             | jdbc:vertica://localhost:5433                                          | https://repo1.maven.org/maven2/com/vertica/jdbc/vertica-jdbc/12.0.3-0/vertica-jdbc-12.0.3-0.jar             |
-| OceanBase  | com.oceanbase.jdbc.Driver                           | jdbc:oceanbase://localhost:2881                                        | https://repo1.maven.org/maven2/com/oceanbase/oceanbase-client/2.4.3/oceanbase-client-2.4.3.jar              |
+|    datasource     |                       driver                        |                                  url                                   |                                                             maven                                                             |
+|-------------------|-----------------------------------------------------|------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------|
+| mysql             | com.mysql.cj.jdbc.Driver                            | jdbc:mysql://localhost:3306/test                                       | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                                                 |
+| postgresql        | org.postgresql.Driver                               | jdbc:postgresql://localhost:5432/postgres                              | https://mvnrepository.com/artifact/org.postgresql/postgresql                                                                  |
+| dm                | dm.jdbc.driver.DmDriver                             | jdbc:dm://localhost:5236                                               | https://mvnrepository.com/artifact/com.dameng/DmJdbcDriver18                                                                  |
+| phoenix           | org.apache.phoenix.queryserver.client.Driver        | jdbc:phoenix:thin:url=http://localhost:8765;serialization=PROTOBUF     | https://mvnrepository.com/artifact/com.aliyun.phoenix/ali-phoenix-shaded-thin-client                                          |
+| sqlserver         | com.microsoft.sqlserver.jdbc.SQLServerDriver        | jdbc:sqlserver://localhost:1433                                        | https://mvnrepository.com/artifact/com.microsoft.sqlserver/mssql-jdbc                                                         |
+| oracle            | oracle.jdbc.OracleDriver                            | jdbc:oracle:thin:@localhost:1521/xepdb1                                | https://mvnrepository.com/artifact/com.oracle.database.jdbc/ojdbc8                                                            |
+| sqlite            | org.sqlite.JDBC                                     | jdbc:sqlite:test.db                                                    | https://mvnrepository.com/artifact/org.xerial/sqlite-jdbc                                                                     |
+| gbase8a           | com.gbase.jdbc.Driver                               | jdbc:gbase://e2e_gbase8aDb:5258/test                                   | https://www.gbase8.cn/wp-content/uploads/2020/10/gbase-connector-java-8.3.81.53-build55.5.7-bin_min_mix.jar                   |
+| starrocks         | com.mysql.cj.jdbc.Driver                            | jdbc:mysql://localhost:3306/test                                       | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                                                 |
+| db2               | com.ibm.db2.jcc.DB2Driver                           | jdbc:db2://localhost:50000/testdb                                      | https://mvnrepository.com/artifact/com.ibm.db2.jcc/db2jcc/db2jcc4                                                             |
+| tablestore        | com.alicloud.openservices.tablestore.jdbc.OTSDriver | "jdbc:ots:http s://myinstance.cn-hangzhou.ots.aliyuncs.com/myinstance" | https://mvnrepository.com/artifact/com.aliyun.openservices/tablestore-jdbc                                                    |
+| saphana           | com.sap.db.jdbc.Driver                              | jdbc:sap://localhost:39015                                             | https://mvnrepository.com/artifact/com.sap.cloud.db.jdbc/ngdbc                                                                |
+| doris             | com.mysql.cj.jdbc.Driver                            | jdbc:mysql://localhost:3306/test                                       | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                                                 |
+| teradata          | com.teradata.jdbc.TeraDriver                        | jdbc:teradata://localhost/DBS_PORT=1025,DATABASE=test                  | https://mvnrepository.com/artifact/com.teradata.jdbc/terajdbc                                                                 |
+| Snowflake         | net.snowflake.client.jdbc.SnowflakeDriver           | jdbc:snowflake://<account_name>.snowflakecomputing.com                 | https://mvnrepository.com/artifact/net.snowflake/snowflake-jdbc                                                               |
+| Redshift          | com.amazon.redshift.jdbc42.Driver                   | jdbc:redshift://localhost:5439/testdb?defaultRowFetchSize=1000         | https://mvnrepository.com/artifact/com.amazon.redshift/redshift-jdbc42                                                        |
+| Vertica           | com.vertica.jdbc.Driver                             | jdbc:vertica://localhost:5433                                          | https://repo1.maven.org/maven2/com/vertica/jdbc/vertica-jdbc/12.0.3-0/vertica-jdbc-12.0.3-0.jar                               |
+| Kingbase          | com.kingbase8.Driver                                | jdbc:kingbase8://localhost:54321/db_test                               | https://repo1.maven.org/maven2/cn/com/kingbase/kingbase8/8.6.0/kingbase8-8.6.0.jar                                            |
+| OceanBase         | com.oceanbase.jdbc.Driver                           | jdbc:oceanbase://localhost:2881                                        | https://repo1.maven.org/maven2/com/oceanbase/oceanbase-client/2.4.3/oceanbase-client-2.4.3.jar                                |
+| Hive              | org.apache.hive.jdbc.HiveDriver                     | jdbc:hive2://localhost:10000                                           | https://repo1.maven.org/maven2/org/apache/hive/hive-jdbc/3.1.3/hive-jdbc-3.1.3-standalone.jar                                 |
+| xugu              | com.xugu.cloudjdbc.Driver                           | jdbc:xugu://localhost:5138                                             | https://repo1.maven.org/maven2/com/xugudb/xugu-jdbc/12.2.0/xugu-jdbc-12.2.0.jar                                               |
+| InterSystems IRIS | com.intersystems.jdbc.IRISDriver                    | jdbc:IRIS://localhost:1972/%SYS                                        | https://raw.githubusercontent.com/intersystems-community/iris-driver-distribution/main/JDBC/JDK18/intersystems-jdbc-3.8.4.jar |
 
 ## Example
 
-simple:
+### simple
 
 ```
 Jdbc {
@@ -142,18 +246,118 @@ Jdbc {
 }
 ```
 
-parallel:
+### parallel by partition_column
 
 ```
+env {
+  parallelism = 10
+  job.mode = "BATCH"
+}
+source {
+    Jdbc {
+        url = "jdbc:mysql://localhost/test?serverTimezone=GMT%2b8"
+        driver = "com.mysql.cj.jdbc.Driver"
+        connection_check_timeout_sec = 100
+        user = "root"
+        password = "123456"
+        query = "select * from type_bin"
+        partition_column = "id"
+        split.size = 10000
+        # Read start boundary
+        #partition_lower_bound = ...
+        # Read end boundary
+        #partition_upper_bound = ...
+    }
+}
+
+sink {
+  Console {}
+}
+```
+
+### Parallel Boundary:
+
+> It is more efficient to specify the data within the upper and lower bounds of the query. It is more efficient to read your data source according to the upper and lower boundaries you configured.
+
+```
+source {
+    Jdbc {
+        url = "jdbc:mysql://localhost:3306/test?serverTimezone=GMT%2b8&useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
+        driver = "com.mysql.cj.jdbc.Driver"
+        connection_check_timeout_sec = 100
+        user = "root"
+        password = "123456"
+        # Define query logic as required
+        query = "select * from type_bin"
+        partition_column = "id"
+        # Read start boundary
+        partition_lower_bound = 1
+        # Read end boundary
+        partition_upper_bound = 500
+        partition_num = 10
+        properties {
+         useSSL=false
+        }
+    }
+}
+```
+
+### parallel by Primary Key or Unique Index
+
+> Configuring `table_path` will turn on auto split, you can configure `split.*` to adjust the split strategy
+
+```
+env {
+  parallelism = 10
+  job.mode = "BATCH"
+}
+source {
+    Jdbc {
+        url = "jdbc:mysql://localhost/test?serverTimezone=GMT%2b8"
+        driver = "com.mysql.cj.jdbc.Driver"
+        connection_check_timeout_sec = 100
+        user = "root"
+        password = "123456"
+        table_path = "testdb.table1"
+        query = "select * from testdb.table1"
+        split.size = 10000
+    }
+}
+
+sink {
+  Console {}
+}
+```
+
+### multiple table read:
+
+***Configuring `table_list` will turn on auto split, you can configure `split.*` to adjust the split strategy***
+
+```hocon
 Jdbc {
     url = "jdbc:mysql://localhost/test?serverTimezone=GMT%2b8"
     driver = "com.mysql.cj.jdbc.Driver"
     connection_check_timeout_sec = 100
     user = "root"
     password = "123456"
-    query = "select * from type_bin"
-    partition_column = "id"
-    partition_num = 10
+
+    table_list = [
+        {
+          # e.g. table_path = "testdb.table1"、table_path = "test_schema.table1"、table_path = "testdb.test_schema.table1"
+          table_path = "testdb.table1"
+        },
+        {
+          table_path = "testdb.table2"
+          # Use query filetr rows & columns
+          query = "select id, name from testdb.table2 where id > 100"
+        }
+    ]
+    #where_condition= "where id > 100"
+    #split.size = 10000
+    #split.even-distribution.factor.upper-bound = 100
+    #split.even-distribution.factor.lower-bound = 0.05
+    #split.sample-sharding.threshold = 1000
+    #split.inverse-sampling.rate = 1000
 }
 ```
 

@@ -17,21 +17,19 @@
 
 package org.apache.seatunnel.connectors.seatunnel.iceberg.config;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.common.config.ConfigRuntimeException;
 
 import lombok.Getter;
 import lombok.ToString;
 
 import java.io.Serializable;
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
-import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCatalogType.HADOOP;
-import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCatalogType.HIVE;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
 @Getter
 @ToString
@@ -41,19 +39,13 @@ public class CommonConfig implements Serializable {
     public static final Option<String> KEY_CATALOG_NAME =
             Options.key("catalog_name")
                     .stringType()
-                    .noDefaultValue()
+                    .defaultValue("default")
                     .withDescription(" the iceberg catalog name");
-
-    public static final Option<IcebergCatalogType> KEY_CATALOG_TYPE =
-            Options.key("catalog_type")
-                    .enumType(IcebergCatalogType.class)
-                    .noDefaultValue()
-                    .withDescription(" the iceberg catalog type");
 
     public static final Option<String> KEY_NAMESPACE =
             Options.key("namespace")
                     .stringType()
-                    .noDefaultValue()
+                    .defaultValue("default")
                     .withDescription(" the iceberg namespace");
 
     public static final Option<String> KEY_TABLE =
@@ -62,17 +54,25 @@ public class CommonConfig implements Serializable {
                     .noDefaultValue()
                     .withDescription(" the iceberg table");
 
-    public static final Option<String> KEY_URI =
-            Options.key("uri")
-                    .stringType()
+    public static final Option<Map<String, String>> CATALOG_PROPS =
+            Options.key("iceberg.catalog.config")
+                    .mapType()
                     .noDefaultValue()
-                    .withDescription(" the iceberg server uri");
+                    .withDescription(
+                            "Specify the properties for initializing the Iceberg catalog, which can be referenced in this file:'https://github.com/apache/iceberg/blob/main/core/src/main/java/org/apache/iceberg/CatalogProperties.java'");
 
-    public static final Option<String> KEY_WAREHOUSE =
-            Options.key("warehouse")
+    public static final Option<Map<String, String>> HADOOP_PROPS =
+            Options.key("hadoop.config")
+                    .mapType()
+                    .defaultValue(new HashMap<>())
+                    .withDescription("Properties passed through to the Hadoop configuration");
+
+    public static final Option<String> HADOOP_CONF_PATH_PROP =
+            Options.key("iceberg.hadoop-conf-path")
                     .stringType()
-                    .noDefaultValue()
-                    .withDescription(" the iceberg warehouse");
+                    .defaultValue(null)
+                    .withDescription(
+                            "The specified loading paths for the 'core-site.xml', 'hdfs-site.xml', 'hive-site.xml' files.");
 
     public static final Option<Boolean> KEY_CASE_SENSITIVE =
             Options.key("case_sensitive")
@@ -80,42 +80,40 @@ public class CommonConfig implements Serializable {
                     .defaultValue(false)
                     .withDescription(" the iceberg case_sensitive");
 
-    public static final Option<List<String>> KEY_FIELDS =
-            Options.key("fields")
-                    .listType()
-                    .noDefaultValue()
-                    .withDescription(" the iceberg table fields");
-
     private String catalogName;
-    private IcebergCatalogType catalogType;
-    private String uri;
-    private String warehouse;
     private String namespace;
     private String table;
     private boolean caseSensitive;
 
-    public CommonConfig(Config pluginConfig) {
-        String catalogType = checkArgumentNotNull(pluginConfig.getString(KEY_CATALOG_TYPE.key()));
-        checkArgument(
-                HADOOP.getType().equals(catalogType) || HIVE.getType().equals(catalogType),
-                "Illegal catalogType: " + catalogType);
+    private Map<String, String> catalogProps;
+    private Map<String, String> hadoopProps;
+    private String hadoopConfPath;
 
-        this.catalogType = IcebergCatalogType.valueOf(catalogType.toUpperCase());
-        this.catalogName = checkArgumentNotNull(pluginConfig.getString(KEY_CATALOG_NAME.key()));
-        if (pluginConfig.hasPath(KEY_URI.key())) {
-            this.uri = checkArgumentNotNull(pluginConfig.getString(KEY_URI.key()));
+    public CommonConfig(ReadonlyConfig pluginConfig) {
+        this.catalogName = checkArgumentNotNull(pluginConfig.get(KEY_CATALOG_NAME));
+        this.namespace = pluginConfig.get(KEY_NAMESPACE);
+        this.table = pluginConfig.get(KEY_TABLE);
+        this.catalogProps = pluginConfig.get(CATALOG_PROPS);
+        this.hadoopProps = pluginConfig.get(HADOOP_PROPS);
+        this.hadoopConfPath = pluginConfig.get(HADOOP_CONF_PATH_PROP);
+        if (pluginConfig.toConfig().hasPath(KEY_CASE_SENSITIVE.key())) {
+            this.caseSensitive = pluginConfig.get(KEY_CASE_SENSITIVE);
         }
-        this.warehouse = checkArgumentNotNull(pluginConfig.getString(KEY_WAREHOUSE.key()));
-        this.namespace = checkArgumentNotNull(pluginConfig.getString(KEY_NAMESPACE.key()));
-        this.table = checkArgumentNotNull(pluginConfig.getString(KEY_TABLE.key()));
-
-        if (pluginConfig.hasPath(KEY_CASE_SENSITIVE.key())) {
-            this.caseSensitive = pluginConfig.getBoolean(KEY_CASE_SENSITIVE.key());
-        }
+        validate();
     }
 
     protected <T> T checkArgumentNotNull(T argument) {
         checkNotNull(argument);
         return argument;
+    }
+
+    private void validate() {
+        checkState(!catalogProps.isEmpty(), "Must specify iceberg catalog config");
+    }
+
+    private void checkState(boolean condition, String msg) {
+        if (!condition) {
+            throw new ConfigRuntimeException(msg);
+        }
     }
 }

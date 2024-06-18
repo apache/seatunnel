@@ -17,6 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
+import org.apache.seatunnel.api.table.catalog.Catalog;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.common.utils.JdbcUrlUtil;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresCatalog;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
@@ -26,6 +32,7 @@ import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -62,6 +69,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
     private static final List<String> PG_CONFIG_FILE_LIST =
             Lists.newArrayList(
                     "/jdbc_postgres_source_and_sink.conf",
+                    "/jdbc_postgres_source_and_sink_copy_stmt.conf",
                     "/jdbc_postgres_source_and_sink_parallel.conf",
                     "/jdbc_postgres_source_and_sink_parallel_upper_lower.conf",
                     "/jdbc_postgres_source_and_sink_xa.conf");
@@ -69,6 +77,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
     private static final String PG_SOURCE_DDL =
             "CREATE TABLE IF NOT EXISTS pg_e2e_source_table (\n"
                     + "  gid SERIAL PRIMARY KEY,\n"
+                    + "  uuid_col UUID,\n"
                     + "  text_col TEXT,\n"
                     + "  varchar_col VARCHAR(255),\n"
                     + "  char_col CHAR(10),\n"
@@ -97,11 +106,13 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "  geometrycollection geometry(GEOMETRYCOLLECTION, 4326),\n"
                     + "  geog geography(POINT, 4326),\n"
                     + "  json_col json NOT NULL,\n"
-                    + "  jsonb_col jsonb NOT NULL\n"
+                    + "  jsonb_col jsonb NOT NULL,\n"
+                    + "  xml_col xml NOT NULL\n"
                     + ")";
     private static final String PG_SINK_DDL =
             "CREATE TABLE IF NOT EXISTS pg_e2e_sink_table (\n"
                     + "    gid SERIAL PRIMARY KEY,\n"
+                    + "    uuid_col UUID,\n"
                     + "    text_col TEXT,\n"
                     + "    varchar_col VARCHAR(255),\n"
                     + "    char_col CHAR(10),\n"
@@ -130,11 +141,13 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "    geometrycollection varchar(2000) NULL,\n"
                     + "    geog varchar(2000) NULL,\n"
                     + "    json_col json NOT NULL \n,"
-                    + "    jsonb_col jsonb NOT NULL\n"
+                    + "    jsonb_col jsonb NOT NULL,\n"
+                    + "    xml_col xml NOT NULL\n"
                     + "  )";
     private static final String SOURCE_SQL =
             "select \n"
                     + "gid,\n"
+                    + "uuid_col, \n"
                     + "text_col,\n"
                     + "varchar_col,\n"
                     + "char_col,\n"
@@ -163,11 +176,13 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "geometrycollection,\n"
                     + "geog,\n"
                     + "json_col,\n"
-                    + "jsonb_col\n"
+                    + "jsonb_col,\n"
+                    + " cast(xml_col as varchar) \n"
                     + "from pg_e2e_source_table";
     private static final String SINK_SQL =
             "select\n"
                     + "  gid,\n"
+                    + "uuid_col, \n"
                     + "   text_col,\n"
                     + "   varchar_col,\n"
                     + "   char_col,\n"
@@ -196,7 +211,8 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "  cast(geometrycollection as geometry) as geometrycollection,\n"
                     + "  cast(geog as geography) as geog,\n"
                     + "   json_col,\n"
-                    + "   jsonb_col\n"
+                    + "   jsonb_col,\n"
+                    + "  cast(xml_col as varchar) \n"
                     + "from\n"
                     + "  pg_e2e_sink_table";
 
@@ -244,12 +260,58 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
     public void testAutoGenerateSQL(TestContainer container)
             throws IOException, InterruptedException {
         for (String CONFIG_FILE : PG_CONFIG_FILE_LIST) {
-            Container.ExecResult execResult = container.executeJob(CONFIG_FILE);
-            Assertions.assertEquals(0, execResult.getExitCode());
-            Assertions.assertIterableEquals(querySql(SOURCE_SQL), querySql(SINK_SQL));
-            executeSQL("truncate table pg_e2e_sink_table");
+            try {
+                Container.ExecResult execResult = container.executeJob(CONFIG_FILE);
+                Assertions.assertEquals(
+                        0,
+                        execResult.getExitCode(),
+                        CONFIG_FILE
+                                + " job run failed in "
+                                + container.getClass().getSimpleName()
+                                + ".");
+                Assertions.assertIterableEquals(querySql(SOURCE_SQL), querySql(SINK_SQL));
+            } finally {
+                executeSQL("truncate table pg_e2e_sink_table");
+            }
             log.info(CONFIG_FILE + " e2e test completed");
         }
+    }
+
+    @Test
+    public void testCatalog() {
+        String schema = "public";
+        String databaseName = POSTGRESQL_CONTAINER.getDatabaseName();
+        String tableName = "pg_e2e_sink_table";
+        String catalogDatabaseName = "pg_e2e_catalog_database";
+        String catalogTableName = "pg_e2e_catalog_table";
+
+        Catalog catalog =
+                new PostgresCatalog(
+                        DatabaseIdentifier.POSTGRESQL,
+                        POSTGRESQL_CONTAINER.getUsername(),
+                        POSTGRESQL_CONTAINER.getPassword(),
+                        JdbcUrlUtil.getUrlInfo(POSTGRESQL_CONTAINER.getJdbcUrl()),
+                        schema);
+        catalog.open();
+
+        TablePath tablePath = new TablePath(databaseName, schema, tableName);
+        TablePath catalogTablePath = new TablePath(catalogDatabaseName, schema, catalogTableName);
+
+        Assertions.assertFalse(catalog.databaseExists(catalogTablePath.getDatabaseName()));
+        catalog.createDatabase(catalogTablePath, false);
+        Assertions.assertTrue(catalog.databaseExists(catalogTablePath.getDatabaseName()));
+
+        CatalogTable catalogTable = catalog.getTable(tablePath);
+        catalog.createTable(catalogTablePath, catalogTable, false);
+        Assertions.assertTrue(catalog.tableExists(catalogTablePath));
+
+        catalog.dropTable(catalogTablePath, false);
+        Assertions.assertFalse(catalog.tableExists(catalogTablePath));
+
+        catalog.dropDatabase(catalogTablePath, false);
+        Assertions.assertFalse(catalog.databaseExists(catalogTablePath.getDatabaseName()));
+
+        catalog.close();
     }
 
     private void initializeJdbcTable() {
@@ -261,6 +323,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                 statement.addBatch(
                         "INSERT INTO\n"
                                 + "  pg_e2e_source_table (gid,\n"
+                                + "    uuid_col,\n"
                                 + "    text_col,\n"
                                 + "    varchar_col,\n"
                                 + "    char_col,\n"
@@ -289,13 +352,15 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                                 + "    geometrycollection,\n"
                                 + "    geog,\n"
                                 + "    json_col,\n"
-                                + "    jsonb_col \n"
+                                + "    jsonb_col, \n"
+                                + "    xml_col \n"
                                 + "  )\n"
                                 + "VALUES\n"
                                 + "  (\n"
                                 + "    '"
                                 + i
                                 + "',\n"
+                                + "    gen_random_uuid(),\n"
                                 + "    'Hello World',\n"
                                 + "    'Test',\n"
                                 + "    'Testing',\n"
@@ -342,7 +407,8 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                                 + "    ),\n"
                                 + "    ST_GeographyFromText('POINT(-122.3452 47.5925)'),\n"
                                 + "    '{\"key\":\"test\"}',\n"
-                                + "    '{\"key\":\"test\"}'\n"
+                                + "    '{\"key\":\"test\"}',\n"
+                                + "    '<XX:NewSize>test</XX:NewSize>'\n"
                                 + "  )");
             }
 
@@ -392,5 +458,131 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
         if (POSTGRESQL_CONTAINER != null) {
             POSTGRESQL_CONTAINER.stop();
         }
+    }
+
+    @Test
+    public void testCatalogForSaveMode() {
+        String schema = "public";
+        String databaseName = POSTGRESQL_CONTAINER.getDatabaseName();
+        TablePath tablePathPG = TablePath.of(databaseName, "public", "pg_e2e_source_table");
+        TablePath tablePathPgSink = TablePath.of(databaseName, "public", "pg_ide_sink_table_2");
+        PostgresCatalog postgresCatalog =
+                new PostgresCatalog(
+                        DatabaseIdentifier.POSTGRESQL,
+                        POSTGRESQL_CONTAINER.getUsername(),
+                        POSTGRESQL_CONTAINER.getPassword(),
+                        JdbcUrlUtil.getUrlInfo(POSTGRESQL_CONTAINER.getJdbcUrl()),
+                        schema);
+        postgresCatalog.open();
+        CatalogTable catalogTable = postgresCatalog.getTable(tablePathPG);
+        // sink tableExists ?
+        boolean tableExistsBefore = postgresCatalog.tableExists(tablePathPgSink);
+        Assertions.assertFalse(tableExistsBefore);
+        // create table
+        postgresCatalog.createTable(tablePathPgSink, catalogTable, true);
+        boolean tableExistsAfter = postgresCatalog.tableExists(tablePathPgSink);
+        Assertions.assertTrue(tableExistsAfter);
+        // isExistsData ?
+        boolean existsDataBefore = postgresCatalog.isExistsData(tablePathPgSink);
+        Assertions.assertFalse(existsDataBefore);
+        // insert one data
+        String customSql =
+                "INSERT INTO\n"
+                        + "  pg_ide_sink_table_2 (gid,\n"
+                        + "    text_col,\n"
+                        + "    varchar_col,\n"
+                        + "    char_col,\n"
+                        + "    boolean_col,\n"
+                        + "    smallint_col,\n"
+                        + "    integer_col,\n"
+                        + "    bigint_col,\n"
+                        + "    decimal_col,\n"
+                        + "    numeric_col,\n"
+                        + "    real_col,\n"
+                        + "    double_precision_col,\n"
+                        + "    smallserial_col,\n"
+                        + "    serial_col,\n"
+                        + "    bigserial_col,\n"
+                        + "    date_col,\n"
+                        + "    timestamp_col,\n"
+                        + "    bpchar_col,\n"
+                        + "    age,\n"
+                        + "    name,\n"
+                        + "    point,\n"
+                        + "    linestring,\n"
+                        + "    polygon_colums,\n"
+                        + "    multipoint,\n"
+                        + "    multilinestring,\n"
+                        + "    multipolygon,\n"
+                        + "    geometrycollection,\n"
+                        + "    geog,\n"
+                        + "    json_col,\n"
+                        + "    jsonb_col, \n"
+                        + "    xml_col \n"
+                        + "  )\n"
+                        + "VALUES\n"
+                        + "  (\n"
+                        + "    '"
+                        + 999
+                        + "',\n"
+                        + "    'Hello World',\n"
+                        + "    'Test',\n"
+                        + "    'Testing',\n"
+                        + "    true,\n"
+                        + "    10,\n"
+                        + "    100,\n"
+                        + "    1000,\n"
+                        + "    10.55,\n"
+                        + "    8.8888,\n"
+                        + "    3.14,\n"
+                        + "    3.14159265,\n"
+                        + "    1,\n"
+                        + "    100,\n"
+                        + "    10000,\n"
+                        + "    '2023-05-07',\n"
+                        + "    '2023-05-07 14:30:00',\n"
+                        + "    'Testing',\n"
+                        + "    21,\n"
+                        + "    'Leblanc',\n"
+                        + "    ST_GeomFromText('POINT(-122.3452 47.5925)', 4326),\n"
+                        + "    ST_GeomFromText(\n"
+                        + "      'LINESTRING(-122.3451 47.5924, -122.3449 47.5923)',\n"
+                        + "      4326\n"
+                        + "    ),\n"
+                        + "    ST_GeomFromText(\n"
+                        + "      'POLYGON((-122.3453 47.5922, -122.3453 47.5926, -122.3448 47.5926, -122.3448 47.5922, -122.3453 47.5922))',\n"
+                        + "      4326\n"
+                        + "    ),\n"
+                        + "    ST_GeomFromText(\n"
+                        + "      'MULTIPOINT(-122.3459 47.5927, -122.3445 47.5918)',\n"
+                        + "      4326\n"
+                        + "    ),\n"
+                        + "    ST_GeomFromText(\n"
+                        + "      'MULTILINESTRING((-122.3463 47.5920, -122.3461 47.5919),(-122.3459 47.5924, -122.3457 47.5923))',\n"
+                        + "      4326\n"
+                        + "    ),\n"
+                        + "    ST_GeomFromText(\n"
+                        + "      'MULTIPOLYGON(((-122.3458 47.5925, -122.3458 47.5928, -122.3454 47.5928, -122.3454 47.5925, -122.3458 47.5925)),((-122.3453 47.5921, -122.3453 47.5924, -122.3448 47.5924, -122.3448 47.5921, -122.3453 47.5921)))',\n"
+                        + "      4326\n"
+                        + "    ),\n"
+                        + "    ST_GeomFromText(\n"
+                        + "      'GEOMETRYCOLLECTION(POINT(-122.3462 47.5921), LINESTRING(-122.3460 47.5924, -122.3457 47.5924))',\n"
+                        + "      4326\n"
+                        + "    ),\n"
+                        + "    ST_GeographyFromText('POINT(-122.3452 47.5925)'),\n"
+                        + "    '{\"key\":\"test\"}',\n"
+                        + "    '{\"key\":\"test\"}',\n"
+                        + "    '<XX:NewSize>test</XX:NewSize>'\n"
+                        + "  )";
+        postgresCatalog.executeSql(tablePathPgSink, customSql);
+        boolean existsDataAfter = postgresCatalog.isExistsData(tablePathPgSink);
+        Assertions.assertTrue(existsDataAfter);
+        // truncateTable
+        postgresCatalog.truncateTable(tablePathPgSink, true);
+        Assertions.assertFalse(postgresCatalog.isExistsData(tablePathPgSink));
+        // drop table
+        postgresCatalog.dropTable(tablePathPgSink, true);
+        Assertions.assertFalse(postgresCatalog.tableExists(tablePathPgSink));
+        postgresCatalog.close();
     }
 }

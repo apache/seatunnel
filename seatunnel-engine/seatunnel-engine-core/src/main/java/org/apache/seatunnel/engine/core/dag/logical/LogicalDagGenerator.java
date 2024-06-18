@@ -38,6 +38,7 @@ public class LogicalDagGenerator {
     private List<Action> actions;
     private JobConfig jobConfig;
     private IdGenerator idGenerator;
+    private boolean isStartWithSavePoint;
 
     private final Map<Long, LogicalVertex> logicalVertexMap = new LinkedHashMap<>();
 
@@ -51,10 +52,19 @@ public class LogicalDagGenerator {
             @NonNull List<Action> actions,
             @NonNull JobConfig jobConfig,
             @NonNull IdGenerator idGenerator) {
+        this(actions, jobConfig, idGenerator, false);
+    }
+
+    public LogicalDagGenerator(
+            @NonNull List<Action> actions,
+            @NonNull JobConfig jobConfig,
+            @NonNull IdGenerator idGenerator,
+            boolean isStartWithSavePoint) {
         this.actions = actions;
         this.jobConfig = jobConfig;
         this.idGenerator = idGenerator;
-        if (actions.size() <= 0) {
+        this.isStartWithSavePoint = isStartWithSavePoint;
+        if (actions.isEmpty()) {
             throw new IllegalStateException("No actions define in the job. Cannot execute.");
         }
     }
@@ -65,6 +75,7 @@ public class LogicalDagGenerator {
         LogicalDag logicalDag = new LogicalDag(jobConfig, idGenerator);
         logicalDag.getEdges().addAll(logicalEdges);
         logicalDag.getLogicalVertexMap().putAll(logicalVertexMap);
+        logicalDag.setStartWithSavePoint(isStartWithSavePoint);
         return logicalDag;
     }
 

@@ -31,10 +31,10 @@ import java.util.List;
 @Setter
 @Getter
 @ToString
-@SuppressWarnings("checkstyle:MagicNumber")
 public class SinkConfig extends InfluxDBConfig {
     public SinkConfig(Config config) {
         super(config);
+        loadConfig(config);
     }
 
     public static final Option<String> KEY_TIME =
@@ -60,12 +60,6 @@ public class SinkConfig extends InfluxDBConfig {
                     .intType()
                     .defaultValue(1024)
                     .withDescription("batch size of the influxdb client");
-
-    public static final Option<Integer> BATCH_INTERVAL_MS =
-            Options.key("batch_interval_ms")
-                    .intType()
-                    .noDefaultValue()
-                    .withDescription("batch interval ms of the influxdb client");
 
     public static final Option<Integer> MAX_RETRIES =
             Options.key("max_retries")
@@ -105,44 +99,37 @@ public class SinkConfig extends InfluxDBConfig {
     private String keyTime;
     private List<String> keyTags;
     private int batchSize = BATCH_SIZE.defaultValue();
-    private Integer batchIntervalMs;
     private int maxRetries;
     private int retryBackoffMultiplierMs;
     private int maxRetryBackoffMs;
     private TimePrecision precision = DEFAULT_TIME_PRECISION;
 
-    public static SinkConfig loadConfig(Config config) {
-        SinkConfig sinkConfig = new SinkConfig(config);
+    public void loadConfig(Config config) {
 
         if (config.hasPath(KEY_TIME.key())) {
-            sinkConfig.setKeyTime(config.getString(KEY_TIME.key()));
+            setKeyTime(config.getString(KEY_TIME.key()));
         }
         if (config.hasPath(KEY_TAGS.key())) {
-            sinkConfig.setKeyTags(config.getStringList(KEY_TAGS.key()));
-        }
-        if (config.hasPath(BATCH_INTERVAL_MS.key())) {
-            sinkConfig.setBatchIntervalMs(config.getInt(BATCH_INTERVAL_MS.key()));
+            setKeyTags(config.getStringList(KEY_TAGS.key()));
         }
         if (config.hasPath(MAX_RETRIES.key())) {
-            sinkConfig.setMaxRetries(config.getInt(MAX_RETRIES.key()));
+            setMaxRetries(config.getInt(MAX_RETRIES.key()));
         }
         if (config.hasPath(RETRY_BACKOFF_MULTIPLIER_MS.key())) {
-            sinkConfig.setRetryBackoffMultiplierMs(
-                    config.getInt(RETRY_BACKOFF_MULTIPLIER_MS.key()));
+            setRetryBackoffMultiplierMs(config.getInt(RETRY_BACKOFF_MULTIPLIER_MS.key()));
         }
         if (config.hasPath(MAX_RETRY_BACKOFF_MS.key())) {
-            sinkConfig.setMaxRetryBackoffMs(config.getInt(MAX_RETRY_BACKOFF_MS.key()));
+            setMaxRetryBackoffMs(config.getInt(MAX_RETRY_BACKOFF_MS.key()));
         }
         if (config.hasPath(WRITE_TIMEOUT.key())) {
-            sinkConfig.setWriteTimeout(config.getInt(WRITE_TIMEOUT.key()));
+            setWriteTimeout(config.getInt(WRITE_TIMEOUT.key()));
         }
         if (config.hasPath(RETENTION_POLICY.key())) {
-            sinkConfig.setRp(config.getString(RETENTION_POLICY.key()));
+            setRp(config.getString(RETENTION_POLICY.key()));
         }
         if (config.hasPath(EPOCH.key())) {
-            sinkConfig.setPrecision(TimePrecision.getPrecision(config.getString(EPOCH.key())));
+            setPrecision(TimePrecision.getPrecision(config.getString(EPOCH.key())));
         }
-        sinkConfig.setMeasurement(config.getString(KEY_MEASUREMENT.key()));
-        return sinkConfig;
+        setMeasurement(config.getString(KEY_MEASUREMENT.key()));
     }
 }

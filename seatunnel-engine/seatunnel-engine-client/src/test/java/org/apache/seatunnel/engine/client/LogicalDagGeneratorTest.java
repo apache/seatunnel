@@ -49,14 +49,14 @@ public class LogicalDagGeneratorTest {
 
         IdGenerator idGenerator = new IdGenerator();
         ImmutablePair<List<Action>, Set<URL>> immutablePair =
-                new MultipleTableJobConfigParser(filePath, idGenerator, jobConfig).parse();
+                new MultipleTableJobConfigParser(filePath, idGenerator, jobConfig).parse(null);
 
         LogicalDagGenerator logicalDagGenerator =
                 new LogicalDagGenerator(immutablePair.getLeft(), jobConfig, idGenerator);
         LogicalDag logicalDag = logicalDagGenerator.generate();
         JsonObject logicalDagJson = logicalDag.getLogicalDagAsJson();
         String result =
-                "{\"vertices\":[{\"id\":1,\"name\":\"Source[0]-FakeSource-fake(id=1)\",\"parallelism\":3},{\"id\":2,\"name\":\"Source[0]-FakeSource-fake2(id=2)\",\"parallelism\":3},{\"id\":3,\"name\":\"Sink[0]-LocalFile-default-identifier(id=3)\",\"parallelism\":3}],\"edges\":[{\"inputVertex\":\"Source[0]-FakeSource-fake\",\"targetVertex\":\"Sink[0]-LocalFile-default-identifier\"},{\"inputVertex\":\"Source[0]-FakeSource-fake2\",\"targetVertex\":\"Sink[0]-LocalFile-default-identifier\"}]}";
+                "{\"vertices\":[{\"id\":1,\"name\":\"Source[0]-FakeSource(id=1)\",\"parallelism\":3},{\"id\":2,\"name\":\"Source[1]-FakeSource(id=2)\",\"parallelism\":3},{\"id\":3,\"name\":\"Sink[0]-LocalFile-fake(id=3)\",\"parallelism\":3}],\"edges\":[{\"inputVertex\":\"Source[0]-FakeSource\",\"targetVertex\":\"Sink[0]-LocalFile-fake\"},{\"inputVertex\":\"Source[1]-FakeSource\",\"targetVertex\":\"Sink[0]-LocalFile-fake\"}]}";
         Assertions.assertEquals(result, logicalDagJson.toString());
     }
 }

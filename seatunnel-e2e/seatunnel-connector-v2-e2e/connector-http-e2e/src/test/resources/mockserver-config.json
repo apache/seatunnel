@@ -4447,5 +4447,302 @@
         ]
       }
     }
+  },
+  {
+    "httpRequest": {
+      "method" : "POST",
+      "path": "/example/jsonBody",
+      "body": {
+        "type": "JSON",
+        "json": {
+          "id": 1
+        },
+        "matchType": "STRICT"
+      }
+    },
+    "httpResponse": {
+      "body": [
+        {
+          "name": "lzl",
+          "age": 18
+        },
+        {
+          "name": "pizz",
+          "age": 19
+        }
+      ],
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    }
+  },
+  {
+    "httpRequest": {
+      "path": "/example/formBody",
+      "method": "POST",
+      "body": {
+        "type": "PARAMETERS",
+        "parameters": {
+          "id": "1"
+        }
+      }
+    },
+    "httpResponse": {
+      "body": [
+        {
+          "name": "lzl",
+          "age": 18
+        },
+        {
+          "name": "pizz",
+          "age": 19
+        }
+      ],
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    }
+  },
+  {
+    "httpRequest": {
+      "path": "/example/webhook",
+      "method": "POST",
+      "headers": {
+        "token": ["9e32e859ef044462a257e1fc76730066"]
+      }
+    },
+    "httpResponse": {
+      "body": [
+        {
+          "name": "lzl",
+          "age": 18
+        },
+        {
+          "name": "pizz",
+          "age": 19
+        }
+      ],
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    }
+  },
+  {
+    "httpRequest": {
+      "method" : "GET",
+      "path": "/query/pages",
+      "queryStringParameters": {
+        "page": "1"
+      }
+    },
+    "httpResponse": {
+      "body":
+      {
+        "status": null,
+        "msg": null,
+        "data": [
+          {
+            "name": "name1",
+            "age": 69
+          },
+          {
+            "name": "name2",
+            "age": 51
+          }
+        ],
+        "currentPageIndex": 1,
+        "totalPage": 2
+      }
+    }
+  },
+  {
+    "httpRequest": {
+      "method" : "GET",
+      "path": "/query/pages",
+      "queryStringParameters": {
+        "page": "2"
+      }
+    },
+    "httpResponse": {
+      "body":
+      {
+        "status": null,
+        "msg": null,
+        "data": [
+          {
+            "name": "name1",
+            "age": 69
+          },
+          {
+            "name": "name2",
+            "age": 51
+          }
+        ],
+        "currentPageIndex": 2,
+        "totalPage": 2
+      }
+    }
+  },
+  {
+    "httpRequest": {
+      "method" : "GET",
+      "path": "/query/pagesNoPageNum",
+      "queryStringParameters": {
+        "page": "1"
+      }
+    },
+    "httpResponse": {
+      "body":
+      {
+        "status": null,
+        "msg": null,
+        "data": [
+          {
+            "name": "name1",
+            "age": 69
+          },
+          {
+            "name": "name2",
+            "age": 51
+          },
+          {
+            "name": "name3",
+            "age": 36
+          },
+          {
+            "name": "name4",
+            "age": 51
+          },
+          {
+            "name": "name5",
+            "age": 74
+          },
+          {
+            "name": "name6",
+            "age": 51
+          },
+          {
+            "name": "name7",
+            "age": 67
+          },
+          {
+            "name": "name8",
+            "age": 12
+          },
+          {
+            "name": "name9",
+            "age": 45
+          },
+          {
+            "name": "name10",
+            "age": 23
+          }
+        ],
+        "currentPageIndex": 1,
+        "hasNext": true
+      }
+    }
+  },
+  {
+    "httpRequest": {
+      "method" : "GET",
+      "path": "/query/pagesNoPageNum",
+      "queryStringParameters": {
+        "page": "2"
+      }
+    },
+    "httpResponse": {
+      "body":
+      {
+        "status": null,
+        "msg": null,
+        "data": [
+          {
+            "name": "name11",
+            "age": 69
+          },
+          {
+            "name": "name22",
+            "age": 51
+          }
+        ],
+        "currentPageIndex": 2,
+        "hasNext": false
+      }
+    }
+  },
+  {
+    "httpRequest": {
+      "path": "/example/feishu/108bb8f208d9b2378c8c7aedad715c19",
+      "method": "POST"
+    },
+    "httpResponse": {
+      "body": [
+        {
+          "name": "lzl",
+          "age": 18
+        },
+        {
+          "name": "pizz",
+          "age": 19
+        }
+      ],
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    }
+  },
+  {
+    "httpRequest": {
+      "path": "/example/httpContentSink",
+      "method": "POST",
+      "headers": {
+        "token": ["9e32e859ef044462a257e1fc76730066"]
+      },
+      "body": {
+        "type": "JSON",
+        "json": {"content" : "[ {\n  \"name\" : \"lzl\",\n  \"age\" : 18\n}, {\n  \"name\" : \"pizz\",\n  \"age\" : 19\n} ]"},
+        "matchType": "STRICT"
+      }
+    },
+    "httpResponse": {
+      "body": [
+        {
+          "name": "lzl2",
+          "age": 18
+        },
+        {
+          "name": "pizz2",
+          "age": 19
+        }
+      ],
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    }
+  },
+  {
+    "httpRequest": {
+      "path": "/example/httpMultiTableContentSink",
+      "method": "POST",
+      "headers": {
+        "token": ["9e32e859ef044462a257e1fc76730066"]
+      }
+    },
+    "httpResponse": {
+      "body": [
+        {
+          "name": "httpMultiTableContentSink",
+          "age": 18
+        },
+        {
+          "name": "pizz2",
+          "age": 19
+        }
+      ],
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    }
   }
 ]

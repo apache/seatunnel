@@ -18,10 +18,10 @@
 package org.apache.seatunnel.engine.server.task.context;
 
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
+import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
-import org.apache.seatunnel.common.utils.SerializationUtils;
 import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
 import org.apache.seatunnel.engine.server.task.operation.source.AssignSplitOperation;
 
@@ -31,6 +31,9 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
+
+import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneaky;
 
 @Slf4j
 public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit>
@@ -41,14 +44,17 @@ public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit>
     private final SourceSplitEnumeratorTask<SplitT> task;
 
     private final MetricsContext metricsContext;
+    private final EventListener eventListener;
 
     public SeaTunnelSplitEnumeratorContext(
             int parallelism,
             SourceSplitEnumeratorTask<SplitT> task,
-            MetricsContext metricsContext) {
+            MetricsContext metricsContext,
+            EventListener eventListener) {
         this.parallelism = parallelism;
         this.task = task;
         this.metricsContext = metricsContext;
+        this.eventListener = eventListener;
     }
 
     @Override
@@ -67,22 +73,26 @@ public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit>
             log.warn("No reader is obtained, skip this assign!");
             return;
         }
+
+        List<byte[]> splitBytes =
+                splits.stream()
+                        .map(split -> sneaky(() -> task.getSplitSerializer().serialize(split)))
+                        .collect(Collectors.toList());
         task.getExecutionContext()
                 .sendToMember(
                         new AssignSplitOperation<>(
-                                task.getTaskMemberLocationByIndex(subtaskIndex),
-                                SerializationUtils.serialize(splits.toArray())),
+                                task.getTaskMemberLocationByIndex(subtaskIndex), splitBytes),
                         task.getTaskMemberAddressByIndex(subtaskIndex))
                 .join();
     }
 
     @Override
     public void signalNoMoreSplits(int subtaskIndex) {
+        List<byte[]> emptySplits = Collections.emptyList();
         task.getExecutionContext()
                 .sendToMember(
                         new AssignSplitOperation<>(
-                                task.getTaskMemberLocationByIndex(subtaskIndex),
-                                SerializationUtils.serialize(Collections.emptyList().toArray())),
+                                task.getTaskMemberLocationByIndex(subtaskIndex), emptySplits),
                         task.getTaskMemberAddressByIndex(subtaskIndex))
                 .join();
     }
@@ -93,5 +103,10 @@ public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit>
     @Override
     public MetricsContext getMetricsContext() {
         return metricsContext;
+    }
+
+    @Override
+    public EventListener getEventListener() {
+        return eventListener;
     }
 }

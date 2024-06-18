@@ -25,6 +25,7 @@ import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.serialize.SeaTun
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 
 import java.io.IOException;
+import java.util.Optional;
 
 public class AmazonDynamoDBWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
@@ -34,7 +35,7 @@ public class AmazonDynamoDBWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
     public AmazonDynamoDBWriter(
             AmazonDynamoDBSourceOptions amazondynamodbSourceOptions,
             SeaTunnelRowType seaTunnelRowType) {
-        dynamoDbSinkClient = new DynamoDbSinkClient(amazondynamodbSourceOptions, seaTunnelRowType);
+        dynamoDbSinkClient = new DynamoDbSinkClient(amazondynamodbSourceOptions);
         serializer =
                 new DefaultSeaTunnelRowSerializer(seaTunnelRowType, amazondynamodbSourceOptions);
     }
@@ -47,5 +48,11 @@ public class AmazonDynamoDBWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
     @Override
     public void close() throws IOException {
         dynamoDbSinkClient.close();
+    }
+
+    @Override
+    public Optional<Void> prepareCommit() {
+        dynamoDbSinkClient.flush();
+        return Optional.empty();
     }
 }

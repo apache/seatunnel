@@ -22,10 +22,10 @@ import lombok.Getter;
 
 import java.io.Serializable;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.CURSOR_NO_TIMEOUT;
 import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.FETCH_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbConfig.MAX_TIME_MIN;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 
 /** The configuration class for MongoDB source. */
 @EqualsAndHashCode

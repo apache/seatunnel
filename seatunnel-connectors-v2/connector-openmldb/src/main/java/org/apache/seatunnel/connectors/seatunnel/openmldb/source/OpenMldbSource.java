@@ -34,7 +34,7 @@ import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitSource;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
@@ -111,7 +111,8 @@ public class OpenMldbSource extends AbstractSingleSplitSource<SeaTunnelRow>
             this.seaTunnelRowType = convert(columnList);
         } catch (SQLException | SqlException e) {
             throw new OpenMldbConnectorException(
-                    CommonErrorCode.TABLE_SCHEMA_GET_FAILED, "Failed to initialize data schema");
+                    CommonErrorCodeDeprecated.TABLE_SCHEMA_GET_FAILED,
+                    "Failed to initialize data schema");
         }
     }
 
@@ -160,7 +161,7 @@ public class OpenMldbSource extends AbstractSingleSplitSource<SeaTunnelRow>
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
             default:
                 throw new OpenMldbConnectorException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                         "SeaTunnel does not support this data type");
         }
     }

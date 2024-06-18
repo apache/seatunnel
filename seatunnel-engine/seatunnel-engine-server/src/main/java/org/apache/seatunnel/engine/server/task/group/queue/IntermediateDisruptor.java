@@ -44,7 +44,6 @@ public class IntermediateDisruptor extends AbstractIntermediateQueue<Disruptor<R
                 getIntermediateQueueFlowLifeCycle());
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     public void collect(Collector<Record<?>> collector) throws Exception {
         if (!isExecuted) {

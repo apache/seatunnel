@@ -204,7 +204,6 @@ public class BinlogOffset extends Offset {
         return Long.compare(this.getRestartSkipRows(), that.getRestartSkipRows());
     }
 
-    @SuppressWarnings("checkstyle:EqualsHashCode")
     @Override
     public boolean equals(Object o) {
         if (this == o) {

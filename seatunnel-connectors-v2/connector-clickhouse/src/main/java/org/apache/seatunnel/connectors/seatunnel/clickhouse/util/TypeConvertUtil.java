@@ -23,7 +23,7 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
 
 import com.clickhouse.client.ClickHouseColumn;
@@ -62,7 +62,7 @@ public class TypeConvertUtil {
                 return ArrayType.BYTE_ARRAY_TYPE;
             } else {
                 throw new ClickhouseConnectorException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                         "data type in array is not supported: " + subArrayDataType.getDataType());
             }
         }
@@ -106,7 +106,7 @@ public class TypeConvertUtil {
         } else {
             // TODO support pojo
             throw new ClickhouseConnectorException(
-                    CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                    CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                     "unsupported data type: " + column.getDataType());
         }
     }
@@ -160,7 +160,8 @@ public class TypeConvertUtil {
         } else {
             // TODO support pojo
             throw new ClickhouseConnectorException(
-                    CommonErrorCode.UNSUPPORTED_DATA_TYPE, "unsupported data type: " + dataType);
+                    CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
+                    "unsupported data type: " + dataType);
         }
     }
 }

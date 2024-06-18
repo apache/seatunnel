@@ -19,8 +19,4 @@ package org.apache.seatunnel.connectors.seatunnel.elasticsearch.state;
 
 import java.io.Serializable;
 
-/**
- * Right now, we don't need aggregated commit in kafka. Todo: we need to add a default
- * implementation of this state.
- */
 public class ElasticsearchAggregatedCommitInfo implements Serializable {}

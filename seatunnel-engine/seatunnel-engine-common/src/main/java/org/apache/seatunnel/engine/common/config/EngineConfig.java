@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.common.config;
 
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
+import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
 import org.apache.seatunnel.engine.common.config.server.QueueType;
 import org.apache.seatunnel.engine.common.config.server.ServerConfigOptions;
 import org.apache.seatunnel.engine.common.config.server.SlotServiceConfig;
@@ -25,13 +26,16 @@ import org.apache.seatunnel.engine.common.config.server.ThreadShareMode;
 
 import lombok.Data;
 
+import java.util.Collections;
+import java.util.Map;
+
 import static com.hazelcast.internal.util.Preconditions.checkBackupCount;
 import static com.hazelcast.internal.util.Preconditions.checkNotNull;
 import static com.hazelcast.internal.util.Preconditions.checkPositive;
 
 @Data
-@SuppressWarnings("checkstyle:MagicNumber")
 public class EngineConfig {
+
     private int backupCount = ServerConfigOptions.BACKUP_COUNT.defaultValue();
     private int printExecutionInfoInterval =
             ServerConfigOptions.PRINT_EXECUTION_INFO_INTERVAL.defaultValue();
@@ -49,7 +53,18 @@ public class EngineConfig {
 
     private CheckpointConfig checkpointConfig = ServerConfigOptions.CHECKPOINT.defaultValue();
 
+    private ConnectorJarStorageConfig connectorJarStorageConfig =
+            ServerConfigOptions.CONNECTOR_JAR_STORAGE_CONFIG.defaultValue();
+
+    private boolean classloaderCacheMode =
+            ServerConfigOptions.CLASSLOADER_CACHE_MODE.defaultValue();
+
     private QueueType queueType = ServerConfigOptions.QUEUE_TYPE.defaultValue();
+    private int historyJobExpireMinutes =
+            ServerConfigOptions.HISTORY_JOB_EXPIRE_MINUTES.defaultValue();
+
+    private String eventReportHttpApi;
+    private Map<String, String> eventReportHttpHeaders = Collections.emptyMap();
 
     public void setBackupCount(int newBackupCount) {
         checkBackupCount(newBackupCount, 0);
@@ -82,9 +97,26 @@ public class EngineConfig {
         this.taskExecutionThreadShareMode = taskExecutionThreadShareMode;
     }
 
+    public void setHistoryJobExpireMinutes(int historyJobExpireMinutes) {
+        checkPositive(
+                historyJobExpireMinutes,
+                ServerConfigOptions.HISTORY_JOB_EXPIRE_MINUTES + " must be > 0");
+        this.historyJobExpireMinutes = historyJobExpireMinutes;
+    }
+
     public EngineConfig setQueueType(QueueType queueType) {
         checkNotNull(queueType);
         this.queueType = queueType;
+        return this;
+    }
+
+    public EngineConfig setEventReportHttpApi(String eventReportHttpApi) {
+        this.eventReportHttpApi = eventReportHttpApi;
+        return this;
+    }
+
+    public EngineConfig setEventReportHttpHeaders(Map<String, String> eventReportHttpHeaders) {
+        this.eventReportHttpHeaders = eventReportHttpHeaders;
         return this;
     }
 }

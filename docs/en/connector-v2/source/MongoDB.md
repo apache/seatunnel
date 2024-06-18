@@ -92,7 +92,7 @@ The following example demonstrates how to create a data synchronization job that
 ```bash
 # Set the basic configuration of the task to be performed
 env {
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "BATCH"
 }
 
@@ -283,6 +283,10 @@ By utilizing `flat.sync-string`, only one field attribute value can be set, and 
 This operation will perform a string mapping on a single MongoDB data entry.
 
 ```bash
+env {
+  parallelism = 10
+  job.mode = "BATCH"
+}
 source {
   MongoDB {
     uri = "mongodb://user:password@127.0.0.1:27017"
@@ -295,6 +299,9 @@ source {
       }
     }
   }
+}
+sink {
+  Console {}
 }
 ```
 

@@ -175,12 +175,15 @@ public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
         tableEnvironment =
                 StreamTableEnvironment.create(getStreamExecutionEnvironment(), environmentSettings);
         TableConfig config = tableEnvironment.getConfig();
-        if (this.config.hasPath(ConfigKeyName.MAX_STATE_RETENTION_TIME)
-                && this.config.hasPath(ConfigKeyName.MIN_STATE_RETENTION_TIME)) {
+        if (EnvironmentUtil.hasPathAndWaring(this.config, ConfigKeyName.MAX_STATE_RETENTION_TIME)
+                && EnvironmentUtil.hasPathAndWaring(
+                        this.config, ConfigKeyName.MIN_STATE_RETENTION_TIME)) {
             long max = this.config.getLong(ConfigKeyName.MAX_STATE_RETENTION_TIME);
             long min = this.config.getLong(ConfigKeyName.MIN_STATE_RETENTION_TIME);
             config.setIdleStateRetentionTime(Time.seconds(min), Time.seconds(max));
         }
+        // init flink table env config
+        EnvironmentUtil.initTableEnvironmentConfiguration(this.config, config.getConfiguration());
     }
 
     private void createStreamEnvironment() {
@@ -193,17 +196,22 @@ public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
 
         EnvironmentUtil.setRestartStrategy(config, environment.getConfig());
 
-        if (config.hasPath(ConfigKeyName.BUFFER_TIMEOUT_MILLIS)) {
+        if (EnvironmentUtil.hasPathAndWaring(config, ConfigKeyName.BUFFER_TIMEOUT_MILLIS)) {
             long timeout = config.getLong(ConfigKeyName.BUFFER_TIMEOUT_MILLIS);
             environment.setBufferTimeout(timeout);
         }
 
-        if (config.hasPath(ConfigKeyName.PARALLELISM)) {
+        if (config.hasPath(EnvCommonOptions.PARALLELISM.key())) {
+            int parallelism = config.getInt(EnvCommonOptions.PARALLELISM.key());
+            environment.setParallelism(parallelism);
+        } else if (config.hasPath(ConfigKeyName.PARALLELISM)) {
+            log.warn(
+                    "the parameter 'execution.parallelism' will be deprecated, please use common parameter 'parallelism' to set it");
             int parallelism = config.getInt(ConfigKeyName.PARALLELISM);
             environment.setParallelism(parallelism);
         }
 
-        if (config.hasPath(ConfigKeyName.MAX_PARALLELISM)) {
+        if (EnvironmentUtil.hasPathAndWaring(config, ConfigKeyName.MAX_PARALLELISM)) {
             int max = config.getInt(ConfigKeyName.MAX_PARALLELISM);
             environment.setMaxParallelism(max);
         }
@@ -214,7 +222,7 @@ public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
     }
 
     private void setTimeCharacteristic() {
-        if (config.hasPath(ConfigKeyName.TIME_CHARACTERISTIC)) {
+        if (EnvironmentUtil.hasPathAndWaring(config, ConfigKeyName.TIME_CHARACTERISTIC)) {
             String timeType = config.getString(ConfigKeyName.TIME_CHARACTERISTIC);
             switch (timeType.toLowerCase()) {
                 case "event-time":
@@ -236,11 +244,16 @@ public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
     }
 
     private void setCheckpoint() {
-
+        if (jobMode == JobMode.BATCH) {
+            log.warn(
+                    "Disabled Checkpointing. In flink execution environment, checkpointing is not supported and not needed when executing jobs in BATCH mode");
+        }
         long interval = 0;
         if (config.hasPath(EnvCommonOptions.CHECKPOINT_INTERVAL.key())) {
             interval = config.getLong(EnvCommonOptions.CHECKPOINT_INTERVAL.key());
         } else if (config.hasPath(ConfigKeyName.CHECKPOINT_INTERVAL)) {
+            log.warn(
+                    "the parameter 'execution.checkpoint.interval' will be deprecated, please use common parameter 'checkpoint.interval' to set it");
             interval = config.getLong(ConfigKeyName.CHECKPOINT_INTERVAL);
         }
 
@@ -248,7 +261,7 @@ public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
             CheckpointConfig checkpointConfig = environment.getCheckpointConfig();
             environment.enableCheckpointing(interval);
 
-            if (config.hasPath(ConfigKeyName.CHECKPOINT_MODE)) {
+            if (EnvironmentUtil.hasPathAndWaring(config, ConfigKeyName.CHECKPOINT_MODE)) {
                 String mode = config.getString(ConfigKeyName.CHECKPOINT_MODE);
                 switch (mode.toLowerCase()) {
                     case "exactly-once":
@@ -265,15 +278,19 @@ public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
                 }
             }
 
-            if (config.hasPath(ConfigKeyName.CHECKPOINT_TIMEOUT)) {
+            if (EnvironmentUtil.hasPathAndWaring(
+                    config, EnvCommonOptions.CHECKPOINT_TIMEOUT.key())) {
+                long timeout = config.getLong(EnvCommonOptions.CHECKPOINT_TIMEOUT.key());
+                checkpointConfig.setCheckpointTimeout(timeout);
+            } else if (EnvironmentUtil.hasPathAndWaring(config, ConfigKeyName.CHECKPOINT_TIMEOUT)) {
                 long timeout = config.getLong(ConfigKeyName.CHECKPOINT_TIMEOUT);
                 checkpointConfig.setCheckpointTimeout(timeout);
             }
 
-            if (config.hasPath(ConfigKeyName.CHECKPOINT_DATA_URI)) {
+            if (EnvironmentUtil.hasPathAndWaring(config, ConfigKeyName.CHECKPOINT_DATA_URI)) {
                 String uri = config.getString(ConfigKeyName.CHECKPOINT_DATA_URI);
                 StateBackend fsStateBackend = new FsStateBackend(uri);
-                if (config.hasPath(ConfigKeyName.STATE_BACKEND)) {
+                if (EnvironmentUtil.hasPathAndWaring(config, ConfigKeyName.STATE_BACKEND)) {
                     String stateBackend = config.getString(ConfigKeyName.STATE_BACKEND);
                     if ("rocksdb".equalsIgnoreCase(stateBackend)) {
                         StateBackend rocksDBStateBackend =
@@ -285,12 +302,13 @@ public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
                 }
             }
 
-            if (config.hasPath(ConfigKeyName.MAX_CONCURRENT_CHECKPOINTS)) {
+            if (EnvironmentUtil.hasPathAndWaring(
+                    config, ConfigKeyName.MAX_CONCURRENT_CHECKPOINTS)) {
                 int max = config.getInt(ConfigKeyName.MAX_CONCURRENT_CHECKPOINTS);
                 checkpointConfig.setMaxConcurrentCheckpoints(max);
             }
 
-            if (config.hasPath(ConfigKeyName.CHECKPOINT_CLEANUP_MODE)) {
+            if (EnvironmentUtil.hasPathAndWaring(config, ConfigKeyName.CHECKPOINT_CLEANUP_MODE)) {
                 boolean cleanup = config.getBoolean(ConfigKeyName.CHECKPOINT_CLEANUP_MODE);
                 if (cleanup) {
                     checkpointConfig.enableExternalizedCheckpoints(
@@ -301,30 +319,25 @@ public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
                 }
             }
 
-            if (config.hasPath(ConfigKeyName.MIN_PAUSE_BETWEEN_CHECKPOINTS)) {
+            if (EnvironmentUtil.hasPathAndWaring(
+                    config, ConfigKeyName.MIN_PAUSE_BETWEEN_CHECKPOINTS)) {
                 long minPause = config.getLong(ConfigKeyName.MIN_PAUSE_BETWEEN_CHECKPOINTS);
                 checkpointConfig.setMinPauseBetweenCheckpoints(minPause);
             }
 
-            if (config.hasPath(ConfigKeyName.FAIL_ON_CHECKPOINTING_ERRORS)) {
+            if (EnvironmentUtil.hasPathAndWaring(
+                    config, ConfigKeyName.FAIL_ON_CHECKPOINTING_ERRORS)) {
                 int failNum = config.getInt(ConfigKeyName.FAIL_ON_CHECKPOINTING_ERRORS);
                 checkpointConfig.setTolerableCheckpointFailureNumber(failNum);
             }
         }
     }
 
-    public void registerResultTable(Config config, DataStream<Row> dataStream) {
-        if (config.hasPath(RESULT_TABLE_NAME)) {
-            String name = config.getString(RESULT_TABLE_NAME);
-            StreamTableEnvironment tableEnvironment = this.getStreamTableEnvironment();
-            if (!TableUtil.tableExists(tableEnvironment, name)) {
-                if (config.hasPath("field_name")) {
-                    String fieldName = config.getString("field_name");
-                    tableEnvironment.registerDataStream(name, dataStream, fieldName);
-                } else {
-                    tableEnvironment.registerDataStream(name, dataStream);
-                }
-            }
+    public void registerResultTable(Config config, DataStream<Row> dataStream, String name) {
+        StreamTableEnvironment tableEnvironment = this.getStreamTableEnvironment();
+        if (!TableUtil.tableExists(tableEnvironment, name)) {
+            tableEnvironment.createTemporaryView(
+                    name, tableEnvironment.fromChangelogStream(dataStream));
         }
     }
 

@@ -18,8 +18,9 @@
 package org.apache.seatunnel.format.text;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.ArrayType;
-import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -27,9 +28,12 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
+import org.apache.seatunnel.common.utils.EncodingUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
 import org.apache.seatunnel.format.text.constant.TextFormatConstant;
 import org.apache.seatunnel.format.text.exception.SeaTunnelTextFormatException;
+import org.apache.seatunnel.format.text.splitor.DefaultTextLineSplitor;
+import org.apache.seatunnel.format.text.splitor.TextLineSplitor;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -37,28 +41,48 @@ import lombok.NonNull;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.temporal.ChronoField;
+import java.time.temporal.TemporalAccessor;
+import java.time.temporal.TemporalQueries;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 
 public class TextDeserializationSchema implements DeserializationSchema<SeaTunnelRow> {
     private final SeaTunnelRowType seaTunnelRowType;
     private final String[] separators;
-    private final DateUtils.Formatter dateFormatter;
-    private final DateTimeUtils.Formatter dateTimeFormatter;
-    private final TimeUtils.Formatter timeFormatter;
+    private final String encoding;
+    private final TextLineSplitor splitor;
+    private final CatalogTable catalogTable;
+
+    @SuppressWarnings("MagicNumber")
+    public static final DateTimeFormatter TIME_FORMAT =
+            new DateTimeFormatterBuilder()
+                    .appendPattern("HH:mm:ss")
+                    .appendFraction(ChronoField.NANO_OF_SECOND, 0, 9, true)
+                    .toFormatter();
+
+    public Map<String, DateTimeFormatter> fieldFormatterMap = new HashMap<>();
 
     private TextDeserializationSchema(
             @NonNull SeaTunnelRowType seaTunnelRowType,
             String[] separators,
-            DateUtils.Formatter dateFormatter,
-            DateTimeUtils.Formatter dateTimeFormatter,
-            TimeUtils.Formatter timeFormatter) {
+            String encoding,
+            TextLineSplitor splitor,
+            CatalogTable catalogTable) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.separators = separators;
-        this.dateFormatter = dateFormatter;
-        this.dateTimeFormatter = dateTimeFormatter;
-        this.timeFormatter = timeFormatter;
+        this.encoding = encoding;
+        this.splitor = splitor;
+        this.catalogTable = catalogTable;
     }
 
     public static Builder builder() {
@@ -67,13 +91,21 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
 
     public static class Builder {
         private SeaTunnelRowType seaTunnelRowType;
+        private CatalogTable catalogTable;
         private String[] separators = TextFormatConstant.SEPARATOR.clone();
         private DateUtils.Formatter dateFormatter = DateUtils.Formatter.YYYY_MM_DD;
         private DateTimeUtils.Formatter dateTimeFormatter =
                 DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS;
         private TimeUtils.Formatter timeFormatter = TimeUtils.Formatter.HH_MM_SS;
+        private String encoding = StandardCharsets.UTF_8.name();
+        private TextLineSplitor textLineSplitor = new DefaultTextLineSplitor();
 
         private Builder() {}
+
+        public Builder setCatalogTable(CatalogTable catalogTable) {
+            this.catalogTable = catalogTable;
+            return this;
+        }
 
         public Builder seaTunnelRowType(SeaTunnelRowType seaTunnelRowType) {
             this.seaTunnelRowType = seaTunnelRowType;
@@ -105,21 +137,45 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
             return this;
         }
 
+        public Builder encoding(String encoding) {
+            this.encoding = encoding;
+            return this;
+        }
+
+        public Builder textLineSplitor(TextLineSplitor splitor) {
+            this.textLineSplitor = splitor;
+            return this;
+        }
+
         public TextDeserializationSchema build() {
             return new TextDeserializationSchema(
-                    seaTunnelRowType, separators, dateFormatter, dateTimeFormatter, timeFormatter);
+                    seaTunnelRowType, separators, encoding, textLineSplitor, catalogTable);
         }
     }
 
     @Override
     public SeaTunnelRow deserialize(byte[] message) throws IOException {
-        String content = new String(message);
+        if (message == null || message.length == 0) {
+            return null;
+        }
+        String content = new String(message, EncodingUtils.tryParseCharset(encoding));
         Map<Integer, String> splitsMap = splitLineBySeaTunnelRowType(content, seaTunnelRowType, 0);
         Object[] objects = new Object[seaTunnelRowType.getTotalFields()];
         for (int i = 0; i < objects.length; i++) {
-            objects[i] = convert(splitsMap.get(i), seaTunnelRowType.getFieldType(i), 0);
+            objects[i] =
+                    convert(
+                            splitsMap.get(i),
+                            seaTunnelRowType.getFieldType(i),
+                            0,
+                            seaTunnelRowType.getFieldNames()[i]);
         }
-        return new SeaTunnelRow(objects);
+        SeaTunnelRow seaTunnelRow = new SeaTunnelRow(objects);
+        Optional<TablePath> tablePath =
+                Optional.ofNullable(catalogTable).map(CatalogTable::getTablePath);
+        if (tablePath.isPresent()) {
+            seaTunnelRow.setTableId(tablePath.toString());
+        }
+        return seaTunnelRow;
     }
 
     @Override
@@ -129,7 +185,7 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
 
     private Map<Integer, String> splitLineBySeaTunnelRowType(
             String line, SeaTunnelRowType seaTunnelRowType, int level) {
-        String[] splits = line.split(separators[level], -1);
+        String[] splits = splitor.spliteLine(line, separators[level]);
         LinkedHashMap<Integer, String> splitsMap = new LinkedHashMap<>();
         SeaTunnelDataType<?>[] fieldTypes = seaTunnelRowType.getFieldTypes();
         for (int i = 0; i < splits.length; i++) {
@@ -144,17 +200,18 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
         return splitsMap;
     }
 
-    private Object convert(String field, SeaTunnelDataType<?> fieldType, int level) {
+    private Object convert(
+            String field, SeaTunnelDataType<?> fieldType, int level, String fieldName) {
         if (StringUtils.isBlank(field)) {
             return null;
         }
         switch (fieldType.getSqlType()) {
             case ARRAY:
-                BasicType<?> elementType = ((ArrayType<?, ?>) fieldType).getElementType();
+                SeaTunnelDataType<?> elementType = ((ArrayType<?, ?>) fieldType).getElementType();
                 String[] elements = field.split(separators[level + 1]);
                 ArrayList<Object> objectArrayList = new ArrayList<>();
                 for (String element : elements) {
-                    objectArrayList.add(convert(element, elementType, level + 1));
+                    objectArrayList.add(convert(element, elementType, level + 1, fieldName));
                 }
                 switch (elementType.getSqlType()) {
                     case STRING:
@@ -173,6 +230,14 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
                         return objectArrayList.toArray(new Float[0]);
                     case DOUBLE:
                         return objectArrayList.toArray(new Double[0]);
+                    case DECIMAL:
+                        return objectArrayList.toArray(new BigDecimal[0]);
+                    case DATE:
+                        return objectArrayList.toArray(new LocalDate[0]);
+                    case TIME:
+                        return objectArrayList.toArray(new LocalTime[0]);
+                    case TIMESTAMP:
+                        return objectArrayList.toArray(new LocalDateTime[0]);
                     default:
                         throw new SeaTunnelTextFormatException(
                                 CommonErrorCode.UNSUPPORTED_DATA_TYPE,
@@ -187,9 +252,13 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
                 String[] kvs = field.split(separators[level + 1]);
                 for (String kv : kvs) {
                     String[] splits = kv.split(separators[level + 2]);
-                    objectMap.put(
-                            convert(splits[0], keyType, level + 1),
-                            convert(splits[1], valueType, level + 1));
+                    if (splits.length < 2) {
+                        objectMap.put(convert(splits[0], keyType, level + 1, fieldName), null);
+                    } else {
+                        objectMap.put(
+                                convert(splits[0], keyType, level + 1, fieldName),
+                                convert(splits[1], valueType, level + 1, fieldName));
+                    }
                 }
                 return objectMap;
             case STRING:
@@ -213,23 +282,41 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
             case NULL:
                 return null;
             case BYTES:
-                return field.getBytes();
+                return field.getBytes(StandardCharsets.UTF_8);
             case DATE:
-                return DateUtils.parse(field, dateFormatter);
+                DateTimeFormatter dateFormatter = fieldFormatterMap.get(fieldName);
+                if (dateFormatter == null) {
+                    dateFormatter = DateUtils.matchDateFormatter(field);
+                    fieldFormatterMap.put(fieldName, dateFormatter);
+                }
+
+                return dateFormatter.parse(field).query(TemporalQueries.localDate());
             case TIME:
-                return TimeUtils.parse(field, timeFormatter);
+                TemporalAccessor parsedTime = TIME_FORMAT.parse(field);
+                return parsedTime.query(TemporalQueries.localTime());
             case TIMESTAMP:
-                return DateTimeUtils.parse(field, dateTimeFormatter);
+                DateTimeFormatter dateTimeFormatter = fieldFormatterMap.get(fieldName);
+                if (dateTimeFormatter == null) {
+                    dateTimeFormatter = DateTimeUtils.matchDateTimeFormatter(field);
+                    fieldFormatterMap.put(fieldName, dateTimeFormatter);
+                }
+
+                TemporalAccessor parsedTimestamp = dateTimeFormatter.parse(field);
+                LocalTime localTime = parsedTimestamp.query(TemporalQueries.localTime());
+                LocalDate localDate = parsedTimestamp.query(TemporalQueries.localDate());
+                return LocalDateTime.of(localDate, localTime);
             case ROW:
                 Map<Integer, String> splitsMap =
                         splitLineBySeaTunnelRowType(field, (SeaTunnelRowType) fieldType, level + 1);
                 Object[] objects = new Object[splitsMap.size()];
+                String[] eleFieldNames = ((SeaTunnelRowType) fieldType).getFieldNames();
                 for (int i = 0; i < objects.length; i++) {
                     objects[i] =
                             convert(
                                     splitsMap.get(i),
                                     ((SeaTunnelRowType) fieldType).getFieldType(i),
-                                    level + 1);
+                                    level + 1,
+                                    fieldName + "." + eleFieldNames[i]);
                 }
                 return new SeaTunnelRow(objects);
             default:

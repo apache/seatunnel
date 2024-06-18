@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.translation.flink.serialization;
 
+import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -27,7 +28,11 @@ import org.apache.seatunnel.translation.serialization.RowConverter;
 import org.apache.flink.types.Row;
 import org.apache.flink.types.RowKind;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.BiFunction;
@@ -36,6 +41,7 @@ import java.util.function.BiFunction;
  * The row converter between {@link Row} and {@link SeaTunnelRow}, used to convert or reconvert
  * between flink row and seatunnel row
  */
+@Slf4j
 public class FlinkRowConverter extends RowConverter<Row> {
 
     public FlinkRowConverter(SeaTunnelDataType<?> dataType) {
@@ -68,6 +74,15 @@ public class FlinkRowConverter extends RowConverter<Row> {
             case MAP:
                 return convertMap(
                         (Map<?, ?>) field, (MapType<?, ?>) dataType, FlinkRowConverter::convert);
+
+                /**
+                 * To solve lost precision and scale of {@link
+                 * org.apache.seatunnel.api.table.type.DecimalType}, use {@link java.lang.String} as
+                 * the convert result of {@link java.math.BigDecimal} instance.
+                 */
+            case DECIMAL:
+                BigDecimal decimal = (BigDecimal) field;
+                return decimal.toString();
             default:
                 return field;
         }
@@ -77,22 +92,20 @@ public class FlinkRowConverter extends RowConverter<Row> {
             Map<?, ?> mapData,
             MapType<?, ?> mapType,
             BiFunction<Object, SeaTunnelDataType<?>, Object> convertFunction) {
-        if (mapData == null || mapData.size() == 0) {
+        if (mapData == null || mapData.isEmpty()) {
             return mapData;
         }
-        switch (mapType.getValueType().getSqlType()) {
-            case MAP:
-            case ROW:
-                Map<Object, Object> newMap = new HashMap<>(mapData.size());
-                mapData.forEach(
-                        (key, value) -> {
-                            SeaTunnelDataType<?> valueType = mapType.getValueType();
-                            newMap.put(key, convertFunction.apply(value, valueType));
-                        });
-                return newMap;
-            default:
-                return mapData;
-        }
+
+        Map<Object, Object> newMap = new HashMap<>(mapData.size());
+        mapData.forEach(
+                (key, value) -> {
+                    SeaTunnelDataType<?> keyType = mapType.getKeyType();
+                    SeaTunnelDataType<?> valueType = mapType.getValueType();
+                    newMap.put(
+                            convertFunction.apply(key, keyType),
+                            convertFunction.apply(value, valueType));
+                });
+        return newMap;
     }
 
     @Override
@@ -122,6 +135,18 @@ public class FlinkRowConverter extends RowConverter<Row> {
             case MAP:
                 return convertMap(
                         (Map<?, ?>) field, (MapType<?, ?>) dataType, FlinkRowConverter::reconvert);
+
+                /**
+                 * To solve lost precision and scale of {@link
+                 * org.apache.seatunnel.api.table.type.DecimalType}, create {@link
+                 * java.math.BigDecimal} instance from {@link java.lang.String} type field.
+                 */
+            case DECIMAL:
+                DecimalType decimalType = (DecimalType) dataType;
+                String decimalData = (String) field;
+                BigDecimal decimal = new BigDecimal(decimalData);
+                decimal.setScale(decimalType.getScale(), RoundingMode.HALF_UP);
+                return decimal;
             default:
                 return field;
         }

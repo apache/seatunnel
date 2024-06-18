@@ -21,9 +21,8 @@ import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
-import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
 import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
 import static org.apache.seatunnel.format.json.debezium.DebeziumJsonFormatOptions.GENERATE_ROW_SIZE;
@@ -33,6 +32,7 @@ public class DebeziumJsonSerializationSchema implements SerializationSchema {
 
     private static final String OP_INSERT = "c"; // insert
     private static final String OP_DELETE = "d"; // delete
+    public static final String FORMAT = "Debezium";
 
     private final JsonSerializationSchema jsonSerializer;
 
@@ -65,10 +65,7 @@ public class DebeziumJsonSerializationSchema implements SerializationSchema {
                                     "Unsupported operation '%s' for row kind.", row.getRowKind()));
             }
         } catch (Throwable t) {
-            throw new SeaTunnelJsonFormatException(
-                    CommonErrorCode.JSON_OPERATION_FAILED,
-                    String.format("Could not serialize row %s.", row),
-                    t);
+            throw CommonError.jsonOperationError(FORMAT, row.toString(), t);
         }
     }
 

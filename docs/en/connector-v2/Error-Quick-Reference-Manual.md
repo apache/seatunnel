@@ -194,6 +194,8 @@ problems encountered by users.
 | JDBC-04 | Connector database failed                                      | When users encounter this error code, it means that database connection failure, check whether the url is correct or whether the corresponding service is normal                                            |
 | JDBC-05 | transaction operation failed, such as (commit, rollback) etc.. | When users encounter this error code, it means that if a sql transaction fails, check the transaction execution of the corresponding database to determine the cause of the transaction failure             |
 | JDBC-06 | No suitable dialect factory found                              | When users encounter this error code, it means that may be an unsupported dialect type                                                                                                                      |
+| JDBC-07 | The jdbc type don't support sink                               | When users encounter this error code, it means that jdbc type don't support sink                                                                                                                            |
+| JDBC-08 | Kerberos authentication failed                                 | When users encounter this error code, it means that database connection Kerberos authentication failed                                                                                                      |
 
 ## Pulsar Connector Error Codes
 
@@ -206,6 +208,9 @@ problems encountered by users.
 | PULSAR-05 | Get last cursor of pulsar topic failed           | When users encounter this error code, it means that get last cursor of pulsar topic failed, please check it           |
 | PULSAR-06 | Get partition information of pulsar topic failed | When users encounter this error code, it means that Get partition information of pulsar topic failed, please check it |
 | PULSAR-07 | Pulsar consumer acknowledgeCumulative failed     | When users encounter this error code, it means that Pulsar consumer acknowledgeCumulative failed                      |
+| PULSAR-08 | Pulsar create producer failed                    | When users encounter this error code, it means that create producer failed, please check it                           |
+| PULSAR-09 | Pulsar create transaction failed                 | When users encounter this error code, it means that Pulsar create transaction failed, please check it                 |
+| PULSAR-10 | Pulsar send message failed                       | When users encounter this error code, it means that Pulsar sned message failed, please check it                       |
 
 ## StarRocks Connector Error Codes
 
@@ -250,6 +255,12 @@ problems encountered by users.
 |     code     |          description          |                                                                     solution                                                                      |
 |--------------|-------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------|
 | FIRESTORE-01 | Close Firestore client failed | When users encounter this error code, it is usually there are some problems with closing the Firestore client, please check the Firestore is work |
+
+## Hbase Connector Error Codes
+
+|   code   |          description          |                                                            solution                                                             |
+|----------|-------------------------------|---------------------------------------------------------------------------------------------------------------------------------|
+| Hbase-01 | Build hbase connection failed | When users create Hbase database connection, the connection failed. Check the Hbase configuration parameters used and try again |
 
 ## FilterFieldTransform Error Codes
 

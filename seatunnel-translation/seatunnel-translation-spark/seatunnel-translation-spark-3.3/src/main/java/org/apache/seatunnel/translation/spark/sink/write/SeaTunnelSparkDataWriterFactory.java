@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.sink.DefaultSinkWriterContext;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import org.apache.spark.sql.catalyst.InternalRow;
@@ -34,15 +35,21 @@ public class SeaTunnelSparkDataWriterFactory<CommitInfoT, StateT>
         implements DataWriterFactory, StreamingDataWriterFactory {
 
     private final SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, ?> sink;
+    private final CatalogTable catalogTable;
+    private final String jobId;
 
     public SeaTunnelSparkDataWriterFactory(
-            SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, ?> sink) {
+            SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, ?> sink,
+            CatalogTable catalogTable,
+            String jobId) {
         this.sink = sink;
+        this.catalogTable = catalogTable;
+        this.jobId = jobId;
     }
 
     @Override
     public DataWriter<InternalRow> createWriter(int partitionId, long taskId) {
-        SinkWriter.Context context = new DefaultSinkWriterContext((int) taskId);
+        SinkWriter.Context context = new DefaultSinkWriterContext(jobId, (int) taskId);
         SinkWriter<SeaTunnelRow, CommitInfoT, StateT> writer;
         SinkCommitter<CommitInfoT> committer;
         try {
@@ -55,7 +62,8 @@ public class SeaTunnelSparkDataWriterFactory<CommitInfoT, StateT>
         } catch (IOException e) {
             throw new RuntimeException("Failed to create SinkCommitter.", e);
         }
-        return new SeaTunnelSparkDataWriter<>(writer, committer, sink.getConsumedType(), 0);
+        return new SeaTunnelSparkDataWriter<>(
+                writer, committer, catalogTable.getSeaTunnelRowType(), 0);
     }
 
     @Override

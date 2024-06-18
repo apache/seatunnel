@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
 import org.apache.seatunnel.api.sink.SinkCommitter;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
@@ -45,7 +45,7 @@ public class JdbcSinkCommitter implements SinkCommitter<XidInfo> {
             xaFacade.open();
         } catch (Exception e) {
             throw new JdbcConnectorException(
-                    CommonErrorCode.WRITER_OPERATION_FAILED,
+                    CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED,
                     "unable to open JDBC sink committer",
                     e);
         }

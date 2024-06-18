@@ -18,15 +18,18 @@
 package org.apache.seatunnel.connectors.seatunnel.file.sink;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileSinkAggregatedCommitter;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.state.FileSinkState;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.util.FileSystemUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.AbstractWriteStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.WriteStrategy;
 
@@ -40,11 +43,12 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-public class BaseFileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitInfo, FileSinkState> {
-    protected final WriteStrategy writeStrategy;
-    private final FileSystemUtils fileSystemUtils;
+public class BaseFileSinkWriter
+        implements SinkWriter<SeaTunnelRow, FileCommitInfo, FileSinkState>,
+                SupportMultiTableSinkWriter<WriteStrategy> {
 
-    @SuppressWarnings("checkstyle:MagicNumber")
+    protected final WriteStrategy writeStrategy;
+
     public BaseFileSinkWriter(
             WriteStrategy writeStrategy,
             HadoopConf hadoopConf,
@@ -52,7 +56,6 @@ public class BaseFileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitIn
             String jobId,
             List<FileSinkState> fileSinkStates) {
         this.writeStrategy = writeStrategy;
-        this.fileSystemUtils = writeStrategy.getFileSystemUtils();
         int subTaskIndex = context.getIndexOfSubtask();
         String uuidPrefix;
         if (!fileSinkStates.isEmpty()) {
@@ -60,13 +63,16 @@ public class BaseFileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitIn
         } else {
             uuidPrefix = UUID.randomUUID().toString().replaceAll("-", "").substring(0, 10);
         }
-
         writeStrategy.init(hadoopConf, jobId, uuidPrefix, subTaskIndex);
+        final HadoopFileSystemProxy hadoopFileSystemProxy =
+                writeStrategy.getHadoopFileSystemProxy();
         if (!fileSinkStates.isEmpty()) {
             try {
-                List<String> transactions = findTransactionList(jobId, uuidPrefix);
+                List<String> transactions =
+                        findTransactionList(jobId, uuidPrefix, hadoopFileSystemProxy);
                 FileSinkAggregatedCommitter fileSinkAggregatedCommitter =
-                        new FileSinkAggregatedCommitter(fileSystemUtils);
+                        new FileSinkAggregatedCommitter(hadoopConf);
+                fileSinkAggregatedCommitter.init();
                 LinkedHashMap<String, FileSinkState> fileStatesMap = new LinkedHashMap<>();
                 fileSinkStates.forEach(
                         fileSinkState ->
@@ -93,7 +99,7 @@ public class BaseFileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitIn
                 String errorMsg =
                         String.format("Try to process these fileStates %s failed", fileSinkStates);
                 throw new FileConnectorException(
-                        CommonErrorCode.FILE_OPERATION_FAILED, errorMsg, e);
+                        CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED, errorMsg, e);
             }
             writeStrategy.beginTransaction(fileSinkStates.get(0).getCheckpointId() + 1);
         } else {
@@ -101,9 +107,11 @@ public class BaseFileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitIn
         }
     }
 
-    private List<String> findTransactionList(String jobId, String uuidPrefix) throws IOException {
-        return fileSystemUtils
-                .dirList(
+    private List<String> findTransactionList(
+            String jobId, String uuidPrefix, HadoopFileSystemProxy hadoopFileSystemProxy)
+            throws IOException {
+        return hadoopFileSystemProxy
+                .getAllSubFiles(
                         AbstractWriteStrategy.getTransactionDirPrefix(
                                 writeStrategy.getFileSinkConfig().getTmpPath(), jobId, uuidPrefix))
                 .stream()
@@ -124,9 +132,8 @@ public class BaseFileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitIn
     public void write(SeaTunnelRow element) throws IOException {
         try {
             writeStrategy.write(element);
-        } catch (FileConnectorException e) {
-            String errorMsg = String.format("Write this data [%s] to file failed", element);
-            throw new FileConnectorException(CommonErrorCode.FILE_OPERATION_FAILED, errorMsg, e);
+        } catch (SeaTunnelRuntimeException e) {
+            throw CommonError.writeSeaTunnelRowFailed("FileConnector", element.toString(), e);
         }
     }
 
@@ -146,5 +153,9 @@ public class BaseFileSinkWriter implements SinkWriter<SeaTunnelRow, FileCommitIn
     }
 
     @Override
-    public void close() throws IOException {}
+    public void close() throws IOException {
+        if (writeStrategy != null) {
+            writeStrategy.close();
+        }
+    }
 }

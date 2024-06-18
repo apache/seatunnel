@@ -20,8 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.inject;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
-import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
+import org.apache.seatunnel.common.exception.CommonError;
 
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -51,8 +50,7 @@ public class StringInjectFunction implements ClickhouseFieldInjectFunction {
                 statement.setString(index, value.toString());
             }
         } catch (JsonProcessingException e) {
-            throw new ClickhouseConnectorException(
-                    CommonErrorCode.JSON_OPERATION_FAILED, e.getMessage());
+            throw CommonError.jsonOperationError("Clickhouse", value.toString(), e);
         }
     }
 

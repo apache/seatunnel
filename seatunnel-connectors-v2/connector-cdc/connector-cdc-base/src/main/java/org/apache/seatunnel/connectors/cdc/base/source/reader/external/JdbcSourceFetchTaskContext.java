@@ -31,6 +31,7 @@ import io.debezium.config.CommonConnectorConfig;
 import io.debezium.data.Envelope;
 import io.debezium.pipeline.ErrorHandler;
 import io.debezium.pipeline.spi.OffsetContext;
+import io.debezium.pipeline.spi.Partition;
 import io.debezium.relational.RelationalDatabaseSchema;
 import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
@@ -60,7 +61,7 @@ public abstract class JdbcSourceFetchTaskContext implements FetchTask.Context {
 
     @Override
     public TableId getTableId(SourceRecord record) {
-        return null;
+        return SourceRecordUtils.getTableId(record);
     }
 
     @Override
@@ -71,12 +72,11 @@ public abstract class JdbcSourceFetchTaskContext implements FetchTask.Context {
     @Override
     public boolean isRecordBetween(SourceRecord record, Object[] splitStart, Object[] splitEnd) {
         SeaTunnelRowType splitKeyType =
-                getSplitType(getDatabaseSchema().tableFor(SourceRecordUtils.getTableId(record)));
+                getSplitType(getDatabaseSchema().tableFor(getTableId(record)));
         Object[] key = SourceRecordUtils.getSplitKey(splitKeyType, record, getSchemaNameAdjuster());
         return SourceRecordUtils.splitKeyRangeContains(key, splitStart, splitEnd);
     }
 
-    @SuppressWarnings("checkstyle:MissingSwitchDefault")
     @Override
     public void rewriteOutputBuffer(
             Map<Struct, SourceRecord> outputBuffer, SourceRecord changeRecord) {
@@ -177,4 +177,6 @@ public abstract class JdbcSourceFetchTaskContext implements FetchTask.Context {
     public abstract JdbcSourceEventDispatcher getDispatcher();
 
     public abstract OffsetContext getOffsetContext();
+
+    public abstract Partition getPartition();
 }

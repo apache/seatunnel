@@ -19,6 +19,7 @@ package org.apache.seatunnel.api.env;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.sink.SaveModeExecuteLocation;
 import org.apache.seatunnel.common.constants.JobMode;
 
 import java.util.Map;
@@ -44,12 +45,43 @@ public interface EnvCommonOptions {
                     .defaultValue(JobMode.BATCH)
                     .withDescription("The job mode of this job, support Batch and Stream");
 
+    Option<Integer> JOB_RETRY_TIMES =
+            Options.key("job.retry.times")
+                    .intType()
+                    .defaultValue(3)
+                    .withDescription("The retry times of this job");
+
     Option<Long> CHECKPOINT_INTERVAL =
             Options.key("checkpoint.interval")
                     .longType()
                     .noDefaultValue()
                     .withDescription(
                             "The interval (in milliseconds) between two consecutive checkpoints.");
+
+    Option<Integer> READ_LIMIT_ROW_PER_SECOND =
+            Options.key("read_limit.rows_per_second")
+                    .intType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "The each parallelism row limit per second for read data from source.");
+
+    Option<Integer> READ_LIMIT_BYTES_PER_SECOND =
+            Options.key("read_limit.bytes_per_second")
+                    .intType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "The each parallelism bytes limit per second for read data from source.");
+    Option<Long> CHECKPOINT_TIMEOUT =
+            Options.key("checkpoint.timeout")
+                    .longType()
+                    .noDefaultValue()
+                    .withDescription("The timeout (in milliseconds) for a checkpoint.");
+
+    Option<SaveModeExecuteLocation> SAVEMODE_EXECUTE_LOCATION =
+            Options.key("savemode.execute.location")
+                    .enumType(SaveModeExecuteLocation.class)
+                    .defaultValue(SaveModeExecuteLocation.CLUSTER)
+                    .withDescription("The location of save mode execute.");
 
     Option<String> JARS =
             Options.key("jars")

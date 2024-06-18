@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergTableLoader;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.source.split.IcebergFileScanTaskSplit;
@@ -47,19 +48,22 @@ public abstract class AbstractSplitEnumerator
 
     protected IcebergTableLoader icebergTableLoader;
     @Getter private volatile boolean isOpen = false;
+    private CatalogTable catalogTable;
 
     public AbstractSplitEnumerator(
             @NonNull SourceSplitEnumerator.Context<IcebergFileScanTaskSplit> context,
             @NonNull SourceConfig sourceConfig,
-            @NonNull Map<Integer, List<IcebergFileScanTaskSplit>> pendingSplits) {
+            @NonNull Map<Integer, List<IcebergFileScanTaskSplit>> pendingSplits,
+            CatalogTable catalogTable) {
         this.context = context;
         this.sourceConfig = sourceConfig;
         this.pendingSplits = new HashMap<>(pendingSplits);
+        this.catalogTable = catalogTable;
     }
 
     @Override
     public void open() {
-        icebergTableLoader = IcebergTableLoader.create(sourceConfig);
+        icebergTableLoader = IcebergTableLoader.create(sourceConfig, catalogTable);
         icebergTableLoader.open();
         isOpen = true;
     }
@@ -108,7 +112,7 @@ public abstract class AbstractSplitEnumerator
     private void addPendingSplits(Collection<IcebergFileScanTaskSplit> newSplits) {
         int numReaders = context.currentParallelism();
         for (IcebergFileScanTaskSplit newSplit : newSplits) {
-            int ownerReader = newSplit.splitId().hashCode() % numReaders;
+            int ownerReader = (newSplit.splitId().hashCode() & Integer.MAX_VALUE) % numReaders;
             pendingSplits.computeIfAbsent(ownerReader, r -> new ArrayList<>()).add(newSplit);
             log.info("Assigning {} to {} reader.", newSplit, ownerReader);
         }

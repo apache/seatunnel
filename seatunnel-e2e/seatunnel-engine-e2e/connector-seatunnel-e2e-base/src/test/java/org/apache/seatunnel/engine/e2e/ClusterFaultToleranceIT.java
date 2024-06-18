@@ -23,8 +23,8 @@ import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
+import org.apache.seatunnel.engine.client.job.ClientJobExecutionEnvironment;
 import org.apache.seatunnel.engine.client.job.ClientJobProxy;
-import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
@@ -44,13 +44,13 @@ import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
-import static com.google.common.base.Preconditions.checkArgument;
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 
 /**
  * Cluster fault tolerance test. Test the job recovery capability and data consistency assurance
@@ -68,9 +68,8 @@ public class ClusterFaultToleranceIT {
 
     public static final String DYNAMIC_TEST_PARALLELISM = "dynamic_test_parallelism";
 
-    @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
-    public void testBatchJobRunOkIn2Node() throws ExecutionException, InterruptedException {
+    public void testBatchJobRunOkIn2Node() throws Exception {
         String testCaseName = "testBatchJobRunOkIn2Node";
         String testClusterName = "ClusterFaultToleranceIT_testBatchJobRunOkIn2Node";
         long testRowNumber = 1000;
@@ -109,8 +108,9 @@ public class ClusterFaultToleranceIT {
             ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
             clientConfig.setClusterName(TestUtils.getClusterName(testClusterName));
             engineClient = new SeaTunnelClient(clientConfig);
-            JobExecutionEnvironment jobExecutionEnv =
-                    engineClient.createExecutionContext(testResources.getRight(), jobConfig);
+            ClientJobExecutionEnvironment jobExecutionEnv =
+                    engineClient.createExecutionContext(
+                            testResources.getRight(), jobConfig, seaTunnelConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
             CompletableFuture<JobStatus> objectCompletableFuture =
@@ -120,7 +120,7 @@ public class ClusterFaultToleranceIT {
                     .untilAsserted(
                             () -> {
                                 Thread.sleep(2000);
-                                System.out.println(
+                                log.warn(
                                         "\n================================="
                                                 + FileUtils.getFileLineNumberFromDir(
                                                         testResources.getLeft())
@@ -134,11 +134,11 @@ public class ClusterFaultToleranceIT {
             Long fileLineNumberFromDir =
                     FileUtils.getFileLineNumberFromDir(testResources.getLeft());
             Assertions.assertEquals(testRowNumber * testParallelism, fileLineNumberFromDir);
-            System.out.println(engineClient.getJobMetrics(clientJobProxy.getJobId()));
-            log.info("========================clean test resource====================");
+            log.info(engineClient.getJobMetrics(clientJobProxy.getJobId()));
+            log.warn("========================clean test resource====================");
         } finally {
             if (engineClient != null) {
-                engineClient.shutdown();
+                engineClient.close();
             }
 
             if (node1 != null) {
@@ -161,10 +161,8 @@ public class ClusterFaultToleranceIT {
      * @param parallelism FakeSource parallelism
      */
     private ImmutablePair<String, String> createTestResources(
-            @NonNull String testCaseName,
-            @NonNull JobMode jobMode,
-            long rowNumber,
-            int parallelism) {
+            @NonNull String testCaseName, @NonNull JobMode jobMode, long rowNumber, int parallelism)
+            throws IOException {
         checkArgument(rowNumber > 0, "rowNumber must greater than 0");
         checkArgument(parallelism > 0, "parallelism must greater than 0");
         Map<String, String> valueMap = new HashMap<>();
@@ -193,9 +191,8 @@ public class ClusterFaultToleranceIT {
         return new ImmutablePair<>(targetDir, targetConfigFilePath);
     }
 
-    @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
-    public void testStreamJobRunOkIn2Node() throws ExecutionException, InterruptedException {
+    public void testStreamJobRunOkIn2Node() throws Exception {
         String testCaseName = "testStreamJobRunOkIn2Node";
         String testClusterName = "ClusterFaultToleranceIT_testStreamJobRunOkIn2Node";
         long testRowNumber = 1000;
@@ -232,8 +229,9 @@ public class ClusterFaultToleranceIT {
             ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
             clientConfig.setClusterName(TestUtils.getClusterName(testClusterName));
             engineClient = new SeaTunnelClient(clientConfig);
-            JobExecutionEnvironment jobExecutionEnv =
-                    engineClient.createExecutionContext(testResources.getRight(), jobConfig);
+            ClientJobExecutionEnvironment jobExecutionEnv =
+                    engineClient.createExecutionContext(
+                            testResources.getRight(), jobConfig, seaTunnelConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
             CompletableFuture<JobStatus> objectCompletableFuture =
@@ -244,7 +242,7 @@ public class ClusterFaultToleranceIT {
                     .untilAsserted(
                             () -> {
                                 Thread.sleep(2000);
-                                System.out.println(
+                                log.warn(
                                         "\n================================="
                                                 + FileUtils.getFileLineNumberFromDir(
                                                         testResources.getLeft())
@@ -273,7 +271,7 @@ public class ClusterFaultToleranceIT {
 
         } finally {
             if (engineClient != null) {
-                engineClient.shutdown();
+                engineClient.close();
             }
 
             if (node1 != null) {
@@ -286,10 +284,8 @@ public class ClusterFaultToleranceIT {
         }
     }
 
-    @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
-    public void testBatchJobRestoreIn2NodeWorkerDown()
-            throws ExecutionException, InterruptedException {
+    public void testBatchJobRestoreIn2NodeWorkerDown() throws Exception {
         String testCaseName = "testBatchJobRestoreIn2NodeWorkerDown";
         String testClusterName = "ClusterFaultToleranceIT_testBatchJobRestoreIn2NodeWorkerDown";
         long testRowNumber = 1000;
@@ -328,8 +324,9 @@ public class ClusterFaultToleranceIT {
             ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
             clientConfig.setClusterName(TestUtils.getClusterName(testClusterName));
             engineClient = new SeaTunnelClient(clientConfig);
-            JobExecutionEnvironment jobExecutionEnv =
-                    engineClient.createExecutionContext(testResources.getRight(), jobConfig);
+            ClientJobExecutionEnvironment jobExecutionEnv =
+                    engineClient.createExecutionContext(
+                            testResources.getRight(), jobConfig, seaTunnelConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
             CompletableFuture<JobStatus> objectCompletableFuture =
@@ -341,7 +338,7 @@ public class ClusterFaultToleranceIT {
                             () -> {
                                 // Wait some tasks commit finished
                                 Thread.sleep(2000);
-                                System.out.println(
+                                log.warn(
                                         "\n================================="
                                                 + FileUtils.getFileLineNumberFromDir(
                                                         testResources.getLeft())
@@ -373,7 +370,7 @@ public class ClusterFaultToleranceIT {
 
         } finally {
             if (engineClient != null) {
-                engineClient.shutdown();
+                engineClient.close();
             }
 
             if (node1 != null) {
@@ -386,10 +383,8 @@ public class ClusterFaultToleranceIT {
         }
     }
 
-    @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
-    public void testStreamJobRestoreIn2NodeWorkerDown()
-            throws ExecutionException, InterruptedException {
+    public void testStreamJobRestoreIn2NodeWorkerDown() throws Exception {
         String testCaseName = "testStreamJobRestoreIn2NodeWorkerDown";
         String testClusterName = "ClusterFaultToleranceIT_testStreamJobRestoreIn2NodeWorkerDown";
         long testRowNumber = 1000;
@@ -426,8 +421,9 @@ public class ClusterFaultToleranceIT {
             ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
             clientConfig.setClusterName(TestUtils.getClusterName(testClusterName));
             engineClient = new SeaTunnelClient(clientConfig);
-            JobExecutionEnvironment jobExecutionEnv =
-                    engineClient.createExecutionContext(testResources.getRight(), jobConfig);
+            ClientJobExecutionEnvironment jobExecutionEnv =
+                    engineClient.createExecutionContext(
+                            testResources.getRight(), jobConfig, seaTunnelConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
             CompletableFuture<JobStatus> objectCompletableFuture =
@@ -440,7 +436,7 @@ public class ClusterFaultToleranceIT {
                                 // Wait some tasks commit finished, and we can get rows from the
                                 // sink target dir
                                 Thread.sleep(2000);
-                                System.out.println(
+                                log.warn(
                                         "\n================================="
                                                 + FileUtils.getFileLineNumberFromDir(
                                                         testResources.getLeft())
@@ -462,9 +458,9 @@ public class ClusterFaultToleranceIT {
                             () -> {
                                 // Wait job write all rows in file
                                 Thread.sleep(2000);
-                                System.out.println(
-                                        FileUtils.getFileLineNumberFromDir(
-                                                testResources.getLeft()));
+                                log.warn(
+                                        FileUtils.getFileLineNumberFromDir(testResources.getLeft())
+                                                .toString());
                                 Assertions.assertTrue(
                                         JobStatus.RUNNING.equals(clientJobProxy.getJobStatus())
                                                 && testRowNumber * testParallelism
@@ -492,7 +488,7 @@ public class ClusterFaultToleranceIT {
 
         } finally {
             if (engineClient != null) {
-                engineClient.shutdown();
+                engineClient.close();
             }
 
             if (node1 != null) {
@@ -505,10 +501,8 @@ public class ClusterFaultToleranceIT {
         }
     }
 
-    @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
-    public void testBatchJobRestoreIn2NodeMasterDown()
-            throws ExecutionException, InterruptedException {
+    public void testBatchJobRestoreIn2NodeMasterDown() throws Exception {
         String testCaseName = "testBatchJobRestoreIn2NodeMasterDown";
         String testClusterName = "ClusterFaultToleranceIT_testBatchJobRestoreIn2NodeMasterDown";
         long testRowNumber = 1000;
@@ -545,8 +539,9 @@ public class ClusterFaultToleranceIT {
             ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
             clientConfig.setClusterName(TestUtils.getClusterName(testClusterName));
             engineClient = new SeaTunnelClient(clientConfig);
-            JobExecutionEnvironment jobExecutionEnv =
-                    engineClient.createExecutionContext(testResources.getRight(), jobConfig);
+            ClientJobExecutionEnvironment jobExecutionEnv =
+                    engineClient.createExecutionContext(
+                            testResources.getRight(), jobConfig, seaTunnelConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
             CompletableFuture<JobStatus> objectCompletableFuture =
@@ -558,7 +553,7 @@ public class ClusterFaultToleranceIT {
                             () -> {
                                 // Wait some tasks commit finished
                                 Thread.sleep(2000);
-                                System.out.println(
+                                log.warn(
                                         "\n================================="
                                                 + FileUtils.getFileLineNumberFromDir(
                                                         testResources.getLeft())
@@ -578,7 +573,7 @@ public class ClusterFaultToleranceIT {
                     .untilAsserted(
                             () -> {
                                 Thread.sleep(2000);
-                                System.out.println(
+                                log.warn(
                                         "\n================================="
                                                 + FileUtils.getFileLineNumberFromDir(
                                                         testResources.getLeft())
@@ -595,7 +590,7 @@ public class ClusterFaultToleranceIT {
 
         } finally {
             if (engineClient != null) {
-                engineClient.shutdown();
+                engineClient.close();
             }
 
             if (node1 != null) {
@@ -608,10 +603,8 @@ public class ClusterFaultToleranceIT {
         }
     }
 
-    @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
-    public void testStreamJobRestoreIn2NodeMasterDown()
-            throws ExecutionException, InterruptedException {
+    public void testStreamJobRestoreIn2NodeMasterDown() throws Exception {
         String testCaseName = "testStreamJobRestoreIn2NodeMasterDown";
         String testClusterName = "ClusterFaultToleranceIT_testStreamJobRestoreIn2NodeMasterDown";
         long testRowNumber = 1000;
@@ -648,8 +641,9 @@ public class ClusterFaultToleranceIT {
             ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
             clientConfig.setClusterName(TestUtils.getClusterName(testClusterName));
             engineClient = new SeaTunnelClient(clientConfig);
-            JobExecutionEnvironment jobExecutionEnv =
-                    engineClient.createExecutionContext(testResources.getRight(), jobConfig);
+            ClientJobExecutionEnvironment jobExecutionEnv =
+                    engineClient.createExecutionContext(
+                            testResources.getRight(), jobConfig, seaTunnelConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
             CompletableFuture<JobStatus> objectCompletableFuture =
@@ -662,7 +656,7 @@ public class ClusterFaultToleranceIT {
                                 // Wait some tasks commit finished, and we can get rows from the
                                 // sink target dir
                                 Thread.sleep(2000);
-                                System.out.println(
+                                log.warn(
                                         "\n================================="
                                                 + FileUtils.getFileLineNumberFromDir(
                                                         testResources.getLeft())
@@ -683,7 +677,7 @@ public class ClusterFaultToleranceIT {
                             () -> {
                                 // Wait job write all rows in file
                                 Thread.sleep(2000);
-                                System.out.println(
+                                log.warn(
                                         "\n================================="
                                                 + FileUtils.getFileLineNumberFromDir(
                                                         testResources.getLeft())
@@ -715,7 +709,7 @@ public class ClusterFaultToleranceIT {
 
         } finally {
             if (engineClient != null) {
-                engineClient.shutdown();
+                engineClient.close();
             }
 
             if (node1 != null) {
@@ -730,16 +724,14 @@ public class ClusterFaultToleranceIT {
 
     @Test
     @Disabled
-    public void testFor() throws ExecutionException, InterruptedException {
+    public void testFor() throws Exception {
         for (int i = 0; i < 200; i++) {
             testStreamJobRestoreInAllNodeDown();
         }
     }
 
-    @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
-    public void testStreamJobRestoreInAllNodeDown()
-            throws ExecutionException, InterruptedException {
+    public void testStreamJobRestoreInAllNodeDown() throws Exception {
         String testCaseName = "testStreamJobRestoreInAllNodeDown";
         String testClusterName =
                 "ClusterFaultToleranceIT_testStreamJobRestoreInAllNodeDown_"
@@ -817,8 +809,9 @@ public class ClusterFaultToleranceIT {
             ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
             clientConfig.setClusterName(TestUtils.getClusterName(testClusterName));
             engineClient = new SeaTunnelClient(clientConfig);
-            JobExecutionEnvironment jobExecutionEnv =
-                    engineClient.createExecutionContext(testResources.getRight(), jobConfig);
+            ClientJobExecutionEnvironment jobExecutionEnv =
+                    engineClient.createExecutionContext(
+                            testResources.getRight(), jobConfig, seaTunnelConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
             Long jobId = clientJobProxy.getJobId();
 
@@ -830,7 +823,7 @@ public class ClusterFaultToleranceIT {
                                 // Wait some tasks commit finished, and we can get rows from the
                                 // sink target dir
                                 Thread.sleep(2000);
-                                System.out.println(
+                                log.warn(
                                         "\n================================="
                                                 + FileUtils.getFileLineNumberFromDir(
                                                         testResources.getLeft())
@@ -847,7 +840,7 @@ public class ClusterFaultToleranceIT {
             node1.shutdown();
             node2.shutdown();
 
-            log.info(
+            log.warn(
                     "==========================================All node is done========================================");
             Thread.sleep(10000);
 
@@ -855,7 +848,7 @@ public class ClusterFaultToleranceIT {
 
             node2 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
-            log.info(
+            log.warn(
                     "==========================================All node is start, begin check node size ========================================");
             // waiting all node added to cluster
             HazelcastInstanceImpl restoreFinalNode = node1;
@@ -866,7 +859,7 @@ public class ClusterFaultToleranceIT {
                                     Assertions.assertEquals(
                                             2, restoreFinalNode.getCluster().getMembers().size()));
 
-            log.info(
+            log.warn(
                     "==========================================All node is running========================================");
             engineClient = new SeaTunnelClient(clientConfig);
             ClientJobProxy newClientJobProxy = engineClient.createJobClient().getJobProxy(jobId);
@@ -881,7 +874,7 @@ public class ClusterFaultToleranceIT {
                             () -> {
                                 // Wait job write all rows in file
                                 Thread.sleep(2000);
-                                System.out.println(
+                                log.warn(
                                         "\n================================="
                                                 + FileUtils.getFileLineNumberFromDir(
                                                         testResources.getLeft())
@@ -902,7 +895,7 @@ public class ClusterFaultToleranceIT {
 
             // sleep 10s and expect the job don't write more rows.
             Thread.sleep(10000);
-            log.info(
+            log.warn(
                     "==========================================Cancel Job========================================");
             newClientJobProxy.cancelJob();
 
@@ -920,10 +913,10 @@ public class ClusterFaultToleranceIT {
             Assertions.assertEquals(testRowNumber * testParallelism, fileLineNumberFromDir);
 
         } finally {
-            log.info(
+            log.warn(
                     "==========================================Clean test resource ========================================");
             if (engineClient != null) {
-                engineClient.shutdown();
+                engineClient.close();
             }
 
             if (node1 != null) {
@@ -936,11 +929,9 @@ public class ClusterFaultToleranceIT {
         }
     }
 
-    @SuppressWarnings("checkstyle:RegexpSingleline")
     @Test
     @Disabled
-    public void testStreamJobRestoreFromOssInAllNodeDown()
-            throws ExecutionException, InterruptedException {
+    public void testStreamJobRestoreFromOssInAllNodeDown() throws Exception {
         String OSS_BUCKET_NAME = "oss://your bucket name/";
         String OSS_ENDPOINT = "your oss endpoint";
         String OSS_ACCESS_KEY_ID = "oss accessKey id";
@@ -1036,8 +1027,9 @@ public class ClusterFaultToleranceIT {
             ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
             clientConfig.setClusterName(TestUtils.getClusterName(testClusterName));
             engineClient = new SeaTunnelClient(clientConfig);
-            JobExecutionEnvironment jobExecutionEnv =
-                    engineClient.createExecutionContext(testResources.getRight(), jobConfig);
+            ClientJobExecutionEnvironment jobExecutionEnv =
+                    engineClient.createExecutionContext(
+                            testResources.getRight(), jobConfig, seaTunnelConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
             Long jobId = clientJobProxy.getJobId();
 
@@ -1049,7 +1041,7 @@ public class ClusterFaultToleranceIT {
                                 // Wait some tasks commit finished, and we can get rows from the
                                 // sink target dir
                                 Thread.sleep(2000);
-                                System.out.println(
+                                log.warn(
                                         "\n================================="
                                                 + FileUtils.getFileLineNumberFromDir(
                                                         testResources.getLeft())
@@ -1100,7 +1092,7 @@ public class ClusterFaultToleranceIT {
                             () -> {
                                 // Wait job write all rows in file
                                 Thread.sleep(2000);
-                                System.out.println(
+                                log.warn(
                                         "\n================================="
                                                 + FileUtils.getFileLineNumberFromDir(
                                                         testResources.getLeft())
@@ -1142,7 +1134,7 @@ public class ClusterFaultToleranceIT {
             log.info(
                     "==========================================Clean test resource ========================================");
             if (engineClient != null) {
-                engineClient.shutdown();
+                engineClient.close();
             }
 
             if (node1 != null) {

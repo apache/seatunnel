@@ -18,6 +18,7 @@
 package org.apache.seatunnel.translation.spark.sink.write;
 
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.translation.spark.sink.SeaTunnelBatchWrite;
 
@@ -30,16 +31,22 @@ import java.io.IOException;
 public class SeaTunnelWrite<AggregatedCommitInfoT, CommitInfoT, StateT> implements Write {
 
     private final SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink;
+    private final CatalogTable catalogTable;
+    private final String jobId;
 
     public SeaTunnelWrite(
-            SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink) {
+            SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
+            CatalogTable catalogTable,
+            String jobId) {
         this.sink = sink;
+        this.catalogTable = catalogTable;
+        this.jobId = jobId;
     }
 
     @Override
     public BatchWrite toBatch() {
         try {
-            return new SeaTunnelBatchWrite<>(sink);
+            return new SeaTunnelBatchWrite<>(sink, catalogTable, jobId);
         } catch (IOException e) {
             throw new RuntimeException("SeaTunnel Spark sink create batch failed", e);
         }
@@ -48,7 +55,7 @@ public class SeaTunnelWrite<AggregatedCommitInfoT, CommitInfoT, StateT> implemen
     @Override
     public StreamingWrite toStreaming() {
         try {
-            return new SeaTunnelBatchWrite<>(sink);
+            return new SeaTunnelBatchWrite<>(sink, catalogTable, jobId);
         } catch (IOException e) {
             throw new RuntimeException("SeaTunnel Spark sink create batch failed", e);
         }

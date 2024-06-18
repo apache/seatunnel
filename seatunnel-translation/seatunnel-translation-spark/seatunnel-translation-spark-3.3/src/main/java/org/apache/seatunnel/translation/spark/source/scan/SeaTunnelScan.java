@@ -29,20 +29,25 @@ import org.apache.spark.sql.connector.read.streaming.MicroBatchStream;
 import org.apache.spark.sql.types.StructType;
 import org.apache.spark.sql.util.CaseInsensitiveStringMap;
 
+import java.util.Map;
+
 public class SeaTunnelScan implements Scan {
 
     private final SeaTunnelSource<SeaTunnelRow, ?, ?> source;
 
     private final int parallelism;
+    private final String jobId;
 
     private final CaseInsensitiveStringMap caseInsensitiveStringMap;
 
     public SeaTunnelScan(
             SeaTunnelSource<SeaTunnelRow, ?, ?> source,
             int parallelism,
+            String jobId,
             CaseInsensitiveStringMap caseInsensitiveStringMap) {
         this.source = source;
         this.parallelism = parallelism;
+        this.jobId = jobId;
         this.caseInsensitiveStringMap = caseInsensitiveStringMap;
     }
 
@@ -53,12 +58,13 @@ public class SeaTunnelScan implements Scan {
 
     @Override
     public Batch toBatch() {
-        return new SeaTunnelBatch(source, parallelism);
+        Map<String, String> envOptions = caseInsensitiveStringMap.asCaseSensitiveMap();
+        return new SeaTunnelBatch(source, parallelism, jobId, envOptions);
     }
 
     @Override
     public MicroBatchStream toMicroBatchStream(String checkpointLocation) {
         return new SeaTunnelMicroBatch(
-                source, parallelism, checkpointLocation, caseInsensitiveStringMap);
+                source, parallelism, jobId, checkpointLocation, caseInsensitiveStringMap);
     }
 }

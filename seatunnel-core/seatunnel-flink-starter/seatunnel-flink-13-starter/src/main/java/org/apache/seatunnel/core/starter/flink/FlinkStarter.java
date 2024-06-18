@@ -44,7 +44,6 @@ public class FlinkStarter implements Starter {
         this.appJar = Common.appStarterDir().resolve(APP_JAR_NAME).toString();
     }
 
-    @SuppressWarnings("checkstyle:RegexpSingleline")
     public static void main(String[] args) {
         FlinkStarter flinkStarter = new FlinkStarter(args);
         System.out.println(String.join(" ", flinkStarter.buildCommands()));
@@ -91,7 +90,7 @@ public class FlinkStarter implements Starter {
         flinkCommandArgs.getVariables().stream()
                 .filter(Objects::nonNull)
                 .map(String::trim)
-                .forEach(variable -> command.add("-D" + variable));
+                .forEach(variable -> command.add("-i " + variable));
         return command;
     }
 }

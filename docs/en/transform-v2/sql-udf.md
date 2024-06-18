@@ -39,16 +39,31 @@ public interface ZetaUDF {
 
 ## UDF Implements Example
 
-Add the dependency of transform-v2 and provided scope to your maven project:
+Add these dependencies and provided scope to your maven project:
 
 ```xml
 
-<dependency>
-    <groupId>org.apache.seatunnel</groupId>
-    <artifactId>seatunnel-transforms-v2</artifactId>
-    <version>2.3.x</version>
-    <scope>provided</scope>
-</dependency>
+<dependencies>
+    <dependency>
+        <groupId>org.apache.seatunnel</groupId>
+        <artifactId>seatunnel-transforms-v2</artifactId>
+        <version>2.3.2</version>
+        <scope>provided</scope>
+    </dependency>
+    <dependency>
+        <groupId>org.apache.seatunnel</groupId>
+        <artifactId>seatunnel-api</artifactId>
+        <version>2.3.2</version>
+        <scope>provided</scope>
+    </dependency>
+    <dependency>
+        <groupId>com.google.auto.service</groupId>
+        <artifactId>auto-service</artifactId>
+        <version>1.0.1</version>
+        <scope>provided</scope>
+    </dependency>
+</dependencies>
+
 ```
 
 Add a Java Class implements of ZetaUDF like this:
@@ -76,7 +91,8 @@ public class ExampleUDF implements ZetaUDF {
 }
 ```
 
-Package the UDF project and copy the jar to the path: ${SEATUNNEL_HOME}/lib
+Package the UDF project and copy the jar to the path: ${SEATUNNEL_HOME}/lib. And if your UDF use third party library, you also need put it to ${SEATUNNEL_HOME}/lib.  
+If you use cluster mode, you need put the lib to all your node's ${SEATUNNEL_HOME}/lib folder and re-start the cluster.
 
 ## Example
 

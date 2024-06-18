@@ -21,10 +21,15 @@ import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
+import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
+import org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderService;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+import org.apache.seatunnel.engine.server.service.jar.ConnectorPackageService;
 import org.apache.seatunnel.engine.server.service.slot.DefaultSlotService;
 import org.apache.seatunnel.engine.server.service.slot.SlotService;
+
+import org.apache.hadoop.fs.FileSystem;
 
 import com.hazelcast.internal.services.ManagedService;
 import com.hazelcast.internal.services.MembershipAwareService;
@@ -45,6 +50,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import static com.hazelcast.spi.properties.ClusterProperty.INVOCATION_MAX_RETRY_COUNT;
+import static com.hazelcast.spi.properties.ClusterProperty.INVOCATION_RETRY_PAUSE;
+
 public class SeaTunnelServer
         implements ManagedService, MembershipAwareService, LiveOperationsTracker {
 
@@ -57,6 +65,7 @@ public class SeaTunnelServer
 
     private volatile SlotService slotService;
     private TaskExecutionService taskExecutionService;
+    private ClassLoaderService classLoaderService;
     private CoordinatorService coordinatorService;
     private ScheduledExecutorService monitorService;
 
@@ -90,13 +99,17 @@ public class SeaTunnelServer
         return slotService;
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     public void init(NodeEngine engine, Properties hzProperties) {
         this.nodeEngine = (NodeEngineImpl) engine;
         // TODO Determine whether to execute there method on the master node according to the deploy
         // type
-        taskExecutionService = new TaskExecutionService(nodeEngine, nodeEngine.getProperties());
+        classLoaderService =
+                new DefaultClassLoaderService(
+                        seaTunnelConfig.getEngineConfig().isClassloaderCacheMode());
+        taskExecutionService =
+                new TaskExecutionService(
+                        classLoaderService, nodeEngine, nodeEngine.getProperties());
         nodeEngine.getMetricsRegistry().registerDynamicMetricsProvider(taskExecutionService);
         taskExecutionService.start();
         getSlotService();
@@ -110,6 +123,10 @@ public class SeaTunnelServer
                 TimeUnit.SECONDS);
 
         seaTunnelHealthMonitor = new SeaTunnelHealthMonitor(((NodeEngineImpl) engine).getNode());
+
+        // a trick way to fix StatisticsDataReferenceCleaner thread class loader leak.
+        // see https://issues.apache.org/jira/browse/HADOOP-19049
+        FileSystem.Statistics statistics = new FileSystem.Statistics("SeaTunnel");
     }
 
     @Override
@@ -120,6 +137,9 @@ public class SeaTunnelServer
         isRunning = false;
         if (taskExecutionService != null) {
             taskExecutionService.shutdown();
+        }
+        if (classLoaderService != null) {
+            classLoaderService.close();
         }
         if (monitorService != null) {
             monitorService.shutdownNow();
@@ -159,7 +179,6 @@ public class SeaTunnelServer
         return liveOperationRegistry;
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public CoordinatorService getCoordinatorService() {
         int retryCount = 0;
         if (isMasterNode()) {
@@ -168,24 +187,26 @@ public class SeaTunnelServer
             String hazelcastInvocationMaxRetry =
                     seaTunnelConfig
                             .getHazelcastConfig()
-                            .getProperty("hazelcast.invocation.max.retry.count");
+                            .getProperty(INVOCATION_MAX_RETRY_COUNT.getName());
             int maxRetry =
                     hazelcastInvocationMaxRetry == null
-                            ? 250 * 2
+                            ? Integer.parseInt(INVOCATION_MAX_RETRY_COUNT.getDefaultValue()) * 2
                             : Integer.parseInt(hazelcastInvocationMaxRetry) * 2;
 
             String hazelcastRetryPause =
                     seaTunnelConfig
                             .getHazelcastConfig()
-                            .getProperty("hazelcast.invocation.retry.pause.millis");
+                            .getProperty(INVOCATION_RETRY_PAUSE.getName());
 
             int retryPause =
-                    hazelcastRetryPause == null ? 500 : Integer.parseInt(hazelcastRetryPause);
+                    hazelcastRetryPause == null
+                            ? Integer.parseInt(INVOCATION_RETRY_PAUSE.getDefaultValue())
+                            : Integer.parseInt(hazelcastRetryPause);
 
-            while (isMasterNode()
-                    && !coordinatorService.isCoordinatorActive()
+            while (isRunning
                     && retryCount < maxRetry
-                    && isRunning) {
+                    && !coordinatorService.isCoordinatorActive()
+                    && isMasterNode()) {
                 try {
                     LOGGER.warning(
                             "This is master node, waiting the coordinator service init finished");
@@ -215,6 +236,10 @@ public class SeaTunnelServer
         return taskExecutionService;
     }
 
+    public ClassLoaderService getClassLoaderService() {
+        return classLoaderService;
+    }
+
     /**
      * return whether task is end
      *
@@ -228,17 +253,18 @@ public class SeaTunnelServer
         return taskState != null && ((ExecutionState) taskState).isEndState();
     }
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public boolean isMasterNode() {
         // must retry until the cluster have master node
         try {
-            return RetryUtils.retryWithException(
-                    () -> nodeEngine.getMasterAddress().equals(nodeEngine.getThisAddress()),
-                    new RetryUtils.RetryMaterial(
-                            Constant.OPERATION_RETRY_TIME,
-                            true,
-                            exception -> exception instanceof NullPointerException && isRunning,
-                            Constant.OPERATION_RETRY_SLEEP));
+            return Boolean.TRUE.equals(
+                    RetryUtils.retryWithException(
+                            () -> nodeEngine.getThisAddress().equals(nodeEngine.getMasterAddress()),
+                            new RetryUtils.RetryMaterial(
+                                    Constant.OPERATION_RETRY_TIME,
+                                    true,
+                                    exception ->
+                                            isRunning && exception instanceof NullPointerException,
+                                    Constant.OPERATION_RETRY_SLEEP)));
         } catch (InterruptedException e) {
             LOGGER.info("master node check interrupted");
             return false;
@@ -252,5 +278,17 @@ public class SeaTunnelServer
         if (coordinatorService.isCoordinatorActive() && this.isMasterNode()) {
             coordinatorService.printJobDetailInfo();
         }
+    }
+
+    public SeaTunnelConfig getSeaTunnelConfig() {
+        return seaTunnelConfig;
+    }
+
+    public NodeEngineImpl getNodeEngine() {
+        return nodeEngine;
+    }
+
+    public ConnectorPackageService getConnectorPackageService() {
+        return getCoordinatorService().getConnectorPackageService();
     }
 }

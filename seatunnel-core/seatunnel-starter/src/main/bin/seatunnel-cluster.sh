@@ -84,7 +84,7 @@ JAVA_OPTS="${JAVA_OPTS} -Dhazelcast.config=${HAZELCAST_CONFIG}"
 # Log4j2 Config
 JAVA_OPTS="${JAVA_OPTS} -Dlog4j2.contextSelector=org.apache.logging.log4j.core.async.AsyncLoggerContextSelector"
 if [ -e "${CONF_DIR}/log4j2.properties" ]; then
-  JAVA_OPTS="${JAVA_OPTS} -Dlog4j2.configurationFile=${CONF_DIR}/log4j2.properties"
+  JAVA_OPTS="${JAVA_OPTS} -Dhazelcast.logging.type=log4j2 -Dlog4j2.configurationFile=${CONF_DIR}/log4j2.properties"
   JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.logs.path=${APP_DIR}/logs"
   JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.logs.file_name=seatunnel-engine-server"
 fi
@@ -93,21 +93,23 @@ fi
 # Usage instructions:
 # If you need to debug your code in cluster mode, please enable this configuration option and listen to the specified
 # port in your IDE. After that, you can happily debug your code.
-# JAVA_OPTS="${JAVA_OPTS} -Xrunjdwp:server=y,transport=dt_socket,address=8000,suspend=n"
+# JAVA_OPTS="${JAVA_OPTS} -Xdebug -Xrunjdwp:server=y,transport=dt_socket,address=5001,suspend=y"
 
 CLASS_PATH=${APP_DIR}/lib/*:${APP_JAR}
 
-while read line
-do
-    if [[ ! $line == \#* ]] && [ -n "$line" ]; then
+while IFS= read -r line || [[ -n "$line" ]]; do
+    if [[ ! $line == \#* ]]; then
         JAVA_OPTS="$JAVA_OPTS $line"
     fi
 done < ${APP_DIR}/config/jvm_options
 
 if [[ $DAEMON == true && $HELP == false ]]; then
- touch $OUT
- nohup java ${JAVA_OPTS} -cp ${CLASS_PATH} ${APP_MAIN} ${args} > "$OUT" 200<&- 2>&1 < /dev/null &
- else
- java ${JAVA_OPTS} -cp ${CLASS_PATH} ${APP_MAIN} ${args}
+  if [[ ! -d ${APP_DIR}/logs ]]; then
+    mkdir -p ${APP_DIR}/logs
+  fi
+  touch $OUT
+  nohup java ${JAVA_OPTS} -cp ${CLASS_PATH} ${APP_MAIN} ${args} > "$OUT" 200<&- 2>&1 < /dev/null &
+  else
+  java ${JAVA_OPTS} -cp ${CLASS_PATH} ${APP_MAIN} ${args}
 fi
 

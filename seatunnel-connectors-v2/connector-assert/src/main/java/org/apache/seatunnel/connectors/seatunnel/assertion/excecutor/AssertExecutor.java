@@ -17,23 +17,28 @@
 
 package org.apache.seatunnel.connectors.seatunnel.assertion.excecutor;
 
+import org.apache.seatunnel.api.table.type.ArrayType;
+import org.apache.seatunnel.api.table.type.DecimalType;
+import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.table.type.SqlType;
+import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.assertion.rule.AssertFieldRule;
+import org.apache.seatunnel.format.json.JsonToRowConverters;
 
 import org.apache.commons.lang3.StringUtils;
 
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.format.DateTimeFormatter;
-import java.time.temporal.TemporalAccessor;
-import java.time.temporal.TemporalQueries;
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -69,24 +74,29 @@ public class AssertExecutor {
                         Lists.newArrayList(rowType.getFieldNames()),
                         fieldName -> fieldName.equals(assertFieldRule.getFieldName()));
 
+        SeaTunnelDataType<?> type = rowType.getFieldType(index);
         Object value = rowData.getField(index);
-        if (Objects.isNull(value)) {
-            return Boolean.FALSE;
-        }
+        String fieldName = rowType.getFieldName(index);
         Boolean typeChecked = checkType(value, assertFieldRule.getFieldType());
         if (Boolean.FALSE.equals(typeChecked)) {
             return Boolean.FALSE;
         }
-        Boolean valueChecked = checkValue(value, assertFieldRule.getFieldRules());
+        Boolean valueChecked = checkValue(value, type, assertFieldRule.getFieldRules(), fieldName);
         if (Boolean.FALSE.equals(valueChecked)) {
             return Boolean.FALSE;
         }
         return Boolean.TRUE;
     }
 
-    private Boolean checkValue(Object value, List<AssertFieldRule.AssertRule> fieldValueRules) {
+    private Boolean checkValue(
+            Object value,
+            SeaTunnelDataType<?> type,
+            List<AssertFieldRule.AssertRule> fieldValueRules,
+            String fieldName) {
         Optional<AssertFieldRule.AssertRule> failValueRule =
-                fieldValueRules.stream().filter(valueRule -> !pass(value, valueRule)).findFirst();
+                fieldValueRules.stream()
+                        .filter(valueRule -> !pass(value, type, valueRule, fieldName))
+                        .findFirst();
         if (failValueRule.isPresent()) {
             return Boolean.FALSE;
         } else {
@@ -94,59 +104,272 @@ public class AssertExecutor {
         }
     }
 
-    private boolean pass(Object value, AssertFieldRule.AssertRule valueRule) {
-        if (AssertFieldRule.AssertRuleType.NOT_NULL.equals(valueRule.getRuleType())) {
-            return Objects.nonNull(value);
+    private boolean pass(
+            Object value,
+            SeaTunnelDataType<?> type,
+            AssertFieldRule.AssertRule valueRule,
+            String fieldName) {
+        AssertFieldRule.AssertRuleType ruleType = valueRule.getRuleType();
+        boolean isPass = true;
+        if (ruleType != null) {
+            isPass = checkAssertRule(value, type, valueRule);
         }
 
-        if (value instanceof Number
-                && AssertFieldRule.AssertRuleType.MAX.equals(valueRule.getRuleType())) {
-            return ((Number) value).doubleValue() <= valueRule.getRuleValue();
+        if (Objects.nonNull(value) && valueRule.getEqualTo() != null) {
+            isPass = isPass && compareValue(value, type, valueRule, fieldName);
         }
-        if (value instanceof Number
-                && AssertFieldRule.AssertRuleType.MIN.equals(valueRule.getRuleType())) {
-            return ((Number) value).doubleValue() >= valueRule.getRuleValue();
+        return isPass;
+    }
+
+    private boolean checkAssertRule(
+            Object value, SeaTunnelDataType<?> type, AssertFieldRule.AssertRule valueRule) {
+        switch (valueRule.getRuleType()) {
+            case NULL:
+                return Objects.isNull(value);
+            case NOT_NULL:
+                return Objects.nonNull(value);
+            case MAX:
+                {
+                    if (Objects.isNull(value) || !(value instanceof Number)) {
+                        return Boolean.FALSE;
+                    }
+                    return ((Number) value).doubleValue() <= valueRule.getRuleValue();
+                }
+            case MIN:
+                {
+                    if (Objects.isNull(value) || !(value instanceof Number)) {
+                        return Boolean.FALSE;
+                    }
+                    return ((Number) value).doubleValue() >= valueRule.getRuleValue();
+                }
+            case MAX_LENGTH:
+                {
+                    String valueStr =
+                            Objects.isNull(value) ? StringUtils.EMPTY : String.valueOf(value);
+                    return valueStr.length() <= valueRule.getRuleValue();
+                }
+            case MIN_LENGTH:
+                {
+                    String valueStr =
+                            Objects.isNull(value) ? StringUtils.EMPTY : String.valueOf(value);
+                    return valueStr.length() >= valueRule.getRuleValue();
+                }
+            default:
+                return false;
         }
-        if (valueRule.getEqualTo() != null) {
-            if (value instanceof String) {
-                return value.equals(valueRule.getEqualTo());
+    }
+
+    private boolean compareValue(
+            Object value,
+            SeaTunnelDataType<?> type,
+            AssertFieldRule.AssertRule valueRule,
+            String fieldName) {
+        Object config = valueRule.getEqualTo();
+        String confJsonStr = JsonUtils.toJsonString(config);
+
+        JsonToRowConverters converters = new JsonToRowConverters(true, false);
+        JsonToRowConverters.JsonToObjectConverter converter = converters.createConverter(type);
+
+        Object confValue;
+        try {
+            confValue =
+                    converter.convert(
+                            JsonUtils.stringToJsonNode(JsonUtils.toJsonString(config)), fieldName);
+        } catch (IOException e) {
+            throw CommonError.jsonOperationError("Assert", confJsonStr, e);
+        }
+        return compareValue(value, type, confValue);
+    }
+
+    private boolean compareValue(Object value, SeaTunnelDataType<?> type, Object confValue) {
+        switch (type.getSqlType()) {
+            case ROW:
+                {
+                    return compareRowValue(
+                            (SeaTunnelRow) value,
+                            (SeaTunnelRowType) type,
+                            (SeaTunnelRow) confValue);
+                }
+            case ARRAY:
+                {
+                    return compareArrayValue(
+                            (Object[]) value, (ArrayType<?, ?>) type, (Object[]) confValue);
+                }
+            case MAP:
+                {
+                    return compareMapValue(
+                            (Map<?, ?>) value, (MapType<?, ?>) type, (Map<?, ?>) confValue);
+                }
+            case NULL:
+                return value == null && confValue == null;
+            case BYTES:
+                {
+                    return Arrays.equals((byte[]) value, (byte[]) confValue);
+                }
+            case STRING:
+            case BOOLEAN:
+            case TINYINT:
+            case SMALLINT:
+            case INT:
+            case BIGINT:
+            case FLOAT:
+            case DOUBLE:
+            case DECIMAL:
+            case TIME:
+            case TIMESTAMP:
+            case DATE:
+            default:
+                return value.equals(confValue);
+        }
+    }
+
+    private boolean compareRowValue(
+            SeaTunnelRow value, SeaTunnelRowType type, SeaTunnelRow confValue) {
+        Object[] valFields = value.getFields();
+        Object[] confValFields = confValue.getFields();
+        if (valFields.length != confValFields.length) {
+            return false;
+        }
+        for (int idx = 0; idx < confValFields.length; idx++) {
+            Object fieldVal = valFields[idx];
+            Object confField = confValFields[idx];
+            SeaTunnelDataType<?> fieldType = type.getFieldType(idx);
+            if (!compareValue(fieldVal, fieldType, confField)) {
+                return false;
             }
-            if (value instanceof Number) {
-                return ((Number) value).doubleValue() == Double.parseDouble(valueRule.getEqualTo());
-            }
-            if (value instanceof Boolean) {
-                return value.equals(Boolean.parseBoolean(valueRule.getEqualTo()));
-            }
-            if (value instanceof LocalDateTime) {
-                TemporalAccessor parsedTimestamp =
-                        DateTimeFormatter.ISO_LOCAL_DATE_TIME.parse(valueRule.getEqualTo());
-                LocalTime localTime = parsedTimestamp.query(TemporalQueries.localTime());
-                LocalDate localDate = parsedTimestamp.query(TemporalQueries.localDate());
-                return ((LocalDateTime) value).isEqual(LocalDateTime.of(localDate, localTime));
-            }
-            if (value instanceof LocalDate) {
-                DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-                return ((LocalDate) value).isEqual(LocalDate.parse(valueRule.getEqualTo(), fmt));
-            }
-            if (value instanceof LocalTime) {
-                DateTimeFormatter fmt = DateTimeFormatter.ofPattern("HH:mm:ss");
-                return value.equals(LocalTime.parse(valueRule.getEqualTo(), fmt));
-            }
+        }
+        return true;
+    }
+
+    private boolean compareArrayValue(Object[] value, ArrayType<?, ?> type, Object[] confValue) {
+        if (value.length != confValue.length) {
             return false;
         }
 
-        String valueStr = Objects.isNull(value) ? StringUtils.EMPTY : String.valueOf(value);
-        if (AssertFieldRule.AssertRuleType.MAX_LENGTH.equals(valueRule.getRuleType())) {
-            return valueStr.length() <= valueRule.getRuleValue();
+        SeaTunnelDataType<?> elementType = type.getElementType();
+        for (int idx = 0; idx < confValue.length; idx++) {
+            Object elementVal = value[idx];
+            Object confElement = confValue[idx];
+            if (!compareValue(elementVal, elementType, confElement)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean compareMapValue(Map<?, ?> value, MapType<?, ?> type, Map<?, ?> confValue) {
+        if (value.size() != confValue.size()) {
+            return false;
         }
 
-        if (AssertFieldRule.AssertRuleType.MIN_LENGTH.equals(valueRule.getRuleType())) {
-            return valueStr.length() >= valueRule.getRuleValue();
+        if (value.isEmpty()) {
+            return true;
         }
-        return Boolean.TRUE;
+
+        SeaTunnelDataType<?> valType = type.getValueType();
+        for (Map.Entry<?, ?> entry : confValue.entrySet()) {
+            Object confKey = entry.getKey();
+            Object confVal = entry.getValue();
+            if (!value.containsKey(confKey)) {
+                return false;
+            }
+
+            Object val = value.get(confKey);
+            if (!compareValue(val, valType, confVal)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private Boolean checkType(Object value, SeaTunnelDataType<?> fieldType) {
+        if (value == null) {
+            if (fieldType.getSqlType() == SqlType.NULL) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+
+        if (fieldType.getSqlType() == SqlType.ROW) {
+            return checkRowType(value, (SeaTunnelRowType) fieldType);
+        }
+
+        if (fieldType.getSqlType() == SqlType.ARRAY) {
+            return checkArrayType(value, (ArrayType<?, ?>) fieldType);
+        }
+
+        if (fieldType.getSqlType() == SqlType.MAP) {
+            return checkMapType(value, (MapType) fieldType);
+        }
+
+        if (fieldType.getSqlType() == SqlType.DECIMAL) {
+            return checkDecimalType(value, fieldType);
+        }
+
         return value.getClass().equals(fieldType.getTypeClass());
+    }
+
+    private boolean checkArrayType(Object value, ArrayType<?, ?> fieldType) {
+        if (!value.getClass().isArray()) {
+            return false;
+        }
+
+        Object[] val = (Object[]) value;
+        SeaTunnelDataType<?> elementType = fieldType.getElementType();
+
+        for (Object elementObj : val) {
+            if (!checkType(elementObj, elementType)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean checkMapType(Object value, MapType<?, ?> fieldType) {
+        if (!(value instanceof Map)) {
+            return false;
+        }
+
+        Map<?, ?> val = (Map<?, ?>) value;
+        SeaTunnelDataType<?> keyType = fieldType.getKeyType();
+        SeaTunnelDataType<?> valType = fieldType.getValueType();
+        for (Map.Entry<?, ?> entry : val.entrySet()) {
+            Object keyObj = entry.getKey();
+            Object valObj = entry.getValue();
+            if (!(checkType(keyObj, keyType) && checkType(valObj, valType))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private boolean checkRowType(Object value, SeaTunnelRowType rowType) {
+        if (!(value instanceof SeaTunnelRow)) {
+            return false;
+        }
+
+        SeaTunnelRow row = (SeaTunnelRow) value;
+        Object[] fields = row.getFields();
+        for (int idx = 0; idx < fields.length; idx++) {
+            Object fieldVal = fields[idx];
+            SeaTunnelDataType<?> fieldType = rowType.getFieldType(idx);
+            if (!checkType(fieldVal, fieldType)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static Boolean checkDecimalType(Object value, SeaTunnelDataType<?> fieldType) {
+        if (!value.getClass().equals(fieldType.getTypeClass())) {
+            return false;
+        }
+        DecimalType fieldDecimalType = (DecimalType) fieldType;
+        BigDecimal valueObj = (BigDecimal) value;
+        if (valueObj.scale() != fieldDecimalType.getScale()) {
+            return false;
+        }
+        return valueObj.precision() <= fieldDecimalType.getPrecision();
     }
 }

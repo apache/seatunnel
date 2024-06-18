@@ -38,8 +38,6 @@ import java.util.Map;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 
-import static org.apache.seatunnel.translation.source.CoordinatedSource.SLEEP_TIME_INTERVAL;
-
 public class ParallelSource<T, SplitT extends SourceSplit, StateT extends Serializable>
         implements BaseSourceFunction<T> {
     private static final Logger LOG = LoggerFactory.getLogger(ParallelSource.class);
@@ -47,6 +45,7 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT extends Serial
     protected final SeaTunnelSource<T, SplitT, StateT> source;
     protected final ParallelEnumeratorContext<SplitT> parallelEnumeratorContext;
     protected final ParallelReaderContext readerContext;
+    protected final String jobId;
     protected final Integer subtaskId;
     protected final Integer parallelism;
 
@@ -66,16 +65,19 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT extends Serial
             SeaTunnelSource<T, SplitT, StateT> source,
             Map<Integer, List<byte[]>> restoredState,
             int parallelism,
+            String jobId,
             int subtaskId) {
         this.source = source;
+        this.jobId = jobId;
         this.subtaskId = subtaskId;
         this.parallelism = parallelism;
 
         this.splitSerializer = source.getSplitSerializer();
         this.enumeratorStateSerializer = source.getEnumeratorStateSerializer();
         this.parallelEnumeratorContext =
-                new ParallelEnumeratorContext<>(this, parallelism, subtaskId);
-        this.readerContext = new ParallelReaderContext(this, source.getBoundedness(), subtaskId);
+                new ParallelEnumeratorContext<>(this, parallelism, jobId, subtaskId);
+        this.readerContext =
+                new ParallelReaderContext(this, source.getBoundedness(), jobId, subtaskId);
 
         // Create or restore split enumerator & reader
         try {
@@ -134,7 +136,17 @@ public class ParallelSource<T, SplitT extends SourceSplit, StateT extends Serial
                 future.get();
             }
             reader.pollNext(collector);
-            Thread.sleep(SLEEP_TIME_INTERVAL);
+            if (collector.isEmptyThisPollNext()) {
+                Thread.sleep(100);
+            } else {
+                collector.resetEmptyThisPollNext();
+                /**
+                 * sleep(0) is used to prevent the current thread from occupying CPU resources for a
+                 * long time, thus blocking the checkpoint thread for a long time. It is mentioned
+                 * in this https://github.com/apache/seatunnel/issues/5694
+                 */
+                Thread.sleep(0L);
+            }
         }
         LOG.debug("Parallel source runs complete.");
     }

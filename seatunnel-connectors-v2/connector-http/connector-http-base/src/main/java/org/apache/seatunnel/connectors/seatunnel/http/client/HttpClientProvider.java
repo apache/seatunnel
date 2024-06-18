@@ -66,20 +66,19 @@ import java.util.concurrent.TimeUnit;
 public class HttpClientProvider implements AutoCloseable {
     private static final String ENCODING = "UTF-8";
     private static final String APPLICATION_JSON = "application/json";
-    private static final int CONNECT_TIMEOUT = 6000 * 2;
-    private static final int SOCKET_TIMEOUT = 6000 * 10;
     private static final int INITIAL_CAPACITY = 16;
-    private static final RequestConfig REQUEST_CONFIG =
-            RequestConfig.custom()
-                    .setConnectTimeout(CONNECT_TIMEOUT)
-                    .setSocketTimeout(SOCKET_TIMEOUT)
-                    .build();
+    private RequestConfig requestConfig;
     private final CloseableHttpClient httpClient;
     private final Retryer<CloseableHttpResponse> retryer;
 
     public HttpClientProvider(HttpParameter httpParameter) {
         this.httpClient = HttpClients.createDefault();
         this.retryer = buildRetryer(httpParameter);
+        this.requestConfig =
+                RequestConfig.custom()
+                        .setConnectTimeout(httpParameter.getConnectTimeoutMs())
+                        .setSocketTimeout(httpParameter.getSocketTimeoutMs())
+                        .build();
     }
 
     private Retryer<CloseableHttpResponse> buildRetryer(HttpParameter httpParameter) {
@@ -176,7 +175,7 @@ public class HttpClientProvider implements AutoCloseable {
         // create a new http get
         HttpGet httpGet = new HttpGet(uriBuilder.build());
         // set default request config
-        httpGet.setConfig(REQUEST_CONFIG);
+        httpGet.setConfig(requestConfig);
         // set request header
         addHeaders(httpGet, headers);
         // return http response
@@ -220,7 +219,7 @@ public class HttpClientProvider implements AutoCloseable {
         // create a new http get
         HttpPost httpPost = new HttpPost(url);
         // set default request config
-        httpPost.setConfig(REQUEST_CONFIG);
+        httpPost.setConfig(requestConfig);
         // set request header
         addHeaders(httpPost, headers);
         // set request params
@@ -255,7 +254,7 @@ public class HttpClientProvider implements AutoCloseable {
         // create a new http post
         HttpPost httpPost = new HttpPost(url);
         // set default request config
-        httpPost.setConfig(REQUEST_CONFIG);
+        httpPost.setConfig(requestConfig);
         // set request header
         addHeaders(httpPost, headers);
         // add body in request
@@ -280,7 +279,7 @@ public class HttpClientProvider implements AutoCloseable {
         // create a new http get
         HttpPost httpPost = new HttpPost(url);
         // set default request config
-        httpPost.setConfig(REQUEST_CONFIG);
+        httpPost.setConfig(requestConfig);
         // set request header
         addHeaders(httpPost, headers);
         // set request params
@@ -314,7 +313,7 @@ public class HttpClientProvider implements AutoCloseable {
         // create a new http put
         HttpPut httpPut = new HttpPut(url);
         // set default request config
-        httpPut.setConfig(REQUEST_CONFIG);
+        httpPut.setConfig(requestConfig);
         // set request params
         addParameters(httpPut, params);
         // return http response
@@ -332,7 +331,7 @@ public class HttpClientProvider implements AutoCloseable {
         // create a new http delete
         HttpDelete httpDelete = new HttpDelete(url);
         // set default request config
-        httpDelete.setConfig(REQUEST_CONFIG);
+        httpDelete.setConfig(requestConfig);
         // return http response
         return getResponse(httpDelete);
     }
@@ -404,7 +403,17 @@ public class HttpClientProvider implements AutoCloseable {
         headers.forEach(request::addHeader);
     }
 
+    private boolean checkAlreadyHaveContentType(HttpEntityEnclosingRequestBase request) {
+        if (request.getEntity() != null && request.getEntity().getContentType() != null) {
+            return HTTP.CONTENT_TYPE.equals(request.getEntity().getContentType().getName());
+        }
+        return false;
+    }
+
     private void addBody(HttpEntityEnclosingRequestBase request, String body) {
+        if (checkAlreadyHaveContentType(request)) {
+            return;
+        }
         request.addHeader(HTTP.CONTENT_TYPE, APPLICATION_JSON);
 
         if (StringUtils.isBlank(body)) {

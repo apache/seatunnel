@@ -19,12 +19,10 @@
 ######
 
 env {
-  # You can set flink configuration here
-  execution.parallelism = 2
+  # You can set SeaTunnel environment configuration here
+  parallelism = 2
   job.mode = "STREAMING"
   checkpoint.interval = 2000
-  #execution.checkpoint.interval = 10000
-  #execution.checkpoint.data-uri = "hdfs://localhost:9000/checkpoint"
 }
 
 source {

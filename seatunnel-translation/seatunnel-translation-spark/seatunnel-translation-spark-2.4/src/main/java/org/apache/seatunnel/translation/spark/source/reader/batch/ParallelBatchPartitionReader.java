@@ -43,6 +43,7 @@ public class ParallelBatchPartitionReader {
 
     protected final SeaTunnelSource<SeaTunnelRow, ?, ?> source;
     protected final Integer parallelism;
+    protected final String jobId;
     protected final Integer subtaskId;
 
     protected final ExecutorService executorService;
@@ -55,16 +56,23 @@ public class ParallelBatchPartitionReader {
 
     protected volatile BaseSourceFunction<SeaTunnelRow> internalSource;
     protected volatile InternalRowCollector internalRowCollector;
+    private Map<String, String> envOptions;
 
     public ParallelBatchPartitionReader(
-            SeaTunnelSource<SeaTunnelRow, ?, ?> source, Integer parallelism, Integer subtaskId) {
+            SeaTunnelSource<SeaTunnelRow, ?, ?> source,
+            Integer parallelism,
+            String jobId,
+            Integer subtaskId,
+            Map<String, String> envOptions) {
         this.source = source;
         this.parallelism = parallelism;
+        this.jobId = jobId;
         this.subtaskId = subtaskId;
         this.executorService =
                 ThreadPoolExecutorFactory.createScheduledThreadPoolExecutor(
                         1, getEnumeratorThreadName());
         this.handover = new Handover<>();
+        this.envOptions = envOptions;
     }
 
     protected String getEnumeratorThreadName() {
@@ -97,7 +105,8 @@ public class ParallelBatchPartitionReader {
         }
 
         this.internalRowCollector =
-                new InternalRowCollector(handover, checkpointLock, source.getProducedType());
+                new InternalRowCollector(
+                        handover, checkpointLock, source.getProducedType(), envOptions);
         executorService.execute(
                 () -> {
                     try {
@@ -112,7 +121,7 @@ public class ParallelBatchPartitionReader {
     }
 
     protected BaseSourceFunction<SeaTunnelRow> createInternalSource() {
-        return new InternalParallelSource<>(source, null, parallelism, subtaskId);
+        return new InternalParallelSource<>(source, null, parallelism, jobId, subtaskId);
     }
 
     public InternalRow get() {
@@ -142,8 +151,9 @@ public class ParallelBatchPartitionReader {
                 SeaTunnelSource<SeaTunnelRow, SplitT, StateT> source,
                 Map<Integer, List<byte[]>> restoredState,
                 int parallelism,
+                String jobId,
                 int subtaskId) {
-            super(source, restoredState, parallelism, subtaskId);
+            super(source, restoredState, parallelism, jobId, subtaskId);
         }
 
         @Override

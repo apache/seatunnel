@@ -26,7 +26,6 @@ import com.lmax.disruptor.RingBuffer;
 
 public class RecordEventProducer {
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     public static void onData(
             Record<?> record,
             RingBuffer<RecordEvent> ringBuffer,
@@ -35,7 +34,8 @@ public class RecordEventProducer {
         if (record.getData() instanceof Barrier) {
             CheckpointBarrier barrier = (CheckpointBarrier) record.getData();
             intermediateQueueFlowLifeCycle.getRunningTask().ack(barrier);
-            if (barrier.prepareClose()) {
+            if (barrier.prepareClose(
+                    intermediateQueueFlowLifeCycle.getRunningTask().getTaskLocation())) {
                 intermediateQueueFlowLifeCycle.setPrepareClose(true);
             }
         } else {

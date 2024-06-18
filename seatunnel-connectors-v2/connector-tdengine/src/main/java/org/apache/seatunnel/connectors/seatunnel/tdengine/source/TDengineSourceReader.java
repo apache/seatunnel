@@ -21,7 +21,7 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.tdengine.exception.TDengineConnectorException;
 
@@ -43,6 +43,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.Set;
+
+import static org.apache.seatunnel.connectors.seatunnel.tdengine.utils.TDengineUtil.checkDriverExist;
 
 @Slf4j
 public class TDengineSourceReader implements SourceReader<SeaTunnelRow, TDengineSourceSplit> {
@@ -76,7 +78,7 @@ public class TDengineSourceReader implements SourceReader<SeaTunnelRow, TDengine
                             read(split, collector);
                         } catch (Exception e) {
                             throw new TDengineConnectorException(
-                                    CommonErrorCode.READER_OPERATION_FAILED,
+                                    CommonErrorCodeDeprecated.READER_OPERATION_FAILED,
                                     "TDengine split read error",
                                     e);
                         }
@@ -108,10 +110,12 @@ public class TDengineSourceReader implements SourceReader<SeaTunnelRow, TDengine
         // @bobo (tdengine)
         connProps.setProperty(TSDBDriver.PROPERTY_KEY_BATCH_LOAD, "false");
         try {
+            // check td driver whether exist and if not, try to register
+            checkDriverExist(jdbcUrl);
             conn = DriverManager.getConnection(jdbcUrl, connProps);
         } catch (SQLException e) {
             throw new TDengineConnectorException(
-                    CommonErrorCode.READER_OPERATION_FAILED,
+                    CommonErrorCodeDeprecated.READER_OPERATION_FAILED,
                     "get TDengine connection failed:" + jdbcUrl);
         }
     }
@@ -124,7 +128,7 @@ public class TDengineSourceReader implements SourceReader<SeaTunnelRow, TDengine
             }
         } catch (SQLException e) {
             throw new TDengineConnectorException(
-                    CommonErrorCode.READER_OPERATION_FAILED,
+                    CommonErrorCodeDeprecated.READER_OPERATION_FAILED,
                     "TDengine reader connection close failed",
                     e);
         }

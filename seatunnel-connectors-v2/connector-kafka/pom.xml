@@ -31,6 +31,7 @@
 
     <properties>
         <kafka.client.version>3.2.0</kafka.client.version>
+        <debezium.version>1.9.8.Final</debezium.version>
     </properties>
 
     <dependencies>
@@ -59,6 +60,21 @@
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-format-compatible-debezium-json</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-format-compatible-connect-json</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.kafka</groupId>
+            <artifactId>connect-json</artifactId>
+            <version>${kafka.client.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-format-avro</artifactId>
             <version>${project.version}</version>
         </dependency>
     </dependencies>

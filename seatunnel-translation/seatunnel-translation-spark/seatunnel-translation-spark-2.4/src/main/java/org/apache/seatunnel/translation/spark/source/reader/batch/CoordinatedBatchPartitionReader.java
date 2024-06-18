@@ -37,12 +37,18 @@ public class CoordinatedBatchPartitionReader extends ParallelBatchPartitionReade
     protected final Map<Integer, InternalRowCollector> collectorMap;
 
     public CoordinatedBatchPartitionReader(
-            SeaTunnelSource<SeaTunnelRow, ?, ?> source, Integer parallelism, Integer subtaskId) {
-        super(source, parallelism, subtaskId);
+            SeaTunnelSource<SeaTunnelRow, ?, ?> source,
+            Integer parallelism,
+            String jobId,
+            Integer subtaskId,
+            Map<String, String> envOptions) {
+        super(source, parallelism, jobId, subtaskId, envOptions);
         this.collectorMap = new HashMap<>(parallelism);
         for (int i = 0; i < parallelism; i++) {
             collectorMap.put(
-                    i, new InternalRowCollector(handover, new Object(), source.getProducedType()));
+                    i,
+                    new InternalRowCollector(
+                            handover, new Object(), source.getProducedType(), envOptions));
         }
     }
 
@@ -53,7 +59,7 @@ public class CoordinatedBatchPartitionReader extends ParallelBatchPartitionReade
 
     @Override
     protected BaseSourceFunction<SeaTunnelRow> createInternalSource() {
-        return new InternalCoordinatedSource<>(source, null, parallelism);
+        return new InternalCoordinatedSource<>(source, null, parallelism, jobId);
     }
 
     public class InternalCoordinatedSource<SplitT extends SourceSplit, StateT extends Serializable>
@@ -62,8 +68,9 @@ public class CoordinatedBatchPartitionReader extends ParallelBatchPartitionReade
         public InternalCoordinatedSource(
                 SeaTunnelSource<SeaTunnelRow, SplitT, StateT> source,
                 Map<Integer, List<byte[]>> restoredState,
-                int parallelism) {
-            super(source, restoredState, parallelism);
+                int parallelism,
+                String jobId) {
+            super(source, restoredState, parallelism, jobId);
         }
 
         @Override
@@ -82,7 +89,20 @@ public class CoordinatedBatchPartitionReader extends ParallelBatchPartitionReade
                                             while (flag.get()) {
                                                 try {
                                                     reader.pollNext(rowCollector);
-                                                    Thread.sleep(SLEEP_TIME_INTERVAL);
+                                                    if (rowCollector.isEmptyThisPollNext()) {
+                                                        Thread.sleep(100);
+                                                    } else {
+                                                        rowCollector.resetEmptyThisPollNext();
+                                                        /**
+                                                         * sleep(0) is used to prevent the current
+                                                         * thread from occupying CPU resources for a
+                                                         * long time, thus blocking the checkpoint
+                                                         * thread for a long time. It is mentioned
+                                                         * in this
+                                                         * https://github.com/apache/seatunnel/issues/5694
+                                                         */
+                                                        Thread.sleep(0L);
+                                                    }
                                                 } catch (Exception e) {
                                                     this.running = false;
                                                     flag.set(false);

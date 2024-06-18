@@ -23,6 +23,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.source.enumerator.scan.IcebergStreamScanStrategy;
 
 import org.apache.iceberg.expressions.Expression;
@@ -86,8 +87,9 @@ public class SourceConfig extends CommonConfig {
     private Integer splitLookback;
     private Long splitOpenFileCost;
 
-    public SourceConfig(Config pluginConfig) {
-        super(pluginConfig);
+    public SourceConfig(ReadonlyConfig readonlyConfig) {
+        super(readonlyConfig);
+        Config pluginConfig = readonlyConfig.toConfig();
         if (pluginConfig.hasPath(KEY_START_SNAPSHOT_TIMESTAMP.key())) {
             this.startSnapshotTimestamp = pluginConfig.getLong(KEY_START_SNAPSHOT_TIMESTAMP.key());
         }
@@ -110,7 +112,7 @@ public class SourceConfig extends CommonConfig {
         }
     }
 
-    public static SourceConfig loadConfig(Config pluginConfig) {
+    public static SourceConfig loadConfig(ReadonlyConfig pluginConfig) {
         return new SourceConfig(pluginConfig);
     }
 }
