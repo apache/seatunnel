@@ -353,16 +353,16 @@ public class BsonToRowDataConverters implements Serializable {
     }
 
     private static double convertToDouble(BsonValue bsonValue) {
-        try {
+        if (bsonValue.isNumber()) {
             return bsonValue.asNumber().doubleValue();
-        } catch (RuntimeException e) {
-            throw new MongodbConnectorException(
-                    UNSUPPORTED_DATA_TYPE,
-                    "Unable to convert to double from unexpected value '"
-                            + bsonValue
-                            + "' of type "
-                            + bsonValue.getBsonType());
         }
+
+        throw new MongodbConnectorException(
+                UNSUPPORTED_DATA_TYPE,
+                "Unable to convert to double from unexpected value '"
+                        + bsonValue
+                        + "' of type "
+                        + bsonValue.getBsonType());
     }
 
     private static int convertToInt(BsonValue bsonValue) {
