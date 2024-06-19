@@ -22,6 +22,7 @@ import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.apache.http.HttpResponse;
@@ -54,9 +55,8 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @DisabledOnContainer(
-        value = {},
-        type = {EngineType.SPARK, EngineType.FLINK},
-        disabledReason = "Currently SPARK/FLINK do not support multiple table read")
+        value = {TestContainerId.SPARK_2_4},
+        disabledReason = "The RoaringBitmap version is not compatible in docker container")
 public class DruidIT extends TestSuiteBase implements TestResource {
 
     private static final String DATASOURCE = "testDataSource";
