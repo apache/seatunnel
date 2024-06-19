@@ -356,7 +356,6 @@ public class BsonToRowDataConverters implements Serializable {
         if (bsonValue.isNumber()) {
             return bsonValue.asNumber().doubleValue();
         }
-
         throw new MongodbConnectorException(
                 UNSUPPORTED_DATA_TYPE,
                 "Unable to convert to double from unexpected value '"
