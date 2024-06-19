@@ -59,12 +59,11 @@ import java.util.stream.Collectors;
         disabledReason = "Currently SPARK/FLINK do not support multiple table read")
 public class DruidIT extends TestSuiteBase implements TestResource {
 
-    private static final String datasource = "testDataSource";
-    private static final String datasource1 = "druid_sink_1";
-    private static final String datasource2 = "druid_sink_2";
-    private static final String sqlQuery = "SELECT * FROM " + datasource;
-    private static final String sqlQuery1 = "SELECT * FROM " + datasource1;
-    private static final String sqlQuery2 = "SELECT * FROM " + datasource2;
+    private static final String DATASOURCE = "testDataSource";
+    private static final String MULTI_DATASOURCE_1 = "druid_sink_1";
+    private static final String MULTI_DATASOURCE_2 = "druid_sink_2";
+    private static final String SQL_QUERY_TEMPLATE = "SELECT * FROM ";
+    private static final String CONF_PREFIX = "src/test/resources";
     private static final String DRUID_SERVICE_NAME = "router";
     private static final int DRUID_SERVICE_PORT = 8888;
     private DockerComposeContainer environment;
@@ -81,8 +80,8 @@ public class DruidIT extends TestSuiteBase implements TestResource {
                                 Wait.forListeningPort()
                                         .withStartupTimeout(Duration.ofSeconds(360)));
         environment.start();
-        changeCoordinatorURLConf();
-        changeCoordinatorURLConf2();
+        changeCoordinatorURLConf(CONF_PREFIX + "/fakesource_to_druid.conf");
+        changeCoordinatorURLConf(CONF_PREFIX + "/fakesource_to_druid_with_multi.conf");
     }
 
     @AfterAll
@@ -96,33 +95,25 @@ public class DruidIT extends TestSuiteBase implements TestResource {
         Container.ExecResult execResult = container.executeJob("/fakesource_to_druid.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
         while (true) {
-            try (CloseableHttpClient client = HttpClients.createDefault()) {
-                HttpPost request = new HttpPost("http://" + coordinatorURL + "/druid/v2/sql");
-                String jsonRequest = "{\"query\": \"" + sqlQuery + "\"}";
-                StringEntity entity = new StringEntity(jsonRequest);
-                entity.setContentType("application/json");
-                request.setEntity(entity);
-                HttpResponse response = client.execute(request);
-                String responseBody = EntityUtils.toString(response.getEntity());
-                String expectedDataRow1 =
-                        "\"c_boolean\":\"true\",\"c_timestamp\":\"2020-02-02T02:02:02\",\"c_string\":\"NEW\",\"c_tinyint\":1,\"c_smallint\":2,\"c_int\":3,\"c_bigint\":4,\"c_float\":4.3,\"c_double\":5.3,\"c_decimal\":6.3";
-                String expectedDataRow2 =
-                        "\"c_boolean\":\"false\",\"c_timestamp\":\"2012-12-21T12:34:56\",\"c_string\":\"AAA\",\"c_tinyint\":1,\"c_smallint\":1,\"c_int\":333,\"c_bigint\":323232,\"c_float\":3.1,\"c_double\":9.33333,\"c_decimal\":99999.99999999";
-                String expectedDataRow3 =
-                        "\"c_boolean\":\"true\",\"c_timestamp\":\"2016-03-12T11:29:33\",\"c_string\":\"BBB\",\"c_tinyint\":1,\"c_smallint\":2,\"c_int\":672,\"c_bigint\":546782,\"c_float\":7.9,\"c_double\":6.88888,\"c_decimal\":88888.45623489";
-                String expectedDataRow4 =
-                        "\"c_boolean\":\"false\",\"c_timestamp\":\"2014-04-28T09:13:27\",\"c_string\":\"CCC\",\"c_tinyint\":1,\"c_smallint\":1,\"c_int\":271,\"c_bigint\":683221,\"c_float\":4.8,\"c_double\":4.45271,\"c_decimal\":79277.68219012";
+            String responseBody = getSelectResponse(DATASOURCE);
+            String expectedDataRow1 =
+                    "\"c_boolean\":\"true\",\"c_timestamp\":\"2020-02-02T02:02:02\",\"c_string\":\"NEW\",\"c_tinyint\":1,\"c_smallint\":2,\"c_int\":3,\"c_bigint\":4,\"c_float\":4.3,\"c_double\":5.3,\"c_decimal\":6.3";
+            String expectedDataRow2 =
+                    "\"c_boolean\":\"false\",\"c_timestamp\":\"2012-12-21T12:34:56\",\"c_string\":\"AAA\",\"c_tinyint\":1,\"c_smallint\":1,\"c_int\":333,\"c_bigint\":323232,\"c_float\":3.1,\"c_double\":9.33333,\"c_decimal\":99999.99999999";
+            String expectedDataRow3 =
+                    "\"c_boolean\":\"true\",\"c_timestamp\":\"2016-03-12T11:29:33\",\"c_string\":\"BBB\",\"c_tinyint\":1,\"c_smallint\":2,\"c_int\":672,\"c_bigint\":546782,\"c_float\":7.9,\"c_double\":6.88888,\"c_decimal\":88888.45623489";
+            String expectedDataRow4 =
+                    "\"c_boolean\":\"false\",\"c_timestamp\":\"2014-04-28T09:13:27\",\"c_string\":\"CCC\",\"c_tinyint\":1,\"c_smallint\":1,\"c_int\":271,\"c_bigint\":683221,\"c_float\":4.8,\"c_double\":4.45271,\"c_decimal\":79277.68219012";
 
-                if (!responseBody.contains("errorMessage")) {
-                    // Check sink data
-                    Assertions.assertEquals(responseBody.contains(expectedDataRow1), true);
-                    Assertions.assertEquals(responseBody.contains(expectedDataRow2), true);
-                    Assertions.assertEquals(responseBody.contains(expectedDataRow3), true);
-                    Assertions.assertEquals(responseBody.contains(expectedDataRow4), true);
-                    break;
-                }
-                Thread.sleep(1000);
+            if (!responseBody.contains("errorMessage")) {
+                // Check sink data
+                Assertions.assertEquals(responseBody.contains(expectedDataRow1), true);
+                Assertions.assertEquals(responseBody.contains(expectedDataRow2), true);
+                Assertions.assertEquals(responseBody.contains(expectedDataRow3), true);
+                Assertions.assertEquals(responseBody.contains(expectedDataRow4), true);
+                break;
             }
+            Thread.sleep(1000);
         }
     }
 
@@ -135,69 +126,33 @@ public class DruidIT extends TestSuiteBase implements TestResource {
         Container.ExecResult execResult =
                 container.executeJob("/fakesource_to_druid_with_multi.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-        // 1
+        // Check multi sink table 1
         while (true) {
-            try (CloseableHttpClient client = HttpClients.createDefault()) {
-                HttpPost request = new HttpPost("http://" + coordinatorURL + "/druid/v2/sql");
-                String jsonRequest = "{\"query\": \"" + sqlQuery1 + "\"}";
-                StringEntity entity = new StringEntity(jsonRequest);
-                entity.setContentType("application/json");
-                request.setEntity(entity);
-                HttpResponse response = client.execute(request);
-                String responseBody = EntityUtils.toString(response.getEntity());
-                String expectedDataRow1 =
-                        "\"c_boolean\":\"true\",\"c_timestamp\":\"2020-02-02T02:02:02\",\"c_string\":\"NEW\",\"c_tinyint\":1,\"c_smallint\":2,\"c_int\":3,\"c_bigint\":4,\"c_float\":4.3,\"c_double\":5.3,\"c_decimal\":6.3";
-                String expectedDataRow2 =
-                        "\"c_boolean\":\"false\",\"c_timestamp\":\"2012-12-21T12:34:56\",\"c_string\":\"AAA\",\"c_tinyint\":1,\"c_smallint\":1,\"c_int\":333,\"c_bigint\":323232,\"c_float\":3.1,\"c_double\":9.33333,\"c_decimal\":99999.99999999";
-                String expectedDataRow3 =
-                        "\"c_boolean\":\"true\",\"c_timestamp\":\"2016-03-12T11:29:33\",\"c_string\":\"BBB\",\"c_tinyint\":1,\"c_smallint\":2,\"c_int\":672,\"c_bigint\":546782,\"c_float\":7.9,\"c_double\":6.88888,\"c_decimal\":88888.45623489";
-                String expectedDataRow4 =
-                        "\"c_boolean\":\"false\",\"c_timestamp\":\"2014-04-28T09:13:27\",\"c_string\":\"CCC\",\"c_tinyint\":1,\"c_smallint\":1,\"c_int\":271,\"c_bigint\":683221,\"c_float\":4.8,\"c_double\":4.45271,\"c_decimal\":79277.68219012";
+            String responseBody = getSelectResponse(MULTI_DATASOURCE_1);
+            String expectedDataRow =
+                    "\"id\":1,\"val_bool\":\"true\",\"val_tinyint\":1,\"val_smallint\":2,\"val_int\":3,\"val_bigint\":4,\"val_float\":4.3,\"val_double\":5.3,\"val_decimal\":6.3,\"val_string\":\"NEW\"";
 
-                if (!responseBody.contains("errorMessage")) {
-                    // Check sink data
-                    System.out.println("table1:");
-                    System.out.println(responseBody);
-                    Assertions.assertEquals(responseBody.contains("val_bool"), true);
-                    break;
-                }
-                Thread.sleep(1000);
+            if (!responseBody.contains("errorMessage")) {
+                Assertions.assertEquals(responseBody.contains(expectedDataRow), true);
+                break;
             }
+            Thread.sleep(1000);
         }
-        // 2
+        // Check multi sink table 2
         while (true) {
-            try (CloseableHttpClient client = HttpClients.createDefault()) {
-                HttpPost request = new HttpPost("http://" + coordinatorURL + "/druid/v2/sql");
-                String jsonRequest = "{\"query\": \"" + sqlQuery2 + "\"}";
-                StringEntity entity = new StringEntity(jsonRequest);
-                entity.setContentType("application/json");
-                request.setEntity(entity);
-                HttpResponse response = client.execute(request);
-                String responseBody = EntityUtils.toString(response.getEntity());
-                String expectedDataRow1 =
-                        "\"c_boolean\":\"true\",\"c_timestamp\":\"2020-02-02T02:02:02\",\"c_string\":\"NEW\",\"c_tinyint\":1,\"c_smallint\":2,\"c_int\":3,\"c_bigint\":4,\"c_float\":4.3,\"c_double\":5.3,\"c_decimal\":6.3";
-                String expectedDataRow2 =
-                        "\"c_boolean\":\"false\",\"c_timestamp\":\"2012-12-21T12:34:56\",\"c_string\":\"AAA\",\"c_tinyint\":1,\"c_smallint\":1,\"c_int\":333,\"c_bigint\":323232,\"c_float\":3.1,\"c_double\":9.33333,\"c_decimal\":99999.99999999";
-                String expectedDataRow3 =
-                        "\"c_boolean\":\"true\",\"c_timestamp\":\"2016-03-12T11:29:33\",\"c_string\":\"BBB\",\"c_tinyint\":1,\"c_smallint\":2,\"c_int\":672,\"c_bigint\":546782,\"c_float\":7.9,\"c_double\":6.88888,\"c_decimal\":88888.45623489";
-                String expectedDataRow4 =
-                        "\"c_boolean\":\"false\",\"c_timestamp\":\"2014-04-28T09:13:27\",\"c_string\":\"CCC\",\"c_tinyint\":1,\"c_smallint\":1,\"c_int\":271,\"c_bigint\":683221,\"c_float\":4.8,\"c_double\":4.45271,\"c_decimal\":79277.68219012";
-
-                if (!responseBody.contains("errorMessage")) {
-                    // Check sink data
-                    System.out.println("table2:");
-                    System.out.println(responseBody);
-                    Assertions.assertEquals(responseBody.contains("val_bool"), true);
-                    break;
-                }
-                Thread.sleep(1000);
+            String responseBody = getSelectResponse(MULTI_DATASOURCE_2);
+            String expectedDataRow =
+                    "\"id\":1,\"val_bool\":\"true\",\"val_tinyint\":1,\"val_smallint\":2,\"val_int\":3,\"val_bigint\":4,\"val_float\":4.3,\"val_double\":5.3,\"val_decimal\":6.3";
+            if (!responseBody.contains("errorMessage")) {
+                Assertions.assertEquals(responseBody.contains(expectedDataRow), true);
+                break;
             }
+            Thread.sleep(1000);
         }
     }
 
-    private void changeCoordinatorURLConf() throws UnknownHostException {
+    private void changeCoordinatorURLConf(String resourceFilePath) throws UnknownHostException {
         coordinatorURL = InetAddress.getLocalHost().getHostAddress() + ":8888";
-        String resourceFilePath = "src/test/resources/fakesource_to_druid.conf";
         Path path = Paths.get(resourceFilePath);
         try {
             List<String> lines = Files.readAllLines(path);
@@ -221,29 +176,16 @@ public class DruidIT extends TestSuiteBase implements TestResource {
         }
     }
 
-    private void changeCoordinatorURLConf2() throws UnknownHostException {
-        coordinatorURL = InetAddress.getLocalHost().getHostAddress() + ":8888";
-        String resourceFilePath = "src/test/resources/fakesource_to_druid_with_multi.conf";
-        Path path = Paths.get(resourceFilePath);
-        try {
-            List<String> lines = Files.readAllLines(path);
-            List<String> newLines =
-                    lines.stream()
-                            .map(
-                                    line -> {
-                                        if (line.contains("coordinatorUrl")) {
-                                            return "    coordinatorUrl = "
-                                                    + "\""
-                                                    + coordinatorURL
-                                                    + "\"";
-                                        }
-                                        return line;
-                                    })
-                            .collect(Collectors.toList());
-            Files.write(path, newLines);
-            log.info("Conf has been updated successfully.");
-        } catch (IOException e) {
-            throw new RuntimeException("Change conf error", e);
+    private String getSelectResponse(String datasource) throws IOException {
+        try (CloseableHttpClient client = HttpClients.createDefault()) {
+            HttpPost request = new HttpPost("http://" + coordinatorURL + "/druid/v2/sql");
+            String jsonRequest = "{\"query\": \"" + SQL_QUERY_TEMPLATE + datasource + "\"}";
+            StringEntity entity = new StringEntity(jsonRequest);
+            entity.setContentType("application/json");
+            request.setEntity(entity);
+            HttpResponse response = client.execute(request);
+            String responseBody = EntityUtils.toString(response.getEntity());
+            return responseBody;
         }
     }
 }
