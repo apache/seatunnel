@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.e2e.connector.v2.mongodb;
 
+import com.mongodb.client.result.InsertManyResult;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 
@@ -61,7 +62,7 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
     protected static final List<Document> TEST_NULL_DATASET = generateTestDataSetWithNull(10);
 
     protected static final List<Document> TEST_DOUBLE_DATASET =
-            generateTestDataSetWithTemplate(5, Arrays.asList(44.0d, 44.1d, 44.2d, 44.3d, 44.4d));
+            generateTestDataSetWithPresets(5, Arrays.asList(44.0d, 44.1d, 44.2d, 44.3d, 44.4d));
 
     protected static final String MONGODB_IMAGE = "mongo:latest";
 
@@ -112,25 +113,10 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
     }
 
     protected void initSourceData() {
-        MongoCollection<Document> sourceMatchTable =
-                client.getDatabase(MONGODB_DATABASE).getCollection(MONGODB_MATCH_TABLE);
-        sourceMatchTable.deleteMany(new Document());
-        sourceMatchTable.insertMany(TEST_MATCH_DATASET);
-
-        MongoCollection<Document> sourceSplitTable =
-                client.getDatabase(MONGODB_DATABASE).getCollection(MONGODB_SPLIT_TABLE);
-        sourceSplitTable.deleteMany(new Document());
-        sourceSplitTable.insertMany(TEST_SPLIT_DATASET);
-
-        MongoCollection<Document> sourceNullTable =
-                client.getDatabase(MONGODB_DATABASE).getCollection(MONGODB_NULL_TABLE);
-        sourceNullTable.deleteMany(new Document());
-        sourceNullTable.insertMany(TEST_NULL_DATASET);
-
-        MongoCollection<Document> sourceDoubleTable =
-                client.getDatabase(MONGODB_DATABASE).getCollection(MONGODB_DOUBLE_TABLE);
-        sourceDoubleTable.deleteMany(new Document());
-        sourceDoubleTable.insertMany(TEST_DOUBLE_DATASET);
+        prepareInitDataInCollection(MONGODB_MATCH_TABLE, TEST_MATCH_DATASET);
+        prepareInitDataInCollection(MONGODB_SPLIT_TABLE, TEST_SPLIT_DATASET);
+        prepareInitDataInCollection(MONGODB_NULL_TABLE, TEST_NULL_DATASET);
+        prepareInitDataInCollection(MONGODB_DOUBLE_TABLE, TEST_DOUBLE_DATASET);
     }
 
     protected void clearDate(String table) {
@@ -163,12 +149,12 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
         return dataSet;
     }
 
-    public static List<Document> generateTestDataSetWithTemplate(
-            int count, List<Double> doublePreset) {
-        List<Document> dataSet = new ArrayList<>();
+    public static List<Document> generateTestDataSetWithPresets(
+            int count, List<Double> doublePresets) {
+        List<Document> dataSet = new ArrayList<>(count);
 
         for (int i = 0; i < count; i++) {
-            dataSet.add(generateData(i, doublePreset.get(i)));
+            dataSet.add(generateData(i, doublePresets.get(i)));
         }
 
         return dataSet;
@@ -184,7 +170,7 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
         return sb.toString();
     }
 
-    private static Document generateData(int intPreset, double doublePreset) {
+    private static Document generateData(int intPreset, Double doublePreset) {
         return new Document(
                         "c_map",
                         new Document("OQBqH", randomString())
@@ -227,6 +213,18 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
                                 .append("c_int", RANDOM.nextInt())
                                 .append("c_bigint", RANDOM.nextLong())
                                 .append("c_double", RANDOM.nextDouble() * Double.MAX_VALUE));
+    }
+
+    private void prepareInitDataInCollection(String collection, List<Document> dataSet) {
+        MongoCollection<Document> source =
+                client.getDatabase(MONGODB_DATABASE).getCollection(collection);
+        source.deleteMany(new Document());
+
+        InsertManyResult result = source.insertMany(dataSet);
+
+        if (result.getInsertedIds().size() != dataSet.size()) {
+            throw new IllegalStateException("Insertion count mismatch");
+        }
     }
 
     protected List<Document> readMongodbData(String collection) {

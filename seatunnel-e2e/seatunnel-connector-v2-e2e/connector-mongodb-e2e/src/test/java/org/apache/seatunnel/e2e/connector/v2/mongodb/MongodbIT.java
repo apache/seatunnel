@@ -225,8 +225,8 @@ public class MongodbIT extends AbstractMongodbIT {
     @TestTemplate
     public void testMongodbDoubleValue(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult assertResult = container.executeJob("/mongodb_double_value.conf");
-        Assertions.assertEquals(0, assertResult.getExitCode(), assertResult.getStderr());
+        Container.ExecResult insertResult = container.executeJob("/mongodb_double_value.conf");
+        Assertions.assertEquals(0, insertResult.getExitCode(), insertResult.getStderr());
 
         Assertions.assertIterableEquals(
                 TEST_DOUBLE_DATASET.stream()
