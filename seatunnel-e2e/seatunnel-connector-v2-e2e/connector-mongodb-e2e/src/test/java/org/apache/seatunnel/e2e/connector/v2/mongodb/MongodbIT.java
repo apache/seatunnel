@@ -229,7 +229,9 @@ public class MongodbIT extends AbstractMongodbIT {
         Assertions.assertEquals(0, assertResult.getExitCode(), assertResult.getStderr());
 
         Assertions.assertIterableEquals(
-                TEST_DOUBLE_DATASET.stream().peek(e -> e.remove("_id")).collect(Collectors.toList()),
+                TEST_DOUBLE_DATASET.stream()
+                        .peek(e -> e.remove("_id"))
+                        .collect(Collectors.toList()),
                 readMongodbData(MONGODB_DOUBLE_TABLE_RESULT).stream()
                         .peek(e -> e.remove("_id"))
                         .collect(Collectors.toList()));

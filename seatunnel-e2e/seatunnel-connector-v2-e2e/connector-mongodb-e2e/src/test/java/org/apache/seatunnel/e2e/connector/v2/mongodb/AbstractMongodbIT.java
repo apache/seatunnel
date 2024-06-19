@@ -60,7 +60,8 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
 
     protected static final List<Document> TEST_NULL_DATASET = generateTestDataSetWithNull(10);
 
-    protected static final List<Document> TEST_DOUBLE_DATASET = generateTestDataSetWithTemplate(5, Arrays.asList(44.0d, 44.1d, 44.2d, 44.3d, 44.4d));
+    protected static final List<Document> TEST_DOUBLE_DATASET =
+            generateTestDataSetWithTemplate(5, Arrays.asList(44.0d, 44.1d, 44.2d, 44.3d, 44.4d));
 
     protected static final String MONGODB_IMAGE = "mongo:latest";
 
@@ -162,7 +163,8 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
         return dataSet;
     }
 
-    public static List<Document> generateTestDataSetWithTemplate(int count, List<Double> doublePreset) {
+    public static List<Document> generateTestDataSetWithTemplate(
+            int count, List<Double> doublePreset) {
         List<Document> dataSet = new ArrayList<>();
 
         for (int i = 0; i < count; i++) {
@@ -184,12 +186,12 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
 
     private static Document generateData(int intPreset, double doublePreset) {
         return new Document(
-                "c_map",
-                new Document("OQBqH", randomString())
-                        .append("rkvlO", randomString())
-                        .append("pCMEX", randomString())
-                        .append("DAgdj", randomString())
-                        .append("dsJag", randomString()))
+                        "c_map",
+                        new Document("OQBqH", randomString())
+                                .append("rkvlO", randomString())
+                                .append("pCMEX", randomString())
+                                .append("DAgdj", randomString())
+                                .append("dsJag", randomString()))
                 .append(
                         "c_array",
                         Arrays.asList(
@@ -206,12 +208,12 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
                 .append(
                         "c_row",
                         new Document(
-                                "c_map",
-                                new Document("OQBqH", randomString())
-                                        .append("rkvlO", randomString())
-                                        .append("pCMEX", randomString())
-                                        .append("DAgdj", randomString())
-                                        .append("dsJag", randomString()))
+                                        "c_map",
+                                        new Document("OQBqH", randomString())
+                                                .append("rkvlO", randomString())
+                                                .append("pCMEX", randomString())
+                                                .append("DAgdj", randomString())
+                                                .append("dsJag", randomString()))
                                 .append(
                                         "c_array",
                                         Arrays.asList(
@@ -224,9 +226,7 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
                                 .append("c_boolean", RANDOM.nextBoolean())
                                 .append("c_int", RANDOM.nextInt())
                                 .append("c_bigint", RANDOM.nextLong())
-                                .append(
-                                        "c_double",
-                                        RANDOM.nextDouble() * Double.MAX_VALUE));
+                                .append("c_double", RANDOM.nextDouble() * Double.MAX_VALUE));
     }
 
     protected List<Document> readMongodbData(String collection) {
