@@ -27,6 +27,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.Or
 
 import org.apache.commons.lang3.StringUtils;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -45,7 +46,8 @@ public class OracleCreateTableSqlBuilder {
         this.fieldIde = catalogTable.getOptions().get("fieldIde");
     }
 
-    public String build(TablePath tablePath) {
+    public List<String> build(TablePath tablePath) {
+        List<String> sqls = new ArrayList<>();
         StringBuilder createTableSql = new StringBuilder();
         createTableSql
                 .append("CREATE TABLE ")
@@ -66,7 +68,7 @@ public class OracleCreateTableSqlBuilder {
 
         createTableSql.append(String.join(",\n", columnSqls));
         createTableSql.append("\n)");
-
+        sqls.add(createTableSql.toString());
         List<String> commentSqls =
                 columns.stream()
                         .filter(column -> StringUtils.isNotBlank(column.getComment()))
@@ -75,13 +77,8 @@ public class OracleCreateTableSqlBuilder {
                                         buildColumnCommentSql(
                                                 column, tablePath.getSchemaAndTableName("\"")))
                         .collect(Collectors.toList());
-
-        if (!commentSqls.isEmpty()) {
-            createTableSql.append(";\n");
-            createTableSql.append(String.join(";\n", commentSqls));
-        }
-
-        return createTableSql.toString();
+        sqls.addAll(commentSqls);
+        return sqls;
     }
 
     private String buildColumnSql(Column column) {
@@ -134,7 +131,7 @@ public class OracleCreateTableSqlBuilder {
         columnCommentSql
                 .append(CatalogUtils.quoteIdentifier(column.getName(), fieldIde, "\""))
                 .append(CatalogUtils.quoteIdentifier(" IS '", fieldIde))
-                .append(column.getComment())
+                .append(column.getComment().replace("'", "''"))
                 .append("'");
         return columnCommentSql.toString();
     }
