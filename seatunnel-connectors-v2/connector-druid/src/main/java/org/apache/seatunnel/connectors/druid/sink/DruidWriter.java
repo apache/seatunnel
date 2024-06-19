@@ -105,7 +105,7 @@ public class DruidWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     }
 
     @Override
-    public synchronized void write(SeaTunnelRow element) throws IOException {
+    public void write(SeaTunnelRow element) throws IOException {
         final StringJoiner joiner = new StringJoiner(DEFAULT_FIELD_DELIMITER, "", "");
         for (int i = 0; i < element.getArity(); i++) {
             final Object v = element.getField(i);
@@ -125,7 +125,7 @@ public class DruidWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         }
     }
 
-    public synchronized void flush() throws IOException {
+    public void flush() throws IOException {
         final ParallelIndexIOConfig ioConfig = provideDruidIOConfig(data);
         final ParallelIndexSupervisorTask indexTask = provideIndexTask(ioConfig);
         final String inputJSON = provideInputJSONString(indexTask);
@@ -143,7 +143,7 @@ public class DruidWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     }
 
     @Override
-    public synchronized void close() throws IOException {
+    public void close() throws IOException {
         flush();
         if (httpClient != null) {
             httpClient.close();
