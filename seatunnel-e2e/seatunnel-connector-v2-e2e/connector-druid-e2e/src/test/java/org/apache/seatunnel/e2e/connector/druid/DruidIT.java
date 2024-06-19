@@ -22,7 +22,6 @@ import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
-import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.apache.http.HttpResponse;
@@ -133,9 +132,10 @@ public class DruidIT extends TestSuiteBase implements TestResource {
             disabledReason = "Currently SPARK/FLINK do not support multiple table read")
     @TestTemplate
     public void testDruidMultiSink(TestContainer container) throws Exception {
-        Container.ExecResult execResult = container.executeJob("/fakesource_to_druid_with_multi.conf");
+        Container.ExecResult execResult =
+                container.executeJob("/fakesource_to_druid_with_multi.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-        //1
+        // 1
         while (true) {
             try (CloseableHttpClient client = HttpClients.createDefault()) {
                 HttpPost request = new HttpPost("http://" + coordinatorURL + "/druid/v2/sql");
@@ -158,12 +158,13 @@ public class DruidIT extends TestSuiteBase implements TestResource {
                     // Check sink data
                     System.out.println("table1:");
                     System.out.println(responseBody);
+                    Assertions.assertEquals(responseBody.contains("val_bool"), true);
                     break;
                 }
                 Thread.sleep(1000);
             }
         }
-        //2
+        // 2
         while (true) {
             try (CloseableHttpClient client = HttpClients.createDefault()) {
                 HttpPost request = new HttpPost("http://" + coordinatorURL + "/druid/v2/sql");
@@ -186,12 +187,14 @@ public class DruidIT extends TestSuiteBase implements TestResource {
                     // Check sink data
                     System.out.println("table2:");
                     System.out.println(responseBody);
+                    Assertions.assertEquals(responseBody.contains("val_bool"), true);
                     break;
                 }
                 Thread.sleep(1000);
             }
         }
     }
+
     private void changeCoordinatorURLConf() throws UnknownHostException {
         coordinatorURL = InetAddress.getLocalHost().getHostAddress() + ":8888";
         String resourceFilePath = "src/test/resources/fakesource_to_druid.conf";
