@@ -138,7 +138,8 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
                             getNode().nodeEngine,
                             new SubmitJobOperation(
                                     jobImmutableInformation.getJobId(),
-                                    getNode().nodeEngine.toData(jobImmutableInformation)))
+                                    getNode().nodeEngine.toData(jobImmutableInformation),
+                                    jobImmutableInformation.isStartWithSavePoint()))
                     .join();
 
         } else {
@@ -233,7 +234,9 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
                         .toData(jobImmutableInformation);
         PassiveCompletableFuture<Void> voidPassiveCompletableFuture =
                 coordinatorService.submitJob(
-                        Long.parseLong(jobConfig.getJobContext().getJobId()), data);
+                        Long.parseLong(jobConfig.getJobContext().getJobId()),
+                        data,
+                        jobImmutableInformation.isStartWithSavePoint());
         voidPassiveCompletableFuture.join();
     }
 }

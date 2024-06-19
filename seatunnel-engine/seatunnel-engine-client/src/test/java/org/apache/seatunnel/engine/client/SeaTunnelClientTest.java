@@ -352,6 +352,54 @@ public class SeaTunnelClientTest {
     }
 
     @Test
+    public void testSetJobIdDuplicate() throws ExecutionException, InterruptedException {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath = TestUtils.getResource("/streaming_fake_to_console.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setName("testSetJobId");
+        long jobId = 12345;
+        SeaTunnelClient seaTunnelClient = createSeaTunnelClient();
+        JobClient jobClient = seaTunnelClient.getJobClient();
+        try {
+            ClientJobExecutionEnvironment jobExecutionEnv =
+                    seaTunnelClient.createExecutionContext(
+                            filePath, new ArrayList<>(), jobConfig, SEATUNNEL_CONFIG, jobId);
+
+            final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+
+            Assertions.assertEquals(jobId, clientJobProxy.getJobId());
+
+            await().atMost(30000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            "RUNNING", jobClient.getJobStatus(jobId)));
+
+            ClientJobExecutionEnvironment jobExecutionEnvWithSameJobId =
+                    seaTunnelClient.createExecutionContext(
+                            filePath, new ArrayList<>(), jobConfig, SEATUNNEL_CONFIG, jobId);
+            Assertions.assertThrows(Exception.class, jobExecutionEnvWithSameJobId::execute);
+
+            jobClient.cancelJob(jobId);
+
+            await().atMost(30000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            "CANCELED", jobClient.getJobStatus(jobId)));
+
+            ClientJobExecutionEnvironment jobExecutionEnvWithSameJobId2 =
+                    seaTunnelClient.createExecutionContext(
+                            filePath, new ArrayList<>(), jobConfig, SEATUNNEL_CONFIG, jobId);
+            Assertions.assertThrows(Exception.class, jobExecutionEnvWithSameJobId2::execute);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        } finally {
+            seaTunnelClient.close();
+        }
+    }
+
+    @Test
     public void testGetJobInfo() {
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = TestUtils.getResource("/client_test.conf");

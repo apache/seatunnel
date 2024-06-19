@@ -437,7 +437,8 @@ public class CoordinatorService {
     }
 
     /** call by client to submit job */
-    public PassiveCompletableFuture<Void> submitJob(long jobId, Data jobImmutableInformation) {
+    public PassiveCompletableFuture<Void> submitJob(
+            long jobId, Data jobImmutableInformation, boolean isStartWithSavePoint) {
         CompletableFuture<Void> jobSubmitFuture = new CompletableFuture<>();
 
         // Check if the current jobID is already running. If so, complete the submission
@@ -449,6 +450,13 @@ public class CoordinatorService {
                             "The job %s is currently running; no need to submit again.", jobId));
             jobSubmitFuture.complete(null);
             return new PassiveCompletableFuture<>(jobSubmitFuture);
+        }
+
+        if (!isStartWithSavePoint && getJobHistoryService().getJobMetrics(jobId) != null) {
+            throw new JobException(
+                    String.format(
+                            "The job %s has already been submitted and is not starting with a savepoint.",
+                            jobId));
         }
 
         JobMaster jobMaster =
