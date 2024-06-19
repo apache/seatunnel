@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.e2e.connector.v2.mongodb;
 
-import com.mongodb.client.result.InsertManyResult;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 
@@ -37,6 +36,7 @@ import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoCollection;
 import com.mongodb.client.MongoCursor;
 import com.mongodb.client.model.Sorts;
+import com.mongodb.client.result.InsertManyResult;
 import lombok.extern.slf4j.Slf4j;
 
 import java.time.Duration;
