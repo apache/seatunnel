@@ -221,4 +221,19 @@ public class MongodbIT extends AbstractMongodbIT {
         clearDate(MONGODB_TRANSACTION_SINK_TABLE);
         clearDate(MONGODB_TRANSACTION_UPSERT_TABLE);
     }
+
+    @TestTemplate
+    public void testMongodbDoubleValue(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult assertResult = container.executeJob("/mongodb_double_value.conf");
+        Assertions.assertEquals(0, assertResult.getExitCode(), assertResult.getStderr());
+
+        Assertions.assertIterableEquals(
+                TEST_DOUBLE_DATASET.stream().peek(e -> e.remove("_id")).collect(Collectors.toList()),
+                readMongodbData(MONGODB_DOUBLE_TABLE_RESULT).stream()
+                        .peek(e -> e.remove("_id"))
+                        .collect(Collectors.toList()));
+        clearDate(MONGODB_DOUBLE_TABLE);
+        clearDate(MONGODB_DOUBLE_TABLE_RESULT);
+    }
 }

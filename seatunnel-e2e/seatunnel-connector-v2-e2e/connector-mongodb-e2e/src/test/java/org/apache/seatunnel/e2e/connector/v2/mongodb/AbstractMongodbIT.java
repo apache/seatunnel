@@ -60,6 +60,8 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
 
     protected static final List<Document> TEST_NULL_DATASET = generateTestDataSetWithNull(10);
 
+    protected static final List<Document> TEST_DOUBLE_DATASET = generateTestDataSetWithTemplate(5, Arrays.asList(44.0d, 44.1d, 44.2d, 44.3d, 44.4d));
+
     protected static final String MONGODB_IMAGE = "mongo:latest";
 
     protected static final String MONGODB_CONTAINER_HOST = "e2e_mongodb";
@@ -75,6 +77,10 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
     protected static final String MONGODB_NULL_TABLE = "test_null_op_db";
 
     protected static final String MONGODB_NULL_TABLE_RESULT = "test_null_op_db_result";
+
+    protected static final String MONGODB_DOUBLE_TABLE = "test_double_op_db";
+
+    protected static final String MONGODB_DOUBLE_TABLE_RESULT = "test_double_op_db_result";
 
     protected static final String MONGODB_MATCH_RESULT_TABLE = "test_match_op_result_db";
 
@@ -119,6 +125,11 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
                 client.getDatabase(MONGODB_DATABASE).getCollection(MONGODB_NULL_TABLE);
         sourceNullTable.deleteMany(new Document());
         sourceNullTable.insertMany(TEST_NULL_DATASET);
+
+        MongoCollection<Document> sourceDoubleTable =
+                client.getDatabase(MONGODB_DATABASE).getCollection(MONGODB_DOUBLE_TABLE);
+        sourceDoubleTable.deleteMany(new Document());
+        sourceDoubleTable.insertMany(TEST_DOUBLE_DATASET);
     }
 
     protected void clearDate(String table) {
@@ -129,51 +140,7 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
         List<Document> dataSet = new ArrayList<>();
 
         for (int i = 0; i < count; i++) {
-            dataSet.add(
-                    new Document(
-                                    "c_map",
-                                    new Document("OQBqH", randomString())
-                                            .append("rkvlO", randomString())
-                                            .append("pCMEX", randomString())
-                                            .append("DAgdj", randomString())
-                                            .append("dsJag", randomString()))
-                            .append(
-                                    "c_array",
-                                    Arrays.asList(
-                                            RANDOM.nextInt(),
-                                            RANDOM.nextInt(),
-                                            RANDOM.nextInt(),
-                                            RANDOM.nextInt(),
-                                            RANDOM.nextInt()))
-                            .append("c_string", randomString())
-                            .append("c_boolean", RANDOM.nextBoolean())
-                            .append("c_int", i)
-                            .append("c_bigint", RANDOM.nextLong())
-                            .append("c_double", RANDOM.nextDouble() * Double.MAX_VALUE)
-                            .append(
-                                    "c_row",
-                                    new Document(
-                                                    "c_map",
-                                                    new Document("OQBqH", randomString())
-                                                            .append("rkvlO", randomString())
-                                                            .append("pCMEX", randomString())
-                                                            .append("DAgdj", randomString())
-                                                            .append("dsJag", randomString()))
-                                            .append(
-                                                    "c_array",
-                                                    Arrays.asList(
-                                                            RANDOM.nextInt(),
-                                                            RANDOM.nextInt(),
-                                                            RANDOM.nextInt(),
-                                                            RANDOM.nextInt(),
-                                                            RANDOM.nextInt()))
-                                            .append("c_string", randomString())
-                                            .append("c_boolean", RANDOM.nextBoolean())
-                                            .append("c_int", RANDOM.nextInt())
-                                            .append("c_bigint", RANDOM.nextLong())
-                                            .append(
-                                                    "c_double",
-                                                    RANDOM.nextDouble() * Double.MAX_VALUE)));
+            dataSet.add(generateData(i, RANDOM.nextDouble() * Double.MAX_VALUE));
         }
         return dataSet;
     }
@@ -195,6 +162,16 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
         return dataSet;
     }
 
+    public static List<Document> generateTestDataSetWithTemplate(int count, List<Double> doublePreset) {
+        List<Document> dataSet = new ArrayList<>();
+
+        for (int i = 0; i < count; i++) {
+            dataSet.add(generateData(i, doublePreset.get(i)));
+        }
+
+        return dataSet;
+    }
+
     protected static String randomString() {
         int length = RANDOM.nextInt(10) + 1;
         StringBuilder sb = new StringBuilder(length);
@@ -203,6 +180,53 @@ public abstract class AbstractMongodbIT extends TestSuiteBase implements TestRes
             sb.append(c);
         }
         return sb.toString();
+    }
+
+    private static Document generateData(int intPreset, double doublePreset) {
+        return new Document(
+                "c_map",
+                new Document("OQBqH", randomString())
+                        .append("rkvlO", randomString())
+                        .append("pCMEX", randomString())
+                        .append("DAgdj", randomString())
+                        .append("dsJag", randomString()))
+                .append(
+                        "c_array",
+                        Arrays.asList(
+                                RANDOM.nextInt(),
+                                RANDOM.nextInt(),
+                                RANDOM.nextInt(),
+                                RANDOM.nextInt(),
+                                RANDOM.nextInt()))
+                .append("c_string", randomString())
+                .append("c_boolean", RANDOM.nextBoolean())
+                .append("c_int", intPreset)
+                .append("c_bigint", RANDOM.nextLong())
+                .append("c_double", doublePreset)
+                .append(
+                        "c_row",
+                        new Document(
+                                "c_map",
+                                new Document("OQBqH", randomString())
+                                        .append("rkvlO", randomString())
+                                        .append("pCMEX", randomString())
+                                        .append("DAgdj", randomString())
+                                        .append("dsJag", randomString()))
+                                .append(
+                                        "c_array",
+                                        Arrays.asList(
+                                                RANDOM.nextInt(),
+                                                RANDOM.nextInt(),
+                                                RANDOM.nextInt(),
+                                                RANDOM.nextInt(),
+                                                RANDOM.nextInt()))
+                                .append("c_string", randomString())
+                                .append("c_boolean", RANDOM.nextBoolean())
+                                .append("c_int", RANDOM.nextInt())
+                                .append("c_bigint", RANDOM.nextLong())
+                                .append(
+                                        "c_double",
+                                        RANDOM.nextDouble() * Double.MAX_VALUE));
     }
 
     protected List<Document> readMongodbData(String collection) {
