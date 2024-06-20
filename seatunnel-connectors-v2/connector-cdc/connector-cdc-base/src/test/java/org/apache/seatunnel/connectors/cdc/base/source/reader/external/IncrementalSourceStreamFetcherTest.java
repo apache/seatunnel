@@ -29,6 +29,7 @@ import org.apache.kafka.connect.source.SourceRecord;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.stubbing.Answer;
 
 import io.debezium.config.CommonConnectorConfig;
 import io.debezium.config.Configuration;
@@ -61,6 +62,7 @@ public class IncrementalSourceStreamFetcherTest {
                     .with(Heartbeat.HEARTBEAT_INTERVAL, 1)
                     .with(TRANSACTION_TOPIC, "test")
                     .build();
+    private static final String UNKNOWN_SCHEMA_KEY = "UNKNOWN";
 
     @Test
     public void testSplitSchemaChangeStream() throws Exception {
@@ -107,6 +109,7 @@ public class IncrementalSourceStreamFetcherTest {
         inputEvents.add(new DataChangeEvent(createDataEvent()));
         inputEvents.add(new DataChangeEvent(createSchemaChangeEvent()));
         inputEvents.add(new DataChangeEvent(createSchemaChangeEvent()));
+        inputEvents.add(new DataChangeEvent(createSchemaChangeUnknownEvent()));
         outputEvents = fetcher.splitSchemaChangeStream(inputEvents);
         outputEvents.forEachRemaining(records::add);
 
@@ -134,6 +137,7 @@ public class IncrementalSourceStreamFetcherTest {
         inputEvents.add(new DataChangeEvent(createSchemaChangeEvent()));
         inputEvents.add(new DataChangeEvent(createDataEvent()));
         inputEvents.add(new DataChangeEvent(createDataEvent()));
+        inputEvents.add(new DataChangeEvent(createSchemaChangeUnknownEvent()));
         outputEvents = fetcher.splitSchemaChangeStream(inputEvents);
         outputEvents.forEachRemaining(records::add);
 
@@ -323,13 +327,21 @@ public class IncrementalSourceStreamFetcherTest {
     }
 
     static SourceRecord createSchemaChangeEvent() {
+        return createSchemaChangeEvent("SCHEMA_CHANGE_TOPIC");
+    }
+
+    static SourceRecord createSchemaChangeUnknownEvent() {
+        return createSchemaChangeEvent(UNKNOWN_SCHEMA_KEY);
+    }
+
+    static SourceRecord createSchemaChangeEvent(String topic) {
         Schema keySchema =
                 SchemaBuilder.struct().name(SourceRecordUtils.SCHEMA_CHANGE_EVENT_KEY_NAME).build();
         SourceRecord record =
                 new SourceRecord(
                         Collections.emptyMap(),
                         Collections.emptyMap(),
-                        null,
+                        topic,
                         keySchema,
                         null,
                         null,
@@ -377,7 +389,14 @@ public class IncrementalSourceStreamFetcherTest {
 
     static IncrementalSourceStreamFetcher createFetcher() {
         SchemaChangeResolver schemaChangeResolver = mock(SchemaChangeResolver.class);
-        when(schemaChangeResolver.support(any())).thenReturn(true);
+        when(schemaChangeResolver.support(any()))
+                .thenAnswer(
+                        (Answer<Boolean>)
+                                invocationOnMock -> {
+                                    SourceRecord record = invocationOnMock.getArgument(0);
+                                    return record.topic() == null
+                                            || !record.topic().equalsIgnoreCase(UNKNOWN_SCHEMA_KEY);
+                                });
         IncrementalSourceStreamFetcher fetcher =
                 new IncrementalSourceStreamFetcher(null, 0, schemaChangeResolver);
         IncrementalSourceStreamFetcher spy = spy(fetcher);
