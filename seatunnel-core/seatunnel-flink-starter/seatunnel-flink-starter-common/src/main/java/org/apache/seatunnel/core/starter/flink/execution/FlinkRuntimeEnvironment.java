@@ -247,89 +247,86 @@ public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
         if (jobMode == JobMode.BATCH) {
             log.warn(
                     "Disabled Checkpointing. In flink execution environment, checkpointing is not supported and not needed when executing jobs in BATCH mode");
+            return;
         }
-        long interval = 0;
+        long interval;
         if (config.hasPath(EnvCommonOptions.CHECKPOINT_INTERVAL.key())) {
             interval = config.getLong(EnvCommonOptions.CHECKPOINT_INTERVAL.key());
         } else if (config.hasPath(ConfigKeyName.CHECKPOINT_INTERVAL)) {
             log.warn(
                     "the parameter 'execution.checkpoint.interval' will be deprecated, please use common parameter 'checkpoint.interval' to set it");
             interval = config.getLong(ConfigKeyName.CHECKPOINT_INTERVAL);
+        } else {
+            interval = EnvCommonOptions.CHECKPOINT_INTERVAL.defaultValue();
         }
 
-        if (interval > 0) {
-            CheckpointConfig checkpointConfig = environment.getCheckpointConfig();
-            environment.enableCheckpointing(interval);
+        CheckpointConfig checkpointConfig = environment.getCheckpointConfig();
+        environment.enableCheckpointing(interval);
 
-            if (EnvironmentUtil.hasPathAndWaring(config, ConfigKeyName.CHECKPOINT_MODE)) {
-                String mode = config.getString(ConfigKeyName.CHECKPOINT_MODE);
-                switch (mode.toLowerCase()) {
-                    case "exactly-once":
-                        checkpointConfig.setCheckpointingMode(CheckpointingMode.EXACTLY_ONCE);
-                        break;
-                    case "at-least-once":
-                        checkpointConfig.setCheckpointingMode(CheckpointingMode.AT_LEAST_ONCE);
-                        break;
-                    default:
-                        log.warn(
-                                "set checkpoint.mode failed, unknown checkpoint.mode [{}],only support exactly-once,at-least-once",
-                                mode);
-                        break;
+        if (EnvironmentUtil.hasPathAndWaring(config, ConfigKeyName.CHECKPOINT_MODE)) {
+            String mode = config.getString(ConfigKeyName.CHECKPOINT_MODE);
+            switch (mode.toLowerCase()) {
+                case "exactly-once":
+                    checkpointConfig.setCheckpointingMode(CheckpointingMode.EXACTLY_ONCE);
+                    break;
+                case "at-least-once":
+                    checkpointConfig.setCheckpointingMode(CheckpointingMode.AT_LEAST_ONCE);
+                    break;
+                default:
+                    log.warn(
+                            "set checkpoint.mode failed, unknown checkpoint.mode [{}],only support exactly-once,at-least-once",
+                            mode);
+                    break;
+            }
+        }
+
+        if (EnvironmentUtil.hasPathAndWaring(config, EnvCommonOptions.CHECKPOINT_TIMEOUT.key())) {
+            long timeout = config.getLong(EnvCommonOptions.CHECKPOINT_TIMEOUT.key());
+            checkpointConfig.setCheckpointTimeout(timeout);
+        } else if (EnvironmentUtil.hasPathAndWaring(config, ConfigKeyName.CHECKPOINT_TIMEOUT)) {
+            long timeout = config.getLong(ConfigKeyName.CHECKPOINT_TIMEOUT);
+            checkpointConfig.setCheckpointTimeout(timeout);
+        }
+
+        if (EnvironmentUtil.hasPathAndWaring(config, ConfigKeyName.CHECKPOINT_DATA_URI)) {
+            String uri = config.getString(ConfigKeyName.CHECKPOINT_DATA_URI);
+            StateBackend fsStateBackend = new FsStateBackend(uri);
+            if (EnvironmentUtil.hasPathAndWaring(config, ConfigKeyName.STATE_BACKEND)) {
+                String stateBackend = config.getString(ConfigKeyName.STATE_BACKEND);
+                if ("rocksdb".equalsIgnoreCase(stateBackend)) {
+                    StateBackend rocksDBStateBackend =
+                            new RocksDBStateBackend(fsStateBackend, TernaryBoolean.TRUE);
+                    environment.setStateBackend(rocksDBStateBackend);
                 }
+            } else {
+                environment.setStateBackend(fsStateBackend);
             }
+        }
 
-            if (EnvironmentUtil.hasPathAndWaring(
-                    config, EnvCommonOptions.CHECKPOINT_TIMEOUT.key())) {
-                long timeout = config.getLong(EnvCommonOptions.CHECKPOINT_TIMEOUT.key());
-                checkpointConfig.setCheckpointTimeout(timeout);
-            } else if (EnvironmentUtil.hasPathAndWaring(config, ConfigKeyName.CHECKPOINT_TIMEOUT)) {
-                long timeout = config.getLong(ConfigKeyName.CHECKPOINT_TIMEOUT);
-                checkpointConfig.setCheckpointTimeout(timeout);
-            }
+        if (EnvironmentUtil.hasPathAndWaring(config, ConfigKeyName.MAX_CONCURRENT_CHECKPOINTS)) {
+            int max = config.getInt(ConfigKeyName.MAX_CONCURRENT_CHECKPOINTS);
+            checkpointConfig.setMaxConcurrentCheckpoints(max);
+        }
 
-            if (EnvironmentUtil.hasPathAndWaring(config, ConfigKeyName.CHECKPOINT_DATA_URI)) {
-                String uri = config.getString(ConfigKeyName.CHECKPOINT_DATA_URI);
-                StateBackend fsStateBackend = new FsStateBackend(uri);
-                if (EnvironmentUtil.hasPathAndWaring(config, ConfigKeyName.STATE_BACKEND)) {
-                    String stateBackend = config.getString(ConfigKeyName.STATE_BACKEND);
-                    if ("rocksdb".equalsIgnoreCase(stateBackend)) {
-                        StateBackend rocksDBStateBackend =
-                                new RocksDBStateBackend(fsStateBackend, TernaryBoolean.TRUE);
-                        environment.setStateBackend(rocksDBStateBackend);
-                    }
-                } else {
-                    environment.setStateBackend(fsStateBackend);
-                }
+        if (EnvironmentUtil.hasPathAndWaring(config, ConfigKeyName.CHECKPOINT_CLEANUP_MODE)) {
+            boolean cleanup = config.getBoolean(ConfigKeyName.CHECKPOINT_CLEANUP_MODE);
+            if (cleanup) {
+                checkpointConfig.enableExternalizedCheckpoints(
+                        CheckpointConfig.ExternalizedCheckpointCleanup.DELETE_ON_CANCELLATION);
+            } else {
+                checkpointConfig.enableExternalizedCheckpoints(
+                        CheckpointConfig.ExternalizedCheckpointCleanup.RETAIN_ON_CANCELLATION);
             }
+        }
 
-            if (EnvironmentUtil.hasPathAndWaring(
-                    config, ConfigKeyName.MAX_CONCURRENT_CHECKPOINTS)) {
-                int max = config.getInt(ConfigKeyName.MAX_CONCURRENT_CHECKPOINTS);
-                checkpointConfig.setMaxConcurrentCheckpoints(max);
-            }
+        if (EnvironmentUtil.hasPathAndWaring(config, ConfigKeyName.MIN_PAUSE_BETWEEN_CHECKPOINTS)) {
+            long minPause = config.getLong(ConfigKeyName.MIN_PAUSE_BETWEEN_CHECKPOINTS);
+            checkpointConfig.setMinPauseBetweenCheckpoints(minPause);
+        }
 
-            if (EnvironmentUtil.hasPathAndWaring(config, ConfigKeyName.CHECKPOINT_CLEANUP_MODE)) {
-                boolean cleanup = config.getBoolean(ConfigKeyName.CHECKPOINT_CLEANUP_MODE);
-                if (cleanup) {
-                    checkpointConfig.enableExternalizedCheckpoints(
-                            CheckpointConfig.ExternalizedCheckpointCleanup.DELETE_ON_CANCELLATION);
-                } else {
-                    checkpointConfig.enableExternalizedCheckpoints(
-                            CheckpointConfig.ExternalizedCheckpointCleanup.RETAIN_ON_CANCELLATION);
-                }
-            }
-
-            if (EnvironmentUtil.hasPathAndWaring(
-                    config, ConfigKeyName.MIN_PAUSE_BETWEEN_CHECKPOINTS)) {
-                long minPause = config.getLong(ConfigKeyName.MIN_PAUSE_BETWEEN_CHECKPOINTS);
-                checkpointConfig.setMinPauseBetweenCheckpoints(minPause);
-            }
-
-            if (EnvironmentUtil.hasPathAndWaring(
-                    config, ConfigKeyName.FAIL_ON_CHECKPOINTING_ERRORS)) {
-                int failNum = config.getInt(ConfigKeyName.FAIL_ON_CHECKPOINTING_ERRORS);
-                checkpointConfig.setTolerableCheckpointFailureNumber(failNum);
-            }
+        if (EnvironmentUtil.hasPathAndWaring(config, ConfigKeyName.FAIL_ON_CHECKPOINTING_ERRORS)) {
+            int failNum = config.getInt(ConfigKeyName.FAIL_ON_CHECKPOINTING_ERRORS);
+            checkpointConfig.setTolerableCheckpointFailureNumber(failNum);
         }
     }
 

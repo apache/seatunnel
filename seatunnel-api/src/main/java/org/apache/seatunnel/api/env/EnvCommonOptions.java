@@ -54,7 +54,7 @@ public interface EnvCommonOptions {
     Option<Long> CHECKPOINT_INTERVAL =
             Options.key("checkpoint.interval")
                     .longType()
-                    .noDefaultValue()
+                    .defaultValue(10000L)
                     .withDescription(
                             "The interval (in milliseconds) between two consecutive checkpoints.");
 
