@@ -214,7 +214,7 @@ map:
            fs.defaultFS: file:///
 ```
 
-如果您使用 OSS，可以像这样配置：
+如果您使用 OSS，可以像这样配置:
 
 ```yaml
 map:
@@ -233,7 +233,21 @@ map:
            fs.oss.accessKeyId: OSS access key id
            fs.oss.accessKeySecret: OSS access key secret
            fs.oss.endpoint: OSS endpoint
-           fs.oss.credentials.provider: org.apache.hadoop.fs.aliyun.oss.AliyunCredentialsProvider
+```
+注意：使用OSS 时，确保 lib目录下有这几个jar.
+```
+aliyun-sdk-oss-3.13.2.jar
+
+hadoop-aliyun-3.3.6.jar
+
+jdom2-2.0.6.jar
+
+netty-buffer-4.1.89.Final.jar 
+
+netty-common-4.1.89.Final.jar
+
+ seatunnel-hadoop3-3.3.6-uber.jar
+
 ```
 
 ## 6. 配置 SeaTunnel Engine 客户端
