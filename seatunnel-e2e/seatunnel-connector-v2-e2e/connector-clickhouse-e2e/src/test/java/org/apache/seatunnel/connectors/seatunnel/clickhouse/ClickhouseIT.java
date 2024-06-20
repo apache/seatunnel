@@ -87,6 +87,7 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
     private static final String DATABASE = "default";
     private static final String SOURCE_TABLE = "source_table";
     private static final String SINK_TABLE = "sink_table";
+    private static final String LOCAL_FILE_SINK_TABLE = "local_file_sink_table";
     private static final String FILE_SINK_TABLE = "file_sink_table";
     private static final String INSERT_SQL = "insert_sql";
     private static final String COMPARE_SQL = "compare_sql";
@@ -152,6 +153,7 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
             Statement statement = this.connection.createStatement();
             statement.execute(CONFIG.getString(SOURCE_TABLE));
             statement.execute(CONFIG.getString(SINK_TABLE));
+            statement.execute(CONFIG.getString(LOCAL_FILE_SINK_TABLE));
             statement.execute(CONFIG.getString(FILE_SINK_TABLE));
         } catch (SQLException e) {
             throw new RuntimeException("Initializing Clickhouse table failed!", e);

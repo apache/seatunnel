@@ -102,7 +102,7 @@ public class ClickhouseFileSinkFactory implements TableSinkFactory {
                     readonlyConfig.get(NODE_PASS).stream()
                             .collect(
                                     Collectors.toMap(
-                                            configObject -> configObject.getNodeAddress(),
+                                            NodePassConfig::getNodeAddress,
                                             configObject -> readonlyConfig.get(USERNAME)));
             Map<String, String> nodePassword =
                     readonlyConfig.get(NODE_PASS).stream()
