@@ -340,7 +340,7 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
         // add comment
         sqlServerCatalog.executeSql(
                 tablePathSqlserver,
-                "execute sp_addextendedproperty 'MS_Description','\"#¥%……&*（）;\\\\;'',,..``````//''@特殊注释''\\''\"','user','dbo','table','source','column','BIGINT_TEST';");
+                "execute sp_addextendedproperty 'MS_Description','\"#¥%……&*（）;\\\\;'',,..``````//''Xx''\\''\"','user','dbo','table','source','column','BIGINT_TEST';");
         CatalogTable catalogTable = sqlServerCatalog.getTable(tablePathSqlserver);
         // sink tableExists ?
         boolean tableExistsBefore = sqlServerCatalog.tableExists(tablePathSqlserverSink);
@@ -353,7 +353,7 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
         final CatalogTable sinkTable = sqlServerCatalog.getTable(tablePathSqlserverSink);
         Assertions.assertEquals(
                 sinkTable.getTableSchema().getColumns().get(1).getComment(),
-                "\"#¥%……&*（）;\\\\;',,..``````//'@特殊注释'\\'\"");
+                "\"#¥%……&*（）;\\\\;',,..``````//'@Xx'\\'\"");
         // isExistsData ?
         boolean existsDataBefore = sqlServerCatalog.isExistsData(tablePathSqlserverSink);
         Assertions.assertFalse(existsDataBefore);
