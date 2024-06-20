@@ -340,7 +340,7 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
         // add comment
         sqlServerCatalog.executeSql(
                 tablePathSqlserver,
-                "execute sp_addextendedproperty 'MS_Description','comment on column E2E_TABLE_SOURCE_LOWER.CHAR_10_COL is '\"#¥%……&*（）;\\\\;'',,..``````//''@特殊注释''\\''\"'','user','dbo','table','source','column','BIGINT_TEST';");
+                "execute sp_addextendedproperty 'MS_Description','\"#¥%……&*（）;\\\\;'',,..``````//''@特殊注释''\\''\"','user','dbo','table','source','column','BIGINT_TEST';");
         CatalogTable catalogTable = sqlServerCatalog.getTable(tablePathSqlserver);
         // sink tableExists ?
         boolean tableExistsBefore = sqlServerCatalog.tableExists(tablePathSqlserverSink);
