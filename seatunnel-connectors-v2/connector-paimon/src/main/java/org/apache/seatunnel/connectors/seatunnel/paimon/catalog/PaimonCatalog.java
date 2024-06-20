@@ -45,6 +45,10 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 @Slf4j
 public class PaimonCatalog implements Catalog, PaimonTable {
@@ -124,6 +128,16 @@ public class PaimonCatalog implements Catalog, PaimonTable {
         }
     }
 
+    public CatalogTable getTableWithProjection(TablePath tablePath, int[] projectionIndex)
+            throws CatalogException, TableNotExistException {
+        try {
+            FileStoreTable paimonFileStoreTableTable = (FileStoreTable) getPaimonTable(tablePath);
+            return toCatalogTable(paimonFileStoreTableTable, tablePath, projectionIndex);
+        } catch (Exception e) {
+            throw new TableNotExistException(this.catalogName, tablePath);
+        }
+    }
+
     @Override
     public Table getPaimonTable(TablePath tablePath)
             throws CatalogException, TableNotExistException {
@@ -181,8 +195,26 @@ public class PaimonCatalog implements Catalog, PaimonTable {
 
     private CatalogTable toCatalogTable(
             FileStoreTable paimonFileStoreTableTable, TablePath tablePath) {
+        return toCatalogTable(paimonFileStoreTableTable, tablePath, null);
+    }
+
+    private CatalogTable toCatalogTable(
+            FileStoreTable paimonFileStoreTableTable, TablePath tablePath, int[] projectionIndex) {
         org.apache.paimon.schema.TableSchema schema = paimonFileStoreTableTable.schema();
         List<DataField> dataFields = schema.fields();
+        if (!Objects.isNull(projectionIndex)) {
+            Map<Integer, DataField> indexMap =
+                    IntStream.range(0, dataFields.size())
+                            .boxed()
+                            .collect(Collectors.toMap(i -> i, dataFields::get));
+
+            dataFields =
+                    java.util.Arrays.stream(projectionIndex)
+                            .distinct()
+                            .filter(indexMap::containsKey)
+                            .mapToObj(indexMap::get)
+                            .collect(Collectors.toList());
+        }
         TableSchema.Builder builder = TableSchema.builder();
         dataFields.forEach(
                 dataField -> {

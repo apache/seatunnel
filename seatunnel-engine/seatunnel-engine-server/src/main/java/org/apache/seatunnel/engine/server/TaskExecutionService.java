@@ -627,7 +627,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             try {
                 if (!metricsImap.tryLock(
                         Constant.IMAP_RUNNING_JOB_METRICS_KEY, 2, TimeUnit.SECONDS)) {
-                    logger.info("try lock failed in update metrics");
+                    logger.warning("try lock failed in update metrics");
                     return;
                 }
                 HashMap<TaskLocation, SeaTunnelMetricsContext> centralMap =
@@ -953,6 +953,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                         taskGroupLocation, executionContexts.remove(taskGroupLocation));
                 cancellationFutures.remove(taskGroupLocation);
                 cancelAsyncFunction(taskGroupLocation);
+                updateMetricsContextInImap();
                 if (ex == null) {
                     future.complete(
                             new TaskExecutionState(taskGroupLocation, ExecutionState.FINISHED));

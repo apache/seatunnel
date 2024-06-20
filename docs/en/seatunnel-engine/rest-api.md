@@ -35,6 +35,26 @@ network:
 
 ## API reference
 
+### Returns an overview over the Zeta engine cluster.
+
+#### Parameters
+
+#### Responses
+
+```json
+{
+    "projectVersion":"2.3.5-SNAPSHOT",
+    "gitCommitAbbrev":"DeadD0d0",
+    "totalSlot":"0",
+    "unassignedSlot":"0",
+    "runningJobs":"0",
+    "finishedJobs":"0",
+    "failedJobs":"0",
+    "cancelledJobs":"0",
+    "works":"1"
+}
+```
+
 ### Returns an overview over all jobs and their current state.
 
 <details>

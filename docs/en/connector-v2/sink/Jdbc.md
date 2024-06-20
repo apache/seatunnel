@@ -304,7 +304,7 @@ sink {
         driver = "com.mysql.cj.jdbc.Driver"
         user = "root"
         password = "123456"
-        
+        generate_sink_sql = "true"
         database = "sink_database"
         table = "sink_table"
         primary_keys = ["key1", "key2", ...]
