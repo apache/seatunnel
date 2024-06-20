@@ -19,9 +19,13 @@
 package org.apache.seatunnel.format.json.canal;
 
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
 import org.junit.jupiter.api.Test;
 
@@ -40,19 +44,23 @@ import static org.apache.seatunnel.api.table.type.BasicType.FLOAT_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.INT_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class CanalJsonSerDeSchemaTest {
+    private static final String FORMAT = "Canal";
 
-    private static final SeaTunnelRowType PHYSICAL_DATA_TYPE =
+    private static final SeaTunnelRowType SEATUNNEL_ROW_TYPE =
             new SeaTunnelRowType(
                     new String[] {"id", "name", "description", "weight"},
                     new SeaTunnelDataType[] {INT_TYPE, STRING_TYPE, STRING_TYPE, FLOAT_TYPE});
+    private static final CatalogTable catalogTables =
+            CatalogTableUtil.getCatalogTable("", "", "", "", SEATUNNEL_ROW_TYPE);
 
     @Test
     public void testFilteringTables() throws Exception {
         List<String> lines = readLines("canal-data-filter-table.txt");
         CanalJsonDeserializationSchema deserializationSchema =
-                new CanalJsonDeserializationSchema.Builder(PHYSICAL_DATA_TYPE)
+                new CanalJsonDeserializationSchema.Builder(catalogTables)
                         .setDatabase("^my.*")
                         .setTable("^prod.*")
                         .build();
@@ -69,6 +77,87 @@ public class CanalJsonSerDeSchemaTest {
         assertEquals(0, collector.list.size());
     }
 
+    @Test
+    public void testDeserializeNoJson() throws Exception {
+        final CanalJsonDeserializationSchema deserializationSchema =
+                createCanalJsonDeserializationSchema(null, null);
+        final SimpleCollector collector = new SimpleCollector();
+        String noJsonMsg = "{]";
+
+        SeaTunnelRuntimeException expected = CommonError.jsonOperationError(FORMAT, noJsonMsg);
+        SeaTunnelRuntimeException cause =
+                assertThrows(
+                        expected.getClass(),
+                        () -> {
+                            deserializationSchema.deserialize(noJsonMsg.getBytes(), collector);
+                        });
+        assertEquals(cause.getMessage(), expected.getMessage());
+    }
+
+    @Test
+    public void testDeserializeEmptyJson() throws Exception {
+        final CanalJsonDeserializationSchema deserializationSchema =
+                createCanalJsonDeserializationSchema(null, null);
+        final SimpleCollector collector = new SimpleCollector();
+        String emptyMsg = "{}";
+        SeaTunnelRuntimeException expected = CommonError.jsonOperationError(FORMAT, emptyMsg);
+        SeaTunnelRuntimeException cause =
+                assertThrows(
+                        expected.getClass(),
+                        () -> {
+                            deserializationSchema.deserialize(emptyMsg.getBytes(), collector);
+                        });
+        assertEquals(cause.getMessage(), expected.getMessage());
+    }
+
+    @Test
+    public void testDeserializeNoDataJson() throws Exception {
+        final CanalJsonDeserializationSchema deserializationSchema =
+                createCanalJsonDeserializationSchema(null, null);
+        final SimpleCollector collector = new SimpleCollector();
+        String noDataMsg = "{\"type\":\"INSERT\"}";
+        SeaTunnelRuntimeException expected = CommonError.jsonOperationError(FORMAT, noDataMsg);
+        SeaTunnelRuntimeException cause =
+                assertThrows(
+                        expected.getClass(),
+                        () -> {
+                            deserializationSchema.deserialize(noDataMsg.getBytes(), collector);
+                        });
+        assertEquals(cause.getMessage(), expected.getMessage());
+
+        Throwable noDataCause = cause.getCause();
+        assertEquals(noDataCause.getClass(), IllegalStateException.class);
+        assertEquals(
+                noDataCause.getMessage(),
+                String.format("Null data value '%s' Cannot send downstream", noDataMsg));
+    }
+
+    @Test
+    public void testDeserializeUnknownTypeJson() throws Exception {
+        final CanalJsonDeserializationSchema deserializationSchema =
+                createCanalJsonDeserializationSchema(null, null);
+        final SimpleCollector collector = new SimpleCollector();
+        String unknownType = "XX";
+        String unknownOperationMsg =
+                "{\"data\":{\"id\":101,\"name\":\"scooter\"},\"type\":\"" + unknownType + "\"}";
+        SeaTunnelRuntimeException expected =
+                CommonError.jsonOperationError(FORMAT, unknownOperationMsg);
+        SeaTunnelRuntimeException cause =
+                assertThrows(
+                        expected.getClass(),
+                        () -> {
+                            deserializationSchema.deserialize(
+                                    unknownOperationMsg.getBytes(), collector);
+                        });
+        assertEquals(cause.getMessage(), expected.getMessage());
+
+        Throwable unknownTypeCause = cause.getCause();
+        assertEquals(unknownTypeCause.getClass(), IllegalStateException.class);
+        assertEquals(
+                unknownTypeCause.getMessage(),
+                String.format("Unknown operation type '%s'.", unknownType));
+    }
+
     public void runTest(List<String> lines, CanalJsonDeserializationSchema deserializationSchema)
             throws IOException {
         SimpleCollector collector = new SimpleCollector();
@@ -78,39 +167,39 @@ public class CanalJsonSerDeSchemaTest {
 
         List<String> expected =
                 Arrays.asList(
-                        "SeaTunnelRow{tableId=, kind=+I, fields=[101, scooter, Small 2-wheel scooter, 3.14]}",
-                        "SeaTunnelRow{tableId=, kind=+I, fields=[102, car battery, 12V car battery, 8.1]}",
-                        "SeaTunnelRow{tableId=, kind=+I, fields=[103, 12-pack drill bits, 12-pack of drill bits with sizes ranging from #40 to #3, 0.8]}",
-                        "SeaTunnelRow{tableId=, kind=+I, fields=[104, hammer, 12oz carpenter's hammer, 0.75]}",
-                        "SeaTunnelRow{tableId=, kind=+I, fields=[105, hammer, 14oz carpenter's hammer, 0.875]}",
-                        "SeaTunnelRow{tableId=, kind=+I, fields=[106, hammer, null, 1.0]}",
-                        "SeaTunnelRow{tableId=, kind=+I, fields=[107, rocks, box of assorted rocks, 5.3]}",
-                        "SeaTunnelRow{tableId=, kind=+I, fields=[108, jacket, water resistent black wind breaker, 0.1]}",
-                        "SeaTunnelRow{tableId=, kind=+I, fields=[109, spare tire, 24 inch spare tire, 22.2]}",
-                        "SeaTunnelRow{tableId=, kind=-U, fields=[106, hammer, null, 1.0]}",
-                        "SeaTunnelRow{tableId=, kind=+U, fields=[106, hammer, 18oz carpenter hammer, 1.0]}",
-                        "SeaTunnelRow{tableId=, kind=-U, fields=[107, rocks, box of assorted rocks, 5.3]}",
-                        "SeaTunnelRow{tableId=, kind=+U, fields=[107, rocks, box of assorted rocks, 5.1]}",
-                        "SeaTunnelRow{tableId=, kind=+I, fields=[110, jacket, water resistent white wind breaker, 0.2]}",
-                        "SeaTunnelRow{tableId=, kind=+I, fields=[111, scooter, Big 2-wheel scooter , 5.18]}",
-                        "SeaTunnelRow{tableId=, kind=-U, fields=[110, jacket, water resistent white wind breaker, 0.2]}",
-                        "SeaTunnelRow{tableId=, kind=+U, fields=[110, jacket, new water resistent white wind breaker, 0.5]}",
-                        "SeaTunnelRow{tableId=, kind=-U, fields=[111, scooter, Big 2-wheel scooter , 5.18]}",
-                        "SeaTunnelRow{tableId=, kind=+U, fields=[111, scooter, Big 2-wheel scooter , 5.17]}",
-                        "SeaTunnelRow{tableId=, kind=-D, fields=[111, scooter, Big 2-wheel scooter , 5.17]}",
-                        "SeaTunnelRow{tableId=, kind=-U, fields=[101, scooter, Small 2-wheel scooter, 3.14]}",
-                        "SeaTunnelRow{tableId=, kind=+U, fields=[101, scooter, Small 2-wheel scooter, 5.17]}",
-                        "SeaTunnelRow{tableId=, kind=-U, fields=[102, car battery, 12V car battery, 8.1]}",
-                        "SeaTunnelRow{tableId=, kind=+U, fields=[102, car battery, 12V car battery, 5.17]}",
-                        "SeaTunnelRow{tableId=, kind=-D, fields=[102, car battery, 12V car battery, 5.17]}",
-                        "SeaTunnelRow{tableId=, kind=-D, fields=[103, 12-pack drill bits, 12-pack of drill bits with sizes ranging from #40 to #3, 0.8]}");
+                        "SeaTunnelRow{tableId=.., kind=+I, fields=[101, scooter, Small 2-wheel scooter, 3.14]}",
+                        "SeaTunnelRow{tableId=.., kind=+I, fields=[102, car battery, 12V car battery, 8.1]}",
+                        "SeaTunnelRow{tableId=.., kind=+I, fields=[103, 12-pack drill bits, 12-pack of drill bits with sizes ranging from #40 to #3, 0.8]}",
+                        "SeaTunnelRow{tableId=.., kind=+I, fields=[104, hammer, 12oz carpenter's hammer, 0.75]}",
+                        "SeaTunnelRow{tableId=.., kind=+I, fields=[105, hammer, 14oz carpenter's hammer, 0.875]}",
+                        "SeaTunnelRow{tableId=.., kind=+I, fields=[106, hammer, null, 1.0]}",
+                        "SeaTunnelRow{tableId=.., kind=+I, fields=[107, rocks, box of assorted rocks, 5.3]}",
+                        "SeaTunnelRow{tableId=.., kind=+I, fields=[108, jacket, water resistent black wind breaker, 0.1]}",
+                        "SeaTunnelRow{tableId=.., kind=+I, fields=[109, spare tire, 24 inch spare tire, 22.2]}",
+                        "SeaTunnelRow{tableId=.., kind=-U, fields=[106, hammer, null, 1.0]}",
+                        "SeaTunnelRow{tableId=.., kind=+U, fields=[106, hammer, 18oz carpenter hammer, 1.0]}",
+                        "SeaTunnelRow{tableId=.., kind=-U, fields=[107, rocks, box of assorted rocks, 5.3]}",
+                        "SeaTunnelRow{tableId=.., kind=+U, fields=[107, rocks, box of assorted rocks, 5.1]}",
+                        "SeaTunnelRow{tableId=.., kind=+I, fields=[110, jacket, water resistent white wind breaker, 0.2]}",
+                        "SeaTunnelRow{tableId=.., kind=+I, fields=[111, scooter, Big 2-wheel scooter , 5.18]}",
+                        "SeaTunnelRow{tableId=.., kind=-U, fields=[110, jacket, water resistent white wind breaker, 0.2]}",
+                        "SeaTunnelRow{tableId=.., kind=+U, fields=[110, jacket, new water resistent white wind breaker, 0.5]}",
+                        "SeaTunnelRow{tableId=.., kind=-U, fields=[111, scooter, Big 2-wheel scooter , 5.18]}",
+                        "SeaTunnelRow{tableId=.., kind=+U, fields=[111, scooter, Big 2-wheel scooter , 5.17]}",
+                        "SeaTunnelRow{tableId=.., kind=-D, fields=[111, scooter, Big 2-wheel scooter , 5.17]}",
+                        "SeaTunnelRow{tableId=.., kind=-U, fields=[101, scooter, Small 2-wheel scooter, 3.14]}",
+                        "SeaTunnelRow{tableId=.., kind=+U, fields=[101, scooter, Small 2-wheel scooter, 5.17]}",
+                        "SeaTunnelRow{tableId=.., kind=-U, fields=[102, car battery, 12V car battery, 8.1]}",
+                        "SeaTunnelRow{tableId=.., kind=+U, fields=[102, car battery, 12V car battery, 5.17]}",
+                        "SeaTunnelRow{tableId=.., kind=-D, fields=[102, car battery, 12V car battery, 5.17]}",
+                        "SeaTunnelRow{tableId=.., kind=-D, fields=[103, 12-pack drill bits, 12-pack of drill bits with sizes ranging from #40 to #3, 0.8]}");
         List<String> actual =
                 collector.list.stream().map(Object::toString).collect(Collectors.toList());
         assertEquals(expected, actual);
 
         // test Serialization
         CanalJsonSerializationSchema serializationSchema =
-                new CanalJsonSerializationSchema(PHYSICAL_DATA_TYPE);
+                new CanalJsonSerializationSchema(SEATUNNEL_ROW_TYPE);
         List<String> result = new ArrayList<>();
         for (SeaTunnelRow rowData : collector.list) {
             result.add(new String(serializationSchema.serialize(rowData), StandardCharsets.UTF_8));
@@ -153,7 +242,7 @@ public class CanalJsonSerDeSchemaTest {
 
     private CanalJsonDeserializationSchema createCanalJsonDeserializationSchema(
             String database, String table) {
-        return CanalJsonDeserializationSchema.builder(PHYSICAL_DATA_TYPE)
+        return CanalJsonDeserializationSchema.builder(catalogTables)
                 .setDatabase(database)
                 .setTable(table)
                 .setIgnoreParseErrors(false)

@@ -4,7 +4,7 @@
 
 ## Support Iceberg Version
 
-- 0.14.0
+- 1.4.2
 
 ## Support Those Engines
 
@@ -34,18 +34,16 @@ Source connector for Apache Iceberg. It can support batch and stream mode.
 
 ## Supported DataSource Info
 
-| Datasource |      Dependent      |                                   Maven                                   |
-|------------|---------------------|---------------------------------------------------------------------------|
-| Iceberg    | flink-shaded-hadoop | [Download](https://mvnrepository.com/search?q=flink-shaded-hadoop-)       |
-| Iceberg    | hive-exec           | [Download](https://mvnrepository.com/artifact/org.apache.hive/hive-exec)  |
-| Iceberg    | libfb303            | [Download](https://mvnrepository.com/artifact/org.apache.thrift/libfb303) |
+| Datasource | Dependent |                                   Maven                                   |
+|------------|-----------|---------------------------------------------------------------------------|
+| Iceberg    | hive-exec | [Download](https://mvnrepository.com/artifact/org.apache.hive/hive-exec)  |
+| Iceberg    | libfb303  | [Download](https://mvnrepository.com/artifact/org.apache.thrift/libfb303) |
 
 ## Database Dependency
 
-> In order to be compatible with different versions of Hadoop and Hive, the scope of hive-exec and flink-shaded-hadoop-2 in the project pom file are provided, so if you use the Flink engine, first you may need to add the following Jar packages to <FLINK_HOME>/lib directory, if you are using the Spark engine and integrated with Hadoop, then you do not need to add the following Jar packages.
+> In order to be compatible with different versions of Hadoop and Hive, the scope of hive-exec in the project pom file are provided, so if you use the Flink engine, first you may need to add the following Jar packages to <FLINK_HOME>/lib directory, if you are using the Spark engine and integrated with Hadoop, then you do not need to add the following Jar packages. If you are using the hadoop s3 catalog, you need to add the hadoop-aws,aws-java-sdk jars for your Flink and Spark engine versions. (Additional locations: <FLINK_HOME>/lib, <SPARK_HOME>/jars)
 
 ```
-flink-shaded-hadoop-x-xxx.jar
 hive-exec-xxx.jar
 libfb303-xxx.jar
 ```
@@ -76,11 +74,11 @@ libfb303-xxx.jar
 |           Name           |  Type   | Required |       Default        |                                                                                                                                                                                                                                                                                                      Description                                                                                                                                                                                                                                                                                                       |
 |--------------------------|---------|----------|----------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | catalog_name             | string  | yes      | -                    | User-specified catalog name.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| catalog_type             | string  | yes      | -                    | The optional values are: hive(The hive metastore catalog),hadoop(The hadoop catalog)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| uri                      | string  | no       | -                    | The Hive metastore’s thrift URI.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| warehouse                | string  | yes      | -                    | The location to store metadata files and data files.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | namespace                | string  | yes      | -                    | The iceberg database name in the backend catalog.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | table                    | string  | yes      | -                    | The iceberg table name in the backend catalog.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| iceberg.catalog.config   | map     | yes      | -                    | Specify the properties for initializing the Iceberg catalog, which can be referenced in this file:"https://github.com/apache/iceberg/blob/main/core/src/main/java/org/apache/iceberg/CatalogProperties.java"                                                                                                                                                                                                                                                                                                                                                                                                           |
+| hadoop.config            | map     | no       | -                    | Properties passed through to the Hadoop configuration                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| iceberg.hadoop-conf-path | string  | no       | -                    | The specified loading paths for the 'core-site.xml', 'hdfs-site.xml', 'hive-site.xml' files.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | schema                   | config  | no       | -                    | Use projection to select data columns and columns order.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | case_sensitive           | boolean | no       | false                | If data columns where selected via schema [config], controls whether the match to the schema will be done with case sensitivity.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | start_snapshot_timestamp | long    | no       | -                    | Instructs this scan to look for changes starting from  the most recent snapshot for the table as of the timestamp. <br/>timestamp – the timestamp in millis since the Unix epoch                                                                                                                                                                                                                                                                                                                                                                                                                                       |
@@ -97,7 +95,7 @@ libfb303-xxx.jar
 
 ```hocon
 env {
-  execution.parallelism = 2
+  parallelism = 2
   job.mode = "BATCH"
 }
 
@@ -123,8 +121,10 @@ source {
       }
     }
     catalog_name = "seatunnel"
-    catalog_type = "hadoop"
-    warehouse = "file:///tmp/seatunnel/iceberg/hadoop/"
+    iceberg.catalog.config={
+      type = "hadoop"
+      warehouse = "file:///tmp/seatunnel/iceberg/hadoop/"
+    }
     namespace = "database1"
     table = "source"
     result_table_name = "iceberg"
@@ -141,15 +141,43 @@ sink {
 }
 ```
 
+### Hadoop S3 Catalog:
+
+```hocon
+source {
+  iceberg {
+    catalog_name = "seatunnel"
+    iceberg.catalog.config={
+      "type"="hadoop"
+      "warehouse"="s3a://your_bucket/spark/warehouse/"
+    }
+    hadoop.config={
+      "fs.s3a.aws.credentials.provider" = "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
+      "fs.s3a.endpoint" = "s3.cn-north-1.amazonaws.com.cn"
+      "fs.s3a.access.key" = "xxxxxxxxxxxxxxxxx"
+      "fs.s3a.secret.key" = "xxxxxxxxxxxxxxxxx"
+      "fs.defaultFS" = "s3a://your_bucket"
+    }
+    namespace = "your_iceberg_database"
+    table = "your_iceberg_table"
+    result_table_name = "iceberg_test"
+  }
+}
+```
+
 ### Hive Catalog:
 
 ```hocon
 source {
   Iceberg {
     catalog_name = "seatunnel"
+    iceberg.catalog.config={
+      type = "hive"
+      uri = "thrift://localhost:9083"
+      warehouse = "hdfs://your_cluster//tmp/seatunnel/iceberg/"
+    }
     catalog_type = "hive"
-    uri = "thrift://localhost:9083"
-    warehouse = "hdfs://your_cluster//tmp/seatunnel/iceberg/"
+    
     namespace = "your_iceberg_database"
     table = "your_iceberg_table"
   }
@@ -162,8 +190,10 @@ source {
 source {
   Iceberg {
     catalog_name = "seatunnel"
-    catalog_type = "hadoop"
-    warehouse = "hdfs://your_cluster/tmp/seatunnel/iceberg/"
+    iceberg.catalog.config={
+      type = "hadoop"
+      warehouse = "hdfs://your_cluster/tmp/seatunnel/iceberg/"
+    }
     namespace = "your_iceberg_database"
     table = "your_iceberg_table"
 

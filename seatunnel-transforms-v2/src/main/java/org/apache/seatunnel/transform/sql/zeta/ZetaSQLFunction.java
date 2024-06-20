@@ -18,17 +18,22 @@
 package org.apache.seatunnel.transform.sql.zeta;
 
 import org.apache.seatunnel.api.table.type.DecimalType;
+import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.transform.exception.TransformException;
 import org.apache.seatunnel.transform.sql.zeta.functions.DateTimeFunction;
 import org.apache.seatunnel.transform.sql.zeta.functions.NumericFunction;
 import org.apache.seatunnel.transform.sql.zeta.functions.StringFunction;
 import org.apache.seatunnel.transform.sql.zeta.functions.SystemFunction;
 
+import org.apache.commons.lang3.tuple.Pair;
+
 import net.sf.jsqlparser.expression.BinaryExpression;
+import net.sf.jsqlparser.expression.CaseExpression;
 import net.sf.jsqlparser.expression.CastExpression;
 import net.sf.jsqlparser.expression.DoubleValue;
 import net.sf.jsqlparser.expression.Expression;
@@ -37,8 +42,10 @@ import net.sf.jsqlparser.expression.Function;
 import net.sf.jsqlparser.expression.LongValue;
 import net.sf.jsqlparser.expression.NullValue;
 import net.sf.jsqlparser.expression.Parenthesis;
+import net.sf.jsqlparser.expression.SignedExpression;
 import net.sf.jsqlparser.expression.StringValue;
 import net.sf.jsqlparser.expression.TimeKeyExpression;
+import net.sf.jsqlparser.expression.WhenClause;
 import net.sf.jsqlparser.expression.operators.arithmetic.Addition;
 import net.sf.jsqlparser.expression.operators.arithmetic.Concat;
 import net.sf.jsqlparser.expression.operators.arithmetic.Division;
@@ -52,6 +59,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class ZetaSQLFunction {
     // ============================internal functions=====================
@@ -151,10 +159,12 @@ public class ZetaSQLFunction {
     public static final String MONTHNAME = "MONTHNAME";
     public static final String PARSEDATETIME = "PARSEDATETIME";
     public static final String TO_DATE = "TO_DATE";
+    public static final String IS_DATE = "IS_DATE";
     public static final String QUARTER = "QUARTER";
     public static final String SECOND = "SECOND";
     public static final String WEEK = "WEEK";
     public static final String YEAR = "YEAR";
+    public static final String FROM_UNIXTIME = "FROM_UNIXTIME";
 
     // -------------------------system functions----------------------------
     public static final String COALESCE = "COALESCE";
@@ -163,6 +173,7 @@ public class ZetaSQLFunction {
 
     private final SeaTunnelRowType inputRowType;
     private final ZetaSQLType zetaSQLType;
+    private final ZetaSQLFilter zetaSQLFilter;
 
     private final List<ZetaUDF> udfList;
 
@@ -170,12 +181,33 @@ public class ZetaSQLFunction {
             SeaTunnelRowType inputRowType, ZetaSQLType zetaSQLType, List<ZetaUDF> udfList) {
         this.inputRowType = inputRowType;
         this.zetaSQLType = zetaSQLType;
+        this.zetaSQLFilter = new ZetaSQLFilter(this, zetaSQLType);
         this.udfList = udfList;
     }
 
     public Object computeForValue(Expression expression, Object[] inputFields) {
         if (expression instanceof NullValue) {
             return null;
+        }
+        if (expression instanceof SignedExpression) {
+            SignedExpression signedExpression = (SignedExpression) expression;
+            if (signedExpression.getSign() == '-') {
+                Object value = computeForValue(signedExpression.getExpression(), inputFields);
+                if (value instanceof Integer) {
+                    return -((Integer) value);
+                }
+                if (value instanceof Long) {
+                    return -((Long) value);
+                }
+                if (value instanceof Double) {
+                    return -((Double) value);
+                }
+                if (value instanceof Number) {
+                    return -((Number) value).doubleValue();
+                }
+            } else {
+                return computeForValue(signedExpression, inputFields);
+            }
         }
         if (expression instanceof DoubleValue) {
             return ((DoubleValue) expression).getValue();
@@ -192,8 +224,33 @@ public class ZetaSQLFunction {
             return ((StringValue) expression).getValue();
         }
         if (expression instanceof Column) {
-            int idx = inputRowType.indexOf(((Column) expression).getColumnName());
-            return inputFields[idx];
+            Column columnExp = (Column) expression;
+            String columnName = columnExp.getColumnName();
+            int index = inputRowType.indexOf(columnName, false);
+            if (index != -1) {
+                return inputFields[index];
+            } else {
+                String fullyQualifiedName = columnExp.getFullyQualifiedName();
+                String[] columnNames = fullyQualifiedName.split("\\.");
+                int deep = columnNames.length;
+                SeaTunnelDataType parDataType = inputRowType;
+                SeaTunnelRow parRowValues = new SeaTunnelRow(inputFields);
+                Object res = parRowValues;
+                for (int i = 0; i < deep; i++) {
+                    if (parDataType instanceof MapType) {
+                        return ((Map) res).get(columnNames[i]);
+                    }
+                    parRowValues = (SeaTunnelRow) res;
+                    int idx = ((SeaTunnelRowType) parDataType).indexOf(columnNames[i], false);
+                    if (idx == -1) {
+                        throw new IllegalArgumentException(
+                                String.format("can't find field [%s]", fullyQualifiedName));
+                    }
+                    parDataType = ((SeaTunnelRowType) parDataType).getFieldType(idx);
+                    res = parRowValues.getFields()[idx];
+                }
+                return res;
+            }
         }
         if (expression instanceof Function) {
             Function function = (Function) expression;
@@ -220,6 +277,12 @@ public class ZetaSQLFunction {
             Parenthesis parenthesis = (Parenthesis) expression;
             return computeForValue(parenthesis.getExpression(), inputFields);
         }
+        if (expression instanceof CaseExpression) {
+            CaseExpression caseExpression = (CaseExpression) expression;
+            final Object value = executeCaseExpr(caseExpression, inputFields);
+            SeaTunnelDataType<?> type = zetaSQLType.getExpressionType(expression);
+            return SystemFunction.castAs(value, type);
+        }
         if (expression instanceof BinaryExpression) {
             return executeBinaryExpr((BinaryExpression) expression, inputFields);
         }
@@ -230,8 +293,28 @@ public class ZetaSQLFunction {
             return executeCastExpr(castExpression, leftValue);
         }
         throw new TransformException(
-                CommonErrorCode.UNSUPPORTED_OPERATION,
+                CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                 String.format("Unsupported SQL Expression: %s ", expression.toString()));
+    }
+
+    public Object executeCaseExpr(CaseExpression caseExpression, Object[] inputFields) {
+        Expression switchExpr = caseExpression.getSwitchExpression();
+        Object switchValue = switchExpr == null ? null : computeForValue(switchExpr, inputFields);
+        for (WhenClause whenClause : caseExpression.getWhenClauses()) {
+            Expression whenExpression = whenClause.getWhenExpression();
+            final Object when =
+                    zetaSQLFilter.isConditionExpr(whenExpression)
+                            ? zetaSQLFilter.executeFilter(whenExpression, inputFields)
+                            : computeForValue(whenExpression, inputFields);
+            // match: case [column] when column1 compare other, add by javalover123
+            if (when instanceof Boolean && (boolean) when) {
+                return computeForValue(whenClause.getThenExpression(), inputFields);
+            } else if (zetaSQLFilter.equalsToExpr(Pair.of(switchValue, when))) {
+                return computeForValue(whenClause.getThenExpression(), inputFields);
+            }
+        }
+        final Expression elseExpression = caseExpression.getElseExpression();
+        return elseExpression == null ? null : computeForValue(elseExpression, inputFields);
     }
 
     public Object executeFunctionExpr(String functionName, List<Object> args) {
@@ -377,6 +460,8 @@ public class ZetaSQLFunction {
                 return DateTimeFunction.dayOfWeek(args);
             case DAY_OF_YEAR:
                 return DateTimeFunction.dayOfYear(args);
+            case FROM_UNIXTIME:
+                return DateTimeFunction.fromUnixTime(args);
             case EXTRACT:
                 return DateTimeFunction.extract(args);
             case FORMATDATETIME:
@@ -392,6 +477,8 @@ public class ZetaSQLFunction {
             case PARSEDATETIME:
             case TO_DATE:
                 return DateTimeFunction.parsedatetime(args);
+            case IS_DATE:
+                return DateTimeFunction.isDate(args);
             case QUARTER:
                 return DateTimeFunction.quarter(args);
             case SECOND:
@@ -413,7 +500,7 @@ public class ZetaSQLFunction {
                     }
                 }
                 throw new TransformException(
-                        CommonErrorCode.UNSUPPORTED_OPERATION,
+                        CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                         String.format("Unsupported function: %s", functionName));
         }
     }
@@ -431,7 +518,7 @@ public class ZetaSQLFunction {
                 return DateTimeFunction.currentTimestamp();
         }
         throw new TransformException(
-                CommonErrorCode.UNSUPPORTED_OPERATION,
+                CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                 String.format("Unsupported TimeKey expression: %s", timeKeyExpr));
     }
 
@@ -547,7 +634,7 @@ public class ZetaSQLFunction {
             }
         }
         throw new TransformException(
-                CommonErrorCode.UNSUPPORTED_OPERATION,
+                CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                 String.format("Unsupported SQL Expression: %s ", binaryExpression));
     }
 }

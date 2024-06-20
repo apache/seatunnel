@@ -17,47 +17,19 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.oss.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
-import org.apache.seatunnel.api.sink.SeaTunnelSink;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
-import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssConf;
-import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssConfig;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.BaseFileSink;
+import org.apache.seatunnel.connectors.seatunnel.file.oss.config.OssHadoopConf;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.BaseMultipleTableFileSink;
 
-import com.google.auto.service.AutoService;
-
-@AutoService(SeaTunnelSink.class)
-public class OssFileSink extends BaseFileSink {
-    @Override
-    public String getPluginName() {
-        return FileSystemType.OSS.getFileSystemPluginName();
+public class OssFileSink extends BaseMultipleTableFileSink {
+    public OssFileSink(ReadonlyConfig readonlyConfig, CatalogTable catalogTable) {
+        super(OssHadoopConf.buildWithConfig(readonlyConfig), readonlyConfig, catalogTable);
     }
 
     @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
-        super.prepare(pluginConfig);
-        CheckResult result =
-                CheckConfigUtil.checkAllExists(
-                        pluginConfig,
-                        OssConfig.FILE_PATH.key(),
-                        OssConfig.ENDPOINT.key(),
-                        OssConfig.ACCESS_KEY.key(),
-                        OssConfig.ACCESS_SECRET.key(),
-                        OssConfig.BUCKET.key());
-        if (!result.isSuccess()) {
-            throw new FileConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SINK, result.getMsg()));
-        }
-        hadoopConf = OssConf.buildWithConfig(pluginConfig);
+    public String getPluginName() {
+        return FileSystemType.OSS.getFileSystemPluginName();
     }
 }

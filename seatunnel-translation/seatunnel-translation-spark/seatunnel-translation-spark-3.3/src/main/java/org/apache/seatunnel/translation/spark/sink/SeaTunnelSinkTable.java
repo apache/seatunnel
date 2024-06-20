@@ -18,6 +18,7 @@
 package org.apache.seatunnel.translation.spark.sink;
 
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.utils.SerializationUtils;
@@ -45,18 +46,29 @@ public class SeaTunnelSinkTable implements Table, SupportsWrite {
 
     private final SeaTunnelSink<SeaTunnelRow, ?, ?, ?> sink;
 
+    private final CatalogTable catalogTable;
+    private final String jobId;
+
     public SeaTunnelSinkTable(Map<String, String> properties) {
         this.properties = properties;
         String sinkSerialization = properties.getOrDefault(Constants.SINK_SERIALIZATION, "");
         if (StringUtils.isBlank(sinkSerialization)) {
-            throw new IllegalArgumentException("sink.serialization must be specified");
+            throw new IllegalArgumentException(Constants.SINK_SERIALIZATION + " must be specified");
         }
         this.sink = SerializationUtils.stringToObject(sinkSerialization);
+        String sinkCatalogTableSerialization =
+                properties.getOrDefault(SparkSinkInjector.SINK_CATALOG_TABLE, "");
+        if (StringUtils.isBlank(sinkCatalogTableSerialization)) {
+            throw new IllegalArgumentException(
+                    SparkSinkInjector.SINK_CATALOG_TABLE + " must be specified");
+        }
+        this.catalogTable = SerializationUtils.stringToObject(sinkCatalogTableSerialization);
+        this.jobId = properties.getOrDefault(SparkSinkInjector.JOB_ID, null);
     }
 
     @Override
     public WriteBuilder newWriteBuilder(LogicalWriteInfo info) {
-        return new SeaTunnelWriteBuilder<>(sink);
+        return new SeaTunnelWriteBuilder<>(sink, catalogTable, jobId);
     }
 
     @Override
@@ -66,7 +78,7 @@ public class SeaTunnelSinkTable implements Table, SupportsWrite {
 
     @Override
     public StructType schema() {
-        return (StructType) TypeConverterUtils.convert(sink.getConsumedType());
+        return (StructType) TypeConverterUtils.convert(catalogTable.getSeaTunnelRowType());
     }
 
     @Override

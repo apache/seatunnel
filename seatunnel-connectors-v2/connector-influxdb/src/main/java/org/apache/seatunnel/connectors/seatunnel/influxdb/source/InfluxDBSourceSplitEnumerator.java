@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.influxdb.source;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.config.SourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.exception.InfluxdbConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.state.InfluxDBSourceState;
@@ -130,7 +130,8 @@ public class InfluxDBSourceSplitEnumerator
         String[] sqls = sql.split(SQL_WHERE.key());
         if (sqls.length > 2) {
             throw new InfluxdbConnectorException(
-                    CommonErrorCode.ILLEGAL_ARGUMENT, "sql should not contain more than one where");
+                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                    "sql should not contain more than one where");
         }
 
         int i = 0;
@@ -218,9 +219,7 @@ public class InfluxDBSourceSplitEnumerator
     }
 
     @Override
-    public void close() {
-        // nothing to do
-    }
+    public void close() {}
 
     @Override
     public void notifyCheckpointComplete(long checkpointId) {
@@ -231,7 +230,7 @@ public class InfluxDBSourceSplitEnumerator
     @Override
     public void handleSplitRequest(int subtaskId) {
         throw new InfluxdbConnectorException(
-                CommonErrorCode.UNSUPPORTED_OPERATION,
+                CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                 String.format("Unsupported handleSplitRequest: %d", subtaskId));
     }
 }

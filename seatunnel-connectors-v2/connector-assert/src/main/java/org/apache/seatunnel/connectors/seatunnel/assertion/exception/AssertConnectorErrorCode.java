@@ -21,7 +21,9 @@ import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
 public enum AssertConnectorErrorCode implements SeaTunnelErrorCode {
     RULE_VALIDATION_FAILED("ASSERT-01", "Rule validate failed"),
-    TYPES_NOT_SUPPORTED_FAILED("ASSERT-02", "Types not supported");
+    TYPES_NOT_SUPPORTED_FAILED("ASSERT-02", "Types not supported"),
+    CATALOG_TABLE_FAILED("ASSERT-03", "Catalog table failed"),
+    ;
 
     private final String code;
     private final String description;

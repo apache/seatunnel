@@ -18,13 +18,13 @@
 package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
-import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 
@@ -86,8 +86,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
             writer.addRowBatch(rowBatch);
             rowBatch.reset();
         } catch (IOException e) {
-            String errorMsg = String.format("Write data to orc file [%s] error", filePath);
-            throw new FileConnectorException(CommonErrorCode.FILE_OPERATION_FAILED, errorMsg, e);
+            throw CommonError.fileOperationFailed("OrcFile", "write", filePath, e);
         }
     }
 
@@ -103,7 +102,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
                                         "Close file [%s] orc writer failed, error msg: [%s]",
                                         k, e.getMessage());
                         throw new FileConnectorException(
-                                CommonErrorCode.WRITER_OPERATION_FAILED, errorMsg, e);
+                                CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED, errorMsg, e);
                     }
                     needMoveFiles.put(k, getTargetLocation(k));
                 });
@@ -122,6 +121,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
                                 .compress(compressFormat.getOrcCompression())
                                 // use orc version 0.12
                                 .version(OrcFile.Version.V_0_12)
+                                .fileSystem(hadoopFileSystemProxy.getFileSystem())
                                 .overwrite(true);
                 Writer newWriter = OrcFile.createWriter(path, options);
                 this.beingWrittenWriter.put(filePath, newWriter);
@@ -129,7 +129,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
             } catch (IOException e) {
                 String errorMsg = String.format("Get orc writer for file [%s] error", filePath);
                 throw new FileConnectorException(
-                        CommonErrorCode.WRITER_OPERATION_FAILED, errorMsg, e);
+                        CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED, errorMsg, e);
             }
         }
         return writer;
@@ -138,7 +138,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
     public static TypeDescription buildFieldWithRowType(SeaTunnelDataType<?> type) {
         switch (type.getSqlType()) {
             case ARRAY:
-                BasicType<?> elementType = ((ArrayType<?, ?>) type).getElementType();
+                SeaTunnelDataType<?> elementType = ((ArrayType<?, ?>) type).getElementType();
                 return TypeDescription.createList(buildFieldWithRowType(elementType));
             case MAP:
                 SeaTunnelDataType<?> keyType = ((MapType<?, ?>) type).getKeyType();
@@ -185,7 +185,8 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
             default:
                 String errorMsg =
                         String.format("Orc file not support this type [%s]", type.getSqlType());
-                throw new FileConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, errorMsg);
+                throw new FileConnectorException(
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE, errorMsg);
         }
     }
 
@@ -238,7 +239,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
                     break;
                 default:
                     throw new FileConnectorException(
-                            CommonErrorCode.ILLEGAL_ARGUMENT,
+                            CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                             "Unsupported ColumnVector subtype" + vector.type);
             }
         }
@@ -258,7 +259,8 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
                             "SeaTunnelRow type expected for field, "
                                     + "not support this data type: [%s]",
                             value.getClass());
-            throw new FileConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, errorMsg);
+            throw new FileConnectorException(
+                    CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE, errorMsg);
         }
     }
 
@@ -281,7 +283,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
             String errorMsg =
                     String.format(
                             "Map type expected for field, this field is [%s]", value.getClass());
-            throw new FileConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT, errorMsg);
+            throw new FileConnectorException(CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT, errorMsg);
         }
     }
 
@@ -296,7 +298,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
                     String.format(
                             "List and Array type expected for field, " + "this field is [%s]",
                             value.getClass());
-            throw new FileConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT, errorMsg);
+            throw new FileConnectorException(CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT, errorMsg);
         }
         listColumnVector.offsets[row] = listColumnVector.childCount;
         listColumnVector.lengths[row] = valueArray.length;
@@ -317,7 +319,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
                     String.format(
                             "BigDecimal type expected for field, this field is [%s]",
                             value.getClass());
-            throw new FileConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT, errorMsg);
+            throw new FileConnectorException(CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT, errorMsg);
         }
     }
 
@@ -335,7 +337,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
                     String.format(
                             "Time series type expected for field, this field is [%s]",
                             value.getClass());
-            throw new FileConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT, errorMsg);
+            throw new FileConnectorException(CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT, errorMsg);
         }
     }
 
@@ -362,7 +364,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
                     String.format(
                             "Long or Integer type expected for field, " + "this field is [%s]",
                             value.getClass());
-            throw new FileConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT, errorMsg);
+            throw new FileConnectorException(CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT, errorMsg);
         }
     }
 
@@ -388,7 +390,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy {
                     String.format(
                             "Double or Float type expected for field, " + "this field is [%s]",
                             value.getClass());
-            throw new FileConnectorException(CommonErrorCode.ILLEGAL_ARGUMENT, errorMsg);
+            throw new FileConnectorException(CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT, errorMsg);
         }
     }
 }

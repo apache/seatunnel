@@ -20,33 +20,73 @@ package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
-import org.apache.hadoop.conf.Configuration;
-
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.Serializable;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Consumer;
 
-public interface ReadStrategy extends Serializable {
+public interface ReadStrategy extends Serializable, Closeable {
     void init(HadoopConf conf);
 
-    Configuration getConfiguration(HadoopConf conf);
-
-    void read(String path, Collector<SeaTunnelRow> output)
+    void read(String path, String tableId, Collector<SeaTunnelRow> output)
             throws IOException, FileConnectorException;
 
-    SeaTunnelRowType getSeaTunnelRowTypeInfo(HadoopConf hadoopConf, String path)
-            throws FileConnectorException;
+    SeaTunnelRowType getSeaTunnelRowTypeInfo(String path) throws FileConnectorException;
 
+    default SeaTunnelRowType getSeaTunnelRowTypeInfo(TablePath tablePath, String path)
+            throws FileConnectorException {
+        return getSeaTunnelRowTypeInfo(path);
+    }
+
+    default SeaTunnelRowType getSeaTunnelRowTypeInfoWithUserConfigRowType(
+            String path, SeaTunnelRowType rowType) throws FileConnectorException {
+        return getSeaTunnelRowTypeInfo(path);
+    }
+
+    // todo: use CatalogTable
     void setSeaTunnelRowTypeInfo(SeaTunnelRowType seaTunnelRowType);
 
-    List<String> getFileNamesByPath(HadoopConf hadoopConf, String path) throws IOException;
+    List<String> getFileNamesByPath(String path) throws IOException;
 
+    // todo: use ReadonlyConfig
     void setPluginConfig(Config pluginConfig);
 
+    // todo: use CatalogTable
     SeaTunnelRowType getActualSeaTunnelRowTypeInfo();
+
+    default <T> void buildColumnsWithErrorCheck(
+            TablePath tablePath, Iterator<T> keys, Consumer<T> getDataType) {
+        Map<String, String> unsupported = new LinkedHashMap<>();
+        while (keys.hasNext()) {
+            try {
+                getDataType.accept(keys.next());
+            } catch (SeaTunnelRuntimeException e) {
+                if (e.getSeaTunnelErrorCode()
+                        .equals(CommonErrorCode.CONVERT_TO_SEATUNNEL_TYPE_ERROR_SIMPLE)) {
+                    unsupported.put(e.getParams().get("field"), e.getParams().get("dataType"));
+                } else {
+                    throw e;
+                }
+            }
+        }
+        if (!unsupported.isEmpty()) {
+            throw CommonError.getCatalogTableWithUnsupportedType(
+                    this.getClass().getSimpleName().replace("ReadStrategy", ""),
+                    tablePath.getFullName(),
+                    unsupported);
+        }
+    }
 }

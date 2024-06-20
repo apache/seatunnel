@@ -18,20 +18,18 @@
 package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.serialize;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
-import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBSourceOptions;
-import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.exception.AmazonDynamoDBConnectorException;
 
 import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -57,9 +55,11 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
     public PutItemRequest serialize(SeaTunnelRow seaTunnelRow) {
         HashMap<String, AttributeValue> itemValues = new HashMap<>();
         for (int index = 0; index < seaTunnelRowType.getFieldNames().length; index++) {
+            String fieldName = seaTunnelRowType.getFieldName(index);
             itemValues.put(
-                    seaTunnelRowType.getFieldName(index),
+                    fieldName,
                     convertItem(
+                            fieldName,
                             seaTunnelRow.getField(index),
                             seaTunnelRowType.getFieldType(index),
                             measurementsType.get(index)));
@@ -71,12 +71,16 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
     }
 
     private List<AttributeValue.Type> convertTypes(SeaTunnelRowType seaTunnelRowType) {
-        return Arrays.stream(seaTunnelRowType.getFieldTypes())
-                .map(this::convertType)
-                .collect(Collectors.toList());
+        List<AttributeValue.Type> types = new ArrayList<>();
+        for (int i = 0; i < seaTunnelRowType.getFieldTypes().length; i++) {
+            types.add(
+                    convertType(
+                            seaTunnelRowType.getFieldName(i), seaTunnelRowType.getFieldType(i)));
+        }
+        return types;
     }
 
-    private AttributeValue.Type convertType(SeaTunnelDataType<?> seaTunnelDataType) {
+    private AttributeValue.Type convertType(String field, SeaTunnelDataType<?> seaTunnelDataType) {
         switch (seaTunnelDataType.getSqlType()) {
             case INT:
             case TINYINT:
@@ -102,13 +106,13 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
             case ARRAY:
                 return AttributeValue.Type.L;
             default:
-                throw new AmazonDynamoDBConnectorException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                        "Unsupported data type: " + seaTunnelDataType);
+                throw CommonError.convertToConnectorTypeError(
+                        "AmazonDynamoDB", seaTunnelDataType.getSqlType().toString(), field);
         }
     }
 
     private AttributeValue convertItem(
+            String field,
             Object value,
             SeaTunnelDataType seaTunnelDataType,
             AttributeValue.Type measurementsType) {
@@ -158,14 +162,15 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
                     resultMap.put(
                             mapKeyName,
                             convertItem(
+                                    field,
                                     entry.getValue(),
                                     mapType.getValueType(),
-                                    convertType(mapType.getValueType())));
+                                    convertType(field, mapType.getValueType())));
                 }
                 return AttributeValue.builder().m(resultMap).build();
             case L:
                 ArrayType<?, ?> arrayType = (ArrayType<?, ?>) seaTunnelDataType;
-                BasicType<?> elementType = arrayType.getElementType();
+                SeaTunnelDataType<?> elementType = arrayType.getElementType();
                 Object[] l = (Object[]) value;
                 return AttributeValue.builder()
                         .l(
@@ -173,17 +178,17 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
                                         .map(
                                                 o ->
                                                         convertItem(
+                                                                field,
                                                                 o,
                                                                 elementType,
-                                                                convertType(elementType)))
+                                                                convertType(field, elementType)))
                                         .collect(Collectors.toList()))
                         .build();
             case NUL:
                 return AttributeValue.builder().nul(true).build();
             default:
-                throw new AmazonDynamoDBConnectorException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                        "Unsupported data type: " + measurementsType);
+                throw CommonError.convertToConnectorTypeError(
+                        "AmazonDynamoDB", measurementsType.toString(), field);
         }
     }
 }

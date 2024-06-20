@@ -23,6 +23,7 @@ import org.testcontainers.containers.Container;
 import org.testcontainers.containers.Network;
 
 import java.io.IOException;
+import java.util.List;
 
 public interface TestContainer extends TestResource {
 
@@ -34,4 +35,24 @@ public interface TestContainer extends TestResource {
             throws IOException, InterruptedException;
 
     Container.ExecResult executeJob(String confFile) throws IOException, InterruptedException;
+
+    Container.ExecResult executeJob(String confFile, List<String> variables)
+            throws IOException, InterruptedException;
+
+    default Container.ExecResult executeConnectorCheck(String[] args)
+            throws IOException, InterruptedException {
+        throw new UnsupportedOperationException("Not implemented");
+    };
+
+    default Container.ExecResult savepointJob(String jobId)
+            throws IOException, InterruptedException {
+        throw new UnsupportedOperationException("Not implemented");
+    }
+
+    default Container.ExecResult restoreJob(String confFile, String jobId)
+            throws IOException, InterruptedException {
+        throw new UnsupportedOperationException("Not implemented");
+    }
+
+    String getServerLogs();
 }

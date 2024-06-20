@@ -21,7 +21,6 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.format.json.JsonFormatFactory;
 
 public class SourceProperties {
 
@@ -181,7 +180,7 @@ public class SourceProperties {
     public static final Option<String> FORMAT =
             Options.key("format")
                     .stringType()
-                    .defaultValue(JsonFormatFactory.IDENTIFIER)
+                    .defaultValue("JSON")
                     .withDescription(
                             "Data format. The default format is json. Optional text format. The default field separator is \", \". "
                                     + "If you customize the delimiter, add the \"field_delimiter\" option.");

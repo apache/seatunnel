@@ -18,7 +18,6 @@
 package org.apache.seatunnel.engine.server.task;
 
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
-import org.apache.seatunnel.api.env.EnvCommonOptions;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -90,7 +89,7 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
                             checkpointLock,
                             outputs,
                             this.getMetricsContext(),
-                            getFlowControlStrategy(),
+                            FlowControlStrategy.fromMap(envOption),
                             sourceProducedType);
             ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle).setCollector(collector);
         }
@@ -132,39 +131,5 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
         SourceFlowLifeCycle<T, SplitT> sourceFlow =
                 (SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle;
         sourceFlow.triggerBarrier(barrier);
-    }
-
-    private FlowControlStrategy getFlowControlStrategy() {
-        FlowControlStrategy strategy;
-        if (envOption.containsKey(EnvCommonOptions.READ_LIMIT_BYTES_PER_SECOND.key())
-                && envOption.containsKey(EnvCommonOptions.READ_LIMIT_ROW_PER_SECOND.key())) {
-            strategy =
-                    FlowControlStrategy.of(
-                            Integer.parseInt(
-                                    envOption
-                                            .get(EnvCommonOptions.READ_LIMIT_BYTES_PER_SECOND.key())
-                                            .toString()),
-                            Integer.parseInt(
-                                    envOption
-                                            .get(EnvCommonOptions.READ_LIMIT_ROW_PER_SECOND.key())
-                                            .toString()));
-        } else if (envOption.containsKey(EnvCommonOptions.READ_LIMIT_BYTES_PER_SECOND.key())) {
-            strategy =
-                    FlowControlStrategy.ofBytes(
-                            Integer.parseInt(
-                                    envOption
-                                            .get(EnvCommonOptions.READ_LIMIT_BYTES_PER_SECOND.key())
-                                            .toString()));
-        } else if (envOption.containsKey(EnvCommonOptions.READ_LIMIT_ROW_PER_SECOND.key())) {
-            strategy =
-                    FlowControlStrategy.ofCount(
-                            Integer.parseInt(
-                                    envOption
-                                            .get(EnvCommonOptions.READ_LIMIT_ROW_PER_SECOND.key())
-                                            .toString()));
-        } else {
-            strategy = null;
-        }
-        return strategy;
     }
 }

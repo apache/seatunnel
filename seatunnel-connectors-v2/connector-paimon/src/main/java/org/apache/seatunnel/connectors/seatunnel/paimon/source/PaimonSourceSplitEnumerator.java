@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.paimon.source;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 
+import org.apache.paimon.predicate.Predicate;
 import org.apache.paimon.table.Table;
 import org.apache.paimon.table.source.Split;
 
@@ -48,17 +49,33 @@ public class PaimonSourceSplitEnumerator
     /** The table that wants to read */
     private final Table table;
 
-    public PaimonSourceSplitEnumerator(Context<PaimonSourceSplit> context, Table table) {
+    private final Predicate predicate;
+
+    private int[] projection;
+
+    public PaimonSourceSplitEnumerator(
+            Context<PaimonSourceSplit> context,
+            Table table,
+            Predicate predicate,
+            int[] projection) {
         this.context = context;
         this.table = table;
         this.assignedSplit = new HashSet<>();
+        this.predicate = predicate;
+        this.projection = projection;
     }
 
     public PaimonSourceSplitEnumerator(
-            Context<PaimonSourceSplit> context, Table table, PaimonSourceState sourceState) {
+            Context<PaimonSourceSplit> context,
+            Table table,
+            PaimonSourceState sourceState,
+            Predicate predicate,
+            int[] projection) {
         this.context = context;
         this.table = table;
         this.assignedSplit = sourceState.getAssignedSplits();
+        this.predicate = predicate;
+        this.projection = projection;
     }
 
     @Override
@@ -145,8 +162,13 @@ public class PaimonSourceSplitEnumerator
     /** Get all splits of table */
     private Set<PaimonSourceSplit> getTableSplits() {
         final Set<PaimonSourceSplit> tableSplits = new HashSet<>();
-        // TODO Support columns projection
-        final List<Split> splits = table.newReadBuilder().newScan().plan().splits();
+        final List<Split> splits =
+                table.newReadBuilder()
+                        .withProjection(projection)
+                        .withFilter(predicate)
+                        .newScan()
+                        .plan()
+                        .splits();
         splits.forEach(split -> tableSplits.add(new PaimonSourceSplit(split)));
         return tableSplits;
     }

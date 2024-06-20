@@ -30,11 +30,22 @@
     <name>SeaTunnel : Connectors V2 : Iceberg</name>
 
     <properties>
-        <iceberg.version>0.14.0</iceberg.version>
-        <parquet-avro.version>1.12.3</parquet-avro.version>
-        <avro.version>1.10.2</avro.version>
+        <iceberg.version>1.4.2</iceberg.version>
+        <parquet-avro.version>1.13.1</parquet-avro.version>
+        <avro.version>1.11.3</avro.version>
         <hive.version>2.3.9</hive.version>
+        <connector.name>connector-iceberg</connector.name>
     </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.github.luben</groupId>
+                <artifactId>zstd-jni</artifactId>
+                <version>1.5.5-5</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <dependency>
@@ -48,6 +59,13 @@
             <artifactId>iceberg-core</artifactId>
             <version>${iceberg.version}</version>
         </dependency>
+
+        <dependency>
+            <groupId>org.apache.iceberg</groupId>
+            <artifactId>iceberg-common</artifactId>
+            <version>${iceberg.version}</version>
+        </dependency>
+
         <dependency>
             <groupId>org.apache.iceberg</groupId>
             <artifactId>iceberg-api</artifactId>
@@ -119,13 +137,15 @@
             </exclusions>
         </dependency>
         <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-shaded-hadoop-2</artifactId>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
+            <version>${project.version}</version>
+            <classifier>optional</classifier>
             <scope>provided</scope>
             <exclusions>
                 <exclusion>
                     <groupId>org.apache.avro</groupId>
-                    <artifactId>*</artifactId>
+                    <artifactId>avro</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
@@ -191,5 +211,45 @@
         </dependency>
 
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <phase>package</phase>
+                        <configuration>
+                            <relocations>
+                                <relocation>
+                                    <pattern>org.apache.avro</pattern>
+                                    <!--suppress UnresolvedMavenProperty, this property is added by submodule-->
+                                    <shadedPattern>${seatunnel.shade.package}.${connector.name}.org.apache.avro</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.apache.orc</pattern>
+                                    <shadedPattern>${seatunnel.shade.package}.${connector.name}.org.apache.orc</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.apache.parquet</pattern>
+                                    <!--suppress UnresolvedMavenProperty -->
+                                    <shadedPattern>${seatunnel.shade.package}.${connector.name}.org.apache.parquet</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>shaded.parquet</pattern>
+                                    <!--suppress UnresolvedMavenProperty -->
+                                    <shadedPattern>${seatunnel.shade.package}.${connector.name}.shaded.parquet</shadedPattern>
+                                </relocation>
+                            </relocations>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 
 </project>

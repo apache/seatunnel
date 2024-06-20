@@ -17,16 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql;
 
-import org.apache.seatunnel.api.table.catalog.DataTypeConvertException;
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.DataTypeConvertor;
-import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.DecimalType;
-import org.apache.seatunnel.api.table.type.LocalTimeType;
-import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SqlType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeConverter;
 
 import org.apache.commons.collections4.MapUtils;
 
@@ -39,6 +36,8 @@ import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+/** @deprecated instead by {@link MySqlTypeConverter} */
+@Deprecated
 @AutoService(DataTypeConvertor.class)
 public class MysqlDataTypeConvertor implements DataTypeConvertor<MysqlType> {
 
@@ -50,7 +49,7 @@ public class MysqlDataTypeConvertor implements DataTypeConvertor<MysqlType> {
     public static final Integer DEFAULT_SCALE = 0;
 
     @Override
-    public SeaTunnelDataType<?> toSeaTunnelType(String connectorDataType) {
+    public SeaTunnelDataType<?> toSeaTunnelType(String field, String connectorDataType) {
         checkNotNull(connectorDataType, "connectorDataType can not be null");
         MysqlType mysqlType = MysqlType.getByName(connectorDataType);
         Map<String, Object> dataTypeProperties;
@@ -80,136 +79,56 @@ public class MysqlDataTypeConvertor implements DataTypeConvertor<MysqlType> {
                 dataTypeProperties = Collections.emptyMap();
                 break;
         }
-        return toSeaTunnelType(mysqlType, dataTypeProperties);
+        return toSeaTunnelType(field, mysqlType, dataTypeProperties);
     }
 
     // todo: It's better to wrapper MysqlType to a pojo in ST, since MysqlType doesn't contains
     // properties.
     @Override
     public SeaTunnelDataType<?> toSeaTunnelType(
-            MysqlType mysqlType, Map<String, Object> dataTypeProperties)
-            throws DataTypeConvertException {
+            String field, MysqlType mysqlType, Map<String, Object> dataTypeProperties) {
         checkNotNull(mysqlType, "mysqlType can not be null");
-        int precision;
-        int scale;
-        switch (mysqlType) {
-            case NULL:
-                return BasicType.VOID_TYPE;
-            case BOOLEAN:
-                return BasicType.BOOLEAN_TYPE;
-            case BIT:
-                precision = (Integer) dataTypeProperties.get(MysqlDataTypeConvertor.PRECISION);
-                if (precision == 1) {
-                    return BasicType.BOOLEAN_TYPE;
-                } else {
-                    return PrimitiveByteArrayType.INSTANCE;
-                }
-            case TINYINT:
-                return BasicType.BYTE_TYPE;
-            case TINYINT_UNSIGNED:
-            case SMALLINT:
-                return BasicType.SHORT_TYPE;
-            case SMALLINT_UNSIGNED:
-            case INT:
-            case MEDIUMINT:
-            case MEDIUMINT_UNSIGNED:
-            case YEAR:
-                return BasicType.INT_TYPE;
-            case INT_UNSIGNED:
-            case BIGINT:
-                return BasicType.LONG_TYPE;
-            case FLOAT:
-            case FLOAT_UNSIGNED:
-                return BasicType.FLOAT_TYPE;
-            case DOUBLE:
-            case DOUBLE_UNSIGNED:
-                return BasicType.DOUBLE_TYPE;
-            case TIME:
-                return LocalTimeType.LOCAL_TIME_TYPE;
-            case DATE:
-                return LocalTimeType.LOCAL_DATE_TYPE;
-            case TIMESTAMP:
-            case DATETIME:
-                return LocalTimeType.LOCAL_DATE_TIME_TYPE;
-                // TODO: to confirm
-            case CHAR:
-            case VARCHAR:
-            case TINYTEXT:
-            case TEXT:
-            case MEDIUMTEXT:
-            case LONGTEXT:
-            case JSON:
-            case ENUM:
-                return BasicType.STRING_TYPE;
-            case BINARY:
-            case VARBINARY:
-            case TINYBLOB:
-            case BLOB:
-            case MEDIUMBLOB:
-            case LONGBLOB:
-            case GEOMETRY:
-                return PrimitiveByteArrayType.INSTANCE;
-            case BIGINT_UNSIGNED:
-            case DECIMAL:
-            case DECIMAL_UNSIGNED:
-                precision = MapUtils.getInteger(dataTypeProperties, PRECISION, DEFAULT_PRECISION);
-                scale = MapUtils.getInteger(dataTypeProperties, SCALE, DEFAULT_SCALE);
-                return new DecimalType(precision, scale);
-                // TODO: support 'SET' & 'YEAR' type
-            default:
-                throw DataTypeConvertException.convertToSeaTunnelDataTypeException(mysqlType);
-        }
+
+        Long precision = MapUtils.getLong(dataTypeProperties, PRECISION);
+        Integer scale = MapUtils.getInteger(dataTypeProperties, SCALE);
+        BasicTypeDefine<MysqlType> typeDefine =
+                BasicTypeDefine.<MysqlType>builder()
+                        .name(field)
+                        .nativeType(mysqlType)
+                        .dataType(mysqlType.getName())
+                        .columnType(mysqlType.getName())
+                        .length(precision)
+                        .precision(precision)
+                        .scale(scale)
+                        .build();
+
+        return MySqlTypeConverter.DEFAULT_INSTANCE.convert(typeDefine).getDataType();
     }
 
     @Override
     public MysqlType toConnectorType(
-            SeaTunnelDataType<?> seaTunnelDataType, Map<String, Object> dataTypeProperties)
-            throws DataTypeConvertException {
-        SqlType sqlType = seaTunnelDataType.getSqlType();
-        // todo: verify
-        switch (sqlType) {
-                // from pg array not support
-                //            case ARRAY:
-                //                return MysqlType.ENUM;
-            case MAP:
-            case ROW:
-            case STRING:
-                return MysqlType.VARCHAR;
-            case BOOLEAN:
-                return MysqlType.BOOLEAN;
-            case TINYINT:
-                return MysqlType.TINYINT;
-            case SMALLINT:
-                return MysqlType.SMALLINT;
-            case INT:
-                return MysqlType.INT;
-            case BIGINT:
-                return MysqlType.BIGINT;
-            case FLOAT:
-                return MysqlType.FLOAT;
-            case DOUBLE:
-                return MysqlType.DOUBLE;
-            case DECIMAL:
-                return MysqlType.DECIMAL;
-            case NULL:
-                return MysqlType.NULL;
-            case BYTES:
-                return MysqlType.BIT;
-            case DATE:
-                return MysqlType.DATE;
-            case TIME:
-                return MysqlType.TIME;
-            case TIMESTAMP:
-                return MysqlType.DATETIME;
-            default:
-                throw new JdbcConnectorException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                        String.format("Doesn't support MySQL type '%s' yet", sqlType));
-        }
+            String field,
+            SeaTunnelDataType<?> seaTunnelDataType,
+            Map<String, Object> dataTypeProperties) {
+
+        Long precision = MapUtils.getLong(dataTypeProperties, PRECISION);
+        Integer scale = MapUtils.getInteger(dataTypeProperties, SCALE);
+        Column column =
+                PhysicalColumn.builder()
+                        .name(field)
+                        .dataType(seaTunnelDataType)
+                        .columnLength(precision)
+                        .scale(scale)
+                        .nullable(true)
+                        .build();
+
+        BasicTypeDefine<MysqlType> typeDefine =
+                MySqlTypeConverter.DEFAULT_INSTANCE.reconvert(column);
+        return typeDefine.getNativeType();
     }
 
     @Override
     public String getIdentity() {
-        return "Mysql";
+        return DatabaseIdentifier.MYSQL;
     }
 }

@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor;
 
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 
 import org.apache.commons.lang3.tuple.Pair;
@@ -113,7 +113,8 @@ public class BufferReducedBatchStatementExecutor
                 return false;
             default:
                 throw new JdbcConnectorException(
-                        CommonErrorCode.UNSUPPORTED_OPERATION, "Unsupported rowKind: " + rowKind);
+                        CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                        "Unsupported rowKind: " + rowKind);
         }
     }
 }

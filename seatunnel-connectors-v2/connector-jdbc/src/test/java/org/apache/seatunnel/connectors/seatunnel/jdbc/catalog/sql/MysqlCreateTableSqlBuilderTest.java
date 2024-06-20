@@ -26,7 +26,10 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MysqlCreateTableSqlBuilder;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeConverter;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -35,6 +38,7 @@ import com.google.common.collect.Lists;
 
 import java.io.PrintStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 
 public class MysqlCreateTableSqlBuilderTest {
@@ -55,7 +59,15 @@ public class MysqlCreateTableSqlBuilderTest {
                                         "name", BasicType.STRING_TYPE, 128, false, null, "name"))
                         .column(
                                 PhysicalColumn.of(
-                                        "age", BasicType.INT_TYPE, null, true, null, "age"))
+                                        "age", BasicType.INT_TYPE, (Long) null, true, null, "age"))
+                        .column(
+                                PhysicalColumn.of(
+                                        "blob_v",
+                                        PrimitiveByteArrayType.INSTANCE,
+                                        Long.MAX_VALUE,
+                                        true,
+                                        null,
+                                        "blob_v"))
                         .column(
                                 PhysicalColumn.of(
                                         "createTime",
@@ -74,12 +86,19 @@ public class MysqlCreateTableSqlBuilderTest {
                                         "lastUpdateTime"))
                         .primaryKey(PrimaryKey.of("id", Lists.newArrayList("id")))
                         .constraintKey(
-                                ConstraintKey.of(
-                                        ConstraintKey.ConstraintType.KEY,
-                                        "name",
-                                        Lists.newArrayList(
-                                                ConstraintKey.ConstraintKeyColumn.of(
-                                                        "name", null))))
+                                Arrays.asList(
+                                        ConstraintKey.of(
+                                                ConstraintKey.ConstraintType.INDEX_KEY,
+                                                "name",
+                                                Lists.newArrayList(
+                                                        ConstraintKey.ConstraintKeyColumn.of(
+                                                                "name", null))),
+                                        ConstraintKey.of(
+                                                ConstraintKey.ConstraintType.INDEX_KEY,
+                                                "blob_v",
+                                                Lists.newArrayList(
+                                                        ConstraintKey.ConstraintKeyColumn.of(
+                                                                "blob_v", null)))))
                         .build();
         CatalogTable catalogTable =
                 CatalogTable.of(
@@ -90,16 +109,21 @@ public class MysqlCreateTableSqlBuilderTest {
                         "User table");
 
         String createTableSql =
-                MysqlCreateTableSqlBuilder.builder(tablePath, catalogTable).build("mysql");
+                MysqlCreateTableSqlBuilder.builder(
+                                tablePath, catalogTable, MySqlTypeConverter.DEFAULT_INSTANCE)
+                        .build(DatabaseIdentifier.MYSQL);
         // create table sql is change; The old unit tests are no longer applicable
         String expect =
                 "CREATE TABLE `test_table` (\n"
-                        + "\t`id` null NOT NULL COMMENT 'id', \n"
-                        + "\t`name` null NOT NULL COMMENT 'name', \n"
-                        + "\t`age` null NULL COMMENT 'age', \n"
-                        + "\t`createTime` null NULL COMMENT 'createTime', \n"
-                        + "\t`lastUpdateTime` null NULL COMMENT 'lastUpdateTime', \n"
-                        + "\tPRIMARY KEY (`id`)\n"
+                        + "\t`id` BIGINT NOT NULL COMMENT 'id', \n"
+                        + "\t`name` VARCHAR(128) NOT NULL COMMENT 'name', \n"
+                        + "\t`age` INT NULL COMMENT 'age', \n"
+                        + "\t`blob_v` LONGBLOB NULL COMMENT 'blob_v', \n"
+                        + "\t`createTime` DATETIME NULL COMMENT 'createTime', \n"
+                        + "\t`lastUpdateTime` DATETIME NULL COMMENT 'lastUpdateTime', \n"
+                        + "\tPRIMARY KEY (`id`), \n"
+                        + "\tKEY `name` (`name`), \n"
+                        + "\tKEY `blob_v` (`blob_v`(255))\n"
                         + ") COMMENT = 'User table';";
         CONSOLE.println(expect);
         Assertions.assertEquals(expect, createTableSql);

@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.starrocks.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -31,6 +32,9 @@ import java.util.List;
 @ToString
 @AllArgsConstructor
 public class CommonConfig implements Serializable {
+
+    public static final String CONNECTOR_IDENTITY = "StarRocks";
+
     public static final Option<List<String>> NODE_URLS =
             Options.key("nodeUrls")
                     .listType()
@@ -67,4 +71,12 @@ public class CommonConfig implements Serializable {
     private String password;
     private String database;
     private String table;
+
+    public CommonConfig(ReadonlyConfig config) {
+        this.nodeUrls = config.get(NODE_URLS);
+        this.username = config.get(USERNAME);
+        this.password = config.get(PASSWORD);
+        this.database = config.get(DATABASE);
+        this.table = config.get(TABLE);
+    }
 }

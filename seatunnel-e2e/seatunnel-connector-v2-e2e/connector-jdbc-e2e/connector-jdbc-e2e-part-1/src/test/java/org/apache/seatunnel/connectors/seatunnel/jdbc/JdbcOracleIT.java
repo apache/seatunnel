@@ -18,12 +18,17 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleURLParser;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
 
 import org.apache.commons.lang3.tuple.Pair;
 
+import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.OracleContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -67,6 +72,7 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                     + "    CHAR_10_COL                   char(10),\n"
                     + "    CLOB_COL                      clob,\n"
                     + "    NUMBER_3_SF_2_DP              number(3, 2),\n"
+                    + "    NUMBER_7_SF_N2_DP             number(7, -2),\n"
                     + "    INTEGER_COL                   integer,\n"
                     + "    FLOAT_COL                     float(10),\n"
                     + "    REAL_COL                      real,\n"
@@ -74,8 +80,37 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                     + "    BINARY_DOUBLE_COL             binary_double,\n"
                     + "    DATE_COL                      date,\n"
                     + "    TIMESTAMP_WITH_3_FRAC_SEC_COL timestamp(3),\n"
-                    + "    TIMESTAMP_WITH_LOCAL_TZ       timestamp with local time zone\n"
+                    + "    TIMESTAMP_WITH_LOCAL_TZ       timestamp with local time zone,\n"
+                    + "    XML_TYPE_COL                  \"SYS\".\"XMLTYPE\"\n"
                     + ")";
+
+    private static final String[] fieldNames =
+            new String[] {
+                "VARCHAR_10_COL",
+                "CHAR_10_COL",
+                "CLOB_COL",
+                "NUMBER_3_SF_2_DP",
+                "NUMBER_7_SF_N2_DP",
+                "INTEGER_COL",
+                "FLOAT_COL",
+                "REAL_COL",
+                "BINARY_FLOAT_COL",
+                "BINARY_DOUBLE_COL",
+                "DATE_COL",
+                "TIMESTAMP_WITH_3_FRAC_SEC_COL",
+                "TIMESTAMP_WITH_LOCAL_TZ",
+                "XML_TYPE_COL"
+            };
+
+    @Test
+    public void testSampleDataFromColumnSuccess() throws Exception {
+        JdbcDialect dialect = new OracleDialect();
+        JdbcSourceTable table =
+                JdbcSourceTable.builder()
+                        .tablePath(TablePath.of(null, SCHEMA, SOURCE_TABLE))
+                        .build();
+        dialect.sampleDataFromColumn(connection, table, "INTEGER_COL", 1, 1024);
+    }
 
     @Override
     JdbcCase getJdbcCase() {
@@ -116,31 +151,17 @@ public class JdbcOracleIT extends AbstractJdbcIT {
     }
 
     @Override
-    void compareResult() {}
+    void compareResult(String executeKey) {
+        defaultCompare(executeKey, fieldNames, "INTEGER_COL");
+    }
 
     @Override
     String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/oracle/database/jdbc/ojdbc8/12.2.0.1/ojdbc8-12.2.0.1.jar";
+        return "https://repo1.maven.org/maven2/com/oracle/database/jdbc/ojdbc8/12.2.0.1/ojdbc8-12.2.0.1.jar && wget https://repo1.maven.org/maven2/com/oracle/database/xml/xdb6/12.2.0.1/xdb6-12.2.0.1.jar && wget https://repo1.maven.org/maven2/com/oracle/database/xml/xmlparserv2/12.2.0.1/xmlparserv2-12.2.0.1.jar";
     }
 
     @Override
     Pair<String[], List<SeaTunnelRow>> initTestData() {
-        String[] fieldNames =
-                new String[] {
-                    "VARCHAR_10_COL",
-                    "CHAR_10_COL",
-                    "CLOB_COL",
-                    "NUMBER_3_SF_2_DP",
-                    "INTEGER_COL",
-                    "FLOAT_COL",
-                    "REAL_COL",
-                    "BINARY_FLOAT_COL",
-                    "BINARY_DOUBLE_COL",
-                    "DATE_COL",
-                    "TIMESTAMP_WITH_3_FRAC_SEC_COL",
-                    "TIMESTAMP_WITH_LOCAL_TZ"
-                };
-
         List<SeaTunnelRow> rows = new ArrayList<>();
         for (int i = 0; i < 100; i++) {
             SeaTunnelRow row =
@@ -150,6 +171,7 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                                 String.format("f%s", i),
                                 String.format("f%s", i),
                                 BigDecimal.valueOf(1.1),
+                                BigDecimal.valueOf(2400),
                                 i,
                                 Float.parseFloat("2.2"),
                                 Float.parseFloat("2.2"),
@@ -157,7 +179,8 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                                 Double.parseDouble("2.2"),
                                 Date.valueOf(LocalDate.now()),
                                 Timestamp.valueOf(LocalDateTime.now()),
-                                Timestamp.valueOf(LocalDateTime.now())
+                                Timestamp.valueOf(LocalDateTime.now()),
+                                "<?xml version=\"1.0\" encoding=\"UTF-8\"?><project xmlns=\"http://maven.apache.org/POM/4.0.0\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd\"><name>SeaTunnel : E2E : Connector V2 : Oracle XMLType</name></project>"
                             });
             rows.add(row);
         }

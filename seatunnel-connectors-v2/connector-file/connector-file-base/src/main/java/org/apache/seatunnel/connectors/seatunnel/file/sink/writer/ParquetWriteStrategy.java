@@ -18,13 +18,14 @@
 package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
-import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.api.table.type.SqlType;
+import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
@@ -35,10 +36,13 @@ import org.apache.avro.data.TimeConversions;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.GenericRecordBuilder;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.parquet.avro.AvroParquetWriter;
 import org.apache.parquet.avro.AvroSchemaConverter;
+import org.apache.parquet.avro.AvroWriteSupport;
 import org.apache.parquet.column.ParquetProperties;
+import org.apache.parquet.example.data.simple.NanoTime;
 import org.apache.parquet.hadoop.ParquetFileWriter;
 import org.apache.parquet.hadoop.ParquetWriter;
 import org.apache.parquet.hadoop.util.HadoopOutputFile;
@@ -54,11 +58,19 @@ import lombok.NonNull;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
+import java.time.ZoneId;
+import java.time.temporal.JulianFields;
 import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Set;
+import java.util.TimeZone;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -66,6 +78,7 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
     private final LinkedHashMap<String, ParquetWriter<GenericRecord>> beingWrittenWriter;
     private AvroSchemaConverter schemaConverter;
     private Schema schema;
+    private Set<String> writePathsAsInt96;
     public static final int[] PRECISION_TO_BYTE_COUNT = new int[38];
 
     static {
@@ -84,7 +97,22 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
     @Override
     public void init(HadoopConf conf, String jobId, String uuidPrefix, int subTaskIndex) {
         super.init(conf, jobId, uuidPrefix, subTaskIndex);
-        schemaConverter = new AvroSchemaConverter(getConfiguration(hadoopConf));
+        Configuration configuration = getConfiguration(hadoopConf);
+        writePathsAsInt96 = new HashSet<>(fileSinkConfig.getParquetAvroWriteFixedAsInt96());
+        if (fileSinkConfig.getParquetWriteTimestampAsInt96()) {
+            List<String> timestampFields = new ArrayList<>();
+            for (int i = 0; i < seaTunnelRowType.getTotalFields(); i++) {
+                if (SqlType.TIMESTAMP.equals(seaTunnelRowType.getFieldType(i).getSqlType())) {
+                    timestampFields.add(seaTunnelRowType.getFieldName(i));
+                }
+            }
+            writePathsAsInt96.addAll(timestampFields);
+        }
+        if (!writePathsAsInt96.isEmpty()) {
+            configuration.set(
+                    AvroWriteSupport.WRITE_FIXED_AS_INT96, String.join(",", writePathsAsInt96));
+        }
+        schemaConverter = new AvroSchemaConverter(configuration);
     }
 
     @Override
@@ -98,14 +126,13 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
             Object field = seaTunnelRow.getField(integer);
             recordBuilder.set(
                     fieldName.toLowerCase(),
-                    resolveObject(field, seaTunnelRowType.getFieldType(integer)));
+                    resolveObject(fieldName, field, seaTunnelRowType.getFieldType(integer)));
         }
         GenericData.Record record = recordBuilder.build();
         try {
             writer.write(record);
         } catch (IOException e) {
-            String errorMsg = String.format("Write data to file [%s] error", filePath);
-            throw new FileConnectorException(CommonErrorCode.FILE_OPERATION_FAILED, errorMsg, e);
+            throw CommonError.fileOperationFailed("ParquetFile", "write", filePath, e);
         }
     }
 
@@ -121,7 +148,7 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
                                         "Close file [%s] parquet writer failed, error msg: [%s]",
                                         k, e.getMessage());
                         throw new FileConnectorException(
-                                CommonErrorCode.WRITER_OPERATION_FAILED, errorMsg, e);
+                                CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED, errorMsg, e);
                     }
                     needMoveFiles.put(k, getTargetLocation(k));
                 });
@@ -139,39 +166,54 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
         dataModel.addLogicalTypeConversion(new TimeConversions.LocalTimestampMillisConversion());
         if (writer == null) {
             Path path = new Path(filePath);
-            try {
-                HadoopOutputFile outputFile =
-                        HadoopOutputFile.fromPath(path, getConfiguration(hadoopConf));
-                ParquetWriter<GenericRecord> newWriter =
-                        AvroParquetWriter.<GenericRecord>builder(outputFile)
-                                .withWriteMode(ParquetFileWriter.Mode.OVERWRITE)
-                                .withDataModel(dataModel)
-                                // use parquet v1 to improve compatibility
-                                .withWriterVersion(ParquetProperties.WriterVersion.PARQUET_1_0)
-                                .withCompressionCodec(compressFormat.getParquetCompression())
-                                .withSchema(schema)
-                                .build();
-                this.beingWrittenWriter.put(filePath, newWriter);
-                return newWriter;
-            } catch (IOException e) {
-                String errorMsg = String.format("Get parquet writer for file [%s] error", filePath);
-                throw new FileConnectorException(
-                        CommonErrorCode.WRITER_OPERATION_FAILED, errorMsg, e);
-            }
+            // initialize the kerberos login
+            return hadoopFileSystemProxy.doWithHadoopAuth(
+                    (configuration, userGroupInformation) -> {
+                        try {
+                            if (!writePathsAsInt96.isEmpty()) {
+                                configuration.set(
+                                        AvroWriteSupport.WRITE_FIXED_AS_INT96,
+                                        String.join(",", writePathsAsInt96));
+                            }
+                            HadoopOutputFile outputFile =
+                                    HadoopOutputFile.fromPath(path, getConfiguration(hadoopConf));
+                            ParquetWriter<GenericRecord> newWriter =
+                                    AvroParquetWriter.<GenericRecord>builder(outputFile)
+                                            .withWriteMode(ParquetFileWriter.Mode.OVERWRITE)
+                                            .withDataModel(dataModel)
+                                            .withConf(configuration)
+                                            // use parquet v1 to improve compatibility
+                                            .withWriterVersion(
+                                                    ParquetProperties.WriterVersion.PARQUET_1_0)
+                                            .withCompressionCodec(
+                                                    compressFormat.getParquetCompression())
+                                            .withSchema(schema)
+                                            .build();
+                            this.beingWrittenWriter.put(filePath, newWriter);
+                            return newWriter;
+                        } catch (IOException e) {
+                            String errorMsg =
+                                    String.format(
+                                            "Get parquet writer for file [%s] error", filePath);
+                            throw new FileConnectorException(
+                                    CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED, errorMsg, e);
+                        }
+                    });
         }
         return writer;
     }
 
-    private Object resolveObject(Object data, SeaTunnelDataType<?> seaTunnelDataType) {
+    private Object resolveObject(String name, Object data, SeaTunnelDataType<?> seaTunnelDataType) {
         if (data == null) {
             return null;
         }
         switch (seaTunnelDataType.getSqlType()) {
             case ARRAY:
-                BasicType<?> elementType = ((ArrayType<?, ?>) seaTunnelDataType).getElementType();
+                SeaTunnelDataType<?> elementType =
+                        ((ArrayType<?, ?>) seaTunnelDataType).getElementType();
                 ArrayList<Object> records = new ArrayList<>(((Object[]) data).length);
                 for (Object object : (Object[]) data) {
-                    Object resolvedObject = resolveObject(object, elementType);
+                    Object resolvedObject = resolveObject(name, object, elementType);
                     records.add(resolvedObject);
                 }
                 return records;
@@ -189,8 +231,36 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
             case DATE:
                 return data;
             case TIMESTAMP:
-                return ((LocalDateTime) data).toInstant(ZoneOffset.of("+8")).toEpochMilli();
+                if (writePathsAsInt96.contains(name)) {
+                    LocalDateTime localDateTime = (LocalDateTime) data;
+                    Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+                    calendar.setTime(
+                            Date.from(localDateTime.atZone(ZoneId.systemDefault()).toInstant()));
+                    int julianDays =
+                            (int)
+                                    JulianFields.JULIAN_DAY.getFrom(
+                                            LocalDate.of(
+                                                    calendar.get(Calendar.YEAR),
+                                                    calendar.get(Calendar.MONTH) + 1,
+                                                    calendar.get(Calendar.DAY_OF_MONTH)));
+                    long timeOfDayNanos =
+                            TimeUnit.HOURS.toNanos(calendar.get(Calendar.HOUR_OF_DAY))
+                                    + TimeUnit.MINUTES.toNanos(calendar.get(Calendar.MINUTE))
+                                    + TimeUnit.SECONDS.toNanos(calendar.get(Calendar.SECOND))
+                                    + TimeUnit.MILLISECONDS.toNanos(
+                                            calendar.get(Calendar.MILLISECOND));
+                    NanoTime nanoTime = new NanoTime(julianDays, timeOfDayNanos);
+                    return new GenericData.Fixed(
+                            schema.getField(name).schema(), nanoTime.toBinary().getBytes());
+                }
+                return ((LocalDateTime) data)
+                        .atZone(ZoneId.systemDefault())
+                        .toInstant()
+                        .toEpochMilli();
             case BYTES:
+                if (writePathsAsInt96.contains(name)) {
+                    return new GenericData.Fixed(schema.getField(name).schema(), (byte[]) data);
+                }
                 return ByteBuffer.wrap((byte[]) data);
             case ROW:
                 SeaTunnelRow seaTunnelRow = (SeaTunnelRow) data;
@@ -208,7 +278,7 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
                 for (int i = 0; i < fieldNames.length; i++) {
                     recordBuilder.set(
                             fieldNames[i].toLowerCase(),
-                            resolveObject(seaTunnelRow.getField(i), fieldTypes[i]));
+                            resolveObject(fieldNames[i], seaTunnelRow.getField(i), fieldTypes[i]));
                 }
                 return recordBuilder.build();
             default:
@@ -216,15 +286,17 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
                         String.format(
                                 "SeaTunnel file connector is not supported for this data type [%s]",
                                 seaTunnelDataType.getSqlType());
-                throw new FileConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, errorMsg);
+                throw new FileConnectorException(
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE, errorMsg);
         }
     }
 
-    public static Type seaTunnelDataType2ParquetDataType(
+    public Type seaTunnelDataType2ParquetDataType(
             String fieldName, SeaTunnelDataType<?> seaTunnelDataType) {
         switch (seaTunnelDataType.getSqlType()) {
             case ARRAY:
-                BasicType<?> elementType = ((ArrayType<?, ?>) seaTunnelDataType).getElementType();
+                SeaTunnelDataType<?> elementType =
+                        ((ArrayType<?, ?>) seaTunnelDataType).getElementType();
                 return Types.optionalGroup()
                         .as(OriginalType.LIST)
                         .addField(
@@ -278,6 +350,11 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
                                 PrimitiveType.PrimitiveTypeName.INT64, Type.Repetition.OPTIONAL)
                         .named(fieldName);
             case TIMESTAMP:
+                if (writePathsAsInt96.contains(fieldName)) {
+                    return Types.primitive(
+                                    PrimitiveType.PrimitiveTypeName.INT96, Type.Repetition.OPTIONAL)
+                            .named(fieldName);
+                }
                 return Types.primitive(
                                 PrimitiveType.PrimitiveTypeName.INT64, Type.Repetition.OPTIONAL)
                         .as(OriginalType.TIMESTAMP_MILLIS)
@@ -300,6 +377,13 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
                         .scale(scale)
                         .named(fieldName);
             case BYTES:
+                if (writePathsAsInt96.contains(fieldName)) {
+                    return Types.primitive(
+                                    PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY,
+                                    Type.Repetition.OPTIONAL)
+                            .length(12)
+                            .named(fieldName);
+                }
                 return Types.primitive(
                                 PrimitiveType.PrimitiveTypeName.BINARY, Type.Repetition.OPTIONAL)
                         .named(fieldName);
@@ -319,7 +403,8 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy {
                         String.format(
                                 "SeaTunnel file connector is not supported for this data type [%s]",
                                 seaTunnelDataType.getSqlType());
-                throw new FileConnectorException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, errorMsg);
+                throw new FileConnectorException(
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE, errorMsg);
         }
     }
 

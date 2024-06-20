@@ -25,8 +25,7 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.iceberg.exception.IcebergConnectorException;
+import org.apache.seatunnel.common.exception.CommonError;
 
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
@@ -35,10 +34,11 @@ import lombok.NonNull;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class IcebergTypeMapper {
 
-    public static SeaTunnelDataType<?> mapping(@NonNull Type icebergType) {
+    public static SeaTunnelDataType<?> mapping(String field, @NonNull Type icebergType) {
         switch (icebergType.typeId()) {
             case BOOLEAN:
                 return BasicType.BOOLEAN_TYPE;
@@ -67,13 +67,12 @@ public class IcebergTypeMapper {
             case STRUCT:
                 return mappingStructType((Types.StructType) icebergType);
             case LIST:
-                return mappingListType((Types.ListType) icebergType);
+                return mappingListType(field, (Types.ListType) icebergType);
             case MAP:
-                return mappingMapType((Types.MapType) icebergType);
+                return mappingMapType(field, (Types.MapType) icebergType);
             default:
-                throw new IcebergConnectorException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                        "Unsupported iceberg data type: " + icebergType.typeId());
+                throw CommonError.convertToSeaTunnelTypeError(
+                        "Iceberg", icebergType.toString(), field);
         }
     }
 
@@ -83,13 +82,13 @@ public class IcebergTypeMapper {
         List<SeaTunnelDataType<?>> fieldTypes = new ArrayList<>(fields.size());
         for (Types.NestedField field : fields) {
             fieldNames.add(field.name());
-            fieldTypes.add(mapping(field.type()));
+            fieldTypes.add(mapping(field.name(), field.type()));
         }
         return new SeaTunnelRowType(
                 fieldNames.toArray(new String[0]), fieldTypes.toArray(new SeaTunnelDataType[0]));
     }
 
-    private static ArrayType mappingListType(Types.ListType listType) {
+    private static ArrayType mappingListType(String field, Types.ListType listType) {
         switch (listType.elementType().typeId()) {
             case BOOLEAN:
                 return ArrayType.BOOLEAN_ARRAY_TYPE;
@@ -104,14 +103,73 @@ public class IcebergTypeMapper {
             case STRING:
                 return ArrayType.STRING_ARRAY_TYPE;
             default:
-                throw new IcebergConnectorException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                        "Unsupported iceberg list element type: "
-                                + listType.elementType().typeId());
+                throw CommonError.convertToSeaTunnelTypeError(
+                        "Iceberg", listType.toString(), field);
         }
     }
 
-    private static MapType mappingMapType(Types.MapType mapType) {
-        return new MapType(mapping(mapType.keyType()), mapping(mapType.valueType()));
+    private static MapType mappingMapType(String field, Types.MapType mapType) {
+        return new MapType(mapping(field, mapType.keyType()), mapping(field, mapType.valueType()));
+    }
+
+    public static Type toIcebergType(SeaTunnelDataType dataType) {
+        return toIcebergType(dataType, new AtomicInteger(1));
+    }
+
+    private static Type toIcebergType(SeaTunnelDataType dataType, AtomicInteger nextId) {
+        switch (dataType.getSqlType()) {
+            case BOOLEAN:
+                return Types.BooleanType.get();
+            case BYTES:
+                return Types.BinaryType.get();
+            case SMALLINT:
+            case TINYINT:
+            case INT:
+                return Types.IntegerType.get();
+            case BIGINT:
+                return Types.LongType.get();
+            case FLOAT:
+                return Types.FloatType.get();
+            case DOUBLE:
+                return Types.DoubleType.get();
+            case DECIMAL:
+                DecimalType decimalType = (DecimalType) dataType;
+                return Types.DecimalType.of(decimalType.getPrecision(), decimalType.getScale());
+            case ARRAY:
+                ArrayType arrayType = (ArrayType) dataType;
+                // converter elementType
+                Type elementType = toIcebergType(arrayType.getElementType(), nextId);
+                return Types.ListType.ofOptional(nextId.getAndIncrement(), elementType);
+            case MAP:
+                org.apache.seatunnel.api.table.type.MapType mapType =
+                        (org.apache.seatunnel.api.table.type.MapType) dataType;
+                Type keyType = toIcebergType(mapType.getKeyType(), nextId);
+                Type valueType = toIcebergType(mapType.getValueType(), nextId);
+                return Types.MapType.ofOptional(
+                        nextId.getAndIncrement(), nextId.getAndIncrement(), keyType, valueType);
+            case ROW:
+                SeaTunnelRowType seaTunnelRowType = (SeaTunnelRowType) dataType;
+                List<Types.NestedField> structFields = new ArrayList<>();
+                for (int i = 0; i < seaTunnelRowType.getFieldNames().length; i++) {
+                    String field = seaTunnelRowType.getFieldName(i);
+                    SeaTunnelDataType fieldType = seaTunnelRowType.getFieldType(i);
+                    structFields.add(
+                            Types.NestedField.of(
+                                    nextId.getAndIncrement(),
+                                    true,
+                                    field,
+                                    toIcebergType(fieldType, nextId)));
+                }
+                return Types.StructType.of(structFields);
+            case DATE:
+                return Types.DateType.get();
+            case TIME:
+                return Types.TimeType.get();
+            case TIMESTAMP:
+                return Types.TimestampType.withZone();
+            case STRING:
+            default:
+                return Types.StringType.get();
+        }
     }
 }

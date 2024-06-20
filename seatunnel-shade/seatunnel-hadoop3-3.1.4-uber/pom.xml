@@ -47,7 +47,11 @@
             <artifactId>hadoop-client</artifactId>
             <version>${hadoop3.version}</version>
         </dependency>
-
+        <dependency>
+            <groupId>org.xerial.snappy</groupId>
+            <artifactId>snappy-java</artifactId>
+            <version>1.1.10.4</version>
+        </dependency>
     </dependencies>
 
     <build>
@@ -93,6 +97,7 @@
                                         <include>com.google.common.base.*</include>
                                         <include>com.google.common.cache.*</include>
                                         <include>com.google.common.collect.*</include>
+                                        <include>com.google.common.util.*</include>
                                     </includes>
                                 </relocation>
                                 <relocation>

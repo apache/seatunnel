@@ -21,22 +21,35 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.AbstractJdbcRowConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcFieldTypeUtils;
 
 import java.math.BigDecimal;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.Optional;
 
 public class SqlserverJdbcRowConverter extends AbstractJdbcRowConverter {
 
     @Override
     public String converterName() {
-        return "Sqlserver";
+        return DatabaseIdentifier.SQLSERVER;
+    }
+
+    @Override
+    protected LocalTime readTime(ResultSet rs, int resultSetIndex) throws SQLException {
+        Timestamp sqlTime = JdbcFieldTypeUtils.getTimestamp(rs, resultSetIndex);
+        return Optional.ofNullable(sqlTime)
+                .map(e -> e.toLocalDateTime().toLocalTime())
+                .orElse(null);
     }
 
     public PreparedStatement toExternal(
@@ -107,7 +120,7 @@ public class SqlserverJdbcRowConverter extends AbstractJdbcRowConverter {
                 case ROW:
                 default:
                     throw new JdbcConnectorException(
-                            CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                            CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                             "Unexpected value: " + seaTunnelDataType);
             }
         }

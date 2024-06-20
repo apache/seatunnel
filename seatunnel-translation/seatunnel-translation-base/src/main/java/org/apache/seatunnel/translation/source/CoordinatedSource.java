@@ -49,6 +49,7 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
     protected final SeaTunnelSource<T, SplitT, StateT> source;
     protected final Map<Integer, List<byte[]>> restoredState;
     protected final Integer parallelism;
+    protected final String jobId;
 
     protected final Serializer<SplitT> splitSerializer;
     protected final Serializer<StateT> enumeratorStateSerializer;
@@ -69,14 +70,16 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
     public CoordinatedSource(
             SeaTunnelSource<T, SplitT, StateT> source,
             Map<Integer, List<byte[]>> restoredState,
-            int parallelism) {
+            int parallelism,
+            String jobId) {
         this.source = source;
         this.restoredState = restoredState;
         this.parallelism = parallelism;
+        this.jobId = jobId;
         this.splitSerializer = source.getSplitSerializer();
         this.enumeratorStateSerializer = source.getEnumeratorStateSerializer();
 
-        this.coordinatedEnumeratorContext = new CoordinatedEnumeratorContext<>(this);
+        this.coordinatedEnumeratorContext = new CoordinatedEnumeratorContext<>(this, jobId);
         this.readerContextMap = new ConcurrentHashMap<>(parallelism);
         this.readerRunningMap = new ConcurrentHashMap<>(parallelism);
         try {
@@ -119,7 +122,7 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
     private void createReaders() throws Exception {
         for (int subtaskId = 0; subtaskId < this.parallelism; subtaskId++) {
             CoordinatedReaderContext readerContext =
-                    new CoordinatedReaderContext(this, source.getBoundedness(), subtaskId);
+                    new CoordinatedReaderContext(this, source.getBoundedness(), jobId, subtaskId);
             readerContextMap.put(subtaskId, readerContext);
             readerRunningMap.put(subtaskId, new AtomicBoolean(true));
             SourceReader<T, SplitT> reader = source.createReader(readerContext);
@@ -165,7 +168,20 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
                                         while (flag.get()) {
                                             try {
                                                 reader.pollNext(collector);
-                                                Thread.sleep(SLEEP_TIME_INTERVAL);
+                                                if (collector.isEmptyThisPollNext()) {
+                                                    Thread.sleep(100);
+                                                } else {
+                                                    collector.resetEmptyThisPollNext();
+                                                    /**
+                                                     * sleep(0) is used to prevent the current
+                                                     * thread from occupying CPU resources for a
+                                                     * long time, thus blocking the checkpoint
+                                                     * thread for a long time. It is mentioned in
+                                                     * this
+                                                     * https://github.com/apache/seatunnel/issues/5694
+                                                     */
+                                                    Thread.sleep(0L);
+                                                }
                                             } catch (Exception e) {
                                                 running = false;
                                                 flag.set(false);

@@ -17,13 +17,10 @@
 
 package org.apache.seatunnel.connectors.doris.sink.committer;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.connectors.doris.config.DorisConfig;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorErrorCode;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorException;
-import org.apache.seatunnel.connectors.doris.rest.RestService;
 import org.apache.seatunnel.connectors.doris.sink.HttpPutBuilder;
 import org.apache.seatunnel.connectors.doris.sink.LoadStatus;
 import org.apache.seatunnel.connectors.doris.util.HttpUtil;
@@ -52,16 +49,12 @@ public class DorisCommitter implements SinkCommitter<DorisCommitInfo> {
     private final DorisConfig dorisConfig;
     int maxRetry;
 
-    public DorisCommitter(Config pluginConfig) {
-        this(
-                DorisConfig.loadConfig(pluginConfig),
-                DorisConfig.loadConfig(pluginConfig).getMaxRetries(),
-                new HttpUtil().getHttpClient());
+    public DorisCommitter(DorisConfig dorisConfig) {
+        this(dorisConfig, new HttpUtil().getHttpClient());
     }
 
-    public DorisCommitter(DorisConfig dorisConfig, int maxRetry, CloseableHttpClient client) {
+    public DorisCommitter(DorisConfig dorisConfig, CloseableHttpClient client) {
         this.dorisConfig = dorisConfig;
-        this.maxRetry = maxRetry;
         this.httpClient = client;
     }
 
@@ -87,7 +80,7 @@ public class DorisCommitter implements SinkCommitter<DorisCommitInfo> {
         int retry = 0;
         String hostPort = committable.getHostPort();
         CloseableHttpResponse response = null;
-        while (retry++ <= maxRetry) {
+        while (retry++ <= dorisConfig.getMaxRetries()) {
             HttpPutBuilder putBuilder = new HttpPutBuilder();
             putBuilder
                     .setUrl(String.format(COMMIT_PATTERN, hostPort, committable.getDb()))
@@ -100,14 +93,14 @@ public class DorisCommitter implements SinkCommitter<DorisCommitInfo> {
                 response = httpClient.execute(putBuilder.build());
             } catch (IOException e) {
                 log.error("commit transaction failed: ", e);
-                hostPort = RestService.getBackend(dorisConfig, log);
+                hostPort = dorisConfig.getFrontends();
                 continue;
             }
             statusCode = response.getStatusLine().getStatusCode();
             reasonPhrase = response.getStatusLine().getReasonPhrase();
             if (statusCode != HTTP_TEMPORARY_REDIRECT) {
                 log.warn("commit failed with {}, reason {}", hostPort, reasonPhrase);
-                hostPort = RestService.getBackend(dorisConfig, log);
+                hostPort = dorisConfig.getFrontends();
             } else {
                 break;
             }
@@ -119,12 +112,16 @@ public class DorisCommitter implements SinkCommitter<DorisCommitInfo> {
         }
 
         ObjectMapper mapper = new ObjectMapper();
-        if (response != null && response.getEntity() != null) {
+        if (response.getEntity() != null) {
             String loadResult = EntityUtils.toString(response.getEntity());
             Map<String, String> res =
                     mapper.readValue(loadResult, new TypeReference<HashMap<String, String>>() {});
-            if (res.get("status").equals(LoadStatus.FAIL)
-                    && !ResponseUtil.isCommitted(res.get("msg"))) {
+            if (!LoadStatus.SUCCESS.equals(res.get("status"))) {
+                log.error(
+                        "commit transaction error url:{},TxnId:{},result:{}",
+                        String.format(COMMIT_PATTERN, hostPort, committable.getDb()),
+                        committable.getTxbID(),
+                        loadResult);
                 throw new DorisConnectorException(
                         DorisConnectorErrorCode.COMMIT_FAILED, loadResult);
             } else {

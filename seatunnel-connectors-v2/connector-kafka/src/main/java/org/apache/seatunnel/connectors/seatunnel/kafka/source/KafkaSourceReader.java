@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormatErrorHandleWay;
 import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorErrorCode;
@@ -31,9 +32,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
-import org.apache.kafka.common.serialization.StringDeserializer;
 
-import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import lombok.extern.slf4j.Slf4j;
 
@@ -58,12 +57,13 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
     private static final long POLL_TIMEOUT = 10000L;
 
     private final SourceReader.Context context;
-    private final ConsumerMetadata metadata;
+    private final KafkaSourceConfig kafkaSourceConfig;
+
+    private final Map<TablePath, ConsumerMetadata> tablePathMetadataMap;
     private final Set<KafkaSourceSplit> sourceSplits;
     private final Map<Long, Map<TopicPartition, Long>> checkpointOffsetMap;
     private final Map<TopicPartition, KafkaConsumerThread> consumerThreadMap;
     private final ExecutorService executorService;
-    private final DeserializationSchema<SeaTunnelRow> deserializationSchema;
     private final MessageFormatErrorHandleWay messageFormatErrorHandleWay;
 
     private final LinkedBlockingQueue<KafkaSourceSplit> pendingPartitionsQueue;
@@ -71,15 +71,14 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
     private volatile boolean running = false;
 
     KafkaSourceReader(
-            ConsumerMetadata metadata,
-            DeserializationSchema<SeaTunnelRow> deserializationSchema,
+            KafkaSourceConfig kafkaSourceConfig,
             Context context,
             MessageFormatErrorHandleWay messageFormatErrorHandleWay) {
-        this.metadata = metadata;
+        this.kafkaSourceConfig = kafkaSourceConfig;
+        this.tablePathMetadataMap = kafkaSourceConfig.getMapMetadata();
         this.context = context;
         this.messageFormatErrorHandleWay = messageFormatErrorHandleWay;
         this.sourceSplits = new HashSet<>();
-        this.deserializationSchema = deserializationSchema;
         this.consumerThreadMap = new ConcurrentHashMap<>();
         this.checkpointOffsetMap = new ConcurrentHashMap<>();
         this.executorService =
@@ -112,13 +111,21 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
                         consumerThreadMap.computeIfAbsent(
                                 sourceSplit.getTopicPartition(),
                                 s -> {
-                                    KafkaConsumerThread thread = new KafkaConsumerThread(metadata);
+                                    ConsumerMetadata currentSplitConsumerMetaData =
+                                            tablePathMetadataMap.get(sourceSplit.getTablePath());
+                                    KafkaConsumerThread thread =
+                                            new KafkaConsumerThread(
+                                                    kafkaSourceConfig,
+                                                    currentSplitConsumerMetaData);
                                     executorService.submit(thread);
                                     return thread;
                                 }));
         sourceSplits.forEach(
                 sourceSplit -> {
                     CompletableFuture<Void> completableFuture = new CompletableFuture<>();
+                    TablePath tablePath = sourceSplit.getTablePath();
+                    DeserializationSchema<SeaTunnelRow> deserializationSchema =
+                            tablePathMetadataMap.get(tablePath).getDeserializationSchema();
                     try {
                         consumerThreadMap
                                 .get(sourceSplit.getTopicPartition())
@@ -129,12 +136,6 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
                                                 Set<TopicPartition> partitions =
                                                         Sets.newHashSet(
                                                                 sourceSplit.getTopicPartition());
-                                                StringDeserializer stringDeserializer =
-                                                        new StringDeserializer();
-                                                stringDeserializer.configure(
-                                                        Maps.fromProperties(
-                                                                this.metadata.getProperties()),
-                                                        false);
                                                 consumer.assign(partitions);
                                                 if (sourceSplit.getStartOffset() >= 0) {
                                                     consumer.seek(
@@ -259,7 +260,8 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
                                             .getTasks()
                                             .put(
                                                     consumer -> {
-                                                        if (this.metadata.isCommitOnCheckpoint()) {
+                                                        if (kafkaSourceConfig
+                                                                .isCommitOnCheckpoint()) {
                                                             Map<TopicPartition, OffsetAndMetadata>
                                                                     offsets = new HashMap<>();
                                                             if (offset >= 0) {

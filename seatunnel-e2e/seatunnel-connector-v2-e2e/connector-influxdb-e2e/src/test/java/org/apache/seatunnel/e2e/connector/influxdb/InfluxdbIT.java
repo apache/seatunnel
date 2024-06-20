@@ -25,7 +25,9 @@ import org.apache.seatunnel.connectors.seatunnel.influxdb.client.InfluxDBClient;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDBConfig;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.influxdb.InfluxDB;
 import org.influxdb.dto.BatchPoints;
@@ -51,10 +53,12 @@ import java.io.IOException;
 import java.net.ConnectException;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Slf4j
@@ -206,6 +210,98 @@ public class InfluxdbIT extends TestSuiteBase implements TestResource {
                 }
             }
         }
+    }
+
+    @TestTemplate
+    public void testInfluxdbWithTz(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/influxdb-to-influxdb-with-tz.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        String sourceSql =
+                String.format("select * from %s order by time", INFLUXDB_SOURCE_MEASUREMENT);
+        String sinkSql = String.format("select * from %s order by time", INFLUXDB_SINK_MEASUREMENT);
+        QueryResult sourceQueryResult = influxDB.query(new Query(sourceSql, INFLUXDB_DATABASE));
+        QueryResult sinkQueryResult = influxDB.query(new Query(sinkSql, INFLUXDB_DATABASE));
+        // assert data count
+        Assertions.assertEquals(
+                sourceQueryResult.getResults().size(), sinkQueryResult.getResults().size());
+        // assert data values
+        List<List<Object>> sourceValues =
+                sourceQueryResult.getResults().get(0).getSeries().get(0).getValues();
+        List<List<Object>> sinkValues =
+                sinkQueryResult.getResults().get(0).getSeries().get(0).getValues();
+        int rowSize = sourceValues.size();
+        int colSize = sourceValues.get(0).size();
+
+        for (int row = 0; row < rowSize; row++) {
+            for (int col = 0; col < colSize; col++) {
+                Object sourceColValue = sourceValues.get(row).get(col);
+                Object sinkColValue = sinkValues.get(row).get(col);
+
+                if (!Objects.deepEquals(sourceColValue, sinkColValue)) {
+                    Assertions.assertEquals(sourceColValue, sinkColValue);
+                }
+            }
+        }
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "Currently SPARK/FLINK do not support multiple table read")
+    public void testInfluxdbMultipleWrite(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/fake_to_infuxdb_with_multipletable.conf");
+
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertAll(
+                () -> {
+                    Assertions.assertIterableEquals(
+                            Stream.<List<Object>>of(
+                                            Arrays.asList(
+                                                    1627529632356l,
+                                                    "label_1",
+                                                    "sink_1",
+                                                    4.3,
+                                                    200,
+                                                    2.5,
+                                                    2,
+                                                    5,
+                                                    true))
+                                    .collect(Collectors.toList()),
+                            readData("infulxdb_sink_1"));
+                },
+                () -> {
+                    Assertions.assertIterableEquals(
+                            Stream.<List<Object>>of(
+                                            Arrays.asList(
+                                                    1627529632357l,
+                                                    "label_2",
+                                                    "sink_2",
+                                                    4.3,
+                                                    200,
+                                                    2.5,
+                                                    2,
+                                                    5,
+                                                    true))
+                                    .collect(Collectors.toList()),
+                            readData("infulxdb_sink_2"));
+                });
+    }
+
+    public List<List<Object>> readData(String tableName) {
+        String sinkSql =
+                String.format(
+                        "select time, label, c_string, c_double, c_bigint, c_float,c_int, c_smallint, c_boolean from %s order by time",
+                        tableName);
+        QueryResult sinkQueryResult = influxDB.query(new Query(sinkSql, INFLUXDB_DATABASE));
+
+        List<List<Object>> sinkValues =
+                sinkQueryResult.getResults().get(0).getSeries().get(0).getValues();
+        return sinkValues;
     }
 
     private void initializeInfluxDBClient() throws ConnectException {

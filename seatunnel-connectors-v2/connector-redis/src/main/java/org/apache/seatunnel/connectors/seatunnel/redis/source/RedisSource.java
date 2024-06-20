@@ -17,19 +17,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.redis.source;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
-import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitSource;
@@ -39,40 +35,29 @@ import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
 import org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisConnectorException;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
-import com.google.auto.service.AutoService;
+import com.google.common.collect.Lists;
 
-@AutoService(SeaTunnelSource.class)
+import java.util.List;
+
 public class RedisSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     private final RedisParameters redisParameters = new RedisParameters();
     private SeaTunnelRowType seaTunnelRowType;
     private DeserializationSchema<SeaTunnelRow> deserializationSchema;
 
-    @Override
-    public String getPluginName() {
-        return "Redis";
-    }
+    private CatalogTable catalogTable;
 
     @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult result =
-                CheckConfigUtil.checkAllExists(
-                        pluginConfig,
-                        RedisConfig.HOST.key(),
-                        RedisConfig.PORT.key(),
-                        RedisConfig.KEY_PATTERN.key(),
-                        RedisConfig.DATA_TYPE.key());
-        if (!result.isSuccess()) {
-            throw new RedisConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SOURCE, result.getMsg()));
-        }
-        this.redisParameters.buildWithConfig(pluginConfig);
+    public String getPluginName() {
+        return RedisConfig.CONNECTOR_IDENTITY;
+    }
+
+    public RedisSource(ReadonlyConfig readonlyConfig) {
+
+        this.redisParameters.buildWithConfig(readonlyConfig);
         // TODO: use format SPI
         // default use json format
-        if (pluginConfig.hasPath(RedisConfig.FORMAT.key())) {
-            if (!pluginConfig.hasPath(CatalogTableUtil.SCHEMA.key())) {
+        if (readonlyConfig.getOptional(RedisConfig.FORMAT).isPresent()) {
+            if (!readonlyConfig.getOptional(TableSchemaOptions.SCHEMA).isPresent()) {
                 throw new RedisConnectorException(
                         SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                         String.format(
@@ -82,17 +67,16 @@ public class RedisSource extends AbstractSingleSplitSource<SeaTunnelRow> {
                                 "Must config schema when format parameter been config"));
             }
 
-            RedisConfig.Format format =
-                    RedisConfig.Format.valueOf(
-                            pluginConfig.getString(RedisConfig.FORMAT.key()).toUpperCase());
+            RedisConfig.Format format = readonlyConfig.get(RedisConfig.FORMAT);
             if (RedisConfig.Format.JSON.equals(format)) {
-                this.seaTunnelRowType =
-                        CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
+                this.catalogTable = CatalogTableUtil.buildWithConfig(readonlyConfig);
+                this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
                 this.deserializationSchema =
-                        new JsonDeserializationSchema(false, false, seaTunnelRowType);
+                        new JsonDeserializationSchema(catalogTable, false, false);
             }
         } else {
-            this.seaTunnelRowType = CatalogTableUtil.buildSimpleTextSchema();
+            this.catalogTable = CatalogTableUtil.buildSimpleTextTable();
+            this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
             this.deserializationSchema = null;
         }
     }
@@ -103,8 +87,8 @@ public class RedisSource extends AbstractSingleSplitSource<SeaTunnelRow> {
     }
 
     @Override
-    public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
-        return seaTunnelRowType;
+    public List<CatalogTable> getProducedCatalogTables() {
+        return Lists.newArrayList(catalogTable);
     }
 
     @Override

@@ -99,6 +99,10 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
         executorService.submit(
                 () -> {
                     try {
+                        log.info(
+                                "Start incremental read task for incremental split: {} exactly-once: {}",
+                                currentIncrementalSplit,
+                                taskContext.isExactlyOnce());
                         streamFetchTask.execute(taskContext);
                     } catch (Exception e) {
                         log.error(
@@ -166,73 +170,8 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
      * <p>After event batch: [checkpoint-before] [SchemaChangeEvent-1, SchemaChangeEvent-2,
      * checkpoint-after] [a, b, c, d, e]
      */
-    private Iterator<SourceRecords> splitSchemaChangeStream(List<DataChangeEvent> batchEvents) {
-        List<SourceRecords> sourceRecordsSet = new ArrayList<>();
-
-        List<SourceRecord> sourceRecordList = new ArrayList<>();
-        SourceRecord previousRecord = null;
-        for (int i = 0; i < batchEvents.size(); i++) {
-            DataChangeEvent event = batchEvents.get(i);
-            SourceRecord currentRecord = event.getRecord();
-            if (!shouldEmit(currentRecord)) {
-                continue;
-            }
-            if (!SourceRecordUtils.isDataChangeRecord(currentRecord)
-                    && !SourceRecordUtils.isSchemaChangeEvent(currentRecord)) {
-                sourceRecordList.add(currentRecord);
-                continue;
-            }
-
-            if (SourceRecordUtils.isSchemaChangeEvent(currentRecord)) {
-                if (!schemaChangeResolver.support(currentRecord)) {
-                    continue;
-                }
-
-                if (previousRecord == null) {
-                    // add schema-change-before to first
-                    sourceRecordList.add(
-                            WatermarkEvent.createSchemaChangeBeforeWatermark(currentRecord));
-                    sourceRecordsSet.add(new SourceRecords(sourceRecordList));
-                    sourceRecordList = new ArrayList<>();
-                    sourceRecordList.add(currentRecord);
-                } else if (SourceRecordUtils.isSchemaChangeEvent(previousRecord)) {
-                    sourceRecordList.add(currentRecord);
-                } else {
-                    sourceRecordList.add(
-                            WatermarkEvent.createSchemaChangeBeforeWatermark(currentRecord));
-                    sourceRecordsSet.add(new SourceRecords(sourceRecordList));
-                    sourceRecordList = new ArrayList<>();
-                    sourceRecordList.add(currentRecord);
-                }
-            } else if (SourceRecordUtils.isDataChangeRecord(currentRecord)) {
-                if (previousRecord == null
-                        || SourceRecordUtils.isDataChangeRecord(previousRecord)) {
-                    sourceRecordList.add(currentRecord);
-                } else {
-                    sourceRecordList.add(
-                            WatermarkEvent.createSchemaChangeAfterWatermark(currentRecord));
-                    sourceRecordsSet.add(new SourceRecords(sourceRecordList));
-                    sourceRecordList = new ArrayList<>();
-                    sourceRecordList.add(currentRecord);
-                }
-            }
-            previousRecord = currentRecord;
-            if (i == batchEvents.size() - 1) {
-                if (SourceRecordUtils.isSchemaChangeEvent(currentRecord)) {
-                    sourceRecordList.add(
-                            WatermarkEvent.createSchemaChangeAfterWatermark(currentRecord));
-                }
-                sourceRecordsSet.add(new SourceRecords(sourceRecordList));
-            }
-        }
-
-        if (sourceRecordsSet.size() > 1) {
-            log.debug(
-                    "Split events stream into {} batches and mark schema checkpoint before/after",
-                    sourceRecordsSet.size());
-        }
-
-        return sourceRecordsSet.iterator();
+    Iterator<SourceRecords> splitSchemaChangeStream(List<DataChangeEvent> batchEvents) {
+        return new SchemaChangeStreamSplitter().split(batchEvents);
     }
 
     private void checkReadException() {
@@ -270,7 +209,7 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
     }
 
     /** Returns the record should emit or not. */
-    private boolean shouldEmit(SourceRecord sourceRecord) {
+    boolean shouldEmit(SourceRecord sourceRecord) {
         if (taskContext.isDataChangeRecord(sourceRecord)) {
             Offset position = taskContext.getStreamOffset(sourceRecord);
             TableId tableId = getTableId(sourceRecord);
@@ -347,5 +286,98 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
         this.finishedSplitsInfo = splitsInfoMap;
         this.maxSplitHighWatermarkMap = tableIdBinlogPositionMap;
         this.pureBinlogPhaseTables.clear();
+    }
+
+    class SchemaChangeStreamSplitter {
+        private List<SourceRecords> blockSet;
+        private List<SourceRecord> currentBlock;
+        private SourceRecord previousRecord;
+
+        public SchemaChangeStreamSplitter() {
+            blockSet = new ArrayList<>();
+            currentBlock = new ArrayList<>();
+            previousRecord = null;
+        }
+
+        public Iterator<SourceRecords> split(List<DataChangeEvent> batchEvents) {
+            for (int i = 0; i < batchEvents.size(); i++) {
+                DataChangeEvent event = batchEvents.get(i);
+                SourceRecord currentRecord = event.getRecord();
+                if (!shouldEmit(currentRecord)) {
+                    continue;
+                }
+
+                if (SourceRecordUtils.isSchemaChangeEvent(currentRecord)) {
+                    if (!schemaChangeResolver.support(currentRecord)) {
+                        continue;
+                    }
+
+                    if (previousRecord == null) {
+                        // add schema-change-before to first
+                        currentBlock.add(
+                                WatermarkEvent.createSchemaChangeBeforeWatermark(currentRecord));
+                        flipBlock();
+
+                        currentBlock.add(currentRecord);
+                    } else if (SourceRecordUtils.isSchemaChangeEvent(previousRecord)) {
+                        currentBlock.add(currentRecord);
+                    } else {
+                        currentBlock.add(
+                                WatermarkEvent.createSchemaChangeBeforeWatermark(currentRecord));
+                        flipBlock();
+
+                        currentBlock.add(currentRecord);
+                    }
+                } else if (SourceRecordUtils.isDataChangeRecord(currentRecord)
+                        || SourceRecordUtils.isHeartbeatRecord(currentRecord)) {
+                    if (previousRecord == null
+                            || SourceRecordUtils.isDataChangeRecord(previousRecord)
+                            || SourceRecordUtils.isHeartbeatRecord(previousRecord)) {
+                        currentBlock.add(currentRecord);
+                    } else {
+                        endBlock(previousRecord);
+                        flipBlock();
+
+                        currentBlock.add(currentRecord);
+                    }
+                }
+
+                previousRecord = currentRecord;
+                if (i == batchEvents.size() - 1) {
+                    endBlock(currentRecord);
+                    flipBlock();
+                }
+            }
+
+            endLastBlock(previousRecord);
+
+            if (blockSet.size() > 1) {
+                log.debug(
+                        "Split events stream into {} batches and mark schema change checkpoint",
+                        blockSet.size());
+            }
+
+            return blockSet.iterator();
+        }
+
+        void flipBlock() {
+            if (!currentBlock.isEmpty()) {
+                blockSet.add(new SourceRecords(currentBlock));
+                currentBlock = new ArrayList<>();
+            }
+        }
+
+        void endBlock(SourceRecord lastRecord) {
+            if (!currentBlock.isEmpty()) {
+                if (SourceRecordUtils.isSchemaChangeEvent(lastRecord)) {
+                    currentBlock.add(WatermarkEvent.createSchemaChangeAfterWatermark(lastRecord));
+                }
+            }
+        }
+
+        void endLastBlock(SourceRecord lastRecord) {
+            endBlock(lastRecord);
+            flipBlock();
+        }
     }
 }

@@ -32,3 +32,9 @@ seatunnel:
                     namespace: /tmp/seatunnel/checkpoint_snapshot/
                     storage.type: hdfs
                     fs.defaultFS: file:///tmp/
+        jar-storage:
+            enable: false
+            connector-jar-storage-mode: SHARED
+            connector-jar-storage-path: ""
+            connector-jar-cleanup-task-interval: 3600
+            connector-jar-expiry-time: 600

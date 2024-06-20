@@ -22,8 +22,8 @@ import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
+import org.apache.seatunnel.engine.client.job.ClientJobExecutionEnvironment;
 import org.apache.seatunnel.engine.client.job.ClientJobProxy;
-import org.apache.seatunnel.engine.client.job.JobExecutionEnvironment;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
@@ -44,12 +44,12 @@ import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -92,14 +92,14 @@ public class TextHeaderIT {
                     try {
                         enableWriteHeader(
                                 t.getFileStyle(), t.getEnableWriteHeader(), t.getHeaderName());
-                    } catch (ExecutionException | InterruptedException e) {
+                    } catch (Exception e) {
                         throw new RuntimeException(e);
                     }
                 });
     }
 
     public void enableWriteHeader(String file_format_type, String headerWrite, String headerContent)
-            throws ExecutionException, InterruptedException {
+            throws Exception {
         String testClusterName = "ClusterFaultToleranceIT_EnableWriteHeaderNode";
         HazelcastInstanceImpl node1 = null;
         SeaTunnelClient engineClient = null;
@@ -130,8 +130,9 @@ public class TextHeaderIT {
             ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
             clientConfig.setClusterName(TestUtils.getClusterName(testClusterName));
             engineClient = new SeaTunnelClient(clientConfig);
-            JobExecutionEnvironment jobExecutionEnv =
-                    engineClient.createExecutionContext(testResources.getRight(), jobConfig);
+            ClientJobExecutionEnvironment jobExecutionEnv =
+                    engineClient.createExecutionContext(
+                            testResources.getRight(), jobConfig, seaTunnelConfig);
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
             CompletableFuture<JobStatus> objectCompletableFuture =
@@ -160,7 +161,7 @@ public class TextHeaderIT {
             log.info("========================clean test resource====================");
         } finally {
             if (engineClient != null) {
-                engineClient.shutdown();
+                engineClient.close();
             }
             if (node1 != null) {
                 node1.shutdown();
@@ -169,7 +170,7 @@ public class TextHeaderIT {
     }
 
     private ImmutablePair<String, String> createTestResources(
-            @NonNull String headerWrite, @NonNull String formatType) {
+            @NonNull String headerWrite, @NonNull String formatType) throws IOException {
         Map<String, String> valueMap = new HashMap<>();
         valueMap.put(ENABLE_HEADER_WRITE, headerWrite);
         valueMap.put(FILE_FORMAT_TYPE, formatType);

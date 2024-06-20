@@ -35,6 +35,26 @@ network:
 
 ## API reference
 
+### Returns an overview over the Zeta engine cluster.
+
+#### Parameters
+
+#### Responses
+
+```json
+{
+    "projectVersion":"2.3.5-SNAPSHOT",
+    "gitCommitAbbrev":"DeadD0d0",
+    "totalSlot":"0",
+    "unassignedSlot":"0",
+    "runningJobs":"0",
+    "finishedJobs":"0",
+    "failedJobs":"0",
+    "cancelledJobs":"0",
+    "works":"1"
+}
+```
+
 ### Returns an overview over all jobs and their current state.
 
 <details>
@@ -77,7 +97,7 @@ network:
 ### Return details of a job.
 
 <details>
- <summary><code>GET</code> <code><b>/hazelcast/rest/maps/running-job/:jobId</b></code> <code>(Return details of a job.)</code></summary>
+ <summary><code>GET</code> <code><b>/hazelcast/rest/maps/job-info/:jobId</b></code> <code>(Return details of a job. )</code></summary>
 
 #### Parameters
 
@@ -92,8 +112,6 @@ network:
   "jobId": "",
   "jobName": "",
   "jobStatus": "",
-  "envOptions": {
-  },
   "createTime": "",
   "jobDag": {
     "vertices": [
@@ -101,14 +119,119 @@ network:
     "edges": [
     ]
   },
-  "pluginJarsUrls": [
-  ],
-  "isStartWithSavePoint": false,
   "metrics": {
     "sourceReceivedCount": "",
     "sinkWriteCount": ""
-  }
+  },
+  "finishedTime": "",
+  "errorMsg": null,
+  "envOptions": {
+  },
+  "pluginJarsUrls": [
+  ],
+  "isStartWithSavePoint": false
 }
+```
+
+`jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` always be returned.
+`envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` will return when job is running.
+`finishedTime`, `errorMsg` will return when job is finished.
+
+When we can't get the job info, the response will be:
+
+```json
+{
+  "jobId" : ""
+}
+```
+
+</details>
+
+------------------------------------------------------------------------------------------
+
+### Return details of a job.
+
+This API has been deprecated, please use /hazelcast/rest/maps/job-info/:jobId instead
+
+<details>
+ <summary><code>GET</code> <code><b>/hazelcast/rest/maps/running-job/:jobId</b></code> <code>(Return details of a job. )</code></summary>
+
+#### Parameters
+
+> | name  |   type   | data type | description |
+> |-------|----------|-----------|-------------|
+> | jobId | required | long      | job id      |
+
+#### Responses
+
+```json
+{
+  "jobId": "",
+  "jobName": "",
+  "jobStatus": "",
+  "createTime": "",
+  "jobDag": {
+    "vertices": [
+    ],
+    "edges": [
+    ]
+  },
+  "metrics": {
+    "sourceReceivedCount": "",
+    "sinkWriteCount": ""
+  },
+  "finishedTime": "",
+  "errorMsg": null,
+  "envOptions": {
+  },
+  "pluginJarsUrls": [
+  ],
+  "isStartWithSavePoint": false
+}
+```
+
+`jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` always be returned.
+`envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` will return when job is running.
+`finishedTime`, `errorMsg` will return when job is finished.
+
+When we can't get the job info, the response will be:
+
+```json
+{
+  "jobId" : ""
+}
+```
+
+</details>
+
+------------------------------------------------------------------------------------------
+
+### Return all finished Jobs Info.
+
+<details>
+ <summary><code>GET</code> <code><b>/hazelcast/rest/maps/finished-jobs/:state</b></code> <code>(Return all finished Jobs Info.)</code></summary>
+
+#### Parameters
+
+> | name  |   type   | data type |                           description                            |
+> |-------|----------|-----------|------------------------------------------------------------------|
+> | state | optional | string    | finished job status. `FINISHED`,`CANCELED`,`FAILED`,`UNKNOWABLE` |
+
+#### Responses
+
+```json
+[
+  {
+    "jobId": "",
+    "jobName": "",
+    "jobStatus": "",
+    "errorMsg": null,
+    "createTime": "",
+    "finishTime": "",
+    "jobDag": "",
+    "metrics": ""
+  }
+]
 ```
 
 </details>
@@ -257,6 +380,95 @@ network:
 ```json
 {
 "jobId": 733584788375666689
+}
+```
+
+</details>
+
+------------------------------------------------------------------------------------------
+
+### Encrypt Config.
+
+<details>
+<summary><code>POST</code> <code><b>/hazelcast/rest/maps/encrypt-config</b></code> <code>(Returns the encrypted config if config is encrypted successfully.)</code></summary>
+For more information about customize encryption, please refer to the documentation [config-encryption-decryption](../connector-v2/Config-Encryption-Decryption.md).
+
+#### Body
+
+```json
+{
+    "env": {
+        "parallelism": 1,
+        "shade.identifier":"base64"
+    },
+    "source": [
+        {
+            "plugin_name": "MySQL-CDC",
+            "schema" : {
+                "fields": {
+                    "name": "string",
+                    "age": "int"
+                }
+            },
+            "result_table_name": "fake",
+            "parallelism": 1,
+            "hostname": "127.0.0.1",
+            "username": "seatunnel",
+            "password": "seatunnel_password",
+            "table-name": "inventory_vwyw0n"
+        }
+    ],
+    "transform": [
+    ],
+    "sink": [
+        {
+            "plugin_name": "Clickhouse",
+            "host": "localhost:8123",
+            "database": "default",
+            "table": "fake_all",
+            "username": "seatunnel",
+            "password": "seatunnel_password"
+        }
+    ]
+}
+```
+
+#### Responses
+
+```json
+{
+    "env": {
+        "parallelism": 1,
+        "shade.identifier": "base64"
+    },
+    "source": [
+        {
+            "plugin_name": "MySQL-CDC",
+            "schema": {
+                "fields": {
+                    "name": "string",
+                    "age": "int"
+                }
+            },
+            "result_table_name": "fake",
+            "parallelism": 1,
+            "hostname": "127.0.0.1",
+            "username": "c2VhdHVubmVs",
+            "password": "c2VhdHVubmVsX3Bhc3N3b3Jk",
+            "table-name": "inventory_vwyw0n"
+        }
+    ],
+    "transform": [],
+    "sink": [
+        {
+            "plugin_name": "Clickhouse",
+            "host": "localhost:8123",
+            "database": "default",
+            "table": "fake_all",
+            "username": "c2VhdHVubmVs",
+            "password": "c2VhdHVubmVsX3Bhc3N3b3Jk"
+        }
+    ]
 }
 ```
 

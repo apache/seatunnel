@@ -66,6 +66,10 @@ public abstract class AbstractTestContainer implements TestContainer {
 
     protected abstract String getConnectorType();
 
+    protected abstract String getSavePointCommand();
+
+    protected abstract String getRestoreCommand();
+
     protected abstract String getConnectorNamePrefix();
 
     protected abstract List<String> getExtraStartShellCommands();
@@ -91,6 +95,12 @@ public abstract class AbstractTestContainer implements TestContainer {
 
     protected Container.ExecResult executeJob(GenericContainer<?> container, String confFile)
             throws IOException, InterruptedException {
+        return executeJob(container, confFile, null);
+    }
+
+    protected Container.ExecResult executeJob(
+            GenericContainer<?> container, String confFile, List<String> variables)
+            throws IOException, InterruptedException {
         final String confInContainerPath = copyConfigFileToContainer(container, confFile);
         // copy connectors
         copyConnectorJarToContainer(
@@ -100,59 +110,104 @@ public abstract class AbstractTestContainer implements TestContainer {
                 getConnectorNamePrefix(),
                 getConnectorType(),
                 SEATUNNEL_HOME);
-        return executeCommand(container, confInContainerPath);
-    }
-
-    protected Container.ExecResult executeCommand(GenericContainer<?> container, String configPath)
-            throws IOException, InterruptedException {
         final List<String> command = new ArrayList<>();
         String binPath = Paths.get(SEATUNNEL_HOME, "bin", getStartShellName()).toString();
         // base command
         command.add(adaptPathForWin(binPath));
         command.add("--config");
-        command.add(adaptPathForWin(configPath));
-        command.addAll(getExtraStartShellCommands());
+        command.add(adaptPathForWin(confInContainerPath));
+        command.add("--name");
+        command.add(new File(confInContainerPath).getName());
+        List<String> extraStartShellCommands = new ArrayList<>(getExtraStartShellCommands());
+        if (variables != null && !variables.isEmpty()) {
+            variables.forEach(
+                    v -> {
+                        extraStartShellCommands.add("-i");
+                        extraStartShellCommands.add(v);
+                    });
+        }
+        command.addAll(extraStartShellCommands);
+        return executeCommand(container, command);
+    }
 
+    protected Container.ExecResult savepointJob(GenericContainer<?> container, String jobId)
+            throws IOException, InterruptedException {
+        final List<String> command = new ArrayList<>();
+        String binPath = Paths.get(SEATUNNEL_HOME, "bin", getStartShellName()).toString();
+        // base command
+        command.add(adaptPathForWin(binPath));
+        command.add(getSavePointCommand());
+        command.add(jobId);
+        command.addAll(getExtraStartShellCommands());
+        return executeCommand(container, command);
+    }
+
+    protected Container.ExecResult restoreJob(
+            GenericContainer<?> container, String confFile, String jobId)
+            throws IOException, InterruptedException {
+        final String confInContainerPath = copyConfigFileToContainer(container, confFile);
+        // copy connectors
+        copyConnectorJarToContainer(
+                container,
+                confFile,
+                getConnectorModulePath(),
+                getConnectorNamePrefix(),
+                getConnectorType(),
+                SEATUNNEL_HOME);
+        final List<String> command = new ArrayList<>();
+        String binPath = Paths.get(SEATUNNEL_HOME, "bin", getStartShellName()).toString();
+        // base command
+        command.add(adaptPathForWin(binPath));
+        command.add("--config");
+        command.add(adaptPathForWin(confInContainerPath));
+        command.add(getRestoreCommand());
+        command.add(jobId);
+        command.addAll(getExtraStartShellCommands());
+        return executeCommand(container, command);
+    }
+
+    protected Container.ExecResult executeCommand(
+            GenericContainer<?> container, List<String> command)
+            throws IOException, InterruptedException {
+        String commandStr = String.join(" ", command);
         LOG.info(
-                "Execute config file: {} to Container[{}] "
+                "Execute command in container[{}] "
                         + "\n==================== Shell Command start ====================\n"
                         + "{}"
                         + "\n==================== Shell Command end   ====================",
-                configPath,
                 container.getDockerImageName(),
-                String.join(" ", command));
-        Container.ExecResult execResult =
-                container.execInContainer("bash", "-c", String.join(" ", command));
+                commandStr);
+        Container.ExecResult execResult = container.execInContainer("bash", "-c", commandStr);
 
-        if (execResult.getStdout() != null && execResult.getStdout().length() > 0) {
+        if (execResult.getStdout() != null && !execResult.getStdout().isEmpty()) {
             LOG.info(
-                    "Execute config file: {} to Container[{}] STDOUT:"
+                    "Container[{}] command {} STDOUT:"
                             + "\n==================== STDOUT start ====================\n"
                             + "{}"
                             + "\n==================== STDOUT end   ====================",
-                    configPath,
                     container.getDockerImageName(),
+                    commandStr,
                     execResult.getStdout());
         }
-        if (execResult.getStderr() != null && execResult.getStderr().length() > 0) {
+        if (execResult.getStderr() != null && !execResult.getStderr().isEmpty()) {
             LOG.error(
-                    "Execute config file: {} to Container[{}] STDERR:"
+                    "Container[{}] command {} STDERR:"
                             + "\n==================== STDERR start ====================\n"
                             + "{}"
                             + "\n==================== STDERR end   ====================",
-                    configPath,
                     container.getDockerImageName(),
+                    commandStr,
                     execResult.getStderr());
         }
 
         if (execResult.getExitCode() != 0) {
             LOG.info(
-                    "Execute config file: {} to Container[{}] Server Log:"
+                    "Container[{}] command {} Server Log:"
                             + "\n==================== Server Log start ====================\n"
                             + "{}"
                             + "\n==================== Server Log end   ====================",
-                    configPath,
                     container.getDockerImageName(),
+                    commandStr,
                     container.getLogs());
         }
 

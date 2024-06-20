@@ -107,7 +107,7 @@ public class ShuffleSourceFlowLifeCycle<T> extends AbstractFlowLifeCycle
 
                     // publish barrier
                     if (alignedBarriersCounter == shuffles.length) {
-                        if (barrier.prepareClose()) {
+                        if (barrier.prepareClose(runningTask.getTaskLocation())) {
                             prepareClose = true;
                         }
                         if (barrier.snapshot()) {

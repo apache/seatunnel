@@ -28,7 +28,9 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 
 import org.junit.jupiter.api.AfterAll;
@@ -98,6 +100,13 @@ public class RedisIT extends TestSuiteBase implements TestResource {
         for (int i = 0; i < rows.size(); i++) {
             jedis.set("key_test" + i, new String(jsonSerializationSchema.serialize(rows.get(i))));
         }
+        // db_1 init data
+        jedis.select(1);
+        for (int i = 0; i < rows.size(); i++) {
+            jedis.set("key_test" + i, new String(jsonSerializationSchema.serialize(rows.get(i))));
+        }
+        // db_num backup
+        jedis.select(0);
     }
 
     private static Pair<SeaTunnelRowType, List<SeaTunnelRow>> generateTestDataSet() {
@@ -202,5 +211,31 @@ public class RedisIT extends TestSuiteBase implements TestResource {
         // Clear data to prevent data duplication in the next TestContainer
         Thread.sleep(60 * 1000);
         Assertions.assertEquals(0, jedis.llen("key_list"));
+    }
+
+    @TestTemplate
+    public void testRedisDbNum(TestContainer container) throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeJob("/redis-to-redis-by-db-num.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        jedis.select(2);
+        Assertions.assertEquals(100, jedis.llen("db_test"));
+        jedis.del("db_test");
+        jedis.select(0);
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "Currently SPARK/FLINK do not support multiple table read")
+    public void testMultipletableRedisSink(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/fake-to-multipletableredissink.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        jedis.select(3);
+        Assertions.assertEquals(2, jedis.llen("key_multi_list"));
+        jedis.del("key_multi_list");
+        jedis.select(0);
     }
 }

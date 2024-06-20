@@ -19,21 +19,31 @@ package org.apache.seatunnel.engine.server.rest;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.env.EnvCommonOptions;
 import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.core.starter.utils.ConfigShadeUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
-import org.apache.seatunnel.engine.server.job.JobImmutableInformationEnv;
 import org.apache.seatunnel.engine.server.log.Log4j2HttpPostCommandProcessor;
+import org.apache.seatunnel.engine.server.operation.CancelJobOperation;
+import org.apache.seatunnel.engine.server.operation.SavePointJobOperation;
+import org.apache.seatunnel.engine.server.operation.SubmitJobOperation;
+import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 import org.apache.seatunnel.engine.server.utils.RestUtil;
+
+import org.apache.commons.lang.StringUtils;
 
 import com.hazelcast.internal.ascii.TextCommandService;
 import com.hazelcast.internal.ascii.rest.HttpCommandProcessor;
 import com.hazelcast.internal.ascii.rest.HttpPostCommand;
+import com.hazelcast.internal.json.Json;
 import com.hazelcast.internal.json.JsonObject;
 import com.hazelcast.internal.serialization.Data;
 
@@ -43,10 +53,12 @@ import java.util.Map;
 
 import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_400;
 import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_500;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.ENCRYPT_CONFIG;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.STOP_JOB_URL;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.SUBMIT_JOB_URL;
 
 public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostCommand> {
+
     private final Log4j2HttpPostCommandProcessor original;
 
     public RestHttpPostCommandProcessor(TextCommandService textCommandService) {
@@ -70,6 +82,8 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
                 handleSubmitJob(httpPostCommand, uri);
             } else if (uri.startsWith(STOP_JOB_URL)) {
                 handleStopJob(httpPostCommand, uri);
+            } else if (uri.startsWith(ENCRYPT_CONFIG)) {
+                handleEncrypt(httpPostCommand);
             } else {
                 original.handle(httpPostCommand);
             }
@@ -93,36 +107,50 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
             throws IllegalArgumentException {
         Map<String, String> requestParams = new HashMap<>();
         RestUtil.buildRequestParams(requestParams, uri);
-        Config config = RestUtil.buildConfig(requestHandle(httpPostCommand));
+        Config config = RestUtil.buildConfig(requestHandle(httpPostCommand), false);
+        ReadonlyConfig envOptions = ReadonlyConfig.fromConfig(config.getConfig("env"));
+        String jobName = envOptions.get(EnvCommonOptions.JOB_NAME);
+
         JobConfig jobConfig = new JobConfig();
-        jobConfig.setName(requestParams.get(RestConstant.JOB_NAME));
-        JobImmutableInformationEnv jobImmutableInformationEnv =
-                new JobImmutableInformationEnv(
+        jobConfig.setName(
+                StringUtils.isEmpty(requestParams.get(RestConstant.JOB_NAME))
+                        ? jobName
+                        : requestParams.get(RestConstant.JOB_NAME));
+
+        boolean startWithSavePoint =
+                Boolean.parseBoolean(requestParams.get(RestConstant.IS_START_WITH_SAVE_POINT));
+        SeaTunnelServer seaTunnelServer = getSeaTunnelServer();
+        RestJobExecutionEnvironment restJobExecutionEnvironment =
+                new RestJobExecutionEnvironment(
+                        seaTunnelServer,
                         jobConfig,
                         config,
                         textCommandService.getNode(),
-                        Boolean.parseBoolean(
-                                requestParams.get(RestConstant.IS_START_WITH_SAVE_POINT)),
-                        Long.parseLong(requestParams.get(RestConstant.JOB_ID)));
-        JobImmutableInformation jobImmutableInformation = jobImmutableInformationEnv.build();
-        CoordinatorService coordinatorService = getSeaTunnelServer().getCoordinatorService();
-        Data data =
-                textCommandService
-                        .getNode()
-                        .nodeEngine
-                        .getSerializationService()
-                        .toData(jobImmutableInformation);
-        PassiveCompletableFuture<Void> voidPassiveCompletableFuture =
-                coordinatorService.submitJob(
-                        Long.parseLong(jobConfig.getJobContext().getJobId()), data);
-        voidPassiveCompletableFuture.join();
+                        startWithSavePoint,
+                        startWithSavePoint
+                                ? Long.parseLong(requestParams.get(RestConstant.JOB_ID))
+                                : null);
+        JobImmutableInformation jobImmutableInformation = restJobExecutionEnvironment.build();
+        Long jobId = jobImmutableInformation.getJobId();
+        if (!seaTunnelServer.isMasterNode()) {
 
-        Long jobId = jobImmutableInformationEnv.getJobId();
+            NodeEngineUtil.sendOperationToMasterNode(
+                            getNode().nodeEngine,
+                            new SubmitJobOperation(
+                                    jobImmutableInformation.getJobId(),
+                                    getNode().nodeEngine.toData(jobImmutableInformation)))
+                    .join();
+
+        } else {
+
+            submitJob(seaTunnelServer, jobImmutableInformation, jobConfig);
+        }
+
         this.prepareResponse(
                 httpPostCommand,
                 new JsonObject()
                         .add(RestConstant.JOB_ID, jobId)
-                        .add(RestConstant.JOB_NAME, requestParams.get(RestConstant.JOB_NAME)));
+                        .add(RestConstant.JOB_NAME, jobConfig.getName()));
     }
 
     private void handleStopJob(HttpPostCommand httpPostCommand, String uri) {
@@ -137,17 +165,40 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
                     Boolean.parseBoolean(map.get(RestConstant.IS_STOP_WITH_SAVE_POINT).toString());
         }
 
-        CoordinatorService coordinatorService = getSeaTunnelServer().getCoordinatorService();
+        SeaTunnelServer seaTunnelServer = getSeaTunnelServer();
+        if (!seaTunnelServer.isMasterNode()) {
+            if (isStopWithSavePoint) {
+                NodeEngineUtil.sendOperationToMasterNode(
+                                getNode().nodeEngine, new SavePointJobOperation(jobId))
+                        .join();
+            } else {
+                NodeEngineUtil.sendOperationToMasterNode(
+                                getNode().nodeEngine, new CancelJobOperation(jobId))
+                        .join();
+            }
 
-        if (isStopWithSavePoint) {
-            coordinatorService.savePoint(jobId);
         } else {
-            coordinatorService.cancelJob(jobId);
+            CoordinatorService coordinatorService = seaTunnelServer.getCoordinatorService();
+
+            if (isStopWithSavePoint) {
+                coordinatorService.savePoint(jobId);
+            } else {
+                coordinatorService.cancelJob(jobId);
+            }
         }
 
         this.prepareResponse(
                 httpPostCommand,
                 new JsonObject().add(RestConstant.JOB_ID, map.get(RestConstant.JOB_ID).toString()));
+    }
+
+    private void handleEncrypt(HttpPostCommand httpPostCommand) {
+        Config config = RestUtil.buildConfig(requestHandle(httpPostCommand), true);
+        Config encryptConfig = ConfigShadeUtils.encryptConfig(config);
+        String encryptString =
+                encryptConfig.root().render(ConfigRenderOptions.concise().setJson(true));
+        JsonObject jsonObject = Json.parse(encryptString).asObject();
+        this.prepareResponse(httpPostCommand, jsonObject);
     }
 
     @Override
@@ -167,5 +218,22 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
             throw new IllegalArgumentException("Invalid JSON format in request body.");
         }
         return requestBodyJsonNode;
+    }
+
+    private void submitJob(
+            SeaTunnelServer seaTunnelServer,
+            JobImmutableInformation jobImmutableInformation,
+            JobConfig jobConfig) {
+        CoordinatorService coordinatorService = seaTunnelServer.getCoordinatorService();
+        Data data =
+                textCommandService
+                        .getNode()
+                        .nodeEngine
+                        .getSerializationService()
+                        .toData(jobImmutableInformation);
+        PassiveCompletableFuture<Void> voidPassiveCompletableFuture =
+                coordinatorService.submitJob(
+                        Long.parseLong(jobConfig.getJobContext().getJobId()), data);
+        voidPassiveCompletableFuture.join();
     }
 }

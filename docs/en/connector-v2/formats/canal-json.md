@@ -15,14 +15,14 @@ SeaTunnel also supports to encode the INSERT/UPDATE/DELETE messages in SeaTunnel
 
 # Format Options
 
-|             option             | default | required |                                                                                                Description                                                                                                 |
+|             Option             | Default | Required |                                                                                                Description                                                                                                 |
 |--------------------------------|---------|----------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | format                         | (none)  | yes      | Specify what format to use, here should be 'canal_json'.                                                                                                                                                   |
 | canal_json.ignore-parse-errors | false   | no       | Skip fields and rows with parse errors instead of failing. Fields are set to null in case of errors.                                                                                                       |
 | canal_json.database.include    | (none)  | no       | An optional regular expression to only read the specific databases changelog rows by regular matching the "database" meta field in the Canal record. The pattern string is compatible with Java's Pattern. |
 | canal_json.table.include       | (none)  | no       | An optional regular expression to only read the specific tables changelog rows by regular matching the "table" meta field in the Canal record. The pattern string is compatible with Java's Pattern.       |
 
-# How to use Canal format
+# How to use
 
 ## Kafka uses example
 
@@ -69,15 +69,15 @@ Canal provides a unified format for changelog, here is a simple example for an u
 }
 ```
 
-Note: please refer to Canal documentation about the meaning of each fields.
+Note: please refer to [Canal documentation](https://github.com/alibaba/canal/wiki) about the meaning of each fields.
 
 The MySQL products table has 4 columns (id, name, description and weight).
-The above JSON message is an update change event on the products table where the weight value of the row with id = 111 is changed from 5.18 to 5.15.
+The above JSON message is an update change event on the products table where the weight value of the row with id = 111 is changed from 5.15 to 5.18.
 Assuming the messages have been synchronized to Kafka topic products_binlog, then we can use the following SeaTunnel to consume this topic and interpret the change events.
 
 ```bash
 env {
-    execution.parallelism = 1
+    parallelism = 1
     job.mode = "BATCH"
 }
 

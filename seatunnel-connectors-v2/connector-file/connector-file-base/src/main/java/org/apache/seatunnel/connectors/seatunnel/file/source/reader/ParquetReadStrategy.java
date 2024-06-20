@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -28,8 +29,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
+import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
@@ -37,9 +38,8 @@ import org.apache.avro.Conversions;
 import org.apache.avro.data.TimeConversions;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecord;
-import org.apache.hadoop.conf.Configuration;
+import org.apache.avro.util.Utf8;
 import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.parquet.avro.AvroParquetReader;
 import org.apache.parquet.example.data.simple.NanoTime;
@@ -69,6 +69,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.IntStream;
 
 @Slf4j
 public class ParquetReadStrategy extends AbstractReadStrategy {
@@ -77,11 +78,12 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
     private static final long NANOS_PER_MILLISECOND = 1000000;
     private static final long MILLIS_PER_DAY = TimeUnit.DAYS.toMillis(1L);
     private static final long JULIAN_DAY_NUMBER_FOR_UNIX_EPOCH = 2440588;
+    private static final String PARQUET = "Parquet";
 
     private int[] indexes;
 
     @Override
-    public void read(String path, Collector<SeaTunnelRow> output)
+    public void read(String path, String tableId, Collector<SeaTunnelRow> output)
             throws FileConnectorException, IOException {
         if (Boolean.FALSE.equals(checkFileType(path))) {
             String errorMsg =
@@ -92,7 +94,10 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
         }
         Path filePath = new Path(path);
         Map<String, String> partitionsMap = parsePartitionsByPath(path);
-        HadoopInputFile hadoopInputFile = HadoopInputFile.fromPath(filePath, getConfiguration());
+        HadoopInputFile hadoopInputFile =
+                hadoopFileSystemProxy.doWithHadoopAuth(
+                        (configuration, userGroupInformation) ->
+                                HadoopInputFile.fromPath(filePath, configuration));
         int fieldsCount = seaTunnelRowType.getTotalFields();
         GenericData dataModel = new GenericData();
         dataModel.addLogicalTypeConversion(new Conversions.DecimalConversion());
@@ -119,6 +124,7 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                     fields[i] = resolveObject(data, seaTunnelRowType.getFieldType(i));
                 }
                 SeaTunnelRow seaTunnelRow = new SeaTunnelRow(fields);
+                seaTunnelRow.setTableId(tableId);
                 output.collect(seaTunnelRow);
             }
         }
@@ -131,7 +137,16 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
         switch (fieldType.getSqlType()) {
             case ARRAY:
                 ArrayList<Object> origArray = new ArrayList<>();
-                ((GenericData.Array<?>) field).iterator().forEachRemaining(origArray::add);
+                ((GenericData.Array<?>) field)
+                        .iterator()
+                        .forEachRemaining(
+                                ele -> {
+                                    if (ele instanceof Utf8) {
+                                        origArray.add(ele.toString());
+                                    } else {
+                                        origArray.add(ele);
+                                    }
+                                });
                 SeaTunnelDataType<?> elementType = ((ArrayType<?, ?>) fieldType).getElementType();
                 switch (elementType.getSqlType()) {
                     case STRING:
@@ -156,7 +171,7 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                                         "SeaTunnel array type not support this type [%s] now",
                                         fieldType.getSqlType());
                         throw new FileConnectorException(
-                                CommonErrorCode.UNSUPPORTED_DATA_TYPE, errorMsg);
+                                CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE, errorMsg);
                 }
             case MAP:
                 HashMap<Object, Object> dataMap = new HashMap<>();
@@ -203,7 +218,7 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                     return new Timestamp(timestamp).toLocalDateTime();
                 }
                 Instant instant = Instant.ofEpochMilli((long) field);
-                return LocalDateTime.ofInstant(instant, ZoneId.of("+8"));
+                return LocalDateTime.ofInstant(instant, ZoneId.systemDefault());
             case ROW:
                 SeaTunnelRowType rowType = (SeaTunnelRowType) fieldType;
                 Object[] objects = new Object[rowType.getTotalFields()];
@@ -216,26 +231,33 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                 // do nothing
                 // never got in there
                 throw new FileConnectorException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                         "SeaTunnel not support this data type now");
         }
     }
 
     @Override
-    public SeaTunnelRowType getSeaTunnelRowTypeInfo(HadoopConf hadoopConf, String path)
+    public SeaTunnelRowType getSeaTunnelRowTypeInfo(String path) throws FileConnectorException {
+        return getSeaTunnelRowTypeInfo(TablePath.DEFAULT, path);
+    }
+
+    @Override
+    public SeaTunnelRowType getSeaTunnelRowTypeInfo(TablePath tablePath, String path)
             throws FileConnectorException {
-        Path filePath = new Path(path);
         ParquetMetadata metadata;
-        try {
-            HadoopInputFile hadoopInputFile =
-                    HadoopInputFile.fromPath(filePath, getConfiguration(hadoopConf));
-            ParquetFileReader reader = ParquetFileReader.open(hadoopInputFile);
+        try (ParquetFileReader reader =
+                hadoopFileSystemProxy.doWithHadoopAuth(
+                        ((configuration, userGroupInformation) -> {
+                            HadoopInputFile hadoopInputFile =
+                                    HadoopInputFile.fromPath(new Path(path), configuration);
+                            return ParquetFileReader.open(hadoopInputFile);
+                        }))) {
             metadata = reader.getFooter();
-            reader.close();
         } catch (IOException e) {
             String errorMsg =
                     String.format("Create parquet reader for this file [%s] failed", path);
-            throw new FileConnectorException(CommonErrorCode.READER_OPERATION_FAILED, errorMsg, e);
+            throw new FileConnectorException(
+                    CommonErrorCodeDeprecated.READER_OPERATION_FAILED, errorMsg, e);
         }
         FileMetaData fileMetaData = metadata.getFileMetaData();
         MessageType originalSchema = fileMetaData.getSchema();
@@ -247,19 +269,22 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
         String[] fields = new String[readColumns.size()];
         SeaTunnelDataType<?>[] types = new SeaTunnelDataType[readColumns.size()];
         indexes = new int[readColumns.size()];
-        for (int i = 0; i < readColumns.size(); i++) {
-            fields[i] = readColumns.get(i);
-            Type type = originalSchema.getType(fields[i]);
-            int fieldIndex = originalSchema.getFieldIndex(fields[i]);
-            indexes[i] = fieldIndex;
-            types[i] = parquetType2SeaTunnelType(type);
-        }
+        buildColumnsWithErrorCheck(
+                tablePath,
+                IntStream.range(0, readColumns.size()).iterator(),
+                i -> {
+                    fields[i] = readColumns.get(i);
+                    Type type = originalSchema.getType(fields[i]);
+                    int fieldIndex = originalSchema.getFieldIndex(fields[i]);
+                    indexes[i] = fieldIndex;
+                    types[i] = parquetType2SeaTunnelType(type, fields[i]);
+                });
         seaTunnelRowType = new SeaTunnelRowType(fields, types);
         seaTunnelRowTypeWithPartition = mergePartitionTypes(path, seaTunnelRowType);
         return getActualSeaTunnelRowTypeInfo();
     }
 
-    private SeaTunnelDataType<?> parquetType2SeaTunnelType(Type type) {
+    private SeaTunnelDataType<?> parquetType2SeaTunnelType(Type type, String name) {
         if (type.isPrimitive()) {
             switch (type.asPrimitiveType().getPrimitiveTypeName()) {
                 case INT32:
@@ -275,9 +300,8 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                         case DATE:
                             return LocalTimeType.LOCAL_DATE_TYPE;
                         default:
-                            String errorMsg = String.format("Not support this type [%s]", type);
-                            throw new FileConnectorException(
-                                    CommonErrorCode.UNSUPPORTED_DATA_TYPE, errorMsg);
+                            throw CommonError.convertToSeaTunnelTypeError(
+                                    PARQUET, type.toString(), name);
                     }
                 case INT64:
                     if (type.asPrimitiveType().getOriginalType() == OriginalType.TIMESTAMP_MILLIS) {
@@ -312,9 +336,7 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                     int scale = Integer.parseInt(splits[1]);
                     return new DecimalType(precision, scale);
                 default:
-                    String errorMsg = String.format("Not support this type [%s]", type);
-                    throw new FileConnectorException(
-                            CommonErrorCode.UNSUPPORTED_DATA_TYPE, errorMsg);
+                    throw CommonError.convertToSeaTunnelTypeError("Parquet", type.toString(), name);
             }
         } else {
             LogicalTypeAnnotation logicalTypeAnnotation =
@@ -327,7 +349,7 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                 for (int i = 0; i < fields.size(); i++) {
                     Type fieldType = fields.get(i);
                     SeaTunnelDataType<?> seaTunnelDataType =
-                            parquetType2SeaTunnelType(fields.get(i));
+                            parquetType2SeaTunnelType(fields.get(i), name);
                     fieldNames[i] = fieldType.getName();
                     seaTunnelDataTypes[i] = seaTunnelDataType;
                 }
@@ -337,9 +359,9 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                     case MAP:
                         GroupType groupType = type.asGroupType().getType(0).asGroupType();
                         SeaTunnelDataType<?> keyType =
-                                parquetType2SeaTunnelType(groupType.getType(0));
+                                parquetType2SeaTunnelType(groupType.getType(0), name);
                         SeaTunnelDataType<?> valueType =
-                                parquetType2SeaTunnelType(groupType.getType(1));
+                                parquetType2SeaTunnelType(groupType.getType(1), name);
                         return new MapType<>(keyType, valueType);
                     case LIST:
                         Type elementType;
@@ -348,7 +370,8 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                         } catch (Exception e) {
                             elementType = type.asGroupType().getType(0);
                         }
-                        SeaTunnelDataType<?> fieldType = parquetType2SeaTunnelType(elementType);
+                        SeaTunnelDataType<?> fieldType =
+                                parquetType2SeaTunnelType(elementType, name);
                         switch (fieldType.getSqlType()) {
                             case STRING:
                                 return ArrayType.STRING_ARRAY_TYPE;
@@ -367,17 +390,12 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                             case DOUBLE:
                                 return ArrayType.DOUBLE_ARRAY_TYPE;
                             default:
-                                String errorMsg =
-                                        String.format(
-                                                "SeaTunnel array type not supported this genericType [%s] yet",
-                                                fieldType);
-                                throw new FileConnectorException(
-                                        CommonErrorCode.UNSUPPORTED_DATA_TYPE, errorMsg);
+                                throw CommonError.convertToSeaTunnelTypeError(
+                                        PARQUET, type.toString(), name);
                         }
                     default:
-                        throw new FileConnectorException(
-                                CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                                "SeaTunnel file connector not support this nest type");
+                        throw CommonError.convertToSeaTunnelTypeError(
+                                PARQUET, type.toString(), name);
                 }
             }
         }
@@ -388,10 +406,7 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
         boolean checkResult;
         byte[] magic = new byte[PARQUET_MAGIC.length];
         try {
-            Configuration configuration = getConfiguration();
-            FileSystem fileSystem = FileSystem.get(configuration);
-            Path filePath = new Path(path);
-            FSDataInputStream in = fileSystem.open(filePath);
+            FSDataInputStream in = hadoopFileSystemProxy.getInputStream(path);
             // try to get header information in a parquet file
             in.seek(0);
             in.readFully(magic);

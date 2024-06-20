@@ -15,14 +15,14 @@ Seatunnel also supports to encode the INSERT/UPDATE/DELETE messages in Seatunnel
 
 # Format Options
 
-|              option               | default | required |                                             Description                                              |
+|              Option               | Default | Required |                                             Description                                              |
 |-----------------------------------|---------|----------|------------------------------------------------------------------------------------------------------|
 | format                            | (none)  | yes      | Specify what format to use, here should be 'debezium_json'.                                          |
 | debezium-json.ignore-parse-errors | false   | no       | Skip fields and rows with parse errors instead of failing. Fields are set to null in case of errors. |
 
-# How to use Debezium format
+# How To Use
 
-## Kafka uses example
+## Kafka Uses example
 
 Debezium provides a unified format for changelog, here is a simple example for an update operation captured from a MySQL products table:
 
@@ -62,15 +62,21 @@ Debezium provides a unified format for changelog, here is a simple example for a
 }
 ```
 
-Note: please refer to Debezium documentation about the meaning of each fields.
+Note: please refer to [Debezium documentation](https://github.com/debezium/debezium/blob/v1.9.8.Final/documentation/modules/ROOT/pages/connectors/mysql.adoc#data-change-events) about the meaning of each fields.
 
 The MySQL products table has 4 columns (id, name, description and weight).
-The above JSON message is an update change event on the products table where the weight value of the row with id = 111 is changed from 5.18 to 5.15.
+The above JSON message is an update change event on the products table where the weight value of the row with id = 111 is changed from 5.18 to 5.17.
 Assuming the messages have been synchronized to Kafka topic products_binlog, then we can use the following Seatunnel conf to consume this topic and interpret the change events by Debezium format.
+
+**In this config, you must specify the `schema` and `debezium_record_include_schema` options **
+- `schema` should same with your table format
+- if your json data contains `schema` field, `debezium_record_include_schema` should be true, and if your json data doesn't contains `schema` field, `debezium_record_include_schema` should be false
+- `{"schema" : {}, "payload": { "before" : {}, "after": {} ... } }` --> `true`
+- `{"before" : {}, "after": {} ... }` --> `false`
 
 ```bash
 env {
-    execution.parallelism = 1
+    parallelism = 1
     job.mode = "BATCH"
 }
 
@@ -88,6 +94,7 @@ source {
            weight = "string"
       }
     }
+    debezium_record_include_schema = false
     format = debezium_json
   }
 

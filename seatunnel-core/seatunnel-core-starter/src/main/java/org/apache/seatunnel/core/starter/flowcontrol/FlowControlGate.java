@@ -21,19 +21,31 @@ import org.apache.seatunnel.shade.com.google.common.util.concurrent.RateLimiter;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
+import java.util.Optional;
+
 public class FlowControlGate {
 
-    private final RateLimiter bytesRateLimiter;
-    private final RateLimiter countRateLimiter;
+    private static final int DEFAULT_VALUE = Integer.MAX_VALUE;
+
+    private final Optional<RateLimiter> bytesRateLimiter;
+    private final Optional<RateLimiter> countRateLimiter;
 
     private FlowControlGate(FlowControlStrategy flowControlStrategy) {
-        this.bytesRateLimiter = RateLimiter.create(flowControlStrategy.getBytesPerSecond());
-        this.countRateLimiter = RateLimiter.create(flowControlStrategy.getCountPreSecond());
+        final int bytesPerSecond = flowControlStrategy.getBytesPerSecond();
+        final int countPerSecond = flowControlStrategy.getCountPerSecond();
+        this.bytesRateLimiter =
+                bytesPerSecond == DEFAULT_VALUE
+                        ? Optional.empty()
+                        : Optional.of(RateLimiter.create(bytesPerSecond));
+        this.countRateLimiter =
+                countPerSecond == DEFAULT_VALUE
+                        ? Optional.empty()
+                        : Optional.of(RateLimiter.create(countPerSecond));
     }
 
     public void audit(SeaTunnelRow row) {
-        bytesRateLimiter.acquire(row.getBytesSize());
-        countRateLimiter.acquire();
+        bytesRateLimiter.ifPresent(rateLimiter -> rateLimiter.acquire(row.getBytesSize()));
+        countRateLimiter.ifPresent(RateLimiter::acquire);
     }
 
     public static FlowControlGate create(FlowControlStrategy flowControlStrategy) {

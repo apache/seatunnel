@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client;
 
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.Shard;
@@ -139,10 +139,15 @@ public class ClickhouseProxy {
         Map<String, String> schema = new LinkedHashMap<>();
         try (ClickHouseResponse response = request.query(sql).executeAndWait()) {
             response.records()
-                    .forEach(r -> schema.put(r.getValue(0).asString(), r.getValue(1).asString()));
+                    .forEach(
+                            r -> {
+                                if (!"MATERIALIZED".equals(r.getValue(2).asString())) {
+                                    schema.put(r.getValue(0).asString(), r.getValue(1).asString());
+                                }
+                            });
         } catch (ClickHouseException e) {
             throw new ClickhouseConnectorException(
-                    CommonErrorCode.TABLE_SCHEMA_GET_FAILED,
+                    CommonErrorCodeDeprecated.TABLE_SCHEMA_GET_FAILED,
                     "Cannot get table schema from clickhouse",
                     e);
         }

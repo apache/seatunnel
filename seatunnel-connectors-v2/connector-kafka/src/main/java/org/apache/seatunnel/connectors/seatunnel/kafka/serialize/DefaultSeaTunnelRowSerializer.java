@@ -21,15 +21,17 @@ import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormat;
 import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorException;
+import org.apache.seatunnel.format.avro.AvroSerializationSchema;
 import org.apache.seatunnel.format.compatible.debezium.json.CompatibleDebeziumJsonDeserializationSchema;
 import org.apache.seatunnel.format.compatible.debezium.json.CompatibleDebeziumJsonSerializationSchema;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 import org.apache.seatunnel.format.json.canal.CanalJsonSerializationSchema;
 import org.apache.seatunnel.format.json.debezium.DebeziumJsonSerializationSchema;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
+import org.apache.seatunnel.format.json.ogg.OggJsonSerializationSchema;
 import org.apache.seatunnel.format.text.TextSerializationSchema;
 
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -136,7 +138,7 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
         List<String> fieldNames = Arrays.asList(rowType.getFieldNames());
         if (!fieldNames.contains(topicField)) {
             throw new KafkaConnectorException(
-                    CommonErrorCode.ILLEGAL_ARGUMENT,
+                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                     String.format("Field name { %s } is not found!", topic));
         }
         int topicFieldIndex = rowType.indexOf(topicField);
@@ -144,7 +146,7 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
             Object topicFieldValue = row.getField(topicFieldIndex);
             if (topicFieldValue == null) {
                 throw new KafkaConnectorException(
-                        CommonErrorCode.ILLEGAL_ARGUMENT, "The column value is empty!");
+                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT, "The column value is empty!");
             }
             return topicFieldValue.toString();
         };
@@ -220,13 +222,18 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
                         .build();
             case CANAL_JSON:
                 return new CanalJsonSerializationSchema(rowType);
+            case OGG_JSON:
+                return new OggJsonSerializationSchema(rowType);
             case DEBEZIUM_JSON:
                 return new DebeziumJsonSerializationSchema(rowType);
             case COMPATIBLE_DEBEZIUM_JSON:
                 return new CompatibleDebeziumJsonSerializationSchema(rowType, isKey);
+            case AVRO:
+                return new AvroSerializationSchema(rowType);
             default:
                 throw new SeaTunnelJsonFormatException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Unsupported format: " + format);
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
+                        "Unsupported format: " + format);
         }
     }
 }

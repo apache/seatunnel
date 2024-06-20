@@ -30,6 +30,7 @@ import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SupportParallelism;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -38,7 +39,7 @@ import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.rocketmq.common.RocketMqBaseConfiguration;
 import org.apache.seatunnel.connectors.seatunnel.rocketmq.common.SchemaFormat;
@@ -76,6 +77,7 @@ public class RocketMqSource
     private final ConsumerMetadata metadata = new ConsumerMetadata();
     private JobContext jobContext;
     private SeaTunnelRowType typeInfo;
+    private CatalogTable catalogTable;
     private DeserializationSchema<SeaTunnelRow> deserializationSchema;
     private long discoveryIntervalMillis =
             ConsumerConfig.KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS.defaultValue();
@@ -215,6 +217,8 @@ public class RocketMqSource
             this.discoveryIntervalMillis =
                     config.getLong(ConsumerConfig.KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS.key());
         }
+        this.catalogTable = CatalogTableUtil.buildWithConfig(config);
+        this.typeInfo = catalogTable.getSeaTunnelRowType();
 
         // set deserialization
         setDeserialization(config);
@@ -252,14 +256,14 @@ public class RocketMqSource
 
     private void setDeserialization(Config config) {
         if (config.hasPath(ConsumerConfig.SCHEMA.key())) {
-            typeInfo = CatalogTableUtil.buildWithConfig(config).getSeaTunnelRowType();
             SchemaFormat format = SchemaFormat.JSON;
             if (config.hasPath(FORMAT.key())) {
                 format = SchemaFormat.find(config.getString(FORMAT.key()));
             }
             switch (format) {
                 case JSON:
-                    deserializationSchema = new JsonDeserializationSchema(false, false, typeInfo);
+                    deserializationSchema =
+                            new JsonDeserializationSchema(catalogTable, false, false);
                     break;
                 case TEXT:
                     String delimiter = DEFAULT_FIELD_DELIMITER;
@@ -274,7 +278,8 @@ public class RocketMqSource
                     break;
                 default:
                     throw new SeaTunnelJsonFormatException(
-                            CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Unsupported format: " + format);
+                            CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
+                            "Unsupported format: " + format);
             }
         } else {
             typeInfo = CatalogTableUtil.buildSimpleTextSchema();

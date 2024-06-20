@@ -21,13 +21,12 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
-import org.apache.seatunnel.api.table.catalog.CatalogOptions;
-import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.FactoryUtil;
 import org.apache.seatunnel.engine.common.exception.JobDefineCheckException;
 
 import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.StringUtils;
 
 import lombok.extern.slf4j.Slf4j;
 import scala.Tuple2;
@@ -38,14 +37,12 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 
-import static org.apache.seatunnel.api.common.CommonOptions.FACTORY_ID;
 import static org.apache.seatunnel.api.common.CommonOptions.PLUGIN_NAME;
 import static org.apache.seatunnel.api.common.CommonOptions.RESULT_TABLE_NAME;
 import static org.apache.seatunnel.api.common.CommonOptions.SOURCE_TABLE_NAME;
-import static org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParser.DEFAULT_ID;
+import static org.apache.seatunnel.api.table.factory.FactoryUtil.DEFAULT_ID;
 
 @Slf4j
 public final class ConfigParserUtil {
@@ -61,20 +58,7 @@ public final class ConfigParserUtil {
                 FactoryUtil.getFactoryUrl(
                         FactoryUtil.discoverFactory(classLoader, factoryClass, factoryId));
         factoryUrls.add(factoryUrl);
-        getCatalogFactoryUrl(readonlyConfig, classLoader).ifPresent(factoryUrls::add);
         return factoryUrls;
-    }
-
-    private static Optional<URL> getCatalogFactoryUrl(
-            ReadonlyConfig readonlyConfig, ClassLoader classLoader) {
-        Map<String, String> catalogOptions =
-                readonlyConfig.getOptional(CatalogOptions.CATALOG_OPTIONS).orElse(new HashMap<>());
-        // TODO: fallback key
-        String factoryId =
-                catalogOptions.getOrDefault(FACTORY_ID.key(), readonlyConfig.get(PLUGIN_NAME));
-        Optional<CatalogFactory> optionalFactory =
-                FactoryUtil.discoverOptionalFactory(classLoader, CatalogFactory.class, factoryId);
-        return optionalFactory.map(FactoryUtil::getFactoryUrl);
     }
 
     public static void checkGraph(
@@ -280,7 +264,14 @@ public final class ConfigParserUtil {
     }
 
     public static String getFactoryId(ReadonlyConfig readonlyConfig) {
-        return readonlyConfig.getOptional(FACTORY_ID).orElse(readonlyConfig.get(PLUGIN_NAME));
+        String pluginName = readonlyConfig.get(PLUGIN_NAME);
+        if (StringUtils.isBlank(pluginName)) {
+            throw new JobDefineCheckException(
+                    String.format(
+                            "The '%s' option is not configured, please configure it.",
+                            PLUGIN_NAME.key()));
+        }
+        return pluginName;
     }
 
     public static String getFactoryId(Config config) {

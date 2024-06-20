@@ -18,8 +18,11 @@
 package org.apache.seatunnel.engine.server.task;
 
 import org.apache.seatunnel.api.serialization.Serializer;
+import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
+import org.apache.seatunnel.api.sink.SupportResourceShare;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
+import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
@@ -88,6 +91,7 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT>
     private Map<Long, Integer> checkpointBarrierCounter;
     private CompletableFuture<Void> completableFuture;
 
+    private MultiTableResourceManager resourceManager;
     private volatile boolean receivedSinkWriter;
 
     public SinkAggregatedCommitterTask(
@@ -114,6 +118,16 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT>
         this.commitInfoSerializer = sink.getSink().getCommitInfoSerializer().get();
         this.aggregatedCommitInfoSerializer =
                 sink.getSink().getAggregatedCommitInfoSerializer().get();
+        if (this.aggregatedCommitter instanceof SupportResourceShare) {
+            resourceManager =
+                    ((SupportResourceShare) this.aggregatedCommitter)
+                            .initMultiTableResourceManager(1, 1);
+        }
+        aggregatedCommitter.init();
+        if (resourceManager != null) {
+            ((SupportResourceShare) this.aggregatedCommitter)
+                    .setMultiTableResourceManager(resourceManager, 0);
+        }
         log.debug(
                 "starting seatunnel sink aggregated committer task, sink name[{}] ",
                 sink.getName());
@@ -193,6 +207,19 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT>
         aggregatedCommitter.close();
         progress.done();
         completableFuture.complete(null);
+        try {
+            if (resourceManager != null) {
+                resourceManager.close();
+            }
+        } catch (Throwable e) {
+            log.error("close resourceManager error", e);
+        }
+    }
+
+    private long getClosedWriters(Barrier barrier) {
+        return barrier.closedTasks().stream()
+                .filter(task -> writerAddressMap.containsKey(task.getTaskID()))
+                .count();
     }
 
     @Override
@@ -203,10 +230,11 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT>
         Integer count =
                 checkpointBarrierCounter.compute(
                         barrier.getId(), (id, num) -> num == null ? 1 : ++num);
-        if (count != maxWriterSize) {
+
+        if (count != (maxWriterSize - getClosedWriters(barrier))) {
             return;
         }
-        if (barrier.prepareClose()) {
+        if (barrier.prepareClose(this.taskLocation)) {
             this.prepareCloseStatus = true;
             this.prepareCloseBarrierId.set(barrier.getId());
         }
@@ -262,7 +290,12 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT>
                                                         aggregatedCommitInfoSerializer.deserialize(
                                                                 bytes)))
                         .collect(Collectors.toList());
-        aggregatedCommitter.commit(aggregatedCommitInfos);
+        List<AggregatedCommitInfoT> commit =
+                aggregatedCommitter.restoreCommit(aggregatedCommitInfos);
+        if (CollectionUtils.isNotEmpty(commit)) {
+            log.error("aggregated committer error: {}", commit.size());
+            throw new CheckpointException(CheckpointCloseReason.AGGREGATE_COMMIT_ERROR);
+        }
         restoreComplete.complete(null);
         log.debug("restoreState for sink agg committer [{}] finished", actionStateList);
     }
@@ -279,6 +312,11 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT>
     @Override
     public Set<URL> getJarsUrl() {
         return new HashSet<>(sink.getJarUrls());
+    }
+
+    @Override
+    public Set<ConnectorJarIdentifier> getConnectorPluginJars() {
+        return new HashSet<>(sink.getConnectorJarIdentifiers());
     }
 
     @Override

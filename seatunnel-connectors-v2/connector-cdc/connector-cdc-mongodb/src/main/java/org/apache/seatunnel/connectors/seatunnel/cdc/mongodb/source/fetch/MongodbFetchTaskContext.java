@@ -52,7 +52,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-import static org.apache.seatunnel.common.exception.CommonErrorCode.ILLEGAL_ARGUMENT;
+import static org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.COLL_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.DB_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceOptions.DOCUMENT_KEY;
@@ -89,8 +89,13 @@ public class MongodbFetchTaskContext implements FetchTask.Context {
     }
 
     public void configure(@Nonnull SourceSplitBase sourceSplitBase) {
+        // If in the snapshot read phase and enable exactly-once, the queue needs to be set to a
+        // maximum size of `Integer.MAX_VALUE` (buffered a current snapshot all data). otherwise,
+        // use the configuration queue size.
         final int queueSize =
-                sourceSplitBase.isSnapshotSplit() ? Integer.MAX_VALUE : sourceConfig.getBatchSize();
+                sourceSplitBase.isSnapshotSplit() && isExactlyOnce()
+                        ? Integer.MAX_VALUE
+                        : sourceConfig.getBatchSize();
         this.changeEventQueue =
                 new ChangeEventQueue.Builder<DataChangeEvent>()
                         .pollInterval(Duration.ofMillis(sourceConfig.getPollAwaitTimeMillis()))

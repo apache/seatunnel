@@ -26,6 +26,8 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
   - [x] orc
   - [x] json
   - [x] excel
+  - [x] xml
+  - [x] binary
 
 ## Description
 
@@ -42,21 +44,46 @@ Read data from hdfs file system.
 |           Name            |  Type   | Required |       Default       |                                                                                                                                                                  Description                                                                                                                                                                  |
 |---------------------------|---------|----------|---------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | path                      | string  | yes      | -                   | The source file path.                                                                                                                                                                                                                                                                                                                         |
-| file_format_type          | string  | yes      | -                   | We supported as the following file types:`text` `json` `csv` `orc` `parquet` `excel`.Please note that, The final file name will end with the file_format's suffix, the suffix of the text file is `txt`.                                                                                                                                      |
+| file_format_type          | string  | yes      | -                   | We supported as the following file types:`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary`.Please note that, The final file name will end with the file_format's suffix, the suffix of the text file is `txt`.                                                                                                                       |
 | fs.defaultFS              | string  | yes      | -                   | The hadoop cluster address that start with `hdfs://`, for example: `hdfs://hadoopcluster`                                                                                                                                                                                                                                                     |
-| read_columns              | list    | yes      | -                   | The read column list of the data source, user can use it to implement field projection.The file type supported column projection as the following shown:[text,json,csv,orc,parquet,excel].Tips: If the user wants to use this feature when reading `text` `json` `csv` files, the schema option must be configured.                           |
+| read_columns              | list    | yes      | -                   | The read column list of the data source, user can use it to implement field projection.The file type supported column projection as the following shown:[text,json,csv,orc,parquet,excel,xml].Tips: If the user wants to use this feature when reading `text` `json` `csv` files, the schema option must be configured.                       |
 | hdfs_site_path            | string  | no       | -                   | The path of `hdfs-site.xml`, used to load ha configuration of namenodes                                                                                                                                                                                                                                                                       |
-| delimiter                 | string  | no       | \001                | Field delimiter, used to tell connector how to slice and dice fields when reading text files. default `\001`, the same as hive's default delimiter                                                                                                                                                                                            |
+| delimiter/field_delimiter | string  | no       | \001                | Field delimiter, used to tell connector how to slice and dice fields when reading text files. default `\001`, the same as hive's default delimiter                                                                                                                                                                                            |
 | parse_partition_from_path | boolean | no       | true                | Control whether parse the partition keys and values from file path. For example if you read a file from path `hdfs://hadoop-cluster/tmp/seatunnel/parquet/name=tyrantlucifer/age=26`. Every record data from file will be added these two fields:[name:tyrantlucifer,age:26].Tips:Do not define partition fields in schema option.            |
 | date_format               | string  | no       | yyyy-MM-dd          | Date type format, used to tell connector how to convert string to date, supported as the following formats:`yyyy-MM-dd` `yyyy.MM.dd` `yyyy/MM/dd` default `yyyy-MM-dd`.Date type format, used to tell connector how to convert string to date, supported as the following formats:`yyyy-MM-dd` `yyyy.MM.dd` `yyyy/MM/dd` default `yyyy-MM-dd` |
 | datetime_format           | string  | no       | yyyy-MM-dd HH:mm:ss | Datetime type format, used to tell connector how to convert string to datetime, supported as the following formats:`yyyy-MM-dd HH:mm:ss` `yyyy.MM.dd HH:mm:ss` `yyyy/MM/dd HH:mm:ss` `yyyyMMddHHmmss` .default `yyyy-MM-dd HH:mm:ss`                                                                                                          |
 | time_format               | string  | no       | HH:mm:ss            | Time type format, used to tell connector how to convert string to time, supported as the following formats:`HH:mm:ss` `HH:mm:ss.SSS`.default `HH:mm:ss`                                                                                                                                                                                       |
+| remote_user               | string  | no       | -                   | The login user used to connect to hadoop login name. It is intended to be used for remote users in RPC, it won't have any credentials.                                                                                                                                                                                                        |
+| krb5_path                 | string  | no       | /etc/krb5.conf      | The krb5 path of kerberos                                                                                                                                                                                                                                                                                                                     |
 | kerberos_principal        | string  | no       | -                   | The principal of kerberos                                                                                                                                                                                                                                                                                                                     |
 | kerberos_keytab_path      | string  | no       | -                   | The keytab path of kerberos                                                                                                                                                                                                                                                                                                                   |
 | skip_header_row_number    | long    | no       | 0                   | Skip the first few lines, but only for the txt and csv.For example, set like following:`skip_header_row_number = 2`.then Seatunnel will skip the first 2 lines from source files                                                                                                                                                              |
 | schema                    | config  | no       | -                   | the schema fields of upstream data                                                                                                                                                                                                                                                                                                            |
-| common-options            |         | no       | -                   | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.                                                                                                                                                                                                                                      |
 | sheet_name                | string  | no       | -                   | Reader the sheet of the workbook,Only used when file_format is excel.                                                                                                                                                                                                                                                                         |
+| xml_row_tag               | string  | no       | -                   | Specifies the tag name of the data rows within the XML file, only used when file_format is xml.                                                                                                                                                                                                                                               |
+| xml_use_attr_format       | boolean | no       | -                   | Specifies whether to process data using the tag attribute format, only used when file_format is xml.                                                                                                                                                                                                                                          |
+| compress_codec            | string  | no       | none                | The compress codec of files                                                                                                                                                                                                                                                                                                                   |
+| encoding                  | string  | no       | UTF-8               |
+| common-options            |         | no       | -                   | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.                                                                                                                                                                                                                                      |
+
+### delimiter/field_delimiter [string]
+
+**delimiter** parameter will deprecate after version 2.3.5, please use **field_delimiter** instead.
+
+### compress_codec [string]
+
+The compress codec of files and the details that supported as the following shown:
+
+- txt: `lzo` `none`
+- json: `lzo` `none`
+- csv: `lzo` `none`
+- orc/parquet:  
+  automatically recognizes the compression type, no additional settings required.
+
+### encoding [string]
+
+Only used when file_format_type is json,text,csv,xml.
+The encoding of the file to read. This param will be parsed by `Charset.forName(encoding)`.
 
 ### Tips
 
@@ -71,8 +98,7 @@ Read data from hdfs file system.
 ```
 # Defining the runtime environment
 env {
-  # You can set flink configuration here
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "BATCH"
 }
 
@@ -85,7 +111,7 @@ source {
     }
   }
   path = "/apps/hive/demo/student"
-  type = "json"
+  file_format_type = "json"
   fs.defaultFS = "hdfs://namenode001"
   }
   # If you would like to get more information about how to configure seatunnel and see full list of source plugins,

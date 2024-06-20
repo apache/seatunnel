@@ -19,13 +19,13 @@ package org.apache.seatunnel.connectors.seatunnel.file.cos.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
-import org.apache.seatunnel.connectors.seatunnel.file.cos.config.CosConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.cos.config.CosConfigOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -35,32 +35,42 @@ import java.util.Arrays;
 public class CosFileSourceFactory implements TableSourceFactory {
     @Override
     public String factoryIdentifier() {
-        return FileSystemType.OSS.getFileSystemPluginName();
+        return FileSystemType.COS.getFileSystemPluginName();
     }
 
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(CosConfig.FILE_PATH)
-                .required(CosConfig.BUCKET)
-                .required(CosConfig.SECRET_ID)
-                .required(CosConfig.SECRET_KEY)
-                .required(CosConfig.REGION)
-                .required(BaseSourceConfig.FILE_FORMAT_TYPE)
+                .required(CosConfigOptions.FILE_PATH)
+                .required(CosConfigOptions.BUCKET)
+                .required(CosConfigOptions.SECRET_ID)
+                .required(CosConfigOptions.SECRET_KEY)
+                .required(CosConfigOptions.REGION)
+                .required(BaseSourceConfigOptions.FILE_FORMAT_TYPE)
                 .conditional(
-                        BaseSourceConfig.FILE_FORMAT_TYPE,
+                        BaseSourceConfigOptions.FILE_FORMAT_TYPE,
                         FileFormat.TEXT,
-                        BaseSourceConfig.DELIMITER)
+                        BaseSourceConfigOptions.FIELD_DELIMITER)
                 .conditional(
-                        BaseSourceConfig.FILE_FORMAT_TYPE,
+                        BaseSourceConfigOptions.FILE_FORMAT_TYPE,
+                        FileFormat.XML,
+                        BaseSourceConfigOptions.XML_ROW_TAG,
+                        BaseSourceConfigOptions.XML_USE_ATTR_FORMAT)
+                .conditional(
+                        BaseSourceConfigOptions.FILE_FORMAT_TYPE,
                         Arrays.asList(
-                                FileFormat.TEXT, FileFormat.JSON, FileFormat.EXCEL, FileFormat.CSV),
-                        CatalogTableUtil.SCHEMA)
-                .optional(BaseSourceConfig.PARSE_PARTITION_FROM_PATH)
-                .optional(BaseSourceConfig.DATE_FORMAT)
-                .optional(BaseSourceConfig.DATETIME_FORMAT)
-                .optional(BaseSourceConfig.TIME_FORMAT)
-                .optional(BaseSourceConfig.FILE_FILTER_PATTERN)
+                                FileFormat.TEXT,
+                                FileFormat.JSON,
+                                FileFormat.EXCEL,
+                                FileFormat.CSV,
+                                FileFormat.XML),
+                        TableSchemaOptions.SCHEMA)
+                .optional(BaseSourceConfigOptions.PARSE_PARTITION_FROM_PATH)
+                .optional(BaseSourceConfigOptions.DATE_FORMAT)
+                .optional(BaseSourceConfigOptions.DATETIME_FORMAT)
+                .optional(BaseSourceConfigOptions.TIME_FORMAT)
+                .optional(BaseSourceConfigOptions.FILE_FILTER_PATTERN)
+                .optional(BaseSourceConfigOptions.COMPRESS_CODEC)
                 .build();
     }
 

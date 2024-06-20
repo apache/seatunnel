@@ -16,7 +16,10 @@ Used to read data from Rabbitmq.
 - [ ] [support user-defined split](../../concept/connector-v2-features.md)
 
 :::tip
+
 The source must be non-parallel (parallelism set to 1) in order to achieve exactly-once. This limitation is mainly due to RabbitMQ’s approach to dispatching messages from a single queue to multiple consumers.
+
+:::
 
 ## Options
 

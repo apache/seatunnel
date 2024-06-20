@@ -21,12 +21,13 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.api.table.type.DecimalType;
-import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleTypeConverter;
 
 import org.apache.commons.lang3.StringUtils;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -35,19 +36,18 @@ public class OracleCreateTableSqlBuilder {
 
     private List<Column> columns;
     private PrimaryKey primaryKey;
-    private OracleDataTypeConvertor oracleDataTypeConvertor;
     private String sourceCatalogName;
     private String fieldIde;
 
     public OracleCreateTableSqlBuilder(CatalogTable catalogTable) {
         this.columns = catalogTable.getTableSchema().getColumns();
         this.primaryKey = catalogTable.getTableSchema().getPrimaryKey();
-        this.oracleDataTypeConvertor = new OracleDataTypeConvertor();
         this.sourceCatalogName = catalogTable.getCatalogName();
         this.fieldIde = catalogTable.getOptions().get("fieldIde");
     }
 
-    public String build(TablePath tablePath) {
+    public List<String> build(TablePath tablePath) {
+        List<String> sqls = new ArrayList<>();
         StringBuilder createTableSql = new StringBuilder();
         createTableSql
                 .append("CREATE TABLE ")
@@ -68,7 +68,7 @@ public class OracleCreateTableSqlBuilder {
 
         createTableSql.append(String.join(",\n", columnSqls));
         createTableSql.append("\n)");
-
+        sqls.add(createTableSql.toString());
         List<String> commentSqls =
                 columns.stream()
                         .filter(column -> StringUtils.isNotBlank(column.getComment()))
@@ -77,13 +77,8 @@ public class OracleCreateTableSqlBuilder {
                                         buildColumnCommentSql(
                                                 column, tablePath.getSchemaAndTableName("\"")))
                         .collect(Collectors.toList());
-
-        if (!commentSqls.isEmpty()) {
-            createTableSql.append(";\n");
-            createTableSql.append(String.join(";\n", commentSqls));
-        }
-
-        return createTableSql.toString();
+        sqls.addAll(commentSqls);
+        return sqls;
     }
 
     private String buildColumnSql(Column column) {
@@ -91,9 +86,9 @@ public class OracleCreateTableSqlBuilder {
         columnSql.append("\"").append(column.getName()).append("\" ");
 
         String columnType =
-                sourceCatalogName.equals("oracle")
+                StringUtils.equalsIgnoreCase(DatabaseIdentifier.ORACLE, sourceCatalogName)
                         ? column.getSourceType()
-                        : buildColumnType(column);
+                        : OracleTypeConverter.INSTANCE.reconvert(column).getColumnType();
         columnSql.append(columnType);
 
         if (!column.isNullable()) {
@@ -101,41 +96,6 @@ public class OracleCreateTableSqlBuilder {
         }
 
         return columnSql.toString();
-    }
-
-    private String buildColumnType(Column column) {
-        SqlType sqlType = column.getDataType().getSqlType();
-        Long columnLength = column.getLongColumnLength();
-        Long bitLen = column.getBitLen();
-        switch (sqlType) {
-            case BYTES:
-                if (bitLen < 0 || bitLen > 2000) {
-                    return "BLOB";
-                } else {
-                    return "RAW(" + bitLen + ")";
-                }
-            case STRING:
-                if (columnLength > 0 && columnLength < 4000) {
-                    return "VARCHAR2(" + columnLength + " CHAR)";
-                } else {
-                    return "CLOB";
-                }
-            default:
-                String type = oracleDataTypeConvertor.toConnectorType(column.getDataType(), null);
-                if (type.equals("NUMBER")) {
-                    if (column.getDataType() instanceof DecimalType) {
-                        DecimalType decimalType = (DecimalType) column.getDataType();
-                        return "NUMBER("
-                                + decimalType.getPrecision()
-                                + ","
-                                + decimalType.getScale()
-                                + ")";
-                    } else {
-                        return "NUMBER";
-                    }
-                }
-                return type;
-        }
     }
 
     private String buildPrimaryKeySql(PrimaryKey primaryKey) {
@@ -171,7 +131,7 @@ public class OracleCreateTableSqlBuilder {
         columnCommentSql
                 .append(CatalogUtils.quoteIdentifier(column.getName(), fieldIde, "\""))
                 .append(CatalogUtils.quoteIdentifier(" IS '", fieldIde))
-                .append(column.getComment())
+                .append(column.getComment().replace("'", "''"))
                 .append("'");
         return columnCommentSql.toString();
     }

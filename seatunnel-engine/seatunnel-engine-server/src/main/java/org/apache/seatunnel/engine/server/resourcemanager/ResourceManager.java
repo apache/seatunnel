@@ -58,4 +58,10 @@ public interface ResourceManager {
     void memberRemoved(MembershipServiceEvent event);
 
     void close();
+
+    List<SlotProfile> getUnassignedSlots();
+
+    List<SlotProfile> getAssignedSlots();
+
+    int workerCount();
 }

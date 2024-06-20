@@ -19,12 +19,17 @@ package org.apache.seatunnel.connectors.seatunnel.redis.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
+import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisConfig;
 
 import com.google.auto.service.AutoService;
+
+import java.io.Serializable;
 
 @AutoService(Factory.class)
 public class RedisSourceFactory implements TableSourceFactory {
@@ -34,18 +39,27 @@ public class RedisSourceFactory implements TableSourceFactory {
     }
 
     @Override
+    public <T, SplitT extends SourceSplit, StateT extends Serializable>
+            TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
+        return () -> (SeaTunnelSource<T, SplitT, StateT>) new RedisSource(context.getOptions());
+    }
+
+    @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(
-                        RedisConfig.HOST, RedisConfig.PORT, RedisConfig.KEY, RedisConfig.DATA_TYPE)
+                        RedisConfig.HOST,
+                        RedisConfig.PORT,
+                        RedisConfig.KEY_PATTERN,
+                        RedisConfig.DATA_TYPE)
                 .optional(
                         RedisConfig.MODE,
                         RedisConfig.HASH_KEY_PARSE_MODE,
                         RedisConfig.AUTH,
                         RedisConfig.USER,
-                        RedisConfig.KEY_PATTERN)
+                        RedisConfig.KEY)
                 .conditional(RedisConfig.MODE, RedisConfig.RedisMode.CLUSTER, RedisConfig.NODES)
-                .bundled(RedisConfig.FORMAT, CatalogTableUtil.SCHEMA)
+                .bundled(RedisConfig.FORMAT, TableSchemaOptions.SCHEMA)
                 .build();
     }
 

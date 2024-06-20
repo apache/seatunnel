@@ -20,9 +20,12 @@ package org.apache.seatunnel.transform.sql.zeta;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.transform.exception.TransformException;
 import org.apache.seatunnel.transform.sql.SQLEngine;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import net.sf.jsqlparser.JSQLParserException;
 import net.sf.jsqlparser.expression.Expression;
@@ -46,6 +49,7 @@ import java.util.ServiceLoader;
 import java.util.stream.Collectors;
 
 public class ZetaSQLEngine implements SQLEngine {
+    private static final Logger log = LoggerFactory.getLogger(ZetaSQLEngine.class);
     private String inputTableName;
     @Nullable private String catalogTableName;
     private SeaTunnelRowType inputRowType;
@@ -78,7 +82,7 @@ public class ZetaSQLEngine implements SQLEngine {
 
         this.zetaSQLType = new ZetaSQLType(inputRowType, udfList);
         this.zetaSQLFunction = new ZetaSQLFunction(inputRowType, zetaSQLType, udfList);
-        this.zetaSQLFilter = new ZetaSQLFilter(zetaSQLFunction);
+        this.zetaSQLFilter = new ZetaSQLFilter(zetaSQLFunction, zetaSQLType);
 
         parseSQL();
     }
@@ -91,7 +95,7 @@ public class ZetaSQLEngine implements SQLEngine {
             this.selectBody = (PlainSelect) ((Select) statement).getSelectBody();
         } catch (JSQLParserException e) {
             throw new TransformException(
-                    CommonErrorCode.UNSUPPORTED_OPERATION,
+                    CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                     String.format("SQL parse failed: %s, cause: %s", sql, e.getMessage()));
         }
     }
@@ -119,8 +123,11 @@ public class ZetaSQLEngine implements SQLEngine {
                 String tableName = table.getName();
                 if (!inputTableName.equalsIgnoreCase(tableName)
                         && !tableName.equalsIgnoreCase(catalogTableName)) {
-                    throw new IllegalArgumentException(
-                            String.format("Table name: %s not found", tableName));
+                    log.warn(
+                            "SQL table name {} is not equal to input table name {} or catalog table name {}",
+                            tableName,
+                            inputTableName,
+                            catalogTableName);
                 }
             } else {
                 throw new IllegalArgumentException("Unsupported sub table syntax");
@@ -149,7 +156,7 @@ public class ZetaSQLEngine implements SQLEngine {
             // }
         } catch (Exception e) {
             throw new TransformException(
-                    CommonErrorCode.UNSUPPORTED_OPERATION,
+                    CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                     String.format("SQL validate failed: %s, cause: %s", sql, e.getMessage()));
         }
     }
@@ -244,9 +251,6 @@ public class ZetaSQLEngine implements SQLEngine {
         int columnsSize = countColumnsSize(selectItems);
 
         Object[] fields = new Object[columnsSize];
-        for (int i = 0; i < columnsSize; i++) {
-            fields[i] = null;
-        }
 
         int idx = 0;
         for (SelectItem selectItem : selectItems) {

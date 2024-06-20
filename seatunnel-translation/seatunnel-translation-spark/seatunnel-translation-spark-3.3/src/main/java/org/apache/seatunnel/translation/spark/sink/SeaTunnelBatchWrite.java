@@ -17,8 +17,11 @@
 
 package org.apache.seatunnel.translation.spark.sink;
 
+import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
+import org.apache.seatunnel.api.sink.SupportResourceShare;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.translation.spark.sink.write.SeaTunnelSparkDataWriterFactory;
 import org.apache.seatunnel.translation.spark.sink.write.SeaTunnelSparkWriterCommitMessage;
@@ -44,16 +47,38 @@ public class SeaTunnelBatchWrite<StateT, CommitInfoT, AggregatedCommitInfoT>
 
     private final SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT> aggregatedCommitter;
 
+    private MultiTableResourceManager resourceManager;
+
+    private final CatalogTable catalogTable;
+
+    private final String jobId;
+
     public SeaTunnelBatchWrite(
-            SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink)
+            SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
+            CatalogTable catalogTable,
+            String jobId)
             throws IOException {
         this.sink = sink;
+        this.catalogTable = catalogTable;
+        this.jobId = jobId;
         this.aggregatedCommitter = sink.createAggregatedCommitter().orElse(null);
+        if (aggregatedCommitter != null) {
+            if (this.aggregatedCommitter instanceof SupportResourceShare) {
+                resourceManager =
+                        ((SupportResourceShare) this.aggregatedCommitter)
+                                .initMultiTableResourceManager(1, 1);
+            }
+            aggregatedCommitter.init();
+            if (resourceManager != null) {
+                ((SupportResourceShare) this.aggregatedCommitter)
+                        .setMultiTableResourceManager(resourceManager, 0);
+            }
+        }
     }
 
     @Override
     public DataWriterFactory createBatchWriterFactory(PhysicalWriteInfo info) {
-        return new SeaTunnelSparkDataWriterFactory<>(sink);
+        return new SeaTunnelSparkDataWriterFactory<>(sink, catalogTable, jobId);
     }
 
     @Override

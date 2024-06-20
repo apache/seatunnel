@@ -18,36 +18,50 @@
 
 package org.apache.seatunnel.format.json;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ArrayNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.TemporalQueries;
 import java.util.HashMap;
 import java.util.Map;
 
 import static org.apache.seatunnel.api.table.type.ArrayType.INT_ARRAY_TYPE;
 import static org.apache.seatunnel.api.table.type.ArrayType.STRING_ARRAY_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.BOOLEAN_TYPE;
+import static org.apache.seatunnel.api.table.type.BasicType.BYTE_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.DOUBLE_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.FLOAT_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.INT_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.LONG_TYPE;
+import static org.apache.seatunnel.api.table.type.BasicType.SHORT_TYPE;
 import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class JsonRowDataSerDeSchemaTest {
 
@@ -88,6 +102,9 @@ public class JsonRowDataSerDeSchemaTest {
         root.putObject("map").put("element", 123);
         root.putObject("multiSet").put("element", 2);
         root.putObject("map2map").putObject("inner_map").put("key", 234);
+        ObjectNode rowFieldNodes = root.deepCopy();
+        rowFieldNodes.put("date", "1990-10-14T12:12:43.123");
+        root.putIfAbsent("row", rowFieldNodes);
 
         byte[] serializedJson = objectMapper.writeValueAsBytes(root);
 
@@ -105,7 +122,8 @@ public class JsonRowDataSerDeSchemaTest {
                             "timestamp9",
                             "map",
                             "multiSet",
-                            "map2map"
+                            "map2map",
+                            "row"
                         },
                         new SeaTunnelDataType[] {
                             BOOLEAN_TYPE,
@@ -119,13 +137,42 @@ public class JsonRowDataSerDeSchemaTest {
                             LocalTimeType.LOCAL_DATE_TIME_TYPE,
                             new MapType(STRING_TYPE, LONG_TYPE),
                             new MapType(STRING_TYPE, INT_TYPE),
-                            new MapType(STRING_TYPE, new MapType(STRING_TYPE, INT_TYPE))
+                            new MapType(STRING_TYPE, new MapType(STRING_TYPE, INT_TYPE)),
+                            new SeaTunnelRowType(
+                                    new String[] {
+                                        "bool",
+                                        "int",
+                                        "longValue",
+                                        "float",
+                                        "name",
+                                        "date",
+                                        "time",
+                                        "timestamp3",
+                                        "timestamp9",
+                                        "map",
+                                        "multiSet",
+                                        "map2map"
+                                    },
+                                    new SeaTunnelDataType[] {
+                                        BOOLEAN_TYPE,
+                                        INT_TYPE,
+                                        LONG_TYPE,
+                                        FLOAT_TYPE,
+                                        STRING_TYPE,
+                                        LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                                        LocalTimeType.LOCAL_TIME_TYPE,
+                                        LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                                        LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                                        new MapType(STRING_TYPE, LONG_TYPE),
+                                        new MapType(STRING_TYPE, INT_TYPE),
+                                        new MapType(STRING_TYPE, new MapType(STRING_TYPE, INT_TYPE))
+                                    })
                         });
-
+        CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "", schema);
         JsonDeserializationSchema deserializationSchema =
-                new JsonDeserializationSchema(false, false, schema);
+                new JsonDeserializationSchema(catalogTables, false, false);
 
-        SeaTunnelRow expected = new SeaTunnelRow(12);
+        SeaTunnelRow expected = new SeaTunnelRow(13);
         expected.setField(0, true);
         expected.setField(1, intValue);
         expected.setField(2, longValue);
@@ -138,6 +185,22 @@ public class JsonRowDataSerDeSchemaTest {
         expected.setField(9, map);
         expected.setField(10, multiSet);
         expected.setField(11, nestedMap);
+
+        SeaTunnelRow rowFieldRow = new SeaTunnelRow(12);
+        rowFieldRow.setField(0, true);
+        rowFieldRow.setField(1, intValue);
+        rowFieldRow.setField(2, longValue);
+        rowFieldRow.setField(3, floatValue);
+        rowFieldRow.setField(4, name);
+        rowFieldRow.setField(5, timestamp3.toLocalDateTime());
+        rowFieldRow.setField(6, time);
+        rowFieldRow.setField(7, timestamp3.toLocalDateTime());
+        rowFieldRow.setField(8, timestamp9.toLocalDateTime());
+        rowFieldRow.setField(9, map);
+        rowFieldRow.setField(10, multiSet);
+        rowFieldRow.setField(11, nestedMap);
+
+        expected.setField(12, rowFieldRow);
 
         SeaTunnelRow seaTunnelRow = deserializationSchema.deserialize(serializedJson);
         assertEquals(expected, seaTunnelRow);
@@ -165,8 +228,10 @@ public class JsonRowDataSerDeSchemaTest {
                                     new SeaTunnelDataType[] {STRING_TYPE, INT_TYPE})
                         });
 
+        CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "", schema);
+
         JsonDeserializationSchema deserializationSchema =
-                new JsonDeserializationSchema(false, false, schema);
+                new JsonDeserializationSchema(catalogTables, false, false);
         JsonSerializationSchema serializationSchema = new JsonSerializationSchema(schema);
 
         ObjectMapper objectMapper = new ObjectMapper();
@@ -241,8 +306,11 @@ public class JsonRowDataSerDeSchemaTest {
                             new MapType(STRING_TYPE, DOUBLE_TYPE)
                         });
 
+        CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "", rowType);
+
         JsonDeserializationSchema deserializationSchema =
-                new JsonDeserializationSchema(false, true, rowType);
+                new JsonDeserializationSchema(catalogTables, false, true);
+
         JsonSerializationSchema serializationSchema = new JsonSerializationSchema(rowType);
 
         for (int i = 0; i < jsons.length; i++) {
@@ -257,8 +325,10 @@ public class JsonRowDataSerDeSchemaTest {
     public void testDeserializationNullRow() throws Exception {
         SeaTunnelRowType schema =
                 new SeaTunnelRowType(new String[] {"name"}, new SeaTunnelDataType[] {STRING_TYPE});
+        CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "", schema);
+
         JsonDeserializationSchema deserializationSchema =
-                new JsonDeserializationSchema(true, false, schema);
+                new JsonDeserializationSchema(catalogTables, true, false);
         String s = null;
         assertNull(deserializationSchema.deserialize(s));
     }
@@ -267,11 +337,35 @@ public class JsonRowDataSerDeSchemaTest {
     public void testDeserializationMissingNode() throws Exception {
         SeaTunnelRowType schema =
                 new SeaTunnelRowType(new String[] {"name"}, new SeaTunnelDataType[] {STRING_TYPE});
+        CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "", schema);
 
         JsonDeserializationSchema deserializationSchema =
-                new JsonDeserializationSchema(true, false, schema);
+                new JsonDeserializationSchema(catalogTables, true, false);
         SeaTunnelRow rowData = deserializationSchema.deserialize("".getBytes());
         assertEquals(null, rowData);
+    }
+
+    @Test
+    public void testDeserializationPassMissingField() throws Exception {
+        ObjectMapper objectMapper = new ObjectMapper();
+
+        // Root
+        ObjectNode root = objectMapper.createObjectNode();
+        root.put("id", 123123123);
+        byte[] serializedJson = objectMapper.writeValueAsBytes(root);
+
+        SeaTunnelRowType schema =
+                new SeaTunnelRowType(new String[] {"name"}, new SeaTunnelDataType[] {STRING_TYPE});
+
+        CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "", schema);
+
+        // pass on missing field
+        final JsonDeserializationSchema deser =
+                new JsonDeserializationSchema(catalogTables, false, false);
+
+        SeaTunnelRow expected = new SeaTunnelRow(1);
+        SeaTunnelRow actual = deser.deserialize(serializedJson);
+        assertEquals(expected, actual);
     }
 
     @Test
@@ -286,38 +380,188 @@ public class JsonRowDataSerDeSchemaTest {
         SeaTunnelRowType schema =
                 new SeaTunnelRowType(new String[] {"name"}, new SeaTunnelDataType[] {STRING_TYPE});
 
-        // pass on missing field
-        JsonDeserializationSchema deserializationSchema =
-                new JsonDeserializationSchema(false, false, schema);
-
-        SeaTunnelRow expected = new SeaTunnelRow(1);
-        SeaTunnelRow actual = deserializationSchema.deserialize(serializedJson);
-        assertEquals(expected, actual);
+        CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "", schema);
 
         // fail on missing field
-        deserializationSchema = new JsonDeserializationSchema(true, false, schema);
+        final JsonDeserializationSchema deser =
+                new JsonDeserializationSchema(catalogTables, true, false);
 
-        String errorMessage =
-                "ErrorCode:[COMMON-02], ErrorDescription:[Json covert/parse operation failed] - Failed to deserialize JSON '{\"id\":123123123}'.";
-        try {
-            deserializationSchema.deserialize(serializedJson);
-            fail("expecting exception message: " + errorMessage);
-        } catch (Throwable t) {
-            assertEquals(errorMessage, t.getMessage());
-        }
+        SeaTunnelRuntimeException expected =
+                CommonError.jsonOperationError("Common", root.toString());
+        SeaTunnelRuntimeException actual =
+                assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () -> {
+                            deser.deserialize(serializedJson);
+                        },
+                        "expecting exception message: " + expected.getMessage());
+        assertEquals(actual.getMessage(), expected.getMessage());
+
+        SeaTunnelRuntimeException expectedCause =
+                CommonError.jsonOperationError("Common", "Field $.name in " + root.toString());
+        Throwable cause = actual.getCause();
+        assertEquals(cause.getClass(), expectedCause.getClass());
+        assertEquals(cause.getMessage(), expectedCause.getMessage());
+    }
+
+    @Test
+    public void testDeserializationIgnoreParseError() throws Exception {
+        ObjectMapper objectMapper = new ObjectMapper();
+
+        // Root
+        ObjectNode root = objectMapper.createObjectNode();
+        root.put("id", 123123123);
+        byte[] serializedJson = objectMapper.writeValueAsBytes(root);
+
+        SeaTunnelRowType schema =
+                new SeaTunnelRowType(new String[] {"name"}, new SeaTunnelDataType[] {STRING_TYPE});
+        SeaTunnelRow expected = new SeaTunnelRow(1);
+        CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "", schema);
 
         // ignore on parse error
-        deserializationSchema = new JsonDeserializationSchema(false, true, schema);
-        assertEquals(expected, deserializationSchema.deserialize(serializedJson));
+        final JsonDeserializationSchema deser =
+                new JsonDeserializationSchema(catalogTables, false, true);
+        assertEquals(expected, deser.deserialize(serializedJson));
+    }
 
-        errorMessage =
+    @Test
+    public void testDeserializationFailOnMissingFieldIgnoreParseError() throws Exception {
+        String errorMessage =
                 "ErrorCode:[COMMON-06], ErrorDescription:[Illegal argument] - JSON format doesn't support failOnMissingField and ignoreParseErrors are both enabled.";
-        try {
-            // failOnMissingField and ignoreParseErrors both enabled
-            new JsonDeserializationSchema(true, true, schema);
-            Assertions.fail("expecting exception message: " + errorMessage);
-        } catch (Throwable t) {
-            assertEquals(errorMessage, t.getMessage());
-        }
+
+        SeaTunnelJsonFormatException actual =
+                assertThrows(
+                        SeaTunnelJsonFormatException.class,
+                        () -> {
+                            new JsonDeserializationSchema(null, true, true);
+                        },
+                        "expecting exception message: " + errorMessage);
+        assertEquals(actual.getMessage(), errorMessage);
+    }
+
+    @Test
+    public void testDeserializationNoJson() throws Exception {
+        SeaTunnelRowType schema =
+                new SeaTunnelRowType(new String[] {"name"}, new SeaTunnelDataType[] {STRING_TYPE});
+
+        CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "", schema);
+
+        String noJson = "{]";
+        final JsonDeserializationSchema deser =
+                new JsonDeserializationSchema(catalogTables, false, false);
+        SeaTunnelRuntimeException expected = CommonError.jsonOperationError("Common", noJson);
+
+        SeaTunnelRuntimeException actual =
+                assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () -> {
+                            deser.deserialize(noJson);
+                        },
+                        "expecting exception message: " + expected.getMessage());
+
+        assertEquals(actual.getMessage(), expected.getMessage());
+
+        actual =
+                assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () -> {
+                            deser.deserialize(noJson.getBytes());
+                        },
+                        "expecting exception message: " + expected.getMessage());
+
+        assertEquals(actual.getMessage(), expected.getMessage());
+    }
+
+    @Test
+    public void testMapConverterKeyType() throws JsonProcessingException {
+        MapType<String, String> stringKeyMapType = new MapType<>(STRING_TYPE, STRING_TYPE);
+        MapType<Boolean, String> booleanKeyMapType = new MapType<>(BOOLEAN_TYPE, STRING_TYPE);
+        MapType<Byte, String> tinyintKeyMapType = new MapType<>(BYTE_TYPE, STRING_TYPE);
+        MapType<Short, String> smallintKeyMapType = new MapType<>(SHORT_TYPE, STRING_TYPE);
+        MapType<Integer, String> intKeyMapType = new MapType<>(INT_TYPE, STRING_TYPE);
+        MapType<Long, String> bigintKeyMapType = new MapType<>(LONG_TYPE, STRING_TYPE);
+        MapType<Float, String> floatKeyMapType = new MapType<>(FLOAT_TYPE, STRING_TYPE);
+        MapType<Double, String> doubleKeyMapType = new MapType<>(DOUBLE_TYPE, STRING_TYPE);
+        MapType<LocalDate, String> dateKeyMapType =
+                new MapType<>(LocalTimeType.LOCAL_DATE_TYPE, STRING_TYPE);
+        MapType<LocalTime, String> timeKeyMapType =
+                new MapType<>(LocalTimeType.LOCAL_TIME_TYPE, STRING_TYPE);
+        MapType<LocalDateTime, String> timestampKeyMapType =
+                new MapType<>(LocalTimeType.LOCAL_DATE_TIME_TYPE, STRING_TYPE);
+        MapType<BigDecimal, String> decimalKeyMapType =
+                new MapType<>(new DecimalType(10, 2), STRING_TYPE);
+
+        JsonToRowConverters converters = new JsonToRowConverters(true, false);
+
+        JsonToRowConverters.JsonToObjectConverter stringConverter =
+                converters.createConverter(stringKeyMapType);
+        JsonToRowConverters.JsonToObjectConverter booleanConverter =
+                converters.createConverter(booleanKeyMapType);
+        JsonToRowConverters.JsonToObjectConverter tinyintConverter =
+                converters.createConverter(tinyintKeyMapType);
+        JsonToRowConverters.JsonToObjectConverter smallintConverter =
+                converters.createConverter(smallintKeyMapType);
+        JsonToRowConverters.JsonToObjectConverter intConverter =
+                converters.createConverter(intKeyMapType);
+        JsonToRowConverters.JsonToObjectConverter bigintConverter =
+                converters.createConverter(bigintKeyMapType);
+        JsonToRowConverters.JsonToObjectConverter floatConverter =
+                converters.createConverter(floatKeyMapType);
+        JsonToRowConverters.JsonToObjectConverter doubleConverter =
+                converters.createConverter(doubleKeyMapType);
+        JsonToRowConverters.JsonToObjectConverter dateConverter =
+                converters.createConverter(dateKeyMapType);
+        JsonToRowConverters.JsonToObjectConverter timeConverter =
+                converters.createConverter(timeKeyMapType);
+        JsonToRowConverters.JsonToObjectConverter timestampConverter =
+                converters.createConverter(timestampKeyMapType);
+        JsonToRowConverters.JsonToObjectConverter decimalConverter =
+                converters.createConverter(decimalKeyMapType);
+
+        assertMapKeyType("{\"abc\": \"xxx\"}", stringConverter, "abc", "stringConverter");
+        assertMapKeyType("{\"false\": \"xxx\"}", booleanConverter, false, "booleanConverter");
+        assertMapKeyType("{\"1\": \"xxx\"}", tinyintConverter, (byte) 1, "tinyintConverter");
+        assertMapKeyType("{\"12\": \"xxx\"}", smallintConverter, (short) 12, "smallintConverter");
+        assertMapKeyType("{\"123\": \"xxx\"}", intConverter, 123, "intConverter");
+        assertMapKeyType("{\"12345\": \"xxx\"}", bigintConverter, 12345L, "bigintConverter");
+        assertMapKeyType("{\"1.0001\": \"xxx\"}", floatConverter, 1.0001f, "floatConverter");
+        assertMapKeyType("{\"999.9999\": \"xxx\"}", doubleConverter, 999.9999, "doubleConverter");
+        assertMapKeyType(
+                "{\"9999.23\": \"xxx\"}",
+                decimalConverter,
+                BigDecimal.valueOf(9999.23),
+                "decimalConverter");
+
+        LocalDate date =
+                DateTimeFormatter.ISO_LOCAL_DATE
+                        .parse("2024-01-26")
+                        .query(TemporalQueries.localDate());
+        assertMapKeyType(
+                "{\"2024-01-26\": \"xxx\"}", dateConverter, date, "iso_local_date_string_map");
+
+        LocalTime time =
+                JsonToRowConverters.TIME_FORMAT
+                        .parse("12:00:12.001")
+                        .query(TemporalQueries.localTime());
+        assertMapKeyType(
+                "{\"12:00:12.001\": \"xxx\"}", timeConverter, time, "time_format_string_map");
+
+        LocalDateTime timestamp = LocalDateTime.of(date, time);
+        assertMapKeyType(
+                "{\"2024-01-26T12:00:12.001\": \"xxx\"}",
+                timestampConverter,
+                timestamp,
+                "timestamp_string_map");
+    }
+
+    private void assertMapKeyType(
+            String payload,
+            JsonToRowConverters.JsonToObjectConverter converter,
+            Object expect,
+            String fieldName)
+            throws JsonProcessingException {
+        JsonNode keyMapNode = JsonUtils.stringToJsonNode(payload);
+        Map<?, ?> keyMap = (Map<?, ?>) converter.convert(keyMapNode, fieldName);
+        assertEquals(expect, keyMap.keySet().iterator().next());
     }
 }

@@ -17,20 +17,30 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle;
 
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.SQLUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
+
+import org.apache.commons.lang3.StringUtils;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+@Slf4j
 public class OracleDialect implements JdbcDialect {
 
     private static final int DEFAULT_ORACLE_FETCH_SIZE = 128;
@@ -44,7 +54,7 @@ public class OracleDialect implements JdbcDialect {
 
     @Override
     public String dialectName() {
-        return "Oracle";
+        return DatabaseIdentifier.ORACLE;
     }
 
     @Override
@@ -154,5 +164,111 @@ public class OracleDialect implements JdbcDialect {
             statement.setFetchSize(DEFAULT_ORACLE_FETCH_SIZE);
         }
         return statement;
+    }
+
+    @Override
+    public TablePath parse(String tablePath) {
+        return TablePath.of(tablePath, true);
+    }
+
+    @Override
+    public String tableIdentifier(TablePath tablePath) {
+        return quoteIdentifier(tablePath.getSchemaAndTableName());
+    }
+
+    @Override
+    public Long approximateRowCntStatement(Connection connection, JdbcSourceTable table)
+            throws SQLException {
+
+        // 1. If no query is configured, use TABLE STATUS.
+        // 2. If a query is configured but does not contain a WHERE clause and tablePath is
+        // configured, use TABLE STATUS.
+        // 3. If a query is configured with a WHERE clause, or a query statement is configured but
+        // tablePath is TablePath.DEFAULT, use COUNT(*).
+
+        boolean useTableStats =
+                StringUtils.isBlank(table.getQuery())
+                        || (!table.getQuery().toLowerCase().contains("where")
+                                && table.getTablePath() != null
+                                && !TablePath.DEFAULT
+                                        .getFullName()
+                                        .equals(table.getTablePath().getFullName()));
+
+        if (useTableStats) {
+            TablePath tablePath = table.getTablePath();
+            String analyzeTable =
+                    String.format(
+                            "analyze table %s compute statistics for table",
+                            tableIdentifier(tablePath));
+            String rowCountQuery =
+                    String.format(
+                            "select NUM_ROWS from all_tables where OWNER = '%s' AND TABLE_NAME = '%s' ",
+                            tablePath.getSchemaName(), tablePath.getTableName());
+
+            try (Statement stmt = connection.createStatement()) {
+                log.info("Split Chunk, approximateRowCntStatement: {}", analyzeTable);
+                stmt.execute(analyzeTable);
+                log.info("Split Chunk, approximateRowCntStatement: {}", rowCountQuery);
+                try (ResultSet rs = stmt.executeQuery(rowCountQuery)) {
+                    if (!rs.next()) {
+                        throw new SQLException(
+                                String.format(
+                                        "No result returned after running query [%s]",
+                                        rowCountQuery));
+                    }
+                    return rs.getLong(1);
+                }
+            }
+        }
+        return SQLUtils.countForSubquery(connection, table.getQuery());
+    }
+
+    @Override
+    public Object queryNextChunkMax(
+            Connection connection,
+            JdbcSourceTable table,
+            String columnName,
+            int chunkSize,
+            Object includedLowerBound)
+            throws SQLException {
+        String quotedColumn = quoteIdentifier(columnName);
+        String sqlQuery;
+        if (StringUtils.isNotBlank(table.getQuery())) {
+            sqlQuery =
+                    String.format(
+                            "SELECT MAX(%s) FROM ("
+                                    + "SELECT %s FROM (%s) WHERE %s >= ? ORDER BY %s ASC "
+                                    + ") WHERE ROWNUM <= %s",
+                            quotedColumn,
+                            quotedColumn,
+                            table.getQuery(),
+                            quotedColumn,
+                            quotedColumn,
+                            chunkSize);
+        } else {
+            sqlQuery =
+                    String.format(
+                            "SELECT MAX(%s) FROM ("
+                                    + "SELECT %s FROM %s WHERE %s >= ? ORDER BY %s ASC "
+                                    + ") WHERE ROWNUM <= %s",
+                            quotedColumn,
+                            quotedColumn,
+                            tableIdentifier(table.getTablePath()),
+                            quotedColumn,
+                            quotedColumn,
+                            chunkSize);
+        }
+
+        try (PreparedStatement ps = connection.prepareStatement(sqlQuery)) {
+            ps.setObject(1, includedLowerBound);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    // this should never happen
+                    throw new SQLException(
+                            String.format("No result returned after running query [%s]", sqlQuery));
+                }
+                return rs.getObject(1);
+            }
+        }
     }
 }

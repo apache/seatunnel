@@ -21,18 +21,19 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.file.hdfs.sink.BaseHdfsFileSink;
-import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3Conf;
-import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3Config;
+import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3ConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.redshift.commit.S3RedshiftSinkAggregatedCommitter;
-import org.apache.seatunnel.connectors.seatunnel.redshift.config.S3RedshiftConfig;
+import org.apache.seatunnel.connectors.seatunnel.redshift.config.S3RedshiftConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.redshift.exception.S3RedshiftJdbcConnectorException;
 
 import com.google.auto.service.AutoService;
@@ -52,12 +53,12 @@ public class S3RedshiftSink extends BaseHdfsFileSink {
         CheckResult checkResult =
                 CheckConfigUtil.checkAllExists(
                         pluginConfig,
-                        S3Config.S3_BUCKET.key(),
-                        S3Config.S3A_AWS_CREDENTIALS_PROVIDER.key(),
-                        S3RedshiftConfig.JDBC_URL.key(),
-                        S3RedshiftConfig.JDBC_USER.key(),
-                        S3RedshiftConfig.JDBC_PASSWORD.key(),
-                        S3RedshiftConfig.EXECUTE_SQL.key());
+                        S3ConfigOptions.S3_BUCKET.key(),
+                        S3ConfigOptions.S3A_AWS_CREDENTIALS_PROVIDER.key(),
+                        S3RedshiftConfigOptions.JDBC_URL.key(),
+                        S3RedshiftConfigOptions.JDBC_USER.key(),
+                        S3RedshiftConfigOptions.JDBC_PASSWORD.key(),
+                        S3RedshiftConfigOptions.EXECUTE_SQL.key());
         if (!checkResult.isSuccess()) {
             throw new S3RedshiftJdbcConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
@@ -66,12 +67,12 @@ public class S3RedshiftSink extends BaseHdfsFileSink {
                             getPluginName(), PluginType.SINK, checkResult.getMsg()));
         }
         this.pluginConfig = pluginConfig;
-        hadoopConf = S3Conf.buildWithConfig(pluginConfig);
+        hadoopConf = S3HadoopConf.buildWithReadOnlyConfig(ReadonlyConfig.fromConfig(pluginConfig));
     }
 
     @Override
     public Optional<SinkAggregatedCommitter<FileCommitInfo, FileAggregatedCommitInfo>>
             createAggregatedCommitter() {
-        return Optional.of(new S3RedshiftSinkAggregatedCommitter(fileSystemUtils, pluginConfig));
+        return Optional.of(new S3RedshiftSinkAggregatedCommitter(hadoopConf, pluginConfig));
     }
 }

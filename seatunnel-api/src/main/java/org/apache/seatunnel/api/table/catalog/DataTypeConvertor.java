@@ -22,32 +22,38 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
 import java.util.Map;
 
-/** DataTypeConvertor is used to convert the data type between connector and SeaTunnel. */
+/**
+ * @deprecated instead by {@link org.apache.seatunnel.api.table.converter.TypeConverter}
+ * @param <T>
+ */
+@Deprecated
 public interface DataTypeConvertor<T> {
 
     /**
      * Transfer the data type from connector to SeaTunnel.
      *
+     * @param field The field name of the column
      * @param connectorDataType e.g. "int", "varchar(255)"
      * @return the data type of SeaTunnel
      */
-    SeaTunnelDataType<?> toSeaTunnelType(String connectorDataType);
+    SeaTunnelDataType<?> toSeaTunnelType(String field, String connectorDataType);
 
     /**
      * Transfer the data type from connector to SeaTunnel.
      *
+     * @param field The field name of the column
      * @param connectorDataType origin data type
      * @param dataTypeProperties origin data type properties, e.g. precision, scale, length
      * @return SeaTunnel data type
      */
     // todo: If the origin data type contains the properties, we can remove the dataTypeProperties.
     SeaTunnelDataType<?> toSeaTunnelType(
-            T connectorDataType, Map<String, Object> dataTypeProperties)
-            throws DataTypeConvertException;
+            String field, T connectorDataType, Map<String, Object> dataTypeProperties);
 
     /**
      * Transfer the data type from SeaTunnel to connector.
      *
+     * @param field The field name of the column
      * @param seaTunnelDataType seaTunnel data type
      * @param dataTypeProperties seaTunnel data type properties, e.g. precision, scale, length
      * @return origin data type
@@ -55,8 +61,9 @@ public interface DataTypeConvertor<T> {
     // todo: If the SeaTunnel data type contains the properties, we can remove the
     // dataTypeProperties.
     T toConnectorType(
-            SeaTunnelDataType<?> seaTunnelDataType, Map<String, Object> dataTypeProperties)
-            throws DataTypeConvertException;
+            String field,
+            SeaTunnelDataType<?> seaTunnelDataType,
+            Map<String, Object> dataTypeProperties);
 
     String getIdentity();
 }

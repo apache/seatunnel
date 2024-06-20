@@ -20,11 +20,11 @@ package org.apache.seatunnel.connectors.seatunnel.elasticsearch.serialize.source
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.NullNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.TextNode;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
-import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
@@ -32,7 +32,7 @@ import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorException;
 
@@ -63,6 +63,8 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
 
     private final ObjectMapper mapper = new ObjectMapper();
 
+    private final String nullDefault = "null";
+
     private final Map<Integer, DateTimeFormatter> dateTimeFormatterMap =
             new HashMap<Integer, DateTimeFormatter>() {
                 {
@@ -91,6 +93,9 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
                     put(
                             "yyyy-MM-dd HH:mm:ss.SSSSSS".length(),
                             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSS"));
+                    put(
+                            "yyyy-MM-dd HH:mm:ss.SSSSSSSSS".length(),
+                            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSSSSS"));
                 }
             };
 
@@ -114,7 +119,9 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
                 value = recursiveGet(rowRecord.getDoc(), fieldName);
                 if (value != null) {
                     seaTunnelDataType = rowTypeInfo.getFieldType(i);
-                    if (value instanceof TextNode) {
+                    if (value instanceof NullNode) {
+                        seaTunnelFields[i] = null;
+                    } else if (value instanceof TextNode) {
                         seaTunnelFields[i] =
                                 convertValue(seaTunnelDataType, ((TextNode) value).textValue());
                     } else {
@@ -124,7 +131,7 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
             }
         } catch (Exception ex) {
             throw new ElasticsearchConnectorException(
-                    CommonErrorCode.UNSUPPORTED_OPERATION,
+                    CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                     String.format(
                             "error fieldName=%s,fieldValue=%s,seaTunnelDataType=%s,rowRecord=%s",
                             fieldName, value, seaTunnelDataType, JsonUtils.toJsonString(rowRecord)),
@@ -135,63 +142,89 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
 
     Object convertValue(SeaTunnelDataType<?> fieldType, String fieldValue)
             throws JsonProcessingException {
-        if (BOOLEAN_TYPE.equals(fieldType)) {
-            return Boolean.parseBoolean(fieldValue);
-        } else if (BYTE_TYPE.equals(fieldType)) {
-            return Byte.valueOf(fieldValue);
-        } else if (SHORT_TYPE.equals(fieldType)) {
-            return Short.parseShort(fieldValue);
-        } else if (INT_TYPE.equals(fieldType)) {
-            return Integer.parseInt(fieldValue);
-        } else if (LONG_TYPE.equals(fieldType)) {
-            return Long.parseLong(fieldValue);
-        } else if (FLOAT_TYPE.equals(fieldType)) {
-            return Float.parseFloat(fieldValue);
-        } else if (DOUBLE_TYPE.equals(fieldType)) {
-            return Double.parseDouble(fieldValue);
-        } else if (STRING_TYPE.equals(fieldType)) {
+        if (STRING_TYPE.equals(fieldType)) {
             return fieldValue;
-        } else if (LocalTimeType.LOCAL_DATE_TYPE.equals(fieldType)) {
-            LocalDateTime localDateTime = parseDate(fieldValue);
-            return localDateTime.toLocalDate();
-        } else if (LocalTimeType.LOCAL_TIME_TYPE.equals(fieldType)) {
-            LocalDateTime localDateTime = parseDate(fieldValue);
-            return localDateTime.toLocalTime();
-        } else if (LocalTimeType.LOCAL_DATE_TIME_TYPE.equals(fieldType)) {
-            return parseDate(fieldValue);
-        } else if (fieldType instanceof DecimalType) {
-            return new BigDecimal(fieldValue);
-        } else if (fieldType instanceof ArrayType) {
-            ArrayType<?, ?> arrayType = (ArrayType<?, ?>) fieldType;
-            BasicType<?> elementType = arrayType.getElementType();
-            List<String> stringList = JsonUtils.toList(fieldValue, String.class);
-            Object arr = Array.newInstance(elementType.getTypeClass(), stringList.size());
-            for (int i = 0; i < stringList.size(); i++) {
-                Object convertValue = convertValue(elementType, stringList.get(i));
-                Array.set(arr, 0, convertValue);
-            }
-            return arr;
-        } else if (fieldType instanceof MapType) {
-            MapType<?, ?> mapType = (MapType<?, ?>) fieldType;
-            SeaTunnelDataType<?> keyType = mapType.getKeyType();
-
-            SeaTunnelDataType<?> valueType = mapType.getValueType();
-            Map<String, String> stringMap =
-                    mapper.readValue(fieldValue, new TypeReference<HashMap<String, String>>() {});
-            Map<Object, Object> convertMap = new HashMap<Object, Object>();
-            for (Map.Entry<String, String> entry : stringMap.entrySet()) {
-                Object convertKey = convertValue(keyType, entry.getKey());
-                Object convertValue = convertValue(valueType, entry.getValue());
-                convertMap.put(convertKey, convertValue);
-            }
-            return convertMap;
-        } else if (fieldType instanceof PrimitiveByteArrayType) {
-            return Base64.getDecoder().decode(fieldValue);
-        } else if (VOID_TYPE.equals(fieldType) || fieldType == null) {
-            return null;
         } else {
-            throw new ElasticsearchConnectorException(
-                    CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Unexpected value: " + fieldType);
+            if (nullDefault.equals(fieldValue)) {
+                return null;
+            }
+            if (BOOLEAN_TYPE.equals(fieldType)) {
+                return Boolean.parseBoolean(fieldValue);
+            } else if (BYTE_TYPE.equals(fieldType)) {
+                return Byte.valueOf(fieldValue);
+            } else if (SHORT_TYPE.equals(fieldType)) {
+                return Short.parseShort(fieldValue);
+            } else if (INT_TYPE.equals(fieldType)) {
+                return Integer.parseInt(fieldValue);
+            } else if (LONG_TYPE.equals(fieldType)) {
+                return Long.parseLong(fieldValue);
+            } else if (FLOAT_TYPE.equals(fieldType)) {
+                return Float.parseFloat(fieldValue);
+            } else if (DOUBLE_TYPE.equals(fieldType)) {
+                return Double.parseDouble(fieldValue);
+            } else if (LocalTimeType.LOCAL_DATE_TYPE.equals(fieldType)) {
+                LocalDateTime localDateTime = parseDate(fieldValue);
+                return localDateTime.toLocalDate();
+            } else if (LocalTimeType.LOCAL_TIME_TYPE.equals(fieldType)) {
+                LocalDateTime localDateTime = parseDate(fieldValue);
+                return localDateTime.toLocalTime();
+            } else if (LocalTimeType.LOCAL_DATE_TIME_TYPE.equals(fieldType)) {
+                return parseDate(fieldValue);
+            } else if (fieldType instanceof DecimalType) {
+                return new BigDecimal(fieldValue);
+            } else if (fieldType instanceof ArrayType) {
+                ArrayType<?, ?> arrayType = (ArrayType<?, ?>) fieldType;
+                SeaTunnelDataType<?> elementType = arrayType.getElementType();
+                List<String> stringList = JsonUtils.toList(fieldValue, String.class);
+                Object arr = Array.newInstance(elementType.getTypeClass(), stringList.size());
+                for (int i = 0; i < stringList.size(); i++) {
+                    Object convertValue = convertValue(elementType, stringList.get(i));
+                    Array.set(arr, i, convertValue);
+                }
+                return arr;
+            } else if (fieldType instanceof MapType) {
+                MapType<?, ?> mapType = (MapType<?, ?>) fieldType;
+                SeaTunnelDataType<?> keyType = mapType.getKeyType();
+
+                SeaTunnelDataType<?> valueType = mapType.getValueType();
+                Map<String, String> stringMap =
+                        mapper.readValue(
+                                fieldValue, new TypeReference<HashMap<String, String>>() {});
+                Map<Object, Object> convertMap = new HashMap<Object, Object>();
+                for (Map.Entry<String, String> entry : stringMap.entrySet()) {
+                    Object convertKey = convertValue(keyType, entry.getKey());
+                    Object convertValue = convertValue(valueType, entry.getValue());
+                    convertMap.put(convertKey, convertValue);
+                }
+                return convertMap;
+            } else if (fieldType instanceof SeaTunnelRowType) {
+                SeaTunnelRowType rowType = (SeaTunnelRowType) fieldType;
+                Map<String, Object> collect =
+                        mapper.readValue(fieldValue, new TypeReference<Map<String, Object>>() {});
+                Object[] seaTunnelFields = new Object[rowType.getTotalFields()];
+                for (int i = 0; i < rowType.getTotalFields(); i++) {
+                    String fieldName = rowType.getFieldName(i);
+                    SeaTunnelDataType<?> fieldDataType = rowType.getFieldType(i);
+                    Object value = collect.get(fieldName);
+                    if (value != null) {
+                        seaTunnelFields[i] =
+                                convertValue(
+                                        fieldDataType,
+                                        (value instanceof List || value instanceof Map)
+                                                ? mapper.writeValueAsString(value)
+                                                : value.toString());
+                    }
+                }
+                return new SeaTunnelRow(seaTunnelFields);
+            } else if (fieldType instanceof PrimitiveByteArrayType) {
+                return Base64.getDecoder().decode(fieldValue);
+            } else if (VOID_TYPE.equals(fieldType) || fieldType == null) {
+                return null;
+            } else {
+                throw new ElasticsearchConnectorException(
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
+                        "Unexpected value: " + fieldType);
+            }
         }
     }
 
@@ -203,7 +236,7 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
         } catch (NumberFormatException e) {
             // no op
         }
-        String formatDate = fieldValue.replace("T", " ");
+        String formatDate = fieldValue.replace("T", " ").replace("Z", "");
         if (fieldValue.length() == "yyyyMMdd".length()
                 || fieldValue.length() == "yyyy-MM-dd".length()) {
             formatDate = fieldValue + " 00:00:00";
@@ -211,7 +244,7 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
         DateTimeFormatter dateTimeFormatter = dateTimeFormatterMap.get(formatDate.length());
         if (dateTimeFormatter == null) {
             throw new ElasticsearchConnectorException(
-                    CommonErrorCode.UNSUPPORTED_OPERATION, "unsupported date format");
+                    CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION, "unsupported date format");
         }
         return LocalDateTime.parse(formatDate, dateTimeFormatter);
     }

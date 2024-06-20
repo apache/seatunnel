@@ -28,6 +28,7 @@ import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
 
+import com.google.common.collect.Lists;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -85,6 +86,8 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
         copySeaTunnelStarterToContainer(jobManager);
         copySeaTunnelStarterLoggingToContainer(jobManager);
 
+        jobManager.setPortBindings(Lists.newArrayList(String.format("%s:%s", 8081, 8081)));
+
         taskManager =
                 new GenericContainer<>(dockerImage)
                         .withCommand("taskmanager")
@@ -123,6 +126,16 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
     }
 
     @Override
+    protected String getSavePointCommand() {
+        throw new UnsupportedOperationException("Not implemented");
+    }
+
+    @Override
+    protected String getRestoreCommand() {
+        throw new UnsupportedOperationException("Not implemented");
+    }
+
+    @Override
     protected List<String> getExtraStartShellCommands() {
         return Collections.emptyList();
     }
@@ -136,7 +149,23 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
     @Override
     public Container.ExecResult executeJob(String confFile)
             throws IOException, InterruptedException {
+        return executeJob(confFile, null);
+    }
+
+    @Override
+    public Container.ExecResult executeJob(String confFile, List<String> variables)
+            throws IOException, InterruptedException {
         log.info("test in container: {}", identifier());
-        return executeJob(jobManager, confFile);
+        return executeJob(jobManager, confFile, variables);
+    }
+
+    @Override
+    public String getServerLogs() {
+        return jobManager.getLogs() + "\n" + taskManager.getLogs();
+    }
+
+    public String executeJobManagerInnerCommand(String command)
+            throws IOException, InterruptedException {
+        return jobManager.execInContainer("bash", "-c", command).getStdout();
     }
 }

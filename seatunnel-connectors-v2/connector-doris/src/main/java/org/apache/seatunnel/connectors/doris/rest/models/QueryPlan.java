@@ -22,7 +22,7 @@ import java.util.Objects;
 
 public class QueryPlan {
     private int status;
-    private String opaquedQueryPlan;
+    private String opaqued_query_plan;
     private Map<String, Tablet> partitions;
 
     public int getStatus() {
@@ -33,12 +33,12 @@ public class QueryPlan {
         this.status = status;
     }
 
-    public String getOpaquedQueryPlan() {
-        return opaquedQueryPlan;
+    public String getOpaqued_query_plan() {
+        return opaqued_query_plan;
     }
 
-    public void setOpaquedQueryPlan(String opaquedQueryPlan) {
-        this.opaquedQueryPlan = opaquedQueryPlan;
+    public void setOpaqued_query_plan(String opaqued_query_plan) {
+        this.opaqued_query_plan = opaqued_query_plan;
     }
 
     public Map<String, Tablet> getPartitions() {
@@ -59,12 +59,12 @@ public class QueryPlan {
         }
         QueryPlan queryPlan = (QueryPlan) o;
         return status == queryPlan.status
-                && Objects.equals(opaquedQueryPlan, queryPlan.opaquedQueryPlan)
+                && Objects.equals(opaqued_query_plan, queryPlan.opaqued_query_plan)
                 && Objects.equals(partitions, queryPlan.partitions);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(status, opaquedQueryPlan, partitions);
+        return Objects.hash(status, opaqued_query_plan, partitions);
     }
 }

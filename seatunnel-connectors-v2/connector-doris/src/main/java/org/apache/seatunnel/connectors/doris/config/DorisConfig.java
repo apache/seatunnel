@@ -19,174 +19,59 @@ package org.apache.seatunnel.connectors.doris.config;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.apache.seatunnel.api.configuration.Option;
-import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 
+import java.io.Serializable;
 import java.util.Map;
 import java.util.Properties;
+
+import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DATABASE;
+import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DORIS_BATCH_SIZE;
+import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DORIS_DESERIALIZE_ARROW_ASYNC;
+import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DORIS_DESERIALIZE_QUEUE_SIZE;
+import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DORIS_EXEC_MEM_LIMIT;
+import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DORIS_FILTER_QUERY;
+import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DORIS_READ_FIELD;
+import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DORIS_REQUEST_CONNECT_TIMEOUT_MS;
+import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DORIS_REQUEST_QUERY_TIMEOUT_S;
+import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DORIS_REQUEST_READ_TIMEOUT_MS;
+import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DORIS_REQUEST_RETRIES;
+import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DORIS_SINK_CONFIG_PREFIX;
+import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DORIS_TABLET_SIZE;
+import static org.apache.seatunnel.connectors.doris.config.DorisOptions.FENODES;
+import static org.apache.seatunnel.connectors.doris.config.DorisOptions.NEEDS_UNSUPPORTED_TYPE_CASTING;
+import static org.apache.seatunnel.connectors.doris.config.DorisOptions.PASSWORD;
+import static org.apache.seatunnel.connectors.doris.config.DorisOptions.QUERY_PORT;
+import static org.apache.seatunnel.connectors.doris.config.DorisOptions.SAVE_MODE_CREATE_TEMPLATE;
+import static org.apache.seatunnel.connectors.doris.config.DorisOptions.SINK_BUFFER_COUNT;
+import static org.apache.seatunnel.connectors.doris.config.DorisOptions.SINK_BUFFER_SIZE;
+import static org.apache.seatunnel.connectors.doris.config.DorisOptions.SINK_CHECK_INTERVAL;
+import static org.apache.seatunnel.connectors.doris.config.DorisOptions.SINK_ENABLE_2PC;
+import static org.apache.seatunnel.connectors.doris.config.DorisOptions.SINK_ENABLE_DELETE;
+import static org.apache.seatunnel.connectors.doris.config.DorisOptions.SINK_LABEL_PREFIX;
+import static org.apache.seatunnel.connectors.doris.config.DorisOptions.SINK_MAX_RETRIES;
+import static org.apache.seatunnel.connectors.doris.config.DorisOptions.TABLE;
+import static org.apache.seatunnel.connectors.doris.config.DorisOptions.USERNAME;
 
 @Setter
 @Getter
 @ToString
-public class DorisConfig {
-    public static final int DORIS_TABLET_SIZE_MIN = 1;
-    public static final int DORIS_TABLET_SIZE_DEFAULT = Integer.MAX_VALUE;
-    public static final int DORIS_REQUEST_CONNECT_TIMEOUT_MS_DEFAULT = 30 * 1000;
-    public static final int DORIS_REQUEST_READ_TIMEOUT_MS_DEFAULT = 30 * 1000;
-    private static final int DORIS_REQUEST_QUERY_TIMEOUT_S_DEFAULT = 3600;
-    public static final int DORIS_REQUEST_RETRIES_DEFAULT = 3;
-    private static final Boolean DORIS_DESERIALIZE_ARROW_ASYNC_DEFAULT = false;
-    private static final int DORIS_DESERIALIZE_QUEUE_SIZE_DEFAULT = 64;
-    private static final int DORIS_BATCH_SIZE_DEFAULT = 1024;
-    private static final long DORIS_EXEC_MEM_LIMIT_DEFAULT = 2147483648L;
-    private static final int DEFAULT_SINK_CHECK_INTERVAL = 10000;
-    private static final int DEFAULT_SINK_MAX_RETRIES = 3;
-    private static final int DEFAULT_SINK_BUFFER_SIZE = 256 * 1024;
-    private static final int DEFAULT_SINK_BUFFER_COUNT = 3;
-    // common option
-    public static final Option<String> FENODES =
-            Options.key("fenodes")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("doris fe http address.");
+public class DorisConfig implements Serializable {
 
-    public static final Option<String> TABLE_IDENTIFIER =
-            Options.key("table.identifier")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("the doris table name.");
-    public static final Option<String> USERNAME =
-            Options.key("username")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("the doris user name.");
-    public static final Option<String> PASSWORD =
-            Options.key("password")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("the doris password.");
-
-    // source config options
-    public static final Option<String> DORIS_READ_FIELD =
-            Options.key("doris.read.field")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "List of column names in the Doris table, separated by commas");
-    public static final Option<String> DORIS_FILTER_QUERY =
-            Options.key("doris.filter.query")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "Filter expression of the query, which is transparently transmitted to Doris. Doris uses this expression to complete source-side data filtering");
-    public static final Option<Integer> DORIS_TABLET_SIZE =
-            Options.key("doris.request.tablet.size")
-                    .intType()
-                    .defaultValue(DORIS_TABLET_SIZE_DEFAULT)
-                    .withDescription("");
-    public static final Option<Integer> DORIS_REQUEST_CONNECT_TIMEOUT_MS =
-            Options.key("doris.request.connect.timeout.ms")
-                    .intType()
-                    .defaultValue(DORIS_REQUEST_CONNECT_TIMEOUT_MS_DEFAULT)
-                    .withDescription("");
-    public static final Option<Integer> DORIS_REQUEST_READ_TIMEOUT_MS =
-            Options.key("doris.request.read.timeout.ms")
-                    .intType()
-                    .defaultValue(DORIS_REQUEST_READ_TIMEOUT_MS_DEFAULT)
-                    .withDescription("");
-    public static final Option<Integer> DORIS_REQUEST_QUERY_TIMEOUT_S =
-            Options.key("doris.request.query.timeout.s")
-                    .intType()
-                    .defaultValue(DORIS_REQUEST_QUERY_TIMEOUT_S_DEFAULT)
-                    .withDescription("");
-    public static final Option<Integer> DORIS_REQUEST_RETRIES =
-            Options.key("doris.request.retries")
-                    .intType()
-                    .defaultValue(DORIS_REQUEST_RETRIES_DEFAULT)
-                    .withDescription("");
-    public static final Option<Boolean> DORIS_DESERIALIZE_ARROW_ASYNC =
-            Options.key("doris.deserialize.arrow.async")
-                    .booleanType()
-                    .defaultValue(DORIS_DESERIALIZE_ARROW_ASYNC_DEFAULT)
-                    .withDescription("");
-    public static final Option<Integer> DORIS_DESERIALIZE_QUEUE_SIZE =
-            Options.key("doris.request.retriesdoris.deserialize.queue.size")
-                    .intType()
-                    .defaultValue(DORIS_DESERIALIZE_QUEUE_SIZE_DEFAULT)
-                    .withDescription("");
-    public static final Option<Integer> DORIS_BATCH_SIZE =
-            Options.key("doris.batch.size")
-                    .intType()
-                    .defaultValue(DORIS_BATCH_SIZE_DEFAULT)
-                    .withDescription("");
-    public static final Option<Long> DORIS_EXEC_MEM_LIMIT =
-            Options.key("doris.exec.mem.limit")
-                    .longType()
-                    .defaultValue(DORIS_EXEC_MEM_LIMIT_DEFAULT)
-                    .withDescription("");
-    public static final Option<Boolean> SOURCE_USE_OLD_API =
-            Options.key("source.use-old-api")
-                    .booleanType()
-                    .defaultValue(false)
-                    .withDescription(
-                            "Whether to read data using the new interface defined according to the FLIP-27 specification,default false");
-
-    // sink config options
-    public static final Option<Boolean> SINK_ENABLE_2PC =
-            Options.key("sink.enable-2pc")
-                    .booleanType()
-                    .defaultValue(true)
-                    .withDescription("enable 2PC while loading");
-
-    public static final Option<Integer> SINK_CHECK_INTERVAL =
-            Options.key("sink.check-interval")
-                    .intType()
-                    .defaultValue(DEFAULT_SINK_CHECK_INTERVAL)
-                    .withDescription("check exception with the interval while loading");
-    public static final Option<Integer> SINK_MAX_RETRIES =
-            Options.key("sink.max-retries")
-                    .intType()
-                    .defaultValue(DEFAULT_SINK_MAX_RETRIES)
-                    .withDescription("the max retry times if writing records to database failed.");
-    public static final Option<Integer> SINK_BUFFER_SIZE =
-            Options.key("sink.buffer-size")
-                    .intType()
-                    .defaultValue(DEFAULT_SINK_BUFFER_SIZE)
-                    .withDescription("the buffer size to cache data for stream load.");
-    public static final Option<Integer> SINK_BUFFER_COUNT =
-            Options.key("sink.buffer-count")
-                    .intType()
-                    .defaultValue(DEFAULT_SINK_BUFFER_COUNT)
-                    .withDescription("the buffer count to cache data for stream load.");
-    public static final Option<String> SINK_LABEL_PREFIX =
-            Options.key("sink.label-prefix")
-                    .stringType()
-                    .defaultValue("")
-                    .withDescription("the unique label prefix.");
-    public static final Option<Boolean> SINK_ENABLE_DELETE =
-            Options.key("sink.enable-delete")
-                    .booleanType()
-                    .defaultValue(false)
-                    .withDescription("whether to enable the delete function");
-
-    public static final Option<Map<String, String>> DORIS_SINK_CONFIG_PREFIX =
-            Options.key("doris.config")
-                    .mapType()
-                    .noDefaultValue()
-                    .withDescription(
-                            "The parameter of the Stream Load data_desc. "
-                                    + "The way to specify the parameter is to add the prefix `doris.config` to the original load parameter name ");
+    public static final String IDENTIFIER = "Doris";
 
     // common option
     private String frontends;
+    private String database;
+    private String table;
     private String username;
     private String password;
-    private String tableIdentifier;
+    private Integer queryPort;
+    private int batchSize;
 
     // source option
     private String readField;
@@ -196,10 +81,9 @@ public class DorisConfig {
     private Integer requestReadTimeoutMs;
     private Integer requestQueryTimeoutS;
     private Integer requestRetries;
-    private boolean deserializeArrowAsync;
+    private Boolean deserializeArrowAsync;
     private int deserializeQueueSize;
-    private int batchSize;
-    private int execMemLimit;
+    private Long execMemLimit;
     private boolean useOldApi;
 
     // sink option
@@ -211,122 +95,65 @@ public class DorisConfig {
     private Integer bufferSize;
     private Integer bufferCount;
     private Properties streamLoadProps;
+    private boolean needsUnsupportedTypeCasting;
 
-    public static DorisConfig loadConfig(Config pluginConfig) {
+    // create table option
+    private String createTableTemplate;
+
+    public static DorisConfig of(Config pluginConfig) {
+        return of(ReadonlyConfig.fromConfig(pluginConfig));
+    }
+
+    public static DorisConfig of(ReadonlyConfig config) {
+
         DorisConfig dorisConfig = new DorisConfig();
 
         // common option
-        dorisConfig.setFrontends(pluginConfig.getString(FENODES.key()));
-        dorisConfig.setUsername(pluginConfig.getString(USERNAME.key()));
-        dorisConfig.setPassword(pluginConfig.getString(PASSWORD.key()));
-        dorisConfig.setTableIdentifier(pluginConfig.getString(TABLE_IDENTIFIER.key()));
-        dorisConfig.setStreamLoadProps(parseStreamLoadProperties(pluginConfig));
+        dorisConfig.setFrontends(config.get(FENODES));
+        dorisConfig.setUsername(config.get(USERNAME));
+        dorisConfig.setPassword(config.get(PASSWORD));
+        dorisConfig.setQueryPort(config.get(QUERY_PORT));
+        dorisConfig.setStreamLoadProps(parseStreamLoadProperties(config));
+        dorisConfig.setDatabase(config.get(DATABASE));
+        dorisConfig.setTable(config.get(TABLE));
 
         // source option
-        if (pluginConfig.hasPath(DORIS_READ_FIELD.key())) {
-            dorisConfig.setReadField(pluginConfig.getString(DORIS_READ_FIELD.key()));
-        } else {
-            dorisConfig.setReadField(DORIS_READ_FIELD.defaultValue());
-        }
-        if (pluginConfig.hasPath(DORIS_FILTER_QUERY.key())) {
-            dorisConfig.setFilterQuery(pluginConfig.getString(DORIS_FILTER_QUERY.key()));
-        } else {
-            dorisConfig.setFilterQuery(DORIS_FILTER_QUERY.defaultValue());
-        }
-        if (pluginConfig.hasPath(DORIS_TABLET_SIZE.key())) {
-            dorisConfig.setTabletSize(pluginConfig.getInt(DORIS_TABLET_SIZE.key()));
-        } else {
-            dorisConfig.setTabletSize(DORIS_TABLET_SIZE.defaultValue());
-        }
-        if (pluginConfig.hasPath(DORIS_REQUEST_CONNECT_TIMEOUT_MS.key())) {
-            dorisConfig.setRequestReadTimeoutMs(
-                    pluginConfig.getInt(DORIS_REQUEST_CONNECT_TIMEOUT_MS.key()));
-        } else {
-            dorisConfig.setRequestReadTimeoutMs(DORIS_REQUEST_CONNECT_TIMEOUT_MS.defaultValue());
-        }
-        if (pluginConfig.hasPath(DORIS_REQUEST_QUERY_TIMEOUT_S.key())) {
-            dorisConfig.setRequestQueryTimeoutS(
-                    pluginConfig.getInt(DORIS_REQUEST_QUERY_TIMEOUT_S.key()));
-        } else {
-            dorisConfig.setRequestQueryTimeoutS(DORIS_REQUEST_QUERY_TIMEOUT_S.defaultValue());
-        }
-        if (pluginConfig.hasPath(DORIS_REQUEST_READ_TIMEOUT_MS.key())) {
-            dorisConfig.setRequestReadTimeoutMs(
-                    pluginConfig.getInt(DORIS_REQUEST_READ_TIMEOUT_MS.key()));
-        } else {
-            dorisConfig.setRequestReadTimeoutMs(DORIS_REQUEST_READ_TIMEOUT_MS.defaultValue());
-        }
-        if (pluginConfig.hasPath(DORIS_REQUEST_RETRIES.key())) {
-            dorisConfig.setRequestRetries(pluginConfig.getInt(DORIS_REQUEST_RETRIES.key()));
-        } else {
-            dorisConfig.setRequestRetries(DORIS_REQUEST_RETRIES.defaultValue());
-        }
-        if (pluginConfig.hasPath(DORIS_DESERIALIZE_ARROW_ASYNC.key())) {
-            dorisConfig.setDeserializeArrowAsync(
-                    pluginConfig.getBoolean(DORIS_DESERIALIZE_ARROW_ASYNC.key()));
-        } else {
-            dorisConfig.setDeserializeArrowAsync(DORIS_DESERIALIZE_ARROW_ASYNC.defaultValue());
-        }
-        if (pluginConfig.hasPath(DORIS_DESERIALIZE_QUEUE_SIZE.key())) {
-            dorisConfig.setDeserializeQueueSize(
-                    pluginConfig.getInt(DORIS_DESERIALIZE_QUEUE_SIZE.key()));
-        } else {
-            dorisConfig.setDeserializeQueueSize(DORIS_DESERIALIZE_QUEUE_SIZE.defaultValue());
-        }
-        if (pluginConfig.hasPath(DORIS_BATCH_SIZE.key())) {
-            dorisConfig.setDeserializeQueueSize(pluginConfig.getInt(DORIS_BATCH_SIZE.key()));
-        } else {
-            dorisConfig.setDeserializeQueueSize(DORIS_BATCH_SIZE.defaultValue());
-        }
+        dorisConfig.setReadField(config.get(DORIS_READ_FIELD));
+        dorisConfig.setFilterQuery(config.get(DORIS_FILTER_QUERY));
+        dorisConfig.setTabletSize(config.get(DORIS_TABLET_SIZE));
+        dorisConfig.setRequestConnectTimeoutMs(config.get(DORIS_REQUEST_CONNECT_TIMEOUT_MS));
+        dorisConfig.setRequestQueryTimeoutS(config.get(DORIS_REQUEST_QUERY_TIMEOUT_S));
+        dorisConfig.setRequestReadTimeoutMs(config.get(DORIS_REQUEST_READ_TIMEOUT_MS));
+        dorisConfig.setRequestRetries(config.get(DORIS_REQUEST_RETRIES));
+        dorisConfig.setDeserializeArrowAsync(config.get(DORIS_DESERIALIZE_ARROW_ASYNC));
+        dorisConfig.setDeserializeQueueSize(config.get(DORIS_DESERIALIZE_QUEUE_SIZE));
+        dorisConfig.setBatchSize(config.get(DORIS_BATCH_SIZE));
+        dorisConfig.setExecMemLimit(config.get(DORIS_EXEC_MEM_LIMIT));
+
         // sink option
-        if (pluginConfig.hasPath(SINK_ENABLE_2PC.key())) {
-            dorisConfig.setEnable2PC(pluginConfig.getBoolean(SINK_ENABLE_2PC.key()));
-        } else {
-            dorisConfig.setEnable2PC(SINK_ENABLE_2PC.defaultValue());
-        }
-        if (pluginConfig.hasPath(SINK_LABEL_PREFIX.key())) {
-            dorisConfig.setLabelPrefix(pluginConfig.getString(SINK_LABEL_PREFIX.key()));
-        } else {
-            dorisConfig.setLabelPrefix(SINK_LABEL_PREFIX.defaultValue());
-        }
-        if (pluginConfig.hasPath(SINK_CHECK_INTERVAL.key())) {
-            dorisConfig.setCheckInterval(pluginConfig.getInt(SINK_CHECK_INTERVAL.key()));
-        } else {
-            dorisConfig.setCheckInterval(SINK_CHECK_INTERVAL.defaultValue());
-        }
-        if (pluginConfig.hasPath(SINK_MAX_RETRIES.key())) {
-            dorisConfig.setMaxRetries(pluginConfig.getInt(SINK_MAX_RETRIES.key()));
-        } else {
-            dorisConfig.setMaxRetries(SINK_MAX_RETRIES.defaultValue());
-        }
-        if (pluginConfig.hasPath(SINK_BUFFER_SIZE.key())) {
-            dorisConfig.setBufferSize(pluginConfig.getInt(SINK_BUFFER_SIZE.key()));
-        } else {
-            dorisConfig.setBufferSize(SINK_BUFFER_SIZE.defaultValue());
-        }
-        if (pluginConfig.hasPath(SINK_BUFFER_COUNT.key())) {
-            dorisConfig.setBufferCount(pluginConfig.getInt(SINK_BUFFER_COUNT.key()));
-        } else {
-            dorisConfig.setBufferCount(SINK_BUFFER_COUNT.defaultValue());
-        }
-        if (pluginConfig.hasPath(SINK_ENABLE_DELETE.key())) {
-            dorisConfig.setEnableDelete(pluginConfig.getBoolean(SINK_ENABLE_DELETE.key()));
-        } else {
-            dorisConfig.setEnableDelete(SINK_ENABLE_DELETE.defaultValue());
-        }
+        dorisConfig.setEnable2PC(config.get(SINK_ENABLE_2PC));
+        dorisConfig.setLabelPrefix(config.get(SINK_LABEL_PREFIX));
+        dorisConfig.setCheckInterval(config.get(SINK_CHECK_INTERVAL));
+        dorisConfig.setMaxRetries(config.get(SINK_MAX_RETRIES));
+        dorisConfig.setBufferSize(config.get(SINK_BUFFER_SIZE));
+        dorisConfig.setBufferCount(config.get(SINK_BUFFER_COUNT));
+        dorisConfig.setEnableDelete(config.get(SINK_ENABLE_DELETE));
+        dorisConfig.setNeedsUnsupportedTypeCasting(config.get(NEEDS_UNSUPPORTED_TYPE_CASTING));
+
+        // create table option
+        dorisConfig.setCreateTableTemplate(config.get(SAVE_MODE_CREATE_TEMPLATE));
+
         return dorisConfig;
     }
 
-    private static Properties parseStreamLoadProperties(Config pluginConfig) {
+    private static Properties parseStreamLoadProperties(ReadonlyConfig config) {
         Properties streamLoadProps = new Properties();
-        if (CheckConfigUtil.isValidParam(pluginConfig, DORIS_SINK_CONFIG_PREFIX.key())) {
-            pluginConfig
-                    .getObject(DORIS_SINK_CONFIG_PREFIX.key())
-                    .forEach(
-                            (key, value) -> {
-                                final String configKey = key.toLowerCase();
-                                streamLoadProps.put(configKey, value.unwrapped().toString());
-                            });
+        if (config.getOptional(DORIS_SINK_CONFIG_PREFIX).isPresent()) {
+            Map<String, String> map = config.getOptional(DORIS_SINK_CONFIG_PREFIX).get();
+            map.forEach(
+                    (key, value) -> {
+                        streamLoadProps.put(key.toLowerCase(), value);
+                    });
         }
         return streamLoadProps;
     }

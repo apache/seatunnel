@@ -19,12 +19,19 @@ package org.apache.seatunnel.engine.common.config;
 
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
+import org.apache.seatunnel.engine.common.config.server.ConnectorJarHAStorageConfig;
+import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
+import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageMode;
 import org.apache.seatunnel.engine.common.config.server.QueueType;
 import org.apache.seatunnel.engine.common.config.server.ServerConfigOptions;
 import org.apache.seatunnel.engine.common.config.server.SlotServiceConfig;
 import org.apache.seatunnel.engine.common.config.server.ThreadShareMode;
 
+import org.apache.commons.lang3.StringUtils;
+
+import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
 
 import com.hazelcast.config.InvalidConfigurationException;
 import com.hazelcast.internal.config.AbstractDomConfigProcessor;
@@ -33,6 +40,7 @@ import com.hazelcast.logging.Logger;
 
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 
@@ -136,6 +144,27 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                         getIntegerValue(
                                 ServerConfigOptions.HISTORY_JOB_EXPIRE_MINUTES.key(),
                                 getTextContent(node)));
+            } else if (ServerConfigOptions.CONNECTOR_JAR_STORAGE_CONFIG.key().equals(name)) {
+                engineConfig.setConnectorJarStorageConfig(parseConnectorJarStorageConfig(node));
+            } else if (ServerConfigOptions.CLASSLOADER_CACHE_MODE.key().equals(name)) {
+                engineConfig.setClassloaderCacheMode(getBooleanValue(getTextContent(node)));
+            } else if (ServerConfigOptions.EVENT_REPORT_HTTP.equalsIgnoreCase(name)) {
+                NamedNodeMap attributes = node.getAttributes();
+                Node urlNode = attributes.getNamedItem(ServerConfigOptions.EVENT_REPORT_HTTP_URL);
+                if (urlNode != null) {
+                    engineConfig.setEventReportHttpApi(getTextContent(urlNode));
+                    Node headersNode =
+                            attributes.getNamedItem(ServerConfigOptions.EVENT_REPORT_HTTP_HEADERS);
+                    if (headersNode != null) {
+                        Map<String, String> headers = new LinkedHashMap<>();
+                        NodeList nodeList = headersNode.getChildNodes();
+                        for (int i = 0; i < nodeList.getLength(); i++) {
+                            Node item = nodeList.item(i);
+                            headers.put(cleanNodeName(item), getTextContent(item));
+                        }
+                        engineConfig.setEventReportHttpHeaders(headers);
+                    }
+                }
             } else {
                 LOGGER.warning("Unrecognized element: " + name);
             }
@@ -205,5 +234,81 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
             checkpointPluginConfig.put(name, getTextContent(node));
         }
         return checkpointPluginConfig;
+    }
+
+    private ConnectorJarStorageConfig parseConnectorJarStorageConfig(
+            Node connectorJarStorageConfigNode) {
+        ConnectorJarStorageConfig connectorJarStorageConfig = new ConnectorJarStorageConfig();
+        for (Node node : childElements(connectorJarStorageConfigNode)) {
+            String name = cleanNodeName(node);
+            if (ServerConfigOptions.ENABLE_CONNECTOR_JAR_STORAGE.key().equals(name)) {
+                connectorJarStorageConfig.setEnable(getBooleanValue(getTextContent(node)));
+            } else if (ServerConfigOptions.CONNECTOR_JAR_STORAGE_MODE.key().equals(name)) {
+                String mode = getTextContent(node).toUpperCase();
+                if (StringUtils.isNotBlank(mode)
+                        && !Arrays.asList("SHARED", "ISOLATED").contains(mode)) {
+                    throw new IllegalArgumentException(
+                            ServerConfigOptions.CONNECTOR_JAR_STORAGE_MODE
+                                    + " must in [SHARED, ISOLATED]");
+                }
+                connectorJarStorageConfig.setStorageMode(ConnectorJarStorageMode.valueOf(mode));
+            } else if (ServerConfigOptions.CONNECTOR_JAR_STORAGE_PATH.key().equals(name)) {
+                connectorJarStorageConfig.setStoragePath(getTextContent(node));
+            } else if (ServerConfigOptions.CONNECTOR_JAR_CLEANUP_TASK_INTERVAL.key().equals(name)) {
+                connectorJarStorageConfig.setCleanupTaskInterval(
+                        getIntegerValue(
+                                ServerConfigOptions.CONNECTOR_JAR_CLEANUP_TASK_INTERVAL.key(),
+                                getTextContent(node)));
+            } else if (ServerConfigOptions.CONNECTOR_JAR_EXPIRY_TIME.key().equals(name)) {
+                connectorJarStorageConfig.setConnectorJarExpiryTime(
+                        getIntegerValue(
+                                ServerConfigOptions.CONNECTOR_JAR_EXPIRY_TIME.key(),
+                                getTextContent(node)));
+            } else if (ServerConfigOptions.CONNECTOR_JAR_HA_STORAGE_CONFIG.key().equals(name)) {
+                connectorJarStorageConfig.setConnectorJarHAStorageConfig(
+                        parseConnectorJarHAStorageConfig(node));
+            } else {
+                LOGGER.warning("Unrecognized element: " + name);
+            }
+        }
+        return connectorJarStorageConfig;
+    }
+
+    private ConnectorJarHAStorageConfig parseConnectorJarHAStorageConfig(
+            Node connectorJarHAStorageConfigNode) {
+        ConnectorJarHAStorageConfig connectorJarHAStorageConfig = new ConnectorJarHAStorageConfig();
+        for (Node node : childElements(connectorJarHAStorageConfigNode)) {
+            String name = cleanNodeName(node);
+            if (ServerConfigOptions.CONNECTOR_JAR_HA_STORAGE_TYPE.key().equals(name)) {
+                String type = getTextContent(node);
+                if (StringUtils.isNotBlank(type)
+                        && !Arrays.asList("localfile", "hdfs").contains(type)) {
+                    throw new IllegalArgumentException(
+                            ServerConfigOptions.CONNECTOR_JAR_HA_STORAGE_TYPE
+                                    + " must in [localfile, hdfs]");
+                }
+                connectorJarHAStorageConfig.setType(type);
+            } else if (ServerConfigOptions.CONNECTOR_JAR_HA_STORAGE_PLUGIN_CONFIG
+                    .key()
+                    .equals(name)) {
+                Map<String, String> connectorJarHAStoragePluginConfig =
+                        parseConnectorJarHAStoragePluginConfig(node);
+                connectorJarHAStorageConfig.setStoragePluginConfig(
+                        connectorJarHAStoragePluginConfig);
+            } else {
+                LOGGER.warning("Unrecognized element: " + name);
+            }
+        }
+        return connectorJarHAStorageConfig;
+    }
+
+    private Map<String, String> parseConnectorJarHAStoragePluginConfig(
+            Node connectorJarHAStoragePluginConfigNode) {
+        Map<String, String> connectorJarHAStoragePluginConfig = new HashMap<>();
+        for (Node node : childElements(connectorJarHAStoragePluginConfigNode)) {
+            String name = node.getNodeName();
+            connectorJarHAStoragePluginConfig.put(name, getTextContent(node));
+        }
+        return connectorJarHAStoragePluginConfig;
     }
 }

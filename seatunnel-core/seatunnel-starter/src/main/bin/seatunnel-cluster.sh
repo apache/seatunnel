@@ -84,7 +84,7 @@ JAVA_OPTS="${JAVA_OPTS} -Dhazelcast.config=${HAZELCAST_CONFIG}"
 # Log4j2 Config
 JAVA_OPTS="${JAVA_OPTS} -Dlog4j2.contextSelector=org.apache.logging.log4j.core.async.AsyncLoggerContextSelector"
 if [ -e "${CONF_DIR}/log4j2.properties" ]; then
-  JAVA_OPTS="${JAVA_OPTS} -Dlog4j2.configurationFile=${CONF_DIR}/log4j2.properties"
+  JAVA_OPTS="${JAVA_OPTS} -Dhazelcast.logging.type=log4j2 -Dlog4j2.configurationFile=${CONF_DIR}/log4j2.properties"
   JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.logs.path=${APP_DIR}/logs"
   JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.logs.file_name=seatunnel-engine-server"
 fi
@@ -97,9 +97,8 @@ fi
 
 CLASS_PATH=${APP_DIR}/lib/*:${APP_JAR}
 
-while read line
-do
-    if [[ ! $line == \#* ]] && [ -n "$line" ]; then
+while IFS= read -r line || [[ -n "$line" ]]; do
+    if [[ ! $line == \#* ]]; then
         JAVA_OPTS="$JAVA_OPTS $line"
     fi
 done < ${APP_DIR}/config/jvm_options

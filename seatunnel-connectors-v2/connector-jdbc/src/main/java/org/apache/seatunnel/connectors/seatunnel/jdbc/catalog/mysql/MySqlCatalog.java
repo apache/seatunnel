@@ -21,33 +21,35 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
-import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
-import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalog;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeMapper;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlVersion;
 
+import com.google.common.base.Preconditions;
 import com.mysql.cj.MysqlType;
 import lombok.extern.slf4j.Slf4j;
 
+import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.HashMap;
+import java.sql.Statement;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
-import java.util.Optional;
 
 @Slf4j
 public class MySqlCatalog extends AbstractJdbcCatalog {
 
-    private static final MysqlDataTypeConvertor DATA_TYPE_CONVERTOR = new MysqlDataTypeConvertor();
-
     private static final String SELECT_COLUMNS_SQL_TEMPLATE =
-            "SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = '%s' AND TABLE_NAME ='%s'";
+            "SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = '%s' AND TABLE_NAME ='%s' ORDER BY ORDINAL_POSITION ASC";
 
     static {
         SYS_DATABASES.add("information_schema");
@@ -56,9 +58,14 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
         SYS_DATABASES.add("sys");
     }
 
+    private MySqlVersion version;
+    private MySqlTypeConverter typeConverter;
+
     public MySqlCatalog(
             String catalogName, String username, String pwd, JdbcUrlUtil.UrlInfo urlInfo) {
         super(catalogName, username, pwd, urlInfo, null);
+        this.version = resolveVersion();
+        this.typeConverter = new MySqlTypeConverter(version);
     }
 
     @Override
@@ -94,93 +101,78 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
     }
 
     @Override
-    protected Optional<PrimaryKey> getPrimaryKey(DatabaseMetaData metaData, TablePath tablePath)
-            throws SQLException {
-        return getPrimaryKey(
-                metaData,
-                tablePath.getDatabaseName(),
-                tablePath.getTableName(),
-                tablePath.getTableName());
-    }
-
-    @Override
     protected List<ConstraintKey> getConstraintKeys(DatabaseMetaData metaData, TablePath tablePath)
             throws SQLException {
-        return getConstraintKeys(
-                metaData,
-                tablePath.getDatabaseName(),
-                tablePath.getTableName(),
-                tablePath.getTableName());
+        List<ConstraintKey> indexList =
+                super.getConstraintKeys(
+                        metaData,
+                        tablePath.getDatabaseName(),
+                        tablePath.getSchemaName(),
+                        tablePath.getTableName());
+        for (Iterator<ConstraintKey> it = indexList.iterator(); it.hasNext(); ) {
+            ConstraintKey index = it.next();
+            if (ConstraintKey.ConstraintType.UNIQUE_KEY.equals(index.getConstraintType())
+                    && "PRIMARY".equals(index.getConstraintName())) {
+                it.remove();
+            }
+        }
+        return indexList;
     }
 
     @Override
     protected Column buildColumn(ResultSet resultSet) throws SQLException {
         String columnName = resultSet.getString("COLUMN_NAME");
-        String sourceType = resultSet.getString("COLUMN_TYPE");
-        String typeName = resultSet.getString("DATA_TYPE").toUpperCase();
-        int precision = resultSet.getInt("NUMERIC_PRECISION");
-        int scale = resultSet.getInt("NUMERIC_SCALE");
-        long columnLength = resultSet.getLong("CHARACTER_MAXIMUM_LENGTH");
-        long octetLength = resultSet.getLong("CHARACTER_OCTET_LENGTH");
-        if (sourceType.toLowerCase(Locale.ROOT).contains("unsigned")) {
-            typeName += "_UNSIGNED";
-        }
-        SeaTunnelDataType<?> type = fromJdbcType(typeName, precision, scale);
+        // e.g. tinyint(1) unsigned
+        String columnType = resultSet.getString("COLUMN_TYPE");
+        // e.g. tinyint
+        String dataType = resultSet.getString("DATA_TYPE").toUpperCase();
         String comment = resultSet.getString("COLUMN_COMMENT");
         Object defaultValue = resultSet.getObject("COLUMN_DEFAULT");
         String isNullableStr = resultSet.getString("IS_NULLABLE");
         boolean isNullable = isNullableStr.equals("YES");
-        long bitLen = 0;
-        MysqlType mysqlType = MysqlType.valueOf(typeName);
-        switch (mysqlType) {
-            case BIT:
-                bitLen = precision;
-                break;
-            case CHAR:
-            case VARCHAR:
-                columnLength = octetLength;
-                break;
-            case BINARY:
-            case VARBINARY:
-                // Uniform conversion to bits
-                bitLen = octetLength * 4 * 8L;
-                break;
-            case BLOB:
-            case TINYBLOB:
-            case MEDIUMBLOB:
-            case LONGBLOB:
-                bitLen = columnLength << 3;
-                break;
-            case JSON:
-                columnLength = 4 * 1024 * 1024 * 1024L;
-                break;
-            default:
-                break;
-        }
+        // e.g. `decimal(10, 2)` is 10
+        long numberPrecision = resultSet.getInt("NUMERIC_PRECISION");
+        // e.g. `decimal(10, 2)` is 2
+        int numberScale = resultSet.getInt("NUMERIC_SCALE");
+        // e.g. `varchar(10)` is 40
+        long charOctetLength = resultSet.getLong("CHARACTER_OCTET_LENGTH");
+        // e.g. `timestamp(3)` is 3
+        int timePrecision =
+                MySqlVersion.V_5_5.equals(version) ? 0 : resultSet.getInt("DATETIME_PRECISION");
 
-        return PhysicalColumn.of(
-                columnName,
-                type,
-                0,
-                isNullable,
-                defaultValue,
-                comment,
-                sourceType,
-                sourceType.contains("unsigned"),
-                sourceType.contains("zerofill"),
-                bitLen,
-                null,
-                columnLength);
+        Preconditions.checkArgument(!(numberPrecision > 0 && charOctetLength > 0));
+        Preconditions.checkArgument(!(numberScale > 0 && timePrecision > 0));
+
+        MysqlType mysqlType = MysqlType.getByName(columnType);
+        boolean unsigned = columnType.toLowerCase(Locale.ROOT).contains("unsigned");
+
+        BasicTypeDefine<MysqlType> typeDefine =
+                BasicTypeDefine.<MysqlType>builder()
+                        .name(columnName)
+                        .columnType(columnType)
+                        .dataType(dataType)
+                        .nativeType(mysqlType)
+                        .unsigned(unsigned)
+                        .length(Math.max(charOctetLength, numberPrecision))
+                        .precision(numberPrecision)
+                        .scale(Math.max(numberScale, timePrecision))
+                        .nullable(isNullable)
+                        .defaultValue(defaultValue)
+                        .comment(comment)
+                        .build();
+        return typeConverter.convert(typeDefine);
     }
 
     @Override
     protected String getCreateTableSql(TablePath tablePath, CatalogTable table) {
-        return MysqlCreateTableSqlBuilder.builder(tablePath, table).build(table.getCatalogName());
+        return MysqlCreateTableSqlBuilder.builder(tablePath, table, typeConverter)
+                .build(table.getCatalogName());
     }
 
     @Override
     protected String getDropTableSql(TablePath tablePath) {
-        return String.format("DROP TABLE %s;", tablePath.getFullName());
+        return String.format(
+                "DROP TABLE `%s`.`%s`;", tablePath.getDatabaseName(), tablePath.getTableName());
     }
 
     @Override
@@ -193,11 +185,36 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
         return String.format("DROP DATABASE `%s`;", databaseName);
     }
 
-    private SeaTunnelDataType<?> fromJdbcType(String typeName, int precision, int scale) {
-        MysqlType mysqlType = MysqlType.getByName(typeName);
-        Map<String, Object> dataTypeProperties = new HashMap<>();
-        dataTypeProperties.put(MysqlDataTypeConvertor.PRECISION, precision);
-        dataTypeProperties.put(MysqlDataTypeConvertor.SCALE, scale);
-        return DATA_TYPE_CONVERTOR.toSeaTunnelType(mysqlType, dataTypeProperties);
+    @Override
+    public CatalogTable getTable(String sqlQuery) throws SQLException {
+        Connection defaultConnection = getConnection(defaultUrl);
+        return CatalogUtils.getCatalogTable(
+                defaultConnection, sqlQuery, new MySqlTypeMapper(typeConverter));
+    }
+
+    @Override
+    protected String getTruncateTableSql(TablePath tablePath) throws CatalogException {
+        return String.format(
+                "TRUNCATE TABLE `%s`.`%s`;", tablePath.getDatabaseName(), tablePath.getTableName());
+    }
+
+    public String getExistDataSql(TablePath tablePath) {
+        return String.format(
+                "SELECT * FROM `%s`.`%s` LIMIT 1;",
+                tablePath.getDatabaseName(), tablePath.getTableName());
+    }
+
+    private MySqlVersion resolveVersion() {
+        try (Statement statement = getConnection(defaultUrl).createStatement();
+                ResultSet resultSet = statement.executeQuery("SELECT VERSION()")) {
+            resultSet.next();
+            return MySqlVersion.parse(resultSet.getString(1));
+        } catch (Exception e) {
+            log.info(
+                    "Failed to get mysql version, fallback to default version: {}",
+                    MySqlVersion.V_5_7,
+                    e);
+            return MySqlVersion.V_5_7;
+        }
     }
 }

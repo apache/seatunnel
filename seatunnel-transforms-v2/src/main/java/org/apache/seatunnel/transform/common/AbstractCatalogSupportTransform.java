@@ -20,8 +20,6 @@ package org.apache.seatunnel.transform.common;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import lombok.NonNull;
 
@@ -29,10 +27,6 @@ public abstract class AbstractCatalogSupportTransform extends AbstractSeaTunnelT
     protected CatalogTable inputCatalogTable;
 
     protected volatile CatalogTable outputCatalogTable;
-
-    public AbstractCatalogSupportTransform() {
-        super();
-    }
 
     public AbstractCatalogSupportTransform(@NonNull CatalogTable inputCatalogTable) {
         this.inputCatalogTable = inputCatalogTable;
@@ -54,25 +48,15 @@ public abstract class AbstractCatalogSupportTransform extends AbstractSeaTunnelT
     private CatalogTable transformCatalogTable() {
         TableIdentifier tableIdentifier = transformTableIdentifier();
         TableSchema tableSchema = transformTableSchema();
-        CatalogTable catalogTable =
-                CatalogTable.of(
-                        tableIdentifier,
-                        tableSchema,
-                        inputCatalogTable.getOptions(),
-                        inputCatalogTable.getPartitionKeys(),
-                        inputCatalogTable.getComment());
-        return catalogTable;
+        return CatalogTable.of(
+                tableIdentifier,
+                tableSchema,
+                inputCatalogTable.getOptions(),
+                inputCatalogTable.getPartitionKeys(),
+                inputCatalogTable.getComment());
     }
 
     protected abstract TableSchema transformTableSchema();
 
     protected abstract TableIdentifier transformTableIdentifier();
-
-    @Override
-    public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
-        if (outputRowType != null) {
-            return outputRowType;
-        }
-        return getProducedCatalogTable().getTableSchema().toPhysicalRowDataType();
-    }
 }

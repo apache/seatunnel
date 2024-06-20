@@ -18,6 +18,7 @@
 package org.apache.seatunnel.translation.spark.sink.writer;
 
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import org.apache.spark.sql.catalyst.InternalRow;
@@ -32,9 +33,11 @@ public class SparkStreamWriter<StateT, CommitInfoT, AggregatedCommitInfoT>
         implements StreamWriter {
 
     public SparkStreamWriter(
-            SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink)
+            SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
+            CatalogTable catalogTable,
+            String jobId)
             throws IOException {
-        super(sink);
+        super(sink, catalogTable, jobId);
     }
 
     @Override

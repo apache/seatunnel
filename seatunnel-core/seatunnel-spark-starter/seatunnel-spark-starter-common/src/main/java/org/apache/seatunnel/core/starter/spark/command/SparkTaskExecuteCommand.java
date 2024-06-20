@@ -48,7 +48,7 @@ public class SparkTaskExecuteCommand implements Command<SparkCommandArgs> {
     public void execute() throws CommandExecuteException {
         Path configFile = FileUtils.getConfigPath(sparkCommandArgs);
         checkConfigExist(configFile);
-        Config config = ConfigBuilder.of(configFile);
+        Config config = ConfigBuilder.of(configFile, sparkCommandArgs.getVariables());
         if (!sparkCommandArgs.getJobName().equals(Constants.LOGO)) {
             config =
                     config.withValue(
@@ -59,8 +59,7 @@ public class SparkTaskExecuteCommand implements Command<SparkCommandArgs> {
             SparkExecution seaTunnelTaskExecution = new SparkExecution(config);
             seaTunnelTaskExecution.execute();
         } catch (Exception e) {
-            log.error("Run SeaTunnel on spark failed.", e);
-            throw new CommandExecuteException(e.getMessage());
+            throw new CommandExecuteException("Run SeaTunnel on spark failed", e);
         }
     }
 }

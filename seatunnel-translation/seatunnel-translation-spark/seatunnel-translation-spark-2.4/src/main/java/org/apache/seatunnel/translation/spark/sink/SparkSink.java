@@ -18,6 +18,7 @@
 package org.apache.seatunnel.translation.spark.sink;
 
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.utils.SerializationUtils;
@@ -42,16 +43,33 @@ public class SparkSink<StateT, CommitInfoT, AggregatedCommitInfoT>
 
     private volatile SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink;
 
+    private volatile CatalogTable catalogTable;
+
+    private volatile String jobId;
+
     private void init(DataSourceOptions options) {
         if (sink == null) {
             this.sink =
                     SerializationUtils.stringToObject(
-                            options.get(Constants.SINK)
+                            options.get(Constants.SINK_SERIALIZATION)
                                     .orElseThrow(
                                             () ->
                                                     new IllegalArgumentException(
                                                             "can not find sink "
                                                                     + "class string in DataSourceOptions")));
+        }
+        if (catalogTable == null) {
+            this.catalogTable =
+                    SerializationUtils.stringToObject(
+                            options.get(SparkSinkInjector.SINK_CATALOG_TABLE)
+                                    .orElseThrow(
+                                            () ->
+                                                    new IllegalArgumentException(
+                                                            "can not find sink "
+                                                                    + "catalog table string in DataSourceOptions")));
+        }
+        if (jobId == null) {
+            this.jobId = options.get(SparkSinkInjector.JOB_ID).orElse(null);
         }
     }
 
@@ -61,7 +79,7 @@ public class SparkSink<StateT, CommitInfoT, AggregatedCommitInfoT>
         init(options);
 
         try {
-            return new SparkStreamWriter<>(sink);
+            return new SparkStreamWriter<>(sink, catalogTable, jobId);
         } catch (IOException e) {
             throw new RuntimeException("find error when createStreamWriter", e);
         }
@@ -73,7 +91,7 @@ public class SparkSink<StateT, CommitInfoT, AggregatedCommitInfoT>
         init(options);
 
         try {
-            return Optional.of(new SparkDataSourceWriter<>(sink));
+            return Optional.of(new SparkDataSourceWriter<>(sink, catalogTable, jobId));
         } catch (IOException e) {
             throw new RuntimeException("find error when createStreamWriter", e);
         }

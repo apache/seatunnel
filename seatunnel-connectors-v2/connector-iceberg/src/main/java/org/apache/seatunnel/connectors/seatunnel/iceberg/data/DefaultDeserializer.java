@@ -22,7 +22,7 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.exception.IcebergConnectorException;
 
 import org.apache.iceberg.Schema;
@@ -148,7 +148,7 @@ public class DefaultDeserializer implements Deserializer {
                 return seatunnelMap;
             default:
                 throw new IcebergConnectorException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                         String.format("Unsupported iceberg type: %s", icebergType));
         }
     }

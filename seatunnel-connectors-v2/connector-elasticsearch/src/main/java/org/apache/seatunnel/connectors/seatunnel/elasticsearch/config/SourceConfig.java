@@ -40,6 +40,13 @@ public class SourceConfig {
                     .withDescription(
                             "The fields of index. You can get the document id by specifying the field _id.If sink _id to other index,you need specify an alias for _id due to the Elasticsearch limit");
 
+    public static final Option<Map<String, String>> ARRAY_COLUMN =
+            Options.key("array_column")
+                    .mapType()
+                    .defaultValue(new HashMap<>())
+                    .withDescription(
+                            "Because there is no array type in es,so need specify array Type.");
+
     public static final Option<String> SCROLL_TIME =
             Options.key("scroll_time")
                     .stringType()

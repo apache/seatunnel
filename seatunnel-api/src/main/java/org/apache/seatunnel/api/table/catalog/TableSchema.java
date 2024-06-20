@@ -57,6 +57,10 @@ public final class TableSchema implements Serializable {
         return new SeaTunnelRowType(fields, fieldTypes);
     }
 
+    public String[] getFieldNames() {
+        return columns.stream().map(Column::getName).toArray(String[]::new);
+    }
+
     public static final class Builder {
         private final List<Column> columns = new ArrayList<>();
 

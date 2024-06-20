@@ -25,14 +25,4 @@ public class AmazonDynamoDBConnectorException extends SeaTunnelRuntimeException 
             SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage) {
         super(seaTunnelErrorCode, errorMessage);
     }
-
-    public AmazonDynamoDBConnectorException(
-            SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
-        super(seaTunnelErrorCode, errorMessage, cause);
-    }
-
-    public AmazonDynamoDBConnectorException(
-            SeaTunnelErrorCode seaTunnelErrorCode, Throwable cause) {
-        super(seaTunnelErrorCode, cause);
-    }
 }

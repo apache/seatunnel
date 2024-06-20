@@ -23,7 +23,8 @@ import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
@@ -32,6 +33,8 @@ import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
 public class CanalJsonSerializationSchema implements SerializationSchema {
 
     private static final long serialVersionUID = 1L;
+
+    private static final String FORMAT = "Canal";
 
     private static final String OP_INSERT = "INSERT";
     private static final String OP_DELETE = "DELETE";
@@ -53,10 +56,7 @@ public class CanalJsonSerializationSchema implements SerializationSchema {
             reuse.setField(1, opType);
             return jsonSerializer.serialize(reuse);
         } catch (Throwable t) {
-            throw new SeaTunnelJsonFormatException(
-                    CommonErrorCode.JSON_OPERATION_FAILED,
-                    String.format("Could not serialize row %s.", row),
-                    t);
+            throw CommonError.jsonOperationError(FORMAT, row.toString(), t);
         }
     }
 
@@ -70,7 +70,7 @@ public class CanalJsonSerializationSchema implements SerializationSchema {
                 return OP_DELETE;
             default:
                 throw new SeaTunnelJsonFormatException(
-                        CommonErrorCode.UNSUPPORTED_OPERATION,
+                        CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                         String.format("Unsupported operation %s for row kind.", rowKind));
         }
     }
