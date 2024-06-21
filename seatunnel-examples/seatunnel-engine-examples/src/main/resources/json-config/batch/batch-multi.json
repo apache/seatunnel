@@ -9,30 +9,30 @@
   "source": [
     {
       "plugin_name": "Jdbc",
-      "dsId": "1795692521564749825",
-      "dsName": "mysql-血缘测试数据湖",
+      "dsId": "1795689697682472962",
+      "dsName": "mysql-血缘测试来源库",
       "dsType": "mysql",
       "resourceType": "table",
       "driver": "com.mysql.cj.jdbc.Driver",
       "connection_check_timeout_sec": 100,
-      "table_list": [
-        {
-          "table_path": "ods.ods_device_m1"
-        },
-        {
-          "table_path": "ods.ods_device_m2"
-        }
-      ],
-      "database": "ods",
-      "url": "jdbc:mysql://172.16.11.135:3306/ods?remarks=true&useInformationSchema=true&useCursorFetch=true&defaultFetchSize=2048&rewriteBatchedStatements=true",
+      "database": "source",
+      "url": "jdbc:mysql://172.16.11.135:3306/source?remarks=true&useInformationSchema=true&useCursorFetch=true&defaultFetchSize=2048&rewriteBatchedStatements=true",
       "user": "root",
       "password": "1qaz@WSX",
-      "resources": [
-        "ods_device_m1",
-        "ods_device_m2"
+      "result_table_name": "ot_9ec18103c46d42d1979fb9f196dedacd",
+      "table_list": [
+        {
+          "table_path": "source.device"
+        },
+        {
+          "table_path": "source.locations"
+        }
       ],
-      "result_table_name": "ot_6cf7a8ada6ca4fe3881c30b48d812afe",
-      "ottomi_node_type": "JdbcSource"
+      "resources": [
+        "device",
+        "locations"
+      ],
+      "ottomi_node_type": "BatchSync"
     }
   ],
   "transform": [
@@ -40,21 +40,24 @@
   "sink": [
     {
       "plugin_name": "Jdbc",
+      "dsId": "1795692521564749825",
+      "dsName": "mysql-血缘测试数据湖",
       "type": "mysql",
       "driver": "com.mysql.cj.jdbc.Driver",
-      "url": "jdbc:mysql://172.16.11.135:3306/dwd?remarks=true&useInformationSchema=true&useCursorFetch=true&defaultFetchSize=2048&rewriteBatchedStatements=true",
+      "url": "jdbc:mysql://172.16.11.135:3306/ods?remarks=true&useInformationSchema=true&useCursorFetch=true&defaultFetchSize=2048&rewriteBatchedStatements=true",
       "user": "root",
       "password": "1qaz@WSX",
       "batch_size": 2048,
       "generate_sink_sql": true,
-      "database": "dwd",
-      "table": "dwd.${table_name}_test",
+      "database": "ods",
+      "table": "ods.ods_sync_${table_name}_ottomi_tmp",
+      "prefix_name": "ods_sync_",
+      "suffix_name": "",
       "schema_save_mode": "ERROR_WHEN_SCHEMA_NOT_EXIST",
-      "result_table_name": "ot_ea17db8bde544144867f0a4ab4f9a334",
-      "ottomi_node_type": "JdbcSink",
       "source_table_name": [
-        "ot_6cf7a8ada6ca4fe3881c30b48d812afe"
-      ]
+        "ot_9ec18103c46d42d1979fb9f196dedacd"
+      ],
+      "ottomi_node_type": "BatchSync"
     }
   ]
 }

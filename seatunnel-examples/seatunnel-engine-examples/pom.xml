@@ -115,11 +115,11 @@
             <artifactId>hadoop-aws</artifactId>
             <version>3.1.4</version>
         </dependency>
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>connector-neo4j</artifactId>
-            <version>${project.version}</version>
-        </dependency>
+        <!--        <dependency>-->
+        <!--            <groupId>org.apache.seatunnel</groupId>-->
+        <!--            <artifactId>connector-neo4j</artifactId>-->
+        <!--            <version>${project.version}</version>-->
+        <!--        </dependency>-->
 
         <dependency>
             <groupId>mysql</groupId>

@@ -1,0 +1,53 @@
+{
+  "env": {
+    "execution.parallelism": 1,
+    "job.name": "udf测试",
+    "job.mode": "batch"
+  },
+  "preHandler": [
+  ],
+  "source": [
+    {
+      "plugin_name": "FakeSource",
+      "resourceType": "nosql",
+      "row.num": 10,
+      "schema": {
+        "table": "ottomi",
+        "fields": {
+          "price": "double",
+          "price2": "double"
+        }
+      },
+      "resources": [
+        "ottomi"
+      ],
+      "result_table_name": "fake_source",
+      "ottomi_node_type": "FakeSource"
+    }
+  ],
+  "transform": [
+    {
+      "plugin_name": "JarUdf",
+      "jar_class_name": "com.oceandatum.simplerows.CalFlightDistanceV2",
+      "jar_connection_properties": {
+        "id": "1804008914592129025",
+        "url": "jdbc:mysql://172.16.11.183:3306/ottomi?characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&nullCatalogMeansCurrent=true&useSSL=false&allowMultiQueries=true&useJDBCCompliantTimezoneShift=true&useLegacyDatetimeCode=false&serverTimezone=Asia/Shanghai",
+        "username": "kaifa",
+        "password": "kaifa"
+      },
+      "column_index": [
+        0,
+        1
+      ],
+      "out_field_name": "name",
+      "source_table_name": "fake_source",
+      "result_table_name": "udf_sink"
+    }
+  ],
+  "sink": [
+    {
+      "plugin_name": "Console",
+      "source_table_name": "udf_sink"
+    }
+  ]
+}
