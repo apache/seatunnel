@@ -115,7 +115,7 @@ public class CoordinatorService {
      * <p>This IMap is used to recovery runningJobStateIMap in JobMaster when a new master node
      * active
      */
-    IMap<Object, Object> runningJobStateIMap;
+    private IMap<Object, Object> runningJobStateIMap;
 
     /**
      * IMap key is one of jobId {@link
@@ -130,13 +130,13 @@ public class CoordinatorService {
      * <p>This IMap is used to recovery runningJobStateTimestampsIMap in JobMaster when a new master
      * node active
      */
-    IMap<Object, Long[]> runningJobStateTimestampsIMap;
+    private IMap<Object, Long[]> runningJobStateTimestampsIMap;
 
     /**
      * key: job id; <br>
      * value: job master;
      */
-    private Map<Long, JobMaster> runningJobMasterMap = new ConcurrentHashMap<>();
+    private final Map<Long, JobMaster> runningJobMasterMap = new ConcurrentHashMap<>();
 
     /**
      * IMap key is {@link PipelineLocation}
@@ -210,8 +210,7 @@ public class CoordinatorService {
             handlers.add(httpReportHandler);
         }
         logger.info("Loaded event handlers: " + handlers);
-        JobEventProcessor eventProcessor = new JobEventProcessor(handlers);
-        return eventProcessor;
+        return new JobEventProcessor(handlers);
     }
 
     public JobHistoryService getJobHistoryService() {
@@ -452,13 +451,6 @@ public class CoordinatorService {
             return new PassiveCompletableFuture<>(jobSubmitFuture);
         }
 
-        if (!isStartWithSavePoint && getJobHistoryService().getJobMetrics(jobId) != null) {
-            throw new JobException(
-                    String.format(
-                            "The job %s has already been submitted and is not starting with a savepoint.",
-                            jobId));
-        }
-
         JobMaster jobMaster =
                 new JobMaster(
                         jobImmutableInformation,
@@ -476,6 +468,13 @@ public class CoordinatorService {
         executorService.submit(
                 () -> {
                     try {
+                        if (!isStartWithSavePoint
+                                && getJobHistoryService().getJobMetrics(jobId) != null) {
+                            throw new JobException(
+                                    String.format(
+                                            "The job id %s has already been submitted and is not starting with a savepoint.",
+                                            jobId));
+                        }
                         runningJobInfoIMap.put(
                                 jobId,
                                 new JobInfo(System.currentTimeMillis(), jobImmutableInformation));

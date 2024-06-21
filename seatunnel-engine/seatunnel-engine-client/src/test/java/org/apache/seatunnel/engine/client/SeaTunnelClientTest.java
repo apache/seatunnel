@@ -352,7 +352,7 @@ public class SeaTunnelClientTest {
     }
 
     @Test
-    public void testSetJobIdDuplicate() throws ExecutionException, InterruptedException {
+    public void testSetJobIdDuplicate() {
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = TestUtils.getResource("/streaming_fake_to_console.conf");
         JobConfig jobConfig = new JobConfig();
@@ -374,24 +374,23 @@ public class SeaTunnelClientTest {
                             () ->
                                     Assertions.assertEquals(
                                             "RUNNING", jobClient.getJobStatus(jobId)));
-
-            ClientJobExecutionEnvironment jobExecutionEnvWithSameJobId =
-                    seaTunnelClient.createExecutionContext(
-                            filePath, new ArrayList<>(), jobConfig, SEATUNNEL_CONFIG, jobId);
-            Assertions.assertThrows(Exception.class, jobExecutionEnvWithSameJobId::execute);
-
             jobClient.cancelJob(jobId);
-
             await().atMost(30000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () ->
                                     Assertions.assertEquals(
                                             "CANCELED", jobClient.getJobStatus(jobId)));
 
-            ClientJobExecutionEnvironment jobExecutionEnvWithSameJobId2 =
+            ClientJobExecutionEnvironment jobExecutionEnvWithSameJobId =
                     seaTunnelClient.createExecutionContext(
                             filePath, new ArrayList<>(), jobConfig, SEATUNNEL_CONFIG, jobId);
-            Assertions.assertThrows(Exception.class, jobExecutionEnvWithSameJobId2::execute);
+            Exception exception =
+                    Assertions.assertThrows(
+                            Exception.class,
+                            () -> jobExecutionEnvWithSameJobId.execute().waitForJobCompleteV2());
+            Assertions.assertEquals(
+                    "The job id 12345 has already been submitted and is not starting with a savepoint.",
+                    exception.getCause().getMessage());
         } catch (Exception e) {
             throw new RuntimeException(e);
         } finally {
