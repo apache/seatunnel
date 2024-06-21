@@ -37,6 +37,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -89,10 +90,11 @@ public abstract class AbstractResourceManager implements ResourceManager {
     }
 
     @Override
-    public CompletableFuture<SlotProfile> applyResource(long jobId, ResourceProfile resourceProfile)
+    public CompletableFuture<SlotProfile> applyResource(
+            long jobId, ResourceProfile resourceProfile, Map<String, String> tags)
             throws NoEnoughResourceException {
         CompletableFuture<SlotProfile> completableFuture = new CompletableFuture<>();
-        applyResources(jobId, Collections.singletonList(resourceProfile))
+        applyResources(jobId, Collections.singletonList(resourceProfile), tags)
                 .whenComplete(
                         (profile, error) -> {
                             if (error != null) {
@@ -129,9 +131,45 @@ public abstract class AbstractResourceManager implements ResourceManager {
 
     @Override
     public CompletableFuture<List<SlotProfile>> applyResources(
-            long jobId, List<ResourceProfile> resourceProfile) throws NoEnoughResourceException {
+            long jobId, List<ResourceProfile> resourceProfile, Map<String, String> tags)
+            throws NoEnoughResourceException {
         waitingWorkerRegister();
-        return new ResourceRequestHandler(jobId, resourceProfile, registerWorker, this).request();
+        ConcurrentMap<Address, WorkerProfile> matchedWorker;
+        if (tags == null || tags.isEmpty()) {
+            matchedWorker = registerWorker;
+        } else {
+            matchedWorker =
+                    registerWorker.entrySet().stream()
+                            .filter(
+                                    e -> {
+                                        Map<String, String> workerAttr =
+                                                e.getValue().getAttributes();
+                                        if (workerAttr == null || workerAttr.isEmpty()) {
+                                            return true;
+                                        }
+                                        boolean match = true;
+                                        for (Map.Entry<String, String> entry : tags.entrySet()) {
+                                            if (workerAttr.containsKey(entry.getKey())
+                                                    && workerAttr
+                                                            .get(entry.getKey())
+                                                            .equals(entry.getValue())) {
+                                                // need all tag match
+                                            } else {
+                                                match = false;
+                                                break;
+                                            }
+                                        }
+                                        return match;
+                                    })
+                            .collect(
+                                    Collectors.toConcurrentMap(
+                                            Map.Entry::getKey, Map.Entry::getValue));
+        }
+        if (matchedWorker.isEmpty()) {
+            throw new NoEnoughResourceException();
+        }
+        return new ResourceRequestHandler(jobId, resourceProfile, matchedWorker, this)
+                .request(tags);
     }
 
     protected boolean supportDynamicWorker() {
@@ -143,7 +181,7 @@ public abstract class AbstractResourceManager implements ResourceManager {
      *
      * @param resourceProfiles the worker should have resource profile list
      */
-    protected void findNewWorker(List<ResourceProfile> resourceProfiles) {
+    protected void findNewWorker(List<ResourceProfile> resourceProfiles, Map<String, String> tags) {
         throw new UnsupportedOperationException(
                 "Unsupported operation to find new worker in " + this.getClass().getName());
     }

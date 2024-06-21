@@ -32,6 +32,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -72,7 +73,7 @@ public class ResourceRequestHandler {
         this.resourceManager = resourceManager;
     }
 
-    public CompletableFuture<List<SlotProfile>> request() {
+    public CompletableFuture<List<SlotProfile>> request(Map<String, String> tags) {
         List<CompletableFuture<SlotAndWorkerProfile>> allRequestFuture = new ArrayList<>();
         for (int i = 0; i < resourceProfile.size(); i++) {
             ResourceProfile r = resourceProfile.get(i);
@@ -96,7 +97,7 @@ public class ResourceRequestHandler {
                                     if (resultSlotProfiles.size() < resourceProfile.size()) {
                                         // meaning have some slot not request success
                                         if (resourceManager.supportDynamicWorker()) {
-                                            applyByDynamicWorker();
+                                            applyByDynamicWorker(tags);
                                         } else {
                                             completeRequestWithException(
                                                     new NoEnoughResourceException(
@@ -188,7 +189,7 @@ public class ResourceRequestHandler {
      * third-party resource management to create a new worker, and then complete the resource
      * application
      */
-    private void applyByDynamicWorker() {
+    private void applyByDynamicWorker(Map<String, String> tags) {
         List<ResourceProfile> needApplyResource = new ArrayList<>();
         List<Integer> needApplyIndex = new ArrayList<>();
         for (int i = 0; i < resultSlotProfiles.size(); i++) {
@@ -197,9 +198,9 @@ public class ResourceRequestHandler {
                 needApplyIndex.add(i);
             }
         }
-        resourceManager.findNewWorker(needApplyResource);
+        resourceManager.findNewWorker(needApplyResource, tags);
         resourceManager
-                .applyResources(jobId, needApplyResource)
+                .applyResources(jobId, needApplyResource, tags)
                 .whenComplete(
                         withTryCatch(
                                 LOGGER,

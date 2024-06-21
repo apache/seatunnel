@@ -39,3 +39,10 @@ hazelcast:
     hazelcast.tcp.join.port.try.count: 30
     hazelcast.logging.type: log4j2
     hazelcast.operation.generic.thread.count: 50
+  member-attributes:
+    group:
+      type: string
+      value: platform
+    team:
+      type: string
+      value: team1
