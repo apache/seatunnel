@@ -357,7 +357,7 @@ public class SeaTunnelClientTest {
         String filePath = TestUtils.getResource("/streaming_fake_to_console.conf");
         JobConfig jobConfig = new JobConfig();
         jobConfig.setName("testSetJobId");
-        long jobId = 12345;
+        long jobId = System.currentTimeMillis();
         SeaTunnelClient seaTunnelClient = createSeaTunnelClient();
         JobClient jobClient = seaTunnelClient.getJobClient();
         try {
@@ -389,7 +389,9 @@ public class SeaTunnelClientTest {
                             Exception.class,
                             () -> jobExecutionEnvWithSameJobId.execute().waitForJobCompleteV2());
             Assertions.assertEquals(
-                    "The job id 12345 has already been submitted and is not starting with a savepoint.",
+                    String.format(
+                            "The job id %s has already been submitted and is not starting with a savepoint.",
+                            jobId),
                     exception.getCause().getMessage());
         } catch (Exception e) {
             throw new RuntimeException(e);
