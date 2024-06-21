@@ -89,21 +89,19 @@ public class JsonWriteStrategy extends AbstractWriteStrategy {
     public void finishAndCloseFile() {
         beingWrittenOutputStream.forEach(
                 (key, value) -> {
+                    boolean flushed = false;
                     try {
                         value.flush();
+                        flushed = true;
+                        value.close();
+                        needMoveFiles.put(key, getTargetLocation(key));
                     } catch (IOException e) {
+                        String operation = flushed ? "close" : "flush";
                         throw new FileConnectorException(
                                 CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
-                                String.format("Flush data to this file [%s] failed", key),
+                                String.format("%s operation on file [%s] failed", operation, key),
                                 e);
-                    } finally {
-                        try {
-                            value.close();
-                        } catch (IOException e) {
-                            log.warn("Close file output stream {} failed", key, e);
-                        }
                     }
-                    needMoveFiles.put(key, getTargetLocation(key));
                 });
         beingWrittenOutputStream.clear();
         isFirstWrite.clear();
