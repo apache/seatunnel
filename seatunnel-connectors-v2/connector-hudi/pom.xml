@@ -30,7 +30,7 @@
     <name>SeaTunnel : Connectors V2 : Hudi</name>
 
     <properties>
-        <hudi.version>0.14.0</hudi.version>
+        <hudi.version>0.14.1</hudi.version>
         <commons.lang3.version>3.4</commons.lang3.version>
         <parquet.version>1.12.3</parquet.version>
         <snappy.version>1.1.8.3</snappy.version>

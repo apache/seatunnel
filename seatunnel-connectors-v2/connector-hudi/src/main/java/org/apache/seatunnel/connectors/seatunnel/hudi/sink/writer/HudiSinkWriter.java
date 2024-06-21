@@ -195,7 +195,7 @@ public class HudiSinkWriter implements SinkWriter<SeaTunnelRow, HudiCommitInfo, 
                 } catch (Exception e) {
                     log.warn("Writing records to Hudi failed.", e);
                     throw new HudiConnectorException(
-                            CommonErrorCode.FLUSH_DATA_FAILED,
+                            CommonErrorCode.WRITE_SEATUNNEL_ROW_ERROR,
                             "Writing records to hudi failed.",
                             e);
                 }
@@ -324,7 +324,7 @@ public class HudiSinkWriter implements SinkWriter<SeaTunnelRow, HudiCommitInfo, 
                 break;
             default:
                 throw new HudiConnectorException(
-                        CommonErrorCode.UNSUPPORTED_OPERATION,
+                        CommonErrorCode.OPERATION_NOT_SUPPORTED,
                         "Unsupported operation type: " + opType);
         }
         batchCount = 0;
@@ -333,7 +333,7 @@ public class HudiSinkWriter implements SinkWriter<SeaTunnelRow, HudiCommitInfo, 
     private void checkFlushException() {
         if (flushException != null) {
             throw new HudiConnectorException(
-                    CommonErrorCode.FLUSH_DATA_FAILED,
+                    CommonErrorCode.WRITE_SEATUNNEL_ROW_ERROR,
                     "Writing records to Hudi failed.",
                     flushException);
         }
