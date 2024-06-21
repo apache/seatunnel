@@ -43,7 +43,7 @@ public class SQLTransformTest {
     private static final String GENERATE_PARTITION_KEY = "dt";
     private static final ReadonlyConfig READONLY_CONFIG =
             ReadonlyConfig.fromMap(
-                    new HashMap() {
+                    new HashMap<String, Object>() {
                         {
                             put(
                                     "query",
@@ -69,6 +69,38 @@ public class SQLTransformTest {
                         });
     }
 
+    @Test
+    public void testQueryWithAnyTable() {
+        SQLTransform sqlTransform =
+                new SQLTransform(
+                        ReadonlyConfig.fromMap(
+                                new HashMap<String, Object>() {
+                                    {
+                                        put("query", "select * from anyTableName");
+                                    }
+                                }),
+                        getCatalogTable());
+        TableSchema tableSchema = sqlTransform.transformTableSchema();
+        Assertions.assertEquals(4, tableSchema.getColumns().size());
+    }
+
+    @Test
+    public void testNotLoseSourceTypeAndOptions() {
+        SQLTransform sqlTransform = new SQLTransform(READONLY_CONFIG, getCatalogTable());
+        TableSchema tableSchema = sqlTransform.transformTableSchema();
+        tableSchema
+                .getColumns()
+                .forEach(
+                        column -> {
+                            if (!column.getName().equals(GENERATE_PARTITION_KEY)) {
+                                Assertions.assertEquals(
+                                        "source_" + column.getDataType(), column.getSourceType());
+                                Assertions.assertEquals(
+                                        "testInSQL", column.getOptions().get("context"));
+                            }
+                        });
+    }
+
     private CatalogTable getCatalogTable() {
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
@@ -89,14 +121,20 @@ public class SQLTransformTest {
                 columnLength = 3L;
             }
             PhysicalColumn column =
-                    PhysicalColumn.of(
+                    new PhysicalColumn(
                             rowType.getFieldName(i),
                             rowType.getFieldType(i),
                             columnLength,
                             scale,
                             true,
                             null,
-                            null);
+                            null,
+                            "source_" + rowType.getFieldType(i),
+                            new HashMap<String, Object>() {
+                                {
+                                    put("context", "testInSQL");
+                                }
+                            });
             schemaBuilder.column(column);
         }
         return CatalogTable.of(

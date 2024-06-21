@@ -19,9 +19,7 @@ package org.apache.seatunnel.connectors.cdc.base.dialect;
 
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
-import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
-import org.apache.seatunnel.connectors.cdc.base.relational.connection.JdbcConnectionFactory;
 import org.apache.seatunnel.connectors.cdc.base.relational.connection.JdbcConnectionPoolFactory;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.external.FetchTask;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.external.JdbcSourceFetchTaskContext;
@@ -57,21 +55,12 @@ public interface JdbcDataSourceDialect extends DataSourceDialect<JdbcSourceConfi
      * @param sourceConfig a basic source configuration.
      * @return a utility that simplifies using a JDBC connection.
      */
-    default JdbcConnection openJdbcConnection(JdbcSourceConfig sourceConfig) {
-        JdbcConnection jdbc =
-                new JdbcConnection(
-                        sourceConfig.getDbzConfiguration(),
-                        new JdbcConnectionFactory(sourceConfig, getPooledDataSourceFactory()));
-        try {
-            jdbc.connect();
-        } catch (Exception e) {
-            throw new SeaTunnelException(e);
-        }
-        return jdbc;
-    }
+    JdbcConnection openJdbcConnection(JdbcSourceConfig sourceConfig);
 
     /** Get a connection pool factory to create connection pool. */
-    JdbcConnectionPoolFactory getPooledDataSourceFactory();
+    default JdbcConnectionPoolFactory getPooledDataSourceFactory() {
+        throw new UnsupportedOperationException();
+    }
 
     /** Query and build the schema of table. */
     TableChanges.TableChange queryTableSchema(JdbcConnection jdbc, TableId tableId);

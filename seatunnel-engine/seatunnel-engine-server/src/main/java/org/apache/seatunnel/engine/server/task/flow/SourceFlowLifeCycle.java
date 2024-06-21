@@ -268,7 +268,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
 
         // Block the reader from adding barrier to the collector.
         synchronized (collector.getCheckpointLock()) {
-            if (barrier.prepareClose()) {
+            if (barrier.prepareClose(this.currentTaskLocation)) {
                 this.prepareClose = true;
             }
             if (barrier.snapshot()) {
@@ -311,10 +311,10 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
                         barrier.getId(),
                         schemaChangePhase.get().getPhase());
             } else {
-                throw new IllegalStateException(
-                        String.format(
-                                "schema-change checkpoint[%s] and phase[%s] is not matched",
-                                barrier.getId(), checkpointType));
+                log.debug(
+                        "Ignore schema-change checkpoint[{}] on idle task, phase: [{}]",
+                        barrier.getId(),
+                        checkpointType);
             }
         }
     }

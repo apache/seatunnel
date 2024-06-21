@@ -80,6 +80,12 @@ public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfi
 
     private Boolean xmlUseAttrFormat;
 
+    private Boolean parquetWriteTimestampAsInt96 =
+            BaseSinkConfig.PARQUET_AVRO_WRITE_TIMESTAMP_AS_INT96.defaultValue();
+
+    private List<String> parquetAvroWriteFixedAsInt96 =
+            BaseSinkConfig.PARQUET_AVRO_WRITE_FIXED_AS_INT96.defaultValue();
+
     public FileSinkConfig(@NonNull Config config, @NonNull SeaTunnelRowType seaTunnelRowTypeInfo) {
         super(config);
         checkArgument(
@@ -215,6 +221,21 @@ public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfi
 
             if (config.hasPath(BaseSinkConfig.XML_ROW_TAG.key())) {
                 this.xmlRowTag = config.getString(BaseSinkConfig.XML_ROW_TAG.key());
+            }
+        }
+
+        if (FileFormat.PARQUET
+                .name()
+                .equalsIgnoreCase(config.getString(BaseSinkConfig.FILE_FORMAT_TYPE.key()))) {
+            if (config.hasPath(BaseSinkConfig.PARQUET_AVRO_WRITE_TIMESTAMP_AS_INT96.key())) {
+                this.parquetWriteTimestampAsInt96 =
+                        config.getBoolean(
+                                BaseSinkConfig.PARQUET_AVRO_WRITE_TIMESTAMP_AS_INT96.key());
+            }
+            if (config.hasPath(BaseSinkConfig.PARQUET_AVRO_WRITE_FIXED_AS_INT96.key())) {
+                this.parquetAvroWriteFixedAsInt96 =
+                        config.getStringList(
+                                BaseSinkConfig.PARQUET_AVRO_WRITE_FIXED_AS_INT96.key());
             }
         }
     }

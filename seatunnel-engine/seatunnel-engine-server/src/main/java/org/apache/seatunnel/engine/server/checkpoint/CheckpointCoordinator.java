@@ -55,6 +55,7 @@ import lombok.SneakyThrows;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -111,6 +112,8 @@ public class CheckpointCoordinator {
     private final CheckpointPlan plan;
 
     private final Set<TaskLocation> readyToCloseStartingTask;
+    private final Set<TaskLocation> readyToCloseIdleTask;
+    @Getter private final Set<TaskLocation> closedIdleTask;
     private final ConcurrentHashMap<Long, PendingCheckpoint> pendingCheckpoints;
 
     private final ArrayDeque<String> completedCheckpointIds;
@@ -189,6 +192,8 @@ public class CheckpointCoordinator {
         this.pipelineTaskStatus = new ConcurrentHashMap<>();
         this.checkpointIdCounter = checkpointIdCounter;
         this.readyToCloseStartingTask = new CopyOnWriteArraySet<>();
+        this.readyToCloseIdleTask = new CopyOnWriteArraySet<>();
+        this.closedIdleTask = new CopyOnWriteArraySet<>();
 
         LOG.info(
                 "Create CheckpointCoordinator for job({}@{}) with plan({})",
@@ -309,7 +314,11 @@ public class CheckpointCoordinator {
                                 for (int i = tuple.f1();
                                         i < actionState.getParallelism();
                                         i += currentParallelism) {
-                                    states.add(actionState.getSubtaskStates().get(i));
+                                    ActionSubtaskState subtaskState =
+                                            actionState.getSubtaskStates().get(i);
+                                    if (subtaskState != null) {
+                                        states.add(subtaskState);
+                                    }
                                 }
                             });
         }
@@ -394,6 +403,60 @@ public class CheckpointCoordinator {
         readyToCloseStartingTask.add(taskLocation);
         if (readyToCloseStartingTask.size() == plan.getStartingSubtasks().size()) {
             tryTriggerPendingCheckpoint(CheckpointType.COMPLETED_POINT_TYPE);
+        }
+    }
+
+    protected void readyToCloseIdleTask(TaskLocation taskLocation) {
+        if (plan.getStartingSubtasks().contains(taskLocation)) {
+            throw new UnsupportedOperationException("Unsupported close starting task");
+        }
+
+        LOG.info(
+                "Received close idle task[{}]({}/{}). {}",
+                taskLocation.getTaskID(),
+                taskLocation.getPipelineId(),
+                taskLocation.getJobId(),
+                taskLocation);
+        synchronized (readyToCloseIdleTask) {
+            if (readyToCloseIdleTask.contains(taskLocation)
+                    || closedIdleTask.contains(taskLocation)) {
+                LOG.warn(
+                        "task[{}]({}/{}) already in closed. {}",
+                        taskLocation.getTaskID(),
+                        taskLocation.getPipelineId(),
+                        taskLocation.getJobId(),
+                        taskLocation);
+                return;
+            }
+
+            List<TaskLocation> subTaskList = new ArrayList<>();
+            for (TaskLocation subTask : plan.getPipelineSubtasks()) {
+                if (subTask.getTaskGroupLocation().equals(taskLocation.getTaskGroupLocation())) {
+                    // close all subtask in the same task group
+                    subTaskList.add(subTask);
+                    LOG.info(
+                            "Add task[{}]({}/{}) to prepare close list",
+                            subTask.getTaskID(),
+                            subTask.getPipelineId(),
+                            subTask.getJobId());
+                }
+            }
+            readyToCloseIdleTask.addAll(subTaskList);
+            tryTriggerPendingCheckpoint(CheckpointType.CHECKPOINT_TYPE);
+        }
+    }
+
+    protected void completedCloseIdleTask(TaskLocation taskLocation) {
+        synchronized (readyToCloseIdleTask) {
+            if (readyToCloseIdleTask.contains(taskLocation)) {
+                readyToCloseIdleTask.remove(taskLocation);
+                closedIdleTask.add(taskLocation);
+                LOG.info(
+                        "Completed close task[{}]({}/{})",
+                        taskLocation.getTaskID(),
+                        taskLocation.getPipelineId(),
+                        taskLocation.getJobId());
+            }
         }
     }
 
@@ -553,7 +616,9 @@ public class CheckpointCoordinator {
                                                             pendingCheckpoint.getCheckpointId(),
                                                             pendingCheckpoint
                                                                     .getCheckpointTimestamp(),
-                                                            pendingCheckpoint.getCheckpointType()),
+                                                            pendingCheckpoint.getCheckpointType(),
+                                                            new HashSet<>(readyToCloseIdleTask),
+                                                            new HashSet<>(closedIdleTask)),
                                             executorService)
                                     .thenApplyAsync(this::triggerCheckpoint, executorService);
 
@@ -664,8 +729,8 @@ public class CheckpointCoordinator {
     }
 
     private Set<Long> getNotYetAcknowledgedTasks() {
-        // TODO: some tasks have completed and don't need to be ack
         return plan.getPipelineSubtasks().stream()
+                .filter(e -> !closedIdleTask.contains(e))
                 .map(TaskLocation::getTaskID)
                 .collect(Collectors.toCollection(CopyOnWriteArraySet::new));
     }
@@ -715,6 +780,8 @@ public class CheckpointCoordinator {
             }
             pipelineTaskStatus.clear();
             readyToCloseStartingTask.clear();
+            readyToCloseIdleTask.clear();
+            closedIdleTask.clear();
             pendingCounter.set(0);
             schemaChanging.set(false);
             scheduler.shutdownNow();
@@ -752,6 +819,11 @@ public class CheckpointCoordinator {
                 pendingCheckpoint.getCheckpointType().isSavepoint()
                         ? SubtaskStatus.SAVEPOINT_PREPARE_CLOSE
                         : SubtaskStatus.RUNNING);
+
+        if (ackOperation.getBarrier().getCheckpointType().notFinalCheckpoint()
+                && ackOperation.getBarrier().prepareClose(location)) {
+            completedCloseIdleTask(location);
+        }
     }
 
     public synchronized void completePendingCheckpoint(CompletedCheckpoint completedCheckpoint) {

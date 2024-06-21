@@ -43,6 +43,11 @@ public class CheckpointStorageTest extends AbstractSeaTunnelServerTest {
 
     public static String STREAM_CONF_PATH = "stream_fake_to_console_biginterval.conf";
     public static String BATCH_CONF_PATH = "batch_fakesource_to_file.conf";
+    public static String BATCH_CONF_WITH_CHECKPOINT_PATH =
+            "batch_fakesource_to_file_with_checkpoint.conf";
+
+    public static String STREAM_CONF_WITH_CHECKPOINT_PATH =
+            "stream_fake_to_console_with_checkpoint.conf";
 
     @Override
     public SeaTunnelConfig loadSeaTunnelConfig() {
@@ -77,7 +82,7 @@ public class CheckpointStorageTest extends AbstractSeaTunnelServerTest {
                                                 .getJobStatus(jobId)
                                                 .equals(JobStatus.RUNNING)));
         Thread.sleep(1000);
-        CompletableFuture<Void> future1 =
+        CompletableFuture<Boolean> future1 =
                 server.getCoordinatorService().getJobMaster(jobId).savePoint();
         future1.join();
         await().atMost(120000, TimeUnit.MILLISECONDS)
@@ -109,6 +114,65 @@ public class CheckpointStorageTest extends AbstractSeaTunnelServerTest {
                                 Assertions.assertEquals(
                                         server.getCoordinatorService().getJobStatus(jobId),
                                         JobStatus.FINISHED));
+        List<PipelineState> allCheckpoints =
+                checkpointStorage.getAllCheckpoints(String.valueOf(jobId));
+        Assertions.assertEquals(0, allCheckpoints.size());
+    }
+
+    @Test
+    public void testBatchJobWithCheckpoint() throws CheckpointStorageException {
+        long jobId = System.currentTimeMillis();
+        CheckpointConfig checkpointConfig =
+                server.getSeaTunnelConfig().getEngineConfig().getCheckpointConfig();
+        server.getSeaTunnelConfig().getEngineConfig().setCheckpointConfig(checkpointConfig);
+
+        CheckpointStorage checkpointStorage =
+                FactoryUtil.discoverFactory(
+                                Thread.currentThread().getContextClassLoader(),
+                                CheckpointStorageFactory.class,
+                                checkpointConfig.getStorage().getStorage())
+                        .create(checkpointConfig.getStorage().getStoragePluginConfig());
+        startJob(jobId, BATCH_CONF_WITH_CHECKPOINT_PATH, false);
+        await().atMost(120000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        server.getCoordinatorService().getJobStatus(jobId),
+                                        JobStatus.FINISHED));
+        List<PipelineState> allCheckpoints =
+                checkpointStorage.getAllCheckpoints(String.valueOf(jobId));
+        Assertions.assertEquals(0, allCheckpoints.size());
+    }
+
+    @Test
+    public void testStreamJobWithCancel() throws CheckpointStorageException, InterruptedException {
+        long jobId = System.currentTimeMillis();
+        CheckpointConfig checkpointConfig =
+                server.getSeaTunnelConfig().getEngineConfig().getCheckpointConfig();
+        server.getSeaTunnelConfig().getEngineConfig().setCheckpointConfig(checkpointConfig);
+
+        CheckpointStorage checkpointStorage =
+                FactoryUtil.discoverFactory(
+                                Thread.currentThread().getContextClassLoader(),
+                                CheckpointStorageFactory.class,
+                                checkpointConfig.getStorage().getStorage())
+                        .create(checkpointConfig.getStorage().getStoragePluginConfig());
+        startJob(jobId, STREAM_CONF_WITH_CHECKPOINT_PATH, false);
+        await().atMost(120000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        server.getCoordinatorService().getJobStatus(jobId),
+                                        JobStatus.RUNNING));
+        // wait for checkpoint
+        Thread.sleep(10 * 1000);
+        server.getCoordinatorService().getJobMaster(jobId).cancelJob();
+        await().atMost(120000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        server.getCoordinatorService().getJobStatus(jobId),
+                                        JobStatus.CANCELED));
         List<PipelineState> allCheckpoints =
                 checkpointStorage.getAllCheckpoints(String.valueOf(jobId));
         Assertions.assertEquals(0, allCheckpoints.size());

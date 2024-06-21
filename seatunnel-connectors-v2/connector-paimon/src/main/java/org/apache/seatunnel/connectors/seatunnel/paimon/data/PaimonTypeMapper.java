@@ -18,8 +18,9 @@
 package org.apache.seatunnel.connectors.seatunnel.paimon.data;
 
 import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.converter.TypeConverter;
-import org.apache.seatunnel.connectors.seatunnel.paimon.sink.PaimonSink;
+import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig;
 import org.apache.seatunnel.connectors.seatunnel.paimon.utils.RowTypeConverter;
 
 import org.apache.paimon.types.DataType;
@@ -29,21 +30,21 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @AutoService(TypeConverter.class)
-public class PaimonTypeMapper implements TypeConverter<DataType> {
+public class PaimonTypeMapper implements TypeConverter<BasicTypeDefine<DataType>> {
     public static final PaimonTypeMapper INSTANCE = new PaimonTypeMapper();
 
     @Override
     public String identifier() {
-        return PaimonSink.PLUGIN_NAME;
+        return PaimonConfig.CONNECTOR_IDENTITY;
     }
 
     @Override
-    public Column convert(DataType dataType) {
-        return RowTypeConverter.convert(dataType);
+    public Column convert(BasicTypeDefine<DataType> typeDefine) {
+        return RowTypeConverter.convert(typeDefine);
     }
 
     @Override
-    public DataType reconvert(Column column) {
+    public BasicTypeDefine<DataType> reconvert(Column column) {
         return RowTypeConverter.reconvert(column);
     }
 }

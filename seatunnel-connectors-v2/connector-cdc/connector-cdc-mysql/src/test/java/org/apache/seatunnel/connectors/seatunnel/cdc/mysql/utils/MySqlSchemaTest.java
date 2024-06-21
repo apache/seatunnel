@@ -33,6 +33,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import io.debezium.config.Configuration;
+import io.debezium.jdbc.JdbcConfiguration;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
@@ -50,6 +51,7 @@ import java.util.Map;
 import static org.mockito.Mockito.when;
 
 public class MySqlSchemaTest {
+    private static final String QUOTED_CHARACTER = "`";
 
     @Test
     public void testReadSchemaFallbackDescTable() {
@@ -117,12 +119,22 @@ public class MySqlSchemaTest {
         Map<TableId, CatalogTable> tableMap = Collections.singletonMap(tableId, catalogTable);
         MySqlSchema schema = new MySqlSchema(sourceConfig, false, tableMap);
         MockJdbcConnection mockJdbcConnection = new MockJdbcConnection(createTableSQL, descFieldIs);
+        // check data
         TableChanges.TableChange tableChange = schema.getTableSchema(mockJdbcConnection, tableId);
+        Assertions.assertEquals(TableId.parse("db1.test"), tableChange.getId());
+        Assertions.assertEquals(TableChanges.TableChangeType.CREATE, tableChange.getType());
+        Table actualTable = tableChange.getTable();
+        Assertions.assertEquals(Arrays.asList("id"), actualTable.primaryKeyColumnNames());
+        Assertions.assertEquals("INT", actualTable.columnWithName("id").typeName());
+        Assertions.assertEquals("VARCHAR", actualTable.columnWithName("name").typeName());
+        Assertions.assertEquals("DATETIME", actualTable.columnWithName("ts").typeName());
 
         // check data
-        Assertions.assertEquals(tableId, tableChange.getId());
-        Assertions.assertEquals(TableChanges.TableChangeType.CREATE, tableChange.getType());
-        Table table = tableChange.getTable();
+        TableChanges.TableChange tableChangeByDesc =
+                schema.readTableSchemaByDesc(mockJdbcConnection, tableId);
+        Assertions.assertEquals(tableId, tableChangeByDesc.getId());
+        Assertions.assertEquals(TableChanges.TableChangeType.CREATE, tableChangeByDesc.getType());
+        Table table = tableChangeByDesc.getTable();
         Assertions.assertEquals(Arrays.asList("id"), table.primaryKeyColumnNames());
         Assertions.assertEquals("BIGINT", table.columnWithName("id").typeName());
         Assertions.assertEquals("VARCHAR", table.columnWithName("name").typeName());
@@ -134,7 +146,11 @@ public class MySqlSchemaTest {
         private Iterator<DescTableField> fields;
 
         public MockJdbcConnection(String showCreateTableSQL, Iterator<DescTableField> fields) {
-            super(Configuration.from(Collections.emptyMap()), config -> null);
+            super(
+                    JdbcConfiguration.adapt(Configuration.from(Collections.emptyMap())),
+                    config -> null,
+                    QUOTED_CHARACTER,
+                    QUOTED_CHARACTER);
             this.showCreateTableSQL = showCreateTableSQL;
             this.fields = fields;
         }

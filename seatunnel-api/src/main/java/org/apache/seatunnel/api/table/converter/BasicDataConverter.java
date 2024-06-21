@@ -19,7 +19,6 @@ package org.apache.seatunnel.api.table.converter;
 
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.type.ArrayType;
-import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -164,7 +163,7 @@ public interface BasicDataConverter<T> extends DataConverter<T> {
     default Object[] convertArray(ArrayType typeDefine, Object value)
             throws UnsupportedOperationException {
         if (value.getClass().isArray()) {
-            BasicType elementType = typeDefine.getElementType();
+            SeaTunnelDataType elementType = typeDefine.getElementType();
 
             Object[] array = (Object[]) value;
             for (int i = 0; i < array.length; i++) {
@@ -173,7 +172,7 @@ public interface BasicDataConverter<T> extends DataConverter<T> {
             return array;
         }
         if (value instanceof List) {
-            BasicType elementType = typeDefine.getElementType();
+            SeaTunnelDataType elementType = typeDefine.getElementType();
 
             List<Object> list = (List<Object>) value;
             int elements = list.size();
@@ -183,7 +182,7 @@ public interface BasicDataConverter<T> extends DataConverter<T> {
             return list.toArray();
         }
         if (value instanceof Set) {
-            BasicType elementType = typeDefine.getElementType();
+            SeaTunnelDataType elementType = typeDefine.getElementType();
 
             return ((Set) value).stream().map(e -> convert(elementType, e)).toArray();
         }

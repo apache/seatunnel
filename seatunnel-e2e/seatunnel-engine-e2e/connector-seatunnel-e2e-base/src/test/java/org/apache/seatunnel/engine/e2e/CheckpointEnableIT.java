@@ -114,7 +114,7 @@ public class CheckpointEnableIT extends TestSuiteBase {
                         () -> {
                             Pattern jobIdPattern =
                                     Pattern.compile(
-                                            ".*Init JobMaster for Job SeaTunnel_Job \\(([0-9]*)\\).*",
+                                            ".*Init JobMaster for Job stream_fakesource_to_localfile_interval.conf \\(([0-9]*)\\).*",
                                             Pattern.DOTALL);
                             Matcher matcher = jobIdPattern.matcher(container.getServerLogs());
                             if (matcher.matches()) {
@@ -181,7 +181,7 @@ public class CheckpointEnableIT extends TestSuiteBase {
                         () -> {
                             Pattern jobIdPattern =
                                     Pattern.compile(
-                                            ".*Init JobMaster for Job SeaTunnel_Job \\(([0-9]*)\\).*",
+                                            ".*Init JobMaster for Job stream_fakesource_to_localfile.conf \\(([0-9]*)\\).*",
                                             Pattern.DOTALL);
                             Matcher matcher = jobIdPattern.matcher(container.getServerLogs());
                             if (matcher.matches()) {

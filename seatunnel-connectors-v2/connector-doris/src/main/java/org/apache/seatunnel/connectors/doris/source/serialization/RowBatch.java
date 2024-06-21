@@ -39,9 +39,13 @@ import org.apache.seatunnel.shade.org.apache.arrow.vector.types.Types;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.types.Types.MinorType;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.util.Text;
 
+import org.apache.seatunnel.api.table.type.ArrayType;
+import org.apache.seatunnel.api.table.type.DecimalArrayType;
+import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorErrorCode;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorException;
 
@@ -126,7 +130,7 @@ public class RowBatch {
                 readRowCount += root.getRowCount();
             }
             return this;
-        } catch (Exception e) {
+        } catch (Throwable e) {
             log.error("Read Doris Data failed because: ", e);
             throw new DorisConnectorException(
                     DorisConnectorErrorCode.ARROW_READ_FAILED, e.getMessage());
@@ -157,16 +161,20 @@ public class RowBatch {
 
                 FieldVector fieldVector = fieldVectors.get(col);
                 Types.MinorType minorType = fieldVector.getMinorType();
-                convertArrowValue(col, currentType, minorType, fieldVector);
+                convertArrowValue(col, currentType, dataType, minorType, fieldVector);
             }
-        } catch (Exception e) {
+        } catch (Throwable e) {
             close();
             throw e;
         }
     }
 
     private void convertArrowValue(
-            int col, String currentType, Types.MinorType minorType, FieldVector fieldVector) {
+            int col,
+            String currentType,
+            SeaTunnelDataType<?> dataType,
+            MinorType minorType,
+            FieldVector fieldVector) {
         switch (currentType) {
             case "BOOLEAN":
                 BitVector bitVector = (BitVector) fieldVector;
@@ -260,6 +268,32 @@ public class RowBatch {
                                 float8Vector.isNull(rowIndex) ? null : float8Vector.get(rowIndex));
                 break;
             case "DECIMAL":
+                // LARGEINT
+                if (fieldVector instanceof FixedSizeBinaryVector) {
+                    FixedSizeBinaryVector largeInitFixedSizeBinaryVector =
+                            (FixedSizeBinaryVector) fieldVector;
+                    Preconditions.checkArgument(
+                            minorType.equals(Types.MinorType.FIXEDSIZEBINARY),
+                            typeMismatchMessage(currentType, minorType));
+                    addValueToRowForAllRows(
+                            col,
+                            rowIndex -> {
+                                if (largeInitFixedSizeBinaryVector.isNull(rowIndex)) {
+                                    return null;
+                                }
+                                byte[] bytes = largeInitFixedSizeBinaryVector.get(rowIndex);
+                                int left = 0, right = bytes.length - 1;
+                                while (left < right) {
+                                    byte temp = bytes[left];
+                                    bytes[left] = bytes[right];
+                                    bytes[right] = temp;
+                                    left++;
+                                    right--;
+                                }
+                                return new BigDecimal(new BigInteger(bytes), 0);
+                            });
+                    break;
+                }
                 DecimalVector decimalVector = (DecimalVector) fieldVector;
                 Preconditions.checkArgument(
                         minorType.equals(Types.MinorType.DECIMAL),
@@ -395,31 +429,7 @@ public class RowBatch {
                 Preconditions.checkArgument(
                         minorType.equals(Types.MinorType.LIST),
                         typeMismatchMessage(currentType, minorType));
-                addValueToRowForAllRows(
-                        col,
-                        rowIndex -> {
-                            if (listVector.isNull(rowIndex)) {
-                                return null;
-                            }
-                            List<?> listVectorObject = listVector.getObject(rowIndex);
-                            if (listVectorObject.get(0) instanceof BigDecimal
-                                    || listVectorObject.get(0) instanceof Text) {
-                                return listVectorObject.stream()
-                                        .map(Object::toString)
-                                        .toArray(String[]::new);
-                            }
-                            if (listVectorObject.get(0) instanceof Boolean) {
-                                return listVectorObject.stream()
-                                        .map(x -> (Boolean) x ? (short) 1 : (short) 0)
-                                        .toArray(Short[]::new);
-                            }
-                            if (listVectorObject.get(0) instanceof Byte) {
-                                return listVectorObject.stream()
-                                        .map(x -> ((Byte) x).shortValue())
-                                        .toArray(Short[]::new);
-                            }
-                            return listVectorObject.toArray();
-                        });
+                addValueToRowForArrayColumn(dataType, col, listVector);
                 break;
             case "MAP":
                 MapVector mapVector = (MapVector) fieldVector;
@@ -427,21 +437,7 @@ public class RowBatch {
                 Preconditions.checkArgument(
                         minorType.equals(MinorType.MAP),
                         typeMismatchMessage(currentType, minorType));
-                addValueToRowForAllRows(
-                        col,
-                        rowIndex -> {
-                            if (mapVector.isNull(rowIndex)) {
-                                return null;
-                            }
-                            reader.setPosition(rowIndex);
-                            Map<Object, Object> mapValue = new HashMap<>();
-                            while (reader.next()) {
-                                mapValue.put(
-                                        reader.key().readObject().toString(),
-                                        reader.value().readObject().toString());
-                            }
-                            return mapValue;
-                        });
+                addValueToRowForMapColumn(dataType, col, mapVector, reader);
 
                 break;
             case "STRUCT":
@@ -465,6 +461,167 @@ public class RowBatch {
                 throw new DorisConnectorException(
                         DorisConnectorErrorCode.ARROW_READ_FAILED, errMsg);
         }
+    }
+
+    private void addValueToRowForMapColumn(
+            SeaTunnelDataType<?> dataType, int col, MapVector mapVector, UnionMapReader reader) {
+        addValueToRowForAllRows(
+                col,
+                rowIndex -> {
+                    if (mapVector.isNull(rowIndex)) {
+                        return null;
+                    }
+                    reader.setPosition(rowIndex);
+                    Map<Object, Object> mapValue = new HashMap<>();
+                    MapType mapType = (MapType) dataType;
+                    SqlType keyType = mapType.getKeyType().getSqlType();
+                    SqlType valueType = mapType.getValueType().getSqlType();
+                    while (reader.next()) {
+                        mapValue.put(
+                                getDataFromVector(reader.key().readObject(), keyType),
+                                getDataFromVector(reader.value().readObject(), valueType));
+                    }
+                    return mapValue;
+                });
+    }
+
+    private Object getDataFromVector(Object vectorObject, SqlType sqlType) {
+        if (vectorObject instanceof Boolean) {
+            return Boolean.valueOf(vectorObject.toString());
+        }
+
+        if (vectorObject instanceof Byte) {
+            return Byte.valueOf(vectorObject.toString());
+        }
+
+        if (vectorObject instanceof Short) {
+            return Short.valueOf(vectorObject.toString());
+        }
+
+        if (vectorObject instanceof Integer) {
+            return Integer.valueOf(vectorObject.toString());
+        }
+
+        if (vectorObject instanceof Long) {
+            return Long.valueOf(vectorObject.toString());
+        }
+
+        if (vectorObject instanceof Float) {
+            return Float.valueOf(vectorObject.toString());
+        }
+
+        if (vectorObject instanceof Double) {
+            return Double.valueOf(vectorObject.toString());
+        }
+
+        if (vectorObject instanceof Text) {
+            if (sqlType.equals(SqlType.TIMESTAMP)) {
+                String stringValue = completeMilliseconds(vectorObject.toString());
+                return LocalDateTime.parse(stringValue, dateTimeV2Formatter);
+            } else if (sqlType.equals(SqlType.DATE)) {
+                return LocalDate.parse(vectorObject.toString(), dateFormatter);
+            }
+            return vectorObject.toString();
+        }
+
+        if (vectorObject instanceof BigDecimal) {
+            return new BigDecimal(vectorObject.toString());
+        }
+
+        if (vectorObject instanceof byte[] && sqlType.equals(SqlType.DECIMAL)) {
+            byte[] bytes = (byte[]) vectorObject;
+            int left = 0, right = bytes.length - 1;
+            while (left < right) {
+                byte temp = bytes[left];
+                bytes[left] = bytes[right];
+                bytes[right] = temp;
+                left++;
+                right--;
+            }
+            return new BigDecimal(new BigInteger(bytes), 0);
+        }
+
+        return vectorObject.toString();
+    }
+
+    private void addValueToRowForArrayColumn(
+            SeaTunnelDataType<?> dataType, int col, ListVector listVector) {
+        SqlType eleSqlType = null;
+        if (dataType instanceof ArrayType) {
+            ArrayType arrayType = (ArrayType) dataType;
+            eleSqlType = arrayType.getElementType().getSqlType();
+        }
+        SqlType finalEleSqlType = eleSqlType;
+        addValueToRowForAllRows(
+                col,
+                rowIndex -> {
+                    if (listVector.isNull(rowIndex)) {
+                        return null;
+                    }
+                    List<?> listVectorObject = listVector.getObject(rowIndex);
+                    if (listVectorObject.get(0) instanceof Boolean) {
+                        return listVectorObject.stream()
+                                .map(x -> getDataFromVector(x, finalEleSqlType))
+                                .toArray(Boolean[]::new);
+                    }
+
+                    if (listVectorObject.get(0) instanceof Byte) {
+                        return listVectorObject.stream()
+                                .map(x -> getDataFromVector(x, finalEleSqlType))
+                                .toArray(Byte[]::new);
+                    }
+
+                    if (listVectorObject.get(0) instanceof Short) {
+                        return listVectorObject.stream()
+                                .map(x -> getDataFromVector(x, finalEleSqlType))
+                                .toArray(Short[]::new);
+                    }
+
+                    if (listVectorObject.get(0) instanceof Integer) {
+                        return listVectorObject.stream()
+                                .map(x -> getDataFromVector(x, finalEleSqlType))
+                                .toArray(Integer[]::new);
+                    }
+
+                    if (listVectorObject.get(0) instanceof Long) {
+                        return listVectorObject.stream()
+                                .map(x -> getDataFromVector(x, finalEleSqlType))
+                                .toArray(Long[]::new);
+                    }
+
+                    if (listVectorObject.get(0) instanceof Float) {
+                        return listVectorObject.stream()
+                                .map(x -> getDataFromVector(x, finalEleSqlType))
+                                .toArray(Float[]::new);
+                    }
+
+                    if (listVectorObject.get(0) instanceof Double) {
+                        return listVectorObject.stream()
+                                .map(x -> getDataFromVector(x, finalEleSqlType))
+                                .toArray(Double[]::new);
+                    }
+
+                    if (listVectorObject.get(0) instanceof Text) {
+                        return listVectorObject.stream()
+                                .map(x -> getDataFromVector(x, finalEleSqlType))
+                                .toArray(String[]::new);
+                    }
+
+                    if (listVectorObject.get(0) instanceof BigDecimal) {
+                        return listVectorObject.stream()
+                                .map(x -> getDataFromVector(x, finalEleSqlType))
+                                .toArray(BigDecimal[]::new);
+                    }
+
+                    if (listVectorObject.get(0) instanceof byte[]
+                            && dataType instanceof DecimalArrayType) {
+                        return listVectorObject.stream()
+                                .map(x -> getDataFromVector(x, finalEleSqlType))
+                                .toArray(BigDecimal[]::new);
+                    }
+
+                    return listVectorObject.toArray();
+                });
     }
 
     private void addValueToRowForAllRows(int col, IntFunction<Object> function) {

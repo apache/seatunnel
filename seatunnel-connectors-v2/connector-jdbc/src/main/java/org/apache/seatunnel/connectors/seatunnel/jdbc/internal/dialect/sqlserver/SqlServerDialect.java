@@ -119,8 +119,8 @@ public class SqlServerDialect implements JdbcDialect {
                                 + " UPDATE SET %s"
                                 + " WHEN NOT MATCHED THEN"
                                 + " INSERT (%s) VALUES (%s);",
-                        database,
-                        tableName,
+                        quoteDatabaseIdentifier(database),
+                        quoteIdentifier(tableName),
                         usingClause,
                         onConditions,
                         updateSetClause,
@@ -150,6 +150,11 @@ public class SqlServerDialect implements JdbcDialect {
     @Override
     public String quoteDatabaseIdentifier(String identifier) {
         return "[" + identifier + "]";
+    }
+
+    @Override
+    public String tableIdentifier(TablePath tablePath) {
+        return quoteIdentifier(tablePath.getFullName());
     }
 
     @Override
@@ -237,7 +242,7 @@ public class SqlServerDialect implements JdbcDialect {
                             quotedColumn,
                             chunkSize,
                             quotedColumn,
-                            table.getTablePath().getFullName(),
+                            tableIdentifier(table.getTablePath()),
                             quotedColumn,
                             quotedColumn);
         }

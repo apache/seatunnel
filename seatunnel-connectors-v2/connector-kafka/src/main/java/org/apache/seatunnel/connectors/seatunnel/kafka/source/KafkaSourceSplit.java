@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.kafka.source;
 
 import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 
 import org.apache.kafka.common.TopicPartition;
 
@@ -25,15 +26,19 @@ import java.util.Objects;
 
 public class KafkaSourceSplit implements SourceSplit {
 
+    private TablePath tablePath;
     private TopicPartition topicPartition;
     private long startOffset = -1L;
     private long endOffset = -1L;
 
-    public KafkaSourceSplit(TopicPartition topicPartition) {
+    public KafkaSourceSplit(TablePath tablePath, TopicPartition topicPartition) {
+        this.tablePath = tablePath;
         this.topicPartition = topicPartition;
     }
 
-    public KafkaSourceSplit(TopicPartition topicPartition, long startOffset, long endOffset) {
+    public KafkaSourceSplit(
+            TablePath tablePath, TopicPartition topicPartition, long startOffset, long endOffset) {
+        this.tablePath = tablePath;
         this.topicPartition = topicPartition;
         this.startOffset = startOffset;
         this.endOffset = endOffset;
@@ -63,6 +68,14 @@ public class KafkaSourceSplit implements SourceSplit {
         this.topicPartition = topicPartition;
     }
 
+    public TablePath getTablePath() {
+        return tablePath;
+    }
+
+    public void setTablePath(TablePath tablePath) {
+        this.tablePath = tablePath;
+    }
+
     @Override
     public String splitId() {
         return topicPartition.topic() + "-" + topicPartition.partition();
@@ -87,6 +100,6 @@ public class KafkaSourceSplit implements SourceSplit {
 
     public KafkaSourceSplit copy() {
         return new KafkaSourceSplit(
-                this.topicPartition, this.getStartOffset(), this.getEndOffset());
+                this.tablePath, this.topicPartition, this.getStartOffset(), this.getEndOffset());
     }
 }

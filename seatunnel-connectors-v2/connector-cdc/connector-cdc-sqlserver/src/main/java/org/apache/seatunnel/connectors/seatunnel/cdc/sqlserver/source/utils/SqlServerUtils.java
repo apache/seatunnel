@@ -151,7 +151,7 @@ public class SqlServerUtils {
 
     public static Object[] skipReadAndSortSampleData(
             JdbcConnection jdbc, TableId tableId, String columnName, int inverseSamplingRate)
-            throws SQLException {
+            throws Exception {
         final String sampleQuery =
                 String.format("SELECT %s FROM %s", quote(columnName), quote(tableId));
 
@@ -176,6 +176,9 @@ public class SqlServerUtils {
                 }
                 if (count % inverseSamplingRate == 0) {
                     results.add(rs.getObject(1));
+                }
+                if (Thread.currentThread().isInterrupted()) {
+                    throw new InterruptedException("Thread interrupted");
                 }
             }
         } finally {
@@ -272,7 +275,7 @@ public class SqlServerUtils {
     /** Fetch current largest log sequence number (LSN) of the database. */
     public static LsnOffset currentLsn(SqlServerConnection connection) {
         try {
-            Lsn commitLsn = connection.getMaxTransactionLsn();
+            Lsn commitLsn = connection.getMaxTransactionLsn(connection.database());
             return LsnOffset.valueOf(commitLsn.toString());
         } catch (SQLException e) {
             throw new SeaTunnelException(e.getMessage(), e);
@@ -324,7 +327,7 @@ public class SqlServerUtils {
     }
 
     public static SqlServerDatabaseSchema createSqlServerDatabaseSchema(
-            SqlServerConnectorConfig connectorConfig) {
+            SqlServerConnectorConfig connectorConfig, SqlServerConnection connection) {
         TopicSelector<TableId> topicSelector =
                 SqlServerTopicSelector.defaultSelector(connectorConfig);
         SchemaNameAdjuster schemaNameAdjuster = SchemaNameAdjuster.create();
@@ -335,7 +338,11 @@ public class SqlServerUtils {
                         connectorConfig.binaryHandlingMode());
 
         return new SqlServerDatabaseSchema(
-                connectorConfig, valueConverters, topicSelector, schemaNameAdjuster);
+                connectorConfig,
+                connection.getDefaultValueConverter(),
+                valueConverters,
+                topicSelector,
+                schemaNameAdjuster);
     }
 
     private static String getPrimaryKeyColumnsProjection(SeaTunnelRowType rowType) {

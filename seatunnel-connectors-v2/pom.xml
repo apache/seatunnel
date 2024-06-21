@@ -67,6 +67,7 @@
         <module>connector-rabbitmq</module>
         <module>connector-openmldb</module>
         <module>connector-doris</module>
+        <module>connector-druid</module>
         <module>connector-maxcompute</module>
         <module>connector-tdengine</module>
         <module>connector-selectdb-cloud</module>
@@ -75,6 +76,7 @@
         <module>connector-amazonsqs</module>
         <module>connector-paimon</module>
         <module>connector-easysearch</module>
+        <module>connector-web3j</module>
     </modules>
 
     <dependencyManagement>

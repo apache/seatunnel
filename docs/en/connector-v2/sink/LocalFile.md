@@ -28,35 +28,38 @@ By default, we use 2PC commit to ensure `exactly-once`
   - [x] json
   - [x] excel
   - [x] xml
+  - [x] binary
 
 ## Options
 
-|               Name               |  Type   | Required |                  Default                   |                                            Description                                            |
-|----------------------------------|---------|----------|--------------------------------------------|---------------------------------------------------------------------------------------------------|
-| path                             | string  | yes      | -                                          |                                                                                                   |
-| tmp_path                         | string  | no       | /tmp/seatunnel                             | The result file will write to a tmp path first and then use `mv` to submit tmp dir to target dir. |
-| custom_filename                  | boolean | no       | false                                      | Whether you need custom the filename                                                              |
-| file_name_expression             | string  | no       | "${transactionId}"                         | Only used when custom_filename is true                                                            |
-| filename_time_format             | string  | no       | "yyyy.MM.dd"                               | Only used when custom_filename is true                                                            |
-| file_format_type                 | string  | no       | "csv"                                      |                                                                                                   |
-| field_delimiter                  | string  | no       | '\001'                                     | Only used when file_format_type is text                                                           |
-| row_delimiter                    | string  | no       | "\n"                                       | Only used when file_format_type is text                                                           |
-| have_partition                   | boolean | no       | false                                      | Whether you need processing partitions.                                                           |
-| partition_by                     | array   | no       | -                                          | Only used then have_partition is true                                                             |
-| partition_dir_expression         | string  | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | Only used then have_partition is true                                                             |
-| is_partition_field_write_in_file | boolean | no       | false                                      | Only used then have_partition is true                                                             |
-| sink_columns                     | array   | no       |                                            | When this parameter is empty, all fields are sink columns                                         |
-| is_enable_transaction            | boolean | no       | true                                       |                                                                                                   |
-| batch_size                       | int     | no       | 1000000                                    |                                                                                                   |
-| compress_codec                   | string  | no       | none                                       |                                                                                                   |
-| common-options                   | object  | no       | -                                          |                                                                                                   |
-| max_rows_in_memory               | int     | no       | -                                          | Only used when file_format_type is excel.                                                         |
-| sheet_name                       | string  | no       | Sheet${Random number}                      | Only used when file_format_type is excel.                                                         |
-| xml_root_tag                     | string  | no       | RECORDS                                    | Only used when file_format is xml.                                                                |
-| xml_row_tag                      | string  | no       | RECORD                                     | Only used when file_format is xml.                                                                |
-| xml_use_attr_format              | boolean | no       | -                                          | Only used when file_format is xml.                                                                |
-| enable_header_write              | boolean | no       | false                                      | Only used when file_format_type is text,csv.<br/> false:don't write header,true:write header.     |
-| encoding                         | string  | no       | "UTF-8"                                    | Only used when file_format_type is json,text,csv,xml.                                             |
+|                 Name                  |  Type   | Required |                  Default                   |                                            Description                                            |
+|---------------------------------------|---------|----------|--------------------------------------------|---------------------------------------------------------------------------------------------------|
+| path                                  | string  | yes      | -                                          |                                                                                                   |
+| tmp_path                              | string  | no       | /tmp/seatunnel                             | The result file will write to a tmp path first and then use `mv` to submit tmp dir to target dir. |
+| custom_filename                       | boolean | no       | false                                      | Whether you need custom the filename                                                              |
+| file_name_expression                  | string  | no       | "${transactionId}"                         | Only used when custom_filename is true                                                            |
+| filename_time_format                  | string  | no       | "yyyy.MM.dd"                               | Only used when custom_filename is true                                                            |
+| file_format_type                      | string  | no       | "csv"                                      |                                                                                                   |
+| field_delimiter                       | string  | no       | '\001'                                     | Only used when file_format_type is text                                                           |
+| row_delimiter                         | string  | no       | "\n"                                       | Only used when file_format_type is text                                                           |
+| have_partition                        | boolean | no       | false                                      | Whether you need processing partitions.                                                           |
+| partition_by                          | array   | no       | -                                          | Only used then have_partition is true                                                             |
+| partition_dir_expression              | string  | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | Only used then have_partition is true                                                             |
+| is_partition_field_write_in_file      | boolean | no       | false                                      | Only used then have_partition is true                                                             |
+| sink_columns                          | array   | no       |                                            | When this parameter is empty, all fields are sink columns                                         |
+| is_enable_transaction                 | boolean | no       | true                                       |                                                                                                   |
+| batch_size                            | int     | no       | 1000000                                    |                                                                                                   |
+| compress_codec                        | string  | no       | none                                       |                                                                                                   |
+| common-options                        | object  | no       | -                                          |                                                                                                   |
+| max_rows_in_memory                    | int     | no       | -                                          | Only used when file_format_type is excel.                                                         |
+| sheet_name                            | string  | no       | Sheet${Random number}                      | Only used when file_format_type is excel.                                                         |
+| xml_root_tag                          | string  | no       | RECORDS                                    | Only used when file_format is xml.                                                                |
+| xml_row_tag                           | string  | no       | RECORD                                     | Only used when file_format is xml.                                                                |
+| xml_use_attr_format                   | boolean | no       | -                                          | Only used when file_format is xml.                                                                |
+| parquet_avro_write_timestamp_as_int96 | boolean | no       | false                                      | Only used when file_format is parquet.                                                            |
+| parquet_avro_write_fixed_as_int96     | array   | no       | -                                          | Only used when file_format is parquet.                                                            |
+| enable_header_write                   | boolean | no       | false                                      | Only used when file_format_type is text,csv.<br/> false:don't write header,true:write header.     |
+| encoding                              | string  | no       | "UTF-8"                                    | Only used when file_format_type is json,text,csv,xml.                                             |
 
 ### path [string]
 
@@ -94,7 +97,7 @@ When the format in the `file_name_expression` parameter is `xxxx-${now}` , `file
 
 We supported as the following file types:
 
-`text` `json` `csv` `orc` `parquet` `excel` `xml`
+`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary`
 
 Please note that, The final file name will end with the file_format_type's suffix, the suffix of the text file is `txt`.
 
@@ -184,6 +187,14 @@ Specifies the tag name of the data rows within the XML file.
 ### xml_use_attr_format [boolean]
 
 Specifies Whether to process data using the tag attribute format.
+
+### parquet_avro_write_timestamp_as_int96 [boolean]
+
+Support writing Parquet INT96 from a timestamp, only valid for parquet files.
+
+### parquet_avro_write_fixed_as_int96 [array]
+
+Support writing Parquet INT96 from a 12-byte field, only valid for parquet files.
 
 ### enable_header_write [boolean]
 

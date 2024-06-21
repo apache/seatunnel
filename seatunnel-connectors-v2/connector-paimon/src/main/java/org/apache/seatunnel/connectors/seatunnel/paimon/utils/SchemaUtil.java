@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.paimon.utils;
 
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.paimon.data.PaimonTypeMapper;
 
@@ -34,7 +35,8 @@ import java.util.Objects;
 public class SchemaUtil {
 
     public static DataType toPaimonType(Column column) {
-        return PaimonTypeMapper.INSTANCE.reconvert(column);
+        BasicTypeDefine<DataType> basicTypeDefine = PaimonTypeMapper.INSTANCE.reconvert(column);
+        return basicTypeDefine.getNativeType();
     }
 
     public static Schema toPaimonSchema(
@@ -62,8 +64,8 @@ public class SchemaUtil {
         return paiSchemaBuilder.build();
     }
 
-    public static Column toSeaTunnelType(DataType dataType) {
-        return PaimonTypeMapper.INSTANCE.convert(dataType);
+    public static Column toSeaTunnelType(BasicTypeDefine<DataType> typeDefine) {
+        return PaimonTypeMapper.INSTANCE.convert(typeDefine);
     }
 
     public static DataField getDataField(List<DataField> fields, String fieldName) {

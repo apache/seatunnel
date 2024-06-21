@@ -40,6 +40,7 @@
         <module>connector-file-cos-e2e</module>
         <module>connector-file-sftp-e2e</module>
         <module>connector-file-oss-e2e</module>
+        <module>connector-file-s3-e2e</module>
         <module>connector-cassandra-e2e</module>
         <module>connector-neo4j-e2e</module>
         <module>connector-http-e2e</module>
@@ -53,13 +54,17 @@
         <module>connector-cdc-mongodb-e2e</module>
         <module>connector-iceberg-e2e</module>
         <module>connector-iceberg-hadoop3-e2e</module>
+        <module>connector-iceberg-s3-e2e</module>
         <module>connector-tdengine-e2e</module>
         <module>connector-datahub-e2e</module>
         <module>connector-mongodb-e2e</module>
         <module>connector-hbase-e2e</module>
+        <module>connector-web3j-e2e</module>
         <module>connector-maxcompute-e2e</module>
+        <module>connector-druid-e2e</module>
         <module>connector-google-firestore-e2e</module>
         <module>connector-rocketmq-e2e</module>
+        <module>connector-file-obs-e2e</module>
         <module>connector-file-ftp-e2e</module>
         <module>connector-pulsar-e2e</module>
         <module>connector-paimon-e2e</module>
