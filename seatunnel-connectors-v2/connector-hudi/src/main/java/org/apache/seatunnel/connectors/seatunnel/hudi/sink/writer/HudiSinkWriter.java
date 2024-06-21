@@ -68,8 +68,9 @@ import static org.apache.seatunnel.connectors.seatunnel.hudi.sink.writer.AvroSch
 import static org.apache.seatunnel.connectors.seatunnel.hudi.sink.writer.RowDataToAvroConverters.createConverter;
 
 @Slf4j
-public class HudiSinkWriter implements SinkWriter<SeaTunnelRow, HudiCommitInfo, HudiSinkState>,
-        SupportMultiTableSinkWriter<Void> {
+public class HudiSinkWriter
+        implements SinkWriter<SeaTunnelRow, HudiCommitInfo, HudiSinkState>,
+                SupportMultiTableSinkWriter<Void> {
 
     private final HoodieJavaWriteClient<HoodieAvroPayload> writeClient;
 
