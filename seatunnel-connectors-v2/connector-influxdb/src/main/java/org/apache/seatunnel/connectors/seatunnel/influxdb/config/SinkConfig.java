@@ -17,10 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.influxdb.config;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -32,7 +31,7 @@ import java.util.List;
 @Getter
 @ToString
 public class SinkConfig extends InfluxDBConfig {
-    public SinkConfig(Config config) {
+    public SinkConfig(ReadonlyConfig config) {
         super(config);
         loadConfig(config);
     }
@@ -104,32 +103,39 @@ public class SinkConfig extends InfluxDBConfig {
     private int maxRetryBackoffMs;
     private TimePrecision precision = DEFAULT_TIME_PRECISION;
 
-    public void loadConfig(Config config) {
+    public void loadConfig(ReadonlyConfig config) {
+        if (config.getOptional(KEY_TIME).isPresent()) {
+            setKeyTime(config.get(KEY_TIME));
+        }
 
-        if (config.hasPath(KEY_TIME.key())) {
-            setKeyTime(config.getString(KEY_TIME.key()));
+        if (config.getOptional(KEY_TAGS).isPresent()) {
+            setKeyTags(config.get(KEY_TAGS));
         }
-        if (config.hasPath(KEY_TAGS.key())) {
-            setKeyTags(config.getStringList(KEY_TAGS.key()));
+
+        if (config.getOptional(MAX_RETRIES).isPresent()) {
+            setMaxRetries(config.get(MAX_RETRIES));
         }
-        if (config.hasPath(MAX_RETRIES.key())) {
-            setMaxRetries(config.getInt(MAX_RETRIES.key()));
+
+        if (config.getOptional(RETRY_BACKOFF_MULTIPLIER_MS).isPresent()) {
+            setRetryBackoffMultiplierMs(config.get(RETRY_BACKOFF_MULTIPLIER_MS));
         }
-        if (config.hasPath(RETRY_BACKOFF_MULTIPLIER_MS.key())) {
-            setRetryBackoffMultiplierMs(config.getInt(RETRY_BACKOFF_MULTIPLIER_MS.key()));
+
+        if (config.getOptional(MAX_RETRY_BACKOFF_MS).isPresent()) {
+            setMaxRetryBackoffMs(config.get(MAX_RETRY_BACKOFF_MS));
         }
-        if (config.hasPath(MAX_RETRY_BACKOFF_MS.key())) {
-            setMaxRetryBackoffMs(config.getInt(MAX_RETRY_BACKOFF_MS.key()));
+
+        if (config.getOptional(WRITE_TIMEOUT).isPresent()) {
+            setWriteTimeout(config.get(WRITE_TIMEOUT));
         }
-        if (config.hasPath(WRITE_TIMEOUT.key())) {
-            setWriteTimeout(config.getInt(WRITE_TIMEOUT.key()));
+
+        if (config.getOptional(RETENTION_POLICY).isPresent()) {
+            setRp(config.get(RETENTION_POLICY));
         }
-        if (config.hasPath(RETENTION_POLICY.key())) {
-            setRp(config.getString(RETENTION_POLICY.key()));
+
+        if (config.getOptional(EPOCH).isPresent()) {
+            setPrecision(TimePrecision.getPrecision(config.get(EPOCH)));
         }
-        if (config.hasPath(EPOCH.key())) {
-            setPrecision(TimePrecision.getPrecision(config.getString(EPOCH.key())));
-        }
-        setMeasurement(config.getString(KEY_MEASUREMENT.key()));
+
+        setMeasurement(config.get(KEY_MEASUREMENT));
     }
 }

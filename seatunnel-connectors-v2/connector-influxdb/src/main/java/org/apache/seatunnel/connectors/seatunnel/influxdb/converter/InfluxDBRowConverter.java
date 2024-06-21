@@ -30,7 +30,10 @@ import java.util.List;
 public class InfluxDBRowConverter {
 
     public static SeaTunnelRow convert(
-            List<Object> values, SeaTunnelRowType typeInfo, List<Integer> indexList) {
+            List<Object> values,
+            SeaTunnelRowType typeInfo,
+            List<Integer> indexList,
+            String tableId) {
 
         SeaTunnelDataType<?>[] seaTunnelDataTypes = typeInfo.getFieldTypes();
         List<Object> fields = new ArrayList<>(seaTunnelDataTypes.length);
@@ -64,7 +67,8 @@ public class InfluxDBRowConverter {
 
             fields.add(seaTunnelField);
         }
-
-        return new SeaTunnelRow(fields.toArray());
+        SeaTunnelRow row = new SeaTunnelRow(fields.toArray());
+        row.setTableId(tableId);
+        return row;
     }
 }

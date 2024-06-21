@@ -17,86 +17,39 @@
 
 package org.apache.seatunnel.connectors.seatunnel.influxdb.source;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SupportColumnProjection;
 import org.apache.seatunnel.api.source.SupportParallelism;
-import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
-import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.influxdb.client.InfluxDBClient;
+import org.apache.seatunnel.connectors.seatunnel.influxdb.config.MultipleTableSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.config.SourceConfig;
-import org.apache.seatunnel.connectors.seatunnel.influxdb.exception.InfluxdbConnectorErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.influxdb.exception.InfluxdbConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.state.InfluxDBSourceState;
 
-import org.influxdb.InfluxDB;
-import org.influxdb.dto.Query;
-import org.influxdb.dto.QueryResult;
-
-import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.SourceConfig.SQL;
-
 @Slf4j
-@AutoService(SeaTunnelSource.class)
 public class InfluxDBSource
         implements SeaTunnelSource<SeaTunnelRow, InfluxDBSourceSplit, InfluxDBSourceState>,
                 SupportParallelism,
                 SupportColumnProjection {
-    private SeaTunnelRowType typeInfo;
-    private SourceConfig sourceConfig;
 
-    private List<Integer> columnsIndexList;
+    private final MultipleTableSourceConfig multipleTableSourceConfig;
 
-    private static final String QUERY_LIMIT = " limit 1";
+    public InfluxDBSource(ReadonlyConfig readonlyConfig) {
+        this.multipleTableSourceConfig = new MultipleTableSourceConfig(readonlyConfig);
+    }
 
     @Override
     public String getPluginName() {
         return "InfluxDB";
-    }
-
-    @Override
-    public void prepare(Config config) throws PrepareFailException {
-        CheckResult result =
-                CheckConfigUtil.checkAllExists(config, SQL.key(), TableSchemaOptions.SCHEMA.key());
-        if (!result.isSuccess()) {
-            throw new InfluxdbConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SOURCE, result.getMsg()));
-        }
-        try {
-            this.sourceConfig = SourceConfig.loadConfig(config);
-            this.typeInfo = CatalogTableUtil.buildWithConfig(config).getSeaTunnelRowType();
-            this.columnsIndexList = initColumnsIndex(InfluxDBClient.getInfluxDB(sourceConfig));
-        } catch (Exception e) {
-            throw new InfluxdbConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SOURCE, e));
-        }
     }
 
     @Override
@@ -105,19 +58,21 @@ public class InfluxDBSource
     }
 
     @Override
-    public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
-        return typeInfo;
-    }
-
-    @Override
     public SourceReader createReader(SourceReader.Context readerContext) throws Exception {
-        return new InfluxdbSourceReader(sourceConfig, readerContext, typeInfo, columnsIndexList);
+        return new InfluxdbSourceReader(readerContext, multipleTableSourceConfig);
     }
 
     @Override
     public SourceSplitEnumerator createEnumerator(SourceSplitEnumerator.Context enumeratorContext)
             throws Exception {
-        return new InfluxDBSourceSplitEnumerator(enumeratorContext, sourceConfig);
+        return new InfluxDBSourceSplitEnumerator(enumeratorContext, multipleTableSourceConfig);
+    }
+
+    @Override
+    public List<CatalogTable> getProducedCatalogTables() {
+        return multipleTableSourceConfig.getSourceConfigs().stream()
+                .map(SourceConfig::getCatalogTable)
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -125,45 +80,7 @@ public class InfluxDBSource
             SourceSplitEnumerator.Context<InfluxDBSourceSplit> enumeratorContext,
             InfluxDBSourceState checkpointState)
             throws Exception {
-        return new InfluxDBSourceSplitEnumerator(enumeratorContext, checkpointState, sourceConfig);
-    }
-
-    private List<Integer> initColumnsIndex(InfluxDB influxdb) {
-        // query one row to get column info
-        String sql = sourceConfig.getSql();
-        String query = sql + QUERY_LIMIT;
-        // if sql contains tz(), can't be append QUERY_LIMIT at last . see bug #4231
-        int start = containTzFunction(sql.toLowerCase());
-        if (start > 0) {
-            StringBuilder tmpSql = new StringBuilder(sql);
-            tmpSql.insert(start - 1, QUERY_LIMIT).append(" ");
-            query = tmpSql.toString();
-        }
-
-        try {
-            QueryResult queryResult = influxdb.query(new Query(query, sourceConfig.getDatabase()));
-
-            List<QueryResult.Series> serieList = queryResult.getResults().get(0).getSeries();
-            List<String> fieldNames = new ArrayList<>(serieList.get(0).getColumns());
-
-            return Arrays.stream(typeInfo.getFieldNames())
-                    .map(fieldNames::indexOf)
-                    .collect(Collectors.toList());
-        } catch (Exception e) {
-            throw new InfluxdbConnectorException(
-                    InfluxdbConnectorErrorCode.GET_COLUMN_INDEX_FAILED,
-                    "Get column index of query result exception",
-                    e);
-        }
-    }
-
-    private static int containTzFunction(String sql) {
-        Pattern pattern = Pattern.compile("tz\\(.*\\)");
-        Matcher matcher = pattern.matcher(sql);
-        if (matcher.find()) {
-            int start = matcher.start();
-            return start;
-        }
-        return -1;
+        return new InfluxDBSourceSplitEnumerator(
+                enumeratorContext, checkpointState, multipleTableSourceConfig);
     }
 }
