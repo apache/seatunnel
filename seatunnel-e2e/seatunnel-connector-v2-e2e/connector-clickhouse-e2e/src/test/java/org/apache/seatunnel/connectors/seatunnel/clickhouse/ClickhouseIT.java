@@ -78,7 +78,7 @@ import java.util.stream.Stream;
 
 public class ClickhouseIT extends TestSuiteBase implements TestResource {
     private static final Logger LOG = LoggerFactory.getLogger(ClickhouseIT.class);
-    private static final String CLICKHOUSE_DOCKER_IMAGE = "clickhouse/clickhouse-server:23.3.13.6";
+    private static final String CLICKHOUSE_DOCKER_IMAGE = "clickhouse/clickhouse-server:24.5.3";
     private static final String HOST = "clickhouse";
     private static final String DRIVER_CLASS = "com.clickhouse.jdbc.ClickHouseDriver";
     private static final String INIT_CLICKHOUSE_PATH = "/init/clickhouse_init.conf";
