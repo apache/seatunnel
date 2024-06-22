@@ -62,6 +62,17 @@ seatunnel:
         # 其他配置
 ```
 
+或者，如果您需要限制每个节点上运行的任务数量，可以使用固定插槽模式
+
+```yaml
+seatunnel:
+   engine:
+      slot-service:
+         dynamic-slot: false
+         slot-num: 10
+        # 其他配置
+```
+
 ### 4.3 检查点管理器
 
 与 Flink 一样，SeaTunnel Engine 支持 Chandy–Lamport 算法。因此，可以实现无数据丢失和重复的数据同步。
