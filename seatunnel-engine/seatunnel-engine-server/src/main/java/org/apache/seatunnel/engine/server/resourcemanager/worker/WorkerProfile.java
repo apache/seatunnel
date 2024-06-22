@@ -43,6 +43,8 @@ public class WorkerProfile implements IdentifiedDataSerializable {
 
     private ResourceProfile unassignedResource;
 
+    private boolean dynamicSlot;
+
     private SlotProfile[] assignedSlots;
 
     private SlotProfile[] unassignedSlots;
@@ -79,6 +81,7 @@ public class WorkerProfile implements IdentifiedDataSerializable {
         for (SlotProfile unassignedSlot : unassignedSlots) {
             out.writeObject(unassignedSlot);
         }
+        out.writeBoolean(dynamicSlot);
     }
 
     @Override
@@ -96,5 +99,6 @@ public class WorkerProfile implements IdentifiedDataSerializable {
         for (int i = 0; i < unassignedSlots.length; i++) {
             unassignedSlots[i] = in.readObject();
         }
+        dynamicSlot = in.readBoolean();
     }
 }

@@ -40,37 +40,25 @@ public class FakeResourceManager extends AbstractResourceManager {
     @Override
     public void init() {
         try {
-            Address address1 = new Address("localhost", 5801);
-            WorkerProfile workerProfile1 =
-                    new WorkerProfile(
-                            address1,
-                            new ResourceProfile(),
-                            new ResourceProfile(),
-                            new SlotProfile[] {},
-                            new SlotProfile[] {});
-            this.registerWorker.put(address1, workerProfile1);
-
-            Address address2 = new Address("localhost", 5802);
-            WorkerProfile workerProfile2 =
-                    new WorkerProfile(
-                            address2,
-                            new ResourceProfile(),
-                            new ResourceProfile(),
-                            new SlotProfile[] {},
-                            new SlotProfile[] {});
-            this.registerWorker.put(address2, workerProfile2);
-            Address address3 = new Address("localhost", 5803);
-            WorkerProfile workerProfile3 =
-                    new WorkerProfile(
-                            address3,
-                            new ResourceProfile(),
-                            new ResourceProfile(),
-                            new SlotProfile[] {},
-                            new SlotProfile[] {});
-            this.registerWorker.put(address3, workerProfile3);
+            generateWorker(5801);
+            generateWorker(5802);
+            generateWorker(5803);
         } catch (UnknownHostException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private void generateWorker(int port) throws UnknownHostException {
+        Address address = new Address("localhost", port);
+        WorkerProfile workerProfile =
+                new WorkerProfile(
+                        address,
+                        new ResourceProfile(),
+                        new ResourceProfile(),
+                        false,
+                        new SlotProfile[] {},
+                        new SlotProfile[] {});
+        this.registerWorker.put(address, workerProfile);
     }
 
     @Override
@@ -83,6 +71,7 @@ public class FakeResourceManager extends AbstractResourceManager {
                                             address,
                                             new ResourceProfile(),
                                             new ResourceProfile(),
+                                            false,
                                             new SlotProfile[] {},
                                             new SlotProfile[] {}),
                                     new SlotProfile(address, 1, new ResourceProfile(), "")));
