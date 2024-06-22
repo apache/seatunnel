@@ -63,6 +63,17 @@ seatunnel:
         # other config
 ```
 
+Or if you need to limit the number of tasks running on each node, you can use the fixed slot mode
+
+```
+seatunnel:
+    engine:
+        slot-service:
+            dynamic-slot: false
+            slot-num: 10
+        # other config
+```
+
 ### 4.3 Checkpoint Manager
 
 Like Flink, SeaTunnel Engine support Chandy–Lamport algorithm. Therefore, SeaTunnel Engine can realize data synchronization without data loss and duplication.
