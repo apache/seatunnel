@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.resourcemanager.opeartion;
 
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
+import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
 import org.apache.seatunnel.engine.server.serializable.ResourceDataSerializerHook;
 import org.apache.seatunnel.engine.server.service.slot.WrongTargetSlotException;
 
@@ -35,6 +36,7 @@ public class ReleaseSlotOperation extends Operation implements IdentifiedDataSer
 
     private long jobID;
     private SlotProfile slotProfile;
+    private WorkerProfile result;
 
     public ReleaseSlotOperation() {}
 
@@ -54,6 +56,12 @@ public class ReleaseSlotOperation extends Operation implements IdentifiedDataSer
                     jobID,
                     slotProfile);
         }
+        result = server.getSlotService().getWorkerProfile();
+    }
+
+    @Override
+    public Object getResponse() {
+        return result;
     }
 
     @Override
