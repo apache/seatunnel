@@ -59,7 +59,7 @@ public class FixSlotResourceTest extends AbstractSeaTunnelServerTest<FixSlotReso
                         .applyResources(jobId, resourceProfiles)
                         .get();
         Assertions.assertEquals(slotProfiles.size(), 3);
-        server.getCoordinatorService().getResourceManager().releaseResources(jobId, slotProfiles);
+        server.getCoordinatorService().getResourceManager().releaseResources(jobId, slotProfiles).join();
     }
 
     @Test
@@ -96,6 +96,6 @@ public class FixSlotResourceTest extends AbstractSeaTunnelServerTest<FixSlotReso
                         .applyResources(jobId, resourceProfiles)
                         .get();
         Assertions.assertEquals(slotProfiles.size(), 3);
-        server.getCoordinatorService().getResourceManager().releaseResources(jobId, slotProfiles);
+        server.getCoordinatorService().getResourceManager().releaseResources(jobId, slotProfiles).join();
     }
 }

@@ -55,7 +55,7 @@ public class FakeResourceManager extends AbstractResourceManager {
                         address,
                         new ResourceProfile(),
                         new ResourceProfile(),
-                        false,
+                        true,
                         new SlotProfile[] {},
                         new SlotProfile[] {});
         this.registerWorker.put(address, workerProfile);
@@ -71,7 +71,7 @@ public class FakeResourceManager extends AbstractResourceManager {
                                             address,
                                             new ResourceProfile(),
                                             new ResourceProfile(),
-                                            false,
+                                            true,
                                             new SlotProfile[] {},
                                             new SlotProfile[] {}),
                                     new SlotProfile(address, 1, new ResourceProfile(), "")));
