@@ -150,14 +150,11 @@ public abstract class AbstractResourceManager implements ResourceManager {
                                         boolean match = true;
                                         for (Map.Entry<String, String> entry :
                                                 tagFilter.entrySet()) {
-                                            if (workerAttr.containsKey(entry.getKey())
-                                                    && workerAttr
+                                            if (!workerAttr.containsKey(entry.getKey())
+                                                    || !workerAttr
                                                             .get(entry.getKey())
                                                             .equals(entry.getValue())) {
-                                                // need all tag match
-                                            } else {
-                                                match = false;
-                                                break;
+                                                return false;
                                             }
                                         }
                                         return match;
