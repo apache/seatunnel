@@ -24,7 +24,6 @@ import org.testcontainers.containers.Network;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Set;
 
 public interface TestContainer extends TestResource {
 
@@ -52,10 +51,6 @@ public interface TestContainer extends TestResource {
 
     default Container.ExecResult restoreJob(String confFile, String jobId)
             throws IOException, InterruptedException {
-        throw new UnsupportedOperationException("Not implemented");
-    }
-
-    default void copySpecifyConnectorJarsToContainer(Set<String> connectorNames) {
         throw new UnsupportedOperationException("Not implemented");
     }
 

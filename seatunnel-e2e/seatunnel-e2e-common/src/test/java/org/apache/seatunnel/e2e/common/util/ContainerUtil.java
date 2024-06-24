@@ -99,28 +99,6 @@ public final class ContainerUtil {
                                 Paths.get(seatunnelHome, "connectors", jar.getName()).toString()));
     }
 
-    public static void copySpecifyConnectorJarToContainer(
-            GenericContainer<?> container,
-            Set<String> connectorNames,
-            String connectorsRootPath,
-            String connectorPrefix,
-            String connectorType,
-            String seatunnelHome) {
-        Config connectorsMapping =
-                getConfig(new File(PROJECT_ROOT_PATH + File.separator + PLUGIN_MAPPING_FILE));
-        if (!connectorsMapping.hasPath(connectorType)
-                || connectorsMapping.getConfig(connectorType).isEmpty()) {
-            return;
-        }
-        File module = new File(PROJECT_ROOT_PATH + File.separator + connectorsRootPath);
-        List<File> connectorFiles = getConnectorFiles(module, connectorNames, connectorPrefix);
-        connectorFiles.forEach(
-                jar ->
-                        container.copyFileToContainer(
-                                MountableFile.forHostPath(jar.getAbsolutePath()),
-                                Paths.get(seatunnelHome, "connectors", jar.getName()).toString()));
-    }
-
     public static void copyAllConnectorJarToContainer(
             GenericContainer<?> container,
             String connectorsRootPath,
