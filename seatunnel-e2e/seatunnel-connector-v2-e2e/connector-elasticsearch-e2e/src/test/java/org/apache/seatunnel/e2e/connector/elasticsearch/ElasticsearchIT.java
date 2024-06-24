@@ -194,8 +194,31 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         Container.ExecResult execResult =
                 container.executeJob("/elasticsearch/fakesource_to_elasticsearch_multi_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-        List<String> sinkIndexData5 = readMultiSinkData5("st_index5");
-        List<String> sinkIndexData6 = readMultiSinkData6("st_index6");
+        List<String> source5 =
+                Lists.newArrayList(
+                        "id",
+                        "c_bool",
+                        "c_tinyint",
+                        "c_smallint",
+                        "c_int",
+                        "c_bigint",
+                        "c_float",
+                        "c_double",
+                        "c_decimal",
+                        "c_string");
+        List<String> source6 =
+                Lists.newArrayList(
+                        "id",
+                        "c_bool",
+                        "c_tinyint",
+                        "c_smallint",
+                        "c_int",
+                        "c_bigint",
+                        "c_float",
+                        "c_double",
+                        "c_decimal");
+        List<String> sinkIndexData5 = readMultiSinkData("st_index5", source5);
+        List<String> sinkIndexData6 = readMultiSinkData("st_index6", source6);
         String stIndex5 =
                 "{\"c_smallint\":2,\"c_string\":\"NEW\",\"c_float\":4.3,\"c_double\":5.3,\"c_decimal\":6.3,\"id\":1,\"c_int\":3,\"c_bigint\":4,\"c_bool\":true,\"c_tinyint\":1}";
         String stIndex6 =
@@ -307,57 +330,10 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         return getDocsWithTransformTimestamp(source, index);
     }
 
-    private List<String> readMultiSinkData5(String index) throws InterruptedException {
+    private List<String> readMultiSinkData(String index, List<String> source)
+            throws InterruptedException {
         // wait for index refresh
         Thread.sleep(2000);
-        List<String> source =
-                Lists.newArrayList(
-                        "id",
-                        "c_bool",
-                        "c_tinyint",
-                        "c_smallint",
-                        "c_int",
-                        "c_bigint",
-                        "c_float",
-                        "c_double",
-                        "c_decimal",
-                        "c_string");
-        Map<String, Object> query = new HashMap<>();
-        query.put("match_all", Maps.newHashMap());
-
-        ScrollResult scrollResult = esRestClient.searchByScroll(index, source, query, "1m", 1000);
-        scrollResult
-                .getDocs()
-                .forEach(
-                        x -> {
-                            x.remove("_index");
-                            x.remove("_type");
-                            x.remove("_id");
-                        });
-        List<String> docs =
-                scrollResult.getDocs().stream()
-                        .sorted(
-                                Comparator.comparingInt(
-                                        o -> Integer.valueOf(o.get("c_int").toString())))
-                        .map(JsonUtils::toJsonString)
-                        .collect(Collectors.toList());
-        return docs;
-    }
-
-    private List<String> readMultiSinkData6(String index) throws InterruptedException {
-        // wait for index refresh
-        Thread.sleep(2000);
-        List<String> source =
-                Lists.newArrayList(
-                        "id",
-                        "c_bool",
-                        "c_tinyint",
-                        "c_smallint",
-                        "c_int",
-                        "c_bigint",
-                        "c_float",
-                        "c_double",
-                        "c_decimal");
         Map<String, Object> query = new HashMap<>();
         query.put("match_all", Maps.newHashMap());
 
