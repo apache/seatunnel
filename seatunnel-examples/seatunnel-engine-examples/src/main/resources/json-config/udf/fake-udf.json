@@ -1,7 +1,7 @@
 {
   "env": {
     "execution.parallelism": 1,
-    "job.name": "udf测试",
+    "job.name": "UDF函数测试",
     "job.mode": "batch"
   },
   "preHandler": [
@@ -10,7 +10,7 @@
     {
       "plugin_name": "FakeSource",
       "resourceType": "nosql",
-      "row.num": 10,
+      "row.num": 100,
       "schema": {
         "table": "ottomi",
         "fields": {
@@ -21,33 +21,46 @@
       "resources": [
         "ottomi"
       ],
-      "result_table_name": "fake_source",
+      "result_table_name": "ot_6ff8558784344f9784b0d850dc834e11",
       "ottomi_node_type": "FakeSource"
     }
   ],
   "transform": [
     {
+      "plugin_name": "Sql",
+      "query": "select price,price2,ABS(price) as price_1  from ot_6ff8558784344f9784b0d850dc834e11",
+      "result_table_name": "ot_dd9385bedd0c4ffd9b518b8884ea21cf",
+      "ottomi_node_type": "dx_columnEdit",
+      "source_table_name": [
+        "ot_6ff8558784344f9784b0d850dc834e11"
+      ]
+    },
+    {
       "plugin_name": "JarUdf",
       "jar_class_name": "com.oceandatum.simplerows.CalFlightDistanceV2",
       "jar_connection_properties": {
         "id": "1804008914592129025",
-        "url": "jdbc:mysql://172.16.11.183:3306/ottomi?characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&nullCatalogMeansCurrent=true&useSSL=false&allowMultiQueries=true&useJDBCCompliantTimezoneShift=true&useLegacyDatetimeCode=false&serverTimezone=Asia/Shanghai",
-        "username": "kaifa",
-        "password": "kaifa"
+        "url": "R2F6V1JKM1lQcWFmQTZ0ck1Mb2JUQT09ZnMmO2c0T30wL2J2OjttayIkcmxucB47Y3ZiciY8ZnRpYzQ3MjgNbTMkKih2woA7K0vCgSk3OThecRw4LCVTLiI+fn4EPSk8ZGMsKBokY2smMmllZzs0NUZvLTcMNl1/NDkqwoE/NjESV2RALzkuXG8/N3VSPzAvPF5kHDcqNHQuKyhrQhkWYj1XbCoofih/aDUsQ2gsLjYQQ28tLD8yLMKAKi5rOT8rOhl0ShoGOSxraDc6YmMUNTI8wrJpOSgNL8KAbixmfGU/QXssSW8XKEEodnMcOnx4NDUyPHlpPyhnJXhoMT4qYi8wKzxKRDgwP0F6ZjtmT2IrPXQCYGs5KlAowoAMYF0=",
+        "user": "b0svMVlUbmlaZHp1MWhGdWxvU2VaZz09HXQrND5fOBBbQ1hHGwxgXQ==",
+        "password": "NVI1WHFBN3JKT2I5bVdMM3hwY244dz09HXQrND5fOBBbQ1hHGwxgXQ=="
       },
       "column_index": [
         0,
         1
       ],
-      "out_field_name": "name",
-      "source_table_name": "fake_source",
-      "result_table_name": "udf_sink"
+      "out_field_name": "distance",
+      "result_table_name": "ot_33fac51197114cf492efa2ed7bb7e82c",
+      "ottomi_node_type": "dx_columnEdit",
+      "source_table_name": [
+        "ot_dd9385bedd0c4ffd9b518b8884ea21cf"
+      ]
     }
   ],
   "sink": [
     {
       "plugin_name": "Console",
-      "source_table_name": "udf_sink"
+      "source_table_name": "ot_33fac51197114cf492efa2ed7bb7e82c",
+      "ottomi_node_type": "VoidSink"
     }
   ]
 }

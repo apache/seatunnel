@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.transform.common.MultipleFieldOutputTransform;
 import org.apache.seatunnel.transform.common.SeaTunnelRowAccessor;
+import org.apache.seatunnel.transform.common.SecurityTools;
 
 import cn.hutool.core.util.ReflectUtil;
 import cn.hutool.db.Db;
@@ -46,6 +47,10 @@ public class JarUdfTransform extends MultipleFieldOutputTransform {
     public static final String METHOD_NAME = "evaluate";
     public static final String QUERY_SQL = "select jar from ottomi_function where id = ?";
     public static final String JAR_COLUMN = "jar";
+    public static final String JAR_DATASOURCE_URL = "url";
+    public static final String JAR_DATASOURCE_USER = "user";
+    public static final String JAR_DATASOURCE_PASSWORD = "password";
+    public static final String JAR_ID = "id";
     private String className;
     private List<Integer> inputColumnIndex;
     private JarClassLoader jarClassLoader;
@@ -101,9 +106,11 @@ public class JarUdfTransform extends MultipleFieldOutputTransform {
                 config.getOptional(JarUdfTransformConfig.JAR_CONNECTION_PROPERTIES).get();
         SimpleDataSource simpleDataSource =
                 new SimpleDataSource(
-                        props.get("url"), props.get("username"), props.get("password"));
+                        SecurityTools.decrypt(props.get(JAR_DATASOURCE_URL)),
+                        SecurityTools.decrypt(props.get(JAR_DATASOURCE_USER)),
+                        SecurityTools.decrypt(props.get(JAR_DATASOURCE_PASSWORD)));
         Db use = DbUtil.use(simpleDataSource);
-        Entity entity = use.queryOne(QUERY_SQL, props.get("id"));
+        Entity entity = use.queryOne(QUERY_SQL, props.get(JAR_ID));
         byte[] jarStream = (byte[]) entity.get(JAR_COLUMN);
         jarClassLoader = new JarClassLoader(jarStream);
     }
