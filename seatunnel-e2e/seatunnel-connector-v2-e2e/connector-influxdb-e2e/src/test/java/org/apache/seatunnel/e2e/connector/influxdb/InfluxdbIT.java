@@ -311,6 +311,7 @@ public class InfluxdbIT extends TestSuiteBase implements TestResource {
                 String.format(
                         "select time, label, c_string, c_double, c_bigint, c_float,c_int, c_smallint, c_boolean from %s order by time",
                         tableName);
+
         QueryResult sinkQueryResult = influxDB.query(new Query(sinkSql, INFLUXDB_DATABASE));
 
         List<List<Object>> sinkValues =
