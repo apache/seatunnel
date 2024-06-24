@@ -94,24 +94,23 @@ public class CustomAlterTableParserListener extends MySqlParserBaseListener {
         parser.runIfNotNull(
                 () -> {
                     Column column = columnDefinitionListener.getColumn();
+                    org.apache.seatunnel.api.table.catalog.Column seatunnelColumn =
+                            toSeatunnelColumn(column);
+                    String sourceColumnType = getSourceColumnType(column);
+                    seatunnelColumn = seatunnelColumn.reSourceType(sourceColumnType);
                     if (ctx.FIRST() != null) {
                         AlterTableAddColumnEvent alterTableAddColumnEvent =
-                                AlterTableAddColumnEvent.addFirst(
-                                        tableIdentifier, toSeatunnelColumn(column));
-                        alterTableAddColumnEvent.setSourceColumnType(getSourceColumnType(column));
+                                AlterTableAddColumnEvent.addFirst(tableIdentifier, seatunnelColumn);
                         changes.add(alterTableAddColumnEvent);
                     } else if (ctx.AFTER() != null) {
                         String afterColumn = parser.parseName(ctx.uid(1));
                         AlterTableAddColumnEvent alterTableAddColumnEvent =
                                 AlterTableAddColumnEvent.addAfter(
-                                        tableIdentifier, toSeatunnelColumn(column), afterColumn);
-                        alterTableAddColumnEvent.setSourceColumnType(getSourceColumnType(column));
+                                        tableIdentifier, seatunnelColumn, afterColumn);
                         changes.add(alterTableAddColumnEvent);
                     } else {
                         AlterTableAddColumnEvent alterTableAddColumnEvent =
-                                AlterTableAddColumnEvent.add(
-                                        tableIdentifier, toSeatunnelColumn(column));
-                        alterTableAddColumnEvent.setSourceColumnType(getSourceColumnType(column));
+                                AlterTableAddColumnEvent.add(tableIdentifier, seatunnelColumn);
                         changes.add(alterTableAddColumnEvent);
                     }
                     listeners.remove(columnDefinitionListener);
@@ -153,27 +152,25 @@ public class CustomAlterTableParserListener extends MySqlParserBaseListener {
         parser.runIfNotNull(
                 () -> {
                     Column column = columnDefinitionListener.getColumn();
+                    org.apache.seatunnel.api.table.catalog.Column seatunnelColumn =
+                            toSeatunnelColumn(column);
+                    String sourceColumnType = getSourceColumnType(column);
+                    seatunnelColumn = seatunnelColumn.reSourceType(sourceColumnType);
                     if (ctx.FIRST() != null) {
                         AlterTableModifyColumnEvent alterTableModifyColumnEvent =
                                 AlterTableModifyColumnEvent.modifyFirst(
-                                        tableIdentifier, toSeatunnelColumn(column));
-                        alterTableModifyColumnEvent.setSourceColumnType(
-                                getSourceColumnType(column));
+                                        tableIdentifier, seatunnelColumn);
                         changes.add(alterTableModifyColumnEvent);
                     } else if (ctx.AFTER() != null) {
                         String afterColumn = parser.parseName(ctx.uid(1));
                         AlterTableModifyColumnEvent alterTableModifyColumnEvent =
                                 AlterTableModifyColumnEvent.modifyAfter(
-                                        tableIdentifier, toSeatunnelColumn(column), afterColumn);
-                        alterTableModifyColumnEvent.setSourceColumnType(
-                                getSourceColumnType(column));
+                                        tableIdentifier, seatunnelColumn, afterColumn);
                         changes.add(alterTableModifyColumnEvent);
                     } else {
                         AlterTableModifyColumnEvent alterTableModifyColumnEvent =
                                 AlterTableModifyColumnEvent.modify(
-                                        tableIdentifier, toSeatunnelColumn(column));
-                        alterTableModifyColumnEvent.setSourceColumnType(
-                                getSourceColumnType(column));
+                                        tableIdentifier, seatunnelColumn);
                         changes.add(alterTableModifyColumnEvent);
                     }
                     listeners.remove(columnDefinitionListener);
@@ -199,16 +196,18 @@ public class CustomAlterTableParserListener extends MySqlParserBaseListener {
         parser.runIfNotNull(
                 () -> {
                     Column column = columnDefinitionListener.getColumn();
+                    org.apache.seatunnel.api.table.catalog.Column seatunnelColumn =
+                            toSeatunnelColumn(column);
+                    String sourceColumnType = getSourceColumnType(column);
+                    seatunnelColumn = seatunnelColumn.reSourceType(sourceColumnType);
                     String oldColumnName = column.name();
                     String newColumnName = parser.parseName(ctx.newColumn);
-                    Column newColumn = column.edit().name(newColumnName).create();
+                    seatunnelColumn = seatunnelColumn.rename(newColumnName);
                     AlterTableChangeColumnEvent alterTableChangeColumnEvent =
                             AlterTableChangeColumnEvent.change(
-                                    tableIdentifier, oldColumnName, toSeatunnelColumn(newColumn));
+                                    tableIdentifier, oldColumnName, seatunnelColumn);
                     if (StringUtils.isNotBlank(newColumnName)
                             && !StringUtils.equals(oldColumnName, newColumnName)) {
-                        alterTableChangeColumnEvent.setSourceColumnType(
-                                getSourceColumnType(newColumn));
                         changes.add(alterTableChangeColumnEvent);
                     }
                     listeners.remove(columnDefinitionListener);

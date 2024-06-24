@@ -468,7 +468,7 @@ public interface JdbcDialect extends Serializable {
                 Column addColumn = ((AlterTableAddColumnEvent) event).getColumn();
                 return buildAlterTableSql(
                         sourceDialectName,
-                        event.getSourceColumnType(),
+                        addColumn.getSourceType(),
                         AlterType.ADD.name(),
                         addColumn,
                         tableIdentifierWithQuoted,
@@ -477,7 +477,7 @@ public interface JdbcDialect extends Serializable {
                 String dropColumn = ((AlterTableDropColumnEvent) event).getColumn();
                 return buildAlterTableSql(
                         sourceDialectName,
-                        event.getSourceColumnType(),
+                        null,
                         AlterType.DROP.name(),
                         null,
                         tableIdentifierWithQuoted,
@@ -486,7 +486,7 @@ public interface JdbcDialect extends Serializable {
                 Column modifyColumn = ((AlterTableModifyColumnEvent) event).getColumn();
                 return buildAlterTableSql(
                         sourceDialectName,
-                        event.getSourceColumnType(),
+                        modifyColumn.getSourceType(),
                         AlterType.MODIFY.name(),
                         modifyColumn,
                         tableIdentifierWithQuoted,
@@ -498,7 +498,7 @@ public interface JdbcDialect extends Serializable {
                 String oldColumnName = alterTableChangeColumnEvent.getOldColumn();
                 return buildAlterTableSql(
                         sourceDialectName,
-                        event.getSourceColumnType(),
+                        changeColumn.getSourceType(),
                         AlterType.CHANGE.name(),
                         changeColumn,
                         tableIdentifierWithQuoted,

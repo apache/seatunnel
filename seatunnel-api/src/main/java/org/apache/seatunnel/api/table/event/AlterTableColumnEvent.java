@@ -19,14 +19,10 @@ package org.apache.seatunnel.api.table.event;
 
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 
-import lombok.Getter;
-import lombok.Setter;
 import lombok.ToString;
 
 @ToString(callSuper = true)
 public abstract class AlterTableColumnEvent extends AlterTableEvent {
-
-    @Getter @Setter protected String sourceColumnType;
 
     public AlterTableColumnEvent(TableIdentifier tableIdentifier) {
         super(tableIdentifier);
