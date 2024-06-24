@@ -43,6 +43,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.auto.service.AutoService;
 import groovy.lang.Tuple2;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -55,6 +56,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
@@ -63,6 +65,7 @@ import java.util.stream.Collectors;
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.adaptPathForWin;
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.copyAllConnectorJarToContainer;
+import static org.apache.seatunnel.e2e.common.util.ContainerUtil.copySpecifyConnectorJarToContainer;
 
 @NoArgsConstructor
 @Slf4j
@@ -73,7 +76,7 @@ public class SeaTunnelContainer extends AbstractTestContainer {
     private static final String CLIENT_SHELL = "seatunnel.sh";
     protected static final String SERVER_SHELL = "seatunnel-cluster.sh";
     protected static final String CONNECTOR_CHECK_SHELL = "seatunnel-connector.sh";
-    protected GenericContainer<?> server;
+    @Getter protected GenericContainer<?> server;
     private final AtomicInteger runningCount = new AtomicInteger();
 
     @Override
@@ -245,6 +248,17 @@ public class SeaTunnelContainer extends AbstractTestContainer {
     public void executeExtraCommands(ContainerExtendedFactory extendedFactory)
             throws IOException, InterruptedException {
         extendedFactory.extend(server);
+    }
+
+    @Override
+    public void copySpecifyConnectorJarsToContainer(Set<String> connectorNames) {
+        copySpecifyConnectorJarToContainer(
+                server,
+                connectorNames,
+                getConnectorModulePath(),
+                getConnectorNamePrefix(),
+                getConnectorType(),
+                SEATUNNEL_HOME);
     }
 
     @Override
