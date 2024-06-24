@@ -297,7 +297,7 @@ public class InfluxdbIT extends TestSuiteBase implements TestResource {
             type = {EngineType.SPARK, EngineType.FLINK},
             disabledReason = "Currently SPARK/FLINK do not support multiple table read")
     @TestTemplate
-    public void testKuduMultipleRead(TestContainer container)
+    public void testInfluxdbMultipleRead(TestContainer container)
             throws IOException, InterruptedException {
         this.initSourceData("source1");
         this.initSourceData("source2");
