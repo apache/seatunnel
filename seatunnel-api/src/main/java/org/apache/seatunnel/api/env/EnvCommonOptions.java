@@ -94,4 +94,10 @@ public interface EnvCommonOptions {
                     .mapType()
                     .noDefaultValue()
                     .withDescription("custom parameters for run engine");
+
+    Option<Map<String, String>> NODE_TAG_FILTER =
+            Options.key("tag_filter")
+                    .mapType()
+                    .noDefaultValue()
+                    .withDescription("custom parameters for run engine");
 }

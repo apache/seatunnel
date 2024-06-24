@@ -31,11 +31,11 @@ public interface ResourceManager {
     void init();
 
     CompletableFuture<SlotProfile> applyResource(
-            long jobId, ResourceProfile resourceProfile, Map<String, String> tags)
+            long jobId, ResourceProfile resourceProfile, Map<String, String> tagFilter)
             throws NoEnoughResourceException;
 
     CompletableFuture<List<SlotProfile>> applyResources(
-            long jobId, List<ResourceProfile> resourceProfile, Map<String, String> tags)
+            long jobId, List<ResourceProfile> resourceProfile, Map<String, String> tagFilter)
             throws NoEnoughResourceException;
 
     CompletableFuture<Void> releaseResources(long jobId, List<SlotProfile> profiles);

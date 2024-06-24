@@ -91,10 +91,10 @@ public abstract class AbstractResourceManager implements ResourceManager {
 
     @Override
     public CompletableFuture<SlotProfile> applyResource(
-            long jobId, ResourceProfile resourceProfile, Map<String, String> tags)
+            long jobId, ResourceProfile resourceProfile, Map<String, String> tagFilter)
             throws NoEnoughResourceException {
         CompletableFuture<SlotProfile> completableFuture = new CompletableFuture<>();
-        applyResources(jobId, Collections.singletonList(resourceProfile), tags)
+        applyResources(jobId, Collections.singletonList(resourceProfile), tagFilter)
                 .whenComplete(
                         (profile, error) -> {
                             if (error != null) {
@@ -131,11 +131,11 @@ public abstract class AbstractResourceManager implements ResourceManager {
 
     @Override
     public CompletableFuture<List<SlotProfile>> applyResources(
-            long jobId, List<ResourceProfile> resourceProfile, Map<String, String> tags)
+            long jobId, List<ResourceProfile> resourceProfile, Map<String, String> tagFilter)
             throws NoEnoughResourceException {
         waitingWorkerRegister();
         ConcurrentMap<Address, WorkerProfile> matchedWorker;
-        if (tags == null || tags.isEmpty()) {
+        if (tagFilter == null || tagFilter.isEmpty()) {
             matchedWorker = registerWorker;
         } else {
             matchedWorker =
@@ -145,10 +145,11 @@ public abstract class AbstractResourceManager implements ResourceManager {
                                         Map<String, String> workerAttr =
                                                 e.getValue().getAttributes();
                                         if (workerAttr == null || workerAttr.isEmpty()) {
-                                            return true;
+                                            return false;
                                         }
                                         boolean match = true;
-                                        for (Map.Entry<String, String> entry : tags.entrySet()) {
+                                        for (Map.Entry<String, String> entry :
+                                                tagFilter.entrySet()) {
                                             if (workerAttr.containsKey(entry.getKey())
                                                     && workerAttr
                                                             .get(entry.getKey())
@@ -169,7 +170,7 @@ public abstract class AbstractResourceManager implements ResourceManager {
             throw new NoEnoughResourceException();
         }
         return new ResourceRequestHandler(jobId, resourceProfile, matchedWorker, this)
-                .request(tags);
+                .request(tagFilter);
     }
 
     protected boolean supportDynamicWorker() {
@@ -181,7 +182,8 @@ public abstract class AbstractResourceManager implements ResourceManager {
      *
      * @param resourceProfiles the worker should have resource profile list
      */
-    protected void findNewWorker(List<ResourceProfile> resourceProfiles, Map<String, String> tags) {
+    protected void findNewWorker(
+            List<ResourceProfile> resourceProfiles, Map<String, String> tagFilter) {
         throw new UnsupportedOperationException(
                 "Unsupported operation to find new worker in " + this.getClass().getName());
     }
