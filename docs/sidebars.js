@@ -179,7 +179,7 @@ const sidebars = {
                 "seatunnel-engine/rest-api",
                 "seatunnel-engine/tcp",
                 "seatunnel-engine/engine-jar-storage-mode",
-                "seatunnel-engine/resource-manager",
+                "seatunnel-engine/resource-isolation",
             ]
         },
         {

@@ -96,7 +96,7 @@ public class ReadonlyConfig implements Serializable {
         }
     }
 
-    public Map<String, Object> getMapConfig() {
+    public Map<String, Object> getSourceMap() {
         return confData;
     }
 

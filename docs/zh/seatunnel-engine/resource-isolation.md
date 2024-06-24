@@ -3,11 +3,11 @@
 sidebar_position: 9
 -------------------
 
-After version 2.3.6. SeaTunnel can add `tag` to each worker node, when you submit job you can use `tag_filter` to filter the node you want run this job.
+在2.3.6版本之后, SeaTunnel支持对每个实例添加`tag`, 然后在提交任务时可以在配置文件中使用`tag_filter`来选择任务将要运行的节点.
 
-# How to archive this:
+# 如何实现改功能
 
-1. update the config in `hazelcast.yaml`,
+1. 更新`hazelcast.yaml`文件
 
 ```yaml
 hazelcast:
@@ -42,9 +42,9 @@ hazelcast:
       value: team1
 ```
 
-In this config, we specify the tag by `member-attributes`, the node has `group=platform, team=team1` tags.
+在这个配置中, 我们通过`member-attributes`设置了`group=platform, team=team1`这样两个`tag`
 
-2. add `tag_filter` to your job config
+2. 在任务的配置中添加`tag_filter`来选择你需要运行该任务的节点
 
 ```hacon
 env {
@@ -75,9 +75,9 @@ sink {
 }
 ```
 
-**Notice:**
-- If not set `tag_filter` in job config, it will random choose the node in all active nodes.
-- When you add multiple tag in `tag_filter`, it need all key exist and value match. if all node not match, you will get `NoEnoughResourceException` exception.
+**注意:**
+- 当在任务的配置中, 没有添加`tag_filter`时, 会从所有节点中随机选择节点来运行任务.
+- 当`tag_filter`中存在多个过滤条件时, 会根据key存在以及value相等的全部匹配的节点, 当没有找到匹配的节点时, 会抛出 `NoEnoughResourceException`异常.
 
-![img.png](../../images/resource_tag.png)
+![img.png](../../images/resource-isolation.png)
 
