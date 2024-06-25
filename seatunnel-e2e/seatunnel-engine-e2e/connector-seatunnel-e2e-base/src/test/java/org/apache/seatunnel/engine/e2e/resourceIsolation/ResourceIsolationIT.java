@@ -19,7 +19,9 @@
 package org.apache.seatunnel.engine.e2e.resourceIsolation;
 
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -32,6 +34,10 @@ import java.io.IOException;
 public class ResourceIsolationIT extends TestSuiteBase {
 
     @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "only work on Zeta")
     public void testTagMatch(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult =
                 container.executeJob("/resource-isolation/fakesource_to_console.conf");
@@ -39,6 +45,10 @@ public class ResourceIsolationIT extends TestSuiteBase {
     }
 
     @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "only work on Zeta")
     public void testTagNotMatch(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult =
                 container.executeJob(

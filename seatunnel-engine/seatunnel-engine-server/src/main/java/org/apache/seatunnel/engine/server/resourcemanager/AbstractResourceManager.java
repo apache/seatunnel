@@ -164,6 +164,7 @@ public abstract class AbstractResourceManager implements ResourceManager {
                                             Map.Entry::getKey, Map.Entry::getValue));
         }
         if (matchedWorker.isEmpty()) {
+            log.error("No matched worker.");
             throw new NoEnoughResourceException();
         }
         return new ResourceRequestHandler(jobId, resourceProfile, matchedWorker, this)
