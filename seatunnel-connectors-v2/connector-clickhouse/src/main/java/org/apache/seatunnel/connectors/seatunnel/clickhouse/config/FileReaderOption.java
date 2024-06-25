@@ -63,6 +63,7 @@ public class FileReaderOption implements Serializable {
         this.nodeUser = nodeUser;
         this.nodeFreePass = nodeFreePass;
         this.nodePassword = nodePassword;
+        this.seaTunnelRowType = seaTunnelRowType;
         this.compatibleMode = compatibleMode;
         this.fileFieldsDelimiter = fileFieldsDelimiter;
         this.fileTempPath = fileTempPath;
