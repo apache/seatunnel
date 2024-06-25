@@ -99,5 +99,5 @@ public interface EnvCommonOptions {
             Options.key("tag_filter")
                     .mapType()
                     .noDefaultValue()
-                    .withDescription("custom parameters for run engine");
+                    .withDescription("Define the worker where the job runs by tag");
 }
