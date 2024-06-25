@@ -15,31 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.table.type;
+package org.apache.seatunnel.api.table.catalog;
 
-/** The sql type of {@link SeaTunnelDataType}. */
-public enum SqlType {
-    ARRAY,
-    MAP,
-    STRING,
-    BOOLEAN,
-    TINYINT,
-    SMALLINT,
-    INT,
-    BIGINT,
-    FLOAT,
-    DOUBLE,
-    DECIMAL,
-    NULL,
-    BYTES,
-    DATE,
-    TIME,
-    TIMESTAMP,
-    ROW,
-    BINARY_VECTOR,
-    FLOAT_VECTOR,
-    FLOAT16_VECTOR,
-    BFLOAT16_VECTOR,
-    SPARSE_FLOAT_VECTOR,
-    MULTIPLE_ROW;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.io.Serializable;
+
+@AllArgsConstructor
+@Builder
+@NoArgsConstructor
+@Data
+public class VectorIndex implements Serializable {
+
+    private String indexName;
+
+    private String fieldName;
+
+    private String indexType;
+
+    private String metricType;
+
 }

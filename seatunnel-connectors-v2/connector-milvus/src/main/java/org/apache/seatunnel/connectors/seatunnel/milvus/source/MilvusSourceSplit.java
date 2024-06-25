@@ -15,31 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.table.type;
+package org.apache.seatunnel.connectors.seatunnel.milvus.source;
 
-/** The sql type of {@link SeaTunnelDataType}. */
-public enum SqlType {
-    ARRAY,
-    MAP,
-    STRING,
-    BOOLEAN,
-    TINYINT,
-    SMALLINT,
-    INT,
-    BIGINT,
-    FLOAT,
-    DOUBLE,
-    DECIMAL,
-    NULL,
-    BYTES,
-    DATE,
-    TIME,
-    TIMESTAMP,
-    ROW,
-    BINARY_VECTOR,
-    FLOAT_VECTOR,
-    FLOAT16_VECTOR,
-    BFLOAT16_VECTOR,
-    SPARSE_FLOAT_VECTOR,
-    MULTIPLE_ROW;
+import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+
+import lombok.Builder;
+import lombok.Data;
+
+@Data
+@Builder
+public class MilvusSourceSplit implements SourceSplit {
+
+    private TablePath tablePath;
+    private String splitId;
+
+    @Override
+    public String splitId() {
+        return splitId;
+    }
 }

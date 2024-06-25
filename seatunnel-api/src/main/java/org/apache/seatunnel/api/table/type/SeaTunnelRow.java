@@ -163,6 +163,8 @@ public final class SeaTunnelRow implements Serializable {
                 }
 
                 return getBytesForArray(v, ((ArrayType) dataType).getElementType());
+            case FLOAT_VECTOR:
+                return getArrayNotNullSize((Object[]) v) * 4;
             case MAP:
                 int size = 0;
                 MapType<?, ?> mapType = ((MapType<?, ?>) dataType);

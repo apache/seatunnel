@@ -15,31 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.table.type;
+package org.apache.seatunnel.connectors.seatunnel.milvus.state;
 
-/** The sql type of {@link SeaTunnelDataType}. */
-public enum SqlType {
-    ARRAY,
-    MAP,
-    STRING,
-    BOOLEAN,
-    TINYINT,
-    SMALLINT,
-    INT,
-    BIGINT,
-    FLOAT,
-    DOUBLE,
-    DECIMAL,
-    NULL,
-    BYTES,
-    DATE,
-    TIME,
-    TIMESTAMP,
-    ROW,
-    BINARY_VECTOR,
-    FLOAT_VECTOR,
-    FLOAT16_VECTOR,
-    BFLOAT16_VECTOR,
-    SPARSE_FLOAT_VECTOR,
-    MULTIPLE_ROW;
-}
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.experimental.SuperBuilder;
+
+import java.io.Serializable;
+
+@Data
+@SuperBuilder
+@AllArgsConstructor
+public class MilvusSinkState implements Serializable {}

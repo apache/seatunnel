@@ -15,31 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.table.type;
+package org.apache.seatunnel.connectors.seatunnel.milvus.sink;
 
-/** The sql type of {@link SeaTunnelDataType}. */
-public enum SqlType {
-    ARRAY,
-    MAP,
-    STRING,
-    BOOLEAN,
-    TINYINT,
-    SMALLINT,
-    INT,
-    BIGINT,
-    FLOAT,
-    DOUBLE,
-    DECIMAL,
-    NULL,
-    BYTES,
-    DATE,
-    TIME,
-    TIMESTAMP,
-    ROW,
-    BINARY_VECTOR,
-    FLOAT_VECTOR,
-    FLOAT16_VECTOR,
-    BFLOAT16_VECTOR,
-    SPARSE_FLOAT_VECTOR,
-    MULTIPLE_ROW;
+import org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSinkConfig;
+
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+
+class MilvusSinkFactoryTest {
+    private final MilvusSinkFactory milvusSinkFactory = new MilvusSinkFactory();
+
+    @Test
+    void factoryIdentifier() {
+        Assertions.assertEquals(
+                milvusSinkFactory.factoryIdentifier(),
+                MilvusSinkConfig.CONNECTOR_IDENTITY.toString());
+    }
+
+    @Test
+    void optionRule() {
+        Assertions.assertNotNull(milvusSinkFactory.optionRule());
+    }
 }
