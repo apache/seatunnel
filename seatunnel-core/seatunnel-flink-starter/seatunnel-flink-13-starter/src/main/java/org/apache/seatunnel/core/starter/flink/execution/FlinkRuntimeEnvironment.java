@@ -246,7 +246,6 @@ public class FlinkRuntimeEnvironment implements RuntimeEnvironment {
         if (jobMode == JobMode.BATCH) {
             log.warn(
                     "Disabled Checkpointing. In flink execution environment, checkpointing is not supported and not needed when executing jobs in BATCH mode");
-            return;
         }
         long interval;
         if (config.hasPath(EnvCommonOptions.CHECKPOINT_INTERVAL.key())) {
