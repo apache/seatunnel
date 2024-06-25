@@ -41,7 +41,8 @@ public class ResourceIsolationIT extends TestSuiteBase {
     @TestTemplate
     public void testTagNotMatch(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult =
-                container.executeJob("/resource-isolation/fakesource_to_console_tag_not_match.conf");
+                container.executeJob(
+                        "/resource-isolation/fakesource_to_console_tag_not_match.conf");
         Assertions.assertNotEquals(0, execResult.getExitCode());
         Assertions.assertTrue(
                 StringUtils.isNotBlank(execResult.getStderr())
