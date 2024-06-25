@@ -430,18 +430,17 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
             throws IOException, InterruptedException {
 
         LOG.info("====================== Check MaxWell======================");
-        // check ogg MaxWell to postgresql
-        Container.ExecResult execMaxWellResultToKafka =
+        // check MaxWell to Postgresql
+        Container.ExecResult checkMaxWellResultToKafka =
                 container.executeJob("/maxwellFormatIT/kafkasource_maxwell_to_kafka.conf");
         Assertions.assertEquals(
-                0, execMaxWellResultToKafka.getExitCode(), execMaxWellResultToKafka.getStderr());
+                0, checkMaxWellResultToKafka.getExitCode(), checkMaxWellResultToKafka.getStderr());
 
-        Container.ExecResult execMaxWellResultToPg =
+        Container.ExecResult checkDataResult =
                 container.executeJob("/maxwellFormatIT/kafkasource_maxwell_cdc_to_pgsql.conf");
-        Assertions.assertEquals(
-                0, execMaxWellResultToPg.getExitCode(), execMaxWellResultToPg.getStderr());
+        Assertions.assertEquals(0, checkDataResult.getExitCode(), checkDataResult.getStderr());
 
-        // Check Ogg
+        // Check MaxWell
         checkMaxWellFormat();
     }
 
