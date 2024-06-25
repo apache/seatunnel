@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.elasticsearch.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -47,9 +48,10 @@ import java.util.Optional;
  */
 @Slf4j
 public class ElasticsearchSinkWriter
-        implements SinkWriter<SeaTunnelRow, ElasticsearchCommitInfo, ElasticsearchSinkState> {
+        implements SinkWriter<SeaTunnelRow, ElasticsearchCommitInfo, ElasticsearchSinkState>,
+                SupportMultiTableSinkWriter<Void> {
 
-    private final SinkWriter.Context context;
+    private final Context context;
 
     private final int maxBatchSize;
 
@@ -60,7 +62,7 @@ public class ElasticsearchSinkWriter
     private static final long DEFAULT_SLEEP_TIME_MS = 200L;
 
     public ElasticsearchSinkWriter(
-            SinkWriter.Context context,
+            Context context,
             CatalogTable catalogTable,
             ReadonlyConfig config,
             int maxBatchSize,

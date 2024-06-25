@@ -23,6 +23,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
 
 import org.apache.commons.lang3.StringUtils;
@@ -31,6 +32,7 @@ import org.apache.hadoop.conf.Configuration;
 import com.google.common.collect.ImmutableList;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -80,6 +82,32 @@ public abstract class AbstractStorage implements Storage {
                         }
                     });
         }
+        readonlyConfig
+                .getOptional(BaseSinkConfig.HDFS_SITE_PATH)
+                .ifPresent(
+                        hdfsSitePath -> {
+                            try {
+                                configuration.addResource(new File(hdfsSitePath).toURI().toURL());
+                            } catch (IOException e) {
+                                log.warn(
+                                        "Error adding Hadoop resource {}, resource was not added",
+                                        hdfsSitePath,
+                                        e);
+                            }
+                        });
+        readonlyConfig
+                .getOptional(HiveConfig.HIVE_SITE_PATH)
+                .ifPresent(
+                        hiveSitePath -> {
+                            try {
+                                configuration.addResource(new File(hiveSitePath).toURI().toURL());
+                            } catch (IOException e) {
+                                log.warn(
+                                        "Error adding Hadoop resource {}, resource was not added",
+                                        hiveSitePath,
+                                        e);
+                            }
+                        });
         // Try to load from hadoopConf
         Optional<Map<String, String>> hadoopConf =
                 readonlyConfig.getOptional(HiveConfig.HADOOP_CONF);
