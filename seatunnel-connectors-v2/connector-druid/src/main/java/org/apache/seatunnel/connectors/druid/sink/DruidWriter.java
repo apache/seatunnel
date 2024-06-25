@@ -18,6 +18,7 @@
 
 package org.apache.seatunnel.connectors.druid.sink;
 
+import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -65,7 +66,8 @@ import java.util.List;
 import java.util.StringJoiner;
 import java.util.stream.Collectors;
 
-public class DruidWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
+public class DruidWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
+        implements SupportMultiTableSinkWriter<Void> {
 
     private static final Logger LOG = LoggerFactory.getLogger(DruidWriter.class);
 

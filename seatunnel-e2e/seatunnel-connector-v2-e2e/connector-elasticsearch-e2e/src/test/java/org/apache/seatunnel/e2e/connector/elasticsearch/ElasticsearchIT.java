@@ -32,7 +32,9 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.BulkResponse;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.ScrollResult;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
 import org.apache.commons.io.IOUtils;
@@ -50,6 +52,7 @@ import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -176,9 +179,52 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         Container.ExecResult execResult =
                 container.executeJob("/elasticsearch/elasticsearch_source_and_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-        List<String> sinkData = readSinkData();
+        List<String> sinkData = readSinkData("st_index2");
         // for DSL is: {"range":{"c_int":{"gte":10,"lte":20}}}
         Assertions.assertIterableEquals(mapTestDatasetForDSL(), sinkData);
+    }
+
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "Currently SPARK/FLINK do not support multiple table read")
+    @TestTemplate
+    public void testElasticsearchWithMultiSink(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/elasticsearch/fakesource_to_elasticsearch_multi_sink.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        List<String> source5 =
+                Lists.newArrayList(
+                        "id",
+                        "c_bool",
+                        "c_tinyint",
+                        "c_smallint",
+                        "c_int",
+                        "c_bigint",
+                        "c_float",
+                        "c_double",
+                        "c_decimal",
+                        "c_string");
+        List<String> source6 =
+                Lists.newArrayList(
+                        "id",
+                        "c_bool",
+                        "c_tinyint",
+                        "c_smallint",
+                        "c_int",
+                        "c_bigint",
+                        "c_float",
+                        "c_double",
+                        "c_decimal");
+        List<String> sinkIndexData5 = readMultiSinkData("st_index5", source5);
+        List<String> sinkIndexData6 = readMultiSinkData("st_index6", source6);
+        String stIndex5 =
+                "{\"c_smallint\":2,\"c_string\":\"NEW\",\"c_float\":4.3,\"c_double\":5.3,\"c_decimal\":6.3,\"id\":1,\"c_int\":3,\"c_bigint\":4,\"c_bool\":true,\"c_tinyint\":1}";
+        String stIndex6 =
+                "{\"c_smallint\":2,\"c_float\":4.3,\"c_double\":5.3,\"c_decimal\":6.3,\"id\":1,\"c_int\":3,\"c_bigint\":4,\"c_bool\":true,\"c_tinyint\":1}";
+        Assertions.assertIterableEquals(Lists.newArrayList(stIndex5), sinkIndexData5);
+        Assertions.assertIterableEquals(Lists.newArrayList(stIndex6), sinkIndexData6);
     }
 
     @TestTemplate
@@ -262,7 +308,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         return getDocsWithTransformDate(source, "st_index4");
     }
 
-    private List<String> readSinkData() throws InterruptedException {
+    private List<String> readSinkData(String index) throws InterruptedException {
         // wait for index refresh
         Thread.sleep(2000);
         List<String> source =
@@ -281,7 +327,33 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                         "c_int",
                         "c_date",
                         "c_timestamp");
-        return getDocsWithTransformTimestamp(source, "st_index2");
+        return getDocsWithTransformTimestamp(source, index);
+    }
+
+    private List<String> readMultiSinkData(String index, List<String> source)
+            throws InterruptedException {
+        // wait for index refresh
+        Thread.sleep(2000);
+        Map<String, Object> query = new HashMap<>();
+        query.put("match_all", Maps.newHashMap());
+
+        ScrollResult scrollResult = esRestClient.searchByScroll(index, source, query, "1m", 1000);
+        scrollResult
+                .getDocs()
+                .forEach(
+                        x -> {
+                            x.remove("_index");
+                            x.remove("_type");
+                            x.remove("_id");
+                        });
+        List<String> docs =
+                scrollResult.getDocs().stream()
+                        .sorted(
+                                Comparator.comparingInt(
+                                        o -> Integer.valueOf(o.get("c_int").toString())))
+                        .map(JsonUtils::toJsonString)
+                        .collect(Collectors.toList());
+        return docs;
     }
 
     private List<String> getDocsWithTransformTimestamp(List<String> source, String index) {
