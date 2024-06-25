@@ -58,9 +58,15 @@ sink {
 
 您可以通过以下命令启动应用程序
 
+:::tip
+
+从2.3.1版本开始，seatunnel.sh中的-e参数被废弃，请改用-m参数。
+
+:::
+
 ```shell
 cd "apache-seatunnel-${version}"
-./bin/seatunnel.sh --config ./config/v2.batch.config.template -e local
+./bin/seatunnel.sh --config ./config/v2.batch.config.template -m local
 
 ```
 
