@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.druid.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -32,7 +33,8 @@ import static org.apache.seatunnel.connectors.druid.config.DruidConfig.BATCH_SIZ
 import static org.apache.seatunnel.connectors.druid.config.DruidConfig.COORDINATOR_URL;
 import static org.apache.seatunnel.connectors.druid.config.DruidConfig.DATASOURCE;
 
-public class DruidSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
+public class DruidSink extends AbstractSimpleSink<SeaTunnelRow, Void>
+        implements SupportMultiTableSink {
 
     private ReadonlyConfig config;
     private CatalogTable catalogTable;
