@@ -137,12 +137,12 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(CLICKHOUSE_DOCKER_IMAGE)));
+        Startables.deepStart(Stream.of(this.container)).join();
+        LOG.info("Clickhouse container started");
         this.container.execInContainer(
                 "bash",
                 "-c",
                 "mkdir -p /tmp/seatunnel/clickhouse-local/ && chmod 777 /tmp/seatunnel/clickhouse-local/");
-        Startables.deepStart(Stream.of(this.container)).join();
-        LOG.info("Clickhouse container started");
         Awaitility.given()
                 .ignoreExceptions()
                 .await()
