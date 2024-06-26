@@ -326,6 +326,7 @@ public class ClickhouseFileSinkWriter
                 InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
                 BufferedReader bufferedReader = new BufferedReader(inputStreamReader)) {
             String line;
+            log.error("Clickhouse-local log: ");
             while ((line = bufferedReader.readLine()) != null) {
                 log.info(line);
             }
@@ -334,11 +335,13 @@ public class ClickhouseFileSinkWriter
                 InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
                 BufferedReader bufferedReader = new BufferedReader(inputStreamReader)) {
             String line;
+            log.error("Clickhouse-local error log: ");
             while ((line = bufferedReader.readLine()) != null) {
                 log.error(line);
             }
         }
-        start.waitFor();
+        int shellReturnCode = start.waitFor();
+        log.info("Clickhouse-local result code is [{}]", shellReturnCode);
         File file =
                 new File(
                         clickhouseLocalFile
