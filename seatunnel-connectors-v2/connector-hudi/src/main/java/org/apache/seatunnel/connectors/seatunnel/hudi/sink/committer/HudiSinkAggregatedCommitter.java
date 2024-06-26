@@ -17,9 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hudi.sink.committer;
 
-import org.apache.hudi.common.engine.EngineType;
-import org.apache.hudi.storage.StorageConfiguration;
-import org.apache.hudi.storage.hadoop.HadoopStorageConfiguration;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSinkConfig;
@@ -30,19 +27,22 @@ import org.apache.seatunnel.connectors.seatunnel.hudi.util.HudiUtil;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hudi.client.HoodieJavaWriteClient;
 import org.apache.hudi.client.common.HoodieJavaEngineContext;
+import org.apache.hudi.common.engine.EngineType;
 import org.apache.hudi.common.model.HoodieAvroPayload;
 import org.apache.hudi.config.HoodieArchivalConfig;
 import org.apache.hudi.config.HoodieCleanConfig;
 import org.apache.hudi.config.HoodieIndexConfig;
 import org.apache.hudi.config.HoodieWriteConfig;
 import org.apache.hudi.index.HoodieIndex;
+import org.apache.hudi.storage.hadoop.HadoopStorageConfiguration;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.connectors.seatunnel.hudi.sink.writer.AvroSchemaConverter.convertToSchema;
-import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class HudiSinkAggregatedCommitter
@@ -56,7 +56,6 @@ public class HudiSinkAggregatedCommitter
 
     public HudiSinkAggregatedCommitter(
             HudiSinkConfig hudiSinkConfig, SeaTunnelRowType seaTunnelRowType) {
-
 
         Configuration hadoopConf = new Configuration();
         if (hudiSinkConfig.getConfFile() != null) {
@@ -89,13 +88,14 @@ public class HudiSinkAggregatedCommitter
                                         .withAsyncClean(false)
                                         .build())
                         .build();
-
     }
 
     @Override
     public List<HudiAggregatedCommitInfo> commit(
             List<HudiAggregatedCommitInfo> aggregatedCommitInfo) throws IOException {
-        writeClient = new HoodieJavaWriteClient<>(new HoodieJavaEngineContext(hudiStorageConfiguration), cfg);
+        writeClient =
+                new HoodieJavaWriteClient<>(
+                        new HoodieJavaEngineContext(hudiStorageConfiguration), cfg);
         aggregatedCommitInfo =
                 aggregatedCommitInfo.stream()
                         .filter(
