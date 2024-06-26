@@ -38,7 +38,9 @@ import com.google.common.collect.Lists;
 import lombok.SneakyThrows;
 
 import java.sql.Date;
+import java.time.Duration;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -238,7 +240,9 @@ public class JdbcHanaIT extends AbstractJdbcIT {
                         .withCommand("--master-password", PASSWORD, "--agree-to-sap-license")
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(HANA_IMAGE)))
-                        .waitingFor(Wait.forLogMessage("HANA is up", 1));
+                        .waitingFor(
+                                Wait.forLogMessage("HANA is up", 1)
+                                        .withStartupTimeout(Duration.of(300, ChronoUnit.SECONDS)));
         container.setPortBindings(Lists.newArrayList(String.format("%s:%s", HANA_PORT, HANA_PORT)));
         return container;
     }
