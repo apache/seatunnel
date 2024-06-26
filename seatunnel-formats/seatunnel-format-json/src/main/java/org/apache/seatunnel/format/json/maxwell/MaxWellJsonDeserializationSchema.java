@@ -111,7 +111,6 @@ public class MaxWellJsonDeserializationSchema implements DeserializationSchema<S
             return;
         }
         ObjectNode jsonNode = (ObjectNode) convertBytes(message);
-        assert jsonNode != null;
         if (database != null
                 && !databasePattern.matcher(jsonNode.get(FIELD_DATABASE).asText()).matches()) {
             return;
