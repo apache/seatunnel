@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.dag.physical;
 
+import org.apache.seatunnel.api.env.EnvCommonOptions;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.engine.common.config.server.QueueType;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
@@ -150,7 +151,12 @@ public class PhysicalPlanGenerator {
     }
 
     public Tuple2<PhysicalPlan, Map<Integer, CheckpointPlan>> generate() {
-
+        Map<String, String> tagFilter =
+                (Map<String, String>)
+                        jobImmutableInformation
+                                .getJobConfig()
+                                .getEnvOptions()
+                                .get(EnvCommonOptions.NODE_TAG_FILTER.key());
         // TODO Determine which tasks do not need to be restored according to state
         CopyOnWriteArrayList<PassiveCompletableFuture<PipelineStatus>>
                 waitForCompleteBySubPlanList = new CopyOnWriteArrayList<>();
@@ -205,7 +211,8 @@ public class PhysicalPlanGenerator {
                                             jobImmutableInformation,
                                             executorService,
                                             runningJobStateIMap,
-                                            runningJobStateTimestampsIMap);
+                                            runningJobStateTimestampsIMap,
+                                            tagFilter);
                                 });
 
         PhysicalPlan physicalPlan =
