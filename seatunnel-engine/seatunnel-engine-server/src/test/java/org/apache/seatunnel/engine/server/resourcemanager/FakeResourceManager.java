@@ -28,6 +28,7 @@ import com.hazelcast.spi.impl.NodeEngine;
 import com.hazelcast.spi.impl.operationservice.Operation;
 
 import java.net.UnknownHostException;
+import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
 
 /** Used to test ResourceManager, override init method to register more workers. */
@@ -57,7 +58,8 @@ public class FakeResourceManager extends AbstractResourceManager {
                         new ResourceProfile(),
                         true,
                         new SlotProfile[] {},
-                        new SlotProfile[] {});
+                        new SlotProfile[] {},
+                    Collections.emptyMap());
         this.registerWorker.put(address, workerProfile);
     }
 
@@ -73,7 +75,8 @@ public class FakeResourceManager extends AbstractResourceManager {
                                             new ResourceProfile(),
                                             true,
                                             new SlotProfile[] {},
-                                            new SlotProfile[] {}),
+                                            new SlotProfile[] {},
+                                            Collections.emptyMap()),
                                     new SlotProfile(address, 1, new ResourceProfile(), "")));
         } else {
             return super.sendToMember(operation, address);

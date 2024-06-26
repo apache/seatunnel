@@ -33,6 +33,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -74,13 +76,13 @@ public class ResourceRequestHandler {
         this.resourceManager = resourceManager;
     }
 
-    public CompletableFuture<List<SlotProfile>> request() {
-        requestSlotWithRetry(resourceProfile, MAX_RETRY_TIMES);
+    public CompletableFuture<List<SlotProfile>> request(Map<String, String> tags) {
+        requestSlotWithRetry(resourceProfile, MAX_RETRY_TIMES, tags);
         return completableFuture;
     }
 
     private CompletableFuture<SlotAndWorkerProfile> requestSlotWithRetry(
-            List<ResourceProfile> request, int retryTimes) {
+            List<ResourceProfile> request, int retryTimes, Map<String, String> tags) {
         if (retryTimes <= 0) {
             LOGGER.fine("can't apply resource request with retry times: " + MAX_RETRY_TIMES);
             return CompletableFuture.supplyAsync(
@@ -106,7 +108,7 @@ public class ResourceRequestHandler {
                                             Exception requestSlotWithRetryError = null;
                                             try {
                                                 requestSlotWithRetry(
-                                                                needRequestResource, retryTimes - 1)
+                                                                needRequestResource, retryTimes - 1, tags)
                                                         .get();
                                             } catch (Exception e) {
                                                 LOGGER.warning(
@@ -117,7 +119,7 @@ public class ResourceRequestHandler {
                                             if (requestSlotWithRetryError != null) {
                                                 // meaning have some slot not request success
                                                 if (resourceManager.supportDynamicWorker()) {
-                                                    applyByDynamicWorker();
+                                                    applyByDynamicWorker(tags);
                                                 } else {
                                                     completeRequestWithException(
                                                             requestSlotWithRetryError);
@@ -238,7 +240,7 @@ public class ResourceRequestHandler {
      * third-party resource management to create a new worker, and then complete the resource
      * application
      */
-    private void applyByDynamicWorker() {
+    private void applyByDynamicWorker(Map<String, String> tags) {
         List<ResourceProfile> needApplyResource = new ArrayList<>();
         List<Integer> needApplyIndex = new ArrayList<>();
         for (int i = 0; i < resultSlotProfiles.size(); i++) {
@@ -247,9 +249,9 @@ public class ResourceRequestHandler {
                 needApplyIndex.add(i);
             }
         }
-        resourceManager.findNewWorker(needApplyResource);
+        resourceManager.findNewWorker(needApplyResource, tags);
         resourceManager
-                .applyResources(jobId, needApplyResource)
+                .applyResources(jobId, needApplyResource, tags)
                 .whenComplete(
                         withTryCatch(
                                 LOGGER,
