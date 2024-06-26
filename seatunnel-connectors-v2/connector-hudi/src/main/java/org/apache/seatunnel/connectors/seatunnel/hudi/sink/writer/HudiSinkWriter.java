@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hudi.sink.writer;
 
+import org.apache.hudi.common.engine.EngineType;
+import org.apache.hudi.hadoop.fs.HadoopFSUtils;
+import org.apache.hudi.storage.hadoop.HadoopStorageConfiguration;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -115,19 +118,22 @@ public class HudiSinkWriter
         if (hudiSinkConfig.getConfFile() != null) {
             hadoopConf = HudiUtil.getConfiguration(hudiSinkConfig.getConfFile());
         }
+        HadoopStorageConfiguration hudiStorageConfiguration = new HadoopStorageConfiguration(hadoopConf);
 
         // initialize the table, if not done already
         Path path = new Path(hudiSinkConfig.getTablePath());
-        FileSystem fs = FSUtils.getFs(hudiSinkConfig.getTablePath(), hadoopConf);
+        FileSystem fs = HadoopFSUtils.getFs(hudiSinkConfig.getTablePath(), hudiStorageConfiguration);
         if (!fs.exists(path)) {
             HoodieTableMetaClient.withPropertyBuilder()
                     .setTableType(hudiSinkConfig.getTableType())
                     .setTableName(hudiSinkConfig.getTableName())
                     .setPayloadClassName(HoodieAvroPayload.class.getName())
-                    .initTable(hadoopConf, hudiSinkConfig.getTablePath());
+                    .initTable(hudiStorageConfiguration, hudiSinkConfig.getTablePath());
         }
         HoodieWriteConfig cfg =
                 HoodieWriteConfig.newBuilder()
+                        .withEmbeddedTimelineServerEnabled(false)
+                        .withEngineType(EngineType.JAVA)
                         .withPath(hudiSinkConfig.getTablePath())
                         .withSchema(convertToSchema(seaTunnelRowType).toString())
                         .withParallelism(
@@ -152,7 +158,7 @@ public class HudiSinkWriter
                                         .build())
                         .build();
 
-        writeClient = new HoodieJavaWriteClient<>(new HoodieJavaEngineContext(hadoopConf), cfg);
+        writeClient = new HoodieJavaWriteClient<>(new HoodieJavaEngineContext(hudiStorageConfiguration), cfg);
 
         if (!hudiSinkState.isEmpty()) {
             writeClient.commit(

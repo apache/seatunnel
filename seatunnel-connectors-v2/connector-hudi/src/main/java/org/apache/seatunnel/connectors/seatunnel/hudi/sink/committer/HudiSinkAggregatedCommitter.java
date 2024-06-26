@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hudi.sink.committer;
 
+import org.apache.hudi.common.engine.EngineType;
+import org.apache.hudi.storage.StorageConfiguration;
+import org.apache.hudi.storage.hadoop.HadoopStorageConfiguration;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiSinkConfig;
@@ -39,20 +42,31 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.connectors.seatunnel.hudi.sink.writer.AvroSchemaConverter.convertToSchema;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class HudiSinkAggregatedCommitter
         implements SinkAggregatedCommitter<HudiCommitInfo, HudiAggregatedCommitInfo> {
 
-    private final HoodieJavaWriteClient<HoodieAvroPayload> writeClient;
+    private HoodieJavaWriteClient<HoodieAvroPayload> writeClient;
+
+    private final HoodieWriteConfig cfg;
+
+    private final HadoopStorageConfiguration hudiStorageConfiguration;
 
     public HudiSinkAggregatedCommitter(
             HudiSinkConfig hudiSinkConfig, SeaTunnelRowType seaTunnelRowType) {
+
+
         Configuration hadoopConf = new Configuration();
         if (hudiSinkConfig.getConfFile() != null) {
             hadoopConf = HudiUtil.getConfiguration(hudiSinkConfig.getConfFile());
         }
-        HoodieWriteConfig cfg =
+        hudiStorageConfiguration = new HadoopStorageConfiguration(hadoopConf);
+        cfg =
                 HoodieWriteConfig.newBuilder()
+                        .withEmbeddedTimelineServerEnabled(false)
+                        .withEngineType(EngineType.JAVA)
                         .withPath(hudiSinkConfig.getTablePath())
                         .withSchema(convertToSchema(seaTunnelRowType).toString())
                         .withParallelism(
@@ -76,13 +90,12 @@ public class HudiSinkAggregatedCommitter
                                         .build())
                         .build();
 
-        writeClient = new HoodieJavaWriteClient<>(new HoodieJavaEngineContext(hadoopConf), cfg);
     }
 
     @Override
     public List<HudiAggregatedCommitInfo> commit(
             List<HudiAggregatedCommitInfo> aggregatedCommitInfo) throws IOException {
-
+        writeClient = new HoodieJavaWriteClient<>(new HoodieJavaEngineContext(hudiStorageConfiguration), cfg);
         aggregatedCommitInfo =
                 aggregatedCommitInfo.stream()
                         .filter(
