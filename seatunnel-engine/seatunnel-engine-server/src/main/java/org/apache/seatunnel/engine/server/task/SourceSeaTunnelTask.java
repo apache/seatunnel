@@ -33,6 +33,8 @@ import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.flow.SourceFlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 
+import org.apache.commons.lang3.StringUtils;
+
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 import lombok.Getter;
