@@ -96,7 +96,7 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
 
     private static final Logger LOG = LoggerFactory.getLogger(KafkaFormatIT.class);
 
-    // ---------------------------Ogg Format Parameter---------------------------------------
+    // ---------------------------MaxWell Format Parameter---------------------------------------
     private static final String MAXWELL_DATA_PATH = "/maxwell/maxwell_data.txt";
     private static final String MAXWELL_KAFKA_SOURCE_TOPIC = "maxwell-test-cdc_mds";
     private static final String MAXWELL_KAFKA_SINK_TOPIC = "test-maxwell-sink";
