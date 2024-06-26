@@ -273,25 +273,21 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                     long size = ((SeaTunnelRow) record.getData()).getBytesSize();
                     sinkWriteBytes.inc(size);
                     sinkWriteBytesPerSeconds.markEvent(size);
-                    try {
-                        String tableId = ((SeaTunnelRow) record.getData()).getTableId();
-                        if (StringUtils.isNotBlank(tableId)) {
-                            String tableName = TablePath.of(tableId).getTableName();
-                            if (StringUtils.isNotBlank(tableName)) {
-                                Counter sinkTableCounter = sinkWriteCountPerTable.get(tableName);
-                                if (Objects.nonNull(sinkTableCounter)) {
-                                    sinkTableCounter.inc();
-                                } else {
-                                    Counter counter =
-                                            metricsContext.counter(
-                                                    SINK_WRITE_COUNT + "#" + tableName);
-                                    counter.inc();
-                                    sinkWriteCountPerTable.put(tableName, counter);
-                                }
+                    String tableId = ((SeaTunnelRow) record.getData()).getTableId();
+                    if (StringUtils.isNotBlank(tableId)) {
+                        String tableName = TablePath.of(tableId).getTableName();
+                        if (StringUtils.isNotBlank(tableName)) {
+                            Counter sinkTableCounter = sinkWriteCountPerTable.get(tableName);
+                            if (Objects.nonNull(sinkTableCounter)) {
+                                sinkTableCounter.inc();
+                            } else {
+                                Counter counter =
+                                        metricsContext.counter(
+                                                SINK_WRITE_COUNT + "#" + tableName);
+                                counter.inc();
+                                sinkWriteCountPerTable.put(tableName, counter);
                             }
                         }
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
                     }
                 }
             }
