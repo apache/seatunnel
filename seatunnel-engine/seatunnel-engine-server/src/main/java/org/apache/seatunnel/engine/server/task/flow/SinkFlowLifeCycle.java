@@ -26,9 +26,11 @@ import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportResourceShare;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.seatunnel.common.multitablesink.MultiTableSink;
 import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
@@ -43,6 +45,8 @@ import org.apache.seatunnel.engine.server.task.operation.sink.SinkPrepareCommitO
 import org.apache.seatunnel.engine.server.task.operation.sink.SinkRegisterOperation;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 
+import org.apache.commons.lang3.StringUtils;
+
 import com.hazelcast.cluster.Address;
 import lombok.extern.slf4j.Slf4j;
 
@@ -52,9 +56,11 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
@@ -92,6 +98,8 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
 
     private Counter sinkWriteCount;
 
+    private Map<String, Counter> sinkWriteCountPerTable = new ConcurrentHashMap<>();
+
     private Meter sinkWriteQPS;
 
     private Counter sinkWriteBytes;
@@ -125,6 +133,17 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         sinkWriteQPS = metricsContext.meter(SINK_WRITE_QPS);
         sinkWriteBytes = metricsContext.counter(SINK_WRITE_BYTES);
         sinkWriteBytesPerSeconds = metricsContext.meter(SINK_WRITE_BYTES_PER_SECONDS);
+        if (sinkAction.getSink() instanceof MultiTableSink) {
+            List<String> sinkTables = ((MultiTableSink) sinkAction.getSink()).getSinkTables();
+            sinkTables.forEach(
+                    tableName ->
+                            sinkWriteCountPerTable.put(
+                                    TablePath.of(tableName).getTableName(),
+                                    metricsContext.counter(
+                                            SINK_WRITE_COUNT
+                                                    + "#"
+                                                    + TablePath.of(tableName).getTableName())));
+        }
     }
 
     @Override
@@ -256,6 +275,20 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                     long size = ((SeaTunnelRow) record.getData()).getBytesSize();
                     sinkWriteBytes.inc(size);
                     sinkWriteBytesPerSeconds.markEvent(size);
+                    String tableId = ((SeaTunnelRow) record.getData()).getTableId();
+                    if (StringUtils.isNotBlank(tableId)) {
+                        String tableName = TablePath.of(tableId).getTableName();
+                        if (StringUtils.isNotBlank(tableName)) {
+                            Counter sinkTableCounter = sinkWriteCountPerTable.get(tableName);
+                            if (Objects.nonNull(sinkTableCounter)) {
+                                sinkTableCounter.inc();
+                            } else {
+                                sinkWriteCountPerTable.put(
+                                        tableName,
+                                        metricsContext.counter(SINK_WRITE_COUNT + "#" + tableName));
+                            }
+                        }
+                    }
                 }
             }
         } catch (Exception e) {

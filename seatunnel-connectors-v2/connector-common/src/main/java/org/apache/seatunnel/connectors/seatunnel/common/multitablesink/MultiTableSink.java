@@ -29,6 +29,7 @@ import org.apache.seatunnel.api.table.factory.MultiTableFactoryContext;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -145,6 +146,10 @@ public class MultiTableSink
             return Optional.empty();
         }
         return Optional.of(new MultiTableSinkAggregatedCommitter(aggCommitters));
+    }
+
+    public List<String> getSinkTables() {
+        return new ArrayList<>(sinks.keySet());
     }
 
     @Override
