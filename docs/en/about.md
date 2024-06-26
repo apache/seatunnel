@@ -34,7 +34,7 @@ SeaTunnel focuses on data integration and data synchronization, and is mainly de
 
 ## SeaTunnel work flowchart
 
-![SeaTunnel work flowchart](images/architecture_diagram.png)
+![SeaTunnel work flowchart](../images/architecture_diagram.png)
 
 The runtime process of SeaTunnel is shown in the figure above.
 

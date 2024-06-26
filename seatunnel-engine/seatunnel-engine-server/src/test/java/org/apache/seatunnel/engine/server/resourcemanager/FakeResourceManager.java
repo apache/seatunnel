@@ -28,6 +28,7 @@ import com.hazelcast.spi.impl.NodeEngine;
 import com.hazelcast.spi.impl.operationservice.Operation;
 
 import java.net.UnknownHostException;
+import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
 
 /** Used to test ResourceManager, override init method to register more workers. */
@@ -47,7 +48,8 @@ public class FakeResourceManager extends AbstractResourceManager {
                             new ResourceProfile(),
                             new ResourceProfile(),
                             new SlotProfile[] {},
-                            new SlotProfile[] {});
+                            new SlotProfile[] {},
+                            Collections.emptyMap());
             this.registerWorker.put(address1, workerProfile1);
 
             Address address2 = new Address("localhost", 5802);
@@ -57,7 +59,8 @@ public class FakeResourceManager extends AbstractResourceManager {
                             new ResourceProfile(),
                             new ResourceProfile(),
                             new SlotProfile[] {},
-                            new SlotProfile[] {});
+                            new SlotProfile[] {},
+                            Collections.emptyMap());
             this.registerWorker.put(address2, workerProfile2);
             Address address3 = new Address("localhost", 5803);
             WorkerProfile workerProfile3 =
@@ -66,7 +69,8 @@ public class FakeResourceManager extends AbstractResourceManager {
                             new ResourceProfile(),
                             new ResourceProfile(),
                             new SlotProfile[] {},
-                            new SlotProfile[] {});
+                            new SlotProfile[] {},
+                            Collections.emptyMap());
             this.registerWorker.put(address3, workerProfile3);
         } catch (UnknownHostException e) {
             throw new RuntimeException(e);
@@ -84,7 +88,8 @@ public class FakeResourceManager extends AbstractResourceManager {
                                             new ResourceProfile(),
                                             new ResourceProfile(),
                                             new SlotProfile[] {},
-                                            new SlotProfile[] {}),
+                                            new SlotProfile[] {},
+                                            Collections.emptyMap()),
                                     new SlotProfile(address, 1, new ResourceProfile(), "")));
         } else {
             return super.sendToMember(operation, address);

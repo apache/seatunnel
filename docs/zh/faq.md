@@ -65,9 +65,9 @@ your string 1
 
 当然！ 请参阅下面的屏幕截图：
 
-![工作流程.png](images/workflow.png)
+![工作流程.png](../images/workflow.png)
 
-![azkaban.png](images/azkaban.png)
+![azkaban.png](../images/azkaban.png)
 
 ## SeaTunnel是否有配置多个源的情况，例如同时在源中配置elasticsearch和hdfs？
 
@@ -185,7 +185,7 @@ sink {
 
 3、一般来说，M和N都确定了，从2可以得出结论：`spark.streaming.kafka.maxRatePerPartition`的大小与`spark.executor.cores` * `spark的大小正相关 .executor.instances`，可以在增加资源`maxRatePerPartition`的同时增加，以加快消耗。
 
-![kafka](images/kafka.png)
+![kafka](../images/kafka.png)
 
 ## 如何解决错误 `Exception in thread "main" java.lang.NoSuchFieldError: INSTANCE`？
 
