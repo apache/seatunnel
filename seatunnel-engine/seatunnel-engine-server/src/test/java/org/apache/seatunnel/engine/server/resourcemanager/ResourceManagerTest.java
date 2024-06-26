@@ -32,6 +32,7 @@ import com.hazelcast.cluster.Address;
 
 import java.net.UnknownHostException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -119,7 +120,8 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceMan
         List<ResourceProfile> resourceProfiles = new ArrayList<>();
         resourceProfiles.add(new ResourceProfile());
         resourceProfiles.add(new ResourceProfile());
-        List<SlotProfile> slotProfiles = resourceManager.applyResources(1L, resourceProfiles).get();
+        List<SlotProfile> slotProfiles =
+                resourceManager.applyResources(1L, resourceProfiles, null).get();
         Assertions.assertEquals(slotProfiles.size(), 2);
 
         // test retry request slot time 2 but no enough slot with worker
@@ -129,7 +131,10 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceMan
         ExecutionException exception =
                 Assertions.assertThrows(
                         ExecutionException.class,
-                        () -> finalResourceManager.applyResources(1L, finalResourceProfiles).get());
+                        () ->
+                                finalResourceManager
+                                        .applyResources(1L, finalResourceProfiles, null)
+                                        .get());
         Assertions.assertInstanceOf(NoEnoughResourceException.class, exception.getCause());
 
         // test retry request slot time 4 so that more than max retry times
@@ -143,7 +148,7 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceMan
                         ExecutionException.class,
                         () ->
                                 finalResourceManager2
-                                        .applyResources(1L, finalResourceProfiles2)
+                                        .applyResources(1L, finalResourceProfiles2, null)
                                         .get());
         Assertions.assertInstanceOf(
                 NoEnoughResourceException.class, exception2.getCause().getCause());
@@ -170,7 +175,8 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceMan
                         new ResourceProfile(),
                         dynamicSlot,
                         new SlotProfile[] {},
-                        new SlotProfile[] {});
+                        new SlotProfile[] {},
+                        Collections.emptyMap());
         registerWorker.put(address1, workerProfile1);
 
         Address address2 = new Address("localhost", 5802);
@@ -181,7 +187,8 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceMan
                         new ResourceProfile(),
                         dynamicSlot,
                         new SlotProfile[] {},
-                        new SlotProfile[] {});
+                        new SlotProfile[] {},
+                        Collections.emptyMap());
         registerWorker.put(address2, workerProfile2);
         Optional<WorkerProfile> result =
                 new ResourceRequestHandler(

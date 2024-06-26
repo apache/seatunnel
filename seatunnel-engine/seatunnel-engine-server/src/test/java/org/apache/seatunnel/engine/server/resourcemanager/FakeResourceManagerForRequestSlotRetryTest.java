@@ -28,6 +28,7 @@ import com.hazelcast.spi.impl.NodeEngine;
 import com.hazelcast.spi.impl.operationservice.Operation;
 
 import java.net.UnknownHostException;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -73,7 +74,8 @@ public class FakeResourceManagerForRequestSlotRetryTest extends AbstractResource
                         new SlotProfile[] {
                             new SlotProfile(address, 1, new ResourceProfile(), ""),
                             new SlotProfile(address, 2, new ResourceProfile(), "")
-                        });
+                        },
+                        Collections.emptyMap());
         this.registerWorker.put(address, workerProfile);
     }
 
@@ -101,7 +103,8 @@ public class FakeResourceManagerForRequestSlotRetryTest extends AbstractResource
                                                             address, 2, new ResourceProfile(), "")
                                                 },
                                                 // no unassigned slot
-                                                new SlotProfile[] {}),
+                                                new SlotProfile[] {},
+                                                Collections.emptyMap()),
                                         null));
             }
             return (CompletableFuture<E>)
@@ -119,7 +122,8 @@ public class FakeResourceManagerForRequestSlotRetryTest extends AbstractResource
                                             new SlotProfile[] {
                                                 new SlotProfile(
                                                         address, 3, new ResourceProfile(), "")
-                                            }),
+                                            },
+                                            Collections.emptyMap()),
                                     new SlotProfile(address, 2, new ResourceProfile(), "")));
         } else {
             return super.sendToMember(operation, address);

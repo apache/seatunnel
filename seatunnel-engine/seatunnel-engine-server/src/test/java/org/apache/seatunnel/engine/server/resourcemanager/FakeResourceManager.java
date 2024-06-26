@@ -59,7 +59,7 @@ public class FakeResourceManager extends AbstractResourceManager {
                         true,
                         new SlotProfile[] {},
                         new SlotProfile[] {},
-                    Collections.emptyMap());
+                        Collections.emptyMap());
         this.registerWorker.put(address, workerProfile);
     }
 

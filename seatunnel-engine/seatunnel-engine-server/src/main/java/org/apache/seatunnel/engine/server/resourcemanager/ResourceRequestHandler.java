@@ -34,7 +34,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -108,7 +107,9 @@ public class ResourceRequestHandler {
                                             Exception requestSlotWithRetryError = null;
                                             try {
                                                 requestSlotWithRetry(
-                                                                needRequestResource, retryTimes - 1, tags)
+                                                                needRequestResource,
+                                                                retryTimes - 1,
+                                                                tags)
                                                         .get();
                                             } catch (Exception e) {
                                                 LOGGER.warning(
