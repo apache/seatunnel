@@ -43,6 +43,7 @@ import org.apache.hudi.config.HoodieIndexConfig;
 import org.apache.hudi.config.HoodieWriteConfig;
 import org.apache.hudi.exception.HoodieKeyException;
 import org.apache.hudi.index.HoodieIndex;
+import org.apache.hudi.storage.hadoop.HadoopStorageConfiguration;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -127,7 +128,7 @@ public class HudiTest {
                 .setTableType(HoodieTableType.COPY_ON_WRITE)
                 .setTableName(tableName)
                 .setPayloadClassName(HoodieAvroPayload.class.getName())
-                .initTable(new Configuration(), tablePath);
+                .initTable(new HadoopStorageConfiguration(new Configuration()), tablePath);
 
         HoodieWriteConfig cfg =
                 HoodieWriteConfig.newBuilder()
@@ -149,7 +150,9 @@ public class HudiTest {
 
         try (HoodieJavaWriteClient<HoodieAvroPayload> javaWriteClient =
                 new HoodieJavaWriteClient<>(
-                        new HoodieJavaEngineContext(new Configuration()), cfg)) {
+                        new HoodieJavaEngineContext(
+                                new HadoopStorageConfiguration(new Configuration())),
+                        cfg)) {
             SeaTunnelRow expected = new SeaTunnelRow(12);
             Timestamp timestamp3 = Timestamp.valueOf("1990-10-14 12:12:43.123");
             expected.setField(0, true);
