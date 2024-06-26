@@ -242,7 +242,7 @@ public class JdbcHanaIT extends AbstractJdbcIT {
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(HANA_IMAGE)))
                         .waitingFor(
                                 Wait.forLogMessage("HANA is up", 1)
-                                        .withStartupTimeout(Duration.of(300, ChronoUnit.SECONDS)));
+                                        .withStartupTimeout(Duration.of(10, ChronoUnit.MINUTES)));
         container.setPortBindings(Lists.newArrayList(String.format("%s:%s", HANA_PORT, HANA_PORT)));
         return container;
     }
