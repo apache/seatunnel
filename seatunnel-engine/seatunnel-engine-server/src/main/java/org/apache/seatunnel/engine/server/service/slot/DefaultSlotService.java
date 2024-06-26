@@ -258,6 +258,7 @@ public class DefaultSlotService implements SlotService {
         workerProfile.setAssignedSlots(assignedSlots.values().toArray(new SlotProfile[0]));
         workerProfile.setUnassignedSlots(unassignedSlots.values().toArray(new SlotProfile[0]));
         workerProfile.setUnassignedResource(unassignedResource.get());
+        workerProfile.setAttributes(nodeEngine.getLocalMember().getAttributes());
         return workerProfile;
     }
 
