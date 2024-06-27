@@ -37,7 +37,6 @@ public class ResourceManagerFactory {
     }
 
     public ResourceManager getResourceManager(DeployType type) {
-        ExecutionMode mode = engineConfig.getMode();
         if (DeployType.STANDALONE.equals(type)) {
             return new StandaloneResourceManager(nodeEngine, engineConfig);
         } else if (DeployType.KUBERNETES.equals(type)) {
