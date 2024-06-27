@@ -193,6 +193,10 @@ public class DorisIT extends AbstractDorisIT {
                 container.executeJob("/doris_source_to_doris_sink_type_convertor.conf");
         Assertions.assertEquals(0, execResult3.getExitCode());
         checkAllTypeSinkData();
+
+        Container.ExecResult execResult4 = container.executeJob("/doris_source_and_sink.conf");
+        Assertions.assertEquals(0, execResult4.getExitCode());
+        checkSinkData();
     }
 
     private void checkAllTypeSinkData() {
