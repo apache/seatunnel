@@ -440,10 +440,10 @@ public interface JdbcDialect extends Serializable {
     /**
      * Refresh physical table schema by schema change event
      *
-     * @param sourceDialectName
-     * @param event
-     * @param jdbcConnectionProvider
-     * @param sinkTablePath
+     * @param sourceDialectName source dialect name
+     * @param event schema change event
+     * @param jdbcConnectionProvider jdbc connection provider
+     * @param sinkTablePath sink table path
      */
     default void refreshTableSchemaBySchemaChangeEvent(
             String sourceDialectName,
@@ -454,10 +454,10 @@ public interface JdbcDialect extends Serializable {
     /**
      * generate alter table sql
      *
-     * @param sourceDialectName
-     * @param event
-     * @param sinkTablePath
-     * @return
+     * @param sourceDialectName source dialect name
+     * @param event schema change event
+     * @param sinkTablePath sink table path
+     * @return alter table sql for sink table
      */
     default String generateAlterTableSql(
             String sourceDialectName, AlterTableColumnEvent event, TablePath sinkTablePath) {
@@ -512,11 +512,13 @@ public interface JdbcDialect extends Serializable {
     /**
      * build alter table sql
      *
-     * @param alterOperation
-     * @param newColumn
-     * @param tableName
-     * @param oldColumnName
-     * @return
+     * @param sourceDialectName source dialect name
+     * @param sourceColumnType source column type
+     * @param alterOperation alter operation of ddl
+     * @param newColumn new column after ddl
+     * @param tableName table name of sink table
+     * @param oldColumnName old column name before ddl
+     * @return alter table sql for sink table after schema change
      */
     default String buildAlterTableSql(
             String sourceDialectName,
@@ -552,9 +554,9 @@ public interface JdbcDialect extends Serializable {
     /**
      * build the body of alter table sql
      *
-     * @param alterOperation
-     * @param tableName
-     * @return
+     * @param alterOperation alter operation of ddl
+     * @param tableName table name of sink table
+     * @return basic sql of alter table for sink table
      */
     default String buildAlterTableBasicSql(String alterOperation, String tableName) {
         StringBuilder sql =
@@ -570,14 +572,14 @@ public interface JdbcDialect extends Serializable {
     /**
      * decorate the sql with column name and type
      *
-     * @param sourceDialectName
-     * @param sourceColumnType
-     * @param basicSql
-     * @param alterOperation
-     * @param newColumn
-     * @param oldColumnName
-     * @param columnType
-     * @return
+     * @param sourceDialectName source dialect name
+     * @param sourceColumnType source column type
+     * @param basicSql basic sql of alter table for sink table
+     * @param alterOperation alter operation of ddl
+     * @param newColumn new column after ddl
+     * @param oldColumnName old column name before ddl
+     * @param columnType column type of new column
+     * @return basic sql with column name and type of alter table for sink table
      */
     default String decorateWithColumnNameAndType(
             String sourceDialectName,
@@ -610,9 +612,9 @@ public interface JdbcDialect extends Serializable {
     /**
      * decorate with nullable
      *
-     * @param basicSql
-     * @param typeBasicTypeDefine
-     * @return
+     * @param basicSql alter table sql for sink table
+     * @param typeBasicTypeDefine type basic type define of new column
+     * @return alter table sql with nullable for sink table
      */
     default String decorateWithNullable(
             String basicSql, BasicTypeDefine<MysqlType> typeBasicTypeDefine) {
@@ -628,9 +630,9 @@ public interface JdbcDialect extends Serializable {
     /**
      * decorate with default value
      *
-     * @param basicSql
-     * @param typeBasicTypeDefine
-     * @return
+     * @param basicSql alter table sql for sink table
+     * @param typeBasicTypeDefine type basic type define of new column
+     * @return alter table sql with default value for sink table
      */
     default String decorateWithDefaultValue(
             String basicSql, BasicTypeDefine<MysqlType> typeBasicTypeDefine) {
@@ -650,9 +652,9 @@ public interface JdbcDialect extends Serializable {
     /**
      * decorate with comment
      *
-     * @param basicSql
-     * @param typeBasicTypeDefine
-     * @return
+     * @param basicSql alter table sql for sink table
+     * @param typeBasicTypeDefine type basic type define of new column
+     * @return alter table sql with comment for sink table
      */
     default String decorateWithComment(
             String basicSql, BasicTypeDefine<MysqlType> typeBasicTypeDefine) {
@@ -667,8 +669,8 @@ public interface JdbcDialect extends Serializable {
     /**
      * whether quotes with default value
      *
-     * @param sqlType
-     * @return
+     * @param sqlType sql type of column
+     * @return whether needs quotes with the type
      */
     default boolean needsQuotesWithDefaultValue(String sqlType) {
         return false;
@@ -677,8 +679,8 @@ public interface JdbcDialect extends Serializable {
     /**
      * whether is special default value e.g. current_timestamp
      *
-     * @param defaultValue
-     * @return
+     * @param defaultValue default value of column
+     * @return whether is special default value e.g current_timestamp
      */
     default boolean isSpecialDefaultValue(Object defaultValue) {
         return false;
@@ -687,8 +689,8 @@ public interface JdbcDialect extends Serializable {
     /**
      * quotes default value
      *
-     * @param defaultValue
-     * @return
+     * @param defaultValue default value of column
+     * @return quoted default value
      */
     default String quotesDefaultValue(Object defaultValue) {
         return "'" + defaultValue + "'";
