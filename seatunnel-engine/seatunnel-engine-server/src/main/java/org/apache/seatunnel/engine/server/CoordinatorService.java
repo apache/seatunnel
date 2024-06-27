@@ -280,7 +280,9 @@ public class CoordinatorService {
         if (connectorJarStorageConfig.getEnable()) {
             connectorPackageService = new ConnectorPackageService(seaTunnelServer);
         }
+    }
 
+    private void restoreAllRunningJobs() {
         List<CompletableFuture<Void>> collect =
                 runningJobInfoIMap.entrySet().stream()
                         .map(
@@ -383,6 +385,21 @@ public class CoordinatorService {
                 }
                 initCoordinatorService();
                 isActive = true;
+                CompletableFuture<Void> restoreAllRunningJobsFuture = CompletableFuture.runAsync(() -> {
+                    // waiting have worker registered
+                    while (isActive && seaTunnelServer.isMasterNode() && getResourceManager().workerCount() == 0) {
+                        try {
+                            logger.info("Waiting for worker registered");
+                            Thread.sleep(1000);
+                        } catch (InterruptedException e) {
+                            logger.severe(e);
+                        }
+                    }
+                    if (isActive && seaTunnelServer.isMasterNode()) {
+                        restoreAllRunningJobs();
+                    }
+                }, executorService);
+                restoreAllRunningJobsFuture.get();
             } else if (isActive && !this.seaTunnelServer.isMasterNode()) {
                 isActive = false;
                 logger.info(
