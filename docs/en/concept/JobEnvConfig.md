@@ -33,6 +33,10 @@ This parameter configures the parallelism of source and sink.
 
 Used to control the default retry times when a job fails. The default value is 3, and it only works in the Zeta engine.
 
+### job.retry.interval.seconds
+
+Used to control the default retry interval when a job fails. The default value is 3 seconds, and it only works in the Zeta engine.
+
 ### savemode.execute.location
 
 This parameter is used to specify the location of the savemode when the job is executed in the Zeta engine.

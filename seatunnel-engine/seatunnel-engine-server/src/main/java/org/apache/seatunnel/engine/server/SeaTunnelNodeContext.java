@@ -24,8 +24,6 @@ import com.hazelcast.instance.impl.DefaultNodeContext;
 import com.hazelcast.instance.impl.Node;
 import com.hazelcast.instance.impl.NodeExtension;
 import com.hazelcast.internal.cluster.Joiner;
-import com.hazelcast.internal.cluster.impl.DiscoveryJoiner;
-import com.hazelcast.internal.cluster.impl.MulticastJoiner;
 import com.hazelcast.internal.config.AliasedDiscoveryConfigUtils;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
@@ -56,16 +54,14 @@ public class SeaTunnelNodeContext extends DefaultNodeContext {
         join.verify();
 
         if (node.shouldUseMulticastJoiner(join) && node.multicastService != null) {
-            log.info("Using Multicast discovery");
-            return new MulticastJoiner(node);
+            super.createJoiner(node);
         } else if (join.getTcpIpConfig().isEnabled()) {
-            log.info("Using TCP/IP discovery");
+            log.info("Using LiteNodeDropOutTcpIpJoiner TCP/IP discovery");
             return new LiteNodeDropOutTcpIpJoiner(node);
         } else if (node.getProperties().getBoolean(DISCOVERY_SPI_ENABLED)
                 || isAnyAliasedConfigEnabled(join)
                 || join.isAutoDetectionEnabled()) {
-            log.info("Using Discovery SPI");
-            return new DiscoveryJoiner(node, node.discoveryService, usePublicAddress(join, node));
+            super.createJoiner(node);
         }
         return null;
     }

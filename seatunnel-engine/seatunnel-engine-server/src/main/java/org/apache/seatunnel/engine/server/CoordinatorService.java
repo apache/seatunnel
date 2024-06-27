@@ -749,7 +749,7 @@ public class CoordinatorService {
         int poolSize = threadPoolExecutor.getPoolSize();
         long completedTaskCount = threadPoolExecutor.getCompletedTaskCount();
         long taskCount = threadPoolExecutor.getTaskCount();
-        logger.fine(
+        logger.info(
                 StringFormatUtils.formatTable(
                         "CoordinatorService Thread Pool Status",
                         "activeCount",
@@ -815,7 +815,7 @@ public class CoordinatorService {
                             });
         }
 
-        logger.fine(
+        logger.info(
                 StringFormatUtils.formatTable(
                         "Job info detail",
                         "createdJobCount",

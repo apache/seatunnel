@@ -54,6 +54,8 @@ public class SubPlan {
     /** The max num pipeline can restore. */
     private final int pipelineMaxRestoreNum;
 
+    private final int pipelineRestoreIntervalSeconds;
+
     private final List<PhysicalVertex> physicalVertexList;
 
     private final List<PhysicalVertex> coordinatorVertexList;
@@ -132,6 +134,17 @@ public class SubPlan {
                                 .computeIfAbsent(
                                         EnvCommonOptions.JOB_RETRY_TIMES.key(),
                                         key -> EnvCommonOptions.JOB_RETRY_TIMES.defaultValue())
+                                .toString());
+        pipelineRestoreIntervalSeconds =
+                Integer.parseInt(
+                        jobImmutableInformation
+                                .getJobConfig()
+                                .getEnvOptions()
+                                .computeIfAbsent(
+                                        EnvCommonOptions.JOB_RETRY_INTERVAL_SECONDS.key(),
+                                        key ->
+                                                EnvCommonOptions.JOB_RETRY_INTERVAL_SECONDS
+                                                        .defaultValue())
                                 .toString());
         Long[] stateTimestamps = new Long[PipelineStatus.values().length];
         if (runningJobStateTimestampsIMap.get(pipelineLocation) == null) {
@@ -450,9 +463,8 @@ public class SubPlan {
                 reset();
                 jobMaster.getCheckpointManager().reportedPipelineRunning(pipelineId, false);
                 jobMaster.getPhysicalPlan().addPipelineEndCallback(this);
-                // wait 3s and then start the pipeline
-                log.info("Wait 3s and then restore the pipeline " + pipelineFullName);
-                Thread.sleep(3000);
+                log.info("Wait {}s and then restore the pipeline ", pipelineRestoreIntervalSeconds);
+                Thread.sleep(pipelineRestoreIntervalSeconds);
                 return true;
             } catch (Throwable e) {
                 if (this.currPipelineStatus.isEndState()) {

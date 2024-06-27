@@ -51,6 +51,12 @@ public interface EnvCommonOptions {
                     .defaultValue(3)
                     .withDescription("The retry times of this job");
 
+    Option<Integer> JOB_RETRY_INTERVAL_SECONDS =
+            Options.key("job.retry.interval.seconds")
+                    .intType()
+                    .defaultValue(3)
+                    .withDescription("The retry interval seconds of this job");
+
     Option<Long> CHECKPOINT_INTERVAL =
             Options.key("checkpoint.interval")
                     .longType()
