@@ -189,8 +189,6 @@ public class JdbcHanaIT extends AbstractJdbcIT {
                                 "clob_value",
                                 "nclob_value",
                                 "binary_value".getBytes(),
-                                new byte[] {1},
-                                "varbinary_value_256".getBytes(),
                                 "a",
                                 "alphanum_value_20",
                                 "shorttext_value_255"
