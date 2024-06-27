@@ -195,7 +195,7 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
                                     jdbcCase.getSourceTable()));
             statement.execute(createSource);
 
-            if (jdbcCase.isUseSaveModeCreateTable()) {
+            if (!jdbcCase.isUseSaveModeCreateTable()) {
                 if (jdbcCase.getSinkCreateSql() != null) {
                     createTemplate = jdbcCase.getSinkCreateSql();
                 }

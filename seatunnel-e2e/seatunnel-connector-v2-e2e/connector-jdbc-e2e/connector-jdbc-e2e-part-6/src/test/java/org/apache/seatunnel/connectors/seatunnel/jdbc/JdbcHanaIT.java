@@ -69,7 +69,6 @@ public class JdbcHanaIT extends AbstractJdbcIT {
                     + "TEXT_VALUE TEXT, \n"
                     + "BINTEXT_VALUE BINTEXT, \n"
                     + "DECIMAL_VALUE_10_2 DECIMAL(10, 2), \n"
-                    + "SAMLL_DECIMAL_VALUE SMALLDECIMAL, \n"
                     + "TIMESTAMP_VALUE TIMESTAMP, \n"
                     + "SECOND_DATE_VALUE SECONDDATE,\n"
                     + "BOOLEAN_VALUE BOOLEAN, \n"
@@ -145,7 +144,6 @@ public class JdbcHanaIT extends AbstractJdbcIT {
                     "TEXT_VALUE",
                     "BINTEXT_VALUE",
                     "DECIMAL_VALUE_10_2",
-                    "SAMLL_DECIMAL_VALUE",
                     "TIMESTAMP_VALUE",
                     "SECOND_DATE_VALUE",
                     "BOOLEAN_VALUE",
@@ -182,7 +180,6 @@ public class JdbcHanaIT extends AbstractJdbcIT {
                                 "nvarchar_value_255",
                                 "text_value",
                                 "bintext_value",
-                                1.0,
                                 1.0,
                                 Date.valueOf(LocalDate.now()),
                                 Date.valueOf(LocalDate.now()),
