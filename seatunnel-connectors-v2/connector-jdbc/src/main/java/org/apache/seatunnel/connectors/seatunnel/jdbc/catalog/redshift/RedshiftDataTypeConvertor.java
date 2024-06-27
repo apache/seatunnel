@@ -18,15 +18,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.redshift;
 
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.DataTypeConvertor;
-import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.DecimalType;
-import org.apache.seatunnel.api.table.type.LocalTimeType;
-import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SqlType;
-import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.redshift.RedshiftTypeConverter;
 
 import org.apache.commons.collections4.MapUtils;
 
@@ -37,6 +35,8 @@ import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+/** @deprecated instead by {@link RedshiftTypeConverter} */
+@Deprecated
 @AutoService(DataTypeConvertor.class)
 public class RedshiftDataTypeConvertor implements DataTypeConvertor<String> {
 
@@ -44,55 +44,7 @@ public class RedshiftDataTypeConvertor implements DataTypeConvertor<String> {
     public static final String SCALE = "scale";
 
     public static final Integer DEFAULT_PRECISION = 10;
-
     public static final Integer DEFAULT_SCALE = 0;
-
-    /* ============================ data types ===================== */
-    private static final String REDSHIFT_SMALLINT = "smallint";
-    private static final String REDSHIFT_INT2 = "int2";
-    private static final String REDSHIFT_INTEGER = "integer";
-    private static final String REDSHIFT_INT = "int";
-    private static final String REDSHIFT_INT4 = "int4";
-    private static final String REDSHIFT_BIGINT = "bigint";
-    private static final String REDSHIFT_INT8 = "int8";
-
-    private static final String REDSHIFT_DECIMAL = "decimal";
-    private static final String REDSHIFT_NUMERIC = "numeric";
-    private static final String REDSHIFT_REAL = "real";
-    private static final String REDSHIFT_FLOAT4 = "float4";
-    private static final String REDSHIFT_DOUBLE_PRECISION = "double precision";
-    private static final String REDSHIFT_FLOAT8 = "float8";
-    private static final String REDSHIFT_FLOAT = "float";
-
-    private static final String REDSHIFT_BOOLEAN = "boolean";
-    private static final String REDSHIFT_BOOL = "bool";
-
-    private static final String REDSHIFT_CHAR = "char";
-    private static final String REDSHIFT_CHARACTER = "character";
-    private static final String REDSHIFT_NCHAR = "nchar";
-    private static final String REDSHIFT_BPCHAR = "bpchar";
-
-    private static final String REDSHIFT_VARCHAR = "varchar";
-    private static final String REDSHIFT_CHARACTER_VARYING = "character varying";
-    private static final String REDSHIFT_NVARCHAR = "nvarchar";
-    private static final String REDSHIFT_TEXT = "text";
-
-    private static final String REDSHIFT_DATE = "date";
-    /*FIXME*/
-
-    private static final String REDSHIFT_GEOMETRY = "geometry";
-    private static final String REDSHIFT_OID = "oid";
-    private static final String REDSHIFT_SUPER = "super";
-
-    private static final String REDSHIFT_TIME = "time";
-    private static final String REDSHIFT_TIME_WITH_TIME_ZONE = "time with time zone";
-
-    private static final String REDSHIFT_TIMETZ = "timetz";
-    private static final String REDSHIFT_TIMESTAMP = "timestamp";
-    private static final String REDSHIFT_TIMESTAMP_WITH_OUT_TIME_ZONE =
-            "timestamp without time zone";
-
-    private static final String REDSHIFT_TIMESTAMPTZ = "timestamptz";
 
     @Override
     public SeaTunnelDataType<?> toSeaTunnelType(String field, String connectorDataType) {
@@ -103,60 +55,29 @@ public class RedshiftDataTypeConvertor implements DataTypeConvertor<String> {
     public SeaTunnelDataType<?> toSeaTunnelType(
             String field, String connectorDataType, Map<String, Object> dataTypeProperties) {
         checkNotNull(connectorDataType, "redshiftType cannot be null");
-        switch (connectorDataType) {
-            case REDSHIFT_SMALLINT:
-            case REDSHIFT_INT2:
-                return BasicType.SHORT_TYPE;
-            case REDSHIFT_INTEGER:
-            case REDSHIFT_INT:
-            case REDSHIFT_INT4:
-                return BasicType.INT_TYPE;
-            case REDSHIFT_BIGINT:
-            case REDSHIFT_INT8:
-            case REDSHIFT_OID:
-                return BasicType.LONG_TYPE;
-            case REDSHIFT_DECIMAL:
-            case REDSHIFT_NUMERIC:
-                Integer precision =
-                        MapUtils.getInteger(dataTypeProperties, PRECISION, DEFAULT_PRECISION);
-                Integer scale = MapUtils.getInteger(dataTypeProperties, SCALE, DEFAULT_SCALE);
-                return new DecimalType(precision, scale);
-            case REDSHIFT_REAL:
-            case REDSHIFT_FLOAT4:
-                return BasicType.FLOAT_TYPE;
-            case REDSHIFT_DOUBLE_PRECISION:
-            case REDSHIFT_FLOAT8:
-            case REDSHIFT_FLOAT:
-                return BasicType.DOUBLE_TYPE;
-            case REDSHIFT_BOOLEAN:
-            case REDSHIFT_BOOL:
-                return BasicType.BOOLEAN_TYPE;
-            case REDSHIFT_CHAR:
-            case REDSHIFT_CHARACTER:
-            case REDSHIFT_NCHAR:
-            case REDSHIFT_BPCHAR:
-            case REDSHIFT_VARCHAR:
-            case REDSHIFT_CHARACTER_VARYING:
-            case REDSHIFT_NVARCHAR:
-            case REDSHIFT_TEXT:
-            case REDSHIFT_SUPER:
-                return BasicType.STRING_TYPE;
-            case REDSHIFT_DATE:
-                return LocalTimeType.LOCAL_DATE_TYPE;
-            case REDSHIFT_GEOMETRY:
-                return PrimitiveByteArrayType.INSTANCE;
-            case REDSHIFT_TIME:
-            case REDSHIFT_TIME_WITH_TIME_ZONE:
-            case REDSHIFT_TIMETZ:
-                return LocalTimeType.LOCAL_TIME_TYPE;
-            case REDSHIFT_TIMESTAMP:
-            case REDSHIFT_TIMESTAMP_WITH_OUT_TIME_ZONE:
-            case REDSHIFT_TIMESTAMPTZ:
-                return LocalTimeType.LOCAL_DATE_TIME_TYPE;
+
+        Integer precision = null;
+        Integer scale = null;
+        switch (connectorDataType.toUpperCase()) {
+            case RedshiftTypeConverter.PG_NUMERIC:
+                precision = MapUtils.getInteger(dataTypeProperties, PRECISION, DEFAULT_PRECISION);
+                scale = MapUtils.getInteger(dataTypeProperties, SCALE, DEFAULT_SCALE);
+                break;
             default:
-                throw CommonError.convertToSeaTunnelTypeError(
-                        DatabaseIdentifier.REDSHIFT, connectorDataType, field);
+                break;
         }
+
+        BasicTypeDefine typeDefine =
+                BasicTypeDefine.builder()
+                        .name(field)
+                        .columnType(connectorDataType)
+                        .dataType(connectorDataType)
+                        .length(precision == null ? null : Long.valueOf(precision))
+                        .precision(precision == null ? null : Long.valueOf(precision))
+                        .scale(scale)
+                        .build();
+
+        return RedshiftTypeConverter.INSTANCE.convert(typeDefine).getDataType();
     }
 
     @Override
@@ -165,39 +86,19 @@ public class RedshiftDataTypeConvertor implements DataTypeConvertor<String> {
             SeaTunnelDataType<?> seaTunnelDataType,
             Map<String, Object> dataTypeProperties) {
         checkNotNull(seaTunnelDataType, "seaTunnelDataType cannot be null");
-        SqlType sqlType = seaTunnelDataType.getSqlType();
-        switch (sqlType) {
-            case TINYINT:
-            case SMALLINT:
-                return REDSHIFT_SMALLINT;
-            case INT:
-                return REDSHIFT_INTEGER;
-            case BIGINT:
-                return REDSHIFT_BIGINT;
-            case DECIMAL:
-                return REDSHIFT_DECIMAL;
-            case FLOAT:
-                return REDSHIFT_FLOAT4;
-            case DOUBLE:
-                return REDSHIFT_DOUBLE_PRECISION;
-            case BOOLEAN:
-                return REDSHIFT_BOOLEAN;
-            case STRING:
-                return REDSHIFT_TEXT;
-            case DATE:
-                return REDSHIFT_DATE;
-            case BYTES:
-                return REDSHIFT_GEOMETRY;
-            case TIME:
-                return REDSHIFT_TIME;
-            case TIMESTAMP:
-                return REDSHIFT_TIMESTAMP;
-            default:
-                throw CommonError.convertToConnectorTypeError(
-                        DatabaseIdentifier.REDSHIFT,
-                        seaTunnelDataType.getSqlType().toString(),
-                        field);
-        }
+
+        Long precision = MapUtils.getLong(dataTypeProperties, PRECISION);
+        Integer scale = MapUtils.getInteger(dataTypeProperties, SCALE);
+        Column column =
+                PhysicalColumn.builder()
+                        .name(field)
+                        .dataType(seaTunnelDataType)
+                        .columnLength(precision)
+                        .scale(scale)
+                        .nullable(true)
+                        .build();
+        BasicTypeDefine typeDefine = RedshiftTypeConverter.INSTANCE.reconvert(column);
+        return typeDefine.getColumnType();
     }
 
     @Override

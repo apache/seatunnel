@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils;
 
 import org.apache.seatunnel.common.utils.SeaTunnelException;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.CustomMySqlConnectionConfiguration;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.offset.BinlogOffset;
 
 import com.github.shyiko.mysql.binlog.BinaryLogClient;
@@ -44,8 +45,7 @@ public class MySqlConnectionUtils {
 
     /** Creates a new {@link MySqlConnection}, but not open the connection. */
     public static MySqlConnection createMySqlConnection(Configuration dbzConfiguration) {
-        return new MySqlConnection(
-                new MySqlConnection.MySqlConnectionConfiguration(dbzConfiguration));
+        return new MySqlConnection(new CustomMySqlConnectionConfiguration(dbzConfiguration));
     }
 
     /** Creates a new {@link BinaryLogClient} for consuming mysql binlog. */

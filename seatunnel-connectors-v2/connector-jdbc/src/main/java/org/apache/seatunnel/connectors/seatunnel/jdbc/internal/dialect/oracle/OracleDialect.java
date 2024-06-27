@@ -173,7 +173,7 @@ public class OracleDialect implements JdbcDialect {
 
     @Override
     public String tableIdentifier(TablePath tablePath) {
-        return tablePath.getSchemaAndTableName();
+        return quoteIdentifier(tablePath.getSchemaAndTableName());
     }
 
     @Override
@@ -199,7 +199,7 @@ public class OracleDialect implements JdbcDialect {
             String analyzeTable =
                     String.format(
                             "analyze table %s compute statistics for table",
-                            tablePath.getSchemaAndTableName());
+                            tableIdentifier(tablePath));
             String rowCountQuery =
                     String.format(
                             "select NUM_ROWS from all_tables where OWNER = '%s' AND TABLE_NAME = '%s' ",
@@ -253,7 +253,7 @@ public class OracleDialect implements JdbcDialect {
                                     + ") WHERE ROWNUM <= %s",
                             quotedColumn,
                             quotedColumn,
-                            table.getTablePath().getSchemaAndTableName(),
+                            tableIdentifier(table.getTablePath()),
                             quotedColumn,
                             quotedColumn,
                             chunkSize);

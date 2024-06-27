@@ -42,6 +42,15 @@ public class ClientCommandArgsTest {
     }
 
     @Test
+    public void testSetJobId() throws FileNotFoundException, URISyntaxException {
+        String configurePath = "/config/fake_to_inmemory.json";
+        String configFile = MultiTableSinkTest.getTestConfigFile(configurePath);
+        long jobId = 999;
+        ClientCommandArgs clientCommandArgs = buildClientCommandArgs(configFile, jobId);
+        Assertions.assertDoesNotThrow(() -> SeaTunnel.run(clientCommandArgs.buildCommand()));
+    }
+
+    @Test
     public void testExecuteClientCommandArgsWithoutPluginName()
             throws FileNotFoundException, URISyntaxException {
         String configurePath = "/config/fake_to_inmemory_without_pluginname.json";
@@ -58,12 +67,19 @@ public class ClientCommandArgsTest {
                 commandExecuteException.getCause().getMessage());
     }
 
-    private static ClientCommandArgs buildClientCommandArgs(String configFile) {
+    private static ClientCommandArgs buildClientCommandArgs(String configFile, Long jobId) {
         ClientCommandArgs clientCommandArgs = new ClientCommandArgs();
         clientCommandArgs.setVariables(new ArrayList<>());
         clientCommandArgs.setConfigFile(configFile);
         clientCommandArgs.setMasterType(MasterType.LOCAL);
         clientCommandArgs.setCheckConfig(false);
+        if (jobId != null) {
+            clientCommandArgs.setCustomJobId(String.valueOf(jobId));
+        }
         return clientCommandArgs;
+    }
+
+    private static ClientCommandArgs buildClientCommandArgs(String configFile) {
+        return buildClientCommandArgs(configFile, null);
     }
 }

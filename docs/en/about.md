@@ -34,7 +34,7 @@ SeaTunnel focuses on data integration and data synchronization, and is mainly de
 
 ## SeaTunnel work flowchart
 
-![SeaTunnel work flowchart](images/architecture_diagram.png)
+![SeaTunnel work flowchart](../images/architecture_diagram.png)
 
 The runtime process of SeaTunnel is shown in the figure above.
 
@@ -69,4 +69,4 @@ SeaTunnel enriches the <a href="https://landscape.cncf.io/card-mode?category=str
 
 ## Learn more
 
-You can see [Quick Start](/docs/category/start-v2) for the next steps.
+You can see [Quick Start](/docs/category/start-v2/locally/deployment) for the next steps.
