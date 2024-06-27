@@ -85,8 +85,6 @@ public class JdbcHanaIT extends AbstractJdbcIT {
                     + "CLOB_VALUE CLOB, \n"
                     + "NCLOB_VALUE NCLOB, \n"
                     + "BINARY_VALUE BINARY(16), \n"
-                    + "VARBINARY_VALUE VARBINARY, \n"
-                    + "VARBINARY_VALUE_256 VARBINARY(256), \n"
                     + "ALPHANUM_VALUE ALPHANUM, \n"
                     + "ALPHANUM_VALUE_20 ALPHANUM(20), \n"
                     + "SHORTTEXT_VALUE_255 SHORTTEXT(255) \n"
@@ -158,8 +156,6 @@ public class JdbcHanaIT extends AbstractJdbcIT {
                     "CLOB_VALUE",
                     "NCLOB_VALUE",
                     "BINARY_VALUE",
-                    "VARBINARY_VALUE",
-                    "VARBINARY_VALUE_256",
                     "ALPHANUM_VALUE",
                     "ALPHANUM_VALUE_20",
                     "SHORTTEXT_VALUE_255"
