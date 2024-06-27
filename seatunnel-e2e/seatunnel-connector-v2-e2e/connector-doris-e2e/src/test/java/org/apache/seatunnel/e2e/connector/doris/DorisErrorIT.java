@@ -79,6 +79,7 @@ public class DorisErrorIT extends AbstractDorisIT {
         Thread.sleep(10 * 1000);
         super.container.stop();
         Assertions.assertNotEquals(0, future.get().getExitCode());
+        log.info("doris error log: \n" + future.get().getStderr());
         Assertions.assertTrue(
                 future.get()
                         .getStderr()
@@ -89,7 +90,6 @@ public class DorisErrorIT extends AbstractDorisIT {
                         .getStderr()
                         .contains(
                                 "at org.apache.seatunnel.connectors.doris.sink.writer.RecordBuffer.checkErrorMessageByStreamLoad"));
-        log.info("doris error log: \n" + future.get().getStderr());
         super.container.start();
         // wait for the container to restart
         given().ignoreExceptions()
