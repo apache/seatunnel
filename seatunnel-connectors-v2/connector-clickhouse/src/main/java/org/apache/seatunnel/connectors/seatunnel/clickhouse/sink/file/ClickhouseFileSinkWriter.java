@@ -269,6 +269,7 @@ public class ClickhouseFileSinkWriter
         if (localPaths.size() == 1) {
             command.add("local");
         }
+        command.add("-n");
         command.add("--file");
         command.add(clickhouseLocalFileTmpFile);
         command.add("--format_csv_delimiter");
