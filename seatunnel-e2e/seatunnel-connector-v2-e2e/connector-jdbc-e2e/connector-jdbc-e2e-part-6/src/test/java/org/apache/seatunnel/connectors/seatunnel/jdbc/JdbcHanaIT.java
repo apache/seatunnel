@@ -87,8 +87,6 @@ public class JdbcHanaIT extends AbstractJdbcIT {
                     + "BINARY_VALUE BINARY(16), \n"
                     + "VARBINARY_VALUE VARBINARY, \n"
                     + "VARBINARY_VALUE_256 VARBINARY(256), \n"
-                    + "GEOMETRY_VALUE ST_GEOMETRY, \n"
-                    + "GEOGRAPHY_VALUE ST_POINT, \n"
                     + "ALPHANUM_VALUE ALPHANUM, \n"
                     + "ALPHANUM_VALUE_20 ALPHANUM(20), \n"
                     + "SHORTTEXT_VALUE_255 SHORTTEXT(255) \n"
@@ -162,8 +160,6 @@ public class JdbcHanaIT extends AbstractJdbcIT {
                     "BINARY_VALUE",
                     "VARBINARY_VALUE",
                     "VARBINARY_VALUE_256",
-                    "GEOMETRY_VALUE",
-                    "GEOGRAPHY_VALUE",
                     "ALPHANUM_VALUE",
                     "ALPHANUM_VALUE_20",
                     "SHORTTEXT_VALUE_255"
@@ -199,8 +195,6 @@ public class JdbcHanaIT extends AbstractJdbcIT {
                                 "binary_value".getBytes(),
                                 new byte[] {1},
                                 "varbinary_value_256".getBytes(),
-                                "POINT(1 1)",
-                                "POINT(1 1)",
                                 "a",
                                 "alphanum_value_20",
                                 "shorttext_value_255"

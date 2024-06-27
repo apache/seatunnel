@@ -477,11 +477,9 @@ public class CoordinatorService {
                         // We specify that when init is complete, the submitJob is complete
                         jobSubmitFuture.complete(null);
                     } catch (Throwable e) {
-                        logger.severe(
-                                String.format(
-                                        "submit job %s error %s ",
-                                        jobId, ExceptionUtils.getMessage(e)));
-                        jobSubmitFuture.completeExceptionally(e);
+                        String errorMsg = ExceptionUtils.getMessage(e);
+                        logger.severe(String.format("submit job %s error %s ", jobId, errorMsg));
+                        jobSubmitFuture.completeExceptionally(new JobException(errorMsg));
                     }
                     if (!jobSubmitFuture.isCompletedExceptionally()) {
                         try {
