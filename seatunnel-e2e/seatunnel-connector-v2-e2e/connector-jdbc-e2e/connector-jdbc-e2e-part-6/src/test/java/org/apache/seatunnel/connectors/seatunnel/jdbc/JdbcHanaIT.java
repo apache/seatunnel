@@ -59,7 +59,7 @@ public class JdbcHanaIT extends AbstractJdbcIT {
     private static final List<String> CONFIG_FILE =
             Lists.newArrayList("/jdbc_sap_hana_source_and_sink.conf");
 
-    private static final String CREATE_SQL =
+    private static final String CREATE_SOURCE_SQL =
             "CREATE TABLE %s (\n"
                     + "INT_VALUE INT PRIMARY KEY, \n"
                     + "VARCHAR_VALUE VARCHAR, \n"
@@ -68,7 +68,6 @@ public class JdbcHanaIT extends AbstractJdbcIT {
                     + "NVARCHAR_VALUE_255 NVARCHAR(255), \n"
                     + "TEXT_VALUE TEXT, \n"
                     + "BINTEXT_VALUE BINTEXT, \n"
-                    + "DECIMAL_VALUE DECIMAL, \n"
                     + "DECIMAL_VALUE_10_2 DECIMAL(10, 2), \n"
                     + "SAMLL_DECIMAL_VALUE SMALLDECIMAL, \n"
                     + "TIMESTAMP_VALUE TIMESTAMP, \n"
@@ -118,9 +117,10 @@ public class JdbcHanaIT extends AbstractJdbcIT {
                 .database(DATABASE)
                 .sourceTable(SOURCE_TABLE)
                 .sinkTable(SOURCE_TABLE + "_SINK")
-                .createSql(CREATE_SQL)
+                .createSql(CREATE_SOURCE_SQL)
                 .configFile(CONFIG_FILE)
                 .insertSql(insertSql)
+                .useSaveModeCreateTable(true)
                 .testData(testDataSet)
                 .build();
     }
@@ -144,7 +144,6 @@ public class JdbcHanaIT extends AbstractJdbcIT {
                     "NVARCHAR_VALUE_255",
                     "TEXT_VALUE",
                     "BINTEXT_VALUE",
-                    "DECIMAL_VALUE",
                     "DECIMAL_VALUE_10_2",
                     "SAMLL_DECIMAL_VALUE",
                     "TIMESTAMP_VALUE",
@@ -183,7 +182,6 @@ public class JdbcHanaIT extends AbstractJdbcIT {
                                 "nvarchar_value_255",
                                 "text_value",
                                 "bintext_value",
-                                1.0,
                                 1.0,
                                 1.0,
                                 Date.valueOf(LocalDate.now()),

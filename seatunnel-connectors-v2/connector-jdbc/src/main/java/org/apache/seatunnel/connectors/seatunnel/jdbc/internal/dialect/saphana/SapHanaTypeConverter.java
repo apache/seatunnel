@@ -90,7 +90,6 @@ public class SapHanaTypeConverter implements TypeConverter<BasicTypeDefine> {
     public static final int MAX_PRECISION = 38;
     public static final int DEFAULT_PRECISION = MAX_PRECISION;
     public static final int MAX_SCALE = 6176;
-    public static final int MAX_VARBINARY_LENGTH = 5000;
     public static final int MAX_SMALL_DECIMAL_SCALE = 368;
     public static final int DEFAULT_SCALE = 0;
     public static final int TIMESTAMP_DEFAULT_SCALE = 7;
