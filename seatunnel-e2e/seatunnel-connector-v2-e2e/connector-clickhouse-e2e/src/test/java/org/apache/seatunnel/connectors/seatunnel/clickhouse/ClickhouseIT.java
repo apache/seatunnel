@@ -107,6 +107,12 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
                                 "-c",
                                 "mkdir -p /tmp/seatunnel/clickhouse-local/ && chmod 777 /tmp/seatunnel/clickhouse-local/");
                 Assertions.assertEquals(0, extraCommands.getExitCode());
+                Container.ExecResult download =
+                        container.execInContainer(
+                                "bash",
+                                "-c",
+                                "mkdir -p /tool && cd /tool && curl https://clickhouse.com/ | sh");
+                Assertions.assertEquals(0, download.getExitCode());
             };
 
     @TestTemplate
@@ -139,10 +145,6 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
                                         DockerLoggerFactory.getLogger(CLICKHOUSE_DOCKER_IMAGE)));
         Startables.deepStart(Stream.of(this.container)).join();
         LOG.info("Clickhouse container started");
-        this.container.execInContainer(
-                "bash",
-                "-c",
-                "mkdir -p /tmp/seatunnel/clickhouse-local/ && chmod 777 /tmp/seatunnel/clickhouse-local/");
         Awaitility.given()
                 .ignoreExceptions()
                 .await()
