@@ -30,6 +30,7 @@ import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 import org.apache.seatunnel.connectors.cdc.debezium.EmbeddedDatabaseHistory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.offset.BinlogOffset;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlConnectionUtils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlUtils;
 
 import org.apache.kafka.connect.data.Struct;
@@ -120,7 +121,8 @@ public class MySqlSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
         this.topicSelector = MySqlTopicSelector.defaultSelector(connectorConfig);
 
         this.databaseSchema =
-                MySqlUtils.createMySqlDatabaseSchema(connectorConfig, tableIdCaseInsensitive);
+                MySqlConnectionUtils.createMySqlDatabaseSchema(
+                        connectorConfig, tableIdCaseInsensitive);
         this.offsetContext =
                 loadStartingOffsetState(
                         new MySqlOffsetContext.Loader(connectorConfig), sourceSplitBase);

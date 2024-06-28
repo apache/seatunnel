@@ -58,9 +58,15 @@ More information about config please check [config concept](../../concept/config
 
 You could start the application by the following commands
 
+:::tip
+
+Starting from version 2.3.1, the parameter -e in seatunnel.sh is deprecated, use -m instead.
+
+:::
+
 ```shell
 cd "apache-seatunnel-${version}"
-./bin/seatunnel.sh --config ./config/v2.batch.config.template -e local
+./bin/seatunnel.sh --config ./config/v2.batch.config.template -m local
 
 ```
 

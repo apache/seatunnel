@@ -276,12 +276,7 @@ public class MultipleTableJobConfigParser {
                 || jobConfig.getName().equals(EnvCommonOptions.JOB_NAME.defaultValue())) {
             jobConfig.setName(envOptions.get(EnvCommonOptions.JOB_NAME));
         }
-        envOptions
-                .toMap()
-                .forEach(
-                        (k, v) -> {
-                            jobConfig.getEnvOptions().put(k, v);
-                        });
+        jobConfig.getEnvOptions().putAll(envOptions.getSourceMap());
     }
 
     private static <T extends Factory> boolean isFallback(
