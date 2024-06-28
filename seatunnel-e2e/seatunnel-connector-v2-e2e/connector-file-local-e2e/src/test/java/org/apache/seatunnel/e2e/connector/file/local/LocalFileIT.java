@@ -17,6 +17,11 @@
 
 package org.apache.seatunnel.e2e.connector.file.local;
 
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
+import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
+import org.apache.seatunnel.connectors.seatunnel.file.local.catalog.LocalFileCatalog;
+import org.apache.seatunnel.connectors.seatunnel.file.local.config.LocalFileHadoopConf;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.EngineType;
@@ -27,6 +32,7 @@ import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestTemplate;
 
 import io.airlift.compress.lzo.LzopCodec;
@@ -179,6 +185,23 @@ public class LocalFileIT extends TestSuiteBase {
             // from jobManager will be failed in Flink
             helper.execute("/binary/local_file_binary_to_assert.conf");
         }
+    }
+
+    @TestTemplate
+    public void testLocalFileCatalog(TestContainer container)
+            throws IOException, InterruptedException {
+        final LocalFileCatalog localFileCatalog =
+                new LocalFileCatalog(
+                        new HadoopFileSystemProxy(new LocalFileHadoopConf()),
+                        "/tmp/seatunnel/json/test1",
+                        FileSystemType.LOCAL.getFileSystemPluginName());
+        final TablePath tablePath = TablePath.DEFAULT;
+        Assertions.assertFalse(localFileCatalog.tableExists(tablePath));
+        localFileCatalog.createTable(null, null, false);
+        Assertions.assertTrue(localFileCatalog.tableExists(tablePath));
+        Assertions.assertFalse(localFileCatalog.isExistsData(tablePath));
+        localFileCatalog.dropTable(tablePath, false);
+        Assertions.assertFalse(localFileCatalog.tableExists(tablePath));
     }
 
     private Path convertToLzoFile(File file) throws IOException {
