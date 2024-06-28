@@ -28,7 +28,8 @@ public enum ClickhouseConnectorErrorCode implements SeaTunnelErrorCode {
             "Ssh operation failed, such as (login,connect,authentication,close) etc..."),
     CLUSTER_LIST_GET_FAILED("CLICKHOUSE-05", "Get cluster list from clickhouse failed"),
     SHARD_KEY_NOT_FOUND("CLICKHOUSE-06", "Shard key not found in table"),
-    FILE_NOT_EXISTS("CLICKHOUSE-07", "Clickhouse local file not exists");
+    FILE_NOT_EXISTS("CLICKHOUSE-07", "Clickhouse local file not exists"),
+    CLICKHOUSE_LOCAL_EXEC_FAIL("CLICKHOUSE-08", "Clickhouse local command execute failed");
 
     private final String code;
     private final String description;

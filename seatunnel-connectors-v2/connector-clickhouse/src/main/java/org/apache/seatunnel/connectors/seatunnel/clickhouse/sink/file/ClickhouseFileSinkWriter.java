@@ -320,6 +320,17 @@ public class ClickhouseFileSinkWriter
             command.add("\"" + clickhouseLocalFile + "\"");
         }
         log.info("Generate clickhouse local file command: {}", String.join(" ", command));
+        ProcessBuilder pwd = new ProcessBuilder("bash", "-c", "pwd");
+        Process process = pwd.start();
+        try (InputStream inputStream = process.getInputStream();
+                InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
+                BufferedReader bufferedReader = new BufferedReader(inputStreamReader)) {
+            String line;
+            log.error("pwd log: ");
+            while ((line = bufferedReader.readLine()) != null) {
+                log.info(line);
+            }
+        }
         ProcessBuilder processBuilder = new ProcessBuilder("bash", "-c", String.join(" ", command));
         Process start = processBuilder.start();
         // we just wait for the process to finish
@@ -342,6 +353,11 @@ public class ClickhouseFileSinkWriter
             }
         }
         int shellReturnCode = start.waitFor();
+        if (shellReturnCode != 0) {
+            throw new ClickhouseConnectorException(
+                    ClickhouseConnectorErrorCode.CLICKHOUSE_LOCAL_EXEC_FAIL,
+                    ClickhouseConnectorErrorCode.CLICKHOUSE_LOCAL_EXEC_FAIL.getErrorMessage());
+        }
         log.info("Clickhouse-local result code is [{}]", shellReturnCode);
         File file =
                 new File(

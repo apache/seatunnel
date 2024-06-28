@@ -111,7 +111,7 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
                         container.execInContainer(
                                 "bash",
                                 "-c",
-                                "mkdir -p /tool && cd /tool && curl https://clickhouse.com/ | sh && chmod 777 clickhouse");
+                                "mkdir -p /tool && cd /tool && curl https://clickhouse.com/ | sh && chmod 777 clickhouse && chmod 777 -R /tool");
                 Assertions.assertEquals(0, download.getExitCode());
             };
 
