@@ -272,8 +272,7 @@ public class ClickhouseFileSinkWriter
         command.add("-n");
         command.add("--file");
         command.add(clickhouseLocalFileTmpFile);
-        command.add("--format_csv_delimiter");
-        command.add("\"" + readerOption.getFileFieldsDelimiter() + "\"");
+        command.add("--input-format \"CSV\"");
         command.add("-S");
         command.add(
                 "\""
@@ -326,10 +325,12 @@ public class ClickhouseFileSinkWriter
                 InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
                 BufferedReader bufferedReader = new BufferedReader(inputStreamReader)) {
             String line;
-            log.error("pwd log: ");
+            StringBuilder stringBuilder = new StringBuilder();
             while ((line = bufferedReader.readLine()) != null) {
-                log.info(line);
+                stringBuilder.append(line);
+                stringBuilder.append("\n");
             }
+            log.info("pwd log: {}", stringBuilder);
         }
         ProcessBuilder processBuilder = new ProcessBuilder("bash", "-c", String.join(" ", command));
         Process start = processBuilder.start();
@@ -338,19 +339,23 @@ public class ClickhouseFileSinkWriter
                 InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
                 BufferedReader bufferedReader = new BufferedReader(inputStreamReader)) {
             String line;
-            log.error("Clickhouse-local log: ");
+            StringBuilder stringBuilder = new StringBuilder();
             while ((line = bufferedReader.readLine()) != null) {
-                log.info(line);
+                stringBuilder.append(line);
+                stringBuilder.append("\n");
             }
+            log.info("Clickhouse-local log: {}", stringBuilder);
         }
         try (InputStream inputStream = start.getErrorStream();
                 InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
                 BufferedReader bufferedReader = new BufferedReader(inputStreamReader)) {
             String line;
-            log.error("Clickhouse-local error log: ");
+            StringBuilder stringBuilder = new StringBuilder();
             while ((line = bufferedReader.readLine()) != null) {
-                log.error(line);
+                stringBuilder.append(line);
+                stringBuilder.append("\n");
             }
+            log.error("Clickhouse-local error log: {}", stringBuilder);
         }
         int shellReturnCode = start.waitFor();
         if (shellReturnCode != 0) {
