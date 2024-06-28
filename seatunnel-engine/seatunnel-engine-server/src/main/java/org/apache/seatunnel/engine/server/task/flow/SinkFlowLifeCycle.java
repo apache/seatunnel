@@ -286,7 +286,8 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                                 } else {
                                     sinkWriteCountPerTable.put(
                                             tableName,
-                                            metricsContext.counter(SINK_WRITE_COUNT + "#" + tableName));
+                                            metricsContext.counter(
+                                                    SINK_WRITE_COUNT + "#" + tableName));
                                 }
                             }
                         }
