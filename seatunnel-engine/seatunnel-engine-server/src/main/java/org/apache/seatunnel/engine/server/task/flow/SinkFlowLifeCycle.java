@@ -275,19 +275,24 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                     long size = ((SeaTunnelRow) record.getData()).getBytesSize();
                     sinkWriteBytes.inc(size);
                     sinkWriteBytesPerSeconds.markEvent(size);
-                    String tableId = ((SeaTunnelRow) record.getData()).getTableId();
-                    if (StringUtils.isNotBlank(tableId)) {
-                        String tableName = TablePath.of(tableId).getTableName();
-                        if (StringUtils.isNotBlank(tableName)) {
-                            Counter sinkTableCounter = sinkWriteCountPerTable.get(tableName);
-                            if (Objects.nonNull(sinkTableCounter)) {
-                                sinkTableCounter.inc();
-                            } else {
-                                sinkWriteCountPerTable.put(
-                                        tableName,
-                                        metricsContext.counter(SINK_WRITE_COUNT + "#" + tableName));
+                    try {
+                        String tableId = ((SeaTunnelRow) record.getData()).getTableId();
+                        if (StringUtils.isNotBlank(tableId)) {
+                            String tableName = TablePath.of(tableId).getTableName();
+                            if (StringUtils.isNotBlank(tableName)) {
+                                Counter sinkTableCounter = sinkWriteCountPerTable.get(tableName);
+                                if (Objects.nonNull(sinkTableCounter)) {
+                                    sinkTableCounter.inc();
+                                } else {
+                                    sinkWriteCountPerTable.put(
+                                            tableName,
+                                            metricsContext.counter(SINK_WRITE_COUNT + "#" + tableName));
+                                }
                             }
                         }
+                    } catch (Exception e) {
+                        log.error("====================== {}", e.getMessage());
+                        throw new RuntimeException(e);
                     }
                 }
             }
