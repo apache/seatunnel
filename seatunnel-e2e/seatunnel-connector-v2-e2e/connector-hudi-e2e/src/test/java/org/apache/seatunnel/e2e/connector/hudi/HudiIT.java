@@ -19,6 +19,8 @@ package org.apache.seatunnel.e2e.connector.hudi;
 
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.container.TestContainerId;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestTemplate;
@@ -26,6 +28,10 @@ import org.testcontainers.containers.Container;
 
 import java.io.IOException;
 
+@DisabledOnContainer(
+        value = {TestContainerId.SPARK_2_4},
+        type = {},
+        disabledReason = "")
 public class HudiIT extends TestSuiteBase {
 
     @TestTemplate
