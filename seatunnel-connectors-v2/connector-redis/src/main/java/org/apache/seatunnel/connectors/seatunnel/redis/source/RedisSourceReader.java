@@ -30,24 +30,30 @@ import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisDataType;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
 
 import redis.clients.jedis.Jedis;
+import redis.clients.jedis.params.ScanParams;
+import redis.clients.jedis.resps.ScanResult;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 
 public class RedisSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     private final RedisParameters redisParameters;
     private final SingleSplitReaderContext context;
     private final DeserializationSchema<SeaTunnelRow> deserializationSchema;
     private Jedis jedis;
+    private final ScanParams scanParams;
+
+    private final String scanType;
 
     public RedisSourceReader(
             RedisParameters redisParameters,
             SingleSplitReaderContext context,
             DeserializationSchema<SeaTunnelRow> deserializationSchema) {
         this.redisParameters = redisParameters;
+        this.scanParams = buildScanParams(redisParameters);
+        this.scanType = resolveScanType(redisParameters.getRedisDataType());
         this.context = context;
         this.deserializationSchema = deserializationSchema;
     }
@@ -66,10 +72,16 @@ public class RedisSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
 
     @Override
     public void internalPollNext(Collector<SeaTunnelRow> output) throws Exception {
-        Set<String> keys = jedis.keys(redisParameters.getKeysPattern());
         RedisDataType redisDataType = redisParameters.getRedisDataType();
-        for (String key : keys) {
-            List<String> values = redisDataType.get(jedis, key);
+        String cursor = ScanParams.SCAN_POINTER_START;
+        while (true) {
+            ScanResult<String> scanResult = jedis.scan(cursor, scanParams, scanType);
+            cursor = scanResult.getCursor();
+            // when cursor return "0", scan end
+            if (ScanParams.SCAN_POINTER_START.equals(cursor)) {
+                break;
+            }
+            List<String> values = scanResult.getResult();
             for (String value : values) {
                 if (deserializationSchema == null) {
                     output.collect(new SeaTunnelRow(new Object[] {value}));
@@ -95,5 +107,19 @@ public class RedisSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
             }
         }
         context.signalNoMoreElement();
+    }
+
+    private ScanParams buildScanParams(RedisParameters redisParameters) {
+        ScanParams params = new ScanParams();
+        params.count(redisParameters.getScanCount());
+        params.match(redisParameters.getKeysPattern());
+        return params;
+    }
+
+    private String resolveScanType(RedisDataType redisDataType) {
+        if (RedisDataType.KEY.equals(redisDataType)) {
+            return "STRING";
+        }
+        return redisDataType.name();
     }
 }

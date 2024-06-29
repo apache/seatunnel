@@ -83,7 +83,7 @@ public class RedisConfig {
             Options.key("data_type")
                     .enumType(RedisDataType.class)
                     .noDefaultValue()
-                    .withDescription("redis data types, support key hash list set zset.");
+                    .withDescription("redis data types, support string hash list set zset.");
 
     public static final Option<RedisConfig.Format> FORMAT =
             Options.key("format")
@@ -118,6 +118,13 @@ public class RedisConfig {
                     .longType()
                     .defaultValue(-1L)
                     .withDescription("Set redis expiration time.");
+
+    public static final Option<Integer> SCAN_COUNT =
+            Options.key("scan_count")
+                    .intType()
+                    .defaultValue(10)
+                    .withDescription(
+                            "Indicates the number of keys to attempt to return per iteration.default 10");
 
     public enum Format {
         JSON,

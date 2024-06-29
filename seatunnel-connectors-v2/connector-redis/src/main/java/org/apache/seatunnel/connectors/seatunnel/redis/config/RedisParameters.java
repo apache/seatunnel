@@ -49,6 +49,8 @@ public class RedisParameters implements Serializable {
     private List<String> redisNodes = Collections.emptyList();
     private long expire = RedisConfig.EXPIRE.defaultValue();
 
+    private int scanCount = RedisConfig.SCAN_COUNT.defaultValue();
+
     public void buildWithConfig(ReadonlyConfig config) {
         // set host
         this.host = config.get(RedisConfig.HOST);
@@ -84,6 +86,8 @@ public class RedisParameters implements Serializable {
         }
         // set redis data type verification factory createAndPrepareSource
         this.redisDataType = config.get(RedisConfig.DATA_TYPE);
+        // Indicates the number of keys to attempt to return per iteration.default 10
+        this.scanCount = config.get(RedisConfig.SCAN_COUNT);
     }
 
     public Jedis buildJedis() {
