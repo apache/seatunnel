@@ -936,7 +936,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                             .forEach(f -> f.cancel(true));
                 }
             } catch (CancellationException ignore) {
-                // ignore
+                logger.warning(ExceptionUtils.getMessage(ignore));
             }
         }
 
@@ -947,27 +947,43 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                             "taskDone, taskId = %d, taskGroup = %s",
                             task.getTaskID(), taskGroupLocation));
             Throwable ex = executionException.get();
+            logger.info(String.format("taskGroup %s completionLatch: %d", taskGroupLocation, completionLatch.get()));
             if (completionLatch.decrementAndGet() == 0) {
+                logger.info(String.format("taskGroup %s completionLatch = 0", taskGroupLocation));
                 recycleClassLoader(taskGroupLocation);
+                logger.info(String.format("taskGroup %s 1111111111111111111", taskGroupLocation));
                 finishedExecutionContexts.put(
                         taskGroupLocation, executionContexts.remove(taskGroupLocation));
+                logger.info(String.format("taskGroup %s 22222222222222222222", taskGroupLocation));
                 cancellationFutures.remove(taskGroupLocation);
-                cancelAsyncFunction(taskGroupLocation);
+                logger.info(String.format("taskGroup %s 33333333333333333333", taskGroupLocation));
+                try {
+                    cancelAsyncFunction(taskGroupLocation);
+                } catch (Throwable e) {
+                    logger.warning("Error while closing task", e);
+                    throw new RuntimeException("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&", e);
+                }
+                logger.info(String.format("taskGroup %s 44444444444444444444", taskGroupLocation));
                 updateMetricsContextInImap();
+                logger.info(String.format("taskGroup %s 5555555555555555555555", taskGroupLocation));
                 if (ex == null) {
+                    logger.info(String.format("taskGroup %s complete with FINISHED", taskGroupLocation));
                     future.complete(
                             new TaskExecutionState(taskGroupLocation, ExecutionState.FINISHED));
                     return;
                 } else if (isCancel.get()) {
+                    logger.info(String.format("taskGroup %s complete with CANCELED", taskGroupLocation));
                     future.complete(
                             new TaskExecutionState(taskGroupLocation, ExecutionState.CANCELED));
                     return;
                 } else {
+                    logger.info(String.format("taskGroup %s complete with FAILED", taskGroupLocation));
                     future.complete(
                             new TaskExecutionState(taskGroupLocation, ExecutionState.FAILED, ex));
                 }
             }
             if (!isCancel.get() && ex != null) {
+                logger.info(String.format("task %s error with exception: [%s], cancel other task in taskGroup %s.", task.getTaskID(), ex, taskGroupLocation));
                 cancelAllTask(taskGroupLocation);
             }
         }

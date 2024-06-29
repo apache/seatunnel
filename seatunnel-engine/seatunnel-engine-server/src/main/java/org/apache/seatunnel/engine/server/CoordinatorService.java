@@ -165,6 +165,8 @@ public class CoordinatorService {
 
     private EventProcessor eventProcessor;
 
+    private PassiveCompletableFuture restoreAllJobFromMasterNodeSwitchFuture;
+
     public CoordinatorService(
             @NonNull NodeEngineImpl nodeEngine,
             @NonNull SeaTunnelServer seaTunnelServer,
@@ -280,9 +282,21 @@ public class CoordinatorService {
         if (connectorJarStorageConfig.getEnable()) {
             connectorPackageService = new ConnectorPackageService(seaTunnelServer);
         }
+
+        restoreAllJobFromMasterNodeSwitchFuture = new PassiveCompletableFuture(CompletableFuture.runAsync(this::restoreAllRunningJobFromMasterNodeSwitch, executorService));
     }
 
-    private void restoreAllRunningJobs() {
+    private void restoreAllRunningJobFromMasterNodeSwitch() {
+        // waiting have worker registered
+        while (getResourceManager().workerCount() == 0) {
+            try {
+                logger.info("Waiting for worker registered");
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                logger.severe(ExceptionUtils.getMessage(e));
+                throw new SeaTunnelEngineException("wait worker register error", e);
+            }
+        }
         List<CompletableFuture<Void>> collect =
                 runningJobInfoIMap.entrySet().stream()
                         .map(
@@ -312,6 +326,7 @@ public class CoordinatorService {
                     CompletableFuture.allOf(collect.toArray(new CompletableFuture[0]));
             voidCompletableFuture.get();
         } catch (Exception e) {
+            logger.severe(ExceptionUtils.getMessage(e));
             throw new SeaTunnelEngineException(e);
         }
     }
@@ -385,21 +400,6 @@ public class CoordinatorService {
                 }
                 initCoordinatorService();
                 isActive = true;
-                CompletableFuture<Void> restoreAllRunningJobsFuture = CompletableFuture.runAsync(() -> {
-                    // waiting have worker registered
-                    while (isActive && seaTunnelServer.isMasterNode() && getResourceManager().workerCount() == 0) {
-                        try {
-                            logger.info("Waiting for worker registered");
-                            Thread.sleep(1000);
-                        } catch (InterruptedException e) {
-                            logger.severe(e);
-                        }
-                    }
-                    if (isActive && seaTunnelServer.isMasterNode()) {
-                        restoreAllRunningJobs();
-                    }
-                }, executorService);
-                restoreAllRunningJobsFuture.get();
             } else if (isActive && !this.seaTunnelServer.isMasterNode()) {
                 isActive = false;
                 logger.info(
@@ -548,6 +548,8 @@ public class CoordinatorService {
     }
 
     public PassiveCompletableFuture<JobResult> waitForJobComplete(long jobId) {
+        // must wait for all job restore complete
+        restoreAllJobFromMasterNodeSwitchFuture.join();
         JobMaster runningJobMaster = runningJobMasterMap.get(jobId);
         if (runningJobMaster == null) {
             // Because operations on Imap cannot be performed within Operation.
@@ -736,8 +738,8 @@ public class CoordinatorService {
                     if (null != deployAddress
                             && deployAddress.equals(lostAddress)
                             && (executionState.equals(ExecutionState.DEPLOYING)
-                                    || executionState.equals(ExecutionState.RUNNING)
-                                    || executionState.equals(ExecutionState.CANCELING))) {
+                            || executionState.equals(ExecutionState.RUNNING)
+                            || executionState.equals(ExecutionState.CANCELING))) {
                         TaskGroupLocation taskGroupLocation = physicalVertex.getTaskGroupLocation();
                         physicalVertex.updateStateByExecutionService(
                                 new TaskExecutionState(
