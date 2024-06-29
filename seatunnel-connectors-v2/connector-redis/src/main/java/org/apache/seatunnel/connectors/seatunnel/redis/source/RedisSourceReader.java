@@ -77,11 +77,10 @@ public class RedisSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         while (true) {
             ScanResult<String> scanResult = jedis.scan(cursor, scanParams, scanType);
             cursor = scanResult.getCursor();
-            // when cursor return "0", scan end
-            if (ScanParams.SCAN_POINTER_START.equals(cursor)) {
+            List<String> values = scanResult.getResult();
+            if (values == null || values.isEmpty()) {
                 break;
             }
-            List<String> values = scanResult.getResult();
             for (String value : values) {
                 if (deserializationSchema == null) {
                     output.collect(new SeaTunnelRow(new Object[] {value}));
@@ -104,6 +103,10 @@ public class RedisSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                         deserializationSchema.deserialize(value.getBytes(), output);
                     }
                 }
+            }
+            // when cursor return "0", scan end
+            if (ScanParams.SCAN_POINTER_START.equals(cursor)) {
+                break;
             }
         }
         context.signalNoMoreElement();
