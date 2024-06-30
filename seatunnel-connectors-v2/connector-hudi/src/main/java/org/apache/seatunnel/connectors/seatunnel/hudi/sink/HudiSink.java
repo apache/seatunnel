@@ -17,15 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hudi.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -50,16 +48,17 @@ public class HudiSink
 
     private HudiSinkConfig hudiSinkConfig;
     private SeaTunnelRowType seaTunnelRowType;
+    private CatalogTable catalogTable;
+
+    public HudiSink(ReadonlyConfig config, CatalogTable table) {
+        this.hudiSinkConfig = HudiSinkConfig.of(config);
+        this.catalogTable = table;
+        this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
+    }
 
     @Override
     public String getPluginName() {
         return "Hudi";
-    }
-
-    @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
-        ReadonlyConfig config = ReadonlyConfig.fromConfig(pluginConfig);
-        this.hudiSinkConfig = HudiSinkConfig.of(config);
     }
 
     @Override
