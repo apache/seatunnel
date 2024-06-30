@@ -22,7 +22,7 @@ Used to read data from Redis.
 | host                | string | yes                   | -             |
 | port                | int    | yes                   | -             |
 | keys                | string | yes                   | -             |
-| scan_count          | string | yes                   | 10            |
+| batch_size          | int    | yes                   | 10            |
 | data_type           | string | yes                   | -             |
 | user                | string | no                    | -             |
 | auth                | string | no                    | -             |
@@ -114,7 +114,7 @@ each kv that in hash key it will be treated as a row and send it to upstream.
 
 keys pattern
 
-### scan_count [string]
+### batch_size [int]
 
 indicates the number of keys to attempt to return per iteration.default 10
 

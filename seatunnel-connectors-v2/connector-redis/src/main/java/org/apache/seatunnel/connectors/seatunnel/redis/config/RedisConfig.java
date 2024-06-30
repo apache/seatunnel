@@ -119,12 +119,13 @@ public class RedisConfig {
                     .defaultValue(-1L)
                     .withDescription("Set redis expiration time.");
 
-    public static final Option<Integer> SCAN_COUNT =
-            Options.key("scan_count")
+    public static final Option<Integer> BATCH_SIZE =
+            Options.key("batch_size")
                     .intType()
                     .defaultValue(10)
                     .withDescription(
-                            "Indicates the number of keys to attempt to return per iteration.default 10");
+                            "batch_size is used to control the size of a batch of data during read and write operations"
+                                    + ",default 10");
 
     public enum Format {
         JSON,

@@ -19,17 +19,19 @@ package org.apache.seatunnel.connectors.seatunnel.redis.source;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
+import org.apache.seatunnel.connectors.seatunnel.redis.client.RedisClient;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisConfig;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisDataType;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
+import org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisConnectorException;
 
-import redis.clients.jedis.Jedis;
+import org.apache.commons.collections4.CollectionUtils;
+
 import redis.clients.jedis.params.ScanParams;
 import redis.clients.jedis.resps.ScanResult;
 
@@ -37,73 +39,51 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 public class RedisSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     private final RedisParameters redisParameters;
     private final SingleSplitReaderContext context;
     private final DeserializationSchema<SeaTunnelRow> deserializationSchema;
-    private Jedis jedis;
-    private final ScanParams scanParams;
-
-    private final String scanType;
+    private RedisClient redisClient;
 
     public RedisSourceReader(
             RedisParameters redisParameters,
             SingleSplitReaderContext context,
             DeserializationSchema<SeaTunnelRow> deserializationSchema) {
         this.redisParameters = redisParameters;
-        this.scanParams = buildScanParams(redisParameters);
-        this.scanType = resolveScanType(redisParameters.getRedisDataType());
         this.context = context;
         this.deserializationSchema = deserializationSchema;
     }
 
     @Override
     public void open() throws Exception {
-        this.jedis = redisParameters.buildJedis();
+        this.redisClient = redisParameters.buildRedisClient();
     }
 
     @Override
     public void close() throws IOException {
-        if (Objects.nonNull(jedis)) {
-            jedis.close();
+        if (Objects.nonNull(redisClient)) {
+            redisClient.close();
         }
     }
 
     @Override
     public void internalPollNext(Collector<SeaTunnelRow> output) throws Exception {
-        RedisDataType redisDataType = redisParameters.getRedisDataType();
+        RedisDataType redisDataType = resolveScanType(redisParameters.getRedisDataType());
         String cursor = ScanParams.SCAN_POINTER_START;
+        String keysPattern = redisParameters.getKeysPattern();
+        int batchSize = redisParameters.getBatchSize();
         while (true) {
-            ScanResult<String> scanResult = jedis.scan(cursor, scanParams, scanType);
+            // String cursor, int batchSize, String keysPattern, RedisType type
+            ScanResult<String> scanResult =
+                    redisClient.scanKeys(cursor, batchSize, keysPattern, redisDataType);
             cursor = scanResult.getCursor();
-            List<String> values = scanResult.getResult();
-            if (values == null || values.isEmpty()) {
+            List<String> keys = scanResult.getResult();
+            if (CollectionUtils.isEmpty(keys)) {
                 break;
             }
-            for (String value : values) {
-                if (deserializationSchema == null) {
-                    output.collect(new SeaTunnelRow(new Object[] {value}));
-                } else {
-                    if (redisParameters.getHashKeyParseMode() == RedisConfig.HashKeyParseMode.KV
-                            && redisDataType == RedisDataType.HASH) {
-                        // Treat each key-value pair in the hash-key as one piece of data
-                        Map<String, String> recordsMap = JsonUtils.toMap(value);
-                        for (Map.Entry<String, String> entry : recordsMap.entrySet()) {
-                            String k = entry.getKey();
-                            String v = entry.getValue();
-                            Map<String, String> valuesMap = JsonUtils.toMap(v);
-                            SeaTunnelDataType<SeaTunnelRow> seaTunnelRowType =
-                                    deserializationSchema.getProducedType();
-                            valuesMap.put(((SeaTunnelRowType) seaTunnelRowType).getFieldName(0), k);
-                            deserializationSchema.deserialize(
-                                    JsonUtils.toJsonString(valuesMap).getBytes(), output);
-                        }
-                    } else {
-                        deserializationSchema.deserialize(value.getBytes(), output);
-                    }
-                }
-            }
+            pollNext(keys, redisDataType, output);
             // when cursor return "0", scan end
             if (ScanParams.SCAN_POINTER_START.equals(cursor)) {
                 break;
@@ -112,17 +92,104 @@ public class RedisSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
         context.signalNoMoreElement();
     }
 
-    private ScanParams buildScanParams(RedisParameters redisParameters) {
-        ScanParams params = new ScanParams();
-        params.count(redisParameters.getScanCount());
-        params.match(redisParameters.getKeysPattern());
-        return params;
+    private void pollNext(List<String> keys, RedisDataType dataType, Collector<SeaTunnelRow> output)
+            throws IOException {
+        if (RedisDataType.HASH.equals(dataType)) {
+            pollHashMapToNext(keys, output);
+            return;
+        }
+        if (RedisDataType.STRING.equals(dataType) || RedisDataType.KEY.equals(dataType)) {
+            pollStringToNext(keys, output);
+            return;
+        }
+        if (RedisDataType.LIST.equals(dataType)) {
+            pollListToNext(keys, output);
+            return;
+        }
+        if (RedisDataType.SET.equals(dataType)) {
+            pollSetToNext(keys, output);
+            return;
+        }
+        if (RedisDataType.ZSET.equals(dataType)) {
+            pollZsetToNext(keys, output);
+            return;
+        }
+        throw new RedisConnectorException(
+                CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                "UnSupport redisDataType,only support string,list,hash,set,zset");
     }
 
-    private String resolveScanType(RedisDataType redisDataType) {
-        if (RedisDataType.KEY.equals(redisDataType)) {
-            return "STRING";
+    private void pollZsetToNext(List<String> keys, Collector<SeaTunnelRow> output)
+            throws IOException {
+        List<List<String>> zSetList = redisClient.batchGetZset(keys);
+        for (List<String> values : zSetList) {
+            for (String value : values) {
+                pollValueToNext(value, output);
+            }
         }
-        return redisDataType.name();
+    }
+
+    private void pollSetToNext(List<String> keys, Collector<SeaTunnelRow> output)
+            throws IOException {
+        List<Set<String>> setList = redisClient.batchGetSet(keys);
+        for (Set<String> values : setList) {
+            for (String value : values) {
+                pollValueToNext(value, output);
+            }
+        }
+    }
+
+    private void pollListToNext(List<String> keys, Collector<SeaTunnelRow> output)
+            throws IOException {
+        List<List<String>> valueList = redisClient.batchGetList(keys);
+        for (List<String> values : valueList) {
+            for (String value : values) {
+                pollValueToNext(value, output);
+            }
+        }
+    }
+
+    private void pollStringToNext(List<String> keys, Collector<SeaTunnelRow> output)
+            throws IOException {
+        List<String> values = redisClient.batchGetString(keys);
+        for (String value : values) {
+            pollValueToNext(value, output);
+        }
+    }
+
+    private void pollValueToNext(String value, Collector<SeaTunnelRow> output) throws IOException {
+        if (deserializationSchema == null) {
+            output.collect(new SeaTunnelRow(new Object[] {value}));
+        } else {
+            deserializationSchema.deserialize(value.getBytes(), output);
+        }
+    }
+
+    private void pollHashMapToNext(List<String> keys, Collector<SeaTunnelRow> output)
+            throws IOException {
+        List<Map<String, String>> values = redisClient.batchGetHash(keys);
+        if (deserializationSchema == null) {
+            for (Map<String, String> value : values) {
+                output.collect(new SeaTunnelRow(new Object[] {JsonUtils.toJsonString(value)}));
+            }
+            return;
+        }
+        for (Map<String, String> recordsMap : values) {
+            if (redisParameters.getHashKeyParseMode() == RedisConfig.HashKeyParseMode.KV) {
+                deserializationSchema.deserialize(
+                        JsonUtils.toJsonString(recordsMap).getBytes(), output);
+            } else {
+                SeaTunnelRow seaTunnelRow =
+                        new SeaTunnelRow(new Object[] {JsonUtils.toJsonString(recordsMap)});
+                output.collect(seaTunnelRow);
+            }
+        }
+    }
+
+    private RedisDataType resolveScanType(RedisDataType dataType) {
+        if (RedisDataType.KEY.equals(dataType)) {
+            return RedisDataType.STRING;
+        }
+        return dataType;
     }
 }
