@@ -27,8 +27,8 @@ import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 
 import com.google.auto.service.AutoService;
 
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiOptions.CONF_FILES;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiOptions.TABLE_NAME;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiOptions.TABLE_PATH;
 
 @AutoService(Factory.class)
 public class HudiSinkFactory implements TableSinkFactory {
@@ -39,7 +39,7 @@ public class HudiSinkFactory implements TableSinkFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().required(CONF_FILES, TABLE_NAME).build();
+        return OptionRule.builder().required(TABLE_PATH, TABLE_NAME).build();
     }
 
     @Override
