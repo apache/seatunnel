@@ -34,14 +34,11 @@ import org.apache.seatunnel.connectors.seatunnel.hudi.state.HudiAggregatedCommit
 import org.apache.seatunnel.connectors.seatunnel.hudi.state.HudiCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.hudi.state.HudiSinkState;
 
-import com.google.auto.service.AutoService;
-
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-@AutoService(SeaTunnelSink.class)
 public class HudiSink
         implements SeaTunnelSink<
                 SeaTunnelRow, HudiSinkState, HudiCommitInfo, HudiAggregatedCommitInfo> {
