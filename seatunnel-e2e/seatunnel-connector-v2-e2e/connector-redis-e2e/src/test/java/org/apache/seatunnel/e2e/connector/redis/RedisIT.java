@@ -48,7 +48,6 @@ import org.testcontainers.utility.DockerLoggerFactory;
 
 import lombok.extern.slf4j.Slf4j;
 import redis.clients.jedis.Jedis;
-import redis.clients.jedis.Pipeline;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -303,10 +302,9 @@ public class RedisIT extends TestSuiteBase implements TestResource {
         List<String> list = jedis.lrange("list-hash-check", 0, -1);
         Assertions.assertEquals(100, list.size());
         jedis.del("list-hash-check");
-        Pipeline pipelined = jedis.pipelined();
         for (int i = 0; i < 100; i++) {
             String hashKey = hashKeyPrefix + i;
-            pipelined.del(hashKey);
+            jedis.del(hashKey);
         }
         for (int i = 0; i < 100; i++) {
             String hashKey = hashKeyPrefix + i;
