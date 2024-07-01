@@ -133,7 +133,7 @@ public class JdbcHanaIT extends AbstractJdbcIT {
 
     @Override
     String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/sap/cloud/db/jdbc/ngdbc/2.14.7/ngdbc-2.14.7.jar";
+        return "https://repo1.maven.org/maven2/com/sap/cloud/db/jdbc/ngdbc/2.21.11/ngdbc-2.21.11.jar";
     }
 
     @Override
@@ -241,6 +241,7 @@ public class JdbcHanaIT extends AbstractJdbcIT {
                 CatalogUtils.getCatalogTable(
                         connection, TablePath.of(SOURCE_TABLE), new SapHanaTypeMapper());
         List<String> columnNames = catalogTable.getTableSchema().getPrimaryKey().getColumnNames();
-        Assertions.assertEquals(34, columnNames.size());
+        Assertions.assertEquals(1, columnNames.size());
+        Assertions.assertEquals(25, catalogTable.getTableSchema().getColumns().size());
     }
 }
