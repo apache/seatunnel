@@ -38,8 +38,6 @@ public class MilvusSource
                 SupportParallelism,
                 SupportColumnProjection {
 
-    // 支持 SupportColumnProjection （列投影，就是支持只拿出指定列，不拿所有的）
-
     private final ReadonlyConfig config;
     private final Map<TablePath, CatalogTable> sourceTables;
 
