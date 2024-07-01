@@ -292,7 +292,6 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                             }
                         }
                     } catch (Exception e) {
-                        log.error("====================== {}", e.getMessage());
                         throw new RuntimeException(e);
                     }
                 }
