@@ -17,13 +17,12 @@
 
 package org.apache.seatunnel.e2e.connector.hudi;
 
-import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
-import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -34,6 +33,9 @@ import org.apache.parquet.hadoop.example.GroupReadSupport;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
+import org.testcontainers.containers.GenericContainer;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
@@ -43,25 +45,47 @@ import static org.awaitility.Awaitility.given;
 
 @DisabledOnContainer(
         value = {TestContainerId.SPARK_2_4},
-        type = {},
+        type = {EngineType.FLINK},
         disabledReason = "")
+@Slf4j
 public class HudiIT extends TestSuiteBase {
 
-    private static final String TABLE_PATH = "/tmp/hudi";
+    private static final String TABLE_PATH = "/tmp/hudi/";
+    private static final String NAMESPACE = "hudi";
+    private static final String NAMESPACE_TAR = "hudi.tar";
 
     protected final ContainerExtendedFactory containerExtendedFactory =
-            container -> {
-                FileUtils.createNewDir(TABLE_PATH);
-                container.copyFileFromContainer(TABLE_PATH, TABLE_PATH);
-            };
+            new ContainerExtendedFactory() {
+                @Override
+                public void extend(GenericContainer<?> container)
+                        throws IOException, InterruptedException {
+                    container.execInContainer(
+                            "sh",
+                            "-c",
+                            "cd /tmp" + " && tar -czvf " + NAMESPACE_TAR + " " + NAMESPACE);
+                    container.copyFileFromContainer(
+                            "/tmp/" + NAMESPACE_TAR, "/tmp/" + NAMESPACE_TAR);
 
-    @TestContainerExtension
-    protected final ContainerExtendedFactory extendedFactory =
-            container -> {
-                container.execInContainer("sh", "-c", "mkdir -p " + TABLE_PATH);
-                container.execInContainer("sh", "-c", "chmod -R 777  " + TABLE_PATH);
+                    extractFiles();
+                }
+
+                private void extractFiles() {
+                    ProcessBuilder processBuilder = new ProcessBuilder();
+                    processBuilder.command("sh", "-c", "cd /tmp" + " && tar -xvf " + NAMESPACE_TAR);
+                    try {
+                        Process process = processBuilder.start();
+                        // 等待命令执行完成
+                        int exitCode = process.waitFor();
+                        if (exitCode == 0) {
+                            log.info("Extract files successful.");
+                        } else {
+                            log.error("Extract files failed with exit code " + exitCode);
+                        }
+                    } catch (IOException | InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
             };
-;
 
     @TestTemplate
     public void testWriteHudi(TestContainer container)
