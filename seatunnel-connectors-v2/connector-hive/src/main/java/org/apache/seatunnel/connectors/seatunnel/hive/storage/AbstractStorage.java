@@ -23,8 +23,11 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSinkConfig;
+import org.apache.seatunnel.common.utils.ExceptionUtils;
+import org.apache.seatunnel.connectors.seatunnel.file.hdfs.source.config.HdfsSourceConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConfig;
+import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.hive.exception.HiveConnectorException;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
@@ -63,57 +66,49 @@ public abstract class AbstractStorage implements Storage {
      * @return
      */
     protected Configuration loadHiveBaseHadoopConfig(ReadonlyConfig readonlyConfig) {
-        Configuration configuration = new Configuration();
-        // Try to load from hadoop_conf_path(The Bucket configuration is typically in core-site.xml)
-        Optional<String> hadoopConfPath = readonlyConfig.getOptional(HiveConfig.HADOOP_CONF_PATH);
-        if (hadoopConfPath.isPresent()) {
-            HADOOP_CONF_FILES.forEach(
-                    confFile -> {
-                        java.nio.file.Path path = Paths.get(hadoopConfPath.get(), confFile);
-                        if (Files.exists(path)) {
-                            try {
-                                configuration.addResource(path.toUri().toURL());
-                            } catch (IOException e) {
-                                log.warn(
-                                        "Error adding Hadoop resource {}, resource was not added",
-                                        path,
-                                        e);
-                            }
-                        }
-                    });
-        }
-        readonlyConfig
-                .getOptional(BaseSinkConfig.HDFS_SITE_PATH)
-                .ifPresent(
-                        hdfsSitePath -> {
-                            try {
-                                configuration.addResource(new File(hdfsSitePath).toURI().toURL());
-                            } catch (IOException e) {
-                                log.warn(
-                                        "Error adding Hadoop resource {}, resource was not added",
-                                        hdfsSitePath,
-                                        e);
+        try {
+            Configuration configuration = new Configuration();
+            // Try to load from hadoop_conf_path(The Bucket configuration is typically in
+            // core-site.xml)
+            Optional<String> hadoopConfPath =
+                    readonlyConfig.getOptional(HiveConfig.HADOOP_CONF_PATH);
+            if (hadoopConfPath.isPresent()) {
+                HADOOP_CONF_FILES.forEach(
+                        confFile -> {
+                            java.nio.file.Path path = Paths.get(hadoopConfPath.get(), confFile);
+                            if (Files.exists(path)) {
+                                try {
+                                    configuration.addResource(path.toUri().toURL());
+                                } catch (IOException e) {
+                                    log.warn(
+                                            "Error adding Hadoop resource {}, resource was not added",
+                                            path,
+                                            e);
+                                }
                             }
                         });
-        readonlyConfig
-                .getOptional(HiveConfig.HIVE_SITE_PATH)
-                .ifPresent(
-                        hiveSitePath -> {
-                            try {
-                                configuration.addResource(new File(hiveSitePath).toURI().toURL());
-                            } catch (IOException e) {
-                                log.warn(
-                                        "Error adding Hadoop resource {}, resource was not added",
-                                        hiveSitePath,
-                                        e);
-                            }
-                        });
-        // Try to load from hadoopConf
-        Optional<Map<String, String>> hadoopConf =
-                readonlyConfig.getOptional(HiveConfig.HADOOP_CONF);
-        if (hadoopConf.isPresent()) {
-            hadoopConf.get().forEach((k, v) -> configuration.set(k, v));
+            }
+            String hiveSitePath = readonlyConfig.get(HiveConfig.HIVE_SITE_PATH);
+            String hdfsSitePath = readonlyConfig.get(HdfsSourceConfigOptions.HDFS_SITE_PATH);
+            if (StringUtils.isNotBlank(hdfsSitePath)) {
+                configuration.addResource(new File(hdfsSitePath).toURI().toURL());
+            }
+
+            if (StringUtils.isNotBlank(hiveSitePath)) {
+                configuration.addResource(new File(hiveSitePath).toURI().toURL());
+            }
+            // Try to load from hadoopConf
+            Optional<Map<String, String>> hadoopConf =
+                    readonlyConfig.getOptional(HiveConfig.HADOOP_CONF);
+            if (hadoopConf.isPresent()) {
+                hadoopConf.get().forEach((k, v) -> configuration.set(k, v));
+            }
+            return configuration;
+        } catch (Exception e) {
+            String errorMsg = String.format("Failed to load hadoop configuration, please check it");
+            log.error(errorMsg + ":" + ExceptionUtils.getMessage(e));
+            throw new HiveConnectorException(
+                    HiveConnectorErrorCode.LOAD_HIVE_BASE_HADOOP_CONFIG_FAILED, e);
         }
-        return configuration;
     }
 }
