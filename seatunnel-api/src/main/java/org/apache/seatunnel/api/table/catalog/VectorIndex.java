@@ -37,5 +37,4 @@ public class VectorIndex implements Serializable {
     private String indexType;
 
     private String metricType;
-
 }

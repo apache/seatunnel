@@ -14,7 +14,7 @@ Read data from Milvus or Zilliz Cloud
 
 ## Source Options
 
-| Name       | Type   | Required | Default | Description                                                                                |
+|    Name    |  Type  | Required | Default |                                        Description                                         |
 |------------|--------|----------|---------|--------------------------------------------------------------------------------------------|
 | url        | String | Yes      | -       | The URL to connect to Milvus or Zilliz Cloud.                                              |
 | token      | String | Yes      | -       | User:password                                                                              |

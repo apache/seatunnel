@@ -14,7 +14,7 @@ Write data to Milvus or Zilliz Cloud
 
 ## Sink Options
 
-| Name                 | Type    | Required | Default                      | Description                                               |
+|         Name         |  Type   | Required |           Default            |                        Description                        |
 |----------------------|---------|----------|------------------------------|-----------------------------------------------------------|
 | url                  | String  | Yes      | -                            | The URL to connect to Milvus or Zilliz Cloud.             |
 | token                | String  | Yes      | -                            | User:password                                             |

@@ -112,7 +112,8 @@ public final class TableSchema implements Serializable {
         }
 
         public TableSchema build() {
-            return new TableSchema(columns, primaryKey, constraintKeys, vectorIndexes, enableDynamicField);
+            return new TableSchema(
+                    columns, primaryKey, constraintKeys, vectorIndexes, enableDynamicField);
         }
     }
 
