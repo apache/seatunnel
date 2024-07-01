@@ -281,6 +281,8 @@ public final class MemberImpl extends AbstractMember
         if (localMember()) {
             sb.append(" this");
         }
+
+        // update for seatunnel, add worker and master info
         if (isLiteMember()) {
             sb.append(" worker");
         }
@@ -290,6 +292,8 @@ public final class MemberImpl extends AbstractMember
                 && instance.node.getClusterService().getMasterAddress().equals(address)) {
             sb.append(" master");
         }
+
+        // update for seatunnel, add worker and master info end
         return sb.toString();
     }
 }

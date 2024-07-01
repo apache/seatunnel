@@ -53,7 +53,7 @@ seatunnel:
         # Other configurations
 ```
 
-### 4.2_slot configuration
+### 4.2 Slot configuration
 
 The number of slots determines the number of task groups that the cluster node can run in parallel. The formula for the number of slots required for a task is N = 2 + P (the parallelism configured by the task). By default, the number of slots in the SeaTunnel Engine is dynamic, that is, there is no limit on the number. We recommend that the number of slots be set to twice the number of CPU cores on the node.
 

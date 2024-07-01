@@ -463,8 +463,11 @@ public class SubPlan {
                 reset();
                 jobMaster.getCheckpointManager().reportedPipelineRunning(pipelineId, false);
                 jobMaster.getPhysicalPlan().addPipelineEndCallback(this);
-                log.info("Wait {}s and then restore the pipeline ", pipelineRestoreIntervalSeconds);
-                Thread.sleep(pipelineRestoreIntervalSeconds);
+                log.info(
+                        "Wait {}s and then restore the pipeline {}",
+                        pipelineRestoreIntervalSeconds,
+                        getPipelineFullName());
+                Thread.sleep(pipelineRestoreIntervalSeconds * 1000);
                 return true;
             } catch (Throwable e) {
                 if (this.currPipelineStatus.isEndState()) {

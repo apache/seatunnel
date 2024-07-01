@@ -283,7 +283,10 @@ public class CoordinatorService {
             connectorPackageService = new ConnectorPackageService(seaTunnelServer);
         }
 
-        restoreAllJobFromMasterNodeSwitchFuture = new PassiveCompletableFuture(CompletableFuture.runAsync(this::restoreAllRunningJobFromMasterNodeSwitch, executorService));
+        restoreAllJobFromMasterNodeSwitchFuture =
+                new PassiveCompletableFuture(
+                        CompletableFuture.runAsync(
+                                this::restoreAllRunningJobFromMasterNodeSwitch, executorService));
     }
 
     private void restoreAllRunningJobFromMasterNodeSwitch() {
@@ -738,8 +741,8 @@ public class CoordinatorService {
                     if (null != deployAddress
                             && deployAddress.equals(lostAddress)
                             && (executionState.equals(ExecutionState.DEPLOYING)
-                            || executionState.equals(ExecutionState.RUNNING)
-                            || executionState.equals(ExecutionState.CANCELING))) {
+                                    || executionState.equals(ExecutionState.RUNNING)
+                                    || executionState.equals(ExecutionState.CANCELING))) {
                         TaskGroupLocation taskGroupLocation = physicalVertex.getTaskGroupLocation();
                         physicalVertex.updateStateByExecutionService(
                                 new TaskExecutionState(

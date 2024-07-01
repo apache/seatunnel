@@ -29,7 +29,7 @@ set "APP_MAIN=org.apache.seatunnel.core.starter.seatunnel.SeaTunnelServer"
 set "OUT=%APP_DIR%\logs\seatunnel-server.out"
 set "MASTER_OUT=%APP_DIR%\logs\seatunnel-engine-master.out"
 set "WORKER_OUT=%APP_DIR%\logs\seatunnel-engine-worker.out"
-set "NODE_RULE=master_and_worker"
+set "NODE_ROLE=master_and_worker"
 
 set "HELP=false"
 set "args="
@@ -40,7 +40,7 @@ for %%I in (%*) do (
     if "%%I"=="--daemon" set "DAEMON=true"
     if "%%I"=="-h" set "HELP=true"
     if "%%I"=="--help" set "HELP=true"
-    if "%%I"=="-r" set "NODE_RULE=%%~nI"
+    if "%%I"=="-r" set "NODE_ROLE=%%~nI"
 )
 
 set "JAVA_OPTS=%JvmOption%"
@@ -66,7 +66,7 @@ if exist "%CONF_DIR%\log4j2.properties" (
     set "JAVA_OPTS=%JAVA_OPTS% -Dseatunnel.logs.file_name=seatunnel-engine-server"
 )
 
-if "%NODE_RULE%" == "master" (
+if "%NODE_ROLE%" == "master" (
     set "OUT=%MASTER_OUT%"
     set "JAVA_OPTS=%JAVA_OPTS% -Dseatunnel.logs.file_name=seatunnel-engine-master"
     for /f "usebackq delims=" %%I in ("%APP_DIR%\config\jvm_master_options") do (
@@ -78,7 +78,7 @@ if "%NODE_RULE%" == "master" (
     REM SeaTunnel Engine Config
     set "HAZELCAST_CONFIG=%CONF_DIR%\hazelcast-master.yaml"
 
-) elseif "%NODE_RULE%" == "worker" (
+) elseif "%NODE_ROLE%" == "worker" (
     set "OUT=%WORKER_OUT%"
     set "JAVA_OPTS=%JAVA_OPTS% -Dseatunnel.logs.file_name=seatunnel-engine-worker"
     for /f "usebackq delims=" %%I in ("%APP_DIR%\config\jvm_worker_options") do (
@@ -89,7 +89,7 @@ if "%NODE_RULE%" == "master" (
     )
     REM SeaTunnel Engine Config
     set "HAZELCAST_CONFIG=%CONF_DIR%\hazelcast-worker.yaml"
-) elseif "%NODE_RULE%" == "master_and_worker" (
+) elseif "%NODE_ROLE%" == "master_and_worker" (
     set "JAVA_OPTS=%JAVA_OPTS% -Dseatunnel.logs.file_name=seatunnel-engine-server"
     for /f "usebackq delims=" %%I in ("%APP_DIR%\config\jvm_options") do (
         set "line=%%I"
@@ -100,7 +100,7 @@ if "%NODE_RULE%" == "master" (
     REM SeaTunnel Engine Config
     set "HAZELCAST_CONFIG=%CONF_DIR%\hazelcast.yaml"
 ) else (
-    echo Unknown node rule: %NODE_RULE%
+    echo Unknown node role: %NODE_ROLE%
     exit 1
 )
 

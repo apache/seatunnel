@@ -42,7 +42,7 @@ MASTER_OUT="${APP_DIR}/logs/seatunnel-engine-master.out"
 WORKER_OUT="${APP_DIR}/logs/seatunnel-engine-worker.out"
 OUT="${APP_DIR}/logs/seatunnel-server.out"
 HELP=false
-NODE_RULE="master_and_worker"
+NODE_ROLE="master_and_worker"
 
 if [ -f "${CONF_DIR}/seatunnel-env.sh" ]; then
     . "${CONF_DIR}/seatunnel-env.sh"
@@ -72,11 +72,11 @@ do
     JAVA_OPTS="${JAVA_OPTS} ${JVM_OPTION#*=}"
   elif [[ "${i}" == "-d" || "${i}" == "--daemon" ]]; then
     DAEMON=true
-  elif [[ "${i}" == "-r" || "${i}" == "--rule" ]]; then
-    RULE_FLAG=true
-  elif [[ "${RULE_FLAG}" == true ]]; then
-    NODE_RULE="${i}"
-    RULE_FLAG=false
+  elif [[ "${i}" == "-r" || "${i}" == "--role" ]]; then
+    ROLE_FLAG=true
+  elif [[ "${ROLE_FLAG}" == true ]]; then
+    NODE_ROLE="${i}"
+    ROLE_FLAG=false
   elif [[ "${i}" == "-h" || "${i}" == "--help" ]]; then
     HELP=true
   fi
@@ -89,7 +89,7 @@ if [ -e "${CONF_DIR}/log4j2.properties" ]; then
   JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.logs.path=${APP_DIR}/logs"
 fi
 
-if [ "$NODE_RULE" = "master" ]; then
+if [ "$NODE_ROLE" = "master" ]; then
   OUT=$MASTER_OUT
   JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.logs.file_name=seatunnel-engine-master"
   while IFS= read -r line || [ -n "$line" ]; do
@@ -101,7 +101,7 @@ if [ "$NODE_RULE" = "master" ]; then
   if [ -z $HAZELCAST_CONFIG ]; then
     HAZELCAST_CONFIG=${CONF_DIR}/hazelcast-master.yaml
   fi
-elif [ "$NODE_RULE" = "worker" ]; then
+elif [ "$NODE_ROLE" = "worker" ]; then
   OUT=$WORKER_OUT
   JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.logs.file_name=seatunnel-engine-worker"
   while IFS= read -r line || [ -n "$line" ]; do
@@ -112,7 +112,7 @@ elif [ "$NODE_RULE" = "worker" ]; then
   if [ -z $HAZELCAST_CONFIG ]; then
     HAZELCAST_CONFIG=${CONF_DIR}/hazelcast-worker.yaml
   fi
-elif [ "$NODE_RULE" = "master_and_worker" ]; then
+elif [ "$NODE_ROLE" = "master_and_worker" ]; then
   JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.logs.file_name=seatunnel-engine-server"
   while IFS= read -r line || [ -n "$line" ]; do
       if [[ ! "$line" =~ ^# ]]; then
@@ -123,7 +123,7 @@ elif [ "$NODE_RULE" = "master_and_worker" ]; then
     HAZELCAST_CONFIG=${CONF_DIR}/hazelcast.yaml
   fi
 else
-  echo "Unknown node rule: $NODE_RULE"
+  echo "Unknown node role: $NODE_ROLE"
   exit 1
 fi
 
@@ -141,7 +141,7 @@ JAVA_OPTS="${JAVA_OPTS} -Dhazelcast.config=${HAZELCAST_CONFIG}"
 
 CLASS_PATH=${APP_DIR}/lib/*:${APP_JAR}
 
-echo "start ${NODE_RULE} node"
+echo "start ${NODE_ROLE} node"
 
 if [[ $DAEMON == true && $HELP == false ]]; then
   if [[ ! -d ${APP_DIR}/logs ]]; then
