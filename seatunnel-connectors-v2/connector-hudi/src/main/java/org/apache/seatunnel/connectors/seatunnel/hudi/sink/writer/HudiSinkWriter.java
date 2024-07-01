@@ -74,32 +74,21 @@ public class HudiSinkWriter
         implements SinkWriter<SeaTunnelRow, HudiCommitInfo, HudiSinkState>,
                 SupportMultiTableSinkWriter<Void> {
 
-    private final HoodieJavaWriteClient<HoodieAvroPayload> writeClient;
-
-    private transient List<WriteStatus> writeStatusList;
-
-    private transient String instantTime;
-
-    private final WriteOperationType opType;
-
-    private final Schema schema;
-
-    private final SeaTunnelRowType seaTunnelRowType;
-
-    private final HudiSinkConfig hudiSinkConfig;
-
-    private final List<HoodieRecord<HoodieAvroPayload>> hoodieRecords;
-
-    private transient int batchCount = 0;
-
-    private transient volatile boolean closed = false;
-
-    private transient volatile Exception flushException;
-
-    protected static final String DEFAULT_PARTITION_PATH = "default";
     public static final String DEFAULT_PARTITION_PATH_SEPARATOR = "/";
+    protected static final String DEFAULT_PARTITION_PATH = "default";
     protected static final String NULL_RECORDKEY_PLACEHOLDER = "__null__";
     protected static final String EMPTY_RECORDKEY_PLACEHOLDER = "__empty__";
+    private final HoodieJavaWriteClient<HoodieAvroPayload> writeClient;
+    private final WriteOperationType opType;
+    private final Schema schema;
+    private final SeaTunnelRowType seaTunnelRowType;
+    private final HudiSinkConfig hudiSinkConfig;
+    private final List<HoodieRecord<HoodieAvroPayload>> hoodieRecords;
+    private transient List<WriteStatus> writeStatusList;
+    private transient String instantTime;
+    private transient int batchCount = 0;
+    private transient volatile boolean closed = false;
+    private transient volatile Exception flushException;
 
     public HudiSinkWriter(
             SinkWriter.Context context,
@@ -124,13 +113,11 @@ public class HudiSinkWriter
         Path path = new Path(hudiSinkConfig.getTablePath());
         FileSystem fs =
                 HadoopFSUtils.getFs(hudiSinkConfig.getTablePath(), hudiStorageConfiguration);
-        if (!fs.exists(path)) {
-            HoodieTableMetaClient.withPropertyBuilder()
-                    .setTableType(hudiSinkConfig.getTableType())
-                    .setTableName(hudiSinkConfig.getTableName())
-                    .setPayloadClassName(HoodieAvroPayload.class.getName())
-                    .initTable(hudiStorageConfiguration, hudiSinkConfig.getTablePath());
-        }
+        HoodieTableMetaClient.withPropertyBuilder()
+                .setTableType(hudiSinkConfig.getTableType())
+                .setTableName(hudiSinkConfig.getTableName())
+                .setPayloadClassName(HoodieAvroPayload.class.getName())
+                .initTable(hudiStorageConfiguration, hudiSinkConfig.getTablePath());
         HoodieWriteConfig cfg =
                 HoodieWriteConfig.newBuilder()
                         .withEmbeddedTimelineServerEnabled(false)
@@ -183,15 +170,15 @@ public class HudiSinkWriter
     }
 
     @Override
-    public List<HudiSinkState> snapshotState(long checkpointId) throws IOException {
-        return Collections.singletonList(
-                new HudiSinkState(checkpointId, new HudiCommitInfo(instantTime, writeStatusList)));
-    }
-
-    @Override
     public Optional<HudiCommitInfo> prepareCommit() {
         flush();
         return Optional.of(new HudiCommitInfo(instantTime, writeStatusList));
+    }
+
+    @Override
+    public List<HudiSinkState> snapshotState(long checkpointId) throws IOException {
+        return Collections.singletonList(
+                new HudiSinkState(checkpointId, new HudiCommitInfo(instantTime, writeStatusList)));
     }
 
     @Override

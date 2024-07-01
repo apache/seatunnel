@@ -17,16 +17,29 @@
 
 package org.apache.seatunnel.e2e.connector.hudi;
 
+import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
+import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.parquet.example.data.Group;
+import org.apache.parquet.hadoop.ParquetReader;
+import org.apache.parquet.hadoop.example.GroupReadSupport;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 
 import java.io.IOException;
+import java.net.URISyntaxException;
+import java.util.concurrent.TimeUnit;
+
+import static org.awaitility.Awaitility.given;
 
 @DisabledOnContainer(
         value = {TestContainerId.SPARK_2_4},
@@ -34,9 +47,49 @@ import java.io.IOException;
         disabledReason = "")
 public class HudiIT extends TestSuiteBase {
 
+    private static final String TABLE_PATH = "/tmp/hudi";
+
+    protected final ContainerExtendedFactory containerExtendedFactory =
+            container -> {
+                FileUtils.createNewDir(TABLE_PATH);
+                container.copyFileFromContainer(TABLE_PATH, TABLE_PATH);
+            };
+
+    @TestContainerExtension
+    protected final ContainerExtendedFactory extendedFactory =
+            container -> {
+                container.execInContainer("sh", "-c", "mkdir -p " + TABLE_PATH);
+                container.execInContainer("sh", "-c", "chmod -R 777  " + TABLE_PATH);
+            };
+;
+
     @TestTemplate
-    public void testWriteHudi(TestContainer container) throws IOException, InterruptedException {
+    public void testWriteHudi(TestContainer container)
+            throws IOException, InterruptedException, URISyntaxException {
         Container.ExecResult textWriteResult = container.executeJob("/fake_to_hudi.conf");
         Assertions.assertEquals(0, textWriteResult.getExitCode());
+        Configuration configuration = new Configuration();
+        Path inputPath = new Path(TABLE_PATH);
+
+        given().ignoreExceptions()
+                .await()
+                .atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            // copy hudi to local
+                            container.executeExtraCommands(containerExtendedFactory);
+                            ParquetReader<Group> reader =
+                                    ParquetReader.builder(new GroupReadSupport(), inputPath)
+                                            .withConf(configuration)
+                                            .build();
+
+                            long rowCount = 0;
+
+                            // Read data and count rows
+                            while (reader.read() != null) {
+                                rowCount++;
+                            }
+                            Assertions.assertEquals(5, rowCount);
+                        });
     }
 }
