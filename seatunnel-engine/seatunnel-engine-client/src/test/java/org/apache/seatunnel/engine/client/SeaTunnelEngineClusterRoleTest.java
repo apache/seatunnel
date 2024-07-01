@@ -154,10 +154,8 @@ public class SeaTunnelEngineClusterRoleTest {
                                     PassiveCompletableFuture<JobResult>
                                             jobResultPassiveCompletableFuture =
                                                     clientJobProxy.doWaitForJobComplete();
-                                    return jobResultPassiveCompletableFuture
-                                            .get()
-                                            .getError()
-                                            .contains("NoEnoughResourceException");
+                                    String mes = jobResultPassiveCompletableFuture.get().getError();
+                                    return mes.contains("NoEnoughResourceException");
                                 } catch (Exception e) {
                                     return false;
                                 }

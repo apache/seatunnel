@@ -228,24 +228,6 @@ public class CoordinatorService {
         return eventProcessor;
     }
 
-    // On the new master node
-    // 1. If runningJobStateIMap.get(jobId) == null and runningJobInfoIMap.get(jobId) != null. We
-    // will do
-    //    runningJobInfoIMap.remove(jobId)
-    //
-    // 2. If runningJobStateIMap.get(jobId) != null and the value equals JobStatus End State. We
-    // need new a
-    //    JobMaster and generate PhysicalPlan again and then try to remove all of PipelineLocation
-    // and
-    //    TaskGroupLocation key in the runningJobStateIMap.
-    //
-    // 3. If runningJobStateIMap.get(jobId) != null and the value equals JobStatus.SCHEDULED. We
-    // need cancel the job
-    //    and then call submitJob(long jobId, Data jobImmutableInformation) to resubmit it.
-    //
-    // 4. If runningJobStateIMap.get(jobId) != null and the value is CANCELING or RUNNING. We need
-    // recover the JobMaster
-    //    from runningJobStateIMap and then waiting for it complete.
     private void initCoordinatorService() {
         runningJobInfoIMap =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
@@ -290,6 +272,13 @@ public class CoordinatorService {
     }
 
     private void restoreAllRunningJobFromMasterNodeSwitch() {
+        List<Map.Entry<Long, JobInfo>> needRestoreFromMasterNodeSwitchJobs =
+                runningJobInfoIMap.entrySet().stream()
+                        .filter(entry -> !runningJobMasterMap.keySet().contains(entry.getKey()))
+                        .collect(Collectors.toList());
+        if (needRestoreFromMasterNodeSwitchJobs.size() == 0) {
+            return;
+        }
         // waiting have worker registered
         while (getResourceManager().workerCount() == 0) {
             try {
@@ -301,7 +290,7 @@ public class CoordinatorService {
             }
         }
         List<CompletableFuture<Void>> collect =
-                runningJobInfoIMap.entrySet().stream()
+                needRestoreFromMasterNodeSwitchJobs.stream()
                         .map(
                                 entry ->
                                         CompletableFuture.runAsync(
@@ -311,8 +300,14 @@ public class CoordinatorService {
                                                                     "begin restore job (%s) from master active switch",
                                                                     entry.getKey()));
                                                     try {
-                                                        restoreJobFromMasterActiveSwitch(
-                                                                entry.getKey(), entry.getValue());
+                                                        // skip the job new submit
+                                                        if (!runningJobMasterMap
+                                                                .keySet()
+                                                                .contains(entry.getKey())) {
+                                                            restoreJobFromMasterActiveSwitch(
+                                                                    entry.getKey(),
+                                                                    entry.getValue());
+                                                        }
                                                     } catch (Exception e) {
                                                         logger.severe(e);
                                                     }
