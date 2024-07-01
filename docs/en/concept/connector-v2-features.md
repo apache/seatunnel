@@ -69,3 +69,10 @@ For sink connector, the sink connector supports exactly-once if any piece of dat
 ### cdc(change data capture)
 
 If a sink connector supports writing row kinds(INSERT/UPDATE_BEFORE/UPDATE_AFTER/DELETE) based on primary key, we think it supports cdc(change data capture).
+
+### support multiple table write
+
+Supports write multiple tables in one SeaTunnel job, users can dynamically specify the table's identifier by [configuring placeholders](./sink-options-placeholders.md).
+
+Requires:
+- Make sure the sink connector you are using has implemented `SupportMultiTableSink`、`SupportMultiTableSinkWriter`、`SupportMultiTableSinkAggregatedCommitter`
