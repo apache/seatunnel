@@ -116,7 +116,7 @@ keys pattern
 
 ### batch_size [int]
 
-indicates the number of keys to attempt to return per iteration.default 10
+indicates the number of keys to attempt to return per iteration,default 10
 
 **Tips:Redis source connector support fuzzy key matching, user needs to ensure that the matched keys are the same type**
 

@@ -85,11 +85,11 @@ Redis data types, support `key` `hash` `list` `set` `zset`
 
 > Each data from upstream will be added to the configured zset key with a weight of 1. So the order of data in zset is based on the order of data consumption.
 >
-> ### batch_size [int]
->
-> Ensure the batch write size in single-machine mode; no guarantees in cluster mode.
->
-  ### user [string]
+  ### batch_size [int]
+
+ensure the batch write size in single-machine mode; no guarantees in cluster mode.
+
+### user [string]
 
 redis authentication user, you need it when you connect to an encrypted cluster
 
