@@ -69,3 +69,17 @@ For sink connector, the sink connector supports exactly-once if any piece of dat
 ### cdc(change data capture)
 
 If a sink connector supports writing row kinds(INSERT/UPDATE_BEFORE/UPDATE_AFTER/DELETE) based on primary key, we think it supports cdc(change data capture).
+
+### support multiple table write
+
+Supports write multiple tables in one SeaTunnel job.
+
+requires:
+1. Support apis: `SupportMultiTableSink`、`SupportMultiTableSinkWriter`
+2. Support the following table identifier placeholders in sink options.
+- `${database_name}` Used to get the database in the upstream catalog table
+- `${schema_name}` Used to get the schema in the upstream catalog table
+- `${table_name}` Used to get the table in the upstream catalog table
+- `${primary_key}` Used to get the table primary-key fields in the upstream catalog table
+- `${unique_key}` Used to get the table unique-key fields in the upstream catalog table
+- `${field_names}` Used to get the table field keys in the upstream catalog table

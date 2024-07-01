@@ -28,7 +28,6 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SinkConfig
 
 import com.google.auto.service.AutoService;
 
-import static org.apache.seatunnel.api.sink.SinkReplaceNameConstant.REPLACE_TABLE_NAME_KEY;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.EsClusterConnectionConfig.HOSTS;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.EsClusterConnectionConfig.PASSWORD;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.EsClusterConnectionConfig.TLS_KEY_STORE_PASSWORD;
@@ -76,10 +75,6 @@ public class ElasticsearchSinkFactory implements TableSinkFactory {
     @Override
     public TableSink createSink(TableSinkFactoryContext context) {
         String original = context.getOptions().get(INDEX);
-        original =
-                original.replace(
-                        REPLACE_TABLE_NAME_KEY,
-                        context.getCatalogTable().getTableId().getTableName());
         CatalogTable newTable =
                 CatalogTable.of(
                         TableIdentifier.of(

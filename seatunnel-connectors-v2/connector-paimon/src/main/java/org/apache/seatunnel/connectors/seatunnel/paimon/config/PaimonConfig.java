@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.sink.TablePlaceholder;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
@@ -77,13 +78,13 @@ public class PaimonConfig implements Serializable {
     public static final Option<String> DATABASE =
             Options.key("database")
                     .stringType()
-                    .noDefaultValue()
+                    .defaultValue(TablePlaceholder.REPLACE_SCHEMA_NAME_KEY)
                     .withDescription("The database you intend to access");
 
     public static final Option<String> TABLE =
             Options.key("table")
                     .stringType()
-                    .noDefaultValue()
+                    .defaultValue(TablePlaceholder.REPLACE_TABLE_NAME_KEY)
                     .withDescription("The table you intend to access");
 
     @Deprecated

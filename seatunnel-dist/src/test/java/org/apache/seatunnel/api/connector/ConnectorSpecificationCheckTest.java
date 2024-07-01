@@ -18,6 +18,10 @@
 package org.apache.seatunnel.api.connector;
 
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSink;
+import org.apache.seatunnel.api.sink.SupportMultiTableSinkAggregatedCommitter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.factory.FactoryUtil;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
@@ -33,6 +37,8 @@ import org.junit.jupiter.api.Test;
 import lombok.extern.slf4j.Slf4j;
 
 import java.lang.reflect.Method;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -123,8 +129,8 @@ public class ConnectorSpecificationCheckTest {
                         sinkWithSPI.containsKey(factory.factoryIdentifier()),
                         "Please remove `@AutoService(SeaTunnelSink.class)` annotation in "
                                 + sinkWithSPI.get(factory.factoryIdentifier()));
-                Class<? extends SeaTunnelSource> sinkClass =
-                        (Class<? extends SeaTunnelSource>)
+                Class<? extends SeaTunnelSink> sinkClass =
+                        (Class<? extends SeaTunnelSink>)
                                 Class.forName(
                                         factory.getClass()
                                                 .getName()
@@ -148,7 +154,46 @@ public class ConnectorSpecificationCheckTest {
                         "Please remove `getConsumedType` method in " + sinkClass.getSimpleName());
                 log.info(
                         "Check sink connector {} successfully", factory.getClass().getSimpleName());
+
+                checkSupportMultiTableSink(sinkClass);
             }
+        }
+    }
+
+    private void checkSupportMultiTableSink(Class<? extends SeaTunnelSink> sinkClass) {
+        if (!SupportMultiTableSink.class.isAssignableFrom(sinkClass)) {
+            return;
+        }
+
+        Optional<Method> createWriter =
+                ReflectionUtils.getDeclaredMethod(
+                        sinkClass, "createWriter", SinkWriter.Context.class);
+        Assertions.assertFalse(
+                createWriter.isPresent(),
+                "Please add createWriter method in " + sinkClass.getSimpleName());
+        Class<? extends SinkWriter> writerClass =
+                (Class<? extends SinkWriter>) createWriter.get().getReturnType();
+        Assertions.assertFalse(
+                SupportMultiTableSinkWriter.class.isAssignableFrom(writerClass),
+                String.format(
+                        "Please update the `createWriter` method return type to the subclass of `SupportMultiTableSinkWriter`, "
+                                + "because `%s` implements `SupportMultiTableSink` interface",
+                        sinkClass.getSimpleName()));
+
+        Optional<Method> createAggregatedCommitter =
+                ReflectionUtils.getDeclaredMethod(sinkClass, "createAggregatedCommitter");
+        if (createAggregatedCommitter.isPresent()) {
+            Type returnType = createAggregatedCommitter.get().getReturnType();
+            ParameterizedType parameterizedType = (ParameterizedType) returnType;
+            Type[] typeArguments = parameterizedType.getActualTypeArguments();
+            Type innerType = ((ParameterizedType) typeArguments[0]).getActualTypeArguments()[0];
+            Class<?> innerClass = (Class<?>) innerType;
+            Assertions.assertFalse(
+                    SupportMultiTableSinkAggregatedCommitter.class.isAssignableFrom(innerClass),
+                    String.format(
+                            "Please update the `createAggregatedCommitter` method return type to the subclass of `Optional<SupportMultiTableSinkAggregatedCommitter>`, "
+                                    + "because `%s` implements `SupportMultiTableSink` interface",
+                            sinkClass.getSimpleName()));
         }
     }
 }
