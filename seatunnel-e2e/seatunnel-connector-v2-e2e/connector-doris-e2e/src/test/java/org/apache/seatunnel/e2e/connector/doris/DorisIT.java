@@ -188,16 +188,16 @@ public class DorisIT extends AbstractDorisIT {
         Assertions.assertEquals(0, execResult2.getExitCode());
         checkSinkData();
 
-        batchInsertUniqueTableData();
-        Container.ExecResult execResult4 = container.executeJob("/doris_source_no_schema.conf");
-        Assertions.assertEquals(0, execResult4.getExitCode());
-        checkSinkData();
-
         batchInsertDuplicateTableData();
         Container.ExecResult execResult3 =
                 container.executeJob("/doris_source_to_doris_sink_type_convertor.conf");
         Assertions.assertEquals(0, execResult3.getExitCode());
         checkAllTypeSinkData();
+
+        batchInsertUniqueTableData();
+        Container.ExecResult execResult4 = container.executeJob("/doris_source_no_schema.conf");
+        Assertions.assertEquals(0, execResult4.getExitCode());
+        checkSinkData();
     }
 
     private void checkAllTypeSinkData() {
