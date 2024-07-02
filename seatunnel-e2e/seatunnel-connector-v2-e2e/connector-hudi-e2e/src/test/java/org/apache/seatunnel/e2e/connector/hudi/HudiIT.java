@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.e2e.connector.hudi;
 
+import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.EngineType;
@@ -52,7 +53,7 @@ public class HudiIT extends TestSuiteBase {
 
     private static final String TABLE_PATH = "/tmp/hudi/";
     private static final String NAMESPACE = "hudi";
-    private static final String NAMESPACE_TAR = "hudi.tar";
+    private static final String NAMESPACE_TAR = "hudi.tar.gz";
 
     protected final ContainerExtendedFactory containerExtendedFactory =
             new ContainerExtendedFactory() {
@@ -71,7 +72,8 @@ public class HudiIT extends TestSuiteBase {
 
                 private void extractFiles() {
                     ProcessBuilder processBuilder = new ProcessBuilder();
-                    processBuilder.command("sh", "-c", "cd /tmp" + " && tar -xvf " + NAMESPACE_TAR);
+                    processBuilder.command(
+                            "sh", "-c", "cd /tmp" + " && tar -zxvf " + NAMESPACE_TAR);
                     try {
                         Process process = processBuilder.start();
                         // 等待命令执行完成
@@ -115,5 +117,6 @@ public class HudiIT extends TestSuiteBase {
                             }
                             Assertions.assertEquals(5, rowCount);
                         });
+        FileUtils.deleteFile(TABLE_PATH);
     }
 }
