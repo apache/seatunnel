@@ -32,34 +32,34 @@
 
 ## 选项
 
-|                 名称                  |  类型   | 是否必需 |                  默认值                   |                                            描述                                            |
-|---------------------------------------|---------|----------|--------------------------------------------|---------------------------------------------------------------------------------------------------|
-| path                                  | string  | 是       | -                                          | 目标目录路径                                                                                      |
-| tmp_path                              | string  | 否       | /tmp/seatunnel                             | 结果文件将首先写入临时路径，然后使用 `mv` 将临时目录提交到目标目录。                              |
-| custom_filename                       | boolean | 否       | false                                      | 是否需要自定义文件名                                                                             |
-| file_name_expression                  | string  | 否       | "${transactionId}"                         | 仅在 custom_filename 为 true 时使用                                                               |
-| filename_time_format                  | string  | 否       | "yyyy.MM.dd"                               | 仅在 custom_filename 为 true 时使用                                                               |
-| file_format_type                      | string  | 否       | "csv"                                      | 文件格式类型                                                                                      |
-| field_delimiter                       | string  | 否       | '\001'                                     | 仅在 file_format_type 为 text 时使用                                                              |
-| row_delimiter                         | string  | 否       | "\n"                                       | 仅在 file_format_type 为 text 时使用                                                              |
-| have_partition                        | boolean | 否       | false                                      | 是否需要处理分区                                                                                |
-| partition_by                          | array   | 否       | -                                          | 仅在 have_partition 为 true 时使用                                                               |
-| partition_dir_expression              | string  | 否       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | 仅在 have_partition 为 true 时使用                                                               |
-| is_partition_field_write_in_file      | boolean | 否       | false                                      | 仅在 have_partition 为 true 时使用                                                               |
-| sink_columns                          | array   | 否       |                                            | 当此参数为空时，所有字段都是 sink 列                                                            |
-| is_enable_transaction                 | boolean | 否       | true                                       | 是否启用事务                                                                                      |
-| batch_size                            | int     | 否       | 1000000                                    | 批量大小                                                                                          |
-| compress_codec                        | string  | 否       | none                                       | 压缩编码                                                                                          |
-| common-options                        | object  | 否       | -                                          | 常见选项                                                                                          |
-| max_rows_in_memory                    | int     | 否       | -                                          | 仅在 file_format_type 为 excel 时使用                                                             |
-| sheet_name                            | string  | 否       | Sheet${随机数}                             | 仅在 file_format_type 为 excel 时使用                                                             |
-| xml_root_tag                          | string  | 否       | RECORDS                                    | 仅在 file_format 为 xml 时使用                                                                    |
-| xml_row_tag                           | string  | 否       | RECORD                                     | 仅在 file_format 为 xml 时使用                                                                    |
-| xml_use_attr_format                   | boolean | 否       | -                                          | 仅在 file_format 为 xml 时使用                                                                    |
-| parquet_avro_write_timestamp_as_int96 | boolean | 否       | false                                      | 仅在 file_format 为 parquet 时使用                                                                |
-| parquet_avro_write_fixed_as_int96     | array   | 否       | -                                          | 仅在 file_format 为 parquet 时使用                                                                |
-| enable_header_write                   | boolean | 否       | false                                      | 仅在 file_format_type 为 text,csv 时使用。<br/> false:不写入表头,true:写入表头。                   |
-| encoding                              | string  | 否       | "UTF-8"                                    | 仅在 file_format_type 为 json,text,csv,xml 时使用                                                 |
+|                  名称                   |   类型    | 是否必需 |                    默认值                     |                               描述                                |
+|---------------------------------------|---------|------|--------------------------------------------|-----------------------------------------------------------------|
+| path                                  | string  | 是    | -                                          | 目标目录路径                                                          |
+| tmp_path                              | string  | 否    | /tmp/seatunnel                             | 结果文件将首先写入临时路径，然后使用 `mv` 将临时目录提交到目标目录。                           |
+| custom_filename                       | boolean | 否    | false                                      | 是否需要自定义文件名                                                      |
+| file_name_expression                  | string  | 否    | "${transactionId}"                         | 仅在 custom_filename 为 true 时使用                                   |
+| filename_time_format                  | string  | 否    | "yyyy.MM.dd"                               | 仅在 custom_filename 为 true 时使用                                   |
+| file_format_type                      | string  | 否    | "csv"                                      | 文件格式类型                                                          |
+| field_delimiter                       | string  | 否    | '\001'                                     | 仅在 file_format_type 为 text 时使用                                  |
+| row_delimiter                         | string  | 否    | "\n"                                       | 仅在 file_format_type 为 text 时使用                                  |
+| have_partition                        | boolean | 否    | false                                      | 是否需要处理分区                                                        |
+| partition_by                          | array   | 否    | -                                          | 仅在 have_partition 为 true 时使用                                    |
+| partition_dir_expression              | string  | 否    | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | 仅在 have_partition 为 true 时使用                                    |
+| is_partition_field_write_in_file      | boolean | 否    | false                                      | 仅在 have_partition 为 true 时使用                                    |
+| sink_columns                          | array   | 否    |                                            | 当此参数为空时，所有字段都是 sink 列                                           |
+| is_enable_transaction                 | boolean | 否    | true                                       | 是否启用事务                                                          |
+| batch_size                            | int     | 否    | 1000000                                    | 批量大小                                                            |
+| compress_codec                        | string  | 否    | none                                       | 压缩编码                                                            |
+| common-options                        | object  | 否    | -                                          | 常见选项                                                            |
+| max_rows_in_memory                    | int     | 否    | -                                          | 仅在 file_format_type 为 excel 时使用                                 |
+| sheet_name                            | string  | 否    | Sheet${随机数}                                | 仅在 file_format_type 为 excel 时使用                                 |
+| xml_root_tag                          | string  | 否    | RECORDS                                    | 仅在 file_format 为 xml 时使用                                        |
+| xml_row_tag                           | string  | 否    | RECORD                                     | 仅在 file_format 为 xml 时使用                                        |
+| xml_use_attr_format                   | boolean | 否    | -                                          | 仅在 file_format 为 xml 时使用                                        |
+| parquet_avro_write_timestamp_as_int96 | boolean | 否    | false                                      | 仅在 file_format 为 parquet 时使用                                    |
+| parquet_avro_write_fixed_as_int96     | array   | 否    | -                                          | 仅在 file_format 为 parquet 时使用                                    |
+| enable_header_write                   | boolean | 否    | false                                      | 仅在 file_format_type 为 text,csv 时使用。<br/> false:不写入表头,true:写入表头。 |
+| encoding                              | string  | 否    | "UTF-8"                                    | 仅在 file_format_type 为 json,text,csv,xml 时使用                     |
 
 ### path [string]
 
@@ -83,14 +83,14 @@
 
 当 `file_name_expression` 参数中的格式为 `xxxx-${now}` 时，`filename_time_format` 可以指定路径的时间格式，默认值为 `yyyy.MM.dd`。常用的时间格式如下所示：
 
-| 符号   |    描述            |
-|--------|--------------------|
-| y      | 年                 |
-| M      | 月                 |
-| d      | 日                 |
-| H      | 小时 (0-23)        |
-| m      | 分钟               |
-| s      | 秒                 |
+| 符号 |    描述     |
+|----|-----------|
+| y  | 年         |
+| M  | 月         |
+| d  | 日         |
+| H  | 小时 (0-23) |
+| m  | 分钟        |
+| s  | 秒         |
 
 ### file_format_type [string]
 
@@ -313,3 +313,4 @@ LocalFile {
   - 从状态恢复 writer 时直接获取事务失败
 - [Improve] 支持为每个文件设置批量大小 ([3625](https://github.com/apache/seatunnel/pull/3625))
 - [Improve] 支持文件压缩 ([3899](https://github.com/apache/seatunnel/pull/3899))
+

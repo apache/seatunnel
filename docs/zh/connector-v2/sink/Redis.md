@@ -12,20 +12,20 @@
 
 ## 选项
 
-|      名称      |  类型  | 是否必须                | 默认值        |
-|----------------|--------|---------------------|---------------|
-| host           | string | 是                   | -             |
-| port           | int    | 是                   | -             |
-| key            | string | 是                   | -             |
-| data_type      | string | 是                   | -             |
-| user           | string | 否                   | -             |
-| auth           | string | 否                   | -             |
-| db_num         | int    | 否                   | 0             |
-| mode           | string | 否                   | single        |
-| nodes          | list   | 当 mode=cluster 时为:是 | -             |
-| format         | string | 否                   | json          |
-| expire         | long   | 否                   | -1            |
-| common-options |        | 否                   | -             |
+|       名称       |   类型   |        是否必须         |  默认值   |
+|----------------|--------|---------------------|--------|
+| host           | string | 是                   | -      |
+| port           | int    | 是                   | -      |
+| key            | string | 是                   | -      |
+| data_type      | string | 是                   | -      |
+| user           | string | 否                   | -      |
+| auth           | string | 否                   | -      |
+| db_num         | int    | 否                   | 0      |
+| mode           | string | 否                   | single |
+| nodes          | list   | 当 mode=cluster 时为:是 | -      |
+| format         | string | 否                   | json   |
+| expire         | long   | 否                   | -1     |
+| common-options |        | 否                   | -      |
 
 ### host [string]
 
@@ -43,10 +43,10 @@ Redis 端口
 
 上游数据如下：
 
-| code |      data      | success |
-|------|----------------|---------|
-| 200  | 获取成功       | true    |
-| 500  | 内部错误       | false   |
+| code | data | success |
+|------|------|---------|
+| 200  | 获取成功 | true    |
+| 500  | 内部错误 | false   |
 
 如果将字段名称指定为 `code` 并将 data_type 设置为 `key`，将有两个数据写入 Redis：
 1. `200 -> {code: 200, message: true, data: 获取成功}`
@@ -114,9 +114,9 @@ Redis 节点信息，在集群模式下使用，必须按如下格式：
 
 上游数据如下：
 
-| code |    data     | success |
-|------|-------------|---------|
-| 200  | 获取成功    | true    |
+| code | data | success |
+|------|------|---------|
+| 200  | 获取成功 | true    |
 
 连接器会生成如下数据并写入 Redis：
 
@@ -154,3 +154,4 @@ Redis {
 ### 下一个版本
 
 - [改进] 支持 Redis 集群模式连接和用户认证 [3188](https://github.com/apache/seatunnel/pull/3188)
+
