@@ -67,6 +67,7 @@
         <module>connector-rabbitmq</module>
         <module>connector-openmldb</module>
         <module>connector-doris</module>
+        <module>connector-druid</module>
         <module>connector-maxcompute</module>
         <module>connector-tdengine</module>
         <module>connector-selectdb-cloud</module>

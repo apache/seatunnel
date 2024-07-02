@@ -29,10 +29,16 @@ import java.util.List;
 @Getter
 @Setter
 public class FilterFieldTransformConfig implements Serializable {
-    public static final Option<List<String>> KEY_FIELDS =
-            Options.key("fields")
+    public static final Option<List<String>> INCLUDE_FIELDS =
+            Options.key("include_fields")
                     .listType()
                     .noDefaultValue()
-                    .withDescription(
-                            "The list of fields that need to be kept. Fields not in the list will be deleted");
+                    .withDescription("The list of fields that need to be kept.")
+                    .withFallbackKeys("fields");
+
+    public static final Option<List<String>> EXCLUDE_FIELDS =
+            Options.key("exclude_fields")
+                    .listType()
+                    .noDefaultValue()
+                    .withDescription("The list of fields that need to be deleted");
 }

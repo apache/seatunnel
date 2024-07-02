@@ -8,13 +8,20 @@
 
 ## 属性
 
-|   名称   |  类型   | 是否必须 | 默认值 |
-|--------|-------|------|-----|
-| fields | array | yes  |     |
+|       名称       |  类型   | 是否必须 | 默认值 |
+|----------------|-------|------|-----|
+| include_fields | array | no   |     |
+| exclude_fields | array | no   |     |
 
-### fields [array]
+### include_fields [array]
 
 需要保留的字段列表。不在列表中的字段将被删除。
+
+### exclude_fields [array]
+
+需要删除的字段列表。不在列表中的字段将被保留。
+
+注意，`include_fields` 和 `exclude_fields` 两个属性中，必须设置一个且只能设置一个
 
 ### common options [string]
 
@@ -31,14 +38,26 @@
 | Kin Dom  | 20  | 123  |
 | Joy Dom  | 20  | 123  |
 
-我们想要删除字段 `age`，我们可以像这样添加 `Filter` 转换
+我们想要保留字段 `name`, `card`，我们可以像这样添加 `Filter` 转换:
 
 ```
 transform {
   Filter {
     source_table_name = "fake"
     result_table_name = "fake1"
-    fields = [name, card]
+    include_fields = [name, card]
+  }
+}
+```
+
+我们也可以通过删除字段 `age` 来实现， 我们可以添加一个 `Filter` 转换，并设置exclude_fields：
+
+```
+transform {
+  Filter {
+    source_table_name = "fake"
+    result_table_name = "fake1"
+    exclude_fields = [age]
   }
 }
 ```

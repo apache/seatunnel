@@ -18,6 +18,8 @@
 package org.apache.seatunnel.transform.filter;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
@@ -36,21 +38,40 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Slf4j
 public class FilterFieldTransform extends AbstractCatalogSupportTransform {
     public static final String PLUGIN_NAME = "Filter";
-    private int[] inputValueIndex;
-    private final List<String> fields;
+
+    private int[] inputValueIndexList;
+
+    private final List<String> includeFields;
+    private final List<String> excludeFields;
 
     public FilterFieldTransform(
             @NonNull ReadonlyConfig config, @NonNull CatalogTable catalogTable) {
         super(catalogTable);
         SeaTunnelRowType seaTunnelRowType = catalogTable.getTableSchema().toPhysicalRowDataType();
-        fields = config.get(FilterFieldTransformConfig.KEY_FIELDS);
+        includeFields = config.get(FilterFieldTransformConfig.INCLUDE_FIELDS);
+        excludeFields = config.get(FilterFieldTransformConfig.EXCLUDE_FIELDS);
+        // exactly only one should be set
+        ConfigValidator.of(config)
+                .validate(
+                        OptionRule.builder()
+                                .exclusive(
+                                        FilterFieldTransformConfig.INCLUDE_FIELDS,
+                                        FilterFieldTransformConfig.EXCLUDE_FIELDS)
+                                .build());
         List<String> canNotFoundFields =
-                fields.stream()
+                Stream.concat(
+                                Optional.ofNullable(includeFields).orElse(new ArrayList<>())
+                                        .stream(),
+                                Optional.ofNullable(excludeFields).orElse(new ArrayList<>())
+                                        .stream())
                         .filter(field -> seaTunnelRowType.indexOf(field, false) == -1)
                         .collect(Collectors.toList());
 
@@ -67,10 +88,9 @@ public class FilterFieldTransform extends AbstractCatalogSupportTransform {
 
     @Override
     protected SeaTunnelRow transformRow(SeaTunnelRow inputRow) {
-        // todo reuse array container if not remove fields
-        Object[] values = new Object[fields.size()];
-        for (int i = 0; i < fields.size(); i++) {
-            values[i] = inputRow.getField(inputValueIndex[i]);
+        Object[] values = new Object[inputValueIndexList.length];
+        for (int i = 0; i < inputValueIndexList.length; i++) {
+            values[i] = inputRow.getField(inputValueIndexList[i]);
         }
         SeaTunnelRow outputRow = new SeaTunnelRow(values);
         outputRow.setRowKind(inputRow.getRowKind());
@@ -85,15 +105,34 @@ public class FilterFieldTransform extends AbstractCatalogSupportTransform {
         SeaTunnelRowType seaTunnelRowType =
                 inputCatalogTable.getTableSchema().toPhysicalRowDataType();
 
-        inputValueIndex = new int[fields.size()];
         ArrayList<String> outputFieldNames = new ArrayList<>();
         List<Column> inputColumns = inputCatalogTable.getTableSchema().getColumns();
-        for (int i = 0; i < fields.size(); i++) {
-            String field = fields.get(i);
-            int inputFieldIndex = seaTunnelRowType.indexOf(field);
-            inputValueIndex[i] = inputFieldIndex;
-            outputColumns.add(inputColumns.get(inputFieldIndex).copy());
-            outputFieldNames.add(inputColumns.get(inputFieldIndex).getName());
+        // include
+        if (Objects.nonNull(includeFields)) {
+            inputValueIndexList = new int[includeFields.size()];
+            for (int i = 0; i < includeFields.size(); i++) {
+                String fieldName = includeFields.get(i);
+                int inputFieldIndex = seaTunnelRowType.indexOf(fieldName);
+                inputValueIndexList[i] = inputFieldIndex;
+                outputColumns.add(inputColumns.get(inputFieldIndex).copy());
+                outputFieldNames.add(inputColumns.get(inputFieldIndex).getName());
+            }
+        }
+
+        // exclude
+        if (Objects.nonNull(excludeFields)) {
+            inputValueIndexList = new int[inputColumns.size() - excludeFields.size()];
+            int index = 0;
+            for (int i = 0; i < inputColumns.size(); i++) {
+                // if the field is not in the fields, then add it to the outputColumns
+                if (!excludeFields.contains(inputColumns.get(i).getName())) {
+                    String fieldName = inputColumns.get(i).getName();
+                    int inputFieldIndex = seaTunnelRowType.indexOf(fieldName);
+                    inputValueIndexList[index++] = inputFieldIndex;
+                    outputColumns.add(inputColumns.get(i).copy());
+                    outputFieldNames.add(inputColumns.get(i).getName());
+                }
+            }
         }
 
         List<ConstraintKey> outputConstraintKeys =
