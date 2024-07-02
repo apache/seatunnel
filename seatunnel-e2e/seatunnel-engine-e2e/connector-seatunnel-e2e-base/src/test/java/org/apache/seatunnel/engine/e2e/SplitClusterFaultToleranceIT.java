@@ -58,7 +58,7 @@ import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.ch
  * capability in case of cluster node failure
  */
 @Slf4j
-public class SplitSplitClusterFaultToleranceIT {
+public class SplitClusterFaultToleranceIT {
 
     public static final String DYNAMIC_TEST_CASE_NAME = "dynamic_test_case_name";
 
