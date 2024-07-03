@@ -193,11 +193,6 @@ public class DorisIT extends AbstractDorisIT {
                 container.executeJob("/doris_source_to_doris_sink_type_convertor.conf");
         Assertions.assertEquals(0, execResult3.getExitCode());
         checkAllTypeSinkData();
-
-        batchInsertUniqueTableData();
-        Container.ExecResult execResult4 = container.executeJob("/doris_source_no_schema.conf");
-        Assertions.assertEquals(0, execResult4.getExitCode());
-        checkSinkData();
     }
 
     private void checkAllTypeSinkData() {
@@ -229,7 +224,7 @@ public class DorisIT extends AbstractDorisIT {
         }
     }
 
-    private void checkSinkData() {
+    protected void checkSinkData() {
         try {
             assertHasData(sourceDB, UNIQUE_TABLE);
             assertHasData(sinkDB, UNIQUE_TABLE);
@@ -376,7 +371,7 @@ public class DorisIT extends AbstractDorisIT {
         }
     }
 
-    private void initializeJdbcTable() {
+    protected void initializeJdbcTable() {
         try {
             URLClassLoader urlClassLoader =
                     new URLClassLoader(
@@ -533,7 +528,7 @@ public class DorisIT extends AbstractDorisIT {
         return String.format(createDuplicateTableSql, db, DUPLICATE_TABLE);
     }
 
-    private void batchInsertUniqueTableData() {
+    protected void batchInsertUniqueTableData() {
         List<SeaTunnelRow> rows = genUniqueTableTestData(100L);
         try {
             conn.setAutoCommit(false);
