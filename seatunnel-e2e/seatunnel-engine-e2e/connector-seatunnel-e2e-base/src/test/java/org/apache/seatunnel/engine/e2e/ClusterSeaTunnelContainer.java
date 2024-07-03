@@ -66,6 +66,8 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
     private static final Path hadoopJar =
             Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop3-3.1.4-uber.jar");
 
+    private static final long CUSTOM_JOB_ID = 123456789;
+
     @Override
     @BeforeEach
     public void startUp() throws Exception {
@@ -101,106 +103,24 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
     }
 
     @Test
-    public void testSubmitJob() {
+    public void testSubmitJobWithCustomJobId() {
         AtomicInteger i = new AtomicInteger();
-
         Arrays.asList(server, secondServer)
                 .forEach(
-                        container -> {
-                            Response response =
-                                    i.get() == 0
-                                            ? submitJob(container, "BATCH", jobName, paramJobName)
-                                            : submitJob(container, "BATCH", jobName, null);
-                            if (i.get() == 0) {
-                                response.then()
-                                        .statusCode(200)
-                                        .body("jobName", equalTo(paramJobName));
-                            } else {
-                                response.then().statusCode(200).body("jobName", equalTo(jobName));
-                            }
-                            String jobId = response.getBody().jsonPath().getString("jobId");
+                        container ->
+                                submitJobAndAssertResponse(
+                                        container,
+                                        i,
+                                        paramJobName + "&jobId=" + CUSTOM_JOB_ID,
+                                        true));
+    }
 
-                            Awaitility.await()
-                                    .atMost(2, TimeUnit.MINUTES)
-                                    .untilAsserted(
-                                            () -> {
-                                                given().get(
-                                                                http
-                                                                        + container.getHost()
-                                                                        + colon
-                                                                        + container
-                                                                                .getFirstMappedPort()
-                                                                        + RestConstant
-                                                                                .FINISHED_JOBS_INFO
-                                                                        + "/FINISHED")
-                                                        .then()
-                                                        .statusCode(200)
-                                                        .body(
-                                                                "[" + i.get() + "].jobName",
-                                                                equalTo(
-                                                                        i.get() == 0
-                                                                                ? paramJobName
-                                                                                : jobName))
-                                                        .body(
-                                                                "[" + i.get() + "].errorMsg",
-                                                                equalTo(null))
-                                                        .body(
-                                                                "[" + i.get() + "].jobDag.jobId",
-                                                                equalTo(Long.parseLong(jobId)))
-                                                        .body(
-                                                                "["
-                                                                        + i.get()
-                                                                        + "].metrics.SourceReceivedCount",
-                                                                equalTo("100"))
-                                                        .body(
-                                                                "["
-                                                                        + i.get()
-                                                                        + "].metrics.SinkWriteCount",
-                                                                equalTo("100"))
-                                                        .body(
-                                                                "[" + i.get() + "].jobStatus",
-                                                                equalTo("FINISHED"));
-
-                                                // test for without status parameter.
-                                                given().get(
-                                                                http
-                                                                        + container.getHost()
-                                                                        + colon
-                                                                        + container
-                                                                                .getFirstMappedPort()
-                                                                        + RestConstant
-                                                                                .FINISHED_JOBS_INFO)
-                                                        .then()
-                                                        .statusCode(200)
-                                                        .body(
-                                                                "[" + i.get() + "].jobName",
-                                                                equalTo(
-                                                                        i.get() == 0
-                                                                                ? paramJobName
-                                                                                : jobName))
-                                                        .body(
-                                                                "[" + i.get() + "].errorMsg",
-                                                                equalTo(null))
-                                                        .body(
-                                                                "[" + i.get() + "].jobDag.jobId",
-                                                                equalTo(Long.parseLong(jobId)))
-                                                        .body(
-                                                                "["
-                                                                        + i.get()
-                                                                        + "].metrics.SourceReceivedCount",
-                                                                equalTo("100"))
-                                                        .body(
-                                                                "["
-                                                                        + i.get()
-                                                                        + "].metrics.SinkWriteCount",
-                                                                equalTo("100"))
-                                                        .body(
-                                                                "[" + i.get() + "].jobStatus",
-                                                                equalTo("FINISHED"));
-                                            });
-
-                            i.getAndIncrement();
-                        });
+    @Test
+    public void testSubmitJobWithoutCustomJobId() {
+        AtomicInteger i = new AtomicInteger();
+        Arrays.asList(server, secondServer)
+                .forEach(
+                        container -> submitJobAndAssertResponse(container, i, paramJobName, false));
     }
 
     @Test
@@ -458,5 +378,82 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
                 SEATUNNEL_HOME);
 
         return server;
+    }
+
+    private void submitJobAndAssertResponse(
+            GenericContainer<? extends GenericContainer<?>> container,
+            AtomicInteger i,
+            String customParam,
+            boolean isCustomJobId) {
+        Response response = submitJobAndResponse(container, i, customParam);
+        String jobId = response.getBody().jsonPath().getString("jobId");
+        assertResponse(container, i, jobId, isCustomJobId);
+        i.getAndIncrement();
+    }
+
+    private Response submitJobAndResponse(
+            GenericContainer<? extends GenericContainer<?>> container,
+            AtomicInteger i,
+            String customParam) {
+        Response response =
+                i.get() == 0
+                        ? submitJob(container, "BATCH", jobName, customParam)
+                        : submitJob(container, "BATCH", jobName, null);
+        if (i.get() == 0) {
+            response.then().statusCode(200).body("jobName", equalTo(paramJobName));
+        } else {
+            response.then().statusCode(200).body("jobName", equalTo(jobName));
+        }
+        return response;
+    }
+
+    private void assertResponse(
+            GenericContainer<? extends GenericContainer<?>> container,
+            AtomicInteger i,
+            String jobId,
+            boolean isCustomJobId) {
+        Awaitility.await()
+                .atMost(2, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () -> {
+                            assertWithStatusParameterOrNot(
+                                    container, i, jobId, isCustomJobId, true);
+
+                            // test for without status parameter.
+                            assertWithStatusParameterOrNot(
+                                    container, i, jobId, isCustomJobId, false);
+                        });
+    }
+
+    private void assertWithStatusParameterOrNot(
+            GenericContainer<? extends GenericContainer<?>> container,
+            AtomicInteger i,
+            String jobId,
+            boolean isCustomJobId,
+            boolean isStatusWithSubmitJob) {
+        String baseRestUrl = getBaseRestUrl(container);
+        String restUrl = isStatusWithSubmitJob ? baseRestUrl + "/FINISHED" : baseRestUrl;
+        given().get(restUrl)
+                .then()
+                .statusCode(200)
+                .body("[" + i.get() + "].jobName", equalTo(i.get() == 0 ? paramJobName : jobName))
+                .body("[" + i.get() + "].errorMsg", equalTo(null))
+                .body(
+                        "[" + i.get() + "].jobId",
+                        equalTo(
+                                i.get() == 0 && isCustomJobId
+                                        ? Long.toString(CUSTOM_JOB_ID)
+                                        : jobId))
+                .body("[" + i.get() + "].metrics.SourceReceivedCount", equalTo("100"))
+                .body("[" + i.get() + "].metrics.SinkWriteCount", equalTo("100"))
+                .body("[" + i.get() + "].jobStatus", equalTo("FINISHED"));
+    }
+
+    private String getBaseRestUrl(GenericContainer<? extends GenericContainer<?>> container) {
+        return http
+                + container.getHost()
+                + colon
+                + container.getFirstMappedPort()
+                + RestConstant.FINISHED_JOBS_INFO;
     }
 }

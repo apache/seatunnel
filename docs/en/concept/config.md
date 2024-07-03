@@ -248,7 +248,6 @@ sink {
      source_table_name = "sql"
      username = ${username}
      password = ${password}
-     blankSpace = ${blankSpace}
   }
 }
 
@@ -259,15 +258,14 @@ We can replace those parameters with this shell command:
 
 ```shell
 ./bin/seatunnel.sh -c <this_config_file> 
--i jobName='st var job' 
+-i jobName='this_is_a_job_name' 
 -i resName=fake 
 -i rowNum=10 
--i strTemplate=['abc','d~f','h i'] 
+-i strTemplate=['abc','d~f','hi'] 
 -i nameType=string 
 -i nameVal=abc 
 -i username=seatunnel=2.3.1 
 -i password='$a^b%c.d~e0*9(' 
--i blankSpace='2023-12-26 11:30:00' 
 -e local
 ```
 
@@ -276,7 +274,7 @@ Then the final submitted config is:
 ```hocon
 env {
   job.mode = "BATCH"
-  job.name = "st var job"
+  job.name = "this_is_a_job_name"
   parallelism = 2
 }
 
@@ -309,14 +307,14 @@ sink {
      source_table_name = "sql"
      username = "seatunnel=2.3.1"
      password = "$a^b%c.d~e0*9("
-     blankSpace = "2023-12-26 11:30:00"
   }
 }
 ```
 
 Some Notes:
-- quota with `'` if the value has space ` ` or special character (like `(`)
+- quota with `'` if the value has special character (like `(`)
 - if the replacement variables is in `"` or `'`, like `resName` and `nameVal`, you need add `"`
+- the value can't have space `' '`, like `-i jobName='this is a job name' `, this will be replaced to `job.name = "this"`
 
 ## What's More
 

@@ -40,6 +40,18 @@ public enum RedisDataType {
             return Collections.singletonList(jedis.get(key));
         }
     },
+    STRING {
+        @Override
+        public void set(Jedis jedis, String key, String value, long expire) {
+            jedis.set(key, value);
+            expire(jedis, key, expire);
+        }
+
+        @Override
+        public List<String> get(Jedis jedis, String key) {
+            return Collections.singletonList(jedis.get(key));
+        }
+    },
     HASH {
         @Override
         public void set(Jedis jedis, String key, String value, long expire) {
