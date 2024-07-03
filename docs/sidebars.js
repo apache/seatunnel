@@ -178,7 +178,8 @@ const sidebars = {
                 "seatunnel-engine/checkpoint-storage",
                 "seatunnel-engine/rest-api",
                 "seatunnel-engine/tcp",
-                "seatunnel-engine/engine-jar-storage-mode"
+                "seatunnel-engine/engine-jar-storage-mode",
+                "seatunnel-engine/resource-isolation",
             ]
         },
         {

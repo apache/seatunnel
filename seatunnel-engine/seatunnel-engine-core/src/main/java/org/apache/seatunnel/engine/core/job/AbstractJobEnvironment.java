@@ -146,7 +146,7 @@ public abstract class AbstractJobEnvironment {
     protected abstract MultipleTableJobConfigParser getJobConfigParser();
 
     protected LogicalDagGenerator getLogicalDagGenerator() {
-        return new LogicalDagGenerator(actions, jobConfig, idGenerator);
+        return new LogicalDagGenerator(actions, jobConfig, idGenerator, isStartWithSavePoint);
     }
 
     protected abstract LogicalDag getLogicalDag();

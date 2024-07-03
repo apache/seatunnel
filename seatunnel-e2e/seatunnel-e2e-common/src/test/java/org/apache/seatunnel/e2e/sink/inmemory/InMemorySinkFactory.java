@@ -56,6 +56,6 @@ public class InMemorySinkFactory
     @Override
     public TableSink<SeaTunnelRow, InMemoryState, InMemoryCommitInfo, InMemoryAggregatedCommitInfo>
             createSink(TableSinkFactoryContext context) {
-        return () -> new InMemorySink(context.getOptions());
+        return () -> new InMemorySink(context.getCatalogTable(), context.getOptions());
     }
 }
