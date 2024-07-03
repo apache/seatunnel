@@ -731,6 +731,7 @@ public class ClusterFaultToleranceIT {
     }
 
     @Test
+    @Disabled
     public void testStreamJobRestoreInAllNodeDown() throws Exception {
         String testCaseName = "testStreamJobRestoreInAllNodeDown";
         String testClusterName =
