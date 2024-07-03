@@ -20,9 +20,9 @@ Seatunnel also supports to encode the INSERT/UPDATE/DELETE messages in Seatunnel
 | ogg_json.database.include    | (none)  | no       | An optional regular expression to only read the specific databases changelog rows by regular matching the "database" meta field in the Canal record. The pattern string is compatible with Java's Pattern. |
 | ogg_json.table.include       | (none)  | no       | An optional regular expression to only read the specific tables changelog rows by regular matching the "table" meta field in the Canal record. The pattern string is compatible with Java's Pattern.       |
 
-# How to use Ogg format
+# How to Use Ogg format
 
-## Kafka uses example
+## Kafka Uses Example
 
 Ogg provides a unified format for changelog, here is a simple example for an update operation captured from a Oracle products table:
 
