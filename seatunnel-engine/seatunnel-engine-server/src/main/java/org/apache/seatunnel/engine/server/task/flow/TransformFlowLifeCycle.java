@@ -75,7 +75,7 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
     public void received(Record<?> record) {
         if (record.getData() instanceof Barrier) {
             CheckpointBarrier barrier = (CheckpointBarrier) record.getData();
-            if (barrier.prepareClose()) {
+            if (barrier.prepareClose(this.runningTask.getTaskLocation())) {
                 prepareClose = true;
             }
             if (barrier.snapshot()) {

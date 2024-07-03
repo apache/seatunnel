@@ -34,17 +34,21 @@ public class SparkDataWriterFactory<CommitInfoT, StateT> implements DataWriterFa
 
     private final SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, ?> sink;
     private final CatalogTable catalogTable;
+    private final String jobId;
 
     SparkDataWriterFactory(
-            SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, ?> sink, CatalogTable catalogTable) {
+            SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, ?> sink,
+            CatalogTable catalogTable,
+            String jobId) {
         this.sink = sink;
         this.catalogTable = catalogTable;
+        this.jobId = jobId;
     }
 
     @Override
     public DataWriter<InternalRow> createDataWriter(int partitionId, long taskId, long epochId) {
         org.apache.seatunnel.api.sink.SinkWriter.Context context =
-                new DefaultSinkWriterContext((int) taskId);
+                new DefaultSinkWriterContext(jobId, (int) taskId);
         SinkWriter<SeaTunnelRow, CommitInfoT, StateT> writer;
         SinkCommitter<CommitInfoT> committer;
         try {

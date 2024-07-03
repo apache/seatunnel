@@ -56,6 +56,7 @@ import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengine
 import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig.ConfigNames.URL;
 import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig.ConfigNames.USERNAME;
 import static org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceConfig.buildSourceConfig;
+import static org.apache.seatunnel.connectors.seatunnel.tdengine.utils.TDengineUtil.checkDriverExist;
 
 /**
  * TDengine source each split corresponds one subtable
@@ -135,6 +136,8 @@ public class TDengineSource
                         config.getUsername(),
                         "&password=",
                         config.getPassword());
+        // check td driver whether exist and if not, try to register
+        checkDriverExist(jdbcUrl);
         try (Connection conn = DriverManager.getConnection(jdbcUrl)) {
             try (Statement statement = conn.createStatement()) {
                 ResultSet metaResultSet =

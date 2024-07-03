@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SupportParallelism;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -300,7 +301,8 @@ public class PulsarSource
 
     private void setDeserialization(Config config) {
         if (config.hasPath(SCHEMA.key())) {
-            typeInfo = CatalogTableUtil.buildWithConfig(config).getSeaTunnelRowType();
+            CatalogTable catalogTable = CatalogTableUtil.buildWithConfig(config);
+            typeInfo = catalogTable.getSeaTunnelRowType();
             String format = FORMAT.defaultValue();
             if (config.hasPath(FORMAT.key())) {
                 format = config.getString(FORMAT.key());
@@ -312,7 +314,7 @@ public class PulsarSource
                 case "CANAL_JSON":
                     deserializationSchema =
                             new PulsarCanalDecorator(
-                                    CanalJsonDeserializationSchema.builder(typeInfo)
+                                    CanalJsonDeserializationSchema.builder(catalogTable)
                                             .setIgnoreParseErrors(true)
                                             .build());
                     break;

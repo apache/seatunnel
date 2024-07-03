@@ -27,11 +27,15 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import com.hazelcast.cluster.Address;
+
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 
-public class ResourceManagerTest extends AbstractSeaTunnelServerTest {
+public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceManagerTest> {
 
     private ResourceManager resourceManager;
 
@@ -51,7 +55,7 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest {
         resourceProfiles.add(new ResourceProfile(CPU.of(0), Memory.of(200)));
         resourceProfiles.add(new ResourceProfile(CPU.of(0), Memory.of(300)));
         List<SlotProfile> slotProfiles =
-                resourceManager.applyResources(jobId, resourceProfiles).get();
+                resourceManager.applyResources(jobId, resourceProfiles, null).get();
 
         Assertions.assertEquals(
                 resourceProfiles.get(0).getHeapMemory().getBytes(),
@@ -74,7 +78,32 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest {
                         resourceManager
                                 .applyResource(
                                         jobId,
-                                        new ResourceProfile(CPU.of(0), Memory.of(Long.MAX_VALUE)))
+                                        new ResourceProfile(CPU.of(0), Memory.of(Long.MAX_VALUE)),
+                                        null)
                                 .get());
+    }
+
+    @Test
+    public void testApplyResourceWithRandomResult()
+            throws ExecutionException, InterruptedException {
+        FakeResourceManager resourceManager = new FakeResourceManager(nodeEngine);
+
+        List<ResourceProfile> resourceProfiles = new ArrayList<>();
+        resourceProfiles.add(new ResourceProfile());
+        resourceProfiles.add(new ResourceProfile());
+        resourceProfiles.add(new ResourceProfile());
+        resourceProfiles.add(new ResourceProfile());
+        resourceProfiles.add(new ResourceProfile());
+        List<SlotProfile> slotProfiles =
+                resourceManager.applyResources(1L, resourceProfiles, null).get();
+        Assertions.assertEquals(slotProfiles.size(), 5);
+
+        boolean hasDifferentWorker = false;
+        for (int i = 0; i < 5; i++) {
+            Set<Address> addresses =
+                    slotProfiles.stream().map(SlotProfile::getWorker).collect(Collectors.toSet());
+            hasDifferentWorker = addresses.size() > 1;
+        }
+        Assertions.assertTrue(hasDifferentWorker, "should have different worker for each slot");
     }
 }

@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.dag.physical;
 
+import org.apache.seatunnel.api.env.EnvCommonOptions;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
@@ -51,7 +52,7 @@ import java.util.concurrent.atomic.AtomicReference;
 public class SubPlan {
 
     /** The max num pipeline can restore. */
-    public static final int PIPELINE_MAX_RESTORE_NUM = 3; // TODO should set by config
+    private final int pipelineMaxRestoreNum;
 
     private final List<PhysicalVertex> physicalVertexList;
 
@@ -68,6 +69,7 @@ public class SubPlan {
     private final String pipelineFullName;
 
     private final IMap<Object, Object> runningJobStateIMap;
+    private final Map<String, String> tags;
 
     /**
      * Timestamps (in milliseconds) as returned by {@code System.currentTimeMillis()} when the
@@ -98,7 +100,7 @@ public class SubPlan {
 
     private final Object restoreLock = new Object();
 
-    private volatile PipelineStatus currPipelineStatus = PipelineStatus.INITIALIZING;
+    private volatile PipelineStatus currPipelineStatus;
 
     public volatile boolean isRunning = false;
 
@@ -113,7 +115,8 @@ public class SubPlan {
             @NonNull JobImmutableInformation jobImmutableInformation,
             @NonNull ExecutorService executorService,
             @NonNull IMap runningJobStateIMap,
-            @NonNull IMap runningJobStateTimestampsIMap) {
+            @NonNull IMap runningJobStateTimestampsIMap,
+            Map<String, String> tags) {
         this.pipelineId = pipelineId;
         this.pipelineLocation =
                 new PipelineLocation(jobImmutableInformation.getJobId(), pipelineId);
@@ -121,7 +124,15 @@ public class SubPlan {
         this.physicalVertexList = physicalVertexList;
         this.coordinatorVertexList = coordinatorVertexList;
         pipelineRestoreNum = 0;
-
+        pipelineMaxRestoreNum =
+                Integer.parseInt(
+                        jobImmutableInformation
+                                .getJobConfig()
+                                .getEnvOptions()
+                                .computeIfAbsent(
+                                        EnvCommonOptions.JOB_RETRY_TIMES.key(),
+                                        key -> EnvCommonOptions.JOB_RETRY_TIMES.defaultValue())
+                                .toString());
         Long[] stateTimestamps = new Long[PipelineStatus.values().length];
         if (runningJobStateTimestampsIMap.get(pipelineLocation) == null) {
             stateTimestamps[PipelineStatus.INITIALIZING.ordinal()] = initializationTimestamp;
@@ -149,6 +160,7 @@ public class SubPlan {
         this.runningJobStateIMap = runningJobStateIMap;
         this.runningJobStateTimestampsIMap = runningJobStateTimestampsIMap;
         this.executorService = executorService;
+        this.tags = tags;
     }
 
     public synchronized PassiveCompletableFuture<PipelineExecutionState> initStateFuture() {
@@ -302,7 +314,7 @@ public class SubPlan {
     }
 
     public boolean canRestorePipeline() {
-        return jobMaster.isNeedRestore() && getPipelineRestoreNum() < PIPELINE_MAX_RESTORE_NUM;
+        return jobMaster.isNeedRestore() && getPipelineRestoreNum() < pipelineMaxRestoreNum;
     }
 
     public synchronized void updatePipelineState(@NonNull PipelineStatus targetState) {
@@ -588,15 +600,11 @@ public class SubPlan {
                 break;
             case SCHEDULED:
                 try {
-                    slotProfiles =
-                            ResourceUtils.applyResourceForPipeline(
-                                    jobMaster.getResourceManager(), this);
+                    ResourceUtils.applyResourceForPipeline(jobMaster.getResourceManager(), this);
                     log.debug(
                             "slotProfiles: {}, PipelineLocation: {}",
                             slotProfiles,
                             this.getPipelineLocation());
-                    // sead slot information to JobMaster
-                    jobMaster.setOwnedSlotProfiles(pipelineLocation, slotProfiles);
                     updatePipelineState(PipelineStatus.DEPLOYING);
                 } catch (Exception e) {
                     makePipelineFailing(e);

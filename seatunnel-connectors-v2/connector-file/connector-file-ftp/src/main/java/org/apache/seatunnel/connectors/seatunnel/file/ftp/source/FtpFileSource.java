@@ -99,6 +99,7 @@ public class FtpFileSource extends BaseFileSource {
                 case TEXT:
                 case JSON:
                 case EXCEL:
+                case XML:
                     SeaTunnelRowType userDefinedSchema =
                             CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
                     readStrategy.setSeaTunnelRowTypeInfo(userDefinedSchema);
@@ -106,9 +107,10 @@ public class FtpFileSource extends BaseFileSource {
                     break;
                 case ORC:
                 case PARQUET:
+                case BINARY:
                     throw new FileConnectorException(
                             CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                            "SeaTunnel does not support user-defined schema for [parquet, orc] files");
+                            "SeaTunnel does not support user-defined schema for [parquet, orc, binary] files");
                 default:
                     // never got in there
                     throw new FileConnectorException(

@@ -19,7 +19,7 @@ package org.apache.seatunnel.transform.exception;
 
 import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
-enum TransformCommonErrorCode implements SeaTunnelErrorCode {
+public enum TransformCommonErrorCode implements SeaTunnelErrorCode {
     INPUT_FIELD_NOT_FOUND(
             "TRANSFORM_COMMON-01",
             "The input field '<field>' of '<transform>' transform not found in upstream schema"),

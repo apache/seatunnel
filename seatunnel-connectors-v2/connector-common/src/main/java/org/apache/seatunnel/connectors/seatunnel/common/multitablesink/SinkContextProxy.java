@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.common.multitablesink;
 
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
+import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.sink.SinkWriter;
 
 public class SinkContextProxy implements SinkWriter.Context {
@@ -39,5 +40,10 @@ public class SinkContextProxy implements SinkWriter.Context {
     @Override
     public MetricsContext getMetricsContext() {
         return context.getMetricsContext();
+    }
+
+    @Override
+    public EventListener getEventListener() {
+        return context.getEventListener();
     }
 }

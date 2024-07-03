@@ -28,9 +28,19 @@ import java.util.Arrays;
 
 public class MySqlTypeMapper implements JdbcDialectTypeMapper {
 
+    private MySqlTypeConverter typeConverter;
+
+    public MySqlTypeMapper() {
+        this(MySqlTypeConverter.DEFAULT_INSTANCE);
+    }
+
+    public MySqlTypeMapper(MySqlTypeConverter typeConverter) {
+        this.typeConverter = typeConverter;
+    }
+
     @Override
     public Column mappingColumn(BasicTypeDefine typeDefine) {
-        return MySqlTypeConverter.INSTANCE.convert(typeDefine);
+        return typeConverter.convert(typeDefine);
     }
 
     @Override

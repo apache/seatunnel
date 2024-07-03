@@ -19,9 +19,10 @@ package org.apache.seatunnel.connectors.seatunnel.elasticsearch.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.common.utils.RetryUtils.RetryMaterial;
@@ -47,9 +48,10 @@ import java.util.Optional;
  */
 @Slf4j
 public class ElasticsearchSinkWriter
-        implements SinkWriter<SeaTunnelRow, ElasticsearchCommitInfo, ElasticsearchSinkState> {
+        implements SinkWriter<SeaTunnelRow, ElasticsearchCommitInfo, ElasticsearchSinkState>,
+                SupportMultiTableSinkWriter<Void> {
 
-    private final SinkWriter.Context context;
+    private final Context context;
 
     private final int maxBatchSize;
 
@@ -60,19 +62,21 @@ public class ElasticsearchSinkWriter
     private static final long DEFAULT_SLEEP_TIME_MS = 200L;
 
     public ElasticsearchSinkWriter(
-            SinkWriter.Context context,
-            SeaTunnelRowType seaTunnelRowType,
+            Context context,
+            CatalogTable catalogTable,
             ReadonlyConfig config,
             int maxBatchSize,
             int maxRetryCount) {
         this.context = context;
         this.maxBatchSize = maxBatchSize;
 
-        IndexInfo indexInfo = new IndexInfo(config);
+        IndexInfo indexInfo = new IndexInfo(catalogTable.getTableId().getTableName(), config);
         esRestClient = EsRestClient.createInstance(config);
         this.seaTunnelRowSerializer =
                 new ElasticsearchRowSerializer(
-                        esRestClient.getClusterInfo(), indexInfo, seaTunnelRowType);
+                        esRestClient.getClusterInfo(),
+                        indexInfo,
+                        catalogTable.getSeaTunnelRowType());
 
         this.requestEsList = new ArrayList<>(maxBatchSize);
         this.retryMaterial =

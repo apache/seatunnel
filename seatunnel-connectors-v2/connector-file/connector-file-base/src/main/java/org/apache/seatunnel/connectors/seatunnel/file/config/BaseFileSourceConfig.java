@@ -80,7 +80,8 @@ public abstract class BaseFileSourceConfig implements Serializable {
 
     private CatalogTable parseCatalogTable(ReadonlyConfig readonlyConfig) {
         final CatalogTable catalogTable;
-        if (readonlyConfig.getOptional(TableSchemaOptions.SCHEMA).isPresent()) {
+        boolean configSchema = readonlyConfig.getOptional(TableSchemaOptions.SCHEMA).isPresent();
+        if (configSchema) {
             catalogTable = CatalogTableUtil.buildWithConfig(getPluginName(), readonlyConfig);
         } else {
             catalogTable = CatalogTableUtil.buildSimpleTextTable();
@@ -93,12 +94,17 @@ public abstract class BaseFileSourceConfig implements Serializable {
             case TEXT:
             case JSON:
             case EXCEL:
+            case XML:
                 readStrategy.setSeaTunnelRowTypeInfo(catalogTable.getSeaTunnelRowType());
                 return newCatalogTable(catalogTable, readStrategy.getActualSeaTunnelRowTypeInfo());
             case ORC:
             case PARQUET:
+            case BINARY:
                 return newCatalogTable(
-                        catalogTable, readStrategy.getSeaTunnelRowTypeInfo(filePaths.get(0)));
+                        catalogTable,
+                        readStrategy.getSeaTunnelRowTypeInfoWithUserConfigRowType(
+                                filePaths.get(0),
+                                configSchema ? catalogTable.getSeaTunnelRowType() : null));
             default:
                 throw new FileConnectorException(
                         FileConnectorErrorCode.FORMAT_NOT_SUPPORT,

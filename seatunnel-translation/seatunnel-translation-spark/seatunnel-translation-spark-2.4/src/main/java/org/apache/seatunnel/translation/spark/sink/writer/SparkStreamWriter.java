@@ -34,9 +34,10 @@ public class SparkStreamWriter<StateT, CommitInfoT, AggregatedCommitInfoT>
 
     public SparkStreamWriter(
             SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
-            CatalogTable catalogTable)
+            CatalogTable catalogTable,
+            String jobId)
             throws IOException {
-        super(sink, catalogTable);
+        super(sink, catalogTable, jobId);
     }
 
     @Override

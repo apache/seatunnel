@@ -153,7 +153,7 @@ public class TransformErrorTest {
                         new HashMap<String, Object>() {
                             {
                                 put(
-                                        FilterFieldTransformConfig.KEY_FIELDS.key(),
+                                        FilterFieldTransformConfig.INCLUDE_FIELDS.key(),
                                         new ArrayList<String>() {
                                             {
                                                 add("age");

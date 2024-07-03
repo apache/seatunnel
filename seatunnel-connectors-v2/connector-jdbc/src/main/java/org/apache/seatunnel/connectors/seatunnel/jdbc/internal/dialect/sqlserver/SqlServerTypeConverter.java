@@ -39,11 +39,15 @@ public class SqlServerTypeConverter implements TypeConverter<BasicTypeDefine> {
     // -------------------------number----------------------------
     public static final String SQLSERVER_BIT = "BIT";
     public static final String SQLSERVER_TINYINT = "TINYINT";
+    public static final String SQLSERVER_TINYINT_IDENTITY = "TINYINT IDENTITY";
     public static final String SQLSERVER_SMALLINT = "SMALLINT";
+    public static final String SQLSERVER_SMALLINT_IDENTITY = "SMALLINT IDENTITY";
     public static final String SQLSERVER_INTEGER = "INTEGER";
+    public static final String SQLSERVER_INTEGER_IDENTITY = "INTEGER IDENTITY";
     public static final String SQLSERVER_INT = "INT";
     private static final String SQLSERVER_INT_IDENTITY = "INT IDENTITY";
     public static final String SQLSERVER_BIGINT = "BIGINT";
+    public static final String SQLSERVER_BIGINT_IDENTITY = "BIGINT IDENTITY";
     public static final String SQLSERVER_DECIMAL = "DECIMAL";
     public static final String SQLSERVER_FLOAT = "FLOAT";
     public static final String SQLSERVER_REAL = "REAL";
@@ -111,20 +115,24 @@ public class SqlServerTypeConverter implements TypeConverter<BasicTypeDefine> {
                 builder.dataType(BasicType.BOOLEAN_TYPE);
                 break;
             case SQLSERVER_TINYINT:
+            case SQLSERVER_TINYINT_IDENTITY:
                 builder.sourceType(SQLSERVER_TINYINT);
                 builder.dataType(BasicType.SHORT_TYPE);
                 break;
             case SQLSERVER_SMALLINT:
+            case SQLSERVER_SMALLINT_IDENTITY:
                 builder.sourceType(SQLSERVER_SMALLINT);
                 builder.dataType(BasicType.SHORT_TYPE);
                 break;
             case SQLSERVER_INTEGER:
+            case SQLSERVER_INTEGER_IDENTITY:
             case SQLSERVER_INT:
             case SQLSERVER_INT_IDENTITY:
                 builder.sourceType(SQLSERVER_INT);
                 builder.dataType(BasicType.INT_TYPE);
                 break;
             case SQLSERVER_BIGINT:
+            case SQLSERVER_BIGINT_IDENTITY:
                 builder.sourceType(SQLSERVER_BIGINT);
                 builder.dataType(BasicType.LONG_TYPE);
                 break;
@@ -174,7 +182,8 @@ public class SqlServerTypeConverter implements TypeConverter<BasicTypeDefine> {
             case SQLSERVER_CHAR:
                 builder.sourceType(String.format("%s(%s)", SQLSERVER_CHAR, typeDefine.getLength()));
                 builder.dataType(BasicType.STRING_TYPE);
-                builder.columnLength(typeDefine.getLength());
+                builder.columnLength(
+                        TypeDefineUtils.doubleByteTo4ByteLength(typeDefine.getLength()));
                 break;
             case SQLSERVER_NCHAR:
                 builder.sourceType(
@@ -186,18 +195,18 @@ public class SqlServerTypeConverter implements TypeConverter<BasicTypeDefine> {
             case SQLSERVER_VARCHAR:
                 if (typeDefine.getLength() == -1) {
                     builder.sourceType(MAX_VARCHAR);
-                    builder.columnLength(POWER_2_31 - 1);
+                    builder.columnLength(TypeDefineUtils.doubleByteTo4ByteLength(POWER_2_31 - 1));
                 } else {
                     builder.sourceType(
                             String.format("%s(%s)", SQLSERVER_VARCHAR, typeDefine.getLength()));
-                    builder.columnLength(typeDefine.getLength());
+                    builder.columnLength(
+                            TypeDefineUtils.doubleByteTo4ByteLength(typeDefine.getLength()));
                 }
                 builder.dataType(BasicType.STRING_TYPE);
                 break;
             case SQLSERVER_NVARCHAR:
                 if (typeDefine.getLength() == -1) {
                     builder.sourceType(MAX_NVARCHAR);
-                    builder.columnLength(POWER_2_31 - 1);
                     builder.columnLength(TypeDefineUtils.doubleByteTo4ByteLength(POWER_2_31 - 1));
                 } else {
                     builder.sourceType(
@@ -225,7 +234,7 @@ public class SqlServerTypeConverter implements TypeConverter<BasicTypeDefine> {
             case SQLSERVER_UNIQUEIDENTIFIER:
                 builder.sourceType(SQLSERVER_UNIQUEIDENTIFIER);
                 builder.dataType(BasicType.STRING_TYPE);
-                builder.columnLength(typeDefine.getLength() * 4);
+                builder.columnLength(TypeDefineUtils.charTo4ByteLength(typeDefine.getLength()));
                 break;
             case SQLSERVER_SQLVARIANT:
                 builder.sourceType(SQLSERVER_SQLVARIANT);

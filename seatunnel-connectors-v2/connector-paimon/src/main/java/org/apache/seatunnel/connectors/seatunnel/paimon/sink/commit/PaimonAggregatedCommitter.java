@@ -17,14 +17,22 @@
 
 package org.apache.seatunnel.connectors.seatunnel.paimon.sink.commit;
 
+import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSinkAggregatedCommitter;
+import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonHadoopConfiguration;
 import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.paimon.security.PaimonSecurityContext;
+import org.apache.seatunnel.connectors.seatunnel.paimon.utils.JobContextUtil;
 
 import org.apache.paimon.operation.Lock;
 import org.apache.paimon.table.Table;
 import org.apache.paimon.table.sink.BatchTableCommit;
 import org.apache.paimon.table.sink.CommitMessage;
+import org.apache.paimon.table.sink.StreamTableCommit;
+import org.apache.paimon.table.sink.TableCommit;
+import org.apache.paimon.table.sink.WriteBuilder;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -32,35 +40,57 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /** Paimon connector aggregated committer class */
 @Slf4j
 public class PaimonAggregatedCommitter
-        implements SinkAggregatedCommitter<PaimonCommitInfo, PaimonAggregatedCommitInfo> {
+        implements SinkAggregatedCommitter<PaimonCommitInfo, PaimonAggregatedCommitInfo>,
+                SupportMultiTableSinkAggregatedCommitter {
 
     private static final long serialVersionUID = 1L;
 
     private final Lock.Factory localFactory = Lock.emptyFactory();
 
-    private final Table table;
+    private final WriteBuilder tableWriteBuilder;
 
-    public PaimonAggregatedCommitter(Table table) {
-        this.table = table;
+    private final JobContext jobContext;
+
+    public PaimonAggregatedCommitter(
+            Table table,
+            JobContext jobContext,
+            PaimonHadoopConfiguration paimonHadoopConfiguration) {
+        this.jobContext = jobContext;
+        this.tableWriteBuilder =
+                JobContextUtil.isBatchJob(jobContext)
+                        ? table.newBatchWriteBuilder()
+                        : table.newStreamWriteBuilder();
+        PaimonSecurityContext.shouldEnableKerberos(paimonHadoopConfiguration);
     }
 
     @Override
     public List<PaimonAggregatedCommitInfo> commit(
             List<PaimonAggregatedCommitInfo> aggregatedCommitInfo) throws IOException {
-        try (BatchTableCommit tableCommit =
-                table.newBatchWriteBuilder().withOverwrite().newCommit()) {
+        try (TableCommit tableCommit = tableWriteBuilder.newCommit()) {
             List<CommitMessage> fileCommittables =
                     aggregatedCommitInfo.stream()
                             .map(PaimonAggregatedCommitInfo::getCommittables)
                             .flatMap(List::stream)
                             .flatMap(List::stream)
                             .collect(Collectors.toList());
-            tableCommit.commit(fileCommittables);
+            PaimonSecurityContext.runSecured(
+                    () -> {
+                        if (JobContextUtil.isBatchJob(jobContext)) {
+                            log.debug("Trying to commit states batch mode");
+                            ((BatchTableCommit) tableCommit).commit(fileCommittables);
+                        } else {
+                            log.debug("Trying to commit states streaming mode");
+                            ((StreamTableCommit) tableCommit)
+                                    .commit(Objects.hash(fileCommittables), fileCommittables);
+                        }
+                        return null;
+                    });
         } catch (Exception e) {
             throw new PaimonConnectorException(
                     PaimonConnectorErrorCode.TABLE_WRITE_COMMIT_FAILED,

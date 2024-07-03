@@ -75,7 +75,7 @@ public class SftpFileSource extends BaseFileSource {
         if (fileFormat == FileFormat.ORC || fileFormat == FileFormat.PARQUET) {
             throw new FileConnectorException(
                     CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
-                    "Sftp file source connector only support read [text, csv, json] files");
+                    "Sftp file source connector only support read [text, csv, json, xml] files");
         }
         String path = pluginConfig.getString(SftpConfigOptions.FILE_PATH.key());
         hadoopConf = SftpConf.buildWithConfig(pluginConfig);
@@ -99,6 +99,7 @@ public class SftpFileSource extends BaseFileSource {
                 case TEXT:
                 case JSON:
                 case EXCEL:
+                case XML:
                     SeaTunnelRowType userDefinedSchema =
                             CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
                     readStrategy.setSeaTunnelRowTypeInfo(userDefinedSchema);
@@ -106,9 +107,10 @@ public class SftpFileSource extends BaseFileSource {
                     break;
                 case ORC:
                 case PARQUET:
+                case BINARY:
                     throw new FileConnectorException(
                             CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                            "SeaTunnel does not support user-defined schema for [parquet, orc] files");
+                            "SeaTunnel does not support user-defined schema for [parquet, orc, binary] files");
                 default:
                     // never got in there
                     throw new FileConnectorException(

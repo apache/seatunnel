@@ -207,7 +207,7 @@ public class SqlServerCreateTableSqlBuilder {
 
         // comment
         if (column.getComment() != null) {
-            columnComments.put(column.getName(), column.getComment());
+            columnComments.put(column.getName(), column.getComment().replace("'", "''"));
         }
 
         return String.join(" ", columnSqls);

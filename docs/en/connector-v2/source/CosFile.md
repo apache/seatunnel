@@ -26,6 +26,8 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
   - [x] orc
   - [x] json
   - [x] excel
+  - [x] xml
+  - [x] binary
 
 ## Description
 
@@ -60,8 +62,11 @@ To use this connector you need put hadoop-cos-{hadoop.version}-{version}.jar and
 | time_format               | string  | no       | HH:mm:ss            |
 | schema                    | config  | no       | -                   |
 | sheet_name                | string  | no       | -                   |
+| xml_row_tag               | string  | no       | -                   |
+| xml_use_attr_format       | boolean | no       | -                   |
 | file_filter_pattern       | string  | no       | -                   |
 | compress_codec            | string  | no       | none                |
+| encoding                  | string  | no       | UTF-8               |
 | common-options            |         | no       | -                   |
 
 ### path [string]
@@ -72,7 +77,7 @@ The source file path.
 
 File type, supported as the following file types:
 
-`text` `csv` `parquet` `orc` `json` `excel`
+`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary`
 
 If you assign file type to `json`, you should also assign schema option to tell connector how to parse data to the row you want.
 
@@ -156,6 +161,11 @@ connector will generate data as the following:
 |---------------|-----|--------|
 | tyrantlucifer | 26  | male   |
 
+If you assign file type to `binary`, SeaTunnel can synchronize files in any format,
+such as compressed packages, pictures, etc. In short, any files can be synchronized to the target place.
+Under this requirement, you need to ensure that the source and sink use `binary` format for file synchronization
+at the same time. You can find the specific usage in the example below.
+
 ### bucket [string]
 
 The bucket address of Cos file system, for example: `Cos://tyrantlucifer-image-bed`
@@ -236,7 +246,7 @@ default `HH:mm:ss`
 
 ### schema [config]
 
-Only need to be configured when the file_format_type are text, json, excel or csv ( Or other format we can't read the schema from metadata).
+Only need to be configured when the file_format_type are text, json, excel, xml or csv ( Or other format we can't read the schema from metadata).
 
 #### fields [Config]
 
@@ -247,6 +257,18 @@ The schema of upstream data.
 Only need to be configured when file_format is excel.
 
 Reader the sheet of the workbook.
+
+### xml_row_tag [string]
+
+Only need to be configured when file_format is xml.
+
+Specifies the tag name of the data rows within the XML file.
+
+### xml_use_attr_format [boolean]
+
+Only need to be configured when file_format is xml.
+
+Specifies Whether to process data using the tag attribute format.
 
 ### file_filter_pattern [string]
 
@@ -261,6 +283,11 @@ The compress codec of files and the details that supported as the following show
 - csv: `lzo` `none`
 - orc/parquet:  
   automatically recognizes the compression type, no additional settings required.
+
+### encoding [string]
+
+Only used when file_format_type is json,text,csv,xml.
+The encoding of the file to read. This param will be parsed by `Charset.forName(encoding)`.
 
 ### common options
 
@@ -297,6 +324,39 @@ Source plugin common parameters, please refer to [Source Common Options](common-
       }
     }
   }
+
+```
+
+### Transfer Binary File
+
+```hocon
+
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  CosFile {
+    bucket = "cosn://seatunnel-test-1259587829"
+    secret_id = "xxxxxxxxxxxxxxxxxxx"
+    secret_key = "xxxxxxxxxxxxxxxxxxx"
+    region = "ap-chengdu"
+    path = "/seatunnel/read/binary/"
+    file_format_type = "binary"
+  }
+}
+sink {
+  // you can transfer local file to s3/hdfs/oss etc.
+  CosFile {
+    bucket = "cosn://seatunnel-test-1259587829"
+    secret_id = "xxxxxxxxxxxxxxxxxxx"
+    secret_key = "xxxxxxxxxxxxxxxxxxx"
+    region = "ap-chengdu"
+    path = "/seatunnel/read/binary2/"
+    file_format_type = "binary"
+  }
+}
 
 ```
 

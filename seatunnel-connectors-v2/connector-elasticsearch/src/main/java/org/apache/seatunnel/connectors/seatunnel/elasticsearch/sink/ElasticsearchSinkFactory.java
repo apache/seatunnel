@@ -17,7 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.elasticsearch.sink;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.sink.SinkReplaceNameConstant;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
@@ -26,6 +30,10 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SinkConfig
 
 import com.google.auto.service.AutoService;
 
+import java.util.HashMap;
+import java.util.Map;
+
+import static org.apache.seatunnel.api.sink.SinkReplaceNameConstant.REPLACE_TABLE_NAME_KEY;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.EsClusterConnectionConfig.HOSTS;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.EsClusterConnectionConfig.PASSWORD;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.EsClusterConnectionConfig.TLS_KEY_STORE_PASSWORD;
@@ -72,6 +80,56 @@ public class ElasticsearchSinkFactory implements TableSinkFactory {
 
     @Override
     public TableSink createSink(TableSinkFactoryContext context) {
-        return () -> new ElasticsearchSink(context.getOptions(), context.getCatalogTable());
+        ReadonlyConfig readonlyConfig = context.getOptions();
+        CatalogTable catalogTable = context.getCatalogTable();
+
+        ReadonlyConfig finalReadonlyConfig =
+                generateCurrentReadonlyConfig(readonlyConfig, catalogTable);
+
+        String original = finalReadonlyConfig.get(INDEX);
+
+        CatalogTable newTable =
+                CatalogTable.of(
+                        TableIdentifier.of(
+                                context.getCatalogTable().getCatalogName(),
+                                context.getCatalogTable().getTablePath().getDatabaseName(),
+                                original),
+                        context.getCatalogTable());
+        return () -> new ElasticsearchSink(finalReadonlyConfig, newTable);
+    }
+
+    private ReadonlyConfig generateCurrentReadonlyConfig(
+            ReadonlyConfig readonlyConfig, CatalogTable catalogTable) {
+
+        Map<String, String> configMap = readonlyConfig.toMap();
+
+        readonlyConfig
+                .getOptional(INDEX)
+                .ifPresent(
+                        tableName -> {
+                            String replacedPath =
+                                    replaceCatalogTableInPath(tableName, catalogTable);
+                            configMap.put(INDEX.key(), replacedPath);
+                        });
+
+        return ReadonlyConfig.fromMap(new HashMap<>(configMap));
+    }
+
+    private String replaceCatalogTableInPath(String originTableName, CatalogTable catalogTable) {
+        String tableName = originTableName;
+        TableIdentifier tableIdentifier = catalogTable.getTableId();
+        if (tableIdentifier != null) {
+            if (tableIdentifier.getSchemaName() != null) {
+                tableName =
+                        tableName.replace(
+                                SinkReplaceNameConstant.REPLACE_SCHEMA_NAME_KEY,
+                                tableIdentifier.getSchemaName());
+            }
+            if (tableIdentifier.getTableName() != null) {
+                tableName =
+                        tableName.replace(REPLACE_TABLE_NAME_KEY, tableIdentifier.getTableName());
+            }
+        }
+        return tableName;
     }
 }

@@ -17,70 +17,32 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.source;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
-import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
-import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.config.CommonConfig;
 import org.apache.seatunnel.connectors.seatunnel.starrocks.config.SourceConfig;
-import org.apache.seatunnel.connectors.seatunnel.starrocks.exception.StarRocksConnectorException;
 
-import com.google.auto.service.AutoService;
+import java.util.Collections;
+import java.util.List;
 
-import static org.apache.seatunnel.connectors.seatunnel.starrocks.config.CommonConfig.DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.starrocks.config.CommonConfig.NODE_URLS;
-import static org.apache.seatunnel.connectors.seatunnel.starrocks.config.CommonConfig.PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.starrocks.config.CommonConfig.TABLE;
-import static org.apache.seatunnel.connectors.seatunnel.starrocks.config.CommonConfig.USERNAME;
-
-@AutoService(SeaTunnelSource.class)
 public class StarRocksSource
         implements SeaTunnelSource<SeaTunnelRow, StarRocksSourceSplit, StarRocksSourceState> {
 
-    private SeaTunnelRowType typeInfo;
+    private CatalogTable catalogTable;
     private SourceConfig sourceConfig;
 
     @Override
     public String getPluginName() {
-        return "StarRocks";
+        return CommonConfig.CONNECTOR_IDENTITY;
     }
 
-    @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
-        CheckResult checkResult =
-                CheckConfigUtil.checkAllExists(
-                        pluginConfig,
-                        NODE_URLS.key(),
-                        DATABASE.key(),
-                        TABLE.key(),
-                        USERNAME.key(),
-                        PASSWORD.key());
-
-        CheckResult schemaCheckResult =
-                CheckConfigUtil.checkAllExists(pluginConfig, TableSchemaOptions.SCHEMA.key());
-        CheckResult mergedConfigCheck =
-                CheckConfigUtil.mergeCheckResults(checkResult, schemaCheckResult);
-        if (!mergedConfigCheck.isSuccess()) {
-            throw new StarRocksConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SOURCE, mergedConfigCheck.getMsg()));
-        }
-
-        this.typeInfo = CatalogTableUtil.buildWithConfig(pluginConfig).getSeaTunnelRowType();
-        this.sourceConfig = SourceConfig.loadConfig(pluginConfig);
+    public StarRocksSource(SourceConfig sourceConfig, CatalogTable catalogTable) {
+        this.sourceConfig = sourceConfig;
+        this.catalogTable = catalogTable;
     }
 
     @Override
@@ -89,13 +51,14 @@ public class StarRocksSource
     }
 
     @Override
-    public SeaTunnelDataType getProducedType() {
-        return typeInfo;
+    public List<CatalogTable> getProducedCatalogTables() {
+        return Collections.singletonList(catalogTable);
     }
 
     @Override
     public SourceReader createReader(SourceReader.Context readerContext) {
-        return new StarRocksSourceReader(readerContext, typeInfo, sourceConfig);
+        return new StarRocksSourceReader(
+                readerContext, catalogTable.getSeaTunnelRowType(), sourceConfig);
     }
 
     @Override
@@ -104,11 +67,15 @@ public class StarRocksSource
             StarRocksSourceState checkpointState)
             throws Exception {
         return new StartRocksSourceSplitEnumerator(
-                enumeratorContext, sourceConfig, typeInfo, checkpointState);
+                enumeratorContext,
+                sourceConfig,
+                catalogTable.getSeaTunnelRowType(),
+                checkpointState);
     }
 
     @Override
     public SourceSplitEnumerator createEnumerator(SourceSplitEnumerator.Context enumeratorContext) {
-        return new StartRocksSourceSplitEnumerator(enumeratorContext, sourceConfig, typeInfo);
+        return new StartRocksSourceSplitEnumerator(
+                enumeratorContext, sourceConfig, catalogTable.getSeaTunnelRowType());
     }
 }

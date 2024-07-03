@@ -19,6 +19,8 @@
 package org.apache.seatunnel.format.json.debezium;
 
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -48,15 +50,17 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 public class DebeziumJsonSerDeSchemaTest {
     private static final String FORMAT = "Debezium";
 
-    private static final SeaTunnelRowType PHYSICAL_DATA_TYPE =
+    private static final SeaTunnelRowType SEATUNNEL_ROW_TYPE =
             new SeaTunnelRowType(
                     new String[] {"id", "name", "description", "weight"},
                     new SeaTunnelDataType[] {INT_TYPE, STRING_TYPE, STRING_TYPE, FLOAT_TYPE});
+    private static final CatalogTable catalogTables =
+            CatalogTableUtil.getCatalogTable("", "", "", "", SEATUNNEL_ROW_TYPE);
 
     @Test
     void testNullRowMessages() throws Exception {
         DebeziumJsonDeserializationSchema deserializationSchema =
-                new DebeziumJsonDeserializationSchema(PHYSICAL_DATA_TYPE, false);
+                new DebeziumJsonDeserializationSchema(catalogTables, false);
         SimpleCollector collector = new SimpleCollector();
 
         deserializationSchema.deserialize(null, collector);
@@ -72,7 +76,7 @@ public class DebeziumJsonSerDeSchemaTest {
     @Test
     public void testDeserializeNoJson() throws Exception {
         final DebeziumJsonDeserializationSchema deserializationSchema =
-                new DebeziumJsonDeserializationSchema(PHYSICAL_DATA_TYPE, false);
+                new DebeziumJsonDeserializationSchema(catalogTables, false);
         final SimpleCollector collector = new SimpleCollector();
 
         String noJsonMsg = "{]";
@@ -90,7 +94,7 @@ public class DebeziumJsonSerDeSchemaTest {
     @Test
     public void testDeserializeEmptyJson() throws Exception {
         final DebeziumJsonDeserializationSchema deserializationSchema =
-                new DebeziumJsonDeserializationSchema(PHYSICAL_DATA_TYPE, false);
+                new DebeziumJsonDeserializationSchema(catalogTables, false);
         final SimpleCollector collector = new SimpleCollector();
         String emptyMsg = "{}";
         SeaTunnelRuntimeException expected = CommonError.jsonOperationError(FORMAT, emptyMsg);
@@ -106,7 +110,7 @@ public class DebeziumJsonSerDeSchemaTest {
     @Test
     public void testDeserializeNoDataJson() throws Exception {
         final DebeziumJsonDeserializationSchema deserializationSchema =
-                new DebeziumJsonDeserializationSchema(PHYSICAL_DATA_TYPE, false);
+                new DebeziumJsonDeserializationSchema(catalogTables, false);
         final SimpleCollector collector = new SimpleCollector();
         String noDataMsg = "{\"op\":\"u\"}";
         SeaTunnelRuntimeException expected = CommonError.jsonOperationError(FORMAT, noDataMsg);
@@ -132,7 +136,7 @@ public class DebeziumJsonSerDeSchemaTest {
     @Test
     public void testDeserializeUnknownOperationTypeJson() throws Exception {
         final DebeziumJsonDeserializationSchema deserializationSchema =
-                new DebeziumJsonDeserializationSchema(PHYSICAL_DATA_TYPE, false);
+                new DebeziumJsonDeserializationSchema(catalogTables, false);
         final SimpleCollector collector = new SimpleCollector();
         String unknownType = "XX";
         String unknownOperationMsg =
@@ -161,7 +165,7 @@ public class DebeziumJsonSerDeSchemaTest {
             throws Exception {
         List<String> lines = readLines(resourceFile);
         DebeziumJsonDeserializationSchema deserializationSchema =
-                new DebeziumJsonDeserializationSchema(PHYSICAL_DATA_TYPE, true, schemaInclude);
+                new DebeziumJsonDeserializationSchema(catalogTables, true, schemaInclude);
 
         SimpleCollector collector = new SimpleCollector();
 
@@ -171,32 +175,32 @@ public class DebeziumJsonSerDeSchemaTest {
 
         List<String> expected =
                 Arrays.asList(
-                        "SeaTunnelRow{tableId=, kind=+I, fields=[101, scooter, Small 2-wheel scooter, 3.14]}",
-                        "SeaTunnelRow{tableId=, kind=+I, fields=[102, car battery, 12V car battery, 8.1]}",
-                        "SeaTunnelRow{tableId=, kind=+I, fields=[103, 12-pack drill bits, 12-pack of drill bits with sizes ranging from #40 to #3, 0.8]}",
-                        "SeaTunnelRow{tableId=, kind=+I, fields=[104, hammer, 12oz carpenter's hammer, 0.75]}",
-                        "SeaTunnelRow{tableId=, kind=+I, fields=[105, hammer, 14oz carpenter's hammer, 0.875]}",
-                        "SeaTunnelRow{tableId=, kind=+I, fields=[106, hammer, 16oz carpenter's hammer, 1.0]}",
-                        "SeaTunnelRow{tableId=, kind=+I, fields=[107, rocks, box of assorted rocks, 5.3]}",
-                        "SeaTunnelRow{tableId=, kind=+I, fields=[108, jacket, water resistent black wind breaker, 0.1]}",
-                        "SeaTunnelRow{tableId=, kind=+I, fields=[109, spare tire, 24 inch spare tire, 22.2]}",
-                        "SeaTunnelRow{tableId=, kind=-U, fields=[106, hammer, 16oz carpenter's hammer, 1.0]}",
-                        "SeaTunnelRow{tableId=, kind=+U, fields=[106, hammer, 18oz carpenter hammer, 1.0]}",
-                        "SeaTunnelRow{tableId=, kind=-U, fields=[107, rocks, box of assorted rocks, 5.3]}",
-                        "SeaTunnelRow{tableId=, kind=+U, fields=[107, rocks, box of assorted rocks, 5.1]}",
-                        "SeaTunnelRow{tableId=, kind=+I, fields=[110, jacket, water resistent white wind breaker, 0.2]}",
-                        "SeaTunnelRow{tableId=, kind=+I, fields=[111, scooter, Big 2-wheel scooter , 5.18]}",
-                        "SeaTunnelRow{tableId=, kind=-U, fields=[110, jacket, water resistent white wind breaker, 0.2]}",
-                        "SeaTunnelRow{tableId=, kind=+U, fields=[110, jacket, new water resistent white wind breaker, 0.5]}",
-                        "SeaTunnelRow{tableId=, kind=-U, fields=[111, scooter, Big 2-wheel scooter , 5.18]}",
-                        "SeaTunnelRow{tableId=, kind=+U, fields=[111, scooter, Big 2-wheel scooter , 5.17]}",
-                        "SeaTunnelRow{tableId=, kind=-D, fields=[111, scooter, Big 2-wheel scooter , 5.17]}");
+                        "SeaTunnelRow{tableId=.., kind=+I, fields=[101, scooter, Small 2-wheel scooter, 3.14]}",
+                        "SeaTunnelRow{tableId=.., kind=+I, fields=[102, car battery, 12V car battery, 8.1]}",
+                        "SeaTunnelRow{tableId=.., kind=+I, fields=[103, 12-pack drill bits, 12-pack of drill bits with sizes ranging from #40 to #3, 0.8]}",
+                        "SeaTunnelRow{tableId=.., kind=+I, fields=[104, hammer, 12oz carpenter's hammer, 0.75]}",
+                        "SeaTunnelRow{tableId=.., kind=+I, fields=[105, hammer, 14oz carpenter's hammer, 0.875]}",
+                        "SeaTunnelRow{tableId=.., kind=+I, fields=[106, hammer, 16oz carpenter's hammer, 1.0]}",
+                        "SeaTunnelRow{tableId=.., kind=+I, fields=[107, rocks, box of assorted rocks, 5.3]}",
+                        "SeaTunnelRow{tableId=.., kind=+I, fields=[108, jacket, water resistent black wind breaker, 0.1]}",
+                        "SeaTunnelRow{tableId=.., kind=+I, fields=[109, spare tire, 24 inch spare tire, 22.2]}",
+                        "SeaTunnelRow{tableId=.., kind=-U, fields=[106, hammer, 16oz carpenter's hammer, 1.0]}",
+                        "SeaTunnelRow{tableId=.., kind=+U, fields=[106, hammer, 18oz carpenter hammer, 1.0]}",
+                        "SeaTunnelRow{tableId=.., kind=-U, fields=[107, rocks, box of assorted rocks, 5.3]}",
+                        "SeaTunnelRow{tableId=.., kind=+U, fields=[107, rocks, box of assorted rocks, 5.1]}",
+                        "SeaTunnelRow{tableId=.., kind=+I, fields=[110, jacket, water resistent white wind breaker, 0.2]}",
+                        "SeaTunnelRow{tableId=.., kind=+I, fields=[111, scooter, Big 2-wheel scooter , 5.18]}",
+                        "SeaTunnelRow{tableId=.., kind=-U, fields=[110, jacket, water resistent white wind breaker, 0.2]}",
+                        "SeaTunnelRow{tableId=.., kind=+U, fields=[110, jacket, new water resistent white wind breaker, 0.5]}",
+                        "SeaTunnelRow{tableId=.., kind=-U, fields=[111, scooter, Big 2-wheel scooter , 5.18]}",
+                        "SeaTunnelRow{tableId=.., kind=+U, fields=[111, scooter, Big 2-wheel scooter , 5.17]}",
+                        "SeaTunnelRow{tableId=.., kind=-D, fields=[111, scooter, Big 2-wheel scooter , 5.17]}");
         List<String> actual =
                 collector.list.stream().map(Object::toString).collect(Collectors.toList());
         assertEquals(expected, actual);
 
         DebeziumJsonSerializationSchema serializationSchema =
-                new DebeziumJsonSerializationSchema(PHYSICAL_DATA_TYPE);
+                new DebeziumJsonSerializationSchema(SEATUNNEL_ROW_TYPE);
 
         actual = new ArrayList<>();
         for (SeaTunnelRow rowData : collector.list) {

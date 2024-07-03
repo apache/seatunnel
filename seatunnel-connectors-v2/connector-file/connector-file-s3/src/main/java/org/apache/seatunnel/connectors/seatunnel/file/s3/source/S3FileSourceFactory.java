@@ -19,9 +19,12 @@ package org.apache.seatunnel.connectors.seatunnel.file.s3.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
+import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseSourceConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
@@ -29,6 +32,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3ConfigOptions;
 
 import com.google.auto.service.AutoService;
 
+import java.io.Serializable;
 import java.util.Arrays;
 
 @AutoService(Factory.class)
@@ -36,6 +40,12 @@ public class S3FileSourceFactory implements TableSourceFactory {
     @Override
     public String factoryIdentifier() {
         return FileSystemType.S3.getFileSystemPluginName();
+    }
+
+    @Override
+    public <T, SplitT extends SourceSplit, StateT extends Serializable>
+            TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
+        return () -> (SeaTunnelSource<T, SplitT, StateT>) new S3FileSource(context.getOptions());
     }
 
     @Override
@@ -58,8 +68,17 @@ public class S3FileSourceFactory implements TableSourceFactory {
                         BaseSourceConfigOptions.FIELD_DELIMITER)
                 .conditional(
                         BaseSourceConfigOptions.FILE_FORMAT_TYPE,
+                        FileFormat.XML,
+                        BaseSourceConfigOptions.XML_ROW_TAG,
+                        BaseSourceConfigOptions.XML_USE_ATTR_FORMAT)
+                .conditional(
+                        BaseSourceConfigOptions.FILE_FORMAT_TYPE,
                         Arrays.asList(
-                                FileFormat.TEXT, FileFormat.JSON, FileFormat.EXCEL, FileFormat.CSV),
+                                FileFormat.TEXT,
+                                FileFormat.JSON,
+                                FileFormat.EXCEL,
+                                FileFormat.CSV,
+                                FileFormat.XML),
                         TableSchemaOptions.SCHEMA)
                 .optional(BaseSourceConfigOptions.PARSE_PARTITION_FROM_PATH)
                 .optional(BaseSourceConfigOptions.DATE_FORMAT)

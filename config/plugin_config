@@ -67,6 +67,7 @@ connector-openmldb
 connector-pulsar
 connector-rabbitmq
 connector-redis
+connector-druid
 connector-s3-redshift
 connector-sentry
 connector-slack
@@ -76,4 +77,5 @@ connector-tablestore
 connector-selectdb-cloud
 connector-hbase
 connector-amazonsqs
+connector-easysearch
 --end--

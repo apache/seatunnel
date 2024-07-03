@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.api.table.event;
 
+import org.apache.seatunnel.api.event.EventType;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 
 import lombok.Getter;
@@ -43,5 +44,10 @@ public class AlterTableColumnsEvent extends AlterTableEvent {
     public AlterTableColumnsEvent addEvent(AlterTableColumnEvent event) {
         events.add(event);
         return this;
+    }
+
+    @Override
+    public EventType getEventType() {
+        return EventType.SCHEMA_CHANGE_UPDATE_COLUMNS;
     }
 }

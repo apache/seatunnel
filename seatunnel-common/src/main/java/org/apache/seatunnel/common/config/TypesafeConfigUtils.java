@@ -18,50 +18,17 @@
 package org.apache.seatunnel.common.config;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 
 import lombok.NonNull;
 
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 public final class TypesafeConfigUtils {
 
     private TypesafeConfigUtils() {}
-
-    /**
-     * Extract sub config with fixed prefix
-     *
-     * @param source config source
-     * @param prefix config prefix
-     * @param keepPrefix true if keep prefix
-     * @deprecated use org.apache.seatunnel.api.configuration.Option interface instead
-     */
-    @Deprecated
-    public static Config extractSubConfig(Config source, String prefix, boolean keepPrefix) {
-
-        // use LinkedHashMap to keep insertion order
-        Map<String, String> values = new LinkedHashMap<>();
-
-        for (Map.Entry<String, ConfigValue> entry : source.entrySet()) {
-            final String key = entry.getKey();
-            final String value = String.valueOf(entry.getValue().unwrapped());
-
-            if (key.startsWith(prefix)) {
-
-                if (keepPrefix) {
-                    values.put(key, value);
-                } else {
-                    values.put(key.substring(prefix.length()), value);
-                }
-            }
-        }
-
-        return ConfigFactory.parseMap(values);
-    }
 
     /**
      * Check if config with specific prefix exists

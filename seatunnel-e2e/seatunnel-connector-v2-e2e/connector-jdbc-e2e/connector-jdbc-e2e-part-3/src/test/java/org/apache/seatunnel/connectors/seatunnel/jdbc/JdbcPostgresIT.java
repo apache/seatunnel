@@ -69,6 +69,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
     private static final List<String> PG_CONFIG_FILE_LIST =
             Lists.newArrayList(
                     "/jdbc_postgres_source_and_sink.conf",
+                    "/jdbc_postgres_source_and_sink_copy_stmt.conf",
                     "/jdbc_postgres_source_and_sink_parallel.conf",
                     "/jdbc_postgres_source_and_sink_parallel_upper_lower.conf",
                     "/jdbc_postgres_source_and_sink_xa.conf");
@@ -107,7 +108,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                     + "  json_col json NOT NULL,\n"
                     + "  jsonb_col jsonb NOT NULL,\n"
                     + "  xml_col xml NOT NULL\n"
-                    + ")";
+                    + ");comment on column pg_e2e_source_table.uuid_col is '\"#¥%……&*（）;;'',,.\\.``````//''@特殊注释''\\\\''\"'";
     private static final String PG_SINK_DDL =
             "CREATE TABLE IF NOT EXISTS pg_e2e_sink_table (\n"
                     + "    gid SERIAL PRIMARY KEY,\n"
@@ -259,10 +260,19 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
     public void testAutoGenerateSQL(TestContainer container)
             throws IOException, InterruptedException {
         for (String CONFIG_FILE : PG_CONFIG_FILE_LIST) {
-            Container.ExecResult execResult = container.executeJob(CONFIG_FILE);
-            Assertions.assertEquals(0, execResult.getExitCode());
-            Assertions.assertIterableEquals(querySql(SOURCE_SQL), querySql(SINK_SQL));
-            executeSQL("truncate table pg_e2e_sink_table");
+            try {
+                Container.ExecResult execResult = container.executeJob(CONFIG_FILE);
+                Assertions.assertEquals(
+                        0,
+                        execResult.getExitCode(),
+                        CONFIG_FILE
+                                + " job run failed in "
+                                + container.getClass().getSimpleName()
+                                + ".");
+                Assertions.assertIterableEquals(querySql(SOURCE_SQL), querySql(SINK_SQL));
+            } finally {
+                executeSQL("truncate table pg_e2e_sink_table");
+            }
             log.info(CONFIG_FILE + " e2e test completed");
         }
     }
@@ -472,6 +482,11 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
         postgresCatalog.createTable(tablePathPgSink, catalogTable, true);
         boolean tableExistsAfter = postgresCatalog.tableExists(tablePathPgSink);
         Assertions.assertTrue(tableExistsAfter);
+        // comment
+        final CatalogTable table = postgresCatalog.getTable(tablePathPgSink);
+        Assertions.assertEquals(
+                table.getTableSchema().getColumns().get(1).getComment(),
+                "\"#¥%……&*（）;;',,.\\.``````//'@特殊注释'\\\\'\"");
         // isExistsData ?
         boolean existsDataBefore = postgresCatalog.isExistsData(tablePathPgSink);
         Assertions.assertFalse(existsDataBefore);

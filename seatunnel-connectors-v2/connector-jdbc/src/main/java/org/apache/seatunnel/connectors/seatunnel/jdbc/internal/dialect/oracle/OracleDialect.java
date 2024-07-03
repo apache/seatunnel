@@ -173,7 +173,7 @@ public class OracleDialect implements JdbcDialect {
 
     @Override
     public String tableIdentifier(TablePath tablePath) {
-        return tablePath.getSchemaAndTableName();
+        return quoteIdentifier(tablePath.getSchemaAndTableName());
     }
 
     @Override
@@ -184,18 +184,22 @@ public class OracleDialect implements JdbcDialect {
         // 2. If a query is configured but does not contain a WHERE clause and tablePath is
         // configured, use TABLE STATUS.
         // 3. If a query is configured with a WHERE clause, or a query statement is configured but
-        // tablePath is not, use COUNT(*).
+        // tablePath is TablePath.DEFAULT, use COUNT(*).
 
         boolean useTableStats =
                 StringUtils.isBlank(table.getQuery())
                         || (!table.getQuery().toLowerCase().contains("where")
-                                && table.getTablePath() != null);
+                                && table.getTablePath() != null
+                                && !TablePath.DEFAULT
+                                        .getFullName()
+                                        .equals(table.getTablePath().getFullName()));
+
         if (useTableStats) {
             TablePath tablePath = table.getTablePath();
             String analyzeTable =
                     String.format(
                             "analyze table %s compute statistics for table",
-                            tablePath.getSchemaAndTableName());
+                            tableIdentifier(tablePath));
             String rowCountQuery =
                     String.format(
                             "select NUM_ROWS from all_tables where OWNER = '%s' AND TABLE_NAME = '%s' ",
@@ -249,7 +253,7 @@ public class OracleDialect implements JdbcDialect {
                                     + ") WHERE ROWNUM <= %s",
                             quotedColumn,
                             quotedColumn,
-                            table.getTablePath().getSchemaAndTableName(),
+                            tableIdentifier(table.getTablePath()),
                             quotedColumn,
                             quotedColumn,
                             chunkSize);

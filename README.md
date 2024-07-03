@@ -61,7 +61,7 @@ SeaTunnel addresses common data integration challenges:
 
 ## SeaTunnel Workflow
 
-![SeaTunnel Workflow](docs/en/images/architecture_diagram.png)
+![SeaTunnel Workflow](docs/images/architecture_diagram.png)
 
 Configure jobs, select execution engines, and parallelize data using Source Connectors. Easily develop and extend connectors to meet your needs.
 

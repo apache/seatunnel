@@ -38,7 +38,7 @@ import org.apache.seatunnel.engine.server.operation.SubmitJobOperation;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 import org.apache.seatunnel.engine.server.utils.RestUtil;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 
 import com.hazelcast.internal.ascii.TextCommandService;
 import com.hazelcast.internal.ascii.rest.HttpCommandProcessor;
@@ -100,12 +100,7 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
     private SeaTunnelServer getSeaTunnelServer() {
         Map<String, Object> extensionServices =
                 this.textCommandService.getNode().getNodeExtension().createExtensionServices();
-        SeaTunnelServer seaTunnelServer =
-                (SeaTunnelServer) extensionServices.get(Constant.SEATUNNEL_SERVICE_NAME);
-        if (!seaTunnelServer.isMasterNode()) {
-            return null;
-        }
-        return seaTunnelServer;
+        return (SeaTunnelServer) extensionServices.get(Constant.SEATUNNEL_SERVICE_NAME);
     }
 
     private void handleSubmitJob(HttpPostCommand httpPostCommand, String uri)
@@ -124,29 +119,28 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
 
         boolean startWithSavePoint =
                 Boolean.parseBoolean(requestParams.get(RestConstant.IS_START_WITH_SAVE_POINT));
+        String jobIdStr = requestParams.get(RestConstant.JOB_ID);
+        Long finalJobId = StringUtils.isNotBlank(jobIdStr) ? Long.parseLong(jobIdStr) : null;
+        SeaTunnelServer seaTunnelServer = getSeaTunnelServer();
         RestJobExecutionEnvironment restJobExecutionEnvironment =
                 new RestJobExecutionEnvironment(
+                        seaTunnelServer,
                         jobConfig,
                         config,
                         textCommandService.getNode(),
                         startWithSavePoint,
-                        startWithSavePoint
-                                ? Long.parseLong(requestParams.get(RestConstant.JOB_ID))
-                                : null);
+                        finalJobId);
         JobImmutableInformation jobImmutableInformation = restJobExecutionEnvironment.build();
         Long jobId = jobImmutableInformation.getJobId();
-        SeaTunnelServer seaTunnelServer = getSeaTunnelServer();
-        if (seaTunnelServer == null) {
+        if (!seaTunnelServer.isMasterNode()) {
 
             NodeEngineUtil.sendOperationToMasterNode(
                             getNode().nodeEngine,
                             new SubmitJobOperation(
-                                    jobImmutableInformation.getJobId(),
-                                    getNode().nodeEngine.toData(jobImmutableInformation)))
+                                    jobId, getNode().nodeEngine.toData(jobImmutableInformation)))
                     .join();
 
         } else {
-
             submitJob(seaTunnelServer, jobImmutableInformation, jobConfig);
         }
 
@@ -170,7 +164,7 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
         }
 
         SeaTunnelServer seaTunnelServer = getSeaTunnelServer();
-        if (seaTunnelServer == null) {
+        if (!seaTunnelServer.isMasterNode()) {
             if (isStopWithSavePoint) {
                 NodeEngineUtil.sendOperationToMasterNode(
                                 getNode().nodeEngine, new SavePointJobOperation(jobId))
@@ -182,7 +176,7 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
             }
 
         } else {
-            CoordinatorService coordinatorService = getSeaTunnelServer().getCoordinatorService();
+            CoordinatorService coordinatorService = seaTunnelServer.getCoordinatorService();
 
             if (isStopWithSavePoint) {
                 coordinatorService.savePoint(jobId);

@@ -32,7 +32,7 @@ SeaTunnel专注于数据集成和数据同步，主要旨在解决数据集成�
 
 ## SeaTunnel work flowchart
 
-![SeaTunnel work flowchart](images/architecture_diagram.png)
+![SeaTunnel work flowchart](../images/architecture_diagram.png)
 
 SeaTunnel的运行流程如上图所示。
 
@@ -67,4 +67,4 @@ SeaTunnel 丰富了<a href="https://landscape.cncf.io/card-mode?category=streami
 
 ## Learn more
 
-您可以参阅[快速入门](/docs/category/start-v2) 了解后续步骤。
+您可以参阅[快速入门](/docs/category/start-v2/locally/deployment) 了解后续步骤。

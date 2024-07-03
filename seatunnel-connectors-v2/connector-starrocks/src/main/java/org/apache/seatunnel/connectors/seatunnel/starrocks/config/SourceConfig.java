@@ -17,18 +17,14 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.config;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.common.config.TypesafeConfigUtils;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
 import lombok.Getter;
-import lombok.NonNull;
 import lombok.Setter;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 @Setter
@@ -37,13 +33,26 @@ public class SourceConfig extends CommonConfig {
 
     private static final long DEFAULT_SCAN_MEM_LIMIT = 1024 * 1024 * 1024L;
 
-    public SourceConfig(
-            @NonNull List<String> nodeUrls,
-            @NonNull String username,
-            @NonNull String password,
-            @NonNull String database,
-            @NonNull String table) {
-        super(nodeUrls, username, password, database, table);
+    public SourceConfig(ReadonlyConfig config) {
+        super(config);
+        this.maxRetries = config.get(MAX_RETRIES);
+        this.requestTabletSize = config.get(QUERY_TABLET_SIZE);
+        this.scanFilter = config.get(SCAN_FILTER);
+        this.connectTimeoutMs = config.get(SCAN_CONNECT_TIMEOUT);
+        this.batchRows = config.get(SCAN_BATCH_ROWS);
+        this.keepAliveMin = config.get(SCAN_KEEP_ALIVE_MIN);
+        this.queryTimeoutSec = config.get(SCAN_QUERY_TIMEOUT_SEC);
+        this.memLimit = config.get(SCAN_MEM_LIMIT);
+
+        String prefix = STARROCKS_SCAN_CONFIG_PREFIX.key();
+        config.toMap()
+                .forEach(
+                        (key, value) -> {
+                            if (key.startsWith(prefix)) {
+                                this.sourceOptionProps.put(
+                                        key.substring(prefix.length()).toLowerCase(), value);
+                            }
+                        });
     }
 
     public static final Option<Integer> MAX_RETRIES =
@@ -105,57 +114,5 @@ public class SourceConfig extends CommonConfig {
     private int keepAliveMin = SCAN_KEEP_ALIVE_MIN.defaultValue();
     private int batchRows = SCAN_BATCH_ROWS.defaultValue();
     private int connectTimeoutMs = SCAN_CONNECT_TIMEOUT.defaultValue();
-    private final Map<String, String> sourceOptionProps = new HashMap<>();
-
-    public static SourceConfig loadConfig(Config pluginConfig) {
-        SourceConfig sourceConfig =
-                new SourceConfig(
-                        pluginConfig.getStringList(NODE_URLS.key()),
-                        pluginConfig.getString(USERNAME.key()),
-                        pluginConfig.getString(PASSWORD.key()),
-                        pluginConfig.getString(DATABASE.key()),
-                        pluginConfig.getString(TABLE.key()));
-
-        if (pluginConfig.hasPath(MAX_RETRIES.key())) {
-            sourceConfig.setMaxRetries(pluginConfig.getInt(MAX_RETRIES.key()));
-        }
-        if (pluginConfig.hasPath(QUERY_TABLET_SIZE.key())) {
-            sourceConfig.setRequestTabletSize(pluginConfig.getInt(QUERY_TABLET_SIZE.key()));
-        }
-        if (pluginConfig.hasPath(SCAN_FILTER.key())) {
-            sourceConfig.setScanFilter(pluginConfig.getString(SCAN_FILTER.key()));
-        }
-        if (pluginConfig.hasPath(SCAN_CONNECT_TIMEOUT.key())) {
-            sourceConfig.setConnectTimeoutMs(pluginConfig.getInt(SCAN_CONNECT_TIMEOUT.key()));
-        }
-        if (pluginConfig.hasPath(SCAN_BATCH_ROWS.key())) {
-            sourceConfig.setBatchRows(pluginConfig.getInt(SCAN_BATCH_ROWS.key()));
-        }
-        if (pluginConfig.hasPath(SCAN_KEEP_ALIVE_MIN.key())) {
-            sourceConfig.setKeepAliveMin(pluginConfig.getInt(SCAN_KEEP_ALIVE_MIN.key()));
-        }
-        if (pluginConfig.hasPath(SCAN_QUERY_TIMEOUT_SEC.key())) {
-            sourceConfig.setQueryTimeoutSec(pluginConfig.getInt(SCAN_QUERY_TIMEOUT_SEC.key()));
-        }
-        if (pluginConfig.hasPath(SCAN_MEM_LIMIT.key())) {
-            sourceConfig.setMemLimit(pluginConfig.getLong(SCAN_MEM_LIMIT.key()));
-        }
-        parseSourceOptionProperties(pluginConfig, sourceConfig);
-        return sourceConfig;
-    }
-
-    private static void parseSourceOptionProperties(
-            Config pluginConfig, SourceConfig sourceConfig) {
-        Config sourceOptionConfig =
-                TypesafeConfigUtils.extractSubConfig(
-                        pluginConfig, STARROCKS_SCAN_CONFIG_PREFIX.key(), false);
-        sourceOptionConfig
-                .entrySet()
-                .forEach(
-                        entry -> {
-                            final String configKey = entry.getKey().toLowerCase();
-                            sourceConfig.sourceOptionProps.put(
-                                    configKey, (String) entry.getValue().unwrapped());
-                        });
-    }
+    private Map<String, String> sourceOptionProps = new HashMap<>();
 }

@@ -99,12 +99,12 @@
                 <snowflake.version>3.13.29</snowflake.version>
 
                 <!-- Imap storage dependency package  -->
-                <hadoop-aliyun.version>3.0.0</hadoop-aliyun.version>
+                <hadoop-aliyun.version>3.1.4</hadoop-aliyun.version>
                 <json-smart.version>2.4.7</json-smart.version>
                 <hadoop-aws.version>3.1.4</hadoop-aws.version>
                 <aws-java-sdk.version>1.11.271</aws-java-sdk.version>
                 <netty-buffer.version>4.1.89.Final</netty-buffer.version>
-                <hive.exec.version>2.3.9</hive.exec.version>
+                <hive.exec.version>3.1.3</hive.exec.version>
                 <hive.jdbc.version>3.1.3</hive.jdbc.version>
                 <aliyun.sdk.oss.version>3.4.1</aliyun.sdk.oss.version>
                 <jdom.version>1.1</jdom.version>
@@ -229,6 +229,12 @@
                 </dependency>
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-druid</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
                     <artifactId>connector-jdbc</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
@@ -308,6 +314,12 @@
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
                     <artifactId>connector-dingtalk</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-web3j</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
                 </dependency>
@@ -481,6 +493,12 @@
                 </dependency>
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-cdc-oracle</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
                     <artifactId>connector-cdc-mongodb</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
@@ -531,6 +549,13 @@
 
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-file-obs</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
                     <artifactId>connector-paimon</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
@@ -539,6 +564,13 @@
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
                     <artifactId>connector-amazonsqs</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-easysearch</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
                 </dependency>
@@ -654,10 +686,15 @@
                     <scope>provided</scope>
                 </dependency>
                 <dependency>
-                    <groupId>org.apache.seatunnel</groupId>
-                    <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
-                    <version>${project.version}</version>
-                    <classifier>optional</classifier>
+                    <groupId>com.amazonaws</groupId>
+                    <artifactId>aws-java-sdk-bundle</artifactId>
+                    <version>1.11.271</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.hadoop</groupId>
+                    <artifactId>hadoop-aliyun</artifactId>
+                    <version>${hadoop-aliyun.version}</version>
                     <scope>provided</scope>
                 </dependency>
                 <dependency>
@@ -673,12 +710,117 @@
                     <scope>provided</scope>
                 </dependency>
                 <dependency>
-                    <groupId>org.apache.hadoop</groupId>
-                    <artifactId>hadoop-aliyun</artifactId>
-                    <version>${hadoop-aliyun.version}</version>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
+                    <version>${project.version}</version>
+                    <classifier>optional</classifier>
                     <scope>provided</scope>
                 </dependency>
                 <!-- hadoop jar end -->
+                <!-- hive jar start -->
+                <dependency>
+                    <groupId>org.apache.hive</groupId>
+                    <artifactId>hive-exec</artifactId>
+                    <version>${hive.exec.version}</version>
+                    <scope>provided</scope>
+                    <exclusions>
+                        <exclusion>
+                            <groupId>log4j</groupId>
+                            <artifactId>log4j</artifactId>
+                        </exclusion>
+                        <exclusion>
+                            <groupId>org.apache.logging.log4j</groupId>
+                            <artifactId>log4j-1.2-api</artifactId>
+                        </exclusion>
+                        <exclusion>
+                            <groupId>org.apache.logging.log4j</groupId>
+                            <artifactId>log4j-slf4j-impl</artifactId>
+                        </exclusion>
+                        <exclusion>
+                            <groupId>org.apache.logging.log4j</groupId>
+                            <artifactId>log4j-web</artifactId>
+                        </exclusion>
+                        <exclusion>
+                            <groupId>org.slf4j</groupId>
+                            <artifactId>slf4j-log4j12</artifactId>
+                        </exclusion>
+                        <exclusion>
+                            <groupId>org.apache.parquet</groupId>
+                            <artifactId>parquet-hadoop-bundle</artifactId>
+                        </exclusion>
+                        <exclusion>
+                            <groupId>jdk.tools</groupId>
+                            <artifactId>jdk.tools</artifactId>
+                        </exclusion>
+                        <exclusion>
+                            <groupId>org.pentaho</groupId>
+                            <artifactId>pentaho-aggdesigner-algorithm</artifactId>
+                        </exclusion>
+                        <exclusion>
+                            <groupId>org.apache.avro</groupId>
+                            <artifactId>avro</artifactId>
+                        </exclusion>
+                    </exclusions>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.thrift</groupId>
+                    <artifactId>libfb303</artifactId>
+                    <version>0.9.3</version>
+                    <type>pom</type>
+                    <scope>provided</scope>
+                </dependency>
+                <!-- hive jdbc jar -->
+                <dependency>
+                    <groupId>org.apache.hive</groupId>
+                    <artifactId>hive-jdbc</artifactId>
+                    <version>${hive.jdbc.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.hive</groupId>
+                    <artifactId>hive-service</artifactId>
+                    <version>${hive.jdbc.version}</version>
+                    <scope>provided</scope>
+                    <exclusions>
+                        <exclusion>
+                            <groupId>log4j</groupId>
+                            <artifactId>log4j</artifactId>
+                        </exclusion>
+                        <exclusion>
+                            <groupId>org.apache.logging.log4j</groupId>
+                            <artifactId>log4j-1.2-api</artifactId>
+                        </exclusion>
+                        <exclusion>
+                            <groupId>org.apache.logging.log4j</groupId>
+                            <artifactId>log4j-slf4j-impl</artifactId>
+                        </exclusion>
+                        <exclusion>
+                            <groupId>org.apache.logging.log4j</groupId>
+                            <artifactId>log4j-web</artifactId>
+                        </exclusion>
+                        <exclusion>
+                            <groupId>org.slf4j</groupId>
+                            <artifactId>slf4j-log4j12</artifactId>
+                        </exclusion>
+                        <exclusion>
+                            <groupId>org.apache.parquet</groupId>
+                            <artifactId>parquet-hadoop-bundle</artifactId>
+                        </exclusion>
+                        <exclusion>
+                            <groupId>jdk.tools</groupId>
+                            <artifactId>jdk.tools</artifactId>
+                        </exclusion>
+                        <exclusion>
+                            <groupId>org.pentaho</groupId>
+                            <artifactId>pentaho-aggdesigner-algorithm</artifactId>
+                        </exclusion>
+                        <exclusion>
+                            <groupId>org.apache.avro</groupId>
+                            <artifactId>avro</artifactId>
+                        </exclusion>
+                    </exclusions>
+                </dependency>
+                <!-- hive jar end -->
             </dependencies>
             <repositories>
                 <repository>
@@ -730,7 +872,7 @@
                 <dependency>
                     <groupId>com.amazonaws</groupId>
                     <artifactId>aws-java-sdk-bundle</artifactId>
-                    <version>1.11.271</version>
+                    <version>${aws-java-sdk.version}</version>
                     <scope>provided</scope>
                 </dependency>
                 <!-- seatunnel connectors for demo -->

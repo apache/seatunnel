@@ -19,7 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -28,7 +27,6 @@ import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
-import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
@@ -42,14 +40,9 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceCon
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.offset.BinlogOffsetFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions;
 
-import com.google.auto.service.AutoService;
-import lombok.NoArgsConstructor;
-
 import java.time.ZoneId;
 import java.util.List;
 
-@NoArgsConstructor
-@AutoService(SeaTunnelSource.class)
 public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceConfig>
         implements SupportParallelism {
     static final String IDENTIFIER = "MySQL-CDC";
@@ -120,7 +113,6 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
     @Override
     public OffsetFactory createOffsetFactory(ReadonlyConfig config) {
         return new BinlogOffsetFactory(
-                (MySqlSourceConfigFactory) configFactory,
-                (JdbcDataSourceDialect) dataSourceDialect);
+                (MySqlSourceConfigFactory) configFactory, (MySqlDialect) dataSourceDialect);
     }
 }

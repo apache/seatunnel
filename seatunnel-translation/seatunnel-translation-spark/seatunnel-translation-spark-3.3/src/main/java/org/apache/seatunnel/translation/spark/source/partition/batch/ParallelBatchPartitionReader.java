@@ -43,6 +43,7 @@ public class ParallelBatchPartitionReader {
 
     protected final SeaTunnelSource<SeaTunnelRow, ?, ?> source;
     protected final Integer parallelism;
+    protected final String jobId;
     protected final Integer subtaskId;
 
     protected final ExecutorService executorService;
@@ -60,10 +61,12 @@ public class ParallelBatchPartitionReader {
     public ParallelBatchPartitionReader(
             SeaTunnelSource<SeaTunnelRow, ?, ?> source,
             Integer parallelism,
+            String jobId,
             Integer subtaskId,
             Map<String, String> envOptions) {
         this.source = source;
         this.parallelism = parallelism;
+        this.jobId = jobId;
         this.subtaskId = subtaskId;
         this.executorService =
                 ThreadPoolExecutorFactory.createScheduledThreadPoolExecutor(
@@ -118,7 +121,7 @@ public class ParallelBatchPartitionReader {
     }
 
     protected BaseSourceFunction<SeaTunnelRow> createInternalSource() {
-        return new InternalParallelSource<>(source, null, parallelism, subtaskId);
+        return new InternalParallelSource<>(source, null, parallelism, jobId, subtaskId);
     }
 
     public InternalRow get() {
@@ -148,8 +151,9 @@ public class ParallelBatchPartitionReader {
                 SeaTunnelSource<SeaTunnelRow, SplitT, StateT> source,
                 Map<Integer, List<byte[]>> restoredState,
                 int parallelism,
+                String jobId,
                 int subtaskId) {
-            super(source, restoredState, parallelism, subtaskId);
+            super(source, restoredState, parallelism, jobId, subtaskId);
         }
 
         @Override

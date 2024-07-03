@@ -24,16 +24,19 @@ import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
 import com.hazelcast.internal.services.MembershipServiceEvent;
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 public interface ResourceManager {
     void init();
 
-    CompletableFuture<SlotProfile> applyResource(long jobId, ResourceProfile resourceProfile)
+    CompletableFuture<SlotProfile> applyResource(
+            long jobId, ResourceProfile resourceProfile, Map<String, String> tagFilter)
             throws NoEnoughResourceException;
 
     CompletableFuture<List<SlotProfile>> applyResources(
-            long jobId, List<ResourceProfile> resourceProfile) throws NoEnoughResourceException;
+            long jobId, List<ResourceProfile> resourceProfile, Map<String, String> tagFilter)
+            throws NoEnoughResourceException;
 
     CompletableFuture<Void> releaseResources(long jobId, List<SlotProfile> profiles);
 
@@ -58,4 +61,10 @@ public interface ResourceManager {
     void memberRemoved(MembershipServiceEvent event);
 
     void close();
+
+    List<SlotProfile> getUnassignedSlots();
+
+    List<SlotProfile> getAssignedSlots();
+
+    int workerCount();
 }

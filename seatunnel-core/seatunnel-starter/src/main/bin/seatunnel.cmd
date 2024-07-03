@@ -77,7 +77,7 @@ REM set "JAVA_OPTS=%JAVA_OPTS% -Xdebug -Xrunjdwp:transport=dt_socket,server=y,ad
 
 REM Log4j2 Config
 if exist "%CONF_DIR%\log4j2_client.properties" (
-    set "JAVA_OPTS=%JAVA_OPTS% -Dlog4j2.configurationFile=%CONF_DIR%\log4j2_client.properties"
+    set "JAVA_OPTS=%JAVA_OPTS% -Dhazelcast.logging.type=log4j2 -Dlog4j2.configurationFile=%CONF_DIR%\log4j2_client.properties"
     set "JAVA_OPTS=%JAVA_OPTS% -Dseatunnel.logs.path=%APP_DIR%\logs"
     for %%i in (%args%) do (
         set "arg=%%i"

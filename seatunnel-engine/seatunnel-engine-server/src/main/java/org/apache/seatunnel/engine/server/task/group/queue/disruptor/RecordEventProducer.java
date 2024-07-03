@@ -34,7 +34,8 @@ public class RecordEventProducer {
         if (record.getData() instanceof Barrier) {
             CheckpointBarrier barrier = (CheckpointBarrier) record.getData();
             intermediateQueueFlowLifeCycle.getRunningTask().ack(barrier);
-            if (barrier.prepareClose()) {
+            if (barrier.prepareClose(
+                    intermediateQueueFlowLifeCycle.getRunningTask().getTaskLocation())) {
                 intermediateQueueFlowLifeCycle.setPrepareClose(true);
             }
         } else {

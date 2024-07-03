@@ -33,6 +33,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 
 @RequiredArgsConstructor
 public class DebeziumJsonConverter implements Serializable {
@@ -52,6 +53,13 @@ public class DebeziumJsonConverter implements Serializable {
         JsonNode jsonNode =
                 (JsonNode)
                         keyConverterMethod.invoke(keyConverter, record.keySchema(), record.key());
+        /*
+         If Record key and keySchema is null keyConverterMethod invoke method get jsonNode is null
+         toString method occur nullPointException, So add a judge
+        */
+        if (Objects.isNull(jsonNode)) {
+            return null;
+        }
         return jsonNode.toString();
     }
 

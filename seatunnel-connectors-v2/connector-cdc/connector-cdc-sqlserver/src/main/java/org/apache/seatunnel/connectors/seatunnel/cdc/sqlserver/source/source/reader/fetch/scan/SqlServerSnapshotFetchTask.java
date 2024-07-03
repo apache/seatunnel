@@ -29,6 +29,7 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.source.rea
 import io.debezium.config.Configuration;
 import io.debezium.connector.sqlserver.SqlServerConnectorConfig;
 import io.debezium.connector.sqlserver.SqlServerOffsetContext;
+import io.debezium.connector.sqlserver.SqlServerPartition;
 import io.debezium.heartbeat.Heartbeat;
 import io.debezium.pipeline.source.spi.ChangeEventSource;
 import io.debezium.pipeline.spi.SnapshotResult;
@@ -68,9 +69,11 @@ public class SqlServerSnapshotFetchTask implements FetchTask<SourceSplitBase> {
         SnapshotSplitChangeEventSourceContext changeEventSourceContext =
                 new SnapshotSplitChangeEventSourceContext();
 
-        SnapshotResult snapshotResult =
+        SnapshotResult<SqlServerOffsetContext> snapshotResult =
                 snapshotSplitReadTask.execute(
-                        changeEventSourceContext, sourceFetchContext.getOffsetContext());
+                        changeEventSourceContext,
+                        sourceFetchContext.getPartition(),
+                        sourceFetchContext.getOffsetContext());
         if (!snapshotResult.isCompletedOrSkipped()) {
             taskRunning = false;
             throw new IllegalStateException(
@@ -95,8 +98,8 @@ public class SqlServerSnapshotFetchTask implements FetchTask<SourceSplitBase> {
         if (!changed) {
             dispatchLsnEndEvent(
                     backfillSplit,
-                    ((SqlServerSourceFetchTaskContext) context).getOffsetContext().getPartition(),
-                    ((SqlServerSourceFetchTaskContext) context).getDispatcher());
+                    sourceFetchContext.getPartition().getSourcePartition(),
+                    sourceFetchContext.getDispatcher());
             taskRunning = false;
             return;
         }
@@ -112,7 +115,9 @@ public class SqlServerSnapshotFetchTask implements FetchTask<SourceSplitBase> {
                 backfillSplit.getStartupOffset(),
                 backfillSplit.getStopOffset());
         backfillReadTask.execute(
-                new SnapshotBinlogSplitChangeEventSourceContext(), sqlServerOffsetContext);
+                new SnapshotBinlogSplitChangeEventSourceContext(),
+                sourceFetchContext.getPartition(),
+                sqlServerOffsetContext);
         log.info("backfillReadTask execute end");
     }
 
@@ -157,7 +162,7 @@ public class SqlServerSnapshotFetchTask implements FetchTask<SourceSplitBase> {
     private void dispatchLsnEndEvent(
             IncrementalSplit backFillBinlogSplit,
             Map<String, ?> sourcePartition,
-            JdbcSourceEventDispatcher eventDispatcher)
+            JdbcSourceEventDispatcher<SqlServerPartition> eventDispatcher)
             throws InterruptedException {
         eventDispatcher.dispatchWatermarkEvent(
                 sourcePartition,

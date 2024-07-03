@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.reader;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.relational.JdbcSourceEventDispatcher;
@@ -28,26 +29,27 @@ import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 import org.apache.seatunnel.connectors.cdc.debezium.EmbeddedDatabaseHistory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.exception.PostgresConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.offset.LsnOffset;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.utils.PostgresUtils;
 
 import org.apache.kafka.connect.data.Struct;
-import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.source.SourceRecord;
 
 import io.debezium.DebeziumException;
 import io.debezium.connector.base.ChangeEventQueue;
 import io.debezium.connector.postgresql.PostgresConnectorConfig;
 import io.debezium.connector.postgresql.PostgresErrorHandler;
-import io.debezium.connector.postgresql.PostgresEventMetadataProvider;
+import io.debezium.connector.postgresql.PostgresEventDispatcher;
+import io.debezium.connector.postgresql.PostgresObjectUtils;
 import io.debezium.connector.postgresql.PostgresOffsetContext;
+import io.debezium.connector.postgresql.PostgresPartition;
 import io.debezium.connector.postgresql.PostgresSchema;
 import io.debezium.connector.postgresql.PostgresTaskContext;
 import io.debezium.connector.postgresql.PostgresTopicSelector;
 import io.debezium.connector.postgresql.TypeRegistry;
 import io.debezium.connector.postgresql.connection.PostgresConnection;
 import io.debezium.connector.postgresql.connection.ReplicationConnection;
-import io.debezium.connector.postgresql.spi.SlotCreationResult;
 import io.debezium.connector.postgresql.spi.SlotState;
 import io.debezium.connector.postgresql.spi.Snapshotter;
 import io.debezium.data.Envelope;
@@ -55,25 +57,29 @@ import io.debezium.pipeline.DataChangeEvent;
 import io.debezium.pipeline.ErrorHandler;
 import io.debezium.pipeline.metrics.DefaultChangeEventSourceMetricsFactory;
 import io.debezium.pipeline.metrics.SnapshotChangeEventSourceMetrics;
+import io.debezium.pipeline.source.spi.EventMetadataProvider;
 import io.debezium.relational.Table;
 import io.debezium.relational.TableId;
 import io.debezium.relational.Tables;
 import io.debezium.relational.history.TableChanges;
 import io.debezium.schema.TopicSelector;
-import io.debezium.util.Clock;
 import io.debezium.util.LoggingContext;
-import io.debezium.util.Metronome;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.SQLException;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 import static io.debezium.connector.AbstractSourceInfo.SCHEMA_NAME_KEY;
 import static io.debezium.connector.AbstractSourceInfo.TABLE_NAME_KEY;
+import static io.debezium.connector.postgresql.PostgresConnectorConfig.PLUGIN_NAME;
+import static io.debezium.connector.postgresql.PostgresConnectorConfig.SLOT_NAME;
+import static io.debezium.connector.postgresql.PostgresConnectorConfig.SNAPSHOT_MODE;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.postgres.utils.PostgresConnectionUtils.newPostgresValueConverterBuilder;
 
 @Slf4j
@@ -85,19 +91,21 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
 
     @Getter private ReplicationConnection replicationConnection;
 
-    private final PostgresEventMetadataProvider metadataProvider;
+    private final EventMetadataProvider metadataProvider;
 
     @Getter private Snapshotter snapshotter;
     private PostgresSchema databaseSchema;
     private PostgresOffsetContext offsetContext;
+    private PostgresPartition partition;
     private TopicSelector<TableId> topicSelector;
-    private JdbcSourceEventDispatcher dispatcher;
+    private JdbcSourceEventDispatcher<PostgresPartition> dispatcher;
+    private PostgresEventDispatcher<TableId> pgEventDispatcher;
     private ChangeEventQueue<DataChangeEvent> queue;
     private PostgresErrorHandler errorHandler;
 
     @Getter private PostgresTaskContext taskContext;
 
-    private SnapshotChangeEventSourceMetrics snapshotChangeEventSourceMetrics;
+    private SnapshotChangeEventSourceMetrics<PostgresPartition> snapshotChangeEventSourceMetrics;
 
     private PostgresConnection.PostgresValueConverterBuilder postgresValueConverterBuilder;
 
@@ -110,11 +118,13 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
             Collection<TableChanges.TableChange> engineHistory) {
         super(sourceConfig, dataSourceDialect);
         this.dataConnection = dataConnection;
-        this.metadataProvider = new PostgresEventMetadataProvider();
+        this.metadataProvider = PostgresObjectUtils.newEventMetadataProvider();
         this.engineHistory = engineHistory;
         this.postgresValueConverterBuilder =
                 newPostgresValueConverterBuilder(
-                        getDbzConnectorConfig(), sourceConfig.getServerTimeZone());
+                        getDbzConnectorConfig(),
+                        "postgres-source-fetch-task-context",
+                        sourceConfig.getServerTimeZone());
     }
 
     @Override
@@ -123,27 +133,32 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
 
         // initial stateful objects
         final PostgresConnectorConfig connectorConfig = getDbzConnectorConfig();
-        this.snapshotter = connectorConfig.getSnapshotter();
+        PostgresConnectorConfig.SnapshotMode snapshotMode =
+                PostgresConnectorConfig.SnapshotMode.parse(
+                        connectorConfig.getConfig().getString(SNAPSHOT_MODE));
+        this.snapshotter = snapshotMode.getSnapshotter(connectorConfig.getConfig());
 
         this.topicSelector = PostgresTopicSelector.create(connectorConfig);
         final TypeRegistry typeRegistry = dataConnection.getTypeRegistry();
 
-        this.databaseSchema =
-                new PostgresSchema(
-                        connectorConfig,
-                        typeRegistry,
-                        topicSelector,
-                        postgresValueConverterBuilder.build(typeRegistry));
-
-        this.taskContext = new PostgresTaskContext(connectorConfig, databaseSchema, topicSelector);
         try {
-            taskContext.refreshSchema(dataConnection, false);
+            this.databaseSchema =
+                    PostgresObjectUtils.newSchema(
+                            dataConnection,
+                            connectorConfig,
+                            typeRegistry,
+                            topicSelector,
+                            postgresValueConverterBuilder.build(typeRegistry));
         } catch (SQLException e) {
-            throw new DebeziumException("load schema failed", e);
+            throw new SeaTunnelRuntimeException(PostgresConnectorErrorCode.NEW_SCHEMA_FAILED, e);
         }
+
+        this.taskContext =
+                PostgresObjectUtils.newTaskContext(connectorConfig, databaseSchema, topicSelector);
         this.offsetContext =
                 loadStartingOffsetState(
                         new PostgresOffsetContext.Loader(connectorConfig), sourceSplitBase);
+        this.partition = new PostgresPartition(connectorConfig.getLogicalName());
 
         // If in the snapshot read phase and enable exactly-once, the queue needs to be set to a
         // maximum size of `Integer.MAX_VALUE` (buffered a current snapshot all data). otherwise,
@@ -162,10 +177,13 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                 if (log.isInfoEnabled()) {
                     log.info(dataConnection.serverInfo().toString());
                 }
+                PostgresConnectorConfig.LogicalDecoder logicalDecoder =
+                        PostgresConnectorConfig.LogicalDecoder.parse(
+                                connectorConfig.getConfig().getString(PLUGIN_NAME));
                 slotInfo =
                         dataConnection.getReplicationSlotState(
-                                connectorConfig.slotName(),
-                                connectorConfig.plugin().getPostgresPluginName());
+                                connectorConfig.getConfig().getString(SLOT_NAME),
+                                logicalDecoder.getPostgresPluginName());
             } catch (SQLException e) {
                 log.warn(
                         "unable to load info of replication slot, Debezium will try to create the slot");
@@ -180,28 +198,31 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                 snapshotter.init(connectorConfig, offsetContext.asOffsetState(), slotInfo);
             }
 
-            SlotCreationResult slotCreatedInfo = null;
             if (snapshotter.shouldStream()) {
-                final boolean doSnapshot = snapshotter.shouldSnapshot();
-                createReplicationConnection(
-                        doSnapshot, connectorConfig.maxRetries(), connectorConfig.retryDelay());
                 // we need to create the slot before we start streaming if it doesn't exist
                 // otherwise we can't stream back changes happening while the snapshot is taking
                 // place
-                if (slotInfo == null) {
+                if (this.replicationConnection == null) {
+                    this.replicationConnection =
+                            PostgresObjectUtils.createReplicationConnection(
+                                    this.taskContext,
+                                    dataConnection,
+                                    snapshotter.shouldSnapshot(),
+                                    connectorConfig);
                     try {
-                        slotCreatedInfo =
-                                replicationConnection.createReplicationSlot().orElse(null);
+                        // create the slot if it doesn't exist, otherwise update slot to add new
+                        // table(job restore and add table)
+                        replicationConnection.createReplicationSlot().orElse(null);
                     } catch (SQLException ex) {
                         String message = "Creation of replication slot failed";
                         if (ex.getMessage().contains("already exists")) {
                             message +=
                                     "; when setting up multiple connectors for the same database host, please make sure to use a distinct replication slot name for each.";
+                            log.warn(message);
+                        } else {
+                            throw new DebeziumException(message, ex);
                         }
-                        throw new DebeziumException(message, ex);
                     }
-                } else {
-                    slotCreatedInfo = null;
                 }
             }
 
@@ -224,7 +245,18 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                             .build();
 
             this.dispatcher =
-                    new JdbcSourceEventDispatcher(
+                    new JdbcSourceEventDispatcher<>(
+                            connectorConfig,
+                            topicSelector,
+                            databaseSchema,
+                            queue,
+                            connectorConfig.getTableFilters().dataCollectionFilter(),
+                            DataChangeEvent::new,
+                            metadataProvider,
+                            schemaNameAdjuster);
+
+            this.pgEventDispatcher =
+                    new PostgresEventDispatcher<>(
                             connectorConfig,
                             topicSelector,
                             databaseSchema,
@@ -238,7 +270,7 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                     new DefaultChangeEventSourceMetricsFactory()
                             .getSnapshotMetrics(taskContext, queue, metadataProvider);
 
-            this.errorHandler = new PostgresErrorHandler(connectorConfig.getLogicalName(), queue);
+            this.errorHandler = new PostgresErrorHandler(connectorConfig, queue);
         } finally {
             previousContext.restore();
         }
@@ -265,20 +297,6 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                 engineHistory);
     }
 
-    public void createReplicationConnection(
-            boolean doSnapshot, int maxRetries, Duration retryDelay) {
-        if (this.replicationConnection != null) {
-            return;
-        }
-        synchronized (this) {
-            if (this.replicationConnection == null) {
-                this.replicationConnection =
-                        createReplicationConnection(
-                                this.taskContext, doSnapshot, maxRetries, retryDelay);
-            }
-        }
-    }
-
     @Override
     public PostgresSourceConfig getSourceConfig() {
         return (PostgresSourceConfig) sourceConfig;
@@ -288,7 +306,8 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
         return dataConnection;
     }
 
-    public SnapshotChangeEventSourceMetrics getSnapshotChangeEventSourceMetrics() {
+    public SnapshotChangeEventSourceMetrics<PostgresPartition>
+            getSnapshotChangeEventSourceMetrics() {
         return snapshotChangeEventSourceMetrics;
     }
 
@@ -300,6 +319,11 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
     @Override
     public PostgresOffsetContext getOffsetContext() {
         return offsetContext;
+    }
+
+    @Override
+    public PostgresPartition getPartition() {
+        return partition;
     }
 
     @Override
@@ -327,8 +351,12 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
     }
 
     @Override
-    public JdbcSourceEventDispatcher getDispatcher() {
+    public JdbcSourceEventDispatcher<PostgresPartition> getDispatcher() {
         return dispatcher;
+    }
+
+    public PostgresEventDispatcher<TableId> getPgEventDispatcher() {
+        return pgEventDispatcher;
     }
 
     @Override
@@ -349,8 +377,12 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
     @Override
     public void close() {
         try {
-            this.dataConnection.close();
-            this.replicationConnection.close();
+            if (Objects.nonNull(dataConnection)) {
+                this.dataConnection.close();
+            }
+            if (Objects.nonNull(replicationConnection)) {
+                this.replicationConnection.close();
+            }
         } catch (Exception e) {
             log.warn("Failed to close connection", e);
         }
@@ -363,45 +395,17 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                 split.isSnapshotSplit()
                         ? LsnOffset.INITIAL_OFFSET
                         : split.asIncrementalSplit().getStartupOffset();
-        return loader.load(offset.getOffset());
-    }
-
-    public ReplicationConnection createReplicationConnection(
-            PostgresTaskContext taskContext,
-            boolean doSnapshot,
-            int maxRetries,
-            Duration retryDelay)
-            throws ConnectException {
-        final Metronome metronome = Metronome.parker(retryDelay, Clock.SYSTEM);
-        short retryCount = 0;
-        ReplicationConnection replicationConnection = null;
-        while (retryCount <= maxRetries) {
-            try {
-                return taskContext.createReplicationConnection(doSnapshot);
-            } catch (SQLException ex) {
-                retryCount++;
-                if (retryCount > maxRetries) {
-                    log.error(
-                            "Too many errors connecting to server. All {} retries failed.",
-                            maxRetries);
-                    throw new ConnectException(ex);
-                }
-
-                log.warn(
-                        "Error connecting to server; will attempt retry {} of {} after {} "
-                                + "seconds. Exception message: {}",
-                        retryCount,
-                        maxRetries,
-                        retryDelay.getSeconds(),
-                        ex.getMessage());
-                try {
-                    metronome.pause();
-                } catch (InterruptedException e) {
-                    log.warn("Connection retry sleep interrupted by exception: " + e);
-                    Thread.currentThread().interrupt();
-                }
+        Map<String, String> offsetStrMap =
+                Objects.requireNonNull(offset, "offset is null for the sourceSplitBase")
+                        .getOffset();
+        // all the keys happen to be long type for PostgresOffsetContext.Loader.load
+        Map<String, Object> offsetMap = new HashMap<>();
+        for (String key : offsetStrMap.keySet()) {
+            String value = offsetStrMap.get(key);
+            if (value != null) {
+                offsetMap.put(key, Long.parseLong(value));
             }
         }
-        return replicationConnection;
+        return loader.load(offsetMap);
     }
 }

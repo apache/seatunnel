@@ -47,6 +47,7 @@ public class SeaTunnelSinkTable implements Table, SupportsWrite {
     private final SeaTunnelSink<SeaTunnelRow, ?, ?, ?> sink;
 
     private final CatalogTable catalogTable;
+    private final String jobId;
 
     public SeaTunnelSinkTable(Map<String, String> properties) {
         this.properties = properties;
@@ -62,11 +63,12 @@ public class SeaTunnelSinkTable implements Table, SupportsWrite {
                     SparkSinkInjector.SINK_CATALOG_TABLE + " must be specified");
         }
         this.catalogTable = SerializationUtils.stringToObject(sinkCatalogTableSerialization);
+        this.jobId = properties.getOrDefault(SparkSinkInjector.JOB_ID, null);
     }
 
     @Override
     public WriteBuilder newWriteBuilder(LogicalWriteInfo info) {
-        return new SeaTunnelWriteBuilder<>(sink, catalogTable);
+        return new SeaTunnelWriteBuilder<>(sink, catalogTable, jobId);
     }
 
     @Override

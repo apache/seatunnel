@@ -23,7 +23,6 @@ import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
-import org.apache.seatunnel.connectors.cdc.base.relational.connection.JdbcConnectionPoolFactory;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.splitter.ChunkSplitter;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.external.FetchTask;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
@@ -86,11 +85,6 @@ public class SqlServerDialect implements JdbcDataSourceDialect {
     }
 
     @Override
-    public JdbcConnectionPoolFactory getPooledDataSourceFactory() {
-        return new SqlServerPooledDataSourceFactory();
-    }
-
-    @Override
     public List<TableId> discoverDataCollections(JdbcSourceConfig sourceConfig) {
         SqlServerSourceConfig sqlServerSourceConfig = (SqlServerSourceConfig) sourceConfig;
         try (JdbcConnection jdbcConnection = openJdbcConnection(sourceConfig)) {
@@ -113,7 +107,7 @@ public class SqlServerDialect implements JdbcDataSourceDialect {
     public SqlServerSourceFetchTaskContext createFetchTaskContext(
             SourceSplitBase sourceSplitBase, JdbcSourceConfig taskSourceConfig) {
 
-        return new SqlServerSourceFetchTaskContext(taskSourceConfig, this);
+        return new SqlServerSourceFetchTaskContext((SqlServerSourceConfig) taskSourceConfig, this);
     }
 
     @Override
