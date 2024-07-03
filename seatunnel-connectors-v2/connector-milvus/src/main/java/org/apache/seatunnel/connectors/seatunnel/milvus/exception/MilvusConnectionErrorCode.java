@@ -32,6 +32,7 @@ public enum MilvusConnectionErrorCode implements SeaTunnelErrorCode {
     FIELD_IS_NULL("MILVUS-10", "Field is null"),
     CLOSE_CLIENT_ERROR("MILVUS-11", "Close client error"),
     DESC_INDEX_ERROR("MILVUS-12", "Desc index error"),
+    CREATE_DATABASE_ERROR("MILVUS-13", "Create database error"),
     ;
 
     private final String code;

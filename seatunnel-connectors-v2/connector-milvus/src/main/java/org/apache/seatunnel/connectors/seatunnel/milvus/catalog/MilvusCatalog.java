@@ -382,10 +382,15 @@ public class MilvusCatalog implements Catalog {
     @Override
     public void createDatabase(TablePath tablePath, boolean ignoreIfExists)
             throws DatabaseAlreadyExistException, CatalogException {
-        this.client.createDatabase(
-                CreateDatabaseParam.newBuilder()
-                        .withDatabaseName(tablePath.getDatabaseName())
-                        .build());
+        R<RpcStatus> response =
+                this.client.createDatabase(
+                        CreateDatabaseParam.newBuilder()
+                                .withDatabaseName(tablePath.getDatabaseName())
+                                .build());
+        if (!R.success().getStatus().equals(response.getStatus())) {
+            throw new MilvusConnectorException(
+                    MilvusConnectionErrorCode.CREATE_DATABASE_ERROR, response.getMessage());
+        }
     }
 
     @Override
