@@ -9,14 +9,15 @@ Used to write data to Hudi.
 ## Key features
 
 - [x] [exactly-once](../../concept/connector-v2-features.md)
+- [x] [cdc](../../concept/connector-v2-features.md)
 
 ## Options
 
 |            name            |  type  | required | default value |
 |----------------------------|--------|----------|---------------|
 | table_name                 | string | yes      | -             |
-| table_path                 | string | yes      | -             |
-| conf_files                 | string | no       | -             |
+| table_dfs_path             | string | yes      | -             |
+| conf_files_path            | string | no       | -             |
 | record_key_fields          | string | no       | -             |
 | partition_fields           | string | no       | -             |
 | table_type                 | string | no       | copy_on_write |
@@ -32,19 +33,19 @@ Used to write data to Hudi.
 
 `table_name` The name of hudi table.
 
-### table_path [string]
+### table_dfs_path [string]
 
-`table.path` The dfs root path of hudi table,such as 'hdfs://nameserivce/data/hudi/hudi_table/'.
+`table_dfs_path` The dfs root path of hudi table,such as 'hdfs://nameserivce/data/hudi/hudi_table/'.
 
 ### table_type [string]
 
 `table_type` The type of hudi table.
 
-### conf_files [string]
+### conf_files_path [string]
 
-`conf_files` The environment conf file path list(local path), which used to init hdfs client to read hudi table file. The example is '/home/test/hdfs-site.xml;/home/test/core-site.xml;/home/test/yarn-site.xml'.
+`conf_files_path` The environment conf file path list(local path), which used to init hdfs client to read hudi table file. The example is '/home/test/hdfs-site.xml;/home/test/core-site.xml;/home/test/yarn-site.xml'.
 
-### op_type [boolean]
+### op_type [enum]
 
 `op_type` The operation type of hudi table. The value is 'insert' or 'upsert' or 'bulk_insert'.
 

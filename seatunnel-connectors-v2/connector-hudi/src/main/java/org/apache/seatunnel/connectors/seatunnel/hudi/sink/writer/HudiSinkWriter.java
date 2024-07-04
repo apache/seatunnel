@@ -103,26 +103,26 @@ public class HudiSinkWriter
         this.opType = hudiSinkConfig.getOpType();
         this.hudiSinkConfig = hudiSinkConfig;
         Configuration hadoopConf = new Configuration();
-        if (hudiSinkConfig.getConfFile() != null) {
-            hadoopConf = HudiUtil.getConfiguration(hudiSinkConfig.getConfFile());
+        if (hudiSinkConfig.getConfFilesPath() != null) {
+            hadoopConf = HudiUtil.getConfiguration(hudiSinkConfig.getConfFilesPath());
         }
         HadoopStorageConfiguration hudiStorageConfiguration =
                 new HadoopStorageConfiguration(hadoopConf);
 
         // initialize the table, if not done already
-        Path path = new Path(hudiSinkConfig.getTablePath());
+        Path path = new Path(hudiSinkConfig.getTableDfsPath());
         FileSystem fs =
-                HadoopFSUtils.getFs(hudiSinkConfig.getTablePath(), hudiStorageConfiguration);
+                HadoopFSUtils.getFs(hudiSinkConfig.getTableDfsPath(), hudiStorageConfiguration);
         HoodieTableMetaClient.withPropertyBuilder()
                 .setTableType(hudiSinkConfig.getTableType())
                 .setTableName(hudiSinkConfig.getTableName())
                 .setPayloadClassName(HoodieAvroPayload.class.getName())
-                .initTable(hudiStorageConfiguration, hudiSinkConfig.getTablePath());
+                .initTable(hudiStorageConfiguration, hudiSinkConfig.getTableDfsPath());
         HoodieWriteConfig cfg =
                 HoodieWriteConfig.newBuilder()
                         .withEmbeddedTimelineServerEnabled(false)
                         .withEngineType(EngineType.JAVA)
-                        .withPath(hudiSinkConfig.getTablePath())
+                        .withPath(hudiSinkConfig.getTableDfsPath())
                         .withSchema(convertToSchema(seaTunnelRowType).toString())
                         .withParallelism(
                                 hudiSinkConfig.getInsertShuffleParallelism(),

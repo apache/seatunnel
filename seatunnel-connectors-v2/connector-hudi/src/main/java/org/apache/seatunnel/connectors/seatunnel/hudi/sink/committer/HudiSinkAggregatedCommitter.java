@@ -58,15 +58,15 @@ public class HudiSinkAggregatedCommitter
             HudiSinkConfig hudiSinkConfig, SeaTunnelRowType seaTunnelRowType) {
 
         Configuration hadoopConf = new Configuration();
-        if (hudiSinkConfig.getConfFile() != null) {
-            hadoopConf = HudiUtil.getConfiguration(hudiSinkConfig.getConfFile());
+        if (hudiSinkConfig.getConfFilesPath() != null) {
+            hadoopConf = HudiUtil.getConfiguration(hudiSinkConfig.getConfFilesPath());
         }
         hudiStorageConfiguration = new HadoopStorageConfiguration(hadoopConf);
         cfg =
                 HoodieWriteConfig.newBuilder()
                         .withEmbeddedTimelineServerEnabled(false)
                         .withEngineType(EngineType.JAVA)
-                        .withPath(hudiSinkConfig.getTablePath())
+                        .withPath(hudiSinkConfig.getTableDfsPath())
                         .withSchema(convertToSchema(seaTunnelRowType).toString())
                         .withParallelism(
                                 hudiSinkConfig.getInsertShuffleParallelism(),

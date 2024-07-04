@@ -27,8 +27,18 @@ import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 
 import com.google.auto.service.AutoService;
 
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiOptions.BATCH_INTERVAL_MS;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiOptions.CONF_FILES_PATH;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiOptions.INSERT_SHUFFLE_PARALLELISM;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiOptions.MAX_COMMITS_TO_KEEP;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiOptions.MIN_COMMITS_TO_KEEP;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiOptions.OP_TYPE;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiOptions.PARTITION_FIELDS;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiOptions.RECORD_KEY_FIELDS;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiOptions.TABLE_DFS_PATH;
 import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiOptions.TABLE_NAME;
-import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiOptions.TABLE_PATH;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiOptions.TABLE_TYPE;
+import static org.apache.seatunnel.connectors.seatunnel.hudi.config.HudiOptions.UPSERT_SHUFFLE_PARALLELISM;
 
 @AutoService(Factory.class)
 public class HudiSinkFactory implements TableSinkFactory {
@@ -39,7 +49,20 @@ public class HudiSinkFactory implements TableSinkFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().required(TABLE_PATH, TABLE_NAME).build();
+        return OptionRule.builder()
+                .required(TABLE_DFS_PATH, TABLE_NAME)
+                .optional(
+                        CONF_FILES_PATH,
+                        RECORD_KEY_FIELDS,
+                        PARTITION_FIELDS,
+                        TABLE_TYPE,
+                        OP_TYPE,
+                        BATCH_INTERVAL_MS,
+                        INSERT_SHUFFLE_PARALLELISM,
+                        UPSERT_SHUFFLE_PARALLELISM,
+                        MIN_COMMITS_TO_KEEP,
+                        MAX_COMMITS_TO_KEEP)
+                .build();
     }
 
     @Override

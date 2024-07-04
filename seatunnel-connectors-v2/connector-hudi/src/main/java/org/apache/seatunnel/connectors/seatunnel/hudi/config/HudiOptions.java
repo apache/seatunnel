@@ -27,8 +27,8 @@ import org.apache.hudi.common.model.WriteOperationType;
 
 public interface HudiOptions {
 
-    Option<String> CONF_FILES =
-            Options.key("conf_files")
+    Option<String> CONF_FILES_PATH =
+            Options.key("conf_files_path")
                     .stringType()
                     .noDefaultValue()
                     .withDescription("hudi conf files");
@@ -36,8 +36,11 @@ public interface HudiOptions {
     Option<String> TABLE_NAME =
             Options.key("table_name").stringType().noDefaultValue().withDescription("table_name");
 
-    Option<String> TABLE_PATH =
-            Options.key("table_path").stringType().noDefaultValue().withDescription("table_path");
+    Option<String> TABLE_DFS_PATH =
+            Options.key("table_dfs_path")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("table_dfs_path");
 
     Option<String> RECORD_KEY_FIELDS =
             Options.key("record_key_fields")

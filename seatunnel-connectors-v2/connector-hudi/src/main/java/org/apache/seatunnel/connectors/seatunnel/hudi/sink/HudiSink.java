@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -40,7 +41,8 @@ import java.util.Optional;
 
 public class HudiSink
         implements SeaTunnelSink<
-                SeaTunnelRow, HudiSinkState, HudiCommitInfo, HudiAggregatedCommitInfo> {
+                        SeaTunnelRow, HudiSinkState, HudiCommitInfo, HudiAggregatedCommitInfo>,
+                SupportMultiTableSink {
 
     private HudiSinkConfig hudiSinkConfig;
     private SeaTunnelRowType seaTunnelRowType;

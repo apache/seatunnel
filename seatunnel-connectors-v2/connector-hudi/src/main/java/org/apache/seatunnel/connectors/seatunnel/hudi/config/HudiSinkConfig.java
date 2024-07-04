@@ -26,7 +26,6 @@ import lombok.Builder;
 import lombok.Data;
 
 import java.io.Serializable;
-import java.util.Optional;
 
 @Data
 @Builder(builderClassName = "Builder")
@@ -36,7 +35,7 @@ public class HudiSinkConfig implements Serializable {
 
     private String tableName;
 
-    private String tablePath;
+    private String tableDfsPath;
 
     private int insertShuffleParallelism;
 
@@ -50,7 +49,7 @@ public class HudiSinkConfig implements Serializable {
 
     private WriteOperationType opType;
 
-    private String confFile;
+    private String confFilesPath;
 
     private int batchIntervalMs;
 
@@ -60,51 +59,24 @@ public class HudiSinkConfig implements Serializable {
 
     public static HudiSinkConfig of(ReadonlyConfig config) {
         HudiSinkConfig.Builder builder = HudiSinkConfig.builder();
-        Optional<Integer> optionalInsertShuffleParallelism =
-                config.getOptional(HudiOptions.INSERT_SHUFFLE_PARALLELISM);
-        Optional<Integer> optionalUpsertShuffleParallelism =
-                config.getOptional(HudiOptions.UPSERT_SHUFFLE_PARALLELISM);
-        Optional<Integer> optionalMinCommitsToKeep =
-                config.getOptional(HudiOptions.MIN_COMMITS_TO_KEEP);
-        Optional<Integer> optionalMaxCommitsToKeep =
-                config.getOptional(HudiOptions.MAX_COMMITS_TO_KEEP);
-
-        Optional<HoodieTableType> optionalTableType = config.getOptional(HudiOptions.TABLE_TYPE);
-        Optional<WriteOperationType> optionalOpType = config.getOptional(HudiOptions.OP_TYPE);
-
-        Optional<Integer> optionalBatchIntervalMs =
-                config.getOptional(HudiOptions.BATCH_INTERVAL_MS);
-
-        Optional<String> partitionFields = config.getOptional(HudiOptions.PARTITION_FIELDS);
-
-        Optional<String> recordKeyFields = config.getOptional(HudiOptions.RECORD_KEY_FIELDS);
-
-        builder.confFile(config.get(HudiOptions.CONF_FILES));
+        builder.confFilesPath(config.get(HudiOptions.CONF_FILES_PATH));
         builder.tableName(config.get(HudiOptions.TABLE_NAME));
-        builder.tablePath(config.get(HudiOptions.TABLE_PATH));
-        builder.tableType(optionalTableType.orElseGet(HudiOptions.TABLE_TYPE::defaultValue));
-        builder.opType(optionalOpType.orElseGet(HudiOptions.OP_TYPE::defaultValue));
+        builder.tableDfsPath(config.get(HudiOptions.TABLE_DFS_PATH));
+        builder.tableType(config.get(HudiOptions.TABLE_TYPE));
+        builder.opType(config.get(HudiOptions.OP_TYPE));
 
-        builder.batchIntervalMs(
-                optionalBatchIntervalMs.orElseGet(HudiOptions.BATCH_INTERVAL_MS::defaultValue));
+        builder.batchIntervalMs(config.get(HudiOptions.BATCH_INTERVAL_MS));
 
-        builder.partitionFields(
-                partitionFields.orElseGet(HudiOptions.PARTITION_FIELDS::defaultValue));
+        builder.partitionFields(config.get(HudiOptions.PARTITION_FIELDS));
 
-        builder.recordKeyFields(
-                recordKeyFields.orElseGet(HudiOptions.RECORD_KEY_FIELDS::defaultValue));
+        builder.recordKeyFields(config.get(HudiOptions.RECORD_KEY_FIELDS));
 
-        builder.insertShuffleParallelism(
-                optionalInsertShuffleParallelism.orElseGet(
-                        HudiOptions.INSERT_SHUFFLE_PARALLELISM::defaultValue));
-        builder.upsertShuffleParallelism(
-                optionalUpsertShuffleParallelism.orElseGet(
-                        HudiOptions.UPSERT_SHUFFLE_PARALLELISM::defaultValue));
+        builder.insertShuffleParallelism(config.get(HudiOptions.INSERT_SHUFFLE_PARALLELISM));
 
-        builder.minCommitsToKeep(
-                optionalMinCommitsToKeep.orElseGet(HudiOptions.MIN_COMMITS_TO_KEEP::defaultValue));
-        builder.maxCommitsToKeep(
-                optionalMaxCommitsToKeep.orElseGet(HudiOptions.MAX_COMMITS_TO_KEEP::defaultValue));
+        builder.upsertShuffleParallelism(config.get(HudiOptions.UPSERT_SHUFFLE_PARALLELISM));
+
+        builder.minCommitsToKeep(config.get(HudiOptions.MIN_COMMITS_TO_KEEP));
+        builder.maxCommitsToKeep(config.get(HudiOptions.MAX_COMMITS_TO_KEEP));
         return builder.build();
     }
 }
