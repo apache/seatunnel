@@ -19,4 +19,4 @@ package org.apache.seatunnel.connectors.seatunnel.rabbitmq.source;
 
 import java.io.Serializable;
 
-public class RabbitSourceState implements Serializable {}
+public class RabbitmqSourceState implements Serializable {}
