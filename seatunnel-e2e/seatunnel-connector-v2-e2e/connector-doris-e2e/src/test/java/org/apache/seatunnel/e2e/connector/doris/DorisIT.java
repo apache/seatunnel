@@ -224,7 +224,7 @@ public class DorisIT extends AbstractDorisIT {
         }
     }
 
-    private void checkSinkData() {
+    protected void checkSinkData() {
         try {
             assertHasData(sourceDB, UNIQUE_TABLE);
             assertHasData(sinkDB, UNIQUE_TABLE);
@@ -371,7 +371,7 @@ public class DorisIT extends AbstractDorisIT {
         }
     }
 
-    private void initializeJdbcTable() {
+    protected void initializeJdbcTable() {
         try {
             URLClassLoader urlClassLoader =
                     new URLClassLoader(
@@ -528,7 +528,7 @@ public class DorisIT extends AbstractDorisIT {
         return String.format(createDuplicateTableSql, db, DUPLICATE_TABLE);
     }
 
-    private void batchInsertUniqueTableData() {
+    protected void batchInsertUniqueTableData() {
         List<SeaTunnelRow> rows = genUniqueTableTestData(100L);
         try {
             conn.setAutoCommit(false);
