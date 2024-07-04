@@ -15,8 +15,7 @@
 # limitations under the License.
 #
 
-FROM centos:centos7
-RUN yum install -y java-1.8.0-openjdk-devel
+FROM openjdk:8u162-jdk
 ENV SEATUNNEL_HOME="/opt/seatunnel"
 COPY /jars/seatunnel-hadoop3-3.1.4-uber.jar ${SEATUNNEL_HOME}/lib/seatunnel-hadoop3-3.1.4-uber.jar
 COPY /jars/seatunnel-transforms-v2.jar ${SEATUNNEL_HOME}/lib/sseatunnel-transforms-v2.jar
