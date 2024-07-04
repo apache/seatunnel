@@ -77,7 +77,6 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
     @Override
     public void startUp() throws Exception {
         this.container = new MilvusContainer(MILVUS_IMAGE);
-        this.container.setNetworkAliases(Arrays.asList(HOST));
         log.info("Milvus host is {}", container.getHost());
         Startables.deepStart(Stream.of(this.container)).join();
         log.info("Milvus container started");
