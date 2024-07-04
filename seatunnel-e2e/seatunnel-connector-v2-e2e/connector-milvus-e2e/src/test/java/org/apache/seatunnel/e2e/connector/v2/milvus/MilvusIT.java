@@ -78,6 +78,7 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
     public void startUp() throws Exception {
         this.container = new MilvusContainer(MILVUS_IMAGE);
         this.container.setNetworkAliases(Arrays.asList(HOST));
+        log.info("Milvus host is {}", container.getHost());
         Startables.deepStart(Stream.of(this.container)).join();
         log.info("Milvus container started");
         Awaitility.given().ignoreExceptions().await().atMost(720L, TimeUnit.SECONDS);
@@ -191,7 +192,7 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    public void testRedis(TestContainer container) throws IOException, InterruptedException {
+    public void testMilvus(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/milvus-to-milvus.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
 
