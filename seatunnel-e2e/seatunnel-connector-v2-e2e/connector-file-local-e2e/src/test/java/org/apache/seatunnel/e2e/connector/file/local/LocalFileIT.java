@@ -32,17 +32,27 @@ import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
+import org.apache.commons.lang3.StringUtils;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestTemplate;
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.shaded.com.github.dockerjava.core.command.ExecStartResultCallback;
 
+import com.github.dockerjava.api.command.ExecCreateCmdResponse;
 import io.airlift.compress.lzo.LzopCodec;
+import lombok.SneakyThrows;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
 
 @DisabledOnContainer(
         value = {TestContainerId.SPARK_2_4},
@@ -50,10 +60,13 @@ import java.nio.file.Paths;
         disabledReason = "The apache-compress version is not compatible with apache-poi")
 public class LocalFileIT extends TestSuiteBase {
 
+    private GenericContainer<?> baseContainer;
+
     /** Copy data files to container */
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
             container -> {
+                this.baseContainer = container;
                 ContainerUtil.copyFileIntoContainers(
                         "/json/e2e.json",
                         "/seatunnel/read/json/name=tyrantlucifer/hobby=coding/e2e.json",
@@ -127,7 +140,6 @@ public class LocalFileIT extends TestSuiteBase {
     public void testLocalFileReadAndWrite(TestContainer container)
             throws IOException, InterruptedException {
         TestHelper helper = new TestHelper(container);
-
         helper.execute("/excel/fake_to_local_excel.conf");
         helper.execute("/excel/local_excel_to_assert.conf");
         helper.execute("/excel/local_excel_projection_to_assert.conf");
@@ -186,13 +198,40 @@ public class LocalFileIT extends TestSuiteBase {
             helper.execute("/binary/local_file_binary_to_assert.conf");
         }
         // test save_mode
-        HadoopFileSystemProxy fileSystemUtils =
-                new HadoopFileSystemProxy(new LocalFileHadoopConf());
         String path = "/tmp/seatunnel/localfile/json/fake";
-        fileSystemUtils.createFile(path + "/test.txt");
-        Assertions.assertEquals(fileSystemUtils.listFile(path).size(), 1);
+        Assertions.assertEquals(getFileListFromContainer(path).size(), 0);
         helper.execute("/json/fake_to_local_file_json_save_mode.conf");
-        Assertions.assertEquals(fileSystemUtils.listFile(path).size(), 1);
+        Assertions.assertEquals(getFileListFromContainer(path).size(), 1);
+        helper.execute("/json/fake_to_local_file_json_save_mode.conf");
+        Assertions.assertEquals(getFileListFromContainer(path).size(), 1);
+    }
+
+    @SneakyThrows
+    private List<String> getFileListFromContainer(String path) {
+        String command = "ls -1 " + path;
+        ExecCreateCmdResponse execCreateCmdResponse =
+                dockerClient
+                        .execCreateCmd(baseContainer.getContainerId())
+                        .withCmd("sh", "-c", command)
+                        .withAttachStdout(true)
+                        .withAttachStderr(true)
+                        .exec();
+
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        dockerClient
+                .execStartCmd(execCreateCmdResponse.getId())
+                .exec(new ExecStartResultCallback(outputStream, System.err))
+                .awaitCompletion();
+
+        String output = new String(outputStream.toByteArray(), StandardCharsets.UTF_8).trim();
+        List<String> fileList = new ArrayList<>();
+        String[] files = output.split("\n");
+        for (String file : files) {
+            if (StringUtils.isNotEmpty(file)) {
+                fileList.add(file);
+            }
+        }
+        return fileList;
     }
 
     @TestTemplate
