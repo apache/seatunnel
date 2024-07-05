@@ -119,10 +119,9 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
             SourceRecord record, Collector<SeaTunnelRow> collector) {
         SchemaChangeEvent schemaChangeEvent = schemaChangeResolver.resolve(record, resultTypeInfo);
         if (schemaChangeEvent == null) {
-            log.info("Unsupported resolve schemaChangeEvent {}, just skip.", record);
+            log.warn("Unsupported resolve schemaChangeEvent {}, just skip.", record);
             return;
         }
-
         if (resultTypeInfo instanceof MultipleRowType) {
             Map<String, SeaTunnelRowType> newRowTypeMap = new HashMap<>();
             for (Map.Entry<String, SeaTunnelRowType> entry : (MultipleRowType) resultTypeInfo) {
