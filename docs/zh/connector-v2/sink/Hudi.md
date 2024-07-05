@@ -20,8 +20,8 @@
 | conf_files_path            | string | 否    | -             |
 | record_key_fields          | string | 否    | -             |
 | partition_fields           | string | 否    | -             |
-| table_type                 | string | 否    | copy_on_write |
-| op_type                    | string | 否    | insert        |
+| table_type                 | enum   | 否    | copy_on_write |
+| op_type                    | enum   | 否    | insert        |
 | batch_interval_ms          | Int    | 否    | 1000          |
 | insert_shuffle_parallelism | Int    | 否    | 2             |
 | upsert_shuffle_parallelism | Int    | 否    | 2             |
@@ -37,7 +37,7 @@
 
 `table_dfs_path` Hudi 表的 DFS 根路径，例如 "hdfs://nameservice/data/hudi/hudi_table/"。
 
-### table_type [string]
+### table_type [enum]
 
 `table_type` Hudi 表的类型。
 

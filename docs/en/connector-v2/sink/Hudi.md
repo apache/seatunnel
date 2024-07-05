@@ -20,8 +20,8 @@ Used to write data to Hudi.
 | conf_files_path            | string | no       | -             |
 | record_key_fields          | string | no       | -             |
 | partition_fields           | string | no       | -             |
-| table_type                 | string | no       | copy_on_write |
-| op_type                    | string | no       | insert        |
+| table_type                 | enum   | no       | copy_on_write |
+| op_type                    | enum   | no       | insert        |
 | batch_interval_ms          | Int    | no       | 1000          |
 | insert_shuffle_parallelism | Int    | no       | 2             |
 | upsert_shuffle_parallelism | Int    | no       | 2             |
