@@ -79,9 +79,9 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 source {
 
   Hudi {
-    table.path = "hdfs://nameserivce/data/hudi/hudi_table/"
+    table_dfs_path = "hdfs://nameserivce/data/hudi/hudi_table/"
     table.type = "cow"
-    conf.files = "/home/test/hdfs-site.xml;/home/test/core-site.xml;/home/test/yarn-site.xml"
+    conf_files_path = "/home/test/hdfs-site.xml;/home/test/core-site.xml;/home/test/yarn-site.xml"
     use.kerberos = true
     kerberos.principal = "test_user@xxx"
     kerberos.principal.file = "/home/test/test_user.keytab"
