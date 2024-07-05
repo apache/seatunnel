@@ -121,7 +121,7 @@ public class KubernetesIT {
                             });
             // submit job
             String command =
-                    "sh /opt/seatunnel/bin/seatunnel.sh --config /opt/seatunnel/config/v2.batch.config.template";
+                    "/opt/seatunnel/bin/seatunnel.sh --config /opt/seatunnel/config/v2.batch.config.template";
             Process process =
                     Runtime.getRuntime()
                             .exec(
@@ -134,7 +134,7 @@ public class KubernetesIT {
             Assertions.assertEquals(0, process.waitFor());
             // submit an error job
             String commandError =
-                    "sh /opt/seatunnel/bin/seatunnel.sh --config /opt/seatunnel/config/v2.batch.config.template.error";
+                    "/opt/seatunnel/bin/seatunnel.sh --config /opt/seatunnel/config/v2.batch.config.template.error";
             process =
                     Runtime.getRuntime()
                             .exec(

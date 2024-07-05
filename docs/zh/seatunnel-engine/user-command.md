@@ -10,7 +10,7 @@ SeaTunnel Engine 提供了一个命令行工具，用于管理 SeaTunnel Engine 
 可以通过如下命令获取命令行工具的帮助信息：
 
 ```shell
-sh bin/seatunnel.sh -h
+bin/seatunnel.sh -h
 ```
 
 输出如下：
@@ -58,25 +58,25 @@ Usage: seatunnel.sh [options]
 ## 提交作业
 
 ```shell
-sh bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template
+bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template
 ```
 
 **--async** 参数可以让作业在后台运行，当作业提交后，客户端会退出。
 
 ```shell
-sh bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --async
+./bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --async
 ```
 
 **-n** 或 **--name** 参数可以指定作业的名称
 
 ```shell
-sh bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --async -n myjob
+./bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --async -n myjob
 ```
 
 ## 查看作业列表
 
 ```shell
-sh bin/seatunnel.sh -l
+./bin/seatunnel.sh -l
 ```
 
 该命令会输出所有当前集群中的作业列表（包含运行完成的历史作业和正在运行的作业）
@@ -84,7 +84,7 @@ sh bin/seatunnel.sh -l
 ## 查看作业状态
 
 ```shell
-sh bin/seatunnel.sh -j &lt;jobId&gt;
+./bin/seatunnel.sh -j &lt;jobId&gt;
 ```
 
 该命令会输出指定作业的状态信息
@@ -92,7 +92,7 @@ sh bin/seatunnel.sh -j &lt;jobId&gt;
 ## 获取正在运行的作业监控信息
 
 ```shell
-sh bin/seatunnel.sh --get_running_job_metrics
+./bin/seatunnel.sh --get_running_job_metrics
 ```
 
 该命令会输出正在运行的作业的监控信息
@@ -102,13 +102,13 @@ sh bin/seatunnel.sh --get_running_job_metrics
 --metrics 参数可以获取指定作业的监控信息
 
 ```shell
-sh bin/seatunnel.sh --metrics &lt;jobId&gt;
+./bin/seatunnel.sh --metrics &lt;jobId&gt;
 ```
 
 ## 暂停作业
 
 ```shell
-sh bin/seatunnel.sh -s &lt;jobId&gt;
+./bin/seatunnel.sh -s &lt;jobId&gt;
 ```
 
 该命令会暂停指定作业，注意，只有开启了checkpoint的作业才支持暂停作业(实时同步作业默认开启checkpoint，批处理作业默认不开启checkpoint需要通过在 `env` 中配置checkpoint.interval来开启checkpoint)。
@@ -118,7 +118,7 @@ sh bin/seatunnel.sh -s &lt;jobId&gt;
 ## 恢复作业
 
 ```shell
-sh bin/seatunnel.sh -r &lt;jobId&gt; -c $SEATUNNEL_HOME/config/v2.batch.config.template
+./bin/seatunnel.sh -r &lt;jobId&gt; -c $SEATUNNEL_HOME/config/v2.batch.config.template
 ```
 
 该命令会恢复指定作业，注意，只有开启了checkpoint的作业才支持恢复作业(实时同步作业默认开启checkpoint，批处理作业默认不开启checkpoint需要通过在 `env` 中配置checkpoint.interval来开启checkpoint)。
@@ -130,7 +130,7 @@ sh bin/seatunnel.sh -r &lt;jobId&gt; -c $SEATUNNEL_HOME/config/v2.batch.config.t
 ## 取消作业
 
 ```shell
-sh bin/seatunnel.sh -can &lt;jobId&gt;
+./bin/seatunnel.sh -can &lt;jobId&gt;
 ```
 
 该命令会取消指定作业，取消作业后，作业会被停止，作业的状态会变为`CANCELED`。
