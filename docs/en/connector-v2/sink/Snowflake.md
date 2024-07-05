@@ -19,9 +19,9 @@ Write data through jdbc. Support Batch mode and Streaming mode, support concurre
 
 ## Supported DataSource list
 
-| Datasource |                    Supported Versions                    |                  Driver                   |                          Url                           |                                    Maven                                    |
-|------------|----------------------------------------------------------|-------------------------------------------|--------------------------------------------------------|-----------------------------------------------------------------------------|
-| snowflake  | Different dependency version has different driver class. | net.snowflake.client.jdbc.SnowflakeDriver | jdbc:snowflake://<account_name>.snowflakecomputing.com | [Download](https://mvnrepository.com/artifact/net.snowflake/snowflake-jdbc) |
+| Datasource |                    Supported Versions                    |                  Driver                   |                            Url                             |                                    Maven                                    |
+|------------|----------------------------------------------------------|-------------------------------------------|------------------------------------------------------------|-----------------------------------------------------------------------------|
+| snowflake  | Different dependency version has different driver class. | net.snowflake.client.jdbc.SnowflakeDriver | jdbc&#58;snowflake://<account_name>.snowflakecomputing.com | [Download](https://mvnrepository.com/artifact/net.snowflake/snowflake-jdbc) |
 
 ## Database dependency
 
@@ -50,7 +50,7 @@ Write data through jdbc. Support Batch mode and Streaming mode, support concurre
 
 |                   Name                    |  Type   | Required | Default |                                                                                                                  Description                                                                                                                   |
 |-------------------------------------------|---------|----------|---------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| url                                       | String  | Yes      | -       | The URL of the JDBC connection. Refer to a case: jdbc:snowflake://<account_name>.snowflakecomputing.com                                                                                                                                        |
+| url                                       | String  | Yes      | -       | The URL of the JDBC connection. Refer to a case: jdbc&#58;snowflake://<account_name>.snowflakecomputing.com                                                                                                                                    |
 | driver                                    | String  | Yes      | -       | The jdbc class name used to connect to the remote data source,<br/> if you use Snowflake the value is `net.snowflake.client.jdbc.SnowflakeDriver`.                                                                                             |
 | user                                      | String  | No       | -       | Connection instance user name                                                                                                                                                                                                                  |
 | password                                  | String  | No       | -       | Connection instance password                                                                                                                                                                                                                   |

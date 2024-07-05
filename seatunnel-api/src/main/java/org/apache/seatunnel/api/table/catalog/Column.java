@@ -191,4 +191,7 @@ public abstract class Column implements Serializable {
 
     /** Returns a copy of the column with a replaced name. */
     public abstract Column rename(String newColumnName);
+
+    /** Returns a copy of the column with a replaced sourceType. */
+    public abstract Column reSourceType(String sourceType);
 }
