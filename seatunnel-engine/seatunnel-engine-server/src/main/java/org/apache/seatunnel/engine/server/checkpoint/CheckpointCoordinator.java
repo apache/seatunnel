@@ -441,10 +441,6 @@ public class CheckpointCoordinator {
                             subTask.getJobId());
                 }
             }
-            if (subTaskList.size() != 2) {
-                throw new UnsupportedOperationException(
-                        "Unsupported close not reader/writer task group: " + subTaskList);
-            }
             readyToCloseIdleTask.addAll(subTaskList);
             tryTriggerPendingCheckpoint(CheckpointType.CHECKPOINT_TYPE);
         }

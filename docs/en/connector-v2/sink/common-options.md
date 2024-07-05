@@ -2,24 +2,19 @@
 
 > Common parameters of sink connectors
 
-|       name        |  type  | required | default value |
-|-------------------|--------|----------|---------------|
-| source_table_name | string | no       | -             |
-| parallelism       | int    | no       | -             |
+|       Name        |  Type  | Required | Default |                                                                                                                                     Description                                                                                                                                      |
+|-------------------|--------|----------|---------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| source_table_name | String | No       | -       | When `source_table_name` is not specified, the current plug-in processes the data set `dataset` output by the previous plugin in the configuration file <br/> When `source_table_name` is specified, the current plug-in is processing the data set corresponding to this parameter. |
 
-### source_table_name [string]
+# Important note
 
-When `source_table_name` is not specified, the current plug-in processes the data set `dataset` output by the previous plugin in the configuration file;
+When the job configuration `source_table_name` you must set the `result_table_name` parameter
 
-When `source_table_name` is specified, the current plug-in is processing the data set corresponding to this parameter.
+## Task Example
 
-### parallelism [int]
+### Simple:
 
-When `parallelism` is not specified, the `parallelism` in env is used by default.
-
-When parallelism is specified, it will override the parallelism in env.
-
-## Examples
+> This is the process of passing a data source through two transforms and returning two different pipiles to different sinks
 
 ```bash
 source {

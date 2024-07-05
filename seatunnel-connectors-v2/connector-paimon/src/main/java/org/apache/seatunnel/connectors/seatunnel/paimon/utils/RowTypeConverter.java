@@ -56,6 +56,7 @@ import org.apache.paimon.types.VarCharType;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
@@ -73,12 +74,25 @@ public class RowTypeConverter {
      * @param rowType Paimon row type
      * @return SeaTunnel row type {@link SeaTunnelRowType}
      */
-    public static SeaTunnelRowType convert(RowType rowType) {
+    public static SeaTunnelRowType convert(RowType rowType, int[] projectionIndex) {
         String[] fieldNames = rowType.getFieldNames().toArray(new String[0]);
         SeaTunnelDataType<?>[] dataTypes =
                 rowType.getFields().stream()
                         .map(field -> field.type().accept(PaimonToSeaTunnelTypeVisitor.INSTANCE))
                         .toArray(SeaTunnelDataType<?>[]::new);
+        if (projectionIndex != null) {
+            String[] projectionFieldNames =
+                    Arrays.stream(projectionIndex)
+                            .filter(index -> index >= 0 && index < fieldNames.length)
+                            .mapToObj(index -> fieldNames[index])
+                            .toArray(String[]::new);
+            SeaTunnelDataType<?>[] projectionDataTypes =
+                    Arrays.stream(projectionIndex)
+                            .filter(index -> index >= 0 && index < fieldNames.length)
+                            .mapToObj(index -> dataTypes[index])
+                            .toArray(SeaTunnelDataType<?>[]::new);
+            return new SeaTunnelRowType(projectionFieldNames, projectionDataTypes);
+        }
         return new SeaTunnelRowType(fieldNames, dataTypes);
     }
 

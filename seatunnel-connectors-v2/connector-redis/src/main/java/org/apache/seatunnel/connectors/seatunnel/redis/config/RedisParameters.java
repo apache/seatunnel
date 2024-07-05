@@ -19,6 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.redis.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.connectors.seatunnel.redis.client.RedisClient;
+import org.apache.seatunnel.connectors.seatunnel.redis.client.RedisClusterClient;
+import org.apache.seatunnel.connectors.seatunnel.redis.client.RedisSingleClient;
 import org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisConnectorException;
 
 import org.apache.commons.lang3.StringUtils;
@@ -48,6 +51,7 @@ public class RedisParameters implements Serializable {
     private RedisConfig.HashKeyParseMode hashKeyParseMode;
     private List<String> redisNodes = Collections.emptyList();
     private long expire = RedisConfig.EXPIRE.defaultValue();
+    private int batchSize = RedisConfig.BATCH_SIZE.defaultValue();
 
     public void buildWithConfig(ReadonlyConfig config) {
         // set host
@@ -84,6 +88,17 @@ public class RedisParameters implements Serializable {
         }
         // set redis data type verification factory createAndPrepareSource
         this.redisDataType = config.get(RedisConfig.DATA_TYPE);
+        // Indicates the number of keys to attempt to return per iteration.default 10
+        this.batchSize = config.get(RedisConfig.BATCH_SIZE);
+    }
+
+    public RedisClient buildRedisClient() {
+        Jedis jedis = this.buildJedis();
+        if (mode.equals(RedisConfig.RedisMode.SINGLE)) {
+            return new RedisSingleClient(this, jedis);
+        } else {
+            return new RedisClusterClient(this, jedis);
+        }
     }
 
     public Jedis buildJedis() {

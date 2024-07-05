@@ -83,7 +83,7 @@ public class RedisConfig {
             Options.key("data_type")
                     .enumType(RedisDataType.class)
                     .noDefaultValue()
-                    .withDescription("redis data types, support key hash list set zset.");
+                    .withDescription("redis data types, support string hash list set zset.");
 
     public static final Option<RedisConfig.Format> FORMAT =
             Options.key("format")
@@ -118,6 +118,14 @@ public class RedisConfig {
                     .longType()
                     .defaultValue(-1L)
                     .withDescription("Set redis expiration time.");
+
+    public static final Option<Integer> BATCH_SIZE =
+            Options.key("batch_size")
+                    .intType()
+                    .defaultValue(10)
+                    .withDescription(
+                            "batch_size is used to control the size of a batch of data during read and write operations"
+                                    + ",default 10");
 
     public enum Format {
         JSON,

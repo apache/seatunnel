@@ -70,6 +70,21 @@ public class SQLTransformTest {
     }
 
     @Test
+    public void testQueryWithAnyTable() {
+        SQLTransform sqlTransform =
+                new SQLTransform(
+                        ReadonlyConfig.fromMap(
+                                new HashMap<String, Object>() {
+                                    {
+                                        put("query", "select * from anyTableName");
+                                    }
+                                }),
+                        getCatalogTable());
+        TableSchema tableSchema = sqlTransform.transformTableSchema();
+        Assertions.assertEquals(4, tableSchema.getColumns().size());
+    }
+
+    @Test
     public void testNotLoseSourceTypeAndOptions() {
         SQLTransform sqlTransform = new SQLTransform(READONLY_CONFIG, getCatalogTable());
         TableSchema tableSchema = sqlTransform.transformTableSchema();

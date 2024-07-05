@@ -176,6 +176,7 @@ sink {
     metastore_uri = "thrift://ctyun7:9083"
     hive.hadoop.conf = {
       bucket = "s3a://mybucket"
+      fs.s3a.aws.credentials.provider="com.amazonaws.auth.InstanceProfileCredentialsProvider"
     }
 }
 ```
@@ -258,6 +259,7 @@ sink {
     hive.hadoop.conf-path = "/home/ec2-user/hadoop-conf"
     hive.hadoop.conf = {
        bucket="s3://ws-package"
+       fs.s3a.aws.credentials.provider="com.amazonaws.auth.InstanceProfileCredentialsProvider"
     }
   }
 }
