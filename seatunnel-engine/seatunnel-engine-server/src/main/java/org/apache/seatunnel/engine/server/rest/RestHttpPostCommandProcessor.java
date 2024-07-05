@@ -38,7 +38,7 @@ import org.apache.seatunnel.engine.server.operation.SubmitJobOperation;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 import org.apache.seatunnel.engine.server.utils.RestUtil;
 
-import org.apache.commons.lang.StringUtils;
+import org.apache.commons.lang3.StringUtils;
 
 import com.hazelcast.internal.ascii.TextCommandService;
 import com.hazelcast.internal.ascii.rest.HttpCommandProcessor;
@@ -119,6 +119,8 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
 
         boolean startWithSavePoint =
                 Boolean.parseBoolean(requestParams.get(RestConstant.IS_START_WITH_SAVE_POINT));
+        String jobIdStr = requestParams.get(RestConstant.JOB_ID);
+        Long finalJobId = StringUtils.isNotBlank(jobIdStr) ? Long.parseLong(jobIdStr) : null;
         SeaTunnelServer seaTunnelServer = getSeaTunnelServer();
         RestJobExecutionEnvironment restJobExecutionEnvironment =
                 new RestJobExecutionEnvironment(
@@ -127,9 +129,7 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
                         config,
                         textCommandService.getNode(),
                         startWithSavePoint,
-                        startWithSavePoint
-                                ? Long.parseLong(requestParams.get(RestConstant.JOB_ID))
-                                : null);
+                        finalJobId);
         JobImmutableInformation jobImmutableInformation = restJobExecutionEnvironment.build();
         Long jobId = jobImmutableInformation.getJobId();
         if (!seaTunnelServer.isMasterNode()) {
@@ -137,12 +137,10 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
             NodeEngineUtil.sendOperationToMasterNode(
                             getNode().nodeEngine,
                             new SubmitJobOperation(
-                                    jobImmutableInformation.getJobId(),
-                                    getNode().nodeEngine.toData(jobImmutableInformation)))
+                                    jobId, getNode().nodeEngine.toData(jobImmutableInformation)))
                     .join();
 
         } else {
-
             submitJob(seaTunnelServer, jobImmutableInformation, jobConfig);
         }
 

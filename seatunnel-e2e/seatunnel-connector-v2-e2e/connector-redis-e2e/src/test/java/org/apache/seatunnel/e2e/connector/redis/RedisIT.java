@@ -56,7 +56,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Stream;
 
@@ -221,6 +223,117 @@ public class RedisIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(100, jedis.llen("db_test"));
         jedis.del("db_test");
         jedis.select(0);
+    }
+
+    @TestTemplate
+    public void testScanStringTypeWriteRedis(TestContainer container)
+            throws IOException, InterruptedException {
+        String keyPrefix = "string_test";
+        for (int i = 0; i < 1000; i++) {
+            jedis.set(keyPrefix + i, "val");
+        }
+        Container.ExecResult execResult = container.executeJob("/scan-string-to-redis.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        List<String> list = jedis.lrange("string_test_list", 0, -1);
+        Assertions.assertEquals(1000, list.size());
+        jedis.del("string_test_list");
+        for (int i = 0; i < 1000; i++) {
+            jedis.del(keyPrefix + i);
+        }
+    }
+
+    @TestTemplate
+    public void testScanListTypeWriteRedis(TestContainer container)
+            throws IOException, InterruptedException {
+        String keyPrefix = "list-test-read";
+        for (int i = 0; i < 100; i++) {
+            String list = keyPrefix + i;
+            for (int j = 0; j < 10; j++) {
+                jedis.lpush(list, "val" + j);
+            }
+        }
+        Container.ExecResult execResult =
+                container.executeJob("/scan-list-test-read-to-redis-list-test-check.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        List<String> list = jedis.lrange("list-test-check", 0, -1);
+        Assertions.assertEquals(1000, list.size());
+        jedis.del("list-test-check");
+        for (int i = 0; i < 100; i++) {
+            String delKey = keyPrefix + i;
+            jedis.del(delKey);
+        }
+    }
+
+    @TestTemplate
+    public void testScanSetTypeWriteRedis(TestContainer container)
+            throws IOException, InterruptedException {
+        String setKeyPrefix = "key-test-set";
+        for (int i = 0; i < 100; i++) {
+            String setKey = setKeyPrefix + i;
+            for (int j = 0; j < 10; j++) {
+                jedis.sadd(setKey, j + "");
+            }
+        }
+        Container.ExecResult execResult =
+                container.executeJob("/scan-set-to-redis-list-set-check.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        List<String> list = jedis.lrange("list-set-check", 0, -1);
+        Assertions.assertEquals(1000, list.size());
+        jedis.del("list-set-check");
+        for (int i = 0; i < 100; i++) {
+            String setKey = setKeyPrefix + i;
+            jedis.del(setKey);
+        }
+    }
+
+    @TestTemplate
+    public void testScanHashTypeWriteRedis(TestContainer container)
+            throws IOException, InterruptedException {
+        String hashKeyPrefix = "key-test-hash";
+        for (int i = 0; i < 100; i++) {
+            String setKey = hashKeyPrefix + i;
+            Map<String, String> map = new HashMap<>();
+            map.put("name", "fuyoujie");
+            jedis.hset(setKey, map);
+        }
+        Container.ExecResult execResult =
+                container.executeJob("/scan-hash-to-redis-list-hash-check.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        List<String> list = jedis.lrange("list-hash-check", 0, -1);
+        Assertions.assertEquals(100, list.size());
+        jedis.del("list-hash-check");
+        for (int i = 0; i < 100; i++) {
+            String hashKey = hashKeyPrefix + i;
+            jedis.del(hashKey);
+        }
+        for (int i = 0; i < 100; i++) {
+            String hashKey = hashKeyPrefix + i;
+            for (int j = 0; j < 10; j++) {
+                jedis.del(hashKey);
+            }
+        }
+    }
+
+    @TestTemplate
+    public void testScanZsetTypeWriteRedis(TestContainer container)
+            throws IOException, InterruptedException {
+        String zSetKeyPrefix = "key-test-zset";
+        for (int i = 0; i < 100; i++) {
+            String key = zSetKeyPrefix + i;
+            for (int j = 0; j < 10; j++) {
+                jedis.zadd(key, 1, j + "");
+            }
+        }
+        Container.ExecResult execResult =
+                container.executeJob("/scan-zset-to-redis-list-zset-check.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        List<String> list = jedis.lrange("list-zset-check", 0, -1);
+        Assertions.assertEquals(1000, list.size());
+        jedis.del("list-zset-check");
+        for (int i = 0; i < 100; i++) {
+            String key = zSetKeyPrefix + i;
+            jedis.del(key);
+        }
     }
 
     @TestTemplate

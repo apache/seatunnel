@@ -839,6 +839,7 @@ public class ClusterFaultToleranceIT {
             // shutdown all node
             node1.shutdown();
             node2.shutdown();
+            engineClient.close();
 
             log.warn(
                     "==========================================All node is done========================================");

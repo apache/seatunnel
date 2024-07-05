@@ -249,7 +249,7 @@ public class JobHistoryService {
         private Long jobId;
         private String jobName;
         private JobStatus jobStatus;
-        private Long submitTime;
+        private long submitTime;
         private Long finishTime;
         private Map<PipelineLocation, PipelineStateData> pipelineStateMapperMap;
         private String errorMessage;
