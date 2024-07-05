@@ -185,6 +185,14 @@ public class LocalFileIT extends TestSuiteBase {
             // from jobManager will be failed in Flink
             helper.execute("/binary/local_file_binary_to_assert.conf");
         }
+        // test save_mode
+        HadoopFileSystemProxy fileSystemUtils =
+                new HadoopFileSystemProxy(new LocalFileHadoopConf());
+        String path = "/tmp/seatunnel/localfile/json/fake";
+        fileSystemUtils.createFile(path + "/test.txt");
+        Assertions.assertEquals(fileSystemUtils.listFile(path).size(), 1);
+        helper.execute("/json/fake_to_local_file_json_save_mode.conf");
+        Assertions.assertEquals(fileSystemUtils.listFile(path).size(), 1);
     }
 
     @TestTemplate
