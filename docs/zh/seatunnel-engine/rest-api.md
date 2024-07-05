@@ -36,6 +36,9 @@ network:
 
 ### 返回Zeta集群的概览
 
+<details>
+ <summary><code>GET</code> <code><b>/hazelcast/rest/maps/overview</b></code> <code>(Returns an overview over the Zeta engine cluster.)</code></summary>
+
 #### 参数
 
 #### 响应
@@ -53,6 +56,13 @@ network:
     "works":"1"
 }
 ```
+
+当你使用`dynamic-slot`时, 返回结果中的`totalSlot`和`unassignedSlot`将始终为0.
+当你设置为固定的slot值时, 将正确返回集群中总共的slot数量以及未分配的slot数量.
+
+</details>
+
+------------------------------------------------------------------------------------------
 
 ### 返回所有作业及其当前状态的概览。
 
