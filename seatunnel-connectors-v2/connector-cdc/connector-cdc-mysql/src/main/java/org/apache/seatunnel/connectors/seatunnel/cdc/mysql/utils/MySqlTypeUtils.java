@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.connectors.seatunnel.common.source.TypeDefineUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.MysqlDefaultValueUtils;
 
 import io.debezium.connector.mysql.MySqlConnectorConfig;
 import io.debezium.connector.mysql.MySqlDefaultValueConverter;
@@ -28,6 +29,9 @@ import io.debezium.connector.mysql.MySqlValueConverters;
 import io.debezium.relational.Column;
 import io.debezium.relational.RelationalDatabaseConnectorConfig;
 import lombok.extern.slf4j.Slf4j;
+
+import java.util.Objects;
+import java.util.Optional;
 
 /** Utilities for converting from MySQL types to SeaTunnel types. */
 @Slf4j
@@ -62,10 +66,17 @@ public class MySqlTypeUtils {
                         MySqlValueConverters::defaultParsingErrorHandler);
         MySqlDefaultValueConverter mySqlDefaultValueConverter =
                 new MySqlDefaultValueConverter(mySqlValueConverters);
-        Object defaultValue =
-                mySqlDefaultValueConverter
-                        .parseDefaultValue(column, column.defaultValueExpression().orElse(null))
-                        .orElse(null);
+
+        Optional<String> defaultValueExpression = column.defaultValueExpression();
+        Object defaultValue = defaultValueExpression.orElse(null);
+        if (defaultValueExpression.isPresent()
+                && Objects.nonNull(defaultValue)
+                && !MysqlDefaultValueUtils.isSpecialDefaultValue(defaultValue)) {
+            defaultValue =
+                    mySqlDefaultValueConverter
+                            .parseDefaultValue(column, defaultValueExpression.get())
+                            .orElse(null);
+        }
         BasicTypeDefine.BasicTypeDefineBuilder builder =
                 BasicTypeDefine.builder()
                         .name(column.name())
@@ -74,6 +85,7 @@ public class MySqlTypeUtils {
                         .length((long) column.length())
                         .precision((long) column.length())
                         .scale(column.scale().orElse(0))
+                        .nullable(column.isOptional())
                         .defaultValue(defaultValue);
         switch (column.typeName().toUpperCase()) {
             case MySqlTypeConverter.MYSQL_CHAR:
