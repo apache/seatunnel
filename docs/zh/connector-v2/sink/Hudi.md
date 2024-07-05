@@ -80,7 +80,7 @@ source {
 
   Hudi {
     table_dfs_path = "hdfs://nameserivce/data/hudi/hudi_table/"
-    table.type = "cow"
+    table_type = "cow"
     conf_files_path = "/home/test/hdfs-site.xml;/home/test/core-site.xml;/home/test/yarn-site.xml"
     use.kerberos = true
     kerberos.principal = "test_user@xxx"
