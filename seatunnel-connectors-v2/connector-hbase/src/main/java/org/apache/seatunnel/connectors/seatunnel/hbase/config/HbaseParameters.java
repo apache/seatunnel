@@ -31,6 +31,7 @@ import java.util.Map;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.ENCODING;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.FAMILY_NAME;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.HBASE_EXTRA_CONFIG;
+import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.HBASE_TTL_CONFIG;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.NULL_MODE;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.QUERY_COLUMNS;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.ROWKEY_COLUMNS;
@@ -59,6 +60,8 @@ public class HbaseParameters implements Serializable {
 
     private Map<String, String> hbaseExtraConfig;
 
+    @Builder.Default private Long ttl = HBASE_TTL_CONFIG.defaultValue();
+
     @Builder.Default private String rowkeyDelimiter = ROWKEY_DELIMITER.defaultValue();
 
     @Builder.Default private HbaseConfig.NullMode nullMode = NULL_MODE.defaultValue();
@@ -80,6 +83,9 @@ public class HbaseParameters implements Serializable {
                 TypesafeConfigUtils.configToMap(pluginConfig.getConfig(FAMILY_NAME.key())));
 
         // optional parameters
+        if (pluginConfig.hasPath(HBASE_TTL_CONFIG.key())) {
+            builder.ttl(pluginConfig.getLong(HBASE_TTL_CONFIG.key()));
+        }
         if (pluginConfig.hasPath(ROWKEY_DELIMITER.key())) {
             builder.rowkeyDelimiter(pluginConfig.getString(ROWKEY_DELIMITER.key()));
         }
