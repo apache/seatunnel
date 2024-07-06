@@ -55,7 +55,7 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceMan
         resourceProfiles.add(new ResourceProfile(CPU.of(0), Memory.of(200)));
         resourceProfiles.add(new ResourceProfile(CPU.of(0), Memory.of(300)));
         List<SlotProfile> slotProfiles =
-                resourceManager.applyResources(jobId, resourceProfiles).get();
+                resourceManager.applyResources(jobId, resourceProfiles, null).get();
 
         Assertions.assertEquals(
                 resourceProfiles.get(0).getHeapMemory().getBytes(),
@@ -78,7 +78,8 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceMan
                         resourceManager
                                 .applyResource(
                                         jobId,
-                                        new ResourceProfile(CPU.of(0), Memory.of(Long.MAX_VALUE)))
+                                        new ResourceProfile(CPU.of(0), Memory.of(Long.MAX_VALUE)),
+                                        null)
                                 .get());
     }
 
@@ -93,7 +94,8 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceMan
         resourceProfiles.add(new ResourceProfile());
         resourceProfiles.add(new ResourceProfile());
         resourceProfiles.add(new ResourceProfile());
-        List<SlotProfile> slotProfiles = resourceManager.applyResources(1L, resourceProfiles).get();
+        List<SlotProfile> slotProfiles =
+                resourceManager.applyResources(1L, resourceProfiles, null).get();
         Assertions.assertEquals(slotProfiles.size(), 5);
 
         boolean hasDifferentWorker = false;

@@ -32,7 +32,7 @@ SeaTunnel专注于数据集成和数据同步，主要旨在解决数据集成�
 
 ## SeaTunnel work flowchart
 
-![SeaTunnel work flowchart](images/architecture_diagram.png)
+![SeaTunnel work flowchart](../images/architecture_diagram.png)
 
 SeaTunnel的运行流程如上图所示。
 

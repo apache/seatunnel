@@ -29,6 +29,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 
 import java.io.IOException;
+import java.util.Map;
 
 /**
  * Used to describe the status of the current Worker, including address and resource assign status
@@ -46,6 +47,8 @@ public class WorkerProfile implements IdentifiedDataSerializable {
     private SlotProfile[] assignedSlots;
 
     private SlotProfile[] unassignedSlots;
+
+    private Map<String, String> attributes;
 
     public WorkerProfile(Address address) {
         this.address = address;
