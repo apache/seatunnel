@@ -1,0 +1,23 @@
+{
+  "env": {
+    "execution.parallelism": 3,
+    "job.name": "空跑测试",
+    "job.mode": "batch"
+  },
+  "preHandler": [],
+  "source": [
+    {
+      "plugin_name": "Void",
+      "result_table_name": "void"
+    }
+  ],
+  "transform": [],
+  "sink": [
+    {
+      "plugin_name": "Void",
+      "source_table_name": [
+        "void"
+      ]
+    }
+  ]
+}

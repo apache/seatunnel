@@ -1,0 +1,36 @@
+{
+  "env": {
+    "job.name": "聚合测试",
+    "job.mode": "batch"
+  },
+  "preHandler": [],
+  "source": [
+    {
+      "plugin_name": "Jdbc",
+      "driver": "com.mysql.cj.jdbc.Driver",
+      "connection_check_timeout_sec": 100,
+      "query": "SELECT id from incr_copy1",
+      "database": "source",
+      "url": "jdbc:mysql://172.16.11.135:3306/source?remarks=true&useInformationSchema=true&useCursorFetch=true&defaultFetchSize=2048&rewriteBatchedStatements=true",
+      "user": "root",
+      "password": "1qaz@WSX",
+      "result_table_name": "ot_6f6f3d07f529482da2d54b3aaeabf807"
+    }
+  ],
+  "transform": [
+    {
+      "plugin_name": "sql",
+      "source_table_name": "ot_6f6f3d07f529482da2d54b3aaeabf807",
+      "result_table_name": "ot_test",
+      "query": "select sum(id) as sm from ot_6f6f3d07f529482da2d54b3aaeabf807 group by id"
+    }
+  ],
+  "sink": [
+    {
+      "plugin_name": "Console",
+      "source_table_name": [
+        "ot_test"
+      ]
+    }
+  ]
+}
