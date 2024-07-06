@@ -60,13 +60,10 @@ public final class SeaTunnelSubmitJobCodec {
 
     public static class RequestParameters {
 
-        /** */
         public long jobId;
 
-        /** */
         public com.hazelcast.internal.serialization.Data jobImmutableInformation;
 
-        /** */
         public boolean isStartWithSavePoint;
     }
 
