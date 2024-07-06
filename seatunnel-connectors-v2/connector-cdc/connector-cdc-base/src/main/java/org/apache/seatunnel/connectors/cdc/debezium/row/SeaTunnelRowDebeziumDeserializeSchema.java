@@ -184,7 +184,7 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
             delete.setRowKind(RowKind.DELETE);
             delete.setTableId(tableId);
             collector.collect(delete);
-        } else {
+        } else if (operation == Envelope.Operation.UPDATE) {
             SeaTunnelRow before = extractBeforeRow(converters, record, messageStruct, valueSchema);
             before.setRowKind(RowKind.UPDATE_BEFORE);
             before.setTableId(tableId);
