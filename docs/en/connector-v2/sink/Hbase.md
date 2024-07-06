@@ -26,6 +26,7 @@ Output data to Hbase
 | encoding           | string  | no       | utf8            |
 | hbase_extra_config | string  | no       | -               |
 | common-options     |         | no       | -               |
+| ttl                | long    | no       | -               |
 
 ### zookeeper_quorum [string]
 
@@ -94,6 +95,10 @@ The encoding of string field, support [`utf8`, `gbk`], default `utf8`
 ### hbase_extra_config [config]
 
 The extra configuration of hbase
+
+### ttl [long]
+
+Hbase writes data TTL time, the default is based on the TTL set in the table, unit: milliseconds
 
 ### common options
 
