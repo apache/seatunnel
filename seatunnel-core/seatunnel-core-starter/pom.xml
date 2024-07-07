@@ -60,5 +60,10 @@
             <artifactId>jcommander</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>org.codehaus.groovy</groupId>
+            <artifactId>groovy</artifactId>
+        </dependency>
+
     </dependencies>
 </project>

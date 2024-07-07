@@ -40,6 +40,7 @@ public class UserVariableIT extends TestSuiteBase {
         variables.add("nameType=string");
         variables.add("nameVal=abc");
         variables.add("sourceTableName=sql");
+        variables.add("date=func('def getDate() { return new Date().format(\\\"yyyy-MM-dd\\\") }; getDate()')");
         Container.ExecResult execResult =
                 container.executeJob("/fake_to_console.variables.conf", variables);
         Assertions.assertEquals(0, execResult.getExitCode());

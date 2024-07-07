@@ -17,9 +17,15 @@
 package org.apache.seatunnel.core.starter.command;
 
 import com.beust.jcommander.converters.IParameterSplitter;
+import groovy.lang.Binding;
+import groovy.lang.GroovyShell;
+import groovy.lang.Script;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 public class ParameterSplitter implements IParameterSplitter {
 
@@ -53,6 +59,31 @@ public class ParameterSplitter implements IParameterSplitter {
             result.add(currentToken.toString().trim());
         }
 
-        return result;
+        return result.stream()
+                .map(
+                        variable -> {
+                            String key = variable.split("=")[0];
+                            String func = variable.split("=")[1];
+                            Pattern pattern = Pattern.compile("func\\('(.+?)'\\)");
+                            Matcher matcher = pattern.matcher(func);
+
+                            while (matcher.find()) {
+                                String groovyFunction = matcher.group(1);
+                                func =
+                                        func.replace(
+                                                matcher.group(0),
+                                                executeGroovyFunction(groovyFunction).toString());
+                            }
+                            return key + "=" + func;
+                        })
+                .collect(Collectors.toList());
+    }
+
+    public static Object executeGroovyFunction(String groovyFunction) {
+        Binding binding = new Binding();
+        GroovyShell shell = new GroovyShell(binding);
+
+        Script script = shell.parse(groovyFunction);
+        return script.run();
     }
 }
