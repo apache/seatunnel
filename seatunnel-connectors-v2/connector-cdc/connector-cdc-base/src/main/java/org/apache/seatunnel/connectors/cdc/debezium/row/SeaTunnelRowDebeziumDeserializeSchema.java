@@ -194,6 +194,8 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
             after.setRowKind(RowKind.UPDATE_AFTER);
             after.setTableId(tableId);
             collector.collect(after);
+        } else {
+            log.warn("Received {} operation, skip", operation);
         }
     }
 
