@@ -62,19 +62,17 @@ public class ParameterSplitter implements IParameterSplitter {
         return result.stream()
                 .map(
                         variable -> {
-                            String key = variable.split("=")[0];
-                            String func = variable.split("=")[1];
                             Pattern pattern = Pattern.compile("func\\('(.+?)'\\)");
-                            Matcher matcher = pattern.matcher(func);
+                            Matcher matcher = pattern.matcher(variable);
 
                             while (matcher.find()) {
                                 String groovyFunction = matcher.group(1);
-                                func =
-                                        func.replace(
+                                variable =
+                                        variable.replace(
                                                 matcher.group(0),
                                                 executeGroovyFunction(groovyFunction).toString());
                             }
-                            return key + "=" + func;
+                            return variable;
                         })
                 .collect(Collectors.toList());
     }

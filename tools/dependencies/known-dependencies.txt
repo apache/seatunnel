@@ -42,3 +42,4 @@ json-smart-2.4.7.jar
 accessors-smart-2.4.7.jar
 asm-9.1.jar
 avro-1.11.1.jar
+groovy-3.0.22.jar
