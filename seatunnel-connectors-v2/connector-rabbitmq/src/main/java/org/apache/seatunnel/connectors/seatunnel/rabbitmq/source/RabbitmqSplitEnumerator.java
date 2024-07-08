@@ -60,8 +60,8 @@ public class RabbitmqSplitEnumerator implements SourceSplitEnumerator {
     }
 
     @Override
-    public Object snapshotState(long checkpointId) throws Exception {
-        return null;
+    public RabbitmqSourceState snapshotState(long checkpointId) throws Exception {
+        return new RabbitmqSourceState();
     }
 
     @Override
