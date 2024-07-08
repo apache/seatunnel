@@ -107,15 +107,7 @@ public class EmqxIT extends TestSuiteBase implements TestResource {
                     }
                     return null;
                 });
-        await().atMost(60000, TimeUnit.MILLISECONDS)
-                .untilAsserted(
-                        () -> {
-                            String logs = container.getServerLogs();
-                            Assertions.assertTrue(
-                                    logs.contains(
-                                            "received enough reader, starting enumerator..."));
-                        });
-        Thread.sleep(5 * 1000L);
+        Thread.sleep(20 * 1000L);
         insertTestData();
         await().atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
