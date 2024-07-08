@@ -65,6 +65,8 @@ public class RestApiIT {
         String testClusterName = TestUtils.getClusterName("RestApiIT");
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         seaTunnelConfig.getHazelcastConfig().setClusterName(testClusterName);
+        seaTunnelConfig.getEngineConfig().getSlotServiceConfig().setDynamicSlot(false);
+        seaTunnelConfig.getEngineConfig().getSlotServiceConfig().setSlotNum(20);
         node1 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
         node2 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
