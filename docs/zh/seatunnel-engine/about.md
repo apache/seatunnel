@@ -3,7 +3,7 @@
 sidebar_position: 1
 -------------------
 
-# SeaTunnel Engine
+# SeaTunnel Engine 简介
 
 SeaTunnel Engine 是一个由社区开发的用于数据同步场景的引擎，作为 SeaTunnel 的默认引擎，它支持高吞吐量、低延迟和强一致性的数据同步作业操作，更快、更稳定、更节省资源且易于使用
 
@@ -38,3 +38,7 @@ SeaTunnel Engine 的整体设计遵循以下路径：
 ### 快速开始
 
 https://seatunnel.apache.org/docs/start-v2/locally/quick-start-seatunnel-engine
+
+### 下载安装
+
+[下载安装](download-seatunnel.md)
