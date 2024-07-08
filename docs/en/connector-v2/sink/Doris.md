@@ -77,7 +77,7 @@ and the default template can be modified according to the situation.
 Default template:
 
 ```sql
-CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}` (
+CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (
 ${rowtype_primary_key},
 ${rowtype_fields}
 ) ENGINE=OLAP
@@ -94,7 +94,7 @@ DISTRIBUTED BY HASH (${rowtype_primary_key})
 If a custom field is filled in the template, such as adding an `id` field
 
 ```sql
-CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}`
+CREATE TABLE IF NOT EXISTS `${database}`.`${table}`
 (   
     id,
     ${rowtype_fields}

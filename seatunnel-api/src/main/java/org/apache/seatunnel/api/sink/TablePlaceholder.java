@@ -53,6 +53,10 @@ public class TablePlaceholder {
     public static final String NAME_DELIMITER = ".";
     public static final String FIELD_DELIMITER = ",";
 
+    @Deprecated
+    private static final List<String> EXCLUDE_TABLE_PLACEHOLDER_KEYS =
+            Arrays.asList("save_mode_create_template");
+
     private static String replacePlaceholders(String input, String placeholderName, String value) {
         return replacePlaceholders(input, placeholderName, value, null);
     }
@@ -174,6 +178,10 @@ public class TablePlaceholder {
             ReadonlyConfig config, CatalogTable table) {
         Map<String, Object> copyOnWriteData = config.copyData();
         for (String key : copyOnWriteData.keySet()) {
+            if (EXCLUDE_TABLE_PLACEHOLDER_KEYS.contains(key)) {
+                // TODO: Remove this compatibility config
+                continue;
+            }
             Object value = copyOnWriteData.get(key);
             if (value != null) {
                 if (value instanceof String) {
