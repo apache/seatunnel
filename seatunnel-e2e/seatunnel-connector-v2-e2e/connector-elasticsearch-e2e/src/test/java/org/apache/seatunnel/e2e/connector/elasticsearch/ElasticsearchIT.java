@@ -447,7 +447,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
     }
 
     @Test
-    public void testCatalog() {
+    public void testCatalog() throws IOException, InterruptedException {
         Map<String, Object> configMap = new HashMap<>();
         configMap.put("username", "elastic");
         configMap.put("password", "elasticsearch");
@@ -467,15 +467,52 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         elasticSearchCatalog.createTable(tablePath, null, false);
         final boolean existsAfter = elasticSearchCatalog.tableExists(tablePath);
         Assertions.assertTrue(existsAfter);
-        // data exists?
-        final boolean existsData = elasticSearchCatalog.isExistsData(tablePath);
-        Assertions.assertFalse(existsData);
+
+        // Add multiple records
+        List<String> data = generateTestData();
+        StringBuilder requestBody = new StringBuilder();
+        String indexHeader = "{\"index\":{\"_index\":\"st_index3\"}}\n";
+        for (String record : data) {
+            requestBody.append(indexHeader);
+            requestBody.append(record);
+            requestBody.append("\n");
+        }
+        esRestClient.bulk(requestBody.toString());
+        Thread.sleep(2000); // Wait for data to be indexed
+
+        // Verify data exists
+        List<String> sourceFields = Arrays.asList("field1", "field2");
+        Map<String, Object> query = new HashMap<>();
+        query.put("match_all", new HashMap<>());
+        ScrollResult scrollResult =
+                esRestClient.searchByScroll("st_index3", sourceFields, query, "1m", 100);
+        Assertions.assertFalse(scrollResult.getDocs().isEmpty(), "Data should exist in the index");
+
         // truncate
         elasticSearchCatalog.truncateTable(tablePath, false);
         Assertions.assertTrue(elasticSearchCatalog.tableExists(tablePath));
+
+        // Verify data is deleted
+        scrollResult = esRestClient.searchByScroll("st_index3", sourceFields, query, "1m", 100);
+        Assertions.assertTrue(
+                scrollResult.getDocs().isEmpty(),
+                "Data was not successfully deleted from the index");
+
         // drop
         elasticSearchCatalog.dropTable(tablePath, false);
         Assertions.assertFalse(elasticSearchCatalog.tableExists(tablePath));
         elasticSearchCatalog.close();
+    }
+
+    private List<String> generateTestData() throws JsonProcessingException {
+        List<String> data = new ArrayList<>();
+        ObjectMapper objectMapper = new ObjectMapper();
+        for (int i = 0; i < 10; i++) {
+            Map<String, Object> record = new HashMap<>();
+            record.put("field1", "value" + i);
+            record.put("field2", i);
+            data.add(objectMapper.writeValueAsString(record));
+        }
+        return data;
     }
 }
