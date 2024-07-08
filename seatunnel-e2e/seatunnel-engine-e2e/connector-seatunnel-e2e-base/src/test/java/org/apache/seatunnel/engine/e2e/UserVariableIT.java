@@ -34,14 +34,13 @@ public class UserVariableIT extends TestSuiteBase {
     public void userVariableTest(TestContainer container) throws IOException, InterruptedException {
         List<String> variables = new ArrayList<>();
         String list = "[abc,def]";
-        variables.add("resName=fake");
+        variables.add(
+                "resName=func('def getDate() { return new java.text.SimpleDateFormat(\"yyyy-MM-dd\").format(new Date()) }; getDate()')");
         variables.add("rowNum=10");
         variables.add("strTemplate=" + list);
         variables.add("nameType=string");
         variables.add("nameVal=abc");
         variables.add("sourceTableName=sql");
-        variables.add(
-                "date=func('def getDate() { return new java.text.SimpleDateFormat(\"yyyy-MM-dd\").format(new Date()) }; getDate()')");
         Container.ExecResult execResult =
                 container.executeJob("/fake_to_console.variables.conf", variables);
         Assertions.assertEquals(0, execResult.getExitCode());
