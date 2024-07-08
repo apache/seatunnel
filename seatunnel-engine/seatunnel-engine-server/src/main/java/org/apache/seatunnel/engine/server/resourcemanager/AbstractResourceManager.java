@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.resourcemanager;
 
+import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.ReleaseSlotOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.ResetResourceOperation;
@@ -52,13 +53,17 @@ public abstract class AbstractResourceManager implements ResourceManager {
 
     private final NodeEngine nodeEngine;
 
-    private final ExecutionMode mode = ExecutionMode.LOCAL;
+    private final ExecutionMode mode;
+
+    private final EngineConfig engineConfig;
 
     private volatile boolean isRunning = true;
 
-    public AbstractResourceManager(NodeEngine nodeEngine) {
+    public AbstractResourceManager(NodeEngine nodeEngine, EngineConfig engineConfig) {
         this.registerWorker = new ConcurrentHashMap<>();
         this.nodeEngine = nodeEngine;
+        this.engineConfig = engineConfig;
+        this.mode = engineConfig.getMode();
     }
 
     @Override
@@ -71,6 +76,7 @@ public abstract class AbstractResourceManager implements ResourceManager {
         log.info("initWorker... ");
         List<Address> aliveWorker =
                 nodeEngine.getClusterService().getMembers().stream()
+                        .filter(Member::isLiteMember)
                         .map(Member::getAddress)
                         .collect(Collectors.toList());
         log.info("initWorker live nodes: " + aliveWorker);
@@ -247,7 +253,7 @@ public abstract class AbstractResourceManager implements ResourceManager {
     @Override
     public void heartbeat(WorkerProfile workerProfile) {
         if (!registerWorker.containsKey(workerProfile.getAddress())) {
-            log.debug("received new worker register: " + workerProfile.getAddress());
+            log.info("received new worker register: " + workerProfile.getAddress());
             sendToMember(new ResetResourceOperation(), workerProfile.getAddress()).join();
         } else {
             log.debug("received worker heartbeat from: " + workerProfile.getAddress());

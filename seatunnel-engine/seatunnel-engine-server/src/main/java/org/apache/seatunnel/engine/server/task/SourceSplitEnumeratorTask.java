@@ -208,7 +208,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         return splitSerializer;
     }
 
-    public void addSplitsBack(List<SplitT> splits, int subtaskId)
+    public synchronized void addSplitsBack(List<SplitT> splits, int subtaskId)
             throws ExecutionException, InterruptedException {
         getEnumerator().addSplitsBack(splits, subtaskId);
     }
