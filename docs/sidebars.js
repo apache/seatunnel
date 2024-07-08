@@ -171,15 +171,18 @@ const sidebars = {
             "label": "SeaTunnel Engine",
             "items": [
                 "seatunnel-engine/about",
+                "seatunnel-engine/download-seatunnel",
                 "seatunnel-engine/deployment",
-                "seatunnel-engine/local-mode",
-                "seatunnel-engine/cluster-mode",
+                "seatunnel-engine/local-mode-deployment",
+                "seatunnel-engine/hybrid-cluster-deployment",
+                "seatunnel-engine/separated-cluster-deployment",
                 "seatunnel-engine/savepoint",
                 "seatunnel-engine/checkpoint-storage",
-                "seatunnel-engine/rest-api",
-                "seatunnel-engine/tcp",
                 "seatunnel-engine/engine-jar-storage-mode",
+                "seatunnel-engine/tcp",
                 "seatunnel-engine/resource-isolation",
+                "seatunnel-engine/rest-api",
+                "seatunnel-engine/user-command"
             ]
         },
         {
