@@ -26,6 +26,7 @@
 | encoding           | string  | no   | utf8            |
 | hbase_extra_config | string  | no   | -               |
 | common-options     |         | no   | -               |
+| ttl                | long    | no   | -               |
 
 ### zookeeper_quorum [string]
 
@@ -94,6 +95,10 @@ hbase 客户端的写入缓冲区大小，默认 8 * 1024 * 1024
 ### hbase_extra_config [config]
 
 hbase扩展配置
+
+### ttl [long]
+
+hbase 写入数据 TTL 时间，默认以表设置的TTL为准，单位毫秒
 
 ### 常见选项
 

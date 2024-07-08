@@ -98,6 +98,4 @@ The SeaTunnel console will prints some logs as below:
 ## What's More
 
 For now, you are already take a quick look about SeaTunnel, you could see [connector](../../connector-v2/source/FakeSource.md) to find all
-source and sink SeaTunnel supported. Or see [SeaTunnel Engine](../../seatunnel-engine/about.md) if you want to know more about SeaTunnel Engine.
-
-SeaTunnel also supports running jobs in Spark/Flink. You can see [Quick Start With Spark](quick-start-spark.md) or [Quick Start With Flink](quick-start-flink.md).
+source and sink SeaTunnel supported. Or see [SeaTunnel Engine(Zeta)](../../seatunnel-engine/about.md) if you want to know more about SeaTunnel Engine. Here you will learn how to deploy SeaTunnel Engine in cluster mode and how to use it in cluster mode.
