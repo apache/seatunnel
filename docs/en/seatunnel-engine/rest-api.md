@@ -37,6 +37,9 @@ network:
 
 ### Returns an overview over the Zeta engine cluster.
 
+<details>
+ <summary><code>GET</code> <code><b>/hazelcast/rest/maps/overview</b></code> <code>(Returns an overview over the Zeta engine cluster.)</code></summary>
+
 #### Parameters
 
 #### Responses
@@ -54,6 +57,13 @@ network:
     "works":"1"
 }
 ```
+
+If you use `dynamic-slot`, the `totalSlot` and `unassignedSlot` always be `0`.
+If you set it to fix slot number, it will return the correct total and unassigned slot number
+
+</details>
+
+------------------------------------------------------------------------------------------
 
 ### Returns an overview over all jobs and their current state.
 
