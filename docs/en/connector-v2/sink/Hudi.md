@@ -37,9 +37,9 @@ Used to write data to Hudi.
 
 `table_dfs_path` The dfs root path of hudi table,such as 'hdfs://nameserivce/data/hudi/hudi_table/'.
 
-### table_type [string]
+### table_type [enum]
 
-`table_type` The type of hudi table.
+`table_type` The type of hudi table. The value is 'copy_on_write' or 'merge_on_read'.
 
 ### conf_files_path [string]
 
@@ -80,7 +80,7 @@ source {
 
   Hudi {
     table_dfs_path = "hdfs://nameserivce/data/hudi/hudi_table/"
-    table_type = "cow"
+    table_type = "copy_on_write"
     conf_files_path = "/home/test/hdfs-site.xml;/home/test/core-site.xml;/home/test/yarn-site.xml"
     use.kerberos = true
     kerberos.principal = "test_user@xxx"
