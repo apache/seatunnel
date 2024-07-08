@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.resourcemanager;
 
+import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.RequestSlotOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
@@ -34,7 +35,7 @@ import java.util.concurrent.CompletableFuture;
 /** Used to test ResourceManager, override init method to register more workers. */
 public class FakeResourceManager extends AbstractResourceManager {
     public FakeResourceManager(NodeEngine nodeEngine) {
-        super(nodeEngine);
+        super(nodeEngine, new EngineConfig());
         init();
     }
 

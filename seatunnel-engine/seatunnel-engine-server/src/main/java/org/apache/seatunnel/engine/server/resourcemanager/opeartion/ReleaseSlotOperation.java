@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.resourcemanager.opeartion;
 
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
@@ -52,9 +53,10 @@ public class ReleaseSlotOperation extends Operation implements IdentifiedDataSer
             server.getSlotService().releaseSlot(jobID, slotProfile);
         } catch (WrongTargetSlotException ignore) {
             log.warn(
-                    "wrong target release operation with job {} and slot profile {}",
+                    "wrong target release operation with job {} and slot profile {}, exception: {}",
                     jobID,
-                    slotProfile);
+                    slotProfile,
+                    ExceptionUtils.getMessage(ignore));
         }
         result = server.getSlotService().getWorkerProfile();
     }

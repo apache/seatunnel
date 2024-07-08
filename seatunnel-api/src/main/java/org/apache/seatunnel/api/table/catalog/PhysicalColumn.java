@@ -325,4 +325,22 @@ public class PhysicalColumn extends Column {
                 bitLen,
                 longColumnLength);
     }
+
+    @Override
+    public Column reSourceType(String newSourceType) {
+        return new PhysicalColumn(
+                name,
+                dataType,
+                columnLength,
+                scale,
+                nullable,
+                defaultValue,
+                comment,
+                newSourceType,
+                options,
+                isUnsigned,
+                isZeroFill,
+                bitLen,
+                longColumnLength);
+    }
 }

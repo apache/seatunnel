@@ -117,6 +117,9 @@ public class HbaseSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             timestamp = (Long) row.getField(versionColumnIndex);
         }
         Put put = new Put(rowkey, timestamp);
+        if (hbaseParameters.getTtl() != -1 && hbaseParameters.getTtl() > 0) {
+            put.setTTL(hbaseParameters.getTtl());
+        }
         if (!hbaseParameters.isWalWrite()) {
             put.setDurability(Durability.SKIP_WAL);
         }

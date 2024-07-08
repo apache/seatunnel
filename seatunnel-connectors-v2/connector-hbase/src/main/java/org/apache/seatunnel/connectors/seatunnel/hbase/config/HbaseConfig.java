@@ -97,6 +97,13 @@ public class HbaseConfig {
                     .noDefaultValue()
                     .withDescription("Hbase extra config");
 
+    public static final Option<Long> HBASE_TTL_CONFIG =
+            Options.key("ttl")
+                    .longType()
+                    .defaultValue(-1L)
+                    .withDescription(
+                            "The expiration time configuration for writing hbase data. The default value is -1, indicating no expiration time.");
+
     public enum NullMode {
         SKIP,
         EMPTY;
