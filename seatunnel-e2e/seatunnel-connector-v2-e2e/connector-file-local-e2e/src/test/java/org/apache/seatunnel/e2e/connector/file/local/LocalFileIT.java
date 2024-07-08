@@ -42,6 +42,7 @@ import org.testcontainers.shaded.com.github.dockerjava.core.command.ExecStartRes
 import com.github.dockerjava.api.command.ExecCreateCmdResponse;
 import io.airlift.compress.lzo.LzopCodec;
 import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -58,6 +59,7 @@ import java.util.List;
         value = {TestContainerId.SPARK_2_4},
         type = {},
         disabledReason = "The apache-compress version is not compatible with apache-poi")
+@Slf4j
 public class LocalFileIT extends TestSuiteBase {
 
     private GenericContainer<?> baseContainer;
@@ -197,6 +199,17 @@ public class LocalFileIT extends TestSuiteBase {
             // from jobManager will be failed in Flink
             helper.execute("/binary/local_file_binary_to_assert.conf");
         }
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {TestContainerId.SPARK_2_4},
+            type = {EngineType.FLINK},
+            disabledReason =
+                    "Fink test is multi-node, LocalFile connector will use different containers for obtaining files")
+    public void testLocalFileReadAndWriteWithSaveMode(TestContainer container)
+            throws IOException, InterruptedException {
+        TestHelper helper = new TestHelper(container);
         // test save_mode
         String path = "/tmp/seatunnel/localfile/json/fake";
         Assertions.assertEquals(getFileListFromContainer(path).size(), 0);
@@ -225,9 +238,11 @@ public class LocalFileIT extends TestSuiteBase {
 
         String output = new String(outputStream.toByteArray(), StandardCharsets.UTF_8).trim();
         List<String> fileList = new ArrayList<>();
+        log.info("container path file list is :{}", output);
         String[] files = output.split("\n");
         for (String file : files) {
             if (StringUtils.isNotEmpty(file)) {
+                log.info("container path file name is :{}", file);
                 fileList.add(file);
             }
         }
