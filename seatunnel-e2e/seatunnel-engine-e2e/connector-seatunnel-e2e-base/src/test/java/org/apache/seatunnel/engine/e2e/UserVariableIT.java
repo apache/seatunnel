@@ -42,6 +42,6 @@ public class UserVariableIT extends TestSuiteBase {
         variables.add("sourceTableName=sql");
         Container.ExecResult execResult =
                 container.executeJob("/fake_to_console.variables.conf", variables);
-        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 }
