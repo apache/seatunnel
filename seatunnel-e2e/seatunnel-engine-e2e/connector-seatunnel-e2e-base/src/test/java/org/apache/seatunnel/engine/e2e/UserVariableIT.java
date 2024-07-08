@@ -34,7 +34,7 @@ public class UserVariableIT extends TestSuiteBase {
     public void userVariableTest(TestContainer container) throws IOException, InterruptedException {
         List<String> variables = new ArrayList<>();
         String list = "[abc,def]";
-        variables.add("resName=fake");
+        variables.add("resName=a$(date +\"%Y%m%d\")");
         variables.add("rowNum=10");
         variables.add("strTemplate=" + list);
         variables.add("nameType=string");
