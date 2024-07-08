@@ -57,6 +57,7 @@
         <module>connector-iceberg-s3-e2e</module>
         <module>connector-tdengine-e2e</module>
         <module>connector-datahub-e2e</module>
+        <module>connector-emqx-e2e</module>
         <module>connector-mongodb-e2e</module>
         <module>connector-hbase-e2e</module>
         <module>connector-web3j-e2e</module>
