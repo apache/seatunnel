@@ -46,8 +46,7 @@ public class Config {
                     .stringType()
                     .defaultValue("SeaTunnel-Client")
                     .withDescription(
-                            "The client ID is used to identify the client in the broker. "
-                                    + "If the client ID is not set, the broker will generate a random client ID.");
+                            "The client ID is used to identify the client in the broker. ");
 
     public static final Option<String> USERNAME =
             Options.key("username")
