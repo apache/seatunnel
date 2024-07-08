@@ -11,8 +11,6 @@ sidebar_position: 7
 
 ### 检查点存储
 
-检查点存储是一种存储检查点数据的存储机制。
-
 SeaTunnel Engine支持以下检查点存储类型:
 
 - HDFS (OSS,S3,HDFS,LocalFile)

@@ -834,4 +834,8 @@ public class JobMaster {
     public void neverNeedRestore() {
         this.needRestore = false;
     }
+
+    public EngineConfig getEngineConfig() {
+        return this.engineConfig;
+    }
 }
