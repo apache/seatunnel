@@ -26,10 +26,11 @@ import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.FileReaderOpt
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.Shard;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client.ClickhouseProxy;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client.ShardRouter;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.state.CKFileCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.state.ClickhouseSinkState;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.ClickhouseProxy;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.ClickhouseTable;
 
 import org.apache.commons.io.FileUtils;
 
@@ -268,10 +269,10 @@ public class ClickhouseFileSinkWriter
         if (localPaths.size() == 1) {
             command.add("local");
         }
+        command.add("-n");
         command.add("--file");
         command.add(clickhouseLocalFileTmpFile);
-        command.add("--format_csv_delimiter");
-        command.add("\"" + readerOption.getFileFieldsDelimiter() + "\"");
+        command.add("--input-format \"CSV\"");
         command.add("-S");
         command.add(
                 "\""
@@ -318,6 +319,19 @@ public class ClickhouseFileSinkWriter
             command.add("\"" + clickhouseLocalFile + "\"");
         }
         log.info("Generate clickhouse local file command: {}", String.join(" ", command));
+        ProcessBuilder pwd = new ProcessBuilder("bash", "-c", "pwd");
+        Process process = pwd.start();
+        try (InputStream inputStream = process.getInputStream();
+                InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
+                BufferedReader bufferedReader = new BufferedReader(inputStreamReader)) {
+            String line;
+            StringBuilder stringBuilder = new StringBuilder();
+            while ((line = bufferedReader.readLine()) != null) {
+                stringBuilder.append(line);
+                stringBuilder.append("\n");
+            }
+            log.info("pwd log: {}", stringBuilder);
+        }
         ProcessBuilder processBuilder = new ProcessBuilder("bash", "-c", String.join(" ", command));
         Process start = processBuilder.start();
         // we just wait for the process to finish
@@ -325,19 +339,31 @@ public class ClickhouseFileSinkWriter
                 InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
                 BufferedReader bufferedReader = new BufferedReader(inputStreamReader)) {
             String line;
+            StringBuilder stringBuilder = new StringBuilder();
             while ((line = bufferedReader.readLine()) != null) {
-                log.info(line);
+                stringBuilder.append(line);
+                stringBuilder.append("\n");
             }
+            log.info("Clickhouse-local log: {}", stringBuilder);
         }
         try (InputStream inputStream = start.getErrorStream();
                 InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
                 BufferedReader bufferedReader = new BufferedReader(inputStreamReader)) {
             String line;
+            StringBuilder stringBuilder = new StringBuilder();
             while ((line = bufferedReader.readLine()) != null) {
-                log.error(line);
+                stringBuilder.append(line);
+                stringBuilder.append("\n");
             }
+            log.error("Clickhouse-local error log: {}", stringBuilder);
         }
-        start.waitFor();
+        int shellReturnCode = start.waitFor();
+        if (shellReturnCode != 0) {
+            throw new ClickhouseConnectorException(
+                    ClickhouseConnectorErrorCode.CLICKHOUSE_LOCAL_EXEC_FAIL,
+                    ClickhouseConnectorErrorCode.CLICKHOUSE_LOCAL_EXEC_FAIL.getErrorMessage());
+        }
+        log.info("Clickhouse-local result code is [{}]", shellReturnCode);
         File file =
                 new File(
                         clickhouseLocalFile

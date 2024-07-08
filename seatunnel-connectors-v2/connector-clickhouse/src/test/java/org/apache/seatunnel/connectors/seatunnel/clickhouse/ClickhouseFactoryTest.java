@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse;
 
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.ClickhouseSinkFactory;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client.ClickhouseSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file.ClickhouseFileSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.source.ClickhouseSourceFactory;
 

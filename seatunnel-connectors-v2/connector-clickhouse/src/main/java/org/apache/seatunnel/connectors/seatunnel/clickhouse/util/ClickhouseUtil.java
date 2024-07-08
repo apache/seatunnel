@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.util;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig;
+
 import org.apache.commons.lang3.StringUtils;
 
 import com.clickhouse.client.ClickHouseCredentials;
@@ -28,6 +31,15 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class ClickhouseUtil {
+
+    public static List<ClickHouseNode> createNodes(ReadonlyConfig config) {
+        return createNodes(
+                config.get(ClickhouseConfig.HOST),
+                config.get(ClickhouseConfig.DATABASE),
+                config.get(ClickhouseConfig.SERVER_TIME_ZONE),
+                config.get(ClickhouseConfig.USERNAME),
+                config.get(ClickhouseConfig.PASSWORD));
+    }
 
     public static List<ClickHouseNode> createNodes(
             String nodeAddress,

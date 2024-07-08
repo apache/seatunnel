@@ -28,7 +28,8 @@ import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client.executor
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client.executor.JdbcBatchStatementExecutorBuilder;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.state.CKCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.state.ClickhouseSinkState;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.tool.IntHolder;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.ClickhouseProxy;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.IntHolder;
 
 import org.apache.commons.lang3.StringUtils;
 

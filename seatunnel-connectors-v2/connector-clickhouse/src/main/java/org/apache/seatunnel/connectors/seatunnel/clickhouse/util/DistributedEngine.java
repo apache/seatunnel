@@ -15,21 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.clickhouse.tool;
+package org.apache.seatunnel.connectors.seatunnel.clickhouse.util;
+
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 
 import java.io.Serializable;
 
-public class IntHolder implements Serializable {
+@AllArgsConstructor
+@Getter
+public class DistributedEngine implements Serializable {
 
     private static final long serialVersionUID = -1L;
-
-    private int value;
-
-    public int getValue() {
-        return value;
-    }
-
-    public void setValue(int value) {
-        this.value = value;
-    }
+    private String clusterName;
+    private String database;
+    private String table;
+    private String tableEngine;
+    private String tableDDL;
 }

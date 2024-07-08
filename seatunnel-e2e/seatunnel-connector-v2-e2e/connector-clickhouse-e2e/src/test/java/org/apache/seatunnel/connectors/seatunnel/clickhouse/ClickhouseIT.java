@@ -27,7 +27,9 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
 import org.awaitility.Awaitility;
@@ -76,29 +78,59 @@ import java.util.stream.Stream;
 
 public class ClickhouseIT extends TestSuiteBase implements TestResource {
     private static final Logger LOG = LoggerFactory.getLogger(ClickhouseIT.class);
-    private static final String CLICKHOUSE_DOCKER_IMAGE = "clickhouse/clickhouse-server:23.3.13.6";
+    private static final String CLICKHOUSE_DOCKER_IMAGE = "clickhouse/clickhouse-server:24.5.3";
     private static final String HOST = "clickhouse";
     private static final String DRIVER_CLASS = "com.clickhouse.jdbc.ClickHouseDriver";
     private static final String INIT_CLICKHOUSE_PATH = "/init/clickhouse_init.conf";
     private static final String CLICKHOUSE_JOB_CONFIG = "/clickhouse_to_clickhouse.conf";
+    private static final String CLICKHOUSE_FILE_CONFIG = "/clickhouse_to_clickhouse_file.conf";
     private static final String DATABASE = "default";
     private static final String SOURCE_TABLE = "source_table";
     private static final String SINK_TABLE = "sink_table";
+    private static final String LOCAL_FILE_SINK_TABLE = "local_file_sink_table";
+    private static final String FILE_SINK_TABLE = "file_sink_table";
     private static final String INSERT_SQL = "insert_sql";
     private static final String COMPARE_SQL = "compare_sql";
+    private static final String FILE_COMPARE_SQL = "file_compare_sql";
     private static final Pair<SeaTunnelRowType, List<SeaTunnelRow>> TEST_DATASET =
             generateTestDataSet();
     private static final Config CONFIG = getInitClickhouseConfig();
     private ClickHouseContainer container;
     private Connection connection;
 
+    @TestContainerExtension
+    private final ContainerExtendedFactory extendedFactory =
+            container -> {
+                Container.ExecResult extraCommands =
+                        container.execInContainer(
+                                "bash",
+                                "-c",
+                                "mkdir -p /tmp/seatunnel/clickhouse-local/ && chmod 777 /tmp/seatunnel/clickhouse-local/");
+                Assertions.assertEquals(0, extraCommands.getExitCode());
+                Container.ExecResult download =
+                        container.execInContainer(
+                                "bash",
+                                "-c",
+                                "mkdir -p /tool && cd /tool && curl https://clickhouse.com/ | sh && chmod 777 clickhouse && chmod 777 -R /tool");
+                Assertions.assertEquals(0, download.getExitCode());
+            };
+
     @TestTemplate
     public void testClickhouse(TestContainer container) throws Exception {
         Container.ExecResult execResult = container.executeJob(CLICKHOUSE_JOB_CONFIG);
         Assertions.assertEquals(0, execResult.getExitCode());
         assertHasData(SINK_TABLE);
-        compareResult();
-        clearSinkTable();
+        compareResult(SINK_TABLE, COMPARE_SQL);
+        clearSinkTable(SINK_TABLE);
+    }
+
+    @TestTemplate
+    public void testFileSync(TestContainer container) throws Exception {
+        Container.ExecResult execResult = container.executeJob(CLICKHOUSE_FILE_CONFIG);
+        Assertions.assertEquals(0, execResult.getExitCode());
+        assertHasData(FILE_SINK_TABLE);
+        compareResult(FILE_SINK_TABLE, FILE_COMPARE_SQL);
+        clearSinkTable(FILE_SINK_TABLE);
     }
 
     @BeforeAll
@@ -127,6 +159,8 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
             Statement statement = this.connection.createStatement();
             statement.execute(CONFIG.getString(SOURCE_TABLE));
             statement.execute(CONFIG.getString(SINK_TABLE));
+            statement.execute(CONFIG.getString(LOCAL_FILE_SINK_TABLE));
+            statement.execute(CONFIG.getString(FILE_SINK_TABLE));
         } catch (SQLException e) {
             throw new RuntimeException("Initializing Clickhouse table failed!", e);
         }
@@ -149,7 +183,8 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
         assert config.hasPath(SOURCE_TABLE)
                 && config.hasPath(SINK_TABLE)
                 && config.hasPath(INSERT_SQL)
-                && config.hasPath(COMPARE_SQL);
+                && config.hasPath(COMPARE_SQL)
+                && config.hasPath(FILE_COMPARE_SQL);
         return config;
     }
 
@@ -351,9 +386,10 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
         return Pair.of(rowType, rows);
     }
 
-    private void compareResult() throws SQLException, IOException {
+    private void compareResult(String resultTableName, String compareSql)
+            throws SQLException, IOException {
         String sourceSql = "select * from " + SOURCE_TABLE + " order by id";
-        String sinkSql = "select * from " + SINK_TABLE + " order by id";
+        String sinkSql = "select * from " + resultTableName + " order by id";
         List<String> columnList =
                 Arrays.stream(generateTestDataSet().getKey().getFieldNames())
                         .collect(Collectors.toList());
@@ -384,7 +420,7 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
         }
         String columns = String.join(",", generateTestDataSet().getKey().getFieldNames());
         Assertions.assertTrue(
-                compare(String.format(CONFIG.getString(COMPARE_SQL), columns, columns)));
+                compare(String.format(CONFIG.getString(compareSql), columns, columns)));
     }
 
     private Boolean compare(String sql) {
@@ -406,9 +442,9 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
         }
     }
 
-    private void clearSinkTable() {
+    private void clearSinkTable(String resultTableName) {
         try (Statement statement = connection.createStatement()) {
-            statement.execute(String.format("truncate table %s.%s", DATABASE, SINK_TABLE));
+            statement.execute(String.format("truncate table %s.%s", DATABASE, resultTableName));
         } catch (SQLException e) {
             throw new RuntimeException("Test clickhouse server image error", e);
         }

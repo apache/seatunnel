@@ -155,7 +155,7 @@ public class ClickhouseConfig {
     public static final Option<List<NodePassConfig>> NODE_PASS =
             Options.key("node_pass")
                     .listType(NodePassConfig.class)
-                    .noDefaultValue()
+                    .defaultValue(Collections.emptyList())
                     .withDescription("The password of Clickhouse server node");
 
     public static final Option<Map<String, String>> CLICKHOUSE_CONFIG =
