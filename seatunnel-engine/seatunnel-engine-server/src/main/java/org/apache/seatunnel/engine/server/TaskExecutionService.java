@@ -936,7 +936,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                             .forEach(f -> f.cancel(true));
                 }
             } catch (CancellationException ignore) {
-                // ignore
+                logger.warning(ExceptionUtils.getMessage(ignore));
             }
         }
 
@@ -952,22 +952,38 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 finishedExecutionContexts.put(
                         taskGroupLocation, executionContexts.remove(taskGroupLocation));
                 cancellationFutures.remove(taskGroupLocation);
-                cancelAsyncFunction(taskGroupLocation);
+                try {
+                    cancelAsyncFunction(taskGroupLocation);
+                } catch (Throwable e) {
+                    throw new RuntimeException(e);
+                }
                 updateMetricsContextInImap();
                 if (ex == null) {
+                    logger.info(
+                            String.format(
+                                    "taskGroup %s complete with FINISHED", taskGroupLocation));
                     future.complete(
                             new TaskExecutionState(taskGroupLocation, ExecutionState.FINISHED));
                     return;
                 } else if (isCancel.get()) {
+                    logger.info(
+                            String.format(
+                                    "taskGroup %s complete with CANCELED", taskGroupLocation));
                     future.complete(
                             new TaskExecutionState(taskGroupLocation, ExecutionState.CANCELED));
                     return;
                 } else {
+                    logger.info(
+                            String.format("taskGroup %s complete with FAILED", taskGroupLocation));
                     future.complete(
                             new TaskExecutionState(taskGroupLocation, ExecutionState.FAILED, ex));
                 }
             }
             if (!isCancel.get() && ex != null) {
+                logger.info(
+                        String.format(
+                                "task %s error with exception: [%s], cancel other task in taskGroup %s.",
+                                task.getTaskID(), ex, taskGroupLocation));
                 cancelAllTask(taskGroupLocation);
             }
         }
