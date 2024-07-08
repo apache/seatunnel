@@ -44,4 +44,15 @@ public class UserVariableIT extends TestSuiteBase {
                 container.executeJob("/fake_to_console.variables.conf", variables);
         Assertions.assertEquals(0, execResult.getExitCode());
     }
+
+    @TestTemplate
+    public void userVariableWithSpaceTest(TestContainer container)
+            throws IOException, InterruptedException {
+        List<String> variables = new ArrayList<>();
+        String list = "\"AA  AA\"";
+        variables.add("blankSpace=" + list);
+        Container.ExecResult execResult =
+                container.executeJob("/fake_variable_with_space_assert.conf", variables);
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
 }

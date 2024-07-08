@@ -47,7 +47,7 @@ if [ $# == 0 ]
 then
     args="-h"
 else
-    args=$@
+    args=("$@")
 fi
 
 set +u
@@ -60,7 +60,7 @@ fi
 
 CLASS_PATH=${APP_DIR}/starter/logging/*:${APP_JAR}
 
-CMD=$(java ${JAVA_OPTS} -cp ${CLASS_PATH} ${APP_MAIN} ${args}) && EXIT_CODE=$? || EXIT_CODE=$?
+CMD=$(java ${JAVA_OPTS} -cp ${CLASS_PATH} ${APP_MAIN} "${args[@]}") && EXIT_CODE=$? || EXIT_CODE=$?
 if [ ${EXIT_CODE} -eq 234 ]; then
     # print usage
     echo "${CMD}"

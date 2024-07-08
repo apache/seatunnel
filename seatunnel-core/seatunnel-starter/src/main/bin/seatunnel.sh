@@ -48,7 +48,7 @@ if [ $# == 0 ]
 then
     args="-h"
 else
-    args=$@
+    args=("$@")
 fi
 
 set +u
@@ -108,4 +108,4 @@ while IFS= read -r line || [[ -n "$line" ]]; do
     fi
 done < ${APP_DIR}/config/jvm_client_options
 
-java ${JAVA_OPTS} -cp ${CLASS_PATH} ${APP_MAIN} ${args}
+java ${JAVA_OPTS} -cp ${CLASS_PATH} ${APP_MAIN} "${args[@]}"
