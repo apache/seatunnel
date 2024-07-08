@@ -60,7 +60,7 @@ public interface EnvCommonOptions {
     Option<Long> CHECKPOINT_INTERVAL =
             Options.key("checkpoint.interval")
                     .longType()
-                    .defaultValue(10000L)
+                    .noDefaultValue()
                     .withDescription(
                             "The interval (in milliseconds) between two consecutive checkpoints.");
 
@@ -77,6 +77,7 @@ public interface EnvCommonOptions {
                     .noDefaultValue()
                     .withDescription(
                             "The each parallelism bytes limit per second for read data from source.");
+
     Option<Long> CHECKPOINT_TIMEOUT =
             Options.key("checkpoint.timeout")
                     .longType()
