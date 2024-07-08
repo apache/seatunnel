@@ -210,7 +210,7 @@ public class SapHanaTypeConverter implements TypeConverter<BasicTypeDefine> {
             case HANA_NVARCHAR:
             case HANA_SHORTTEXT:
                 builder.dataType(BasicType.STRING_TYPE);
-                builder.columnLength(TypeDefineUtils.charToByteLength(typeDefine.getLength(), 2));
+                builder.columnLength(TypeDefineUtils.charTo4ByteLength(typeDefine.getLength()));
                 break;
             case HANA_DATE:
                 builder.dataType(LocalTimeType.LOCAL_DATE_TYPE);
