@@ -480,6 +480,35 @@ public class EsRestClient {
         }
     }
 
+    public void clearIndexData(String indexName) {
+        String endpoint = String.format("/%s/_delete_by_query", indexName);
+        Request request = new Request("POST", endpoint);
+        String jsonString = "{ \"query\": { \"match_all\": {} } }";
+        request.setJsonEntity(jsonString);
+
+        try {
+            Response response = restClient.performRequest(request);
+            if (response == null) {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.CLEAR_INDEX_DATA_FAILED,
+                        "POST " + endpoint + " response null");
+            }
+            // todo: if the index doesn't exist, the response status code is 200?
+            if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
+                return;
+            } else {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.CLEAR_INDEX_DATA_FAILED,
+                        String.format(
+                                "POST %s response status code=%d",
+                                endpoint, response.getStatusLine().getStatusCode()));
+            }
+        } catch (IOException ex) {
+            throw new ElasticsearchConnectorException(
+                    ElasticsearchConnectorErrorCode.CLEAR_INDEX_DATA_FAILED, ex);
+        }
+    }
+
     /**
      * get es field name and type mapping realtion
      *
