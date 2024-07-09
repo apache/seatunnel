@@ -50,7 +50,9 @@ import com.google.common.collect.ImmutableMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.Collectors;
 
+import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.CLICKHOUSE_CONFIG;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.DATABASE;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.HOST;
 import static org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseConfig.PASSWORD;
@@ -96,13 +98,27 @@ public class ClickhouseSource
                         .build();
 
         config = config.withFallback(ConfigFactory.parseMap(defaultConfig));
+
+        Map<String, String> customConfig = null;
+
+        if (CheckConfigUtil.isValidParam(config, CLICKHOUSE_CONFIG.key())) {
+            customConfig =
+                    config.getObject(CLICKHOUSE_CONFIG.key()).entrySet().stream()
+                            .collect(
+                                    Collectors.toMap(
+                                            Map.Entry::getKey,
+                                            entrySet ->
+                                                    entrySet.getValue().unwrapped().toString()));
+        }
+
         servers =
                 ClickhouseUtil.createNodes(
                         config.getString(HOST.key()),
                         config.getString(DATABASE.key()),
                         config.getString(SERVER_TIME_ZONE.key()),
                         config.getString(USERNAME.key()),
-                        config.getString(PASSWORD.key()));
+                        config.getString(PASSWORD.key()),
+                        customConfig);
 
         sql = config.getString(SQL.key());
         ClickHouseNode currentServer =
