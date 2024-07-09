@@ -56,6 +56,7 @@
 - [Connector-v2] [File] Inject FileSystem to OrcWriteStrategy
 - [Connector-v2] [File] Support assign encoding for file source/sink (#5973)
 - [Connector-v2] [Mongodb] Support to convert to double from numeric type that mongodb saved it as numeric internally (#6997)
+- [Connector-V2] [Clickhouse] Add a new optional configuration `clickhouse.config` to the source connector of ClickHouse (#7143)
 
 ### Zeta(ST-Engine)
 
