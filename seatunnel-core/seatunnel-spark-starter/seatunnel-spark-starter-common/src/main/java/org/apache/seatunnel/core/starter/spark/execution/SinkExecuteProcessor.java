@@ -133,7 +133,9 @@ public class SinkExecuteProcessor
                         TableSinkFactoryContext.replacePlaceholderAndCreate(
                                 datasetTableInfo.getCatalogTable(),
                                 ReadonlyConfig.fromConfig(sinkConfig),
-                                classLoader);
+                                classLoader,
+                                ((TableSinkFactory) factory.get())
+                                        .excludeTablePlaceholderReplaceKeys());
                 ConfigValidator.of(context.getOptions()).validate(factory.get().optionRule());
                 sink = ((TableSinkFactory) factory.get()).createSink(context).createSink();
                 sink.setJobContext(jobContext);

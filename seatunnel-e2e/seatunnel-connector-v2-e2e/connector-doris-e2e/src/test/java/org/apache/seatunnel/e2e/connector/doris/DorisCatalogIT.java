@@ -240,7 +240,10 @@ public class DorisCatalogIT extends AbstractDorisIT {
         DorisSinkFactory dorisSinkFactory = new DorisSinkFactory();
         TableSinkFactoryContext context =
                 TableSinkFactoryContext.replacePlaceholderAndCreate(
-                        upstreamTable, config, Thread.currentThread().getContextClassLoader());
+                        upstreamTable,
+                        config,
+                        Thread.currentThread().getContextClassLoader(),
+                        Collections.emptyList());
         SupportSaveMode sink = (SupportSaveMode) dorisSinkFactory.createSink(context).createSink();
         sink.getSaveModeHandler().get().handleSaveMode();
         CatalogTable createdTable = catalog.getTable(TablePath.of(fullName));

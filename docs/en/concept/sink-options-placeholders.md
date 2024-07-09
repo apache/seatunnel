@@ -1,4 +1,4 @@
-# Sink Options Placeholders.md
+# Sink Options Placeholders
 
 ## Introduction
 
@@ -40,7 +40,7 @@ The placeholders are mainly controlled by the following expressions:
 
 ## Configuration
 
-Requires:
+*Requires*:
 - Make sure the sink connector you are using has implemented `TableSinkFactory` API
 
 ### Example 1

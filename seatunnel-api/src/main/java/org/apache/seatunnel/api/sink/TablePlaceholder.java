@@ -26,6 +26,8 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -52,10 +54,6 @@ public class TablePlaceholder {
     public static final String REPLACE_FIELD_NAMES_KEY = "field_names";
     public static final String NAME_DELIMITER = ".";
     public static final String FIELD_DELIMITER = ",";
-
-    @Deprecated
-    private static final List<String> EXCLUDE_TABLE_PLACEHOLDER_KEYS =
-            Arrays.asList("save_mode_create_template");
 
     private static String replacePlaceholders(String input, String placeholderName, String value) {
         return replacePlaceholders(input, placeholderName, value, null);
@@ -176,10 +174,14 @@ public class TablePlaceholder {
 
     public static ReadonlyConfig replaceTablePlaceholder(
             ReadonlyConfig config, CatalogTable table) {
+        return replaceTablePlaceholder(config, table, Collections.emptyList());
+    }
+
+    public static ReadonlyConfig replaceTablePlaceholder(
+            ReadonlyConfig config, CatalogTable table, Collection<String> excludeKeys) {
         Map<String, Object> copyOnWriteData = config.copyData();
         for (String key : copyOnWriteData.keySet()) {
-            if (EXCLUDE_TABLE_PLACEHOLDER_KEYS.contains(key)) {
-                // TODO: Remove this compatibility config
+            if (excludeKeys.contains(key)) {
                 continue;
             }
             Object value = copyOnWriteData.get(key);

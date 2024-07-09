@@ -35,6 +35,9 @@ import org.apache.commons.lang3.StringUtils;
 
 import com.google.auto.service.AutoService;
 
+import java.util.Arrays;
+import java.util.List;
+
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DATABASE;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.NEEDS_UNSUPPORTED_TYPE_CASTING;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.TABLE;
@@ -53,6 +56,11 @@ public class DorisSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return DorisOptions.SINK_RULE.build();
+    }
+
+    @Override
+    public List<String> excludeTablePlaceholderReplaceKeys() {
+        return Arrays.asList(DorisOptions.SAVE_MODE_CREATE_TEMPLATE.key());
     }
 
     @Override

@@ -123,7 +123,10 @@ public final class FactoryUtil {
                     discoverFactory(classLoader, TableSinkFactory.class, factoryIdentifier);
             TableSinkFactoryContext context =
                     TableSinkFactoryContext.replacePlaceholderAndCreate(
-                            catalogTable, config, classLoader);
+                            catalogTable,
+                            config,
+                            classLoader,
+                            factory.excludeTablePlaceholderReplaceKeys());
             ConfigValidator.of(context.getOptions()).validate(factory.optionRule());
 
             LOG.info(

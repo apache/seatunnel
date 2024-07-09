@@ -67,6 +67,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -480,7 +481,10 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
         ReadonlyConfig config1 = ReadonlyConfig.fromMap(map1);
         TableSinkFactoryContext context1 =
                 TableSinkFactoryContext.replacePlaceholderAndCreate(
-                        catalogTable, config1, Thread.currentThread().getContextClassLoader());
+                        catalogTable,
+                        config1,
+                        Thread.currentThread().getContextClassLoader(),
+                        Collections.emptyList());
         JdbcSink jdbcSink1 = (JdbcSink) new JdbcSinkFactory().createSink(context1).createSink();
         Properties connectionProperties1 = getSinkProperties(jdbcSink1);
         Assertions.assertEquals(connectionProperties1.get("rewriteBatchedStatements"), "true");
@@ -491,7 +495,10 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
         ReadonlyConfig config2 = ReadonlyConfig.fromMap(map2);
         TableSinkFactoryContext context2 =
                 TableSinkFactoryContext.replacePlaceholderAndCreate(
-                        catalogTable, config2, Thread.currentThread().getContextClassLoader());
+                        catalogTable,
+                        config2,
+                        Thread.currentThread().getContextClassLoader(),
+                        Collections.emptyList());
         JdbcSink jdbcSink2 = (JdbcSink) new JdbcSinkFactory().createSink(context2).createSink();
         Properties connectionProperties2 = getSinkProperties(jdbcSink2);
         Assertions.assertEquals(connectionProperties2.get("rewriteBatchedStatements"), "false");
@@ -505,7 +512,10 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
         ReadonlyConfig config3 = ReadonlyConfig.fromMap(map3);
         TableSinkFactoryContext context3 =
                 TableSinkFactoryContext.replacePlaceholderAndCreate(
-                        catalogTable, config3, Thread.currentThread().getContextClassLoader());
+                        catalogTable,
+                        config3,
+                        Thread.currentThread().getContextClassLoader(),
+                        Collections.emptyList());
         JdbcSink jdbcSink3 = (JdbcSink) new JdbcSinkFactory().createSink(context3).createSink();
         Properties connectionProperties3 = getSinkProperties(jdbcSink3);
         Assertions.assertEquals(connectionProperties3.get("rewriteBatchedStatements"), "false");
@@ -520,7 +530,10 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
         ReadonlyConfig config4 = ReadonlyConfig.fromMap(map4);
         TableSinkFactoryContext context4 =
                 TableSinkFactoryContext.replacePlaceholderAndCreate(
-                        catalogTable, config4, Thread.currentThread().getContextClassLoader());
+                        catalogTable,
+                        config4,
+                        Thread.currentThread().getContextClassLoader(),
+                        Collections.emptyList());
         JdbcSink jdbcSink4 = (JdbcSink) new JdbcSinkFactory().createSink(context4).createSink();
         Properties connectionProperties4 = getSinkProperties(jdbcSink4);
         Assertions.assertEquals(connectionProperties4.get("useSSL"), "true");

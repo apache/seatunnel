@@ -92,6 +92,26 @@ public class TablePlaceholderTest {
                 Arrays.asList("f1", "f2", "f3", "f4", "f5"), newConfig.get(FIELD_NAMES_ARRAY));
     }
 
+    @Test
+    public void testSinkOptionsWithExcludeKeys() {
+        ReadonlyConfig config = createConfig();
+        CatalogTable table = createTestTableWithNoTablePath();
+        ReadonlyConfig newConfig =
+                TablePlaceholder.replaceTablePlaceholder(
+                        config, table, Arrays.asList(DATABASE.key()));
+
+        Assertions.assertEquals("xyz_${database_name: default_db}_test", newConfig.get(DATABASE));
+        Assertions.assertEquals("xyz_default_schema_test", newConfig.get(SCHEMA));
+        Assertions.assertEquals("xyz_default_table_test", newConfig.get(TABLE));
+        Assertions.assertEquals("f1,f2", newConfig.get(PRIMARY_KEY));
+        Assertions.assertEquals("f3,f4", newConfig.get(UNIQUE_KEY));
+        Assertions.assertEquals("f1,f2,f3,f4,f5", newConfig.get(FIELD_NAMES));
+        Assertions.assertEquals(Arrays.asList("f1", "f2"), newConfig.get(PRIMARY_KEY_ARRAY));
+        Assertions.assertEquals(Arrays.asList("f3", "f4"), newConfig.get(UNIQUE_KEY_ARRAY));
+        Assertions.assertEquals(
+                Arrays.asList("f1", "f2", "f3", "f4", "f5"), newConfig.get(FIELD_NAMES_ARRAY));
+    }
+
     private static ReadonlyConfig createConfig() {
         Map<String, Object> configMap = new HashMap<>();
         configMap.put(DATABASE.key(), "xyz_${database_name: default_db}_test");

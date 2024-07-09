@@ -34,6 +34,9 @@ import org.apache.commons.lang3.StringUtils;
 
 import com.google.auto.service.AutoService;
 
+import java.util.Arrays;
+import java.util.List;
+
 import static org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRocksSinkOptions.DATA_SAVE_MODE;
 
 @AutoService(Factory.class)
@@ -68,6 +71,11 @@ public class StarRocksSinkFactory implements TableSinkFactory {
                         DataSaveMode.CUSTOM_PROCESSING,
                         StarRocksSinkOptions.CUSTOM_SQL)
                 .build();
+    }
+
+    @Override
+    public List<String> excludeTablePlaceholderReplaceKeys() {
+        return Arrays.asList(StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE.key());
     }
 
     @Override
