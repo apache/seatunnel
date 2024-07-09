@@ -205,7 +205,7 @@ public class DorisCatalogIT extends AbstractDorisIT {
                                         DorisOptions.FENODES.key(),
                                         container.getHost() + ":" + HTTP_PORT);
                                 put(DorisOptions.DATABASE.key(), "test5");
-                                put(DorisOptions.TABLE.key(), "${table}");
+                                put(DorisOptions.TABLE.key(), "${table_name}");
                                 put(DorisOptions.USERNAME.key(), USERNAME);
                                 put(DorisOptions.PASSWORD.key(), PASSWORD);
                             }
