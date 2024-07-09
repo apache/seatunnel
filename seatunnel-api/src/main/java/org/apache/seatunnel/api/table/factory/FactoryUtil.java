@@ -23,7 +23,6 @@ import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.env.ParsingMode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
-import org.apache.seatunnel.api.sink.TablePlaceholder;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceOptions;
 import org.apache.seatunnel.api.source.SourceSplit;
@@ -122,11 +121,10 @@ public final class FactoryUtil {
         try {
             TableSinkFactory<IN, StateT, CommitInfoT, AggregatedCommitInfoT> factory =
                     discoverFactory(classLoader, TableSinkFactory.class, factoryIdentifier);
-            ReadonlyConfig rewriteConfig =
-                    TablePlaceholder.replaceTablePlaceholder(config, catalogTable);
             TableSinkFactoryContext context =
-                    new TableSinkFactoryContext(catalogTable, rewriteConfig, classLoader);
-            ConfigValidator.of(rewriteConfig).validate(factory.optionRule());
+                    TableSinkFactoryContext.replacePlaceholderAndCreate(
+                            catalogTable, config, classLoader);
+            ConfigValidator.of(context.getOptions()).validate(factory.optionRule());
 
             LOG.info(
                     "Create sink '{}' with upstream input catalog-table[database: {}, schema: {}, table: {}]",

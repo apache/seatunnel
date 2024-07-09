@@ -27,7 +27,6 @@ import org.apache.seatunnel.api.sink.SaveModeExecuteWrapper;
 import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SupportSaveMode;
-import org.apache.seatunnel.api.sink.TablePlaceholder;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
@@ -130,14 +129,11 @@ public class SinkExecuteProcessor
                 sink.setJobContext(jobContext);
                 sink.setTypeInfo((SeaTunnelRowType) inputType);
             } else {
-                ReadonlyConfig configOptions = ReadonlyConfig.fromConfig(sinkConfig);
-                configOptions =
-                        TablePlaceholder.replaceTablePlaceholder(
-                                configOptions, datasetTableInfo.getCatalogTable());
-
                 TableSinkFactoryContext context =
-                        new TableSinkFactoryContext(
-                                datasetTableInfo.getCatalogTable(), configOptions, classLoader);
+                        TableSinkFactoryContext.replacePlaceholderAndCreate(
+                                datasetTableInfo.getCatalogTable(),
+                                ReadonlyConfig.fromConfig(sinkConfig),
+                                classLoader);
                 ConfigValidator.of(context.getOptions()).validate(factory.get().optionRule());
                 sink = ((TableSinkFactory) factory.get()).createSink(context).createSink();
                 sink.setJobContext(jobContext);

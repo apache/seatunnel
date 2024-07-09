@@ -479,7 +479,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
         map1.put("url", getUrl());
         ReadonlyConfig config1 = ReadonlyConfig.fromMap(map1);
         TableSinkFactoryContext context1 =
-                new TableSinkFactoryContext(
+                TableSinkFactoryContext.replacePlaceholderAndCreate(
                         catalogTable, config1, Thread.currentThread().getContextClassLoader());
         JdbcSink jdbcSink1 = (JdbcSink) new JdbcSinkFactory().createSink(context1).createSink();
         Properties connectionProperties1 = getSinkProperties(jdbcSink1);
@@ -490,7 +490,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
         map2.put("url", getUrl() + "?rewriteBatchedStatements=false");
         ReadonlyConfig config2 = ReadonlyConfig.fromMap(map2);
         TableSinkFactoryContext context2 =
-                new TableSinkFactoryContext(
+                TableSinkFactoryContext.replacePlaceholderAndCreate(
                         catalogTable, config2, Thread.currentThread().getContextClassLoader());
         JdbcSink jdbcSink2 = (JdbcSink) new JdbcSinkFactory().createSink(context2).createSink();
         Properties connectionProperties2 = getSinkProperties(jdbcSink2);
@@ -504,7 +504,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
         map3.put("url", getUrl());
         ReadonlyConfig config3 = ReadonlyConfig.fromMap(map3);
         TableSinkFactoryContext context3 =
-                new TableSinkFactoryContext(
+                TableSinkFactoryContext.replacePlaceholderAndCreate(
                         catalogTable, config3, Thread.currentThread().getContextClassLoader());
         JdbcSink jdbcSink3 = (JdbcSink) new JdbcSinkFactory().createSink(context3).createSink();
         Properties connectionProperties3 = getSinkProperties(jdbcSink3);
@@ -519,7 +519,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
         map4.put("url", getUrl() + "?useSSL=false&rewriteBatchedStatements=true");
         ReadonlyConfig config4 = ReadonlyConfig.fromMap(map4);
         TableSinkFactoryContext context4 =
-                new TableSinkFactoryContext(
+                TableSinkFactoryContext.replacePlaceholderAndCreate(
                         catalogTable, config4, Thread.currentThread().getContextClassLoader());
         JdbcSink jdbcSink4 = (JdbcSink) new JdbcSinkFactory().createSink(context4).createSink();
         Properties connectionProperties4 = getSinkProperties(jdbcSink4);
