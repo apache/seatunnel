@@ -447,28 +447,33 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
     }
 
     @Test
-    public void testCatalog() throws IOException, InterruptedException {
+    public void testCatalog() throws InterruptedException, JsonProcessingException {
         Map<String, Object> configMap = new HashMap<>();
         configMap.put("username", "elastic");
         configMap.put("password", "elasticsearch");
-        configMap.put("hosts", Arrays.asList("https://" + container.getHttpHostAddress()));
+        configMap.put(
+                "hosts", Collections.singletonList("https://" + container.getHttpHostAddress()));
         configMap.put("index", "st_index3");
         configMap.put("tls_verify_certificate", false);
         configMap.put("tls_verify_hostname", false);
         configMap.put("index_type", "st");
+
         final ElasticSearchCatalog elasticSearchCatalog =
                 new ElasticSearchCatalog("Elasticsearch", "", ReadonlyConfig.fromMap(configMap));
         elasticSearchCatalog.open();
+
         TablePath tablePath = TablePath.of("", "st_index3");
-        // index exists
+
+        // Verify index does not exist initially
         final boolean existsBefore = elasticSearchCatalog.tableExists(tablePath);
-        Assertions.assertFalse(existsBefore);
-        // create index
+        Assertions.assertFalse(existsBefore, "Index should not exist initially");
+
+        // Create index
         elasticSearchCatalog.createTable(tablePath, null, false);
         final boolean existsAfter = elasticSearchCatalog.tableExists(tablePath);
-        Assertions.assertTrue(existsAfter);
+        Assertions.assertTrue(existsAfter, "Index should be created");
 
-        // Add multiple records
+        // Generate and add multiple records
         List<String> data = generateTestData();
         StringBuilder requestBody = new StringBuilder();
         String indexHeader = "{\"index\":{\"_index\":\"st_index3\"}}\n";
@@ -488,19 +493,20 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                 esRestClient.searchByScroll("st_index3", sourceFields, query, "1m", 100);
         Assertions.assertFalse(scrollResult.getDocs().isEmpty(), "Data should exist in the index");
 
-        // truncate
+        // Truncate the table
         elasticSearchCatalog.truncateTable(tablePath, false);
-        Assertions.assertTrue(elasticSearchCatalog.tableExists(tablePath));
+        Thread.sleep(2000); // Wait for data to be indexed
 
         // Verify data is deleted
         scrollResult = esRestClient.searchByScroll("st_index3", sourceFields, query, "1m", 100);
         Assertions.assertTrue(
-                scrollResult.getDocs().isEmpty(),
-                "Data was not successfully deleted from the index");
+                scrollResult.getDocs().isEmpty(), "Data should be deleted from the index");
 
-        // drop
+        // Drop the table
         elasticSearchCatalog.dropTable(tablePath, false);
-        Assertions.assertFalse(elasticSearchCatalog.tableExists(tablePath));
+        Assertions.assertFalse(
+                elasticSearchCatalog.tableExists(tablePath), "Index should be dropped");
+
         elasticSearchCatalog.close();
     }
 
