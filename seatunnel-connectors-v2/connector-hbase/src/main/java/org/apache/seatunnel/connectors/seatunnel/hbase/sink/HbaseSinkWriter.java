@@ -63,7 +63,7 @@ public class HbaseSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     private final int versionColumnIndex;
 
-    private String defaultFamilyName = "value";
+    private String writeAllColumnFamily;
 
     public HbaseSinkWriter(
             SeaTunnelRowType seaTunnelRowType,
@@ -77,7 +77,7 @@ public class HbaseSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         this.versionColumnIndex = versionColumnIndex;
 
         if (hbaseParameters.getFamilyNames().size() == 1) {
-            defaultFamilyName = hbaseParameters.getFamilyNames().getOrDefault(ALL_COLUMNS, "value");
+            this.writeAllColumnFamily = hbaseParameters.getFamilyNames().get(ALL_COLUMNS);
         }
 
         // initialize hbase configuration
@@ -131,7 +131,8 @@ public class HbaseSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             String fieldName = seaTunnelRowType.getFieldName(writeColumnIndex);
             // This is the family of columns that we define to be written through the.conf file
             Map<String, String> configurationFamilyNames = hbaseParameters.getFamilyNames();
-            String familyName = configurationFamilyNames.getOrDefault(fieldName, defaultFamilyName);
+            String familyName =
+                    configurationFamilyNames.getOrDefault(fieldName, writeAllColumnFamily);
             if (!configurationFamilyNames.containsKey(ALL_COLUMNS)
                     && !configurationFamilyNames.containsKey(fieldName)) {
                 continue;
