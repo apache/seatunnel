@@ -49,8 +49,8 @@ public class S3FileSinkFactory extends BaseMultipleTableFileSinkFactory {
                 .required(S3ConfigOptions.S3_BUCKET)
                 .required(S3ConfigOptions.FS_S3A_ENDPOINT)
                 .required(S3ConfigOptions.S3A_AWS_CREDENTIALS_PROVIDER)
-                .optional(S3ConfigOptions.SCHEMA_SAVE_MODE)
-                .optional(S3ConfigOptions.DATA_SAVE_MODE)
+                .optional(BaseSinkConfig.SCHEMA_SAVE_MODE)
+                .optional(BaseSinkConfig.DATA_SAVE_MODE)
                 .conditional(
                         S3ConfigOptions.S3A_AWS_CREDENTIALS_PROVIDER,
                         S3ConfigOptions.S3aAwsCredentialsProvider.SimpleAWSCredentialsProvider,
