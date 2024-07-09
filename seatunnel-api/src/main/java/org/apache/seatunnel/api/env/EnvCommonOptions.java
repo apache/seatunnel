@@ -77,6 +77,7 @@ public interface EnvCommonOptions {
                     .noDefaultValue()
                     .withDescription(
                             "The each parallelism bytes limit per second for read data from source.");
+
     Option<Long> CHECKPOINT_TIMEOUT =
             Options.key("checkpoint.timeout")
                     .longType()
