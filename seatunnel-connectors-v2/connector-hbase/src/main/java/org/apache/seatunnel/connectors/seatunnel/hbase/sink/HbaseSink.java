@@ -79,7 +79,7 @@ public class HbaseSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
                             "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SINK, result.getMsg()));
         }
-        this.hbaseParameters = HbaseParameters.buildWithConfig(pluginConfig);
+        this.hbaseParameters = HbaseParameters.buildWithSinkConfig(pluginConfig);
     }
 
     @Override
