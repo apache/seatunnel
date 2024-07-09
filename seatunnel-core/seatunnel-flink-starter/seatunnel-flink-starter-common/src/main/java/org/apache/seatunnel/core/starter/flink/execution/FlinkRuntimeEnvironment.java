@@ -82,18 +82,6 @@ public class FlinkRuntimeEnvironment extends AbstractFlinkRuntimeEnvironment
         EnvironmentUtil.initTableEnvironmentConfiguration(this.config, config.getConfiguration());
     }
 
-    protected void setCheckpoint() {
-        super.setCheckpoint();
-        CheckpointConfig checkpointConfig = environment.getCheckpointConfig();
-        if (EnvironmentUtil.hasPathAndWaring(config, EnvCommonOptions.CHECKPOINT_TIMEOUT.key())) {
-            long timeout = config.getLong(EnvCommonOptions.CHECKPOINT_TIMEOUT.key());
-            checkpointConfig.setCheckpointTimeout(timeout);
-        } else if (EnvironmentUtil.hasPathAndWaring(config, ConfigKeyName.CHECKPOINT_TIMEOUT)) {
-            long timeout = config.getLong(ConfigKeyName.CHECKPOINT_TIMEOUT);
-            checkpointConfig.setCheckpointTimeout(timeout);
-        }
-    }
-
     public static FlinkRuntimeEnvironment getInstance(Config config) {
         if (INSTANCE == null) {
             synchronized (FlinkRuntimeEnvironment.class) {

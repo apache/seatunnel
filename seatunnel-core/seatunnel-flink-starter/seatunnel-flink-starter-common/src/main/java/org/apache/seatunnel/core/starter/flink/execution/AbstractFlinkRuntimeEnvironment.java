@@ -105,6 +105,14 @@ public abstract class AbstractFlinkRuntimeEnvironment implements RuntimeEnvironm
         CheckpointConfig checkpointConfig = environment.getCheckpointConfig();
         environment.enableCheckpointing(interval);
 
+        if (config.hasPath(EnvCommonOptions.CHECKPOINT_TIMEOUT.key())) {
+            long timeout = config.getLong(EnvCommonOptions.CHECKPOINT_TIMEOUT.key());
+            checkpointConfig.setCheckpointTimeout(timeout);
+        } else if (EnvironmentUtil.hasPathAndWaring(config, ConfigKeyName.CHECKPOINT_TIMEOUT)) {
+            long timeout = config.getLong(ConfigKeyName.CHECKPOINT_TIMEOUT);
+            checkpointConfig.setCheckpointTimeout(timeout);
+        }
+
         if (EnvironmentUtil.hasPathAndWaring(config, ConfigKeyName.CHECKPOINT_MODE)) {
             String mode = config.getString(ConfigKeyName.CHECKPOINT_MODE);
             switch (mode.toLowerCase()) {
