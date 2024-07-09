@@ -70,9 +70,35 @@ public class DataSourceUtils implements Serializable {
             Optional<Method> method =
                     findSetterMethod(commonDataSource.getClass().getMethods(), entry.getKey());
             if (method.isPresent()) {
-                method.get().invoke(commonDataSource, entry.getValue());
+                Method setterMethod = method.get();
+                Class<?> parameterType = setterMethod.getParameterTypes()[0];
+                Object value = entry.getValue();
+                if (!parameterType.isInstance(value)) {
+                    value = convertType(value, parameterType);
+                }
+                method.get().invoke(commonDataSource, value);
             }
         }
+    }
+
+    private static Object convertType(Object value, Class<?> targetType) {
+        if (targetType.isInstance(value)) {
+            return value;
+        }
+        if (targetType == Integer.class || targetType == int.class) {
+            return Integer.parseInt(value.toString());
+        } else if (targetType == Long.class || targetType == long.class) {
+            return Long.parseLong(value.toString());
+        } else if (targetType == Boolean.class || targetType == boolean.class) {
+            return Boolean.parseBoolean(value.toString());
+        } else if (targetType == Double.class || targetType == double.class) {
+            return Double.parseDouble(value.toString());
+        } else if (targetType == Float.class || targetType == float.class) {
+            return Float.parseFloat(value.toString());
+        } else if (targetType == String.class) {
+            return value.toString();
+        }
+        throw new IllegalArgumentException("Unsupported parameter type: " + targetType);
     }
 
     private static Method findGetterMethod(final DataSource dataSource, final String propertyName)

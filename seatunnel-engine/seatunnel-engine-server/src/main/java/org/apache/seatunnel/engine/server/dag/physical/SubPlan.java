@@ -54,6 +54,8 @@ public class SubPlan {
     /** The max num pipeline can restore. */
     private final int pipelineMaxRestoreNum;
 
+    private final int pipelineRestoreIntervalSeconds;
+
     private final List<PhysicalVertex> physicalVertexList;
 
     private final List<PhysicalVertex> coordinatorVertexList;
@@ -69,6 +71,7 @@ public class SubPlan {
     private final String pipelineFullName;
 
     private final IMap<Object, Object> runningJobStateIMap;
+    private final Map<String, String> tags;
 
     /**
      * Timestamps (in milliseconds) as returned by {@code System.currentTimeMillis()} when the
@@ -114,7 +117,8 @@ public class SubPlan {
             @NonNull JobImmutableInformation jobImmutableInformation,
             @NonNull ExecutorService executorService,
             @NonNull IMap runningJobStateIMap,
-            @NonNull IMap runningJobStateTimestampsIMap) {
+            @NonNull IMap runningJobStateTimestampsIMap,
+            Map<String, String> tags) {
         this.pipelineId = pipelineId;
         this.pipelineLocation =
                 new PipelineLocation(jobImmutableInformation.getJobId(), pipelineId);
@@ -130,6 +134,17 @@ public class SubPlan {
                                 .computeIfAbsent(
                                         EnvCommonOptions.JOB_RETRY_TIMES.key(),
                                         key -> EnvCommonOptions.JOB_RETRY_TIMES.defaultValue())
+                                .toString());
+        pipelineRestoreIntervalSeconds =
+                Integer.parseInt(
+                        jobImmutableInformation
+                                .getJobConfig()
+                                .getEnvOptions()
+                                .computeIfAbsent(
+                                        EnvCommonOptions.JOB_RETRY_INTERVAL_SECONDS.key(),
+                                        key ->
+                                                EnvCommonOptions.JOB_RETRY_INTERVAL_SECONDS
+                                                        .defaultValue())
                                 .toString());
         Long[] stateTimestamps = new Long[PipelineStatus.values().length];
         if (runningJobStateTimestampsIMap.get(pipelineLocation) == null) {
@@ -158,6 +173,7 @@ public class SubPlan {
         this.runningJobStateIMap = runningJobStateIMap;
         this.runningJobStateTimestampsIMap = runningJobStateTimestampsIMap;
         this.executorService = executorService;
+        this.tags = tags;
     }
 
     public synchronized PassiveCompletableFuture<PipelineExecutionState> initStateFuture() {
@@ -447,6 +463,11 @@ public class SubPlan {
                 reset();
                 jobMaster.getCheckpointManager().reportedPipelineRunning(pipelineId, false);
                 jobMaster.getPhysicalPlan().addPipelineEndCallback(this);
+                log.info(
+                        "Wait {}s and then restore the pipeline {}",
+                        pipelineRestoreIntervalSeconds,
+                        getPipelineFullName());
+                Thread.sleep(pipelineRestoreIntervalSeconds * 1000);
                 return true;
             } catch (Throwable e) {
                 if (this.currPipelineStatus.isEndState()) {
