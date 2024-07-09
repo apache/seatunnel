@@ -19,14 +19,12 @@ package org.apache.seatunnel.core.starter.flink.execution;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.apache.seatunnel.api.env.EnvCommonOptions;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.core.starter.execution.RuntimeEnvironment;
 import org.apache.seatunnel.core.starter.flink.utils.ConfigKeyName;
 import org.apache.seatunnel.core.starter.flink.utils.EnvironmentUtil;
 
 import org.apache.flink.api.common.time.Time;
-import org.apache.flink.streaming.api.environment.CheckpointConfig;
 import org.apache.flink.table.api.EnvironmentSettings;
 import org.apache.flink.table.api.TableConfig;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
