@@ -25,5 +25,6 @@ public enum MessageFormat {
     COMPATIBLE_DEBEZIUM_JSON,
     COMPATIBLE_KAFKA_CONNECT_JSON,
     OGG_JSON,
-    AVRO
+    AVRO,
+    MAXWELL_JSON
 }

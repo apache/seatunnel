@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog;
@@ -66,7 +67,7 @@ public class JdbcMySqlSaveModeCatalogIT extends TestSuiteBase implements TestRes
             "CREATE TABLE IF NOT EXISTS mysql_auto_create\n"
                     + "(\n  "
                     + "`id` int(11) NOT NULL AUTO_INCREMENT,\n"
-                    + "  `f_binary` binary(64) DEFAULT NULL,\n"
+                    + "  `f_binary` binary(64) DEFAULT NULL COMMENT '\"#¥%……&*（）;;'',,..``````//''@特殊注释''\\\\''\"',\n"
                     + "  `f_smallint` smallint(6) DEFAULT NULL,\n"
                     + "  `f_smallint_unsigned` smallint(5) unsigned DEFAULT NULL,\n"
                     + "  `f_mediumint` mediumint(9) DEFAULT NULL,\n"
@@ -153,30 +154,38 @@ public class JdbcMySqlSaveModeCatalogIT extends TestSuiteBase implements TestRes
     @Test
     public void testCatalog() {
         TablePath tablePathMySql = TablePath.of("auto", "mysql_auto_create");
-        TablePath tablePathMySql_Sink = TablePath.of("auto", "mysql_auto_create_sink");
+        TablePath tablePathMySqlSink = TablePath.of("auto", "mysql_auto_create_sink");
         MySqlCatalog mySqlCatalog = new MySqlCatalog("mysql", "root", MYSQL_PASSWORD, MysqlUrlInfo);
         mySqlCatalog.open();
         CatalogTable catalogTable = mySqlCatalog.getTable(tablePathMySql);
+        // source comment
+        Assertions.assertEquals(
+                catalogTable.getTableSchema().getColumns().get(1).getComment(),
+                "\"#¥%……&*（）;;',,..``````//'@特殊注释'\\'\"");
         // sink tableExists ?
-        boolean tableExistsBefore = mySqlCatalog.tableExists(tablePathMySql_Sink);
+        boolean tableExistsBefore = mySqlCatalog.tableExists(tablePathMySqlSink);
         Assertions.assertFalse(tableExistsBefore);
         // create table
-        mySqlCatalog.createTable(tablePathMySql_Sink, catalogTable, true);
-        boolean tableExistsAfter = mySqlCatalog.tableExists(tablePathMySql_Sink);
+        mySqlCatalog.createTable(tablePathMySqlSink, catalogTable, true);
+        boolean tableExistsAfter = mySqlCatalog.tableExists(tablePathMySqlSink);
         Assertions.assertTrue(tableExistsAfter);
+        // comment
+        final CatalogTable sinkTable = mySqlCatalog.getTable(tablePathMySqlSink);
+        final Column column = sinkTable.getTableSchema().getColumns().get(1);
+        Assertions.assertEquals(column.getComment(), "\"#¥%……&*（）;;',,..``````//'@特殊注释'\\'\"");
         // isExistsData ?
-        boolean existsDataBefore = mySqlCatalog.isExistsData(tablePathMySql_Sink);
+        boolean existsDataBefore = mySqlCatalog.isExistsData(tablePathMySqlSink);
         Assertions.assertFalse(existsDataBefore);
         // insert one data
-        mySqlCatalog.executeSql(tablePathMySql_Sink, customSql);
-        boolean existsDataAfter = mySqlCatalog.isExistsData(tablePathMySql_Sink);
+        mySqlCatalog.executeSql(tablePathMySqlSink, customSql);
+        boolean existsDataAfter = mySqlCatalog.isExistsData(tablePathMySqlSink);
         Assertions.assertTrue(existsDataAfter);
         // truncateTable
-        mySqlCatalog.truncateTable(tablePathMySql_Sink, true);
-        Assertions.assertFalse(mySqlCatalog.isExistsData(tablePathMySql_Sink));
+        mySqlCatalog.truncateTable(tablePathMySqlSink, true);
+        Assertions.assertFalse(mySqlCatalog.isExistsData(tablePathMySqlSink));
         // drop table
-        mySqlCatalog.dropTable(tablePathMySql_Sink, true);
-        Assertions.assertFalse(mySqlCatalog.tableExists(tablePathMySql_Sink));
+        mySqlCatalog.dropTable(tablePathMySqlSink, true);
+        Assertions.assertFalse(mySqlCatalog.tableExists(tablePathMySqlSink));
         mySqlCatalog.close();
     }
 

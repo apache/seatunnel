@@ -19,6 +19,7 @@ package org.apache.seatunnel.api.env;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.sink.SaveModeExecuteLocation;
 import org.apache.seatunnel.common.constants.JobMode;
 
 import java.util.Map;
@@ -50,6 +51,12 @@ public interface EnvCommonOptions {
                     .defaultValue(3)
                     .withDescription("The retry times of this job");
 
+    Option<Integer> JOB_RETRY_INTERVAL_SECONDS =
+            Options.key("job.retry.interval.seconds")
+                    .intType()
+                    .defaultValue(3)
+                    .withDescription("The retry interval seconds of this job");
+
     Option<Long> CHECKPOINT_INTERVAL =
             Options.key("checkpoint.interval")
                     .longType()
@@ -76,6 +83,12 @@ public interface EnvCommonOptions {
                     .noDefaultValue()
                     .withDescription("The timeout (in milliseconds) for a checkpoint.");
 
+    Option<SaveModeExecuteLocation> SAVEMODE_EXECUTE_LOCATION =
+            Options.key("savemode.execute.location")
+                    .enumType(SaveModeExecuteLocation.class)
+                    .defaultValue(SaveModeExecuteLocation.CLUSTER)
+                    .withDescription("The location of save mode execute.");
+
     Option<String> JARS =
             Options.key("jars")
                     .stringType()
@@ -87,4 +100,10 @@ public interface EnvCommonOptions {
                     .mapType()
                     .noDefaultValue()
                     .withDescription("custom parameters for run engine");
+
+    Option<Map<String, String>> NODE_TAG_FILTER =
+            Options.key("tag_filter")
+                    .mapType()
+                    .noDefaultValue()
+                    .withDescription("Define the worker where the job runs by tag");
 }

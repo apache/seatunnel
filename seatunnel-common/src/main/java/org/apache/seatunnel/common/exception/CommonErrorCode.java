@@ -62,7 +62,15 @@ public enum CommonErrorCode implements SeaTunnelErrorCode {
             "COMMON-28",
             "'<identifier>' array type not support genericType '<genericType>' of '<fieldName>'"),
     UNSUPPORTED_ROW_KIND(
-            "COMMON-29", "'<identifier>' table '<tableId>' not support rowKind  '<rowKind>'");
+            "COMMON-29", "'<identifier>' table '<tableId>' not support rowKind  '<rowKind>'"),
+
+    WRITE_SEATUNNEL_ROW_ERROR_WITH_SCHEMA_INCOMPATIBLE_SCHEMA(
+            "COMMON-30",
+            "<connector>: The source filed with schema '<sourceFieldSqlSchema>', except filed schema of sink is '<exceptFieldSqlSchema>'; but the filed in sink table which actual schema is '<sinkFieldSqlSchema>'. Please check schema of sink table."),
+
+    WRITE_SEATUNNEL_ROW_ERROR_WITH_FILEDS_NOT_MATCH(
+            "COMMON-31",
+            "<connector>: The source has '<sourceFieldsNum>' fields, but the table of sink has '<sinkFieldsNum>' fields. Please check schema of sink table.");
 
     private final String code;
     private final String description;

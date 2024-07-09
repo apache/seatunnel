@@ -55,6 +55,8 @@
 - [Connector-v2] [File] Fix WriteStrategy parallel writing thread unsafe issue #5546
 - [Connector-v2] [File] Inject FileSystem to OrcWriteStrategy
 - [Connector-v2] [File] Support assign encoding for file source/sink (#5973)
+- [Connector-v2] [Mongodb] Support to convert to double from numeric type that mongodb saved it as numeric internally (#6997)
+- [Connector-v2] [Redis] Using scan replace keys operation command,support batchWrite in single mode(#7030,#7085) 
 
 ### Zeta(ST-Engine)
 
@@ -177,6 +179,7 @@
 - [Connector-V2] [Kafka] Kafka source supports data deserialization failure skipping (#4364)
 - [Connector-V2] [Jdbc] [TiDB] Add TiDB catalog (#4438)
 - [Connector-V2] [File] Add file excel sink and source (#4164)
+- [Connector-V2] [FILE-OBS] Add Huawei Cloud OBS connector (#4577)
 - [Connector-v2] [Snowflake] Add Snowflake Source&Sink connector (#4470)
 - [Connector-V2] [Pular] support read format for pulsar (#4111)
 - [Connector-V2] [Paimon] Introduce paimon connector (#4178)
@@ -193,6 +196,7 @@
 - [Connector-V2] [Assert] Support check the precision and scale of Decimal type (#6110)
 - [Connector-V2] [Assert] Support field type assert and field value equality assert for full data types (#6275)
 - [Connector-V2] [Iceberg] Support iceberg sink #6198
+- [Connector-V2] [FILE-OBS] Add Huawei Cloud OBS connector #4578
 
 ### Zeta(ST-Engine)
 

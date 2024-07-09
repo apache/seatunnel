@@ -53,21 +53,23 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParser.checkProducedTypeEquals;
-import static org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParser.handleSaveMode;
 
 @Data
 public class JobConfigParser {
     private static final ILogger LOGGER = Logger.getLogger(JobConfigParser.class);
     private IdGenerator idGenerator;
     private boolean isStartWithSavePoint;
+    private MultipleTableJobConfigParser multipleTableJobConfigParser;
     private List<URL> commonPluginJars;
 
     public JobConfigParser(
             @NonNull IdGenerator idGenerator,
             @NonNull List<URL> commonPluginJars,
+            MultipleTableJobConfigParser multipleTableJobConfigParser,
             boolean isStartWithSavePoint) {
         this.idGenerator = idGenerator;
         this.commonPluginJars = commonPluginJars;
+        this.multipleTableJobConfigParser = multipleTableJobConfigParser;
         this.isStartWithSavePoint = isStartWithSavePoint;
     }
 
@@ -166,7 +168,7 @@ public class JobConfigParser {
         sink.setJobContext(jobConfig.getJobContext());
         sink.setTypeInfo(rowType);
         if (!isStartWithSavePoint) {
-            handleSaveMode(sink);
+            multipleTableJobConfigParser.handleSaveMode(sink);
         }
         final String actionName =
                 createSinkActionName(configIndex, tuple.getLeft().getPluginName());
