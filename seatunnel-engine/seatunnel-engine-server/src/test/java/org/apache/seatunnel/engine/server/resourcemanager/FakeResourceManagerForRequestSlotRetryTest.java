@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.resourcemanager;
 
+import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.RequestSlotOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
@@ -45,7 +46,7 @@ public class FakeResourceManagerForRequestSlotRetryTest extends AbstractResource
 
     public FakeResourceManagerForRequestSlotRetryTest(
             NodeEngine nodeEngine, int newWorkerCount, int noSlotWorkerCount) {
-        super(nodeEngine);
+        super(nodeEngine, new EngineConfig());
         this.newWorkerCount = newWorkerCount;
         this.noSlotWorkerCount = noSlotWorkerCount;
         init();
