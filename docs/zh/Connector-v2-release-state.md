@@ -38,7 +38,6 @@ SeaTunnel 使用连接器分级系统来帮助您了解连接器的期望：
 | [Hive](../en/connector-v2/source/Hive.md)                         | Source | GA     | 2.2.0-beta      |
 | [Http](connector-v2/sink/Http.md)                                 | Sink   | Beta   | 2.2.0-beta      |
 | [Http](../en/connector-v2/source/Http.md)                         | Source | Beta   | 2.2.0-beta      |
-| [Hudi](../en/connector-v2/source/Hudi.md)                         | Source | Beta   | 2.2.0-beta      |
 | [Iceberg](../en/connector-v2/source/Iceberg.md)                   | Source | Beta   | 2.2.0-beta      |
 | [InfluxDB](../en/connector-v2/sink/InfluxDB.md)                   | Sink   | Beta   | 2.3.0           |
 | [InfluxDB](../en/connector-v2/source/InfluxDB.md)                 | Source | Beta   | 2.3.0-beta      |

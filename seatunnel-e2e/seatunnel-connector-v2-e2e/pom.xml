@@ -73,6 +73,7 @@
         <module>connector-cdc-postgres-e2e</module>
         <module>connector-cdc-oracle-e2e</module>
         <module>connector-hive-e2e</module>
+        <module>connector-hudi-e2e</module>
     </modules>
 
     <dependencies>
