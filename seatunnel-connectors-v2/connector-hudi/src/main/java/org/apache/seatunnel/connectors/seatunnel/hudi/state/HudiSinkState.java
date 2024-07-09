@@ -15,17 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.hudi;
+package org.apache.seatunnel.connectors.seatunnel.hudi.state;
 
-import org.apache.seatunnel.connectors.seatunnel.hudi.source.HudiSourceFactory;
+import lombok.AllArgsConstructor;
+import lombok.Data;
 
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
+import java.io.Serializable;
 
-class HudiFactoryTest {
+@Data
+@AllArgsConstructor
+public class HudiSinkState implements Serializable {
 
-    @Test
-    void optionRule() {
-        Assertions.assertNotNull((new HudiSourceFactory()).optionRule());
-    }
+    private long checkpointId;
+
+    private HudiCommitInfo hudiCommitInfo;
 }
