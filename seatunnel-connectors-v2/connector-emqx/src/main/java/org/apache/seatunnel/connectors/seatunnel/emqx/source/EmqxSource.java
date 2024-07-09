@@ -68,8 +68,7 @@ public class EmqxSource
                 emqxSourceConfig.getMetadata(),
                 emqxSourceConfig.getDeserializationSchema(),
                 readerContext,
-                emqxSourceConfig.getMessageFormatErrorHandleWay(),
-                jobContext.getJobId());
+                emqxSourceConfig.getMessageFormatErrorHandleWay());
     }
 
     @Override

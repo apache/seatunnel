@@ -49,7 +49,6 @@ public class EmqxSourceReader implements SourceReader<SeaTunnelRow, EmqxSourceSp
     private MqttClient client;
     private final ClientMetadata metadata;
     private EmqxSourceSplit split;
-    private final String jobId;
     private final Queue<byte[]> payloadQueue;
     private final DeserializationSchema<SeaTunnelRow> deserializationSchema;
     private final MessageFormatErrorHandleWay messageFormatErrorHandleWay;
@@ -58,19 +57,17 @@ public class EmqxSourceReader implements SourceReader<SeaTunnelRow, EmqxSourceSp
             ClientMetadata metadata,
             DeserializationSchema<SeaTunnelRow> deserializationSchema,
             Context context,
-            MessageFormatErrorHandleWay messageFormatErrorHandleWay,
-            String jobId) {
+            MessageFormatErrorHandleWay messageFormatErrorHandleWay) {
         this.metadata = metadata;
         this.context = context;
         this.messageFormatErrorHandleWay = messageFormatErrorHandleWay;
         this.deserializationSchema = deserializationSchema;
-        this.jobId = jobId;
         this.payloadQueue = new LinkedBlockingQueue<>(1024);
     }
 
     @Override
     public void open() throws MqttException {
-        client = MqttClientUtil.createMqttClient(metadata, jobId, context.getIndexOfSubtask());
+        client = MqttClientUtil.createMqttClient(metadata, context.getIndexOfSubtask());
         client.setCallback(
                 new MqttCallback() {
                     @Override

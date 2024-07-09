@@ -91,7 +91,7 @@ public class EmqxIT extends TestSuiteBase implements TestResource {
         metadata.setClientId("test_for_ping");
         metadata.setBroker(String.format("tcp://%s:1883", emqxContainer.getHost()));
         metadata.setTopic("testtopic/e2e");
-        client = MqttClientUtil.createMqttClient(metadata, "1", 0);
+        client = MqttClientUtil.createMqttClient(metadata, 0);
         Assertions.assertTrue(client.isConnected());
     }
 

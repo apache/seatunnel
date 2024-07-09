@@ -28,7 +28,7 @@ import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 
 public class MqttClientUtil {
 
-    public static MqttClient createMqttClient(ClientMetadata metadata, String jobId, int index)
+    public static MqttClient createMqttClient(ClientMetadata metadata, int index)
             throws MqttException {
         MqttConnectOptions connOpts = new MqttConnectOptions();
         if (StringUtils.isNotEmpty(metadata.getUsername())) {
@@ -46,9 +46,7 @@ public class MqttClientUtil {
         MemoryPersistence persistence = new MemoryPersistence();
         MqttClient client =
                 new MqttClient(
-                        metadata.getBroker(),
-                        metadata.getClientId() + "_" + jobId + "_" + index,
-                        persistence);
+                        metadata.getBroker(), metadata.getClientId() + "_" + index, persistence);
         client.connect(connOpts);
         return client;
     }
