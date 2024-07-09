@@ -139,10 +139,10 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
                         if (Objects.nonNull(sourceTableCounter)) {
                             sourceTableCounter.inc();
                         } else {
-                            sourceReceivedCountPerTable.put(
-                                    tableName,
-                                    metricsContext.counter(
-                                            SOURCE_RECEIVED_COUNT + "#" + tableName));
+                            Counter counter =
+                                    metricsContext.counter(SOURCE_RECEIVED_COUNT + "#" + tableName);
+                            counter.inc();
+                            sourceReceivedCountPerTable.put(tableName, counter);
                         }
                     }
                 }

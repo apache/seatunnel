@@ -284,10 +284,11 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                                 if (Objects.nonNull(sinkTableCounter)) {
                                     sinkTableCounter.inc();
                                 } else {
-                                    sinkWriteCountPerTable.put(
-                                            tableName,
+                                    Counter counter =
                                             metricsContext.counter(
-                                                    SINK_WRITE_COUNT + "#" + tableName));
+                                                    SINK_WRITE_COUNT + "#" + tableName);
+                                    counter.inc();
+                                    sinkWriteCountPerTable.put(tableName, counter);
                                 }
                             }
                         }
