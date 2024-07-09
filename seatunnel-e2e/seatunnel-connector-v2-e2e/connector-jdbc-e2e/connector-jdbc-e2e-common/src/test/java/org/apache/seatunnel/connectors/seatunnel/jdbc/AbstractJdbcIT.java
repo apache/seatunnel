@@ -193,19 +193,21 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
                                     jdbcCase.getDatabase(),
                                     jdbcCase.getSchema(),
                                     jdbcCase.getSourceTable()));
-            if (jdbcCase.getSinkCreateSql() != null) {
-                createTemplate = jdbcCase.getSinkCreateSql();
-            }
-            String createSink =
-                    String.format(
-                            createTemplate,
-                            buildTableInfoWithSchema(
-                                    jdbcCase.getDatabase(),
-                                    jdbcCase.getSchema(),
-                                    jdbcCase.getSinkTable()));
-
             statement.execute(createSource);
-            statement.execute(createSink);
+
+            if (!jdbcCase.isUseSaveModeCreateTable()) {
+                if (jdbcCase.getSinkCreateSql() != null) {
+                    createTemplate = jdbcCase.getSinkCreateSql();
+                }
+                String createSink =
+                        String.format(
+                                createTemplate,
+                                buildTableInfoWithSchema(
+                                        jdbcCase.getDatabase(),
+                                        jdbcCase.getSchema(),
+                                        jdbcCase.getSinkTable()));
+                statement.execute(createSink);
+            }
 
             connection.commit();
         } catch (Exception exception) {

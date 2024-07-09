@@ -204,6 +204,7 @@
                 <include>org.xerial:sqlite-jdbc:jar</include>
                 <include>com.ibm.db2.jcc:db2jcc:jar</include>
                 <include>com.aliyun.openservices:tablestore-jdbc:jar</include>
+                <include>com.sap.cloud.db.jdbc:ngdbc:jar</include>
                 <include>com.teradata.jdbc:terajdbc4:jar</include>
                 <include>com.amazon.redshift:redshift-jdbc42:jar</include>
                 <include>net.snowflake.snowflake-jdbc:jar</include>
