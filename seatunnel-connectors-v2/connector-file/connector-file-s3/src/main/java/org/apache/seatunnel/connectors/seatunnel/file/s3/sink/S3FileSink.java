@@ -21,14 +21,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.sink.DataSaveMode;
-import org.apache.seatunnel.api.sink.DefaultSaveModeHandler;
-import org.apache.seatunnel.api.sink.SaveModeHandler;
-import org.apache.seatunnel.api.sink.SchemaSaveMode;
-import org.apache.seatunnel.api.sink.SupportSaveMode;
-import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
@@ -38,16 +31,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3ConfigOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.BaseMultipleTableFileSink;
 
-import java.util.Optional;
-
-import static org.apache.seatunnel.api.table.factory.FactoryUtil.discoverFactory;
-
-public class S3FileSink extends BaseMultipleTableFileSink implements SupportSaveMode {
-
-    private CatalogTable catalogTable;
-    private ReadonlyConfig readonlyConfig;
-
-    private static final String S3 = "S3";
+public class S3FileSink extends BaseMultipleTableFileSink {
 
     @Override
     public String getPluginName() {
@@ -56,8 +40,6 @@ public class S3FileSink extends BaseMultipleTableFileSink implements SupportSave
 
     public S3FileSink(CatalogTable catalogTable, ReadonlyConfig readonlyConfig) {
         super(S3HadoopConf.buildWithReadOnlyConfig(readonlyConfig), readonlyConfig, catalogTable);
-        this.catalogTable = catalogTable;
-        this.readonlyConfig = readonlyConfig;
         Config pluginConfig = readonlyConfig.toConfig();
         CheckResult result =
                 CheckConfigUtil.checkAllExists(
@@ -71,22 +53,5 @@ public class S3FileSink extends BaseMultipleTableFileSink implements SupportSave
                             "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SINK, result.getMsg()));
         }
-    }
-
-    @Override
-    public Optional<SaveModeHandler> getSaveModeHandler() {
-
-        CatalogFactory catalogFactory =
-                discoverFactory(
-                        Thread.currentThread().getContextClassLoader(), CatalogFactory.class, S3);
-        if (catalogFactory == null) {
-            return Optional.empty();
-        }
-        final Catalog catalog = catalogFactory.createCatalog(S3, readonlyConfig);
-        SchemaSaveMode schemaSaveMode = readonlyConfig.get(S3ConfigOptions.SCHEMA_SAVE_MODE);
-        DataSaveMode dataSaveMode = readonlyConfig.get(S3ConfigOptions.DATA_SAVE_MODE);
-        return Optional.of(
-                new DefaultSaveModeHandler(
-                        schemaSaveMode, dataSaveMode, catalog, catalogTable, null));
     }
 }
