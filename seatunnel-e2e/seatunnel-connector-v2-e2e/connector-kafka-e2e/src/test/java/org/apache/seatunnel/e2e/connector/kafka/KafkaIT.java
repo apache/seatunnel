@@ -213,6 +213,27 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testSourceKafkaToAssertWithMaxPollRecords1(TestContainer container)
+            throws IOException, InterruptedException {
+        TextSerializationSchema serializer =
+                TextSerializationSchema.builder()
+                        .seaTunnelRowType(SEATUNNEL_ROW_TYPE)
+                        .delimiter(",")
+                        .build();
+        generateTestData(
+                row ->
+                        new ProducerRecord<>(
+                                "test_topic_text_max_poll_records_1",
+                                null,
+                                serializer.serialize(row)),
+                0,
+                100);
+        Container.ExecResult execResult =
+                container.executeJob("/kafka/kafka_source_to_assert_with_max_poll_records_1.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    @TestTemplate
     public void testSourceKafkaTextToConsoleAssertCatalogTable(TestContainer container)
             throws IOException, InterruptedException {
         TextSerializationSchema serializer =
@@ -538,29 +559,34 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     }
 
     private void generateTestData(ProducerRecordConverter converter, int start, int end) {
-        for (int i = start; i < end; i++) {
-            SeaTunnelRow row =
-                    new SeaTunnelRow(
-                            new Object[] {
-                                Long.valueOf(i),
-                                Collections.singletonMap("key", Short.parseShort("1")),
-                                new Byte[] {Byte.parseByte("1")},
-                                "string",
-                                Boolean.FALSE,
-                                Byte.parseByte("1"),
-                                Short.parseShort("1"),
-                                Integer.parseInt("1"),
-                                Long.parseLong("1"),
-                                Float.parseFloat("1.1"),
-                                Double.parseDouble("1.1"),
-                                BigDecimal.valueOf(11, 1),
-                                "test".getBytes(),
-                                LocalDate.of(2024, 1, 1),
-                                LocalDateTime.of(2024, 1, 1, 12, 59, 23)
-                            });
-            ProducerRecord<byte[], byte[]> producerRecord = converter.convert(row);
-            producer.send(producerRecord);
+        try {
+            for (int i = start; i < end; i++) {
+                SeaTunnelRow row =
+                        new SeaTunnelRow(
+                                new Object[] {
+                                    Long.valueOf(i),
+                                    Collections.singletonMap("key", Short.parseShort("1")),
+                                    new Byte[] {Byte.parseByte("1")},
+                                    "string",
+                                    Boolean.FALSE,
+                                    Byte.parseByte("1"),
+                                    Short.parseShort("1"),
+                                    Integer.parseInt("1"),
+                                    Long.parseLong("1"),
+                                    Float.parseFloat("1.1"),
+                                    Double.parseDouble("1.1"),
+                                    BigDecimal.valueOf(11, 1),
+                                    "test".getBytes(),
+                                    LocalDate.of(2024, 1, 1),
+                                    LocalDateTime.of(2024, 1, 1, 12, 59, 23)
+                                });
+                ProducerRecord<byte[], byte[]> producerRecord = converter.convert(row);
+                producer.send(producerRecord).get();
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
         }
+        producer.flush();
     }
 
     private static final SeaTunnelRowType SEATUNNEL_ROW_TYPE =
