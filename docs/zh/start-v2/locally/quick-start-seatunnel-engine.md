@@ -7,7 +7,7 @@ sidebar_position: 2
 
 ## 步骤 1: 部署SeaTunnel及连接器
 
-在开始前，请确保您已经按照[部署](deployment.md)中的描述下载并部署了SeaTunnel
+在开始前，请确保您已经按照[部署](deployment.md)中的描述下载并部署了SeaTunnel。
 
 ## 步骤 2: 添加作业配置文件来定义作业
 
@@ -56,7 +56,7 @@ sink {
 
 ## 步骤 3: 运行SeaTunnel应用程序
 
-您可以通过以下命令启动应用程序
+您可以通过以下命令启动应用程序：
 
 :::tip
 
@@ -96,5 +96,5 @@ SeaTunnel控制台将会打印一些如下日志信息:
 
 ## 此外
 
-现在,您已经快速浏览了SeaTunnel，你可以通过[连接器](../../../en/connector-v2/source/FakeSource.md)来找到SeaTunnel所支持的所有source和sink。
+现在,您已经快速浏览了SeaTunnel，可以通过[连接器](../../../en/connector-v2/source/FakeSource.md)来找到SeaTunnel所支持的所有sources和sinks。
 如果您想要了解更多关于信息，请参阅[SeaTunnel引擎](../../seatunnel-engine/about.md). 在这里你将了解如何部署SeaTunnel Engine的集群模式以及如何在集群模式下使用。
