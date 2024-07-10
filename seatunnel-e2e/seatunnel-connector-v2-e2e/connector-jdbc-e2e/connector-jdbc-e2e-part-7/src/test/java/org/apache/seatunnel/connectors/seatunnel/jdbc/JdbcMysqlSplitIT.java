@@ -284,8 +284,12 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
         BigDecimal decimalValue = new BigDecimal("999999999999999999999999999899");
         LocalDate currentDate = LocalDate.of(2024, 1, 17);
 
+        LocalDateTime currLocalDateTime =
+                LocalDateTime.of(currentDate, LocalDateTime.now().toLocalTime());
+
         for (int i = 0; i < 100; i++) {
             currentDate = currentDate.plusDays(1);
+            currLocalDateTime = currLocalDateTime.plusDays(1);
             byte byteArr = Integer.valueOf(i).byteValue();
             SeaTunnelRow row =
                     new SeaTunnelRow(
@@ -327,8 +331,8 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
                                 String.format("{\"aa\":\"bb_%s\"}", i),
                                 String.format("f1_%s", i),
                                 Date.valueOf(currentDate),
-                                Timestamp.valueOf(LocalDateTime.now()),
-                                new Timestamp(System.currentTimeMillis()),
+                                Timestamp.valueOf(currLocalDateTime),
+                                Timestamp.valueOf(currLocalDateTime),
                                 "test".getBytes(),
                                 "test".getBytes(),
                                 "test".getBytes(),
@@ -461,6 +465,18 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
         configMap.put("partition_column", "c_date");
         splitArray = getCheckedSplitArray(configMap, table, "c_date", 13);
         configMap.put("partition_column", "c_date");
+        assertDateSplit(splitArray);
+
+        // use datetime column to split
+        configMap.put("partition_column", "c_datetime");
+        splitArray = getCheckedSplitArray(configMap, table, "c_datetime", 13);
+        configMap.put("partition_column", "c_datetime");
+        assertDateSplit(splitArray);
+
+        // use c_timestamp column to split
+        configMap.put("partition_column", "c_timestamp");
+        splitArray = getCheckedSplitArray(configMap, table, "c_timestamp", 13);
+        configMap.put("partition_column", "c_timestamp");
         assertDateSplit(splitArray);
 
         mySqlCatalog.close();

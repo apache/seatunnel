@@ -42,6 +42,7 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -127,6 +128,7 @@ public class DynamicChunkSplitter extends ChunkSplitter {
             case STRING:
                 return evenlyColumnSplitChunks(table, splitColumnName, min, max, chunkSize);
             case DATE:
+            case TIMESTAMP:
                 return dateColumnSplitChunks(table, splitColumnName, min, max, chunkSize);
             default:
                 throw CommonError.unsupportedDataType(
@@ -370,6 +372,12 @@ public class DynamicChunkSplitter extends ChunkSplitter {
         } else if (min instanceof Timestamp) {
             sqlDateMin = new Date(((Timestamp) min).getTime());
             sqlDateMax = new Date(((Timestamp) max).getTime());
+        } else if (min instanceof LocalDateTime) {
+            sqlDateMin = Date.valueOf(((LocalDateTime) min).toLocalDate());
+            sqlDateMax = Date.valueOf(((LocalDateTime) max).toLocalDate());
+        } else {
+            throw new IllegalStateException(
+                    "Unsupported operation type, the MIN value type is not Date, Timestamp or LocalDateTime.");
         }
         List<LocalDate> dateRange =
                 getDateRange(sqlDateMin.toLocalDate(), sqlDateMax.toLocalDate());
