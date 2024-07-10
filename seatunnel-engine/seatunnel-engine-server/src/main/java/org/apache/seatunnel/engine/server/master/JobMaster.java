@@ -384,15 +384,6 @@ public class JobMaster {
         }
     }
 
-    private void reportEventOfSaveMode(
-            long jobId, TablePath tablePath, int indexOfCount, long startTime, long finishedTime) {
-        seaTunnelServer
-                .getEventService()
-                .reportEvent(
-                        new SaveModeFinishedEvent(
-                                jobId, tablePath, indexOfCount, startTime, finishedTime));
-    }
-
     public void handleCheckpointError(long pipelineId, boolean neverRestore) {
         if (neverRestore) {
             this.neverNeedRestore();
