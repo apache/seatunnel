@@ -1,19 +1,21 @@
-package org.apache.seatunnel.e2e.connector.v2.milvus; /*
-                                                       * Licensed to the Apache Software Foundation (ASF) under one or more
-                                                       * contributor license agreements.  See the NOTICE file distributed with
-                                                       * this work for additional information regarding copyright ownership.
-                                                       * The ASF licenses this file to You under the Apache License, Version 2.0
-                                                       * (the "License"); you may not use this file except in compliance with
-                                                       * the License.  You may obtain a copy of the License at
-                                                       *
-                                                       *    http://www.apache.org/licenses/LICENSE-2.0
-                                                       *
-                                                       * Unless required by applicable law or agreed to in writing, software
-                                                       * distributed under the License is distributed on an "AS IS" BASIS,
-                                                       * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-                                                       * See the License for the specific language governing permissions and
-                                                       * limitations under the License.
-                                                       */
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.seatunnel.e2e.connector.v2.milvus;
 
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
@@ -33,6 +35,8 @@ import org.testcontainers.milvus.MilvusContainer;
 import com.alibaba.fastjson.JSONObject;
 import io.milvus.client.MilvusServiceClient;
 import io.milvus.grpc.DataType;
+import io.milvus.grpc.DescribeCollectionResponse;
+import io.milvus.grpc.FieldSchema;
 import io.milvus.grpc.MutationResult;
 import io.milvus.param.ConnectParam;
 import io.milvus.param.IndexType;
@@ -40,6 +44,7 @@ import io.milvus.param.MetricType;
 import io.milvus.param.R;
 import io.milvus.param.RpcStatus;
 import io.milvus.param.collection.CreateCollectionParam;
+import io.milvus.param.collection.DescribeCollectionParam;
 import io.milvus.param.collection.FieldType;
 import io.milvus.param.collection.HasCollectionParam;
 import io.milvus.param.collection.LoadCollectionParam;
@@ -53,6 +58,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Slf4j
@@ -160,7 +166,7 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
         milvusClient.loadCollection(
                 LoadCollectionParam.newBuilder().withCollectionName(COLLECTION_NAME).build());
 
-        System.out.println("Collection created");
+        log.info("Collection created");
 
         // Insert 10 records into the collection
         List<JSONObject> rows = new ArrayList<>();
@@ -204,5 +210,22 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
                                 .withCollectionName(COLLECTION_NAME)
                                 .build());
         Assertions.assertTrue(hasCollectionResponse.getData());
+
+        // check table fields
+        R<DescribeCollectionResponse> describeCollectionResponseR =
+                this.milvusClient.describeCollection(
+                        DescribeCollectionParam.newBuilder()
+                                .withDatabaseName("test")
+                                .withCollectionName(COLLECTION_NAME)
+                                .build());
+
+        DescribeCollectionResponse data = describeCollectionResponseR.getData();
+        List<String> fileds =
+                data.getSchema().getFieldsList().stream()
+                        .map(FieldSchema::getName)
+                        .collect(Collectors.toList());
+        Assertions.assertTrue(fileds.contains(ID_FIELD));
+        Assertions.assertTrue(fileds.contains(VECTOR_FIELD));
+        Assertions.assertTrue(fileds.contains(TITLE_FIELD));
     }
 }
