@@ -22,7 +22,6 @@ import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
-import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.core.starter.flowcontrol.FlowControlStrategy;
@@ -33,8 +32,6 @@ import org.apache.seatunnel.engine.server.execution.ProgressState;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.flow.SourceFlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
-
-import org.apache.commons.lang3.StringUtils;
 
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
@@ -90,7 +87,12 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
                 tablePaths =
                         producedCatalogTables.stream()
                                 .map(CatalogTable::getTableId)
-                                .map(tableIdentifier -> TablePath.of(tableIdentifier.getDatabaseName(), tableIdentifier.getSchemaName(), tableIdentifier.getTableName()))
+                                .map(
+                                        tableIdentifier ->
+                                                TablePath.of(
+                                                        tableIdentifier.getDatabaseName(),
+                                                        tableIdentifier.getSchemaName(),
+                                                        tableIdentifier.getTableName()))
                                 .collect(Collectors.toList());
             } catch (UnsupportedOperationException e) {
                 // TODO remove it when all connector use `getProducedCatalogTables`
