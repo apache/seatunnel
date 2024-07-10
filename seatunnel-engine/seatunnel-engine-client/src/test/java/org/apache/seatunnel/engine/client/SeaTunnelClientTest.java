@@ -512,7 +512,10 @@ public class SeaTunnelClientTest {
 
             String jobMetrics = jobClient.getJobMetrics(jobId);
 
-            log.info(jobMetrics);
+            Assertions.assertTrue(jobMetrics.contains(SOURCE_RECEIVED_COUNT+"#fake1"));
+            Assertions.assertTrue(jobMetrics.contains(SOURCE_RECEIVED_COUNT+"#fake2"));
+            Assertions.assertTrue(jobMetrics.contains(SINK_WRITE_COUNT+"#fake1"));
+            Assertions.assertTrue(jobMetrics.contains(SINK_WRITE_COUNT+"#fake2"));
 
             JsonNode jobMetricsStr = new ObjectMapper().readTree(jobMetrics);
             List<String> metricNameList =

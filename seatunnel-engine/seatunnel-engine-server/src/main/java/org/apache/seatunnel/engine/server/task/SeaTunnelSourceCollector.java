@@ -88,7 +88,7 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
             MetricsContext metricsContext,
             FlowControlStrategy flowControlStrategy,
             SeaTunnelDataType rowType,
-            List<String> tableNames) {
+            List<TablePath> tablePaths) {
         this.checkpointLock = checkpointLock;
         this.outputs = outputs;
         this.rowType = rowType;
@@ -98,15 +98,15 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
                     .iterator()
                     .forEachRemaining(type -> this.rowTypeMap.put(type.getKey(), type.getValue()));
         }
-        if (CollectionUtils.isNotEmpty(tableNames)) {
-            tableNames.forEach(
-                    tableName ->
+        if (CollectionUtils.isNotEmpty(tablePaths)) {
+            tablePaths.forEach(
+                    tablePath ->
                             sourceReceivedCountPerTable.put(
-                                    TablePath.of(tableName).getTableName(),
+                                    tablePath.getTableName(),
                                     metricsContext.counter(
                                             SOURCE_RECEIVED_COUNT
                                                     + "#"
-                                                    + TablePath.of(tableName).getTableName())));
+                                                    + tablePath.getTableName())));
         }
         sourceReceivedCount = metricsContext.counter(SOURCE_RECEIVED_COUNT);
         sourceReceivedQPS = metricsContext.meter(SOURCE_RECEIVED_QPS);

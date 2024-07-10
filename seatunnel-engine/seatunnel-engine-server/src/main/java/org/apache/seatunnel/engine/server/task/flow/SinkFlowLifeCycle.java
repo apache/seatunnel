@@ -134,15 +134,15 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         sinkWriteBytes = metricsContext.counter(SINK_WRITE_BYTES);
         sinkWriteBytesPerSeconds = metricsContext.meter(SINK_WRITE_BYTES_PER_SECONDS);
         if (sinkAction.getSink() instanceof MultiTableSink) {
-            List<String> sinkTables = ((MultiTableSink) sinkAction.getSink()).getSinkTables();
+            List<TablePath> sinkTables = ((MultiTableSink) sinkAction.getSink()).getSinkTables();
             sinkTables.forEach(
-                    tableName ->
+                    tablePath ->
                             sinkWriteCountPerTable.put(
-                                    TablePath.of(tableName).getTableName(),
+                                    tablePath.getTableName(),
                                     metricsContext.counter(
                                             SINK_WRITE_COUNT
                                                     + "#"
-                                                    + TablePath.of(tableName).getTableName())));
+                                                    + tablePath.getTableName())));
         }
     }
 

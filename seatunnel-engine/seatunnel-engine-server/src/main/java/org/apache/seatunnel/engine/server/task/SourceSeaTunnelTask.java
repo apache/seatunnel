@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.core.starter.flowcontrol.FlowControlStrategy;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
@@ -81,16 +82,15 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
                             + startFlowLifeCycle.getClass().getName());
         } else {
             SeaTunnelDataType sourceProducedType;
-            List<String> tableNames = new ArrayList<>();
+            List<TablePath> tablePaths = new ArrayList<>();
             try {
                 List<CatalogTable> producedCatalogTables =
                         sourceFlow.getAction().getSource().getProducedCatalogTables();
                 sourceProducedType = CatalogTableUtil.convertToDataType(producedCatalogTables);
-                tableNames =
+                tablePaths =
                         producedCatalogTables.stream()
                                 .map(CatalogTable::getTableId)
-                                .map(TableIdentifier::getTableName)
-                                .filter(StringUtils::isNotBlank)
+                                .map(tableIdentifier -> TablePath.of(tableIdentifier.getDatabaseName(), tableIdentifier.getSchemaName(), tableIdentifier.getTableName()))
                                 .collect(Collectors.toList());
             } catch (UnsupportedOperationException e) {
                 // TODO remove it when all connector use `getProducedCatalogTables`
@@ -103,7 +103,7 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
                             this.getMetricsContext(),
                             FlowControlStrategy.fromMap(envOption),
                             sourceProducedType,
-                            tableNames);
+                            tablePaths);
             ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle).setCollector(collector);
         }
     }
