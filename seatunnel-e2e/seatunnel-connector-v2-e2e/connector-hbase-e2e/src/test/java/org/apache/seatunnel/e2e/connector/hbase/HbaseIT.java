@@ -56,6 +56,7 @@ import java.util.Objects;
 public class HbaseIT extends TestSuiteBase implements TestResource {
 
     private static final String TABLE_NAME = "seatunnel_test";
+    private static final String ASSIGN_CF_TABLE_NAME = "assign_cf_table";
 
     private static final String FAMILY_NAME = "info";
 
@@ -64,6 +65,7 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
     private Admin admin;
 
     private TableName table;
+    private TableName tableAssign;
 
     private HbaseCluster hbaseCluster;
 
@@ -75,7 +77,9 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
         // Create table for hbase sink test
         log.info("initial");
         hbaseCluster.createTable(TABLE_NAME, Arrays.asList(FAMILY_NAME));
+        hbaseCluster.createTable(ASSIGN_CF_TABLE_NAME, Arrays.asList("cf1", "cf2"));
         table = TableName.valueOf(TABLE_NAME);
+        tableAssign = TableName.valueOf(ASSIGN_CF_TABLE_NAME);
     }
 
     @AfterAll
@@ -131,6 +135,46 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
         }
         Assertions.assertEquals(results.size(), 3);
         scanner.close();
+    }
+
+    @TestTemplate
+    public void testHbaseSinkAssignCfSink(TestContainer container)
+            throws IOException, InterruptedException {
+        deleteData(tableAssign);
+
+        Container.ExecResult sinkExecResult = container.executeJob("/fake-to-assign-cf-hbase.conf");
+        Assertions.assertEquals(0, sinkExecResult.getExitCode());
+
+        Table hbaseTable = hbaseConnection.getTable(tableAssign);
+        Scan scan = new Scan();
+        ResultScanner scanner = hbaseTable.getScanner(scan);
+        ArrayList<Result> results = new ArrayList<>();
+        for (Result result : scanner) {
+            results.add(result);
+        }
+
+        Assertions.assertEquals(results.size(), 5);
+
+        if (scanner != null) {
+            scanner.close();
+        }
+        int cf1Count = 0;
+        int cf2Count = 0;
+
+        for (Result result : results) {
+            for (Cell cell : result.listCells()) {
+                String family = Bytes.toString(CellUtil.cloneFamily(cell));
+                if ("cf1".equals(family)) {
+                    cf1Count++;
+                }
+                if ("cf2".equals(family)) {
+                    cf2Count++;
+                }
+            }
+        }
+        // check cf1 and cf2
+        Assertions.assertEquals(cf1Count, 5);
+        Assertions.assertEquals(cf2Count, 5);
     }
 
     private void deleteData(TableName table) throws IOException {
