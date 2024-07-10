@@ -41,3 +41,10 @@ hazelcast:
     hazelcast.slow.operation.detector.stacktrace.logging.enabled: true
     hazelcast.logging.type: log4j2
     hazelcast.operation.generic.thread.count: 200
+  member-attributes:
+    group:
+      type: string
+      value: platform
+    team:
+      type: string
+      value: team1

@@ -93,7 +93,9 @@ public class JdbcCatalogUtils {
                                         .catalogTable(catalogTable)
                                         .build();
                         tables.put(tablePath, jdbcSourceTable);
-                        log.info("Loaded catalog table : {}, {}", tablePath, jdbcSourceTable);
+                        if (log.isDebugEnabled()) {
+                            log.debug("Loaded catalog table : {}, {}", tablePath, jdbcSourceTable);
+                        }
                     } catch (SeaTunnelRuntimeException e) {
                         if (e.getSeaTunnelErrorCode()
                                 .equals(
@@ -139,7 +141,9 @@ public class JdbcCatalogUtils {
                                 .build();
 
                 tables.put(tablePath, jdbcSourceTable);
-                log.info("Loaded catalog table : {}, {}", tablePath, jdbcSourceTable);
+                if (log.isDebugEnabled()) {
+                    log.debug("Loaded catalog table : {}, {}", tablePath, jdbcSourceTable);
+                }
             }
             log.info(
                     "Loaded {} catalog tables for jdbc : {}",

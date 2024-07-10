@@ -8,13 +8,20 @@ Filter the field.
 
 ## Options
 
-|  name  | type  | required | default value |
-|--------|-------|----------|---------------|
-| fields | array | yes      |               |
+|      name      | type  | required | default value |
+|----------------|-------|----------|---------------|
+| include_fields | array | no       |               |
+| exclude_fields | array | no       |               |
 
-### fields [array]
+Notice, you must set one and only one of `include_fields` and `exclude_fields` properties
 
-The list of fields that need to be kept. Fields not in the list will be deleted
+### include_fields [array]
+
+The list of fields that need to be kept. Fields not in the list will be deleted.
+
+### exclude_fields [array]
+
+The list of fields that need to be deleted. Fields not in the list will be kept.
 
 ### common options [string]
 
@@ -31,17 +38,31 @@ The data read from source is a table like this:
 | Kin Dom  | 20  | 123  |
 | Joy Dom  | 20  | 123  |
 
-We want to delete field `age`, we can add `Filter` Transform like this
+we want to keep the field named `name`, `card`, we can add a `Filter` Transform like below:
 
 ```
 transform {
   Filter {
     source_table_name = "fake"
     result_table_name = "fake1"
-    fields = [name, card]
+    include_fields = [name, card]
   }
 }
 ```
+
+Or we can delete the field named `age` by adding a `Filter` Transform with `exclude_fields` field set like below:
+
+```
+transform {
+  Filter {
+    source_table_name = "fake"
+    result_table_name = "fake1"
+    exclude_fields = [age]
+  }
+}
+```
+
+It is useful when you want to delete a small number of fields from a large table with tons of fields.
 
 Then the data in result table `fake1` will like this
 

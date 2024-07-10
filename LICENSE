@@ -238,7 +238,9 @@ seatunnel-engine/seatunnel-engine-core/src/main/java/org/apache/seatunnel/engine
 seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/checkpoint/StandaloneCheckpointIDCounter.java     from https://github.com/apache/flink
 seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/metrics                                           from https://github.com/hazelcast/hazelcast
 seatunnel-api/src/main/java/org/apache/seatunnel/api/common/metrics                                                                         from https://github.com/hazelcast/hazelcast
-seatunnel-transforms-v2/src/main/java/org/apache/seatunnel/transform/sqlengine/zeta/ZetaSQLEngine.java                                from https://github.com/JSQLParser/JSqlParser
+seatunnel-transforms-v2/src/main/java/org/apache/seatunnel/transform/sqlengine/zeta/ZetaSQLEngine.java                                      from https://github.com/JSQLParser/JSqlParser
 seatunnel-transforms-v2/src/main/java/org/apache/seatunnel/transform/sqlengine/zeta/ZetaSQLType.java                                        from https://github.com/JSQLParser/JSqlParser
 seatunnel-transforms-v2/src/main/java/org/apache/seatunnel/transform/sqlengine/zeta/ZetaSQLFilter.java                                      from https://github.com/JSQLParser/JSqlParser
 seatunnel-transforms-v2/src/main/java/org/apache/seatunnel/transform/sqlengine/zeta/ZetaSQLFunction.java                                    from https://github.com/JSQLParser/JSqlParser
+seatunnel-shade/seatunnel-hazelcast/seatunnel-hazelcast-shade/src/main/java/com/hazelcast/**                                                from https://github.com/hazelcast/hazelcast
+seatunnel-engine/seatunnel-engine-server/src/main/java/org/apache/seatunnel/engine/server/LiteNodeDropOutTcpIpJoiner.java                   from https://github.com/hazelcast/hazelcast

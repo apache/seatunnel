@@ -252,8 +252,9 @@ public class XmlReadStrategy extends AbstractReadStrategy {
 
     /** Performs pre-checks and initialization of the configuration for reading XML files. */
     private void preCheckAndInitializeConfiguration() {
-        this.tableRowName = getPrimitiveConfigValue(BaseSourceConfigOptions.XML_ROW_TAG);
-        this.useAttrFormat = getPrimitiveConfigValue(BaseSourceConfigOptions.XML_USE_ATTR_FORMAT);
+        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(pluginConfig);
+        this.tableRowName = readonlyConfig.get(BaseSourceConfigOptions.XML_ROW_TAG);
+        this.useAttrFormat = readonlyConfig.get(BaseSourceConfigOptions.XML_USE_ATTR_FORMAT);
 
         // Check mandatory configurations
         if (StringUtils.isEmpty(tableRowName) || useAttrFormat == null) {
@@ -265,7 +266,7 @@ public class XmlReadStrategy extends AbstractReadStrategy {
                             BaseSourceConfigOptions.XML_USE_ATTR_FORMAT.key()));
         }
 
-        this.delimiter = getPrimitiveConfigValue(BaseSourceConfigOptions.FIELD_DELIMITER);
+        this.delimiter = readonlyConfig.get(BaseSourceConfigOptions.FIELD_DELIMITER);
 
         this.dateFormat =
                 getComplexDateConfigValue(
@@ -280,21 +281,6 @@ public class XmlReadStrategy extends AbstractReadStrategy {
                 ReadonlyConfig.fromConfig(pluginConfig)
                         .getOptional(BaseSourceConfigOptions.ENCODING)
                         .orElse(StandardCharsets.UTF_8.name());
-    }
-
-    /**
-     * Retrieves the value of a primitive configuration option.
-     *
-     * @param option the configuration option to retrieve the value for
-     * @param <T> the type of the configuration option
-     * @return the value of the configuration option, or the default value if the option is not set
-     */
-    @SuppressWarnings("unchecked")
-    private <T> T getPrimitiveConfigValue(Option<?> option) {
-        if (!pluginConfig.hasPath(option.key())) {
-            return (T) option.defaultValue();
-        }
-        return (T) pluginConfig.getAnyRef(option.key());
     }
 
     /**

@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.resourcemanager;
 
+import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.ReleaseSlotOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.ResetResourceOperation;
@@ -37,6 +38,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -51,13 +53,17 @@ public abstract class AbstractResourceManager implements ResourceManager {
 
     private final NodeEngine nodeEngine;
 
-    private final ExecutionMode mode = ExecutionMode.LOCAL;
+    private final ExecutionMode mode;
+
+    private final EngineConfig engineConfig;
 
     private volatile boolean isRunning = true;
 
-    public AbstractResourceManager(NodeEngine nodeEngine) {
+    public AbstractResourceManager(NodeEngine nodeEngine, EngineConfig engineConfig) {
         this.registerWorker = new ConcurrentHashMap<>();
         this.nodeEngine = nodeEngine;
+        this.engineConfig = engineConfig;
+        this.mode = engineConfig.getMode();
     }
 
     @Override
@@ -70,6 +76,7 @@ public abstract class AbstractResourceManager implements ResourceManager {
         log.info("initWorker... ");
         List<Address> aliveWorker =
                 nodeEngine.getClusterService().getMembers().stream()
+                        .filter(Member::isLiteMember)
                         .map(Member::getAddress)
                         .collect(Collectors.toList());
         log.info("initWorker live nodes: " + aliveWorker);
@@ -89,10 +96,11 @@ public abstract class AbstractResourceManager implements ResourceManager {
     }
 
     @Override
-    public CompletableFuture<SlotProfile> applyResource(long jobId, ResourceProfile resourceProfile)
+    public CompletableFuture<SlotProfile> applyResource(
+            long jobId, ResourceProfile resourceProfile, Map<String, String> tagFilter)
             throws NoEnoughResourceException {
         CompletableFuture<SlotProfile> completableFuture = new CompletableFuture<>();
-        applyResources(jobId, Collections.singletonList(resourceProfile))
+        applyResources(jobId, Collections.singletonList(resourceProfile), tagFilter)
                 .whenComplete(
                         (profile, error) -> {
                             if (error != null) {
@@ -129,9 +137,44 @@ public abstract class AbstractResourceManager implements ResourceManager {
 
     @Override
     public CompletableFuture<List<SlotProfile>> applyResources(
-            long jobId, List<ResourceProfile> resourceProfile) throws NoEnoughResourceException {
+            long jobId, List<ResourceProfile> resourceProfile, Map<String, String> tagFilter)
+            throws NoEnoughResourceException {
         waitingWorkerRegister();
-        return new ResourceRequestHandler(jobId, resourceProfile, registerWorker, this).request();
+        ConcurrentMap<Address, WorkerProfile> matchedWorker;
+        if (tagFilter == null || tagFilter.isEmpty()) {
+            matchedWorker = registerWorker;
+        } else {
+            matchedWorker =
+                    registerWorker.entrySet().stream()
+                            .filter(
+                                    e -> {
+                                        Map<String, String> workerAttr =
+                                                e.getValue().getAttributes();
+                                        if (workerAttr == null || workerAttr.isEmpty()) {
+                                            return false;
+                                        }
+                                        boolean match = true;
+                                        for (Map.Entry<String, String> entry :
+                                                tagFilter.entrySet()) {
+                                            if (!workerAttr.containsKey(entry.getKey())
+                                                    || !workerAttr
+                                                            .get(entry.getKey())
+                                                            .equals(entry.getValue())) {
+                                                return false;
+                                            }
+                                        }
+                                        return match;
+                                    })
+                            .collect(
+                                    Collectors.toConcurrentMap(
+                                            Map.Entry::getKey, Map.Entry::getValue));
+        }
+        if (matchedWorker.isEmpty()) {
+            log.error("No matched worker with tag filter {}.", tagFilter);
+            throw new NoEnoughResourceException();
+        }
+        return new ResourceRequestHandler(jobId, resourceProfile, matchedWorker, this)
+                .request(tagFilter);
     }
 
     protected boolean supportDynamicWorker() {
@@ -143,7 +186,8 @@ public abstract class AbstractResourceManager implements ResourceManager {
      *
      * @param resourceProfiles the worker should have resource profile list
      */
-    protected void findNewWorker(List<ResourceProfile> resourceProfiles) {
+    protected void findNewWorker(
+            List<ResourceProfile> resourceProfiles, Map<String, String> tagFilter) {
         throw new UnsupportedOperationException(
                 "Unsupported operation to find new worker in " + this.getClass().getName());
     }
@@ -209,7 +253,7 @@ public abstract class AbstractResourceManager implements ResourceManager {
     @Override
     public void heartbeat(WorkerProfile workerProfile) {
         if (!registerWorker.containsKey(workerProfile.getAddress())) {
-            log.debug("received new worker register: " + workerProfile.getAddress());
+            log.info("received new worker register: " + workerProfile.getAddress());
             sendToMember(new ResetResourceOperation(), workerProfile.getAddress()).join();
         } else {
             log.debug("received worker heartbeat from: " + workerProfile.getAddress());

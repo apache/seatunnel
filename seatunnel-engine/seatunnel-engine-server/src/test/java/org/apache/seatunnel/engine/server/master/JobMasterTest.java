@@ -278,7 +278,7 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
                         .getCheckpointManager()
                         .getCheckpointCoordinator(seaTunnelTask.getTaskLocation().getPipelineId());
         await().atMost(60, TimeUnit.SECONDS)
-                .until(() -> checkpointCoordinator.getClosedIdleTask().size() == 2);
+                .until(() -> checkpointCoordinator.getClosedIdleTask().size() == 3);
         await().atMost(60, TimeUnit.SECONDS)
                 .until(() -> slotService.getWorkerProfile().getAssignedSlots().length == 3);
     }

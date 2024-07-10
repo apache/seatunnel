@@ -45,7 +45,7 @@ public class KafkaConsumerThread implements Runnable {
                         kafkaSourceConfig.getBootstrap(),
                         metadata.getConsumerGroup(),
                         kafkaSourceConfig.getProperties(),
-                        kafkaSourceConfig.isCommitOnCheckpoint());
+                        !kafkaSourceConfig.isCommitOnCheckpoint());
     }
 
     @Override

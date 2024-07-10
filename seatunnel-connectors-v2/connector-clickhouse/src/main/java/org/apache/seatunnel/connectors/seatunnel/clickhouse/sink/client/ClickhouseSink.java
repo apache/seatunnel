@@ -113,6 +113,7 @@ public class ClickhouseSink
                             config.getString(DATABASE.key()),
                             config.getString(SERVER_TIME_ZONE.key()),
                             null,
+                            null,
                             null);
         } else {
             nodes =
@@ -121,7 +122,8 @@ public class ClickhouseSink
                             config.getString(DATABASE.key()),
                             config.getString(SERVER_TIME_ZONE.key()),
                             config.getString(USERNAME.key()),
-                            config.getString(PASSWORD.key()));
+                            config.getString(PASSWORD.key()),
+                            null);
         }
 
         Properties clickhouseProperties = new Properties();

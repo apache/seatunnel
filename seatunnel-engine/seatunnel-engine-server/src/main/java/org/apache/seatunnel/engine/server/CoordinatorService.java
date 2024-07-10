@@ -165,6 +165,8 @@ public class CoordinatorService {
 
     private EventProcessor eventProcessor;
 
+    private PassiveCompletableFuture restoreAllJobFromMasterNodeSwitchFuture;
+
     public CoordinatorService(
             @NonNull NodeEngineImpl nodeEngine,
             @NonNull SeaTunnelServer seaTunnelServer,
@@ -226,24 +228,6 @@ public class CoordinatorService {
         return eventProcessor;
     }
 
-    // On the new master node
-    // 1. If runningJobStateIMap.get(jobId) == null and runningJobInfoIMap.get(jobId) != null. We
-    // will do
-    //    runningJobInfoIMap.remove(jobId)
-    //
-    // 2. If runningJobStateIMap.get(jobId) != null and the value equals JobStatus End State. We
-    // need new a
-    //    JobMaster and generate PhysicalPlan again and then try to remove all of PipelineLocation
-    // and
-    //    TaskGroupLocation key in the runningJobStateIMap.
-    //
-    // 3. If runningJobStateIMap.get(jobId) != null and the value equals JobStatus.SCHEDULED. We
-    // need cancel the job
-    //    and then call submitJob(long jobId, Data jobImmutableInformation) to resubmit it.
-    //
-    // 4. If runningJobStateIMap.get(jobId) != null and the value is CANCELING or RUNNING. We need
-    // recover the JobMaster
-    //    from runningJobStateIMap and then waiting for it complete.
     private void initCoordinatorService() {
         runningJobInfoIMap =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
@@ -281,8 +265,32 @@ public class CoordinatorService {
             connectorPackageService = new ConnectorPackageService(seaTunnelServer);
         }
 
-        List<CompletableFuture<Void>> collect =
+        restoreAllJobFromMasterNodeSwitchFuture =
+                new PassiveCompletableFuture(
+                        CompletableFuture.runAsync(
+                                this::restoreAllRunningJobFromMasterNodeSwitch, executorService));
+    }
+
+    private void restoreAllRunningJobFromMasterNodeSwitch() {
+        List<Map.Entry<Long, JobInfo>> needRestoreFromMasterNodeSwitchJobs =
                 runningJobInfoIMap.entrySet().stream()
+                        .filter(entry -> !runningJobMasterMap.keySet().contains(entry.getKey()))
+                        .collect(Collectors.toList());
+        if (needRestoreFromMasterNodeSwitchJobs.size() == 0) {
+            return;
+        }
+        // waiting have worker registered
+        while (getResourceManager().workerCount() == 0) {
+            try {
+                logger.info("Waiting for worker registered");
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                logger.severe(ExceptionUtils.getMessage(e));
+                throw new SeaTunnelEngineException("wait worker register error", e);
+            }
+        }
+        List<CompletableFuture<Void>> collect =
+                needRestoreFromMasterNodeSwitchJobs.stream()
                         .map(
                                 entry ->
                                         CompletableFuture.runAsync(
@@ -292,8 +300,14 @@ public class CoordinatorService {
                                                                     "begin restore job (%s) from master active switch",
                                                                     entry.getKey()));
                                                     try {
-                                                        restoreJobFromMasterActiveSwitch(
-                                                                entry.getKey(), entry.getValue());
+                                                        // skip the job new submit
+                                                        if (!runningJobMasterMap
+                                                                .keySet()
+                                                                .contains(entry.getKey())) {
+                                                            restoreJobFromMasterActiveSwitch(
+                                                                    entry.getKey(),
+                                                                    entry.getValue());
+                                                        }
                                                     } catch (Exception e) {
                                                         logger.severe(e);
                                                     }
@@ -310,6 +324,7 @@ public class CoordinatorService {
                     CompletableFuture.allOf(collect.toArray(new CompletableFuture[0]));
             voidCompletableFuture.get();
         } catch (Exception e) {
+            logger.severe(ExceptionUtils.getMessage(e));
             throw new SeaTunnelEngineException(e);
         }
     }
@@ -427,7 +442,8 @@ public class CoordinatorService {
             synchronized (this) {
                 if (resourceManager == null) {
                     ResourceManager manager =
-                            new ResourceManagerFactory(nodeEngine).getResourceManager();
+                            new ResourceManagerFactory(nodeEngine, engineConfig)
+                                    .getResourceManager();
                     manager.init();
                     resourceManager = manager;
                 }
@@ -477,11 +493,9 @@ public class CoordinatorService {
                         // We specify that when init is complete, the submitJob is complete
                         jobSubmitFuture.complete(null);
                     } catch (Throwable e) {
-                        logger.severe(
-                                String.format(
-                                        "submit job %s error %s ",
-                                        jobId, ExceptionUtils.getMessage(e)));
-                        jobSubmitFuture.completeExceptionally(e);
+                        String errorMsg = ExceptionUtils.getMessage(e);
+                        logger.severe(String.format("submit job %s error %s ", jobId, errorMsg));
+                        jobSubmitFuture.completeExceptionally(new JobException(errorMsg));
                     }
                     if (!jobSubmitFuture.isCompletedExceptionally()) {
                         try {
@@ -530,6 +544,8 @@ public class CoordinatorService {
     }
 
     public PassiveCompletableFuture<JobResult> waitForJobComplete(long jobId) {
+        // must wait for all job restore complete
+        restoreAllJobFromMasterNodeSwitchFuture.join();
         JobMaster runningJobMaster = runningJobMasterMap.get(jobId);
         if (runningJobMaster == null) {
             // Because operations on Imap cannot be performed within Operation.

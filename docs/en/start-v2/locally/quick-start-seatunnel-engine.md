@@ -58,9 +58,15 @@ More information about config please check [config concept](../../concept/config
 
 You could start the application by the following commands
 
+:::tip
+
+Starting from version 2.3.1, the parameter -e in seatunnel.sh is deprecated, use -m instead.
+
+:::
+
 ```shell
 cd "apache-seatunnel-${version}"
-./bin/seatunnel.sh --config ./config/v2.batch.config.template -e local
+./bin/seatunnel.sh --config ./config/v2.batch.config.template -m local
 
 ```
 
@@ -92,6 +98,4 @@ The SeaTunnel console will prints some logs as below:
 ## What's More
 
 For now, you are already take a quick look about SeaTunnel, you could see [connector](../../connector-v2/source/FakeSource.md) to find all
-source and sink SeaTunnel supported. Or see [SeaTunnel Engine](../../seatunnel-engine/about.md) if you want to know more about SeaTunnel Engine.
-
-SeaTunnel also supports running jobs in Spark/Flink. You can see [Quick Start With Spark](quick-start-spark.md) or [Quick Start With Flink](quick-start-flink.md).
+source and sink SeaTunnel supported. Or see [SeaTunnel Engine(Zeta)](../../seatunnel-engine/about.md) if you want to know more about SeaTunnel Engine. Here you will learn how to deploy SeaTunnel Engine in cluster mode and how to use it in cluster mode.

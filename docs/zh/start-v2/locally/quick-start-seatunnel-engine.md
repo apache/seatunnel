@@ -58,9 +58,15 @@ sink {
 
 您可以通过以下命令启动应用程序
 
+:::tip
+
+从2.3.1版本开始，seatunnel.sh中的-e参数被废弃，请改用-m参数。
+
+:::
+
 ```shell
 cd "apache-seatunnel-${version}"
-./bin/seatunnel.sh --config ./config/v2.batch.config.template -e local
+./bin/seatunnel.sh --config ./config/v2.batch.config.template -m local
 
 ```
 
@@ -91,6 +97,4 @@ SeaTunnel控制台将会打印一些如下日志信息:
 ## 此外
 
 现在,您已经快速浏览了SeaTunnel，你可以通过[连接器](../../../en/connector-v2/source/FakeSource.md)来找到SeaTunnel所支持的所有source和sink。
-如果您想要了解更多关于信息，请参阅[SeaTunnel引擎](../../seatunnel-engine/about.md).
-
-SeaTunnel还支持在Spark/Flink中运行作业。您可以查看[Spark快速开始](quick-start-spark.md)或[Flink快速开始](quick-start-flink.md)。
+如果您想要了解更多关于信息，请参阅[SeaTunnel引擎](../../seatunnel-engine/about.md). 在这里你将了解如何部署SeaTunnel Engine的集群模式以及如何在集群模式下使用。

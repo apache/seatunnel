@@ -139,7 +139,12 @@ public class ClickhouseProxy {
         Map<String, String> schema = new LinkedHashMap<>();
         try (ClickHouseResponse response = request.query(sql).executeAndWait()) {
             response.records()
-                    .forEach(r -> schema.put(r.getValue(0).asString(), r.getValue(1).asString()));
+                    .forEach(
+                            r -> {
+                                if (!"MATERIALIZED".equals(r.getValue(2).asString())) {
+                                    schema.put(r.getValue(0).asString(), r.getValue(1).asString());
+                                }
+                            });
         } catch (ClickHouseException e) {
             throw new ClickhouseConnectorException(
                     CommonErrorCodeDeprecated.TABLE_SCHEMA_GET_FAILED,
