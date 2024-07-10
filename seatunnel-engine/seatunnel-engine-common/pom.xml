@@ -29,8 +29,10 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.hazelcast</groupId>
-            <artifactId>hazelcast</artifactId>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-hazelcast-shade</artifactId>
+            <version>${project.version}</version>
+            <classifier>optional</classifier>
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>

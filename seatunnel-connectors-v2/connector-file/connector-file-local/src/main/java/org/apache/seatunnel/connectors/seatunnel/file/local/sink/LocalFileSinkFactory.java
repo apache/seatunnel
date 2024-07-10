@@ -46,6 +46,8 @@ public class LocalFileSinkFactory extends BaseMultipleTableFileSinkFactory {
         return OptionRule.builder()
                 .required(BaseSinkConfig.FILE_PATH)
                 .optional(BaseSinkConfig.FILE_FORMAT_TYPE)
+                .optional(BaseSinkConfig.SCHEMA_SAVE_MODE)
+                .optional(BaseSinkConfig.DATA_SAVE_MODE)
                 .conditional(
                         BaseSinkConfig.FILE_FORMAT_TYPE,
                         FileFormat.TEXT,

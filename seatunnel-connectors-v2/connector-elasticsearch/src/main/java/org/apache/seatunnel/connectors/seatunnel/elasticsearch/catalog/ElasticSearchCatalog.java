@@ -217,8 +217,7 @@ public class ElasticSearchCatalog implements Catalog {
 
     @Override
     public void truncateTable(TablePath tablePath, boolean ignoreIfNotExists) {
-        dropTable(tablePath, ignoreIfNotExists);
-        createTable(tablePath, null, ignoreIfNotExists);
+        esRestClient.clearIndexData(tablePath.getTableName());
     }
 
     @Override

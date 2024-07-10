@@ -315,6 +315,7 @@ Some Notes:
 - quota with `'` if the value has special character (like `(`)
 - if the replacement variables is in `"` or `'`, like `resName` and `nameVal`, you need add `"`
 - the value can't have space `' '`, like `-i jobName='this is a job name' `, this will be replaced to `job.name = "this"`
+- If you want to use dynamic parameters,you can use the following format: -i date=$(date +"%Y%m%d").
 
 ## What's More
 
