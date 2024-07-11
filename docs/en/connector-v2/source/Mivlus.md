@@ -12,6 +12,26 @@ Read data from Milvus or Zilliz Cloud
 - [x] [exactly-once](../../concept/connector-v2-features.md)
 - [ ] [column projection](../../concept/connector-v2-features.md)
 
+## Data Type Mapping
+
+|  Milvus Data Type   | SeaTunnel Data Type |
+|---------------------|---------------------|
+| INT8                | TINYINT             |
+| INT16               | SMALLINT            |
+| INT32               | INT                 |
+| INT64               | BIGINT              |
+| FLOAT               | FLOAT               |
+| DOUBLE              | DOUBLE              |
+| BOOL                | BOOLEAN             |
+| JSON                | STRING              |
+| ARRAY               | ARRAY               |
+| VARCHAR             | STRING              |
+| FLOAT_VECTOR        | FLOAT_VECTOR        |
+| BINARY_VECTOR       | BINARY_VECTOR       |
+| FLOAT16_VECTOR      | FLOAT16_VECTOR      |
+| BFLOAT16_VECTOR     | BFLOAT16_VECTOR     |
+| SPARSE_FLOAT_VECTOR | SPARSE_FLOAT_VECTOR |
+
 ## Source Options
 
 |    Name    |  Type  | Required | Default |                                        Description                                         |
