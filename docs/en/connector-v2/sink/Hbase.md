@@ -116,7 +116,20 @@ Hbase {
     all_columns = seatunnel
   }
 }
+```
 
+## Writes To The Specified Column Family
+
+```hocon
+Hbase {
+  zookeeper_quorum = "hbase_e2e:2181"
+  table = "assign_cf_table"
+  rowkey_column = ["id"]
+  family_name {
+    c_double = "cf1"
+    c_bigint = "cf2"
+  }
+}
 ```
 
 ## Changelog

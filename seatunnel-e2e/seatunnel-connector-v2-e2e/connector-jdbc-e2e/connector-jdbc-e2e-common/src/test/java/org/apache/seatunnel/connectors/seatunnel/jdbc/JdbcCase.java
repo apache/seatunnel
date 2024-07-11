@@ -52,6 +52,7 @@ public class JdbcCase {
     private List<String> configFile;
     private Pair<String[], List<SeaTunnelRow>> testData;
     private Map<String, String> containerEnv;
+    private boolean useSaveModeCreateTable;
 
     private String catalogDatabase;
     private String catalogSchema;

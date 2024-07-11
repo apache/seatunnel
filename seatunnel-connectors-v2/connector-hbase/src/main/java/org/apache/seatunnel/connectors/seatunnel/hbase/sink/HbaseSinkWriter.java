@@ -41,6 +41,7 @@ import org.apache.hadoop.hbase.util.Bytes;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -62,7 +63,7 @@ public class HbaseSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     private final int versionColumnIndex;
 
-    private String defaultFamilyName = "value";
+    private String writeAllColumnFamily;
 
     public HbaseSinkWriter(
             SeaTunnelRowType seaTunnelRowType,
@@ -76,7 +77,7 @@ public class HbaseSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         this.versionColumnIndex = versionColumnIndex;
 
         if (hbaseParameters.getFamilyNames().size() == 1) {
-            defaultFamilyName = hbaseParameters.getFamilyNames().getOrDefault(ALL_COLUMNS, "value");
+            this.writeAllColumnFamily = hbaseParameters.getFamilyNames().get(ALL_COLUMNS);
         }
 
         // initialize hbase configuration
@@ -131,8 +132,14 @@ public class HbaseSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                         .collect(Collectors.toList());
         for (Integer writeColumnIndex : writeColumnIndexes) {
             String fieldName = seaTunnelRowType.getFieldName(writeColumnIndex);
+            // This is the family of columns that we define to be written through the.conf file
+            Map<String, String> configurationFamilyNames = hbaseParameters.getFamilyNames();
             String familyName =
-                    hbaseParameters.getFamilyNames().getOrDefault(fieldName, defaultFamilyName);
+                    configurationFamilyNames.getOrDefault(fieldName, writeAllColumnFamily);
+            if (!configurationFamilyNames.containsKey(ALL_COLUMNS)
+                    && !configurationFamilyNames.containsKey(fieldName)) {
+                continue;
+            }
             byte[] bytes = convertColumnToBytes(row, writeColumnIndex);
             if (bytes != null) {
                 put.addColumn(Bytes.toBytes(familyName), Bytes.toBytes(fieldName), bytes);

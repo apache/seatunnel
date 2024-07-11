@@ -431,7 +431,9 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 // Iceberg S3 Hadoop catalog
                 || threadName.contains("java-sdk-http-connection-reaper")
                 || threadName.contains("Timer for 's3a-file-system' metrics system")
-                || threadName.startsWith("MutableQuantiles-");
+                || threadName.startsWith("MutableQuantiles-")
+                // JDBC Hana driver
+                || threadName.startsWith("Thread-");
     }
 
     @Override
