@@ -149,19 +149,6 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
                     "Failed to create index on vector field! Error: " + ret.getMessage());
         }
 
-        // Specify an index type on the varchar field.
-        ret =
-                milvusClient.createIndex(
-                        CreateIndexParam.newBuilder()
-                                .withCollectionName(COLLECTION_NAME)
-                                .withFieldName(TITLE_FIELD)
-                                .withIndexType(IndexType.TRIE)
-                                .build());
-        if (ret.getStatus() != R.Status.Success.getCode()) {
-            throw new RuntimeException(
-                    "Failed to create index on varchar field! Error: " + ret.getMessage());
-        }
-
         // Call loadCollection() to enable automatically loading data into memory for searching
         milvusClient.loadCollection(
                 LoadCollectionParam.newBuilder().withCollectionName(COLLECTION_NAME).build());

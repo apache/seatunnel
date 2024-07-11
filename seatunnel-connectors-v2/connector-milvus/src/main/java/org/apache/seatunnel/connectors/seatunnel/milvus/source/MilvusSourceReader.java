@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.milvus.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -94,14 +95,20 @@ public class MilvusSourceReader implements SourceReader<SeaTunnelRow, MilvusSour
             MilvusSourceSplit split = pendingSplits.poll();
             if (null != split) {
                 handleEveryRowInternal(split, output);
-            } else if (noMoreSplit && pendingSplits.isEmpty()) {
-                // signal to the source that we have reached the end of the data.
-                log.info("Closed the bounded mivlus source");
-                context.signalNoMoreElement();
             } else {
-                Thread.sleep(1000L);
+                if (!noMoreSplit) {
+                    log.info("Milvus source wait split!");
+                }
             }
         }
+        if (noMoreSplit
+                && pendingSplits.isEmpty()
+                && Boundedness.BOUNDED.equals(context.getBoundedness())) {
+            // signal to the source that we have reached the end of the data.
+            log.info("Closed the bounded milvus source");
+            context.signalNoMoreElement();
+        }
+        Thread.sleep(1000L);
     }
 
     private void handleEveryRowInternal(MilvusSourceSplit split, Collector<SeaTunnelRow> output) {
