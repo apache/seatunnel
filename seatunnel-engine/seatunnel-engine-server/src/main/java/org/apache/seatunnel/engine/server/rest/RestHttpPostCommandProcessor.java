@@ -131,7 +131,7 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
                         startWithSavePoint,
                         finalJobId);
         JobImmutableInformation jobImmutableInformation = restJobExecutionEnvironment.build();
-        Long jobId = jobImmutableInformation.getJobId();
+        long jobId = jobImmutableInformation.getJobId();
         if (!seaTunnelServer.isMasterNode()) {
 
             NodeEngineUtil.sendOperationToMasterNode(
@@ -147,7 +147,7 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
         this.prepareResponse(
                 httpPostCommand,
                 new JsonObject()
-                        .add(RestConstant.JOB_ID, jobId)
+                        .add(RestConstant.JOB_ID, String.valueOf(jobId))
                         .add(RestConstant.JOB_NAME, jobConfig.getName()));
     }
 

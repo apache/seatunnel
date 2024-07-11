@@ -293,6 +293,9 @@ public class CheckpointCoordinator {
     private void restoreTaskState(TaskLocation taskLocation) {
         List<ActionSubtaskState> states = new ArrayList<>();
         if (latestCompletedCheckpoint != null) {
+            if (!latestCompletedCheckpoint.isRestored()) {
+                latestCompletedCheckpoint.setRestored(true);
+            }
             final Integer currentParallelism = pipelineTasks.get(taskLocation.getTaskVertexId());
             plan.getSubtaskActions()
                     .get(taskLocation)

@@ -223,7 +223,9 @@ public abstract class AbstractResourceManager implements ResourceManager {
     @Override
     public CompletableFuture<Void> releaseResource(long jobId, SlotProfile profile) {
         if (nodeEngine.getClusterService().getMember(profile.getWorker()) != null) {
-            return sendToMember(new ReleaseSlotOperation(jobId, profile), profile.getWorker());
+            CompletableFuture<WorkerProfile> future =
+                    sendToMember(new ReleaseSlotOperation(jobId, profile), profile.getWorker());
+            return future.thenAccept(this::heartbeat);
         } else {
             return CompletableFuture.completedFuture(null);
         }
