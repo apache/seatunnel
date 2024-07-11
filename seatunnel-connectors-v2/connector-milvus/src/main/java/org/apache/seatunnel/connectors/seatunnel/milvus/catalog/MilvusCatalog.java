@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.InfoPreviewResult;
 import org.apache.seatunnel.api.table.catalog.PreviewResult;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
@@ -195,18 +196,26 @@ public class MilvusCatalog implements Catalog {
         checkNotNull(tableSchema, "tableSchema must not be null");
         createTableInternal(tablePath, catalogTable);
 
-        if (CollectionUtils.isNotEmpty(tableSchema.getVectorIndexes())) {
-            createIndexInternal(tablePath, tableSchema.getVectorIndexes());
+        if (CollectionUtils.isNotEmpty(tableSchema.getConstraintKeys())) {
+            for (ConstraintKey constraintKey : tableSchema.getConstraintKeys()) {
+                if (constraintKey
+                        .getConstraintType()
+                        .equals(ConstraintKey.ConstraintType.VECTOR_INDEX_KEY)) {
+                    createIndexInternal(tablePath, constraintKey.getColumnNames());
+                }
+            }
         }
     }
 
-    private void createIndexInternal(TablePath tablePath, List<VectorIndex> vectorIndexes) {
-        for (VectorIndex index : vectorIndexes) {
+    private void createIndexInternal(
+            TablePath tablePath, List<ConstraintKey.ConstraintKeyColumn> vectorIndexes) {
+        for (ConstraintKey.ConstraintKeyColumn column : vectorIndexes) {
+            VectorIndex index = (VectorIndex) column;
             CreateIndexParam createIndexParam =
                     CreateIndexParam.newBuilder()
                             .withDatabaseName(tablePath.getDatabaseName())
                             .withCollectionName(tablePath.getTableName())
-                            .withFieldName(index.getFieldName())
+                            .withFieldName(index.getColumnName())
                             .withIndexName(index.getIndexName())
                             .withIndexType(IndexType.valueOf(index.getIndexType()))
                             .withMetricType(MetricType.valueOf(index.getMetricType()))

@@ -69,7 +69,7 @@ import java.util.stream.Stream;
 public class MilvusIT extends TestSuiteBase implements TestResource {
 
     private static final String HOST = "milvus-e2e";
-    private static final String MILVUS_IMAGE = "milvusdb/milvus";
+    private static final String MILVUS_IMAGE = "milvusdb/milvus:2.4-20240711-7e2a9d6b";
     private static final String TOKEN = "root:Milvus";
     private MilvusContainer container;
     private MilvusServiceClient milvusClient;
@@ -82,12 +82,12 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
     @BeforeAll
     @Override
     public void startUp() throws Exception {
-        this.container = new MilvusContainer(MILVUS_IMAGE);
+        this.container =
+                new MilvusContainer(MILVUS_IMAGE).withNetwork(NETWORK).withNetworkAliases(HOST);
         Startables.deepStart(Stream.of(this.container)).join();
-        Awaitility.given().ignoreExceptions().await().atMost(720L, TimeUnit.SECONDS);
-        this.container.setNetwork(NETWORK);
+        log.info("Milvus host is {}", container.getHost());
         log.info("Milvus container started");
-        log.info("Milvus host is {}", container.getEndpoint());
+        Awaitility.given().ignoreExceptions().await().atMost(720L, TimeUnit.SECONDS);
         this.initMilvus();
         this.initSourceData();
     }

@@ -17,29 +17,34 @@
 
 package org.apache.seatunnel.api.table.catalog;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
 
 import java.io.Serializable;
 
 /** Vector Database need special Index on its vector field. */
-@AllArgsConstructor
-@Builder
-@NoArgsConstructor
-@Data
-public class VectorIndex implements Serializable {
+@EqualsAndHashCode(callSuper = true)
+@Getter
+public class VectorIndex extends ConstraintKey.ConstraintKeyColumn implements Serializable {
 
     /** Vector index name */
-    private String indexName;
-
-    /** Vector field name */
-    private String fieldName;
+    private final String indexName;
 
     /** Vector indexType, such as IVF_FLAT, HNSW, DISKANN */
-    private String indexType;
+    private final String indexType;
 
     /** Vector index metricType, such as L2, IP, COSINE */
-    private String metricType;
+    private final String metricType;
+
+    public VectorIndex(String indexName, String columnName, String indexType, String metricType) {
+        super(columnName, null);
+        this.indexName = indexName;
+        this.indexType = indexType;
+        this.metricType = metricType;
+    }
+
+    @Override
+    public ConstraintKey.ConstraintKeyColumn copy() {
+        return new VectorIndex(indexName, getColumnName(), indexType, metricType);
+    }
 }

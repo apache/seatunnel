@@ -39,9 +39,6 @@ public final class TableSchema implements Serializable {
 
     private final List<ConstraintKey> constraintKeys;
 
-    /** Vector database schema has vector index info */
-    private List<VectorIndex> vectorIndexes;
-
     public static Builder builder() {
         return new Builder();
     }
@@ -71,8 +68,6 @@ public final class TableSchema implements Serializable {
 
         private final List<ConstraintKey> constraintKeys = new ArrayList<>();
 
-        private final List<VectorIndex> vectorIndexes = new ArrayList<>();
-
         public Builder columns(List<Column> columns) {
             this.columns.addAll(columns);
             return this;
@@ -88,11 +83,6 @@ public final class TableSchema implements Serializable {
             return this;
         }
 
-        public Builder vectorIndexes(List<VectorIndex> vectorIndexes) {
-            this.vectorIndexes.addAll(vectorIndexes);
-            return this;
-        }
-
         public Builder constraintKey(ConstraintKey constraintKey) {
             this.constraintKeys.add(constraintKey);
             return this;
@@ -104,7 +94,7 @@ public final class TableSchema implements Serializable {
         }
 
         public TableSchema build() {
-            return new TableSchema(columns, primaryKey, constraintKeys, vectorIndexes);
+            return new TableSchema(columns, primaryKey, constraintKeys);
         }
     }
 
@@ -116,7 +106,6 @@ public final class TableSchema implements Serializable {
                 .constraintKey(copyConstraintKeys)
                 .columns(copyColumns)
                 .primaryKey(primaryKey == null ? null : primaryKey.copy())
-                .vectorIndexes(vectorIndexes)
                 .build();
     }
 }

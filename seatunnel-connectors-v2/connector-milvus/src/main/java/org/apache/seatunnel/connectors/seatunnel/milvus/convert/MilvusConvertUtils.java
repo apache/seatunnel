@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.milvus.convert;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
@@ -147,14 +148,18 @@ public class MilvusConvertUtils {
             throw new MilvusConnectorException(MilvusConnectionErrorCode.DESC_INDEX_ERROR);
         }
         DescribeIndexResponse indexResponse = describeIndexResponseR.getData();
-        List<VectorIndex> vectorIndexes = buildVectorIndexes(indexResponse);
+        List<ConstraintKey.ConstraintKeyColumn> vectorIndexes = buildVectorIndexes(indexResponse);
 
         // build tableSchema
         TableSchema tableSchema =
                 TableSchema.builder()
                         .columns(columns)
                         .primaryKey(primaryKey)
-                        .vectorIndexes(vectorIndexes)
+                        .constraintKey(
+                                ConstraintKey.of(
+                                        ConstraintKey.ConstraintType.VECTOR_INDEX_KEY,
+                                        "vector_index",
+                                        vectorIndexes))
                         .build();
 
         // build tableId
@@ -169,12 +174,13 @@ public class MilvusConvertUtils {
                 tableId, tableSchema, options, new ArrayList<>(), schema.getDescription());
     }
 
-    private static List<VectorIndex> buildVectorIndexes(DescribeIndexResponse indexResponse) {
+    private static List<ConstraintKey.ConstraintKeyColumn> buildVectorIndexes(
+            DescribeIndexResponse indexResponse) {
         if (CollectionUtils.isEmpty(indexResponse.getIndexDescriptionsList())) {
             return null;
         }
 
-        List<VectorIndex> list = new ArrayList<>();
+        List<ConstraintKey.ConstraintKeyColumn> list = new ArrayList<>();
         for (IndexDescription per : indexResponse.getIndexDescriptionsList()) {
             Map<String, String> paramsMap =
                     per.getParamsList().stream()
@@ -182,12 +188,11 @@ public class MilvusConvertUtils {
                                     Collectors.toMap(KeyValuePair::getKey, KeyValuePair::getValue));
 
             VectorIndex index =
-                    VectorIndex.builder()
-                            .fieldName(per.getFieldName())
-                            .indexName(per.getIndexName())
-                            .metricType(paramsMap.get("metric_type"))
-                            .indexType(paramsMap.get("index_type"))
-                            .build();
+                    new VectorIndex(
+                            per.getIndexName(),
+                            per.getFieldName(),
+                            paramsMap.get("index_type"),
+                            paramsMap.get("metric_type"));
 
             list.add(index);
         }

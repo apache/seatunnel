@@ -41,8 +41,8 @@ public class MilvusSource
     private final ReadonlyConfig config;
     private final Map<TablePath, CatalogTable> sourceTables;
 
-    public MilvusSource(ReadonlyConfig sourceConfing) {
-        this.config = sourceConfing;
+    public MilvusSource(ReadonlyConfig sourceConfig) {
+        this.config = sourceConfig;
         this.sourceTables = MilvusConvertUtils.getSourceTables(config);
     }
 
