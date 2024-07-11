@@ -179,7 +179,7 @@ public class TablePlaceholder {
 
     public static ReadonlyConfig replaceTablePlaceholder(
             ReadonlyConfig config, CatalogTable table, Collection<String> excludeKeys) {
-        Map<String, Object> copyOnWriteData = config.copyData();
+        Map<String, Object> copyOnWriteData = config.getSourceMap();
         for (String key : copyOnWriteData.keySet()) {
             if (excludeKeys.contains(key)) {
                 continue;

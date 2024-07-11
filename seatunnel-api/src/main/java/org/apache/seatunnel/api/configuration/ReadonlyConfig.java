@@ -144,10 +144,6 @@ public class ReadonlyConfig implements Serializable {
         }
     }
 
-    public Map<String, Object> copyData() {
-        return new LinkedHashMap<>(this.confData);
-    }
-
     @Override
     public int hashCode() {
         int hash = 0;
