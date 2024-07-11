@@ -79,7 +79,7 @@ public class MilvusBufferBatchWriter implements MilvusBatchWriter {
     }
 
     @Override
-    public boolean flush() {
+    public synchronized boolean flush() {
         if (CollectionUtils.isEmpty(this.milvusDataCache)) {
             return true;
         }

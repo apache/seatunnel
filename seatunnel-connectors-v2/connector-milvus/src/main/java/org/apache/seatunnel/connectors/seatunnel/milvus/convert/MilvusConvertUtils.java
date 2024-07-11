@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.catalog.VectorIndex;
+import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -345,5 +346,44 @@ public class MilvusConvertUtils {
                 throw new MilvusConnectorException(
                         MilvusConnectionErrorCode.NOT_SUPPORT_TYPE, sqlType.name());
         }
+    }
+
+    public static DataType convertSqlTypeToDataType(SqlType sqlType) {
+        switch (sqlType) {
+            case BOOLEAN:
+                return DataType.Bool;
+            case TINYINT:
+                return DataType.Int8;
+            case SMALLINT:
+                return DataType.Int16;
+            case INT:
+                return DataType.Int32;
+            case BIGINT:
+                return DataType.Int64;
+            case FLOAT:
+                return DataType.Float;
+            case DOUBLE:
+                return DataType.Double;
+            case STRING:
+                return DataType.VarChar;
+            case ARRAY:
+                return DataType.Array;
+            case FLOAT_VECTOR:
+                return DataType.FloatVector;
+            case BINARY_VECTOR:
+                return DataType.BinaryVector;
+            case FLOAT16_VECTOR:
+                return DataType.Float16Vector;
+            case BFLOAT16_VECTOR:
+                return DataType.BFloat16Vector;
+            case SPARSE_FLOAT_VECTOR:
+                return DataType.SparseFloatVector;
+            case DATE:
+                return DataType.VarChar;
+            case ROW:
+                return DataType.VarChar;
+        }
+        throw new CatalogException(
+                String.format("Not support convert to milvus type, sqlType is %s", sqlType));
     }
 }

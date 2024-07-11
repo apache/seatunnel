@@ -34,8 +34,8 @@ import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistExcepti
 import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.milvus.convert.MilvusConvertUtils;
 import org.apache.seatunnel.connectors.seatunnel.milvus.exception.MilvusConnectionErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.milvus.exception.MilvusConnectorException;
 
@@ -257,7 +257,9 @@ public class MilvusCatalog implements Catalog {
         FieldType.Builder build =
                 FieldType.newBuilder()
                         .withName(column.getName())
-                        .withDataType(convertToDataType(seaTunnelDataType.getSqlType()));
+                        .withDataType(
+                                MilvusConvertUtils.convertSqlTypeToDataType(
+                                        seaTunnelDataType.getSqlType()));
         switch (seaTunnelDataType.getSqlType()) {
             case ROW:
                 build.withMaxLength(65535);
@@ -296,7 +298,8 @@ public class MilvusCatalog implements Catalog {
             case ARRAY:
                 ArrayType arrayType = (ArrayType) column.getDataType();
                 SeaTunnelDataType elementType = arrayType.getElementType();
-                build.withElementType(convertToDataType(elementType.getSqlType()));
+                build.withElementType(
+                        MilvusConvertUtils.convertSqlTypeToDataType(elementType.getSqlType()));
                 build.withMaxCapacity(4095);
                 switch (elementType.getSqlType()) {
                     case STRING:
@@ -326,45 +329,6 @@ public class MilvusCatalog implements Catalog {
         }
 
         return build.build();
-    }
-
-    private static DataType convertToDataType(SqlType sqlType) {
-        switch (sqlType) {
-            case BOOLEAN:
-                return DataType.Bool;
-            case TINYINT:
-                return DataType.Int8;
-            case SMALLINT:
-                return DataType.Int16;
-            case INT:
-                return DataType.Int32;
-            case BIGINT:
-                return DataType.Int64;
-            case FLOAT:
-                return DataType.Float;
-            case DOUBLE:
-                return DataType.Double;
-            case STRING:
-                return DataType.VarChar;
-            case ARRAY:
-                return DataType.Array;
-            case FLOAT_VECTOR:
-                return DataType.FloatVector;
-            case BINARY_VECTOR:
-                return DataType.BinaryVector;
-            case FLOAT16_VECTOR:
-                return DataType.Float16Vector;
-            case BFLOAT16_VECTOR:
-                return DataType.BFloat16Vector;
-            case SPARSE_FLOAT_VECTOR:
-                return DataType.SparseFloatVector;
-            case DATE:
-                return DataType.VarChar;
-            case ROW:
-                return DataType.VarChar;
-        }
-        throw new CatalogException(
-                String.format("Not support convert to milvus type, sqlType is %s", sqlType));
     }
 
     @Override
