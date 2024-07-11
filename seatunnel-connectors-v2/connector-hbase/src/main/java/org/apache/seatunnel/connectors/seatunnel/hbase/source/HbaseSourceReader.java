@@ -50,7 +50,7 @@ import java.util.stream.Collectors;
 
 @Slf4j
 public class HbaseSourceReader implements SourceReader<SeaTunnelRow, HbaseSourceSplit> {
-    private final String ROW_KEY = "rowkey";
+    private static final String ROW_KEY = "rowkey";
     private final Deque<HbaseSourceSplit> sourceSplits = new ConcurrentLinkedDeque<>();
 
     private final transient Map<String, byte[][]> namesMap;
@@ -76,7 +76,7 @@ public class HbaseSourceReader implements SourceReader<SeaTunnelRow, HbaseSource
 
         this.columnNames =
                 Arrays.asList(seaTunnelRowType.getFieldNames()).stream()
-                        .filter(name -> !this.ROW_KEY.equals(name))
+                        .filter(name -> !ROW_KEY.equals(name))
                         .collect(Collectors.toList());
         // Check if input column names are in format: [ columnFamily:column ].
         this.columnNames.stream()
@@ -162,7 +162,7 @@ public class HbaseSourceReader implements SourceReader<SeaTunnelRow, HbaseSource
             byte[] bytes;
             try {
                 // handle rowkey column
-                if (this.ROW_KEY.equals(columnName)) {
+                if (ROW_KEY.equals(columnName)) {
                     bytes = result.getRow();
                 } else {
                     byte[][] arr = this.namesMap.get(columnName);
