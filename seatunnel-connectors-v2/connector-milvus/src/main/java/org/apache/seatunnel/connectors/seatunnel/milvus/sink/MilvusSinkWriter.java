@@ -101,6 +101,7 @@ public class MilvusSinkWriter
      */
     @Override
     public Optional<MilvusCommitInfo> prepareCommit() throws IOException {
+        batchWriter.flush();
         return Optional.empty();
     }
 
