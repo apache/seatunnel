@@ -38,8 +38,6 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.iris.IrisTypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.iris.IrisTypeMapper;
 
-import org.apache.commons.lang3.StringUtils;
-
 import com.google.common.annotations.VisibleForTesting;
 import lombok.extern.slf4j.Slf4j;
 
@@ -88,6 +86,13 @@ public class IrisCatalog extends AbstractJdbcCatalog {
     @Override
     protected String getListTableSql(String tableSchemaName) {
         return String.format(LIST_TABLES_SQL_TEMPLATE, tableSchemaName);
+    }
+
+    @Override
+    protected String getTableSQL(TablePath tablePath) {
+        return String.format(
+                "SELECT TABLE_SCHEMA,TABLE_NAME FROM INFORMATION_SCHEMA.Tables WHERE TABLE_SCHEMA='%s' AND TABLE_NAME='%s'",
+                tablePath.getSchemaName(), tablePath.getTableName());
     }
 
     @Override
@@ -143,16 +148,6 @@ public class IrisCatalog extends AbstractJdbcCatalog {
     }
 
     @Override
-    public boolean tableExists(TablePath tablePath) throws CatalogException {
-        try {
-            return listTables(tablePath.getSchemaName())
-                    .contains(tablePath.getSchemaAndTableName());
-        } catch (DatabaseNotExistException e) {
-            return false;
-        }
-    }
-
-    @Override
     public List<String> listTables(String schemaName)
             throws CatalogException, DatabaseNotExistException {
         try {
@@ -172,18 +167,8 @@ public class IrisCatalog extends AbstractJdbcCatalog {
     @Override
     public CatalogTable getTable(TablePath tablePath)
             throws CatalogException, TableNotExistException {
-        if (!tableExists(tablePath)) {
-            throw new TableNotExistException(catalogName, tablePath);
-        }
-
-        String dbUrl;
-        if (StringUtils.isNotBlank(tablePath.getDatabaseName())) {
-            dbUrl = getUrlFromDatabaseName(tablePath.getDatabaseName());
-        } else {
-            dbUrl = getUrlFromDatabaseName(defaultDatabase);
-        }
         try {
-            Connection conn = getConnection(dbUrl);
+            Connection conn = getConnection(tablePath);
             DatabaseMetaData metaData = conn.getMetaData();
             try (ResultSet resultSet =
                     metaData.getColumns(

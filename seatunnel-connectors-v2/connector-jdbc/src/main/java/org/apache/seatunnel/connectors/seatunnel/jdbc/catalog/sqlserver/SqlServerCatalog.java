@@ -22,7 +22,6 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
-import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalog;
@@ -79,6 +78,18 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
         return "SELECT TABLE_SCHEMA, TABLE_NAME FROM "
                 + databaseName
                 + ".INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE'";
+    }
+
+    @Override
+    protected String getTableSQL(TablePath tablePath) {
+        String database = tablePath.getDatabaseName();
+        if (database == null) {
+            database = defaultDatabase;
+        }
+        return String.format(
+                "SELECT TABLE_SCHEMA, TABLE_NAME FROM %s.INFORMATION_SCHEMA.TABLES"
+                        + " WHERE TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s'",
+                database, tablePath.getSchemaAndTableName(), tablePath.getTableName());
     }
 
     @Override
@@ -145,20 +156,6 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
     @Override
     protected String getUrlFromDatabaseName(String databaseName) {
         return baseUrl + ";databaseName=" + databaseName + ";" + suffix;
-    }
-
-    @Override
-    public boolean tableExists(TablePath tablePath) throws CatalogException {
-        try {
-            if (StringUtils.isNotBlank(tablePath.getDatabaseName())) {
-                return databaseExists(tablePath.getDatabaseName())
-                        && listTables(tablePath.getDatabaseName())
-                                .contains(tablePath.getSchemaAndTableName());
-            }
-            return listTables(defaultDatabase).contains(tablePath.getSchemaAndTableName());
-        } catch (DatabaseNotExistException e) {
-            return false;
-        }
     }
 
     @Override

@@ -30,8 +30,6 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dm.DmdbTypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dm.DmdbTypeMapper;
 
-import org.apache.commons.lang3.StringUtils;
-
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
@@ -96,6 +94,13 @@ public class DamengCatalog extends AbstractJdbcCatalog {
     }
 
     @Override
+    protected String getTableSQL(TablePath tablePath) {
+        return String.format(
+                "SELECT OWNER, TABLE_NAME FROM ALL_TABLES WHERE OWNER = '%s' AND TABLE_NAME = '%s'",
+                tablePath.getSchemaName(), tablePath.getTableName());
+    }
+
+    @Override
     protected String getTableName(ResultSet rs) throws SQLException {
         if (EXCLUDED_SCHEMAS.contains(rs.getString(1))) {
             return null;
@@ -143,25 +148,6 @@ public class DamengCatalog extends AbstractJdbcCatalog {
     @Override
     protected String getOptionTableName(TablePath tablePath) {
         return tablePath.getSchemaAndTableName();
-    }
-
-    @Override
-    public boolean tableExists(TablePath tablePath) throws CatalogException {
-        try {
-            if (StringUtils.isNotBlank(tablePath.getDatabaseName())) {
-                return databaseExists(tablePath.getDatabaseName())
-                        && listTables(tablePath.getDatabaseName())
-                                .contains(tablePath.getSchemaAndTableName());
-            }
-            return listTables().contains(tablePath.getSchemaAndTableName());
-        } catch (DatabaseNotExistException e) {
-            return false;
-        }
-    }
-
-    private List<String> listTables() {
-        List<String> databases = listDatabases();
-        return listTables(databases.get(0));
     }
 
     @Override

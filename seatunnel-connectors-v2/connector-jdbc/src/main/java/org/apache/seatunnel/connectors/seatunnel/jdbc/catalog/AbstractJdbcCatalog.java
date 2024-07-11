@@ -111,6 +111,16 @@ public abstract class AbstractJdbcCatalog implements Catalog {
         return defaultDatabase;
     }
 
+    protected Connection getConnection(TablePath tablePath) {
+        String dbUrl;
+        if (StringUtils.isNotBlank(tablePath.getDatabaseName())) {
+            dbUrl = getUrlFromDatabaseName(tablePath.getDatabaseName());
+        } else {
+            dbUrl = getUrlFromDatabaseName(defaultDatabase);
+        }
+        return getConnection(dbUrl);
+    }
+
     protected Connection getConnection(String url) {
         if (connectionMap.containsKey(url)) {
             return connectionMap.get(url);
@@ -126,7 +136,6 @@ public abstract class AbstractJdbcCatalog implements Catalog {
 
     @Override
     public void open() throws CatalogException {
-        getConnection(defaultUrl);
         LOG.info("Catalog {} established connection to {}", catalogName, defaultUrl);
     }
 
@@ -162,17 +171,7 @@ public abstract class AbstractJdbcCatalog implements Catalog {
 
     public CatalogTable getTable(TablePath tablePath)
             throws CatalogException, TableNotExistException {
-        if (!tableExists(tablePath)) {
-            throw new TableNotExistException(catalogName, tablePath);
-        }
-
-        String dbUrl;
-        if (StringUtils.isNotBlank(tablePath.getDatabaseName())) {
-            dbUrl = getUrlFromDatabaseName(tablePath.getDatabaseName());
-        } else {
-            dbUrl = getUrlFromDatabaseName(defaultDatabase);
-        }
-        Connection conn = getConnection(dbUrl);
+        Connection conn = getConnection(tablePath);
         try {
             DatabaseMetaData metaData = conn.getMetaData();
             Optional<PrimaryKey> primaryKey = getPrimaryKey(metaData, tablePath);
@@ -286,6 +285,10 @@ public abstract class AbstractJdbcCatalog implements Catalog {
         throw new UnsupportedOperationException();
     }
 
+    protected String getTableSQL(TablePath tablePath) {
+        throw new UnsupportedOperationException();
+    }
+
     protected String getTableName(ResultSet rs) throws SQLException {
         String schemaName = rs.getString(1);
         String tableName = rs.getString(2);
@@ -317,11 +320,13 @@ public abstract class AbstractJdbcCatalog implements Catalog {
 
     @Override
     public boolean tableExists(TablePath tablePath) throws CatalogException {
-        try {
-            return databaseExists(tablePath.getDatabaseName())
-                    && listTables(tablePath.getDatabaseName()).contains(getTableName(tablePath));
-        } catch (DatabaseNotExistException e) {
-            return false;
+        try (Connection connection = getConnection(tablePath);
+                PreparedStatement ps = connection.prepareStatement(getTableSQL(tablePath));
+                ResultSet rs = ps.executeQuery()) {
+            return rs.next();
+        } catch (SQLException e) {
+            throw new CatalogException(
+                    String.format("Failed to check table exists", tablePath.getFullName()), e);
         }
     }
 
