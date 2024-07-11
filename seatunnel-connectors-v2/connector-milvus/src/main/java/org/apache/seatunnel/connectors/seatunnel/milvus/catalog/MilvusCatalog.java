@@ -212,7 +212,11 @@ public class MilvusCatalog implements Catalog {
                             .withMetricType(MetricType.valueOf(index.getMetricType()))
                             .build();
 
-            client.createIndex(createIndexParam);
+            R<RpcStatus> response = client.createIndex(createIndexParam);
+            if (!Objects.equals(response.getStatus(), R.success().getStatus())) {
+                throw new MilvusConnectorException(
+                        MilvusConnectionErrorCode.CREATE_INDEX_ERROR, response.getMessage());
+            }
         }
     }
 
@@ -244,13 +248,12 @@ public class MilvusCatalog implements Catalog {
             CreateCollectionParam createCollectionParam = builder.build();
             R<RpcStatus> response = this.client.createCollection(createCollectionParam);
             if (!Objects.equals(response.getStatus(), R.success().getStatus())) {
-                throw new CatalogException(
-                        String.format("Create collection failed, err=%s", response.getMessage()),
-                        response.getException());
+                throw new MilvusConnectorException(
+                        MilvusConnectionErrorCode.CREATE_COLLECTION_ERROR, response.getMessage());
             }
         } catch (Exception e) {
-            throw new CatalogException(
-                    String.format("Failed creating collection %s", tablePath.getFullName()), e);
+            throw new MilvusConnectorException(
+                    MilvusConnectionErrorCode.CREATE_COLLECTION_ERROR, e);
         }
     }
 
