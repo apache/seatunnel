@@ -92,7 +92,7 @@
                             <exclude>org.apache.logging.log4j:log4j-slf4j-impl</exclude>
                             <exclude>org.apache.logging.log4j:log4j-1.2-api</exclude>
                             <exclude>org.apache.logging.log4j:log4j-to-slf4j</exclude>
-                            <exclude>org.apache.seatunnel:seatunnel-hadoop3-3.1.4-uber</exclude>
+                            <exclude>org.apache.seatunnel:seatunnel-hadoop3-3.3.4-uber</exclude>
                         </excludes>
                     </artifactSet>
                 </configuration>
