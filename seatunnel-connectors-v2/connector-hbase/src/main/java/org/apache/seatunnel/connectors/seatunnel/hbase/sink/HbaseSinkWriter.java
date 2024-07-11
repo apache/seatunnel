@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hbase.sink;
 
+import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -44,7 +45,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-public class HbaseSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
+public class HbaseSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
+        implements SupportMultiTableSinkWriter<Void> {
 
     private static final String ALL_COLUMNS = "all_columns";
 

@@ -23,6 +23,8 @@ import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSink;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
@@ -45,7 +47,8 @@ import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.ZOOKEEPER_QUORUM;
 
 @AutoService(SeaTunnelSink.class)
-public class HbaseSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
+public class HbaseSink extends AbstractSimpleSink<SeaTunnelRow, Void>
+        implements SupportMultiTableSink {
 
     private Config pluginConfig;
 
@@ -56,6 +59,14 @@ public class HbaseSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     private List<Integer> rowkeyColumnIndexes = new ArrayList<>();
 
     private int versionColumnIndex = -1;
+    private CatalogTable catalogTable;
+
+    public HbaseSink(Config config, CatalogTable catalogTable) {
+        this.pluginConfig = config;
+        this.catalogTable = catalogTable;
+        this.prepare(pluginConfig);
+        this.setTypeInfo(catalogTable.getSeaTunnelRowType());
+    }
 
     @Override
     public String getPluginName() {
