@@ -147,7 +147,7 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
         for (Result result : scanner) {
             results.add(result);
         }
-        Assertions.assertEquals(results.size(), 5);
+        Assertions.assertEquals(results.size(), 11);
         scanner.close();
         Container.ExecResult sourceExecResult =
                 container.executeJob("/hbase-to-assert-with-multipletable.conf");
