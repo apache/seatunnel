@@ -24,17 +24,22 @@ import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
 
+/** Vector Database need special Index on its vector field. */
 @AllArgsConstructor
 @Builder
 @NoArgsConstructor
 @Data
 public class VectorIndex implements Serializable {
 
+    /** Vector index name */
     private String indexName;
 
+    /** Vector field name */
     private String fieldName;
 
+    /** Vector indexType, such as IVF_FLAT, HNSW, DISKANN */
     private String indexType;
 
+    /** Vector index metricType, such as L2, IP, COSINE */
     private String metricType;
 }

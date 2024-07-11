@@ -34,6 +34,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.api.table.type.VectorType;
 import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.connectors.seatunnel.milvus.catalog.MilvusOptions;
 import org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.milvus.exception.MilvusConnectionErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.milvus.exception.MilvusConnectorException;
@@ -113,16 +114,6 @@ public class MilvusConvertUtils {
 
     public static CatalogTable getCatalogTable(
             MilvusServiceClient client, String database, String collection) {
-        TableIdentifier tableId = TableIdentifier.of(CATALOG_NAME, database, collection);
-        TableSchema tableSchema = getTableSchema(client, database, collection);
-
-        CatalogTable catalogTable =
-                CatalogTable.of(tableId, tableSchema, new HashMap<>(), new ArrayList<>(), null);
-        return catalogTable;
-    }
-
-    public static TableSchema getTableSchema(
-            MilvusServiceClient client, String database, String collection) {
         R<DescribeCollectionResponse> response =
                 client.describeCollection(
                         DescribeCollectionParam.newBuilder()
@@ -158,12 +149,24 @@ public class MilvusConvertUtils {
         DescribeIndexResponse indexResponse = describeIndexResponseR.getData();
         List<VectorIndex> vectorIndexes = buildVectorIndexes(indexResponse);
 
-        return TableSchema.builder()
-                .columns(columns)
-                .primaryKey(primaryKey)
-                .enableDynamicField(schema.getEnableDynamicField())
-                .vectorIndexes(vectorIndexes)
-                .build();
+        // build tableSchema
+        TableSchema tableSchema =
+                TableSchema.builder()
+                        .columns(columns)
+                        .primaryKey(primaryKey)
+                        .vectorIndexes(vectorIndexes)
+                        .build();
+
+        // build tableId
+        TableIdentifier tableId = TableIdentifier.of(CATALOG_NAME, database, collection);
+
+        // build options info
+        Map<String, String> options = new HashMap<>();
+        options.put(
+                MilvusOptions.ENABLE_DYNAMIC_FIELD, String.valueOf(schema.getEnableDynamicField()));
+
+        return CatalogTable.of(
+                tableId, tableSchema, options, new ArrayList<>(), schema.getDescription());
     }
 
     private static List<VectorIndex> buildVectorIndexes(DescribeIndexResponse indexResponse) {

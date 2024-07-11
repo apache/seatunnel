@@ -39,9 +39,8 @@ public final class TableSchema implements Serializable {
 
     private final List<ConstraintKey> constraintKeys;
 
+    /** Vector database schema has vector index info */
     private List<VectorIndex> vectorIndexes;
-
-    private Boolean enableDynamicField;
 
     public static Builder builder() {
         return new Builder();
@@ -74,8 +73,6 @@ public final class TableSchema implements Serializable {
 
         private final List<VectorIndex> vectorIndexes = new ArrayList<>();
 
-        private Boolean enableDynamicField;
-
         public Builder columns(List<Column> columns) {
             this.columns.addAll(columns);
             return this;
@@ -88,11 +85,6 @@ public final class TableSchema implements Serializable {
 
         public Builder primaryKey(PrimaryKey primaryKey) {
             this.primaryKey = primaryKey;
-            return this;
-        }
-
-        public Builder enableDynamicField(Boolean enableDynamicField) {
-            this.enableDynamicField = enableDynamicField;
             return this;
         }
 
@@ -112,8 +104,7 @@ public final class TableSchema implements Serializable {
         }
 
         public TableSchema build() {
-            return new TableSchema(
-                    columns, primaryKey, constraintKeys, vectorIndexes, enableDynamicField);
+            return new TableSchema(columns, primaryKey, constraintKeys, vectorIndexes);
         }
     }
 
@@ -125,7 +116,6 @@ public final class TableSchema implements Serializable {
                 .constraintKey(copyConstraintKeys)
                 .columns(copyColumns)
                 .primaryKey(primaryKey == null ? null : primaryKey.copy())
-                .enableDynamicField(enableDynamicField)
                 .vectorIndexes(vectorIndexes)
                 .build();
     }

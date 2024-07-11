@@ -64,6 +64,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -223,9 +224,10 @@ public class MilvusCatalog implements Catalog {
                 fieldTypes.add(convertToFieldType(column, tableSchema.getPrimaryKey()));
             }
 
+            Map<String, String> options = catalogTable.getOptions();
             Boolean enableDynamicField =
-                    (null != tableSchema.getEnableDynamicField())
-                            ? tableSchema.getEnableDynamicField()
+                    (options.containsKey(MilvusOptions.ENABLE_DYNAMIC_FIELD))
+                            ? Boolean.valueOf(options.get(MilvusOptions.ENABLE_DYNAMIC_FIELD))
                             : config.get(MilvusSinkConfig.ENABLE_DYNAMIC_FIELD);
 
             CreateCollectionParam.Builder builder =
