@@ -76,7 +76,9 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
         // Create table for hbase sink test
         log.info("initial");
         hbaseCluster.createTable(TABLE_NAME, Arrays.asList(FAMILY_NAME));
+        hbaseCluster.createTable(ASSIGN_CF_TABLE_NAME, Arrays.asList("cf1", "cf2"));
         table = TableName.valueOf(TABLE_NAME);
+        tableAssign = TableName.valueOf(ASSIGN_CF_TABLE_NAME);
     }
 
     @AfterAll
