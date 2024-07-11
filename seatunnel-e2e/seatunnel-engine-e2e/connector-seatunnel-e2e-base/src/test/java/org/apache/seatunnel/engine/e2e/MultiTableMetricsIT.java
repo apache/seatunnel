@@ -28,6 +28,7 @@ import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.rest.RestConstant;
 
 import org.awaitility.Awaitility;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -101,5 +102,16 @@ public class MultiTableMetricsIT {
                                     .body("metrics.TableSinkWriteCount.fake1", equalTo("20"))
                                     .body("metrics.TableSinkWriteCount.fake2", equalTo("30"));
                         });
+    }
+
+    @AfterEach
+    void afterClass() {
+        if (engineClient != null) {
+            engineClient.close();
+        }
+
+        if (node1 != null) {
+            node1.shutdown();
+        }
     }
 }
