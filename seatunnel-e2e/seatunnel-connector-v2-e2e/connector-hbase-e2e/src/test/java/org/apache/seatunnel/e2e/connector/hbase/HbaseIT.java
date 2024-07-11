@@ -133,6 +133,27 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
         scanner.close();
     }
 
+    @TestTemplate
+    public void testHbaseSinkWithMultipleTable(TestContainer container)
+            throws IOException, InterruptedException {
+        deleteData(table);
+        Container.ExecResult sinkExecResult =
+                container.executeJob("/fake_to_hbase_with_multipletable.conf");
+        Assertions.assertEquals(0, sinkExecResult.getExitCode());
+        Table hbaseTable = hbaseConnection.getTable(table);
+        Scan scan = new Scan();
+        ResultScanner scanner = hbaseTable.getScanner(scan);
+        ArrayList<Result> results = new ArrayList<>();
+        for (Result result : scanner) {
+            results.add(result);
+        }
+        Assertions.assertEquals(results.size(), 5);
+        scanner.close();
+        Container.ExecResult sourceExecResult =
+                container.executeJob("/hbase-to-assert-with-multipletable.conf");
+        Assertions.assertEquals(0, sourceExecResult.getExitCode());
+    }
+
     private void deleteData(TableName table) throws IOException {
         Table hbaseTable = hbaseConnection.getTable(table);
         Scan scan = new Scan();
