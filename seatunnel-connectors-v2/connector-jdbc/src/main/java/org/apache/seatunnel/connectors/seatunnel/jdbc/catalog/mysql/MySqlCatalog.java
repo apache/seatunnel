@@ -64,13 +64,8 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
     public MySqlCatalog(
             String catalogName, String username, String pwd, JdbcUrlUtil.UrlInfo urlInfo) {
         super(catalogName, username, pwd, urlInfo, null);
-    }
-
-    @Override
-    public void open() throws CatalogException {
         this.version = resolveVersion();
         this.typeConverter = new MySqlTypeConverter(version);
-        log.info("Open mysql catalog success, version: {}", version);
     }
 
     @Override
