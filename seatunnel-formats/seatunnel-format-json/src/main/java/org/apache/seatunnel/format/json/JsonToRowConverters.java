@@ -256,6 +256,13 @@ public class JsonToRowConverters implements Serializable {
             dateFormatter = DateUtils.matchDateFormatter(dateStr);
             fieldFormatterMap.put(fieldName, dateFormatter);
         }
+        if (dateFormatter == null) {
+            throw new SeaTunnelJsonFormatException(
+                    CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
+                    String.format(
+                            "SeaTunnel can not parse this date format [%s] of field [%s]",
+                            dateStr, fieldName));
+        }
 
         return dateFormatter.parse(jsonNode.asText()).query(TemporalQueries.localDate());
     }
@@ -271,6 +278,13 @@ public class JsonToRowConverters implements Serializable {
         if (dateTimeFormatter == null) {
             dateTimeFormatter = DateTimeUtils.matchDateTimeFormatter(datetimeStr);
             fieldFormatterMap.put(fieldName, dateTimeFormatter);
+        }
+        if (dateTimeFormatter == null) {
+            throw new SeaTunnelJsonFormatException(
+                    CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
+                    String.format(
+                            "SeaTunnel can not parse this date format [%s] of field [%s]",
+                            datetimeStr, fieldName));
         }
 
         TemporalAccessor parsedTimestamp = dateTimeFormatter.parse(datetimeStr);
