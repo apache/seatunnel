@@ -84,8 +84,8 @@ public class ConnectorPackageServiceContainer extends AbstractTestContainer {
         server1.withCopyFileToContainer(
                 MountableFile.forHostPath(
                         PROJECT_ROOT_PATH
-                                + "/seatunnel-shade/seatunnel-hadoop3-3.1.4-uber/target/seatunnel-hadoop3-3.1.4-uber.jar"),
-                Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop3-3.1.4-uber.jar").toString());
+                                + "/seatunnel-shade/seatunnel-hadoop3-3.3.4-uber/target/seatunnel-hadoop3-3.3.4-uber.jar"),
+                Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop3-3.3.4-uber.jar").toString());
 
         server2 =
                 new GenericContainer<>(getDockerImage())
@@ -110,8 +110,8 @@ public class ConnectorPackageServiceContainer extends AbstractTestContainer {
         server2.withCopyFileToContainer(
                 MountableFile.forHostPath(
                         PROJECT_ROOT_PATH
-                                + "/seatunnel-shade/seatunnel-hadoop3-3.1.4-uber/target/seatunnel-hadoop3-3.1.4-uber.jar"),
-                Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop3-3.1.4-uber.jar").toString());
+                                + "/seatunnel-shade/seatunnel-hadoop3-3.3.4-uber/target/seatunnel-hadoop3-3.3.4-uber.jar"),
+                Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop3-3.3.4-uber.jar").toString());
 
         server3 =
                 new GenericContainer<>(getDockerImage())
@@ -136,8 +136,8 @@ public class ConnectorPackageServiceContainer extends AbstractTestContainer {
         server3.withCopyFileToContainer(
                 MountableFile.forHostPath(
                         PROJECT_ROOT_PATH
-                                + "/seatunnel-shade/seatunnel-hadoop3-3.1.4-uber/target/seatunnel-hadoop3-3.1.4-uber.jar"),
-                Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop3-3.1.4-uber.jar").toString());
+                                + "/seatunnel-shade/seatunnel-hadoop3-3.3.4-uber/target/seatunnel-hadoop3-3.3.4-uber.jar"),
+                Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop3-3.3.4-uber.jar").toString());
 
         Startables.deepStart(Stream.of(server1)).join();
         Startables.deepStart(Stream.of(server2)).join();

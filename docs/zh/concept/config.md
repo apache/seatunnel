@@ -203,6 +203,118 @@ sink模块，你可以快速高效地完成这个操作。Sink和source非常相
 `result_table_name` 和 `source_table_name` 配置。但你会发现在上面的配置例子中，不是每个模块都配置了这些参数，因为在SeaTunnel中，
 有一个默认的约定，如果这两个参数没有配置，则使用上一个节点的最后一个模块生成的数据。当只有一个source时这是非常方便的。
 
+## 配置变量替换
+
+在配置文件中,我们可以定义一些变量并在运行时替换它们。这仅支持 hocon 格式的文件。
+
+```hocon
+env {
+  job.mode = "BATCH"
+  job.name = ${jobName}
+  parallelism = 2
+}
+
+source {
+  FakeSource {
+    result_table_name = ${resName}
+    row.num = ${rowNum}
+    string.template = ${strTemplate}
+    int.template = [20, 21]
+    schema = {
+      fields {
+        name = ${nameType}
+        age = "int"
+      }
+    }
+  }
+}
+
+transform {
+    sql {
+      source_table_name = "fake"
+      result_table_name = "sql"
+      query = "select * from "${resName}" where name = '"${nameVal}"' "
+    }
+
+}
+
+sink {
+  Console {
+     source_table_name = "sql"
+     username = ${username}
+     password = ${password}
+  }
+}
+
+```
+
+在上述配置中,我们定义了一些变量,如 ${rowNum}、${resName}。
+我们可以使用以下 shell 命令替换这些参数:
+
+```shell
+./bin/seatunnel.sh -c <this_config_file> 
+-i jobName='this_is_a_job_name' 
+-i resName=fake 
+-i rowNum=10 
+-i strTemplate=['abc','d~f','hi'] 
+-i nameType=string 
+-i nameVal=abc 
+-i username=seatunnel=2.3.1 
+-i password='$a^b%c.d~e0*9(' 
+-e local
+```
+
+然后最终提交的配置是:
+
+```hocon
+env {
+  job.mode = "BATCH"
+  job.name = "this_is_a_job_name"
+  parallelism = 2
+}
+
+source {
+  FakeSource {
+    result_table_name = "fake"
+    row.num = 10
+    string.template = ['abc','d~f','hi']
+    int.template = [20, 21]
+    schema = {
+      fields {
+        name = "string"
+        age = "int"
+      }
+    }
+  }
+}
+
+transform {
+    sql {
+      source_table_name = "fake"
+      result_table_name = "sql"
+      query = "select * from "fake" where name = 'abc' "
+    }
+
+}
+
+sink {
+  Console {
+     source_table_name = "sql"
+     username = "seatunnel=2.3.1"
+        password = "$a^b%c.d~e0*9("
+    }
+}
+
+```
+
+一些注意事项:
+
+- 如果值包含特殊字符(如`(`)，请使用`'`引号将其括起来。
+- 如果替换变量包含`"`或`'`(如`"resName"`和`"nameVal"`)，需要添加`"`。
+- 值不能包含空格`' '`。例如, `-i jobName='this is a job name'`将被替换为`job.name = "this"`。
+- 如果要使用动态参数,可以使用以下格式: `-i date=$(date +"%Y%m%d")`。
+
 ## 此外
 
 如果你想了解更多关于格式配置的详细信息，请查看 [HOCON](https://github.com/lightbend/config/blob/main/HOCON.md)。
+

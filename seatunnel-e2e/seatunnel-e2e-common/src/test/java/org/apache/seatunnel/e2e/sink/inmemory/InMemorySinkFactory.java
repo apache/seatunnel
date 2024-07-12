@@ -41,6 +41,9 @@ public class InMemorySinkFactory
     public static final Option<Boolean> CHECKPOINT_SLEEP =
             Options.key("checkpoint_sleep").booleanType().defaultValue(false);
 
+    public static final Option<Boolean> THROW_EXCEPTION_OF_COMMITTER =
+            Options.key("throw_exception_of_committer").booleanType().defaultValue(false);
+
     @Override
     public String factoryIdentifier() {
         return "InMemory";
@@ -49,7 +52,11 @@ public class InMemorySinkFactory
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .optional(THROW_EXCEPTION, THROW_OUT_OF_MEMORY, CHECKPOINT_SLEEP)
+                .optional(
+                        THROW_EXCEPTION,
+                        THROW_OUT_OF_MEMORY,
+                        CHECKPOINT_SLEEP,
+                        THROW_EXCEPTION_OF_COMMITTER)
                 .build();
     }
 

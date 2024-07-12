@@ -29,6 +29,7 @@ import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelNodeContext;
@@ -47,10 +48,13 @@ import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
 import lombok.extern.slf4j.Slf4j;
 
+import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_COUNT;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_QPS;
@@ -396,6 +400,26 @@ public class SeaTunnelClientTest {
             throw new RuntimeException(e);
         } finally {
             seaTunnelClient.close();
+        }
+    }
+
+    @Test
+    public void testJarsInEnvAddedToCommonJars() {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath = TestUtils.getResource("/client_test_with_jars.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setName("client_test_with_jars");
+        try (SeaTunnelClient seaTunnelClient = createSeaTunnelClient()) {
+            LogicalDag logicalDag =
+                    seaTunnelClient
+                            .createExecutionContext(filePath, jobConfig, SEATUNNEL_CONFIG)
+                            .getLogicalDag();
+            Assertions.assertIterableEquals(
+                    Arrays.asList("file:/tmp/test.jar", "file:/tmp/test2.jar"),
+                    logicalDag.getLogicalVertexMap().values().iterator().next().getAction()
+                            .getJarUrls().stream()
+                            .map(URL::toString)
+                            .collect(Collectors.toList()));
         }
     }
 

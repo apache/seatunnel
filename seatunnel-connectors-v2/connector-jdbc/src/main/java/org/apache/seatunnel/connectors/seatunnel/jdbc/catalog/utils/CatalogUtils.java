@@ -128,6 +128,7 @@ public class CatalogUtils {
                 primaryKeyColumns.stream()
                         .sorted(Comparator.comparingInt(Pair::getKey))
                         .map(Pair::getValue)
+                        .distinct()
                         .collect(Collectors.toList());
         if (CollectionUtils.isEmpty(pkFields)) {
             return Optional.empty();

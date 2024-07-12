@@ -94,6 +94,7 @@
                 <db2.version>db2jcc4</db2.version>
                 <sqlite.version>3.39.3.0</sqlite.version>
                 <tablestore.version>5.13.9</tablestore.version>
+                <saphana.version>2.14.7</saphana.version>
                 <teradata.version>17.20.00.12</teradata.version>
                 <redshift.version>2.1.0.9</redshift.version>
                 <snowflake.version>3.13.29</snowflake.version>
@@ -607,6 +608,12 @@
                     <scope>provided</scope>
                 </dependency>
                 <dependency>
+                    <groupId>com.sap.cloud.db.jdbc</groupId>
+                    <artifactId>ngdbc</artifactId>
+                    <version>${saphana.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
                     <groupId>com.microsoft.sqlserver</groupId>
                     <artifactId>mssql-jdbc</artifactId>
                     <version>${sqlserver.version}</version>
@@ -711,7 +718,7 @@
                 </dependency>
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
-                    <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
+                    <artifactId>seatunnel-hadoop3-3.3.4-uber</artifactId>
                     <version>${project.version}</version>
                     <classifier>optional</classifier>
                     <scope>provided</scope>
@@ -899,7 +906,7 @@
 
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
-                    <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
+                    <artifactId>seatunnel-hadoop3-3.3.4-uber</artifactId>
                     <version>${project.version}</version>
                     <classifier>optional</classifier>
                     <scope>provided</scope>

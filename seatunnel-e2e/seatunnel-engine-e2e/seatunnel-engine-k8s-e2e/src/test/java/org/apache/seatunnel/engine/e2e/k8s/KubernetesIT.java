@@ -110,7 +110,7 @@ public class KubernetesIT {
             appsV1Api.createNamespacedStatefulSet(
                     namespace, yamlStatefulSet, null, null, null, null);
             Awaitility.await()
-                    .atMost(120, TimeUnit.SECONDS)
+                    .atMost(360, TimeUnit.SECONDS)
                     .untilAsserted(
                             () -> {
                                 V1StatefulSet v1StatefulSet =
@@ -121,7 +121,7 @@ public class KubernetesIT {
                             });
             // submit job
             String command =
-                    "sh /opt/seatunnel/bin/seatunnel.sh --config /opt/seatunnel/config/v2.batch.config.template";
+                    "/opt/seatunnel/bin/seatunnel.sh --config /opt/seatunnel/config/v2.batch.config.template";
             Process process =
                     Runtime.getRuntime()
                             .exec(
@@ -134,7 +134,7 @@ public class KubernetesIT {
             Assertions.assertEquals(0, process.waitFor());
             // submit an error job
             String commandError =
-                    "sh /opt/seatunnel/bin/seatunnel.sh --config /opt/seatunnel/config/v2.batch.config.template.error";
+                    "/opt/seatunnel/bin/seatunnel.sh --config /opt/seatunnel/config/v2.batch.config.template.error";
             process =
                     Runtime.getRuntime()
                             .exec(
@@ -174,8 +174,8 @@ public class KubernetesIT {
         Files.copy(
                 Paths.get(
                         PROJECT_ROOT_PATH
-                                + "/seatunnel-shade/seatunnel-hadoop3-3.1.4-uber/target/seatunnel-hadoop3-3.1.4-uber.jar"),
-                Paths.get(targetPath + "/jars/seatunnel-hadoop3-3.1.4-uber.jar"),
+                                + "/seatunnel-shade/seatunnel-hadoop3-3.3.4-uber/target/seatunnel-hadoop3-3.3.4-uber.jar"),
+                Paths.get(targetPath + "/jars/seatunnel-hadoop3-3.3.4-uber.jar"),
                 StandardCopyOption.REPLACE_EXISTING);
         Files.copy(
                 Paths.get(
