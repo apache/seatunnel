@@ -68,4 +68,5 @@ public class ConfigKeyName {
 
     @Deprecated public static final String STATE_BACKEND = "execution.state.backend";
     public static final String PLANNER = "execution.planner";
+    public static final String FLINK_TABLE_DISABLE = "flink.table.disable";
 }

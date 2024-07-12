@@ -61,6 +61,16 @@
 | execution.checkpointing.timeout | flink.execution.checkpointing.timeout |
 | ...                             | ...                                   |
 
+Seatunnel 默认使用 Flink Table Api 生成作业的DAG，如果要弃用 Flink Table Api，可以将 `flink.table.disable` 设置为 `true`。
+
+```json
+{
+  "env": {
+    "flink.table.disable": true
+  }
+}
+```
+
 ## Spark 引擎参数
 
 由于spark配置项并无调整，这里就不列出来了，请参考官方 [spark documentation](https://spark.apache.org/).

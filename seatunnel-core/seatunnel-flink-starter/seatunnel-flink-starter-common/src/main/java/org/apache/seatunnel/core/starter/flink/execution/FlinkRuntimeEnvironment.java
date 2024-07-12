@@ -50,10 +50,14 @@ public class FlinkRuntimeEnvironment extends AbstractFlinkRuntimeEnvironment
     @Override
     public FlinkRuntimeEnvironment prepare() {
         createStreamEnvironment();
-        createStreamTableEnvironment();
         if (config.hasPath("job.name")) {
             jobName = config.getString("job.name");
         }
+        if (config.hasPath(ConfigKeyName.FLINK_TABLE_DISABLE)
+                && Boolean.TRUE.equals(config.getBoolean(ConfigKeyName.FLINK_TABLE_DISABLE))) {
+            return this;
+        }
+        createStreamTableEnvironment();
         return this;
     }
 
