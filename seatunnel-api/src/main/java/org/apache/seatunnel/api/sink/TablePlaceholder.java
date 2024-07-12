@@ -24,6 +24,8 @@ import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 
+import org.apache.commons.lang3.ObjectUtils;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -179,7 +181,7 @@ public class TablePlaceholder {
 
     public static ReadonlyConfig replaceTablePlaceholder(
             ReadonlyConfig config, CatalogTable table, Collection<String> excludeKeys) {
-        Map<String, Object> copyOnWriteData = config.getSourceMap();
+        Map<String, Object> copyOnWriteData = ObjectUtils.clone(config.getSourceMap());
         for (String key : copyOnWriteData.keySet()) {
             if (excludeKeys.contains(key)) {
                 continue;
