@@ -36,7 +36,7 @@ spark:
   - changed-files:
       - any-glob-to-any-file:
           - seatunnel-translation/seatunnel-translation-spark/**
-connector-v2:
+connectors-v2:
   - changed-files:
       - any-glob-to-any-file: seatunnel-connectors-v2/**
 transform-v2:
@@ -246,6 +246,12 @@ web3j:
   - all:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-web3j/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(web3j)/**'
+Milvus:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-milvus/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(milvus)/**'
 Zeta Rest API:
   - changed-files:
       - any-glob-to-any-file: seatunnel-engine/**/server/rest/**
