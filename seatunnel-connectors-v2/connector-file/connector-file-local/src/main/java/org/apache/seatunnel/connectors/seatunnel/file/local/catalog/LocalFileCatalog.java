@@ -15,17 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.hudi;
+package org.apache.seatunnel.connectors.seatunnel.file.local.catalog;
 
-import org.apache.seatunnel.connectors.seatunnel.hudi.source.HudiSourceFactory;
+import org.apache.seatunnel.connectors.seatunnel.file.catalog.AbstractFileCatalog;
+import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
 
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
+public class LocalFileCatalog extends AbstractFileCatalog {
 
-class HudiFactoryTest {
-
-    @Test
-    void optionRule() {
-        Assertions.assertNotNull((new HudiSourceFactory()).optionRule());
+    public LocalFileCatalog(
+            HadoopFileSystemProxy hadoopFileSystemProxy, String filePath, String catalogName) {
+        super(hadoopFileSystemProxy, filePath, catalogName);
     }
 }
