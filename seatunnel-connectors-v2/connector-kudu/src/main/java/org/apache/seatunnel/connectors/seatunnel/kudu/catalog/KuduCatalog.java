@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kudu.catalog;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
@@ -35,6 +34,7 @@ import org.apache.seatunnel.connectors.seatunnel.kudu.config.CommonConfig;
 import org.apache.seatunnel.connectors.seatunnel.kudu.kuduclient.KuduTypeMapper;
 import org.apache.seatunnel.connectors.seatunnel.kudu.util.KuduUtil;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.kudu.ColumnSchema;
 import org.apache.kudu.Schema;
 import org.apache.kudu.client.KuduClient;
