@@ -14,32 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.seatunnel.connectors.seatunnel.milvus.catalog;
 
-package org.apache.seatunnel.api.table.type;
+public class MilvusOptions {
 
-/** The sql type of {@link SeaTunnelDataType}. */
-public enum SqlType {
-    ARRAY,
-    MAP,
-    STRING,
-    BOOLEAN,
-    TINYINT,
-    SMALLINT,
-    INT,
-    BIGINT,
-    FLOAT,
-    DOUBLE,
-    DECIMAL,
-    NULL,
-    BYTES,
-    DATE,
-    TIME,
-    TIMESTAMP,
-    BINARY_VECTOR,
-    FLOAT_VECTOR,
-    FLOAT16_VECTOR,
-    BFLOAT16_VECTOR,
-    SPARSE_FLOAT_VECTOR,
-    ROW,
-    MULTIPLE_ROW;
+    public static final String ENABLE_DYNAMIC_FIELD = "enableDynamicField";
 }

@@ -15,31 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.table.type;
+package org.apache.seatunnel.connectors.seatunnel.milvus.sink.batch;
 
-/** The sql type of {@link SeaTunnelDataType}. */
-public enum SqlType {
-    ARRAY,
-    MAP,
-    STRING,
-    BOOLEAN,
-    TINYINT,
-    SMALLINT,
-    INT,
-    BIGINT,
-    FLOAT,
-    DOUBLE,
-    DECIMAL,
-    NULL,
-    BYTES,
-    DATE,
-    TIME,
-    TIMESTAMP,
-    BINARY_VECTOR,
-    FLOAT_VECTOR,
-    FLOAT16_VECTOR,
-    BFLOAT16_VECTOR,
-    SPARSE_FLOAT_VECTOR,
-    ROW,
-    MULTIPLE_ROW;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+
+public interface MilvusBatchWriter {
+
+    void addToBatch(SeaTunnelRow element);
+
+    boolean needFlush();
+
+    boolean flush();
+
+    void close();
 }
