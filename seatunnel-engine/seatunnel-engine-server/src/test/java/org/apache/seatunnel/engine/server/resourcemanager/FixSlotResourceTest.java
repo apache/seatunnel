@@ -86,7 +86,7 @@ public class FixSlotResourceTest extends AbstractSeaTunnelServerTest<FixSlotReso
                                     3,
                                     server.getCoordinatorService()
                                             .getResourceManager()
-                                            .getUnassignedSlots()
+                                            .getUnassignedSlots(null)
                                             .size());
                         });
         resourceProfiles.remove(0);

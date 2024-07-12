@@ -65,6 +65,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 
 import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_500;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.FINISHED_JOBS_INFO;
@@ -110,7 +111,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
             } else if (uri.startsWith(RUNNING_THREADS)) {
                 getRunningThread(httpGetCommand);
             } else if (uri.startsWith(OVERVIEW)) {
-                overView(httpGetCommand);
+                overView(httpGetCommand, uri);
             } else {
                 original.handle(httpGetCommand);
             }
@@ -129,8 +130,20 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         handle(httpGetCommand);
     }
 
-    public void overView(HttpGetCommand command) {
-
+    public void overView(HttpGetCommand command, String uri) {
+        uri = StringUtil.stripTrailingSlash(uri);
+        String tagStr;
+        if (uri.contains("?")) {
+            int index = uri.indexOf("?");
+            tagStr = uri.substring(index + 1);
+        } else {
+            tagStr = "";
+        }
+        Map<String, String> tags =
+                Arrays.stream(tagStr.split("&"))
+                        .map(variable -> variable.split("=", 2))
+                        .filter(pair -> pair.length == 2)
+                        .collect(Collectors.toMap(pair -> pair[0], pair -> pair[1]));
         Version version = EnvironmentUtil.getVersion();
 
         SeaTunnelServer seaTunnelServer = getSeaTunnelServer(true);
@@ -141,14 +154,14 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
             overviewInfo =
                     (OverviewInfo)
                             NodeEngineUtil.sendOperationToMasterNode(
-                                            getNode().nodeEngine, new GetOverviewOperation())
+                                            getNode().nodeEngine, new GetOverviewOperation(tags))
                                     .join();
             overviewInfo.setProjectVersion(version.getProjectVersion());
             overviewInfo.setGitCommitAbbrev(version.getGitCommitAbbrev());
         } else {
 
             NodeEngineImpl nodeEngine = this.textCommandService.getNode().getNodeEngine();
-            overviewInfo = GetOverviewOperation.getOverviewInfo(seaTunnelServer, nodeEngine);
+            overviewInfo = GetOverviewOperation.getOverviewInfo(seaTunnelServer, nodeEngine, tags);
             overviewInfo.setProjectVersion(version.getProjectVersion());
             overviewInfo.setGitCommitAbbrev(version.getGitCommitAbbrev());
         }
