@@ -32,3 +32,4 @@ jobs:
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           configuration-path: '.github/workflows/labeler/label-scope-conf.yml'
+          sync-labels: true
