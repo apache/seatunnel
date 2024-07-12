@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.offset.BinlogOffset;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.SQLUtils;
 
 import org.apache.kafka.connect.source.SourceRecord;
 
@@ -74,6 +75,18 @@ public class MySqlUtils {
 
     public static long queryApproximateRowCnt(JdbcConnection jdbc, TableId tableId)
             throws SQLException {
+        try {
+            return analyzeRowCnt(jdbc, tableId);
+        } catch (SQLException e) {
+            log.warn(
+                    "Failed to get approximate row count for table {}. Will use exact row count instead.",
+                    tableId,
+                    e);
+            return SQLUtils.countForTable(jdbc.connection(), quote(tableId));
+        }
+    }
+
+    public static long analyzeRowCnt(JdbcConnection jdbc, TableId tableId) throws SQLException {
         // The statement used to get approximate row count which is less
         // accurate than COUNT(*), but is more efficient for large table.
         final String useDatabaseStatement = String.format("USE %s;", quote(tableId.catalog()));

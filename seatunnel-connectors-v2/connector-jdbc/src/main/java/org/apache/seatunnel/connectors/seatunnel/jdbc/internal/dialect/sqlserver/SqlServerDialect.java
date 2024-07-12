@@ -206,6 +206,11 @@ public class SqlServerDialect implements JdbcDialect {
                     }
                     return rs.getLong(1);
                 }
+            } catch (SQLException e) {
+                log.warn(
+                        "Failed to get approximate row count from table status, fallback to count rows",
+                        e);
+                return SQLUtils.countForTable(connection, tableIdentifier(table.getTablePath()));
             }
         }
         return SQLUtils.countForSubquery(connection, table.getQuery());

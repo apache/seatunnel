@@ -24,6 +24,7 @@ import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.offset.LsnOffset;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.SQLUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresDialect;
 
 import org.apache.kafka.connect.source.SourceRecord;
@@ -86,6 +87,18 @@ public class PostgresUtils {
 
     public static long queryApproximateRowCnt(JdbcConnection jdbc, TableId tableId)
             throws SQLException {
+        try {
+            return analyzeRowCnt(jdbc, tableId);
+        } catch (SQLException e) {
+            log.warn(
+                    "Failed to get approximate row count for table {}. Will use exact row count instead.",
+                    tableId,
+                    e);
+            return SQLUtils.countForTable(jdbc.connection(), quote(tableId));
+        }
+    }
+
+    public static long analyzeRowCnt(JdbcConnection jdbc, TableId tableId) throws SQLException {
         // The statement used to get approximate row count which is less
         // accurate than COUNT(*), but is more efficient for large table.
         final String rowCountQuery =
