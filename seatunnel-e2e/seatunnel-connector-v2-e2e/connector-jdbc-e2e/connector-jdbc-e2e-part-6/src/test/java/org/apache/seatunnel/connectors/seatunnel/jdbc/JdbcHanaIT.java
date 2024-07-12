@@ -45,7 +45,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class JdbcHanaIT extends AbstractJdbcIT {
-    private static final String HANA_IMAGE = "saplabs/hanaexpress:2.00.072.00.20231123.1";
+    private static final String HANA_IMAGE = "saplabs/hanaexpress:2.00.076.00.20240701.1";
     private static final String HANA_NETWORK_ALIASES = "e2e_saphana";
     private static final String DRIVER_CLASS = "com.sap.db.jdbc.Driver";
     private static final int HANA_PORT = 39017;
