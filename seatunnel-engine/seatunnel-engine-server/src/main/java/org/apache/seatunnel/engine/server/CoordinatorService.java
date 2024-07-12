@@ -70,6 +70,7 @@ import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.NonNull;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -280,7 +281,7 @@ public class CoordinatorService {
             return;
         }
         // waiting have worker registered
-        while (getResourceManager().workerCount() == 0) {
+        while (getResourceManager().workerCount(Collections.emptyMap()) == 0) {
             try {
                 logger.info("Waiting for worker registered");
                 Thread.sleep(1000);

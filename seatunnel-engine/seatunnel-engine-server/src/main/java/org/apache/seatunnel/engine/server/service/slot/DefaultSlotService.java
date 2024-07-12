@@ -196,6 +196,11 @@ public class DefaultSlotService implements SlotService {
         }
     }
 
+    /**
+     * Select the best match slot for the profile.
+     *
+     * @return the best match slot, null if no suitable slot found.
+     */
     private SlotProfile selectBestMatchSlot(ResourceProfile profile) {
         if (unassignedSlots.isEmpty() && !config.isDynamicSlot()) {
             return null;
@@ -259,6 +264,7 @@ public class DefaultSlotService implements SlotService {
         workerProfile.setUnassignedSlots(unassignedSlots.values().toArray(new SlotProfile[0]));
         workerProfile.setUnassignedResource(unassignedResource.get());
         workerProfile.setAttributes(nodeEngine.getLocalMember().getAttributes());
+        workerProfile.setDynamicSlot(config.isDynamicSlot());
         return workerProfile;
     }
 
