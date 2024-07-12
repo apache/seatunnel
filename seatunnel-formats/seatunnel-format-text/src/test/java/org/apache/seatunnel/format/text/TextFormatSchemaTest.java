@@ -26,7 +26,7 @@ import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.format.text.exception.SeaTunnelTextFormatException;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -159,12 +159,12 @@ public class TextFormatSchemaTest {
                         .delimiter("\u0001")
                         .build();
         String content = "2022-092-24";
-        SeaTunnelTextFormatException exception =
+        SeaTunnelRuntimeException exception =
                 Assertions.assertThrows(
-                        SeaTunnelTextFormatException.class,
+                        SeaTunnelRuntimeException.class,
                         () -> deserializationSchema.deserialize(content.getBytes()));
         Assertions.assertEquals(
-                "ErrorCode:[COMMON-07], ErrorDescription:[Unsupported data type] - SeaTunnel can not parse this date format [2022-092-24] of field [date_field]",
+                "ErrorCode:[COMMON-32], ErrorDescription:[The date format '2022-092-24' of field 'date_field' is not supported. Please check the date format.]",
                 exception.getMessage());
 
         SeaTunnelRowType rowType2 =
@@ -179,12 +179,12 @@ public class TextFormatSchemaTest {
                         .delimiter("\u0001")
                         .build();
         String content2 = "2022-09-24-22:45:00";
-        SeaTunnelTextFormatException exception2 =
+        SeaTunnelRuntimeException exception2 =
                 Assertions.assertThrows(
-                        SeaTunnelTextFormatException.class,
+                        SeaTunnelRuntimeException.class,
                         () -> deserializationSchema2.deserialize(content2.getBytes()));
         Assertions.assertEquals(
-                "ErrorCode:[COMMON-07], ErrorDescription:[Unsupported data type] - SeaTunnel can not parse this date format [2022-09-24-22:45:00] of field [timestamp_field]",
+                "ErrorCode:[COMMON-33], ErrorDescription:[The datetime format '2022-09-24-22:45:00' of field 'timestamp_field' is not supported. Please check the datetime format.]",
                 exception2.getMessage());
     }
 }

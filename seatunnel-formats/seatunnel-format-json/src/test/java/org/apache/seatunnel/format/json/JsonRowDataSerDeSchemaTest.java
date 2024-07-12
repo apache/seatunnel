@@ -581,7 +581,7 @@ public class JsonRowDataSerDeSchemaTest {
                         SeaTunnelRuntimeException.class,
                         () -> deserializationSchema.deserialize(content.getBytes()));
         Assertions.assertEquals(
-                "ErrorCode:[COMMON-07], ErrorDescription:[Unsupported data type] - SeaTunnel can not parse this date format [2022-092-24] of field [date_field]",
+                "ErrorCode:[COMMON-32], ErrorDescription:[The date format '2022-092-24' of field 'date_field' is not supported. Please check the date format.]",
                 exception.getCause().getCause().getMessage());
 
         SeaTunnelRowType rowType2 =
@@ -598,7 +598,7 @@ public class JsonRowDataSerDeSchemaTest {
                         SeaTunnelRuntimeException.class,
                         () -> deserializationSchema2.deserialize(content2.getBytes()));
         Assertions.assertEquals(
-                "ErrorCode:[COMMON-07], ErrorDescription:[Unsupported data type] - SeaTunnel can not parse this date format [2022-09-24-22:45:00] of field [timestamp_field]",
+                "ErrorCode:[COMMON-33], ErrorDescription:[The datetime format '2022-09-24-22:45:00' of field 'timestamp_field' is not supported. Please check the datetime format.]",
                 exception2.getCause().getCause().getMessage());
     }
 }

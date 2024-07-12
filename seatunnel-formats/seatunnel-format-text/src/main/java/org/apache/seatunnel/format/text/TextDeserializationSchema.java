@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
@@ -290,11 +291,7 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
                     fieldFormatterMap.put(fieldName, dateFormatter);
                 }
                 if (dateFormatter == null) {
-                    throw new SeaTunnelTextFormatException(
-                            CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
-                            String.format(
-                                    "SeaTunnel can not parse this date format [%s] of field [%s]",
-                                    field, fieldName));
+                    throw CommonError.formatDateError(field, fieldName);
                 }
 
                 return dateFormatter.parse(field).query(TemporalQueries.localDate());
@@ -308,11 +305,7 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
                     fieldFormatterMap.put(fieldName, dateTimeFormatter);
                 }
                 if (dateTimeFormatter == null) {
-                    throw new SeaTunnelTextFormatException(
-                            CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
-                            String.format(
-                                    "SeaTunnel can not parse this date format [%s] of field [%s]",
-                                    field, fieldName));
+                    throw CommonError.formatDateTimeError(field, fieldName);
                 }
 
                 TemporalAccessor parsedTimestamp = dateTimeFormatter.parse(field);
@@ -334,11 +327,8 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
                 }
                 return new SeaTunnelRow(objects);
             default:
-                throw new SeaTunnelTextFormatException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                        String.format(
-                                "SeaTunnel not support this data type [%s]",
-                                fieldType.getSqlType()));
+                throw CommonError.unsupportedDataType(
+                        "SeaTunnel", fieldType.getSqlType().toString(), fieldName);
         }
     }
 }
