@@ -217,8 +217,8 @@ public class MilvusCatalog implements Catalog {
                             .withCollectionName(tablePath.getTableName())
                             .withFieldName(index.getColumnName())
                             .withIndexName(index.getIndexName())
-                            .withIndexType(IndexType.valueOf(index.getIndexType()))
-                            .withMetricType(MetricType.valueOf(index.getMetricType()))
+                            .withIndexType(IndexType.valueOf(index.getIndexType().name()))
+                            .withMetricType(MetricType.valueOf(index.getMetricType().name()))
                             .build();
 
             R<RpcStatus> response = client.createIndex(createIndexParam);
