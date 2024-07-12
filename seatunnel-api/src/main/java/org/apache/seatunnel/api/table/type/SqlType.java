@@ -35,6 +35,11 @@ public enum SqlType {
     DATE,
     TIME,
     TIMESTAMP,
+    BINARY_VECTOR,
+    FLOAT_VECTOR,
+    FLOAT16_VECTOR,
+    BFLOAT16_VECTOR,
+    SPARSE_FLOAT_VECTOR,
     ROW,
     MULTIPLE_ROW;
 }

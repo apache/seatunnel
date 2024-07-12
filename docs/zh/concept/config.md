@@ -5,20 +5,10 @@ sidebar_position: 2
 
 # 配置文件简介
 
-In SeaTunnel, the most important thing is the Config file, through which users can customize their own data
-synchronization requirements to maximize the potential of SeaTunnel. So next, I will introduce you how to
-configure the Config file.
-
-在SeaTunnel中，最重要的事情就是配置文件，尽管用户可以自定义他们自己的数据同步需求以发挥SeaTunnel最大的潜力。那么接下来，
-我将会向你介绍如何设置配置文件。
-
-The main format of the Config file is `hocon`, for more details of this format type you can refer to [HOCON-GUIDE](https://github.com/lightbend/config/blob/main/HOCON.md),
-BTW, we also support the `json` format, but you should know that the name of the config file should end with `.json`
+在SeaTunnel中，最重要的事情就是配置文件，尽管用户可以自定义他们自己的数据同步需求以发挥SeaTunnel最大的潜力。那么接下来我将会向你介绍如何设置配置文件。
 
 配置文件的主要格式是 `hocon`, 有关该格式类型的更多信息你可以参考[HOCON-GUIDE](https://github.com/lightbend/config/blob/main/HOCON.md),
 顺便提一下，我们也支持 `json`格式，但你应该知道配置文件的名称应该是以 `.json`结尾。
-
-We also support the `SQL` format, for details, please refer to the [SQL configuration](sql-config.md) file.
 
 我们同时提供了以 `SQL` 格式，详细可以参考[SQL配置文件](sql-config.md)。
 
@@ -28,7 +18,7 @@ We also support the `SQL` format, for details, please refer to the [SQL configur
 
 ## 配置文件结构
 
-配置文件类似下面。
+配置文件类似下面这个例子：
 
 ### hocon
 
@@ -131,14 +121,14 @@ sql = """ select * from "table" """
 
 ```
 
-正如你看到的，配置文件包括几个部分：env, source, transform, sink。不同的模块有不同的功能。
-当你了解了这些模块后，你就会懂得SeaTunnel如何工作。
+正如你看到的，配置文件包括几个部分：env, source, transform, sink。不同的模块具有不同的功能。
+当你了解了这些模块后，你就会懂得SeaTunnel到底是如何工作的。
 
 ### env
 
-用于添加引擎可选的参数，不管是什么引擎（Spark 或者 Flink），对应的可选参数应该在这里填写。
+用于添加引擎可选的参数，不管是什么引擎（Zeta、Spark 或者 Flink），对应的可选参数应该在这里填写。
 
-注意，我们按照引擎分离了参数，对于公共参数，我们可以像以前一样配置。对于Flink和Spark引擎，其参数的具体配置规则可以参考[JobEnvConfig](./JobEnvConfig.md)。
+注意，我们按照引擎分离了参数，对于公共参数我们可以像以前一样配置。对于Flink和Spark引擎，其参数的具体配置规则可以参考[JobEnvConfig](./JobEnvConfig.md)。
 
 <!-- TODO add supported env parameters -->
 
@@ -152,7 +142,7 @@ source用于定义SeaTunnel在哪儿检索数据，并将检索的数据用于�
 ### transform
 
 当我们有了数据源之后，我们可能需要对数据进行进一步的处理，所以我们就有了transform模块。当然，这里使用了“可能”这个词，
-这意味着我们也可以直接将transform视为不存在，直接从source到sink。像下面这样。
+这意味着我们也可以直接将transform视为不存在，直接从source到sink，像下面这样：
 
 ```hocon
 env {
@@ -193,19 +183,19 @@ sink {
 ### sink
 
 我们使用SeaTunnel的作用是将数据从一个地方同步到其它地方，所以定义数据如何写入，写入到哪里是至关重要的。通过SeaTunnel提供的
-sink模块，你可以快速高效地完成这个操作。Sink和source非常相似，区别在于读取和写入。所以去看看我们[支持的sink](../../en/connector-v2/sink)吧。
+sink模块，你可以快速高效地完成这个操作。Sink和source非常相似，区别在于读取和写入。所以去看看我们[Sink of SeaTunnel](../../en/connector-v2/sink)吧。
 
 ### 其它
 
 你会疑惑当定义了多个source和多个sink时，每个sink读取哪些数据，每个transform读取哪些数据？我们使用`result_table_name` 和
-`source_table_name` 两个键配置。每个source模块都会配置一个`result_table_name`来指示数据源生成的数据源名称，其它transform和sink
+`source_table_name` 两个配置。每个source模块都会配置一个`result_table_name`来指示数据源生成的数据源名称，其它transform和sink
 模块可以使用`source_table_name` 引用相应的数据源名称，表示要读取数据进行处理。然后transform，作为一个中间的处理模块，可以同时使用
 `result_table_name` 和 `source_table_name` 配置。但你会发现在上面的配置例子中，不是每个模块都配置了这些参数，因为在SeaTunnel中，
 有一个默认的约定，如果这两个参数没有配置，则使用上一个节点的最后一个模块生成的数据。当只有一个source时这是非常方便的。
 
 ## 配置变量替换
 
-在配置文件中,我们可以定义一些变量并在运行时替换它们。这仅支持 hocon 格式的文件。
+在配置文件中,我们可以定义一些变量并在运行时替换它们。但是注意仅支持 hocon 格式的文件。
 
 ```hocon
 env {
@@ -309,7 +299,7 @@ sink {
 
 一些注意事项:
 
-- 如果值包含特殊字符(如`(`)，请使用`'`引号将其括起来。
+- 如果值包含特殊字符，如`(`，请使用`'`引号将其括起来。
 - 如果替换变量包含`"`或`'`(如`"resName"`和`"nameVal"`)，需要添加`"`。
 - 值不能包含空格`' '`。例如, `-i jobName='this is a job name'`将被替换为`job.name = "this"`。
 - 如果要使用动态参数,可以使用以下格式: `-i date=$(date +"%Y%m%d")`。

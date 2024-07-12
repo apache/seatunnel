@@ -85,4 +85,5 @@ connector-paimon
 connector-rocketmq
 connector-tdengine
 connector-web3j
+connector-milvus
 --end--

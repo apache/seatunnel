@@ -16,9 +16,9 @@ Before starting to download SeaTunnel, you need to ensure that you have installe
 
 ## Step 2: Download SeaTunnel
 
-Go to the [seatunnel download page](https://seatunnel.apache.org/download) to download the latest version of the release version installation package `seatunnel-<version>-bin.tar.gz`.
+Visit the [SeaTunnel Download Page](https://seatunnel.apache.org/download) to download the latest binary package `seatunnel-<version>-bin.tar.gz`.
 
-Or you can also download it through the terminal.
+Or you can also download it through the terminal:
 
 ```shell
 export version="2.3.6"
@@ -26,21 +26,21 @@ wget "https://archive.apache.org/dist/seatunnel/${version}/apache-seatunnel-${ve
 tar -xzvf "apache-seatunnel-${version}-bin.tar.gz"
 ```
 
-## Step 3: Download the connector plug-in
+## Step 3: Download The Connector Plugins
 
-Starting from the 2.2.0-beta version, the binary package no longer provides the connector dependency by default. Therefore, when using it for the first time, you need to execute the following command to install the connector: (Of course, you can also manually download the connector from the [Apache Maven Repository](https://repo.maven.apache.org/maven2/org/apache/seatunnel/), and then move it to the `connectors/seatunnel` directory).
+Starting from the 2.2.0-beta version, the binary package no longer provides the connector dependencies by default. Therefore, when using it for the first time, you need to execute the following command to install the connectors (Of course, you can also manually download the connector from the [Apache Maven Repository](https://repo.maven.apache.org/maven2/org/apache/seatunnel/), and then move it to the `connectors/seatunnel` directory) :
+
+```bash
+sh bin/install-plugin.sh
+```
+
+If you need a specific connector version, taking 2.3.6 as an example, you need to execute the following command:
 
 ```bash
 sh bin/install-plugin.sh 2.3.6
 ```
 
-If you need a specific connector version, taking 2.3.6 as an example, you need to execute the following command.
-
-```bash
-sh bin/install-plugin.sh 2.3.6
-```
-
-Usually you don't need all the connector plugins, so you can specify the plugins you need through configuring `config/plugin_config`, for example, if you only need the `connector-console` plugin, then you can modify the plugin.properties configuration file as follows.
+Usually you don't need all connector plugins, so you can specify the plugins you need through configuring `config/plugin_config`. For example, if you only need the `connector-console` plugin, you can modify the plugin.properties configuration file as follows:
 
 ```plugin_config
 --seatunnel-connectors--
@@ -61,14 +61,14 @@ You can find all supported connectors and the corresponding plugin_config config
 
 :::tip Tip
 
-If you want to install connector plugins by manually downloading connectors, you only need to download the connector plugins you need and place them in the `${SEATUNNEL_HOME}/connectors/` directory
+If you want to install connector plugins by manually downloading connectors, you only need to download the related connector plugins and place them in the `${SEATUNNEL_HOME}/connectors/` directory.
 
 :::
 
-Now you have completed the download of the SeaTunnel installation package and the download of the connector plug-in. Next, you can choose different running modes according to your needs to run or deploy SeaTunnel.
+Now you have downloaded the SeaTunnel binary package and the connector plugins. Next, you can choose different engine option to run synchronization tasks.
 
-If you use Flink to run the synchronization task, in this mode, there is no need to deploy the SeaTunnel Engine service cluster. You can refer to [Quick Start of SeaTunnel Flink Engine](quick-start-flink.md) to run your synchronization task.
+If you use Flink to run the synchronization task, there is no need to deploy the SeaTunnel Engine service cluster. You can refer to [Quick Start of SeaTunnel Flink Engine](quick-start-flink.md) to run your synchronization task.
 
-If you use Spark to run the synchronization task, in this mode, there is no need to deploy the SeaTunnel Engine service cluster. You can refer to [Quick Start of SeaTunnel Spark Engine](quick-start-spark.md) to run your synchronization task.
+If you use Spark to run the synchronization task, there is no need to deploy the SeaTunnel Engine service cluster. You can refer to [Quick Start of SeaTunnel Spark Engine](quick-start-spark.md) to run your synchronization task.
 
-If you use the SeaTunnel Engine (Zeta) that comes with SeaTunnel to run tasks, you need to deploy the SeaTunnel Engine service first. Refer to [Deployment of SeaTunnel Engine (Zeta) Service](quick-start-seatunnel-engine.md).
+If you use the builtin SeaTunnel Engine (Zeta) to run tasks, you need to deploy the SeaTunnel Engine service first. Refer to [Deployment of SeaTunnel Engine (Zeta) Service](quick-start-seatunnel-engine.md).
