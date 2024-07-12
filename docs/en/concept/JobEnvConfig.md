@@ -1,11 +1,11 @@
 # Job Env Config
 
-This document describes env configuration information, the common parameters can be used in all engines. In order to better distinguish between engine parameters, the additional parameters of other engine need to carry a prefix.
+This document describes env configuration information. The common parameters can be used in all engines. In order to better distinguish between engine parameters, the additional parameters of other engine need to carry a prefix.
 In flink engine, we use `flink.` as the prefix. In the spark engine, we do not use any prefixes to modify parameters, because the official spark parameters themselves start with `spark.`
 
 ## Common Parameter
 
-The following configuration parameters are common to all engines
+The following configuration parameters are common to all engines.
 
 ### job.name
 
@@ -13,11 +13,11 @@ This parameter configures the task name.
 
 ### jars
 
-Third-party packages can be loaded via `jars`, like `jars="file://local/jar1.jar;file://local/jar2.jar"`
+Third-party packages can be loaded via `jars`, like `jars="file://local/jar1.jar;file://local/jar2.jar"`.
 
 ### job.mode
 
-You can configure whether the task is in batch mode or stream mode through `job.mode`, like `job.mode = "BATCH"` or `job.mode = "STREAMING"`
+You can configure whether the task is in batch or stream mode through `job.mode`, like `job.mode = "BATCH"` or `job.mode = "STREAMING"`
 
 ### checkpoint.interval
 
@@ -47,11 +47,11 @@ you can set it to `CLIENT`. Please use `CLUSTER` mode as much as possible, becau
 
 Specify the method of encryption, if you didn't have the requirement for encrypting or decrypting config files, this option can be ignored.
 
-For more details, you can refer to the documentation [config-encryption-decryption](../connector-v2/Config-Encryption-Decryption.md)
+For more details, you can refer to the documentation [Config Encryption Decryption](../connector-v2/Config-Encryption-Decryption.md)
 
 ## Flink Engine Parameter
 
-Here are some SeaTunnel parameter names corresponding to the names in Flink, not all of them, please refer to the official [flink documentation](https://flink.apache.org/) for more.
+Here are some SeaTunnel parameter names corresponding to the names in Flink, not all of them. Please refer to the official [Flink Documentation](https://flink.apache.org/).
 
 |    Flink Configuration Name     |     SeaTunnel Configuration Name      |
 |---------------------------------|---------------------------------------|
@@ -62,4 +62,4 @@ Here are some SeaTunnel parameter names corresponding to the names in Flink, not
 
 ## Spark Engine Parameter
 
-Because spark configuration items have not been modified, they are not listed here, please refer to the official [spark documentation](https://spark.apache.org/).
+Because Spark configuration items have not been modified, they are not listed here, please refer to the official [Spark Documentation](https://spark.apache.org/).
