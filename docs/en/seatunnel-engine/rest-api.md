@@ -38,9 +38,13 @@ network:
 ### Returns an overview over the Zeta engine cluster.
 
 <details>
- <summary><code>GET</code> <code><b>/hazelcast/rest/maps/overview</b></code> <code>(Returns an overview over the Zeta engine cluster.)</code></summary>
+ <summary><code>GET</code> <code><b>/hazelcast/rest/maps/overview?tag1=value1&tag2=value2</b></code> <code>(Returns an overview over the Zeta engine cluster.)</code></summary>
 
 #### Parameters
+
+> |   name   |   type   | data type |                                             description                                              |
+> |----------|----------|-----------|------------------------------------------------------------------------------------------------------|
+> | tag_name | optional | string    | the tags filter, you can add tag filter to get those matched worker count, and slot on those workers |
 
 #### Responses
 
@@ -50,16 +54,17 @@ network:
     "gitCommitAbbrev":"DeadD0d0",
     "totalSlot":"0",
     "unassignedSlot":"0",
+    "works":"1",
     "runningJobs":"0",
     "finishedJobs":"0",
     "failedJobs":"0",
-    "cancelledJobs":"0",
-    "works":"1"
+    "cancelledJobs":"0"
 }
 ```
 
-If you use `dynamic-slot`, the `totalSlot` and `unassignedSlot` always be `0`.
-If you set it to fix slot number, it will return the correct total and unassigned slot number
+**Notes:**
+- If you use `dynamic-slot`, the `totalSlot` and `unassignedSlot` always be `0`. when you set it to fix slot number, it will return the correct total and unassigned slot number
+- If the url has tag filter, the `works`, `totalSlot` and `unassignedSlot` will return the result on the matched worker. but the job related metric will always return the cluster level information.
 
 </details>
 
