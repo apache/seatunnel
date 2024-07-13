@@ -3,7 +3,7 @@
 在这个章节， 我们会向你展示如何搭建 SeaTunnel 的开发环境， 然后用 JetBrains IntelliJ IDEA 跑一个简单的示例。
 
 > 你可以用任何你喜欢的开发环境进行开发和测试，我们只是用 [JetBrains IDEA](https://www.jetbrains.com/idea/)
-> 作为示例来展示如何一步步设置环境。
+> 作为示例来展示如何一步步完成设置。
 
 ## 准备
 
