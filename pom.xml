@@ -950,6 +950,15 @@
             </properties>
         </profile>
         <profile>
+            <id>jdk11</id>
+            <activation>
+                <jdk>11</jdk>
+            </activation>
+            <properties>
+                <surefire.argLine />
+            </properties>
+        </profile>
+        <profile>
             <id>jdk17</id>
             <activation>
                 <jdk>[17,)</jdk>
