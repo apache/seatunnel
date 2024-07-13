@@ -112,6 +112,39 @@ public class TablePlaceholderTest {
                 Arrays.asList("f1", "f2", "f3", "f4", "f5"), newConfig.get(FIELD_NAMES_ARRAY));
     }
 
+    @Test
+    public void testSinkOptionsWithMultiTable() {
+        ReadonlyConfig config = createConfig();
+        CatalogTable table1 = createTestTable();
+        CatalogTable table2 = createTestTableWithNoTablePath();
+        ReadonlyConfig newConfig1 =
+                TablePlaceholder.replaceTablePlaceholder(config, table1, Arrays.asList());
+        ReadonlyConfig newConfig2 =
+                TablePlaceholder.replaceTablePlaceholder(config, table2, Arrays.asList());
+
+        Assertions.assertEquals("xyz_my-database_test", newConfig1.get(DATABASE));
+        Assertions.assertEquals("xyz_my-schema_test", newConfig1.get(SCHEMA));
+        Assertions.assertEquals("xyz_my-table_test", newConfig1.get(TABLE));
+        Assertions.assertEquals("f1,f2", newConfig1.get(PRIMARY_KEY));
+        Assertions.assertEquals("f3,f4", newConfig1.get(UNIQUE_KEY));
+        Assertions.assertEquals("f1,f2,f3,f4,f5", newConfig1.get(FIELD_NAMES));
+        Assertions.assertEquals(Arrays.asList("f1", "f2"), newConfig1.get(PRIMARY_KEY_ARRAY));
+        Assertions.assertEquals(Arrays.asList("f3", "f4"), newConfig1.get(UNIQUE_KEY_ARRAY));
+        Assertions.assertEquals(
+                Arrays.asList("f1", "f2", "f3", "f4", "f5"), newConfig1.get(FIELD_NAMES_ARRAY));
+
+        Assertions.assertEquals("xyz_default_db_test", newConfig2.get(DATABASE));
+        Assertions.assertEquals("xyz_default_schema_test", newConfig2.get(SCHEMA));
+        Assertions.assertEquals("xyz_default_table_test", newConfig2.get(TABLE));
+        Assertions.assertEquals("f1,f2", newConfig2.get(PRIMARY_KEY));
+        Assertions.assertEquals("f3,f4", newConfig2.get(UNIQUE_KEY));
+        Assertions.assertEquals("f1,f2,f3,f4,f5", newConfig2.get(FIELD_NAMES));
+        Assertions.assertEquals(Arrays.asList("f1", "f2"), newConfig2.get(PRIMARY_KEY_ARRAY));
+        Assertions.assertEquals(Arrays.asList("f3", "f4"), newConfig2.get(UNIQUE_KEY_ARRAY));
+        Assertions.assertEquals(
+                Arrays.asList("f1", "f2", "f3", "f4", "f5"), newConfig2.get(FIELD_NAMES_ARRAY));
+    }
+
     private static ReadonlyConfig createConfig() {
         Map<String, Object> configMap = new HashMap<>();
         configMap.put(DATABASE.key(), "xyz_${database_name: default_db}_test");
