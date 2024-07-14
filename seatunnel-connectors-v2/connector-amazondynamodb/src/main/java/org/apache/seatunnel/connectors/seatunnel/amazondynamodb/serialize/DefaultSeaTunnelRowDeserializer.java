@@ -26,7 +26,7 @@ import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 
-import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 
@@ -46,12 +46,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-@AllArgsConstructor
+@RequiredArgsConstructor
 public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer {
 
     private final SeaTunnelRowType typeInfo;
 
-    public static final DateTimeFormatter TIME_FORMAT =
+    public static DateTimeFormatter TIME_FORMAT =
             new DateTimeFormatterBuilder()
                     .appendPattern("HH:mm:ss")
                     .appendFraction(ChronoField.NANO_OF_SECOND, 0, 9, true)
