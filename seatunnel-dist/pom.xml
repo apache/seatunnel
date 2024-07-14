@@ -83,8 +83,8 @@
                 </property>
             </activation>
             <properties>
-                <mysql.version>8.0.27</mysql.version>
-                <postgresql.version>42.4.3</postgresql.version>
+                <mysql.version>8.0.32</mysql.version>
+                <postgresql.version>42.7.2</postgresql.version>
                 <postgis.jdbc.version>2.5.1</postgis.jdbc.version>
                 <dm-jdbc.version>8.1.2.141</dm-jdbc.version>
                 <sqlserver.version>9.2.1.jre8</sqlserver.version>
@@ -695,7 +695,7 @@
                 <dependency>
                     <groupId>com.amazonaws</groupId>
                     <artifactId>aws-java-sdk-bundle</artifactId>
-                    <version>1.11.271</version>
+                    <version>${aws-java-sdk.version}</version>
                     <scope>provided</scope>
                 </dependency>
                 <dependency>
@@ -874,12 +874,6 @@
                     <groupId>org.apache.seatunnel</groupId>
                     <artifactId>seatunnel-spark-3-starter</artifactId>
                     <version>${project.version}</version>
-                    <scope>provided</scope>
-                </dependency>
-                <dependency>
-                    <groupId>com.amazonaws</groupId>
-                    <artifactId>aws-java-sdk-bundle</artifactId>
-                    <version>${aws-java-sdk.version}</version>
                     <scope>provided</scope>
                 </dependency>
                 <!-- seatunnel connectors for demo -->
