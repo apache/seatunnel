@@ -274,7 +274,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ,'17']
+        java: [ '8','17']
         os: [ 'ubuntu-latest', 'windows-latest' ]
     timeout-minutes: 60
     steps:
@@ -297,7 +297,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ,'17']
+        java: [ '8','17']
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 90
     steps:
@@ -328,7 +328,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ,'17']
+        java: [ '8','17']
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 90
     steps:
@@ -359,7 +359,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ,'17']
+        java: [ '8','17']
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 90
     steps:
@@ -390,7 +390,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ,'17']
+        java: [ '8','17']
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 90
     steps:
@@ -420,7 +420,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ,'17']
+        java: [ '8','17']
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -450,7 +450,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ,'17']
+        java: [ '8','17']
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 90
     steps:
@@ -480,7 +480,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ,'17']
+        java: [ '8','17']
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 90
     steps:
@@ -511,7 +511,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ,'17']
+        java: [ '8','17']
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 90
     steps:
@@ -542,7 +542,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ,'17']
+        java: [ '8','17']
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 45
     steps:
@@ -565,7 +565,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ,'17']
+        java: [ '8','17']
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 45
     steps:
@@ -599,7 +599,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ,'17']
+        java: [ '8','17']
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 90
     steps:
@@ -623,7 +623,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ,'17']
+        java: [ '8','17']
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 90
     steps:
@@ -647,7 +647,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ,'17']
+        java: [ '8','17']
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 90
     steps:
@@ -674,7 +674,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ,'17']
+        java: [ '8','17']
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 90
     steps:
@@ -701,7 +701,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ,'17']
+        java: [ '8','17']
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 90
     steps:
@@ -728,7 +728,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ,'17']
+        java: [ '8','17']
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 150
     steps:
@@ -755,7 +755,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ,'17']
+        java: [ '8','17']
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 90
     steps:
@@ -782,7 +782,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ,'17']
+        java: [ '8','17']
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 90
     steps:
@@ -809,7 +809,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ,'17']
+        java: [ '8','17']
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 90
     steps:
@@ -836,7 +836,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ,'17']
+        java: [ '8','17']
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 90
     steps:
@@ -862,7 +862,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ,'17']
+        java: [ '8','17']
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 90
     steps:
@@ -888,7 +888,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ,'17']
+        java: [ '8','17']
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 90
     steps:
@@ -912,7 +912,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ,'17']
+        java: [ '8','17']
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 90
     steps:
@@ -936,7 +936,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ,'17']
+        java: [ '8','17']
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 90
     steps:
@@ -960,7 +960,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ,'17']
+        java: [ '8','17']
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 90
     steps:
@@ -986,7 +986,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ,'17']
+        java: [ '8','17']
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 90
     steps:
@@ -1010,7 +1010,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ,'17']
+        java: [ '8','17']
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 90
     steps:
@@ -1033,7 +1033,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ,'17']
+        java: [ '8','17']
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 90
     steps:
@@ -1056,7 +1056,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ,'17']
+        java: [ '8','17']
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 90
     steps:
@@ -1079,7 +1079,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ,'17']
+        java: [ '8','17']
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 90
     steps:
@@ -1103,7 +1103,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ,'17']
+        java: [ '8','17']
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 90
     steps:
@@ -1129,7 +1129,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ,'17']
+        java: [ '8','17']
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 90
     steps:
