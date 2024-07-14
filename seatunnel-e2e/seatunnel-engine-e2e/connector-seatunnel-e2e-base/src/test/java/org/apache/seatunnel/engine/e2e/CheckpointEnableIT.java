@@ -44,7 +44,9 @@ import java.util.regex.Pattern;
 import static org.awaitility.Awaitility.await;
 
 @Slf4j
-@DisabledOnJre(value = JRE.JAVA_11, disabledReason = "slf4j jar conflict, we should fix it later")
+@DisabledOnJre(
+        value = {JRE.JAVA_11, JRE.JAVA_17},
+        disabledReason = "slf4j jar conflict, we should fix it later")
 public class CheckpointEnableIT extends TestSuiteBase {
 
     @TestTemplate

@@ -46,7 +46,7 @@ public class MultiTableSinkTest {
 
     @Test
     @DisabledOnJre(
-            value = JRE.JAVA_11,
+            value = {JRE.JAVA_11, JRE.JAVA_17},
             disabledReason =
                     "We should update apache common lang3 version to 3.8 to avoid NPE, "
                             + "see https://github.com/apache/commons-lang/commit/50ce8c44e1601acffa39f5568f0fc140aade0564")
