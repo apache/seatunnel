@@ -567,6 +567,9 @@
                         <systemPropertyVariables>
                             <jacoco-agent.destfile>${project.build.directory}/jacoco.exec</jacoco-agent.destfile>
                         </systemPropertyVariables>
+                        <excludes>
+                            <exclude>**/*IT.java</exclude>
+                        </excludes>
                         <classpathDependencyExcludes>
                             <!--
                                 The logger provider & bridges declared under 'provided' scope should be explicitly excluded from testing as below.
