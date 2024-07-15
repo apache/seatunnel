@@ -26,6 +26,10 @@ import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.table.type.SqlType;
+import org.apache.seatunnel.common.utils.DateTimeUtils;
+import org.apache.seatunnel.common.utils.DateUtils;
+import org.apache.seatunnel.common.utils.TimeUtils;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
@@ -69,6 +73,7 @@ import java.net.ConnectException;
 import java.net.URI;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -91,6 +96,12 @@ public class AmazondynamodbIT extends TestSuiteBase implements TestResource {
 
     private GenericContainer<?> dynamoDB;
     protected DynamoDbClient dynamoDbClient;
+
+    private final DateTimeUtils.Formatter dateTimeFormatter =
+            DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS_SSSSSS;
+    private final DateUtils.Formatter dateFormatter = DateUtils.Formatter.YYYY_MM_DD;
+
+    private final TimeUtils.Formatter timeFormatter = TimeUtils.Formatter.HH_MM_SS;
 
     @TestTemplate
     public void testAmazondynamodb(TestContainer container) throws Exception {
@@ -325,6 +336,19 @@ public class AmazondynamodbIT extends TestSuiteBase implements TestResource {
                         .n(Integer.toString(((Number) value).intValue()))
                         .build();
             case S:
+                if (seaTunnelDataType.getSqlType().equals(SqlType.DATE)) {
+                    return AttributeValue.builder()
+                            .s(DateUtils.toString((LocalDate) value, dateFormatter))
+                            .build();
+                } else if (seaTunnelDataType.getSqlType().equals(SqlType.TIME)) {
+                    return AttributeValue.builder()
+                            .s(TimeUtils.toString((LocalTime) value, timeFormatter))
+                            .build();
+                } else if (seaTunnelDataType.getSqlType().equals(SqlType.TIMESTAMP)) {
+                    return AttributeValue.builder()
+                            .s(DateTimeUtils.toString((LocalDateTime) value, dateTimeFormatter))
+                            .build();
+                }
                 return AttributeValue.builder().s(String.valueOf(value)).build();
             case BOOL:
                 return AttributeValue.builder().bool((Boolean) value).build();

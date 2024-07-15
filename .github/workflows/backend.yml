@@ -994,7 +994,6 @@ jobs:
           elif [ "${{ matrix.java }}" = "8" ]; then
             echo "MAVEN_OPTS=-Xmx4096m" >> $GITHUB_OUTPUT
           fi
-          echo $GITHUB_OUTPUT
       - name: run connector-v2 integration test (part-1)
         if: needs.changes.outputs.api == 'true'
         run: |
