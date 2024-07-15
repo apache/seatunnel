@@ -66,7 +66,7 @@ public class ClusterSeaTunnelContainer extends SeaTunnelContainer {
     private static final Path hadoopJar =
             Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop3-3.1.4-uber.jar");
 
-    private static final long CUSTOM_JOB_ID = 123456789;
+    private static final long CUSTOM_JOB_ID = 862969647010611201L;
 
     @Override
     @BeforeEach

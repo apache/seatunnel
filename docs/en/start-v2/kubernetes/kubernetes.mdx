@@ -7,11 +7,11 @@ import TabItem from '@theme/TabItem';
 
 # Set Up with Kubernetes
 
-This section provides a quick guide to using SeaTunnel with Kubernetes.
+This section provides a quick guide to use SeaTunnel with Kubernetes.
 
 ## Prerequisites
 
-We assume that you have a local installations of the following:
+We assume that you have one local installation as follow:
 
 - [docker](https://docs.docker.com/)
 - [kubernetes](https://kubernetes.io/)
@@ -19,7 +19,7 @@ We assume that you have a local installations of the following:
 
 So that the `kubectl` and `helm` commands are available on your local system.
 
-For kubernetes [minikube](https://minikube.sigs.k8s.io/docs/start/) is our choice, at the time of writing this we are using version v1.23.3. You can start a cluster with the following command:
+Take kubernetes [minikube](https://minikube.sigs.k8s.io/docs/start/) as an example, you can start a cluster with the following command:
 
 ```bash
 minikube start --kubernetes-version=v1.23.3
@@ -27,7 +27,7 @@ minikube start --kubernetes-version=v1.23.3
 
 ## Installation
 
-### SeaTunnel docker image
+### SeaTunnel Docker Image
 
 To run the image with SeaTunnel, first create a `Dockerfile`:
 
@@ -58,7 +58,7 @@ Then run the following commands to build the image:
 ```bash
 docker build -t seatunnel:2.3.6-flink-1.13 -f Dockerfile .
 ```
-Image `seatunnel:2.3.6-flink-1.13` need to be present in the host (minikube) so that the deployment can take place.
+Image `seatunnel:2.3.6-flink-1.13` needs to be present in the host (minikube) so that the deployment can take place.
 
 Load image to minikube via:
 ```bash
@@ -114,7 +114,7 @@ Then run the following commands to build the image:
 ```bash
 docker build -t seatunnel:2.3.6 -f Dockerfile .
 ```
-Image `seatunnel:2.3.6` need to be present in the host (minikube) so that the deployment can take place.
+Image `seatunnel:2.3.6` needs to be present in the host (minikube) so that the deployment can take place.
 
 Load image to minikube via:
 ```bash
@@ -125,7 +125,7 @@ minikube image load seatunnel:2.3.6
 </Tabs>
 
 
-### Deploying the operator
+### Deploying The Operator
 
 <Tabs
   groupId="engine-type"
@@ -191,7 +191,7 @@ none
   ]}>
 <TabItem value="flink">
 
-In this guide we are going to use [seatunnel.streaming.conf](https://github.com/apache/seatunnel/blob/2.3.6-release/config/v2.streaming.conf.template):
+In this guide we will use [seatunnel.streaming.conf](https://github.com/apache/seatunnel/blob/2.3.6-release/config/v2.streaming.conf.template):
 
 ```conf
 env {
@@ -291,7 +291,7 @@ kubectl apply -f seatunnel-flink.yaml
 
 <TabItem value="Zeta (local-mode)">
 
-In this guide we are going to use [seatunnel.streaming.conf](https://github.com/apache/seatunnel/blob/2.3.6-release/config/v2.streaming.conf.template):
+In this guide we will use [seatunnel.streaming.conf](https://github.com/apache/seatunnel/blob/2.3.6-release/config/v2.streaming.conf.template):
 
 ```conf
 env {
@@ -366,7 +366,7 @@ kubectl apply -f seatunnel.yaml
 
 <TabItem value="Zeta (cluster-mode)">
 
-In this guide we are going to use [seatunnel.streaming.conf](https://github.com/apache/seatunnel/blob/2.3.6-release/config/v2.streaming.conf.template):
+In this guide we will use [seatunnel.streaming.conf](https://github.com/apache/seatunnel/blob/2.3.6-release/config/v2.streaming.conf.template):
 
 ```conf
 env {
@@ -572,7 +572,7 @@ spec:
 ```bash
 kubectl apply -f seatunnel-cluster.yml
 ```
-Then modify the seatunnel configuration in pod using the following command
+Then modify the seatunnel configuration in pod using the following command:
 
 ```bash
 kubectl edit cm hazelcast
@@ -768,5 +768,5 @@ Happy SeaTunneling!
 
 ## What's More
 
-For now, you are already taking a quick look at SeaTunnel, you could see [connector](/category/connector) to find all source and sink SeaTunnel supported.
+For now, you have taken a quick look at SeaTunnel, and you can see [connector](/category/connector) to find all sources and sinks SeaTunnel supported.
 Or see [deployment](../deployment.mdx) if you want to submit your application in another kind of your engine cluster.
