@@ -391,6 +391,7 @@ public class ZetaSQLType {
             case ZetaSQLFunction.DATEDIFF:
                 return BasicType.LONG_TYPE;
             case ZetaSQLFunction.REGEXP_LIKE:
+            case ZetaSQLFunction.IS_DATE:
                 return BasicType.BOOLEAN_TYPE;
             case ZetaSQLFunction.ACOS:
             case ZetaSQLFunction.ASIN:

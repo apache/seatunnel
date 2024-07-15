@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
@@ -52,41 +53,44 @@ public abstract class AbstractSeaTunnelServerTest<T extends AbstractSeaTunnelSer
     @BeforeAll
     public void before() {
         String name = ((T) this).getClass().getName();
-        String yaml =
-                "hazelcast:\n"
-                        + "  cluster-name: seatunnel\n"
-                        + "  network:\n"
-                        + "    rest-api:\n"
-                        + "      enabled: true\n"
-                        + "      endpoint-groups:\n"
-                        + "        CLUSTER_WRITE:\n"
-                        + "          enabled: true\n"
-                        + "    join:\n"
-                        + "      tcp-ip:\n"
-                        + "        enabled: true\n"
-                        + "        member-list:\n"
-                        + "          - localhost\n"
-                        + "    port:\n"
-                        + "      auto-increment: true\n"
-                        + "      port-count: 100\n"
-                        + "      port: 5801\n"
-                        + "\n"
-                        + "  properties:\n"
-                        + "    hazelcast.invocation.max.retry.count: 200\n"
-                        + "    hazelcast.tcp.join.port.try.count: 30\n"
-                        + "    hazelcast.invocation.retry.pause.millis: 2000\n"
-                        + "    hazelcast.slow.operation.detector.stacktrace.logging.enabled: true\n"
-                        + "    hazelcast.logging.type: log4j2\n"
-                        + "    hazelcast.operation.generic.thread.count: 200\n";
-        Config hazelcastConfig = Config.loadFromString(yaml);
+        Config hazelcastConfig = Config.loadFromString(getHazelcastConfig());
         hazelcastConfig.setClusterName(
                 TestUtils.getClusterName("AbstractSeaTunnelServerTest_" + name));
         SeaTunnelConfig seaTunnelConfig = loadSeaTunnelConfig();
         seaTunnelConfig.setHazelcastConfig(hazelcastConfig);
+        seaTunnelConfig.getEngineConfig().setMode(ExecutionMode.LOCAL);
         instance = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
         nodeEngine = instance.node.nodeEngine;
         server = nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
         LOGGER = nodeEngine.getLogger(AbstractSeaTunnelServerTest.class);
+    }
+
+    protected String getHazelcastConfig() {
+        return "hazelcast:\n"
+                + "  cluster-name: seatunnel\n"
+                + "  network:\n"
+                + "    rest-api:\n"
+                + "      enabled: true\n"
+                + "      endpoint-groups:\n"
+                + "        CLUSTER_WRITE:\n"
+                + "          enabled: true\n"
+                + "    join:\n"
+                + "      tcp-ip:\n"
+                + "        enabled: true\n"
+                + "        member-list:\n"
+                + "          - localhost\n"
+                + "    port:\n"
+                + "      auto-increment: true\n"
+                + "      port-count: 100\n"
+                + "      port: 5801\n"
+                + "\n"
+                + "  properties:\n"
+                + "    hazelcast.invocation.max.retry.count: 200\n"
+                + "    hazelcast.tcp.join.port.try.count: 30\n"
+                + "    hazelcast.invocation.retry.pause.millis: 2000\n"
+                + "    hazelcast.slow.operation.detector.stacktrace.logging.enabled: true\n"
+                + "    hazelcast.logging.type: log4j2\n"
+                + "    hazelcast.operation.generic.thread.count: 200\n";
     }
 
     public SeaTunnelConfig loadSeaTunnelConfig() {

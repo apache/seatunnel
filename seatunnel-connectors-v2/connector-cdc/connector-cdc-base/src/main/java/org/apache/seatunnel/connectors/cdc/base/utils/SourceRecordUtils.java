@@ -28,6 +28,7 @@ import io.debezium.connector.AbstractSourceInfo;
 import io.debezium.data.Envelope;
 import io.debezium.document.DocumentReader;
 import io.debezium.relational.TableId;
+import io.debezium.relational.history.HistoryRecord;
 import io.debezium.util.SchemaNameAdjuster;
 
 import java.math.BigDecimal;
@@ -213,5 +214,10 @@ public class SourceRecordUtils {
             schemaName = sourceStruct.getString(AbstractSourceInfo.SCHEMA_NAME_KEY);
         }
         return TablePath.of(databaseName, schemaName, tableName);
+    }
+
+    public static String getDdl(SourceRecord record) {
+        Struct schemaChangeStruct = (Struct) record.value();
+        return schemaChangeStruct.getString(HistoryRecord.Fields.DDL_STATEMENTS);
     }
 }

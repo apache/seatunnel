@@ -17,7 +17,17 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect;
 
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
+import org.apache.seatunnel.api.table.converter.ConverterLoader;
+import org.apache.seatunnel.api.table.converter.TypeConverter;
+import org.apache.seatunnel.api.table.event.AlterTableAddColumnEvent;
+import org.apache.seatunnel.api.table.event.AlterTableChangeColumnEvent;
+import org.apache.seatunnel.api.table.event.AlterTableColumnEvent;
+import org.apache.seatunnel.api.table.event.AlterTableDropColumnEvent;
+import org.apache.seatunnel.api.table.event.AlterTableModifyColumnEvent;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.SimpleJdbcConnectionProvider;
@@ -30,6 +40,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.mysql.cj.MysqlType;
+
 import java.io.Serializable;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -41,6 +53,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -422,5 +435,271 @@ public interface JdbcDialect extends Serializable {
      */
     default String convertType(String columnName, String columnType) {
         return columnName;
+    }
+
+    /**
+     * Refresh physical table schema by schema change event
+     *
+     * @param sourceDialectName source dialect name
+     * @param event schema change event
+     * @param jdbcConnectionProvider jdbc connection provider
+     * @param sinkTablePath sink table path
+     */
+    default void refreshTableSchemaBySchemaChangeEvent(
+            String sourceDialectName,
+            AlterTableColumnEvent event,
+            JdbcConnectionProvider jdbcConnectionProvider,
+            TablePath sinkTablePath) {}
+
+    /**
+     * generate alter table sql
+     *
+     * @param sourceDialectName source dialect name
+     * @param event schema change event
+     * @param sinkTablePath sink table path
+     * @return alter table sql for sink table
+     */
+    default String generateAlterTableSql(
+            String sourceDialectName, AlterTableColumnEvent event, TablePath sinkTablePath) {
+        String tableIdentifierWithQuoted =
+                tableIdentifier(sinkTablePath.getDatabaseName(), sinkTablePath.getTableName());
+        switch (event.getEventType()) {
+            case SCHEMA_CHANGE_ADD_COLUMN:
+                Column addColumn = ((AlterTableAddColumnEvent) event).getColumn();
+                return buildAlterTableSql(
+                        sourceDialectName,
+                        addColumn.getSourceType(),
+                        AlterType.ADD.name(),
+                        addColumn,
+                        tableIdentifierWithQuoted,
+                        StringUtils.EMPTY);
+            case SCHEMA_CHANGE_DROP_COLUMN:
+                String dropColumn = ((AlterTableDropColumnEvent) event).getColumn();
+                return buildAlterTableSql(
+                        sourceDialectName,
+                        null,
+                        AlterType.DROP.name(),
+                        null,
+                        tableIdentifierWithQuoted,
+                        dropColumn);
+            case SCHEMA_CHANGE_MODIFY_COLUMN:
+                Column modifyColumn = ((AlterTableModifyColumnEvent) event).getColumn();
+                return buildAlterTableSql(
+                        sourceDialectName,
+                        modifyColumn.getSourceType(),
+                        AlterType.MODIFY.name(),
+                        modifyColumn,
+                        tableIdentifierWithQuoted,
+                        StringUtils.EMPTY);
+            case SCHEMA_CHANGE_CHANGE_COLUMN:
+                AlterTableChangeColumnEvent alterTableChangeColumnEvent =
+                        (AlterTableChangeColumnEvent) event;
+                Column changeColumn = alterTableChangeColumnEvent.getColumn();
+                String oldColumnName = alterTableChangeColumnEvent.getOldColumn();
+                return buildAlterTableSql(
+                        sourceDialectName,
+                        changeColumn.getSourceType(),
+                        AlterType.CHANGE.name(),
+                        changeColumn,
+                        tableIdentifierWithQuoted,
+                        oldColumnName);
+            default:
+                throw new SeaTunnelException(
+                        "Unsupported schemaChangeEvent for event type: " + event.getEventType());
+        }
+    }
+
+    /**
+     * build alter table sql
+     *
+     * @param sourceDialectName source dialect name
+     * @param sourceColumnType source column type
+     * @param alterOperation alter operation of ddl
+     * @param newColumn new column after ddl
+     * @param tableName table name of sink table
+     * @param oldColumnName old column name before ddl
+     * @return alter table sql for sink table after schema change
+     */
+    default String buildAlterTableSql(
+            String sourceDialectName,
+            String sourceColumnType,
+            String alterOperation,
+            Column newColumn,
+            String tableName,
+            String oldColumnName) {
+        if (StringUtils.equals(alterOperation, AlterType.DROP.name())) {
+            return String.format(
+                    "ALTER TABLE %s drop column %s", tableName, quoteIdentifier(oldColumnName));
+        }
+        TypeConverter<?> typeConverter = ConverterLoader.loadTypeConverter(dialectName());
+        BasicTypeDefine<MysqlType> typeBasicTypeDefine =
+                (BasicTypeDefine<MysqlType>) typeConverter.reconvert(newColumn);
+
+        String basicSql = buildAlterTableBasicSql(alterOperation, tableName);
+        basicSql =
+                decorateWithColumnNameAndType(
+                        sourceDialectName,
+                        sourceColumnType,
+                        basicSql,
+                        alterOperation,
+                        newColumn,
+                        oldColumnName,
+                        typeBasicTypeDefine.getColumnType());
+        basicSql = decorateWithNullable(basicSql, typeBasicTypeDefine);
+        basicSql = decorateWithDefaultValue(basicSql, typeBasicTypeDefine);
+        basicSql = decorateWithComment(basicSql, typeBasicTypeDefine);
+        return basicSql + ";";
+    }
+
+    /**
+     * build the body of alter table sql
+     *
+     * @param alterOperation alter operation of ddl
+     * @param tableName table name of sink table
+     * @return basic sql of alter table for sink table
+     */
+    default String buildAlterTableBasicSql(String alterOperation, String tableName) {
+        StringBuilder sql =
+                new StringBuilder(
+                        "ALTER TABLE "
+                                + tableName
+                                + StringUtils.SPACE
+                                + alterOperation
+                                + StringUtils.SPACE);
+        return sql.toString();
+    }
+
+    /**
+     * decorate the sql with column name and type
+     *
+     * @param sourceDialectName source dialect name
+     * @param sourceColumnType source column type
+     * @param basicSql basic sql of alter table for sink table
+     * @param alterOperation alter operation of ddl
+     * @param newColumn new column after ddl
+     * @param oldColumnName old column name before ddl
+     * @param columnType column type of new column
+     * @return basic sql with column name and type of alter table for sink table
+     */
+    default String decorateWithColumnNameAndType(
+            String sourceDialectName,
+            String sourceColumnType,
+            String basicSql,
+            String alterOperation,
+            Column newColumn,
+            String oldColumnName,
+            String columnType) {
+        StringBuilder sql = new StringBuilder(basicSql);
+        String oldColumnNameWithQuoted = quoteIdentifier(oldColumnName);
+        String newColumnNameWithQuoted = quoteIdentifier(newColumn.getName());
+        if (alterOperation.equals(AlterType.CHANGE.name())) {
+            sql.append(oldColumnNameWithQuoted)
+                    .append(StringUtils.SPACE)
+                    .append(newColumnNameWithQuoted)
+                    .append(StringUtils.SPACE);
+        } else {
+            sql.append(newColumnNameWithQuoted).append(StringUtils.SPACE);
+        }
+        if (sourceDialectName.equals(dialectName())) {
+            sql.append(sourceColumnType);
+        } else {
+            sql.append(columnType);
+        }
+        sql.append(StringUtils.SPACE);
+        return sql.toString();
+    }
+
+    /**
+     * decorate with nullable
+     *
+     * @param basicSql alter table sql for sink table
+     * @param typeBasicTypeDefine type basic type define of new column
+     * @return alter table sql with nullable for sink table
+     */
+    default String decorateWithNullable(
+            String basicSql, BasicTypeDefine<MysqlType> typeBasicTypeDefine) {
+        StringBuilder sql = new StringBuilder(basicSql);
+        if (typeBasicTypeDefine.isNullable()) {
+            sql.append("NULL ");
+        } else {
+            sql.append("NOT NULL ");
+        }
+        return sql.toString();
+    }
+
+    /**
+     * decorate with default value
+     *
+     * @param basicSql alter table sql for sink table
+     * @param typeBasicTypeDefine type basic type define of new column
+     * @return alter table sql with default value for sink table
+     */
+    default String decorateWithDefaultValue(
+            String basicSql, BasicTypeDefine<MysqlType> typeBasicTypeDefine) {
+        Object defaultValue = typeBasicTypeDefine.getDefaultValue();
+        if (Objects.nonNull(defaultValue)
+                && needsQuotesWithDefaultValue(typeBasicTypeDefine.getColumnType())
+                && !isSpecialDefaultValue(defaultValue)) {
+            defaultValue = quotesDefaultValue(defaultValue);
+        }
+        StringBuilder sql = new StringBuilder(basicSql);
+        if (Objects.nonNull(defaultValue)) {
+            sql.append("DEFAULT ").append(defaultValue).append(StringUtils.SPACE);
+        }
+        return sql.toString();
+    }
+
+    /**
+     * decorate with comment
+     *
+     * @param basicSql alter table sql for sink table
+     * @param typeBasicTypeDefine type basic type define of new column
+     * @return alter table sql with comment for sink table
+     */
+    default String decorateWithComment(
+            String basicSql, BasicTypeDefine<MysqlType> typeBasicTypeDefine) {
+        String comment = typeBasicTypeDefine.getComment();
+        StringBuilder sql = new StringBuilder(basicSql);
+        if (StringUtils.isNotBlank(comment)) {
+            sql.append("COMMENT '").append(comment).append("'");
+        }
+        return sql.toString();
+    }
+
+    /**
+     * whether quotes with default value
+     *
+     * @param sqlType sql type of column
+     * @return whether needs quotes with the type
+     */
+    default boolean needsQuotesWithDefaultValue(String sqlType) {
+        return false;
+    }
+
+    /**
+     * whether is special default value e.g. current_timestamp
+     *
+     * @param defaultValue default value of column
+     * @return whether is special default value e.g current_timestamp
+     */
+    default boolean isSpecialDefaultValue(Object defaultValue) {
+        return false;
+    }
+
+    /**
+     * quotes default value
+     *
+     * @param defaultValue default value of column
+     * @return quoted default value
+     */
+    default String quotesDefaultValue(Object defaultValue) {
+        return "'" + defaultValue + "'";
+    }
+
+    enum AlterType {
+        ADD,
+        DROP,
+        MODIFY,
+        CHANGE
     }
 }

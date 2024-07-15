@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
@@ -289,6 +290,9 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
                     dateFormatter = DateUtils.matchDateFormatter(field);
                     fieldFormatterMap.put(fieldName, dateFormatter);
                 }
+                if (dateFormatter == null) {
+                    throw CommonError.formatDateError(field, fieldName);
+                }
 
                 return dateFormatter.parse(field).query(TemporalQueries.localDate());
             case TIME:
@@ -299,6 +303,9 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
                 if (dateTimeFormatter == null) {
                     dateTimeFormatter = DateTimeUtils.matchDateTimeFormatter(field);
                     fieldFormatterMap.put(fieldName, dateTimeFormatter);
+                }
+                if (dateTimeFormatter == null) {
+                    throw CommonError.formatDateTimeError(field, fieldName);
                 }
 
                 TemporalAccessor parsedTimestamp = dateTimeFormatter.parse(field);
@@ -320,11 +327,8 @@ public class TextDeserializationSchema implements DeserializationSchema<SeaTunne
                 }
                 return new SeaTunnelRow(objects);
             default:
-                throw new SeaTunnelTextFormatException(
-                        CommonErrorCode.UNSUPPORTED_DATA_TYPE,
-                        String.format(
-                                "SeaTunnel not support this data type [%s]",
-                                fieldType.getSqlType()));
+                throw CommonError.unsupportedDataType(
+                        "SeaTunnel", fieldType.getSqlType().toString(), fieldName);
         }
     }
 }

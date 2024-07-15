@@ -21,7 +21,8 @@ public enum MySqlVersion {
     V_5_5,
     V_5_6,
     V_5_7,
-    V_8;
+    V_8,
+    V_8_4;
 
     public static MySqlVersion parse(String version) {
         if (version != null) {
@@ -36,6 +37,9 @@ public enum MySqlVersion {
             }
             if (version.startsWith("8.0")) {
                 return V_8;
+            }
+            if (version.startsWith("8.4")) {
+                return V_8_4;
             }
         }
         throw new UnsupportedOperationException("Unsupported MySQL version: " + version);

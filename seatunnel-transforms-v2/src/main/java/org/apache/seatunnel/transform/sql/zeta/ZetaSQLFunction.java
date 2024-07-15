@@ -159,6 +159,7 @@ public class ZetaSQLFunction {
     public static final String MONTHNAME = "MONTHNAME";
     public static final String PARSEDATETIME = "PARSEDATETIME";
     public static final String TO_DATE = "TO_DATE";
+    public static final String IS_DATE = "IS_DATE";
     public static final String QUARTER = "QUARTER";
     public static final String SECOND = "SECOND";
     public static final String WEEK = "WEEK";
@@ -476,6 +477,8 @@ public class ZetaSQLFunction {
             case PARSEDATETIME:
             case TO_DATE:
                 return DateTimeFunction.parsedatetime(args);
+            case IS_DATE:
+                return DateTimeFunction.isDate(args);
             case QUARTER:
                 return DateTimeFunction.quarter(args);
             case SECOND:

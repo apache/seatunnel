@@ -60,7 +60,8 @@ public abstract class Column implements Serializable {
      * Number of digits to right of the decimal point.
      *
      * <p>For decimal data, this is the maximum scale. For time/timestamp data, this is the maximum
-     * allowed precision of the fractional seconds component.
+     * allowed precision of the fractional seconds component. For vector data, this is the vector
+     * dimension.
      *
      * <p>Null is returned for data types where the scale is not applicable.
      */
@@ -191,4 +192,7 @@ public abstract class Column implements Serializable {
 
     /** Returns a copy of the column with a replaced name. */
     public abstract Column rename(String newColumnName);
+
+    /** Returns a copy of the column with a replaced sourceType. */
+    public abstract Column reSourceType(String sourceType);
 }

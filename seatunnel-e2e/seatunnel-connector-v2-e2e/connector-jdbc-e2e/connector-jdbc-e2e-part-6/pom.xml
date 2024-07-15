@@ -47,5 +47,11 @@
             <artifactId>ojdbc8</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- https://mvnrepository.com/artifact/com.sap.cloud.db.jdbc/ngdbc -->
+        <dependency>
+            <groupId>com.sap.cloud.db.jdbc</groupId>
+            <artifactId>ngdbc</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 </project>
