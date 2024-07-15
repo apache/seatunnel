@@ -540,7 +540,7 @@ public class SeaTunnelClientTest {
             Assertions.assertTrue(jobMetrics.contains(SINK_WRITE_COUNT + "#fake1"));
             Assertions.assertTrue(jobMetrics.contains(SINK_WRITE_COUNT + "#fake2"));
 
-            log.info("jobMetrics : {}" , jobMetrics);
+            log.info("jobMetrics : {}", jobMetrics);
             JsonNode jobMetricsStr = new ObjectMapper().readTree(jobMetrics);
             List<String> metricNameList =
                     StreamSupport.stream(

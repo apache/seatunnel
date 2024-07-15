@@ -282,8 +282,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                                 sinkTableCounter.inc();
                             } else {
                                 Counter counter =
-                                        metricsContext.counter(
-                                                SINK_WRITE_COUNT + "#" + tableName);
+                                        metricsContext.counter(SINK_WRITE_COUNT + "#" + tableName);
                                 counter.inc();
                                 sinkWriteCountPerTable.put(tableName, counter);
                             }
