@@ -505,8 +505,6 @@ public abstract class AbstractJdbcCatalog implements Catalog {
         options.put("connector", "jdbc");
         options.put("url", getUrlFromDatabaseName(tablePath.getDatabaseName()));
         options.put("table-name", getOptionTableName(tablePath));
-        options.put("username", username);
-        options.put("password", pwd);
         return options;
     }
 
