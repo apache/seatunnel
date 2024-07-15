@@ -222,12 +222,8 @@ public class SeaTunnelHealthMonitor {
         }
 
         private void ipPort() {
-            sb.append("host=")
-                    .append(node.address.getHost())
-                    .append(", ");
-            sb.append("port=")
-                    .append(node.address.getPort())
-                    .append(", ");
+            sb.append("host=").append(node.address.getHost()).append(", ");
+            sb.append("port=").append(node.address.getPort()).append(", ");
         }
 
         private void renderConnection() {
