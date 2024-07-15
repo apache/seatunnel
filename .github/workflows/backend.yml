@@ -310,17 +310,10 @@ jobs:
           cache: 'maven'
       - name: free disk space
         run: tools/github/free_disk_space.sh
-      - name: run updated modules integration test (part-1)
-        if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
+      - name: Set MAVEN_OPTS
         run: |
-          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 8 0`
-          if [ ! -z $sub_modules ]; then
-            ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $sub_modules -am -Pci
-          else
-            echo "sub modules is empty, skipping"
-          fi
-        env:
-          MAVEN_OPTS: -Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
+            if [ "${{ matrix.java }}" = "17" ]; then
+              echo "MAVEN_OPTS=-Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
             --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED \
             --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
             --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
@@ -339,7 +332,21 @@ jobs:
             --add-opens=java.base/java.util=ALL-UNNAMED \
             --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
             --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED
+            --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED" >> $GITHUB_OUTPUT
+            elif [ "${{ matrix.java }}" = "8" ]; then
+              echo "MAVEN_OPTS=-Xmx4096m" >> $GITHUB_OUTPUT
+            fi
+      - name: run updated modules integration test (part-1)
+        if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
+        run: |
+          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 8 0`
+          if [ ! -z $sub_modules ]; then
+            ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $sub_modules -am -Pci
+          else
+            echo "sub modules is empty, skipping"
+          fi
+        env:
+          MAVEN_OPTS: ${{ env.MAVEN_OPTS }}
   updated-modules-integration-test-part-2:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
@@ -359,17 +366,10 @@ jobs:
           cache: 'maven'
       - name: free disk space
         run: tools/github/free_disk_space.sh
-      - name: run updated modules integration test (part-2)
-        if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
+      - name: Set MAVEN_OPTS
         run: |
-          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 8 1`
-          if [ ! -z $sub_modules ]; then
-            ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $sub_modules -am -Pci
-          else
-            echo "sub modules is empty, skipping"
-          fi
-        env:
-          MAVEN_OPTS: -Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
+            if [ "${{ matrix.java }}" = "17" ]; then
+              echo "MAVEN_OPTS=-Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
             --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED \
             --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
             --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
@@ -388,7 +388,21 @@ jobs:
             --add-opens=java.base/java.util=ALL-UNNAMED \
             --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
             --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED
+            --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED" >> $GITHUB_OUTPUT
+            elif [ "${{ matrix.java }}" = "8" ]; then
+              echo "MAVEN_OPTS=-Xmx4096m" >> $GITHUB_OUTPUT
+            fi
+      - name: run updated modules integration test (part-2)
+        if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
+        run: |
+          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 8 1`
+          if [ ! -z $sub_modules ]; then
+            ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $sub_modules -am -Pci
+          else
+            echo "sub modules is empty, skipping"
+          fi
+        env:
+          MAVEN_OPTS: ${{ env.MAVEN_OPTS }}
 
   updated-modules-integration-test-part-3:
     needs: [ changes, sanity-check ]
@@ -409,17 +423,10 @@ jobs:
           cache: 'maven'
       - name: free disk space
         run: tools/github/free_disk_space.sh
-      - name: run updated modules integration test (part-3)
-        if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
+      - name: Set MAVEN_OPTS
         run: |
-          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 8 2`
-          if [ ! -z $sub_modules ]; then
-            ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $sub_modules -am -Pci
-          else
-            echo "sub modules is empty, skipping"
-          fi
-        env:
-          MAVEN_OPTS: -Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
+            if [ "${{ matrix.java }}" = "17" ]; then
+              echo "MAVEN_OPTS=-Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
             --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED \
             --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
             --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
@@ -438,7 +445,21 @@ jobs:
             --add-opens=java.base/java.util=ALL-UNNAMED \
             --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
             --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED
+            --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED" >> $GITHUB_OUTPUT
+            elif [ "${{ matrix.java }}" = "8" ]; then
+              echo "MAVEN_OPTS=-Xmx4096m" >> $GITHUB_OUTPUT
+            fi
+      - name: run updated modules integration test (part-3)
+        if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
+        run: |
+          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 8 2`
+          if [ ! -z $sub_modules ]; then
+            ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $sub_modules -am -Pci
+          else
+            echo "sub modules is empty, skipping"
+          fi
+        env:
+          MAVEN_OPTS: ${{ env.MAVEN_OPTS }}
 
   updated-modules-integration-test-part-4:
     needs: [ changes, sanity-check ]
@@ -459,17 +480,10 @@ jobs:
           cache: 'maven'
       - name: free disk space
         run: tools/github/free_disk_space.sh
-      - name: run updated modules integration test (part-4)
-        if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
+      - name: Set MAVEN_OPTS
         run: |
-          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 8 3`
-          if [ ! -z $sub_modules ]; then
-            ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $sub_modules -am -Pci
-          else
-            echo "sub modules is empty, skipping"
-          fi
-        env:
-          MAVEN_OPTS: -Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
+            if [ "${{ matrix.java }}" = "17" ]; then
+              echo "MAVEN_OPTS=-Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
             --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED \
             --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
             --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
@@ -488,7 +502,21 @@ jobs:
             --add-opens=java.base/java.util=ALL-UNNAMED \
             --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
             --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED
+            --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED" >> $GITHUB_OUTPUT
+            elif [ "${{ matrix.java }}" = "8" ]; then
+              echo "MAVEN_OPTS=-Xmx4096m" >> $GITHUB_OUTPUT
+            fi
+      - name: run updated modules integration test (part-4)
+        if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
+        run: |
+          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 8 3`
+          if [ ! -z $sub_modules ]; then
+            ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $sub_modules -am -Pci
+          else
+            echo "sub modules is empty, skipping"
+          fi
+        env:
+          MAVEN_OPTS: ${{ env.MAVEN_OPTS }}
   updated-modules-integration-test-part-5:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
@@ -508,17 +536,10 @@ jobs:
           cache: 'maven'
       - name: free disk space
         run: tools/github/free_disk_space.sh
-      - name: run updated modules integration test (part-5)
-        if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
+      - name: Set MAVEN_OPTS
         run: |
-          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 8 4`
-          if [ ! -z $sub_modules ]; then
-            ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $sub_modules -am -Pci
-          else
-            echo "sub modules is empty, skipping"
-          fi
-        env:
-          MAVEN_OPTS: -Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
+            if [ "${{ matrix.java }}" = "17" ]; then
+              echo "MAVEN_OPTS=-Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
             --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED \
             --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
             --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
@@ -537,7 +558,21 @@ jobs:
             --add-opens=java.base/java.util=ALL-UNNAMED \
             --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
             --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED
+            --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED" >> $GITHUB_OUTPUT
+            elif [ "${{ matrix.java }}" = "8" ]; then
+              echo "MAVEN_OPTS=-Xmx4096m" >> $GITHUB_OUTPUT
+            fi
+      - name: run updated modules integration test (part-5)
+        if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
+        run: |
+          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 8 4`
+          if [ ! -z $sub_modules ]; then
+            ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $sub_modules -am -Pci
+          else
+            echo "sub modules is empty, skipping"
+          fi
+        env:
+          MAVEN_OPTS: ${{ env.MAVEN_OPTS }}
   updated-modules-integration-test-part-6:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
@@ -557,17 +592,10 @@ jobs:
           cache: 'maven'
       - name: free disk space
         run: tools/github/free_disk_space.sh
-      - name: run updated modules integration test (part-6)
-        if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
+      - name: Set MAVEN_OPTS
         run: |
-          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 8 5`
-          if [ ! -z $sub_modules ]; then
-            ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $sub_modules -am -Pci
-          else
-            echo "sub modules is empty, skipping"
-          fi
-        env:
-          MAVEN_OPTS: -Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
+            if [ "${{ matrix.java }}" = "17" ]; then
+              echo "MAVEN_OPTS=-Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
             --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED \
             --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
             --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
@@ -586,7 +614,21 @@ jobs:
             --add-opens=java.base/java.util=ALL-UNNAMED \
             --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
             --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED
+            --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED" >> $GITHUB_OUTPUT
+            elif [ "${{ matrix.java }}" = "8" ]; then
+              echo "MAVEN_OPTS=-Xmx4096m" >> $GITHUB_OUTPUT
+            fi
+      - name: run updated modules integration test (part-6)
+        if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
+        run: |
+          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 8 5`
+          if [ ! -z $sub_modules ]; then
+            ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $sub_modules -am -Pci
+          else
+            echo "sub modules is empty, skipping"
+          fi
+        env:
+          MAVEN_OPTS: ${{ env.MAVEN_OPTS }}
   updated-modules-integration-test-part-7:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
@@ -606,17 +648,10 @@ jobs:
           cache: 'maven'
       - name: free disk space
         run: tools/github/free_disk_space.sh
-      - name: run updated modules integration test (part-7)
-        if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
+      - name: Set MAVEN_OPTS
         run: |
-          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 8 6`
-          if [ ! -z $sub_modules ]; then
-            ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $sub_modules -am -Pci
-          else
-            echo "sub modules is empty, skipping"
-          fi
-        env:
-          MAVEN_OPTS: -Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
+            if [ "${{ matrix.java }}" = "17" ]; then
+              echo "MAVEN_OPTS=-Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
             --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED \
             --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
             --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
@@ -635,7 +670,21 @@ jobs:
             --add-opens=java.base/java.util=ALL-UNNAMED \
             --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
             --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED
+            --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED" >> $GITHUB_OUTPUT
+            elif [ "${{ matrix.java }}" = "8" ]; then
+              echo "MAVEN_OPTS=-Xmx4096m" >> $GITHUB_OUTPUT
+            fi
+      - name: run updated modules integration test (part-7)
+        if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
+        run: |
+          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 8 6`
+          if [ ! -z $sub_modules ]; then
+            ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $sub_modules -am -Pci
+          else
+            echo "sub modules is empty, skipping"
+          fi
+        env:
+          MAVEN_OPTS: ${{ env.MAVEN_OPTS }}
 
   updated-modules-integration-test-part-8:
     needs: [ changes, sanity-check ]
@@ -656,17 +705,10 @@ jobs:
           cache: 'maven'
       - name: free disk space
         run: tools/github/free_disk_space.sh
-      - name: run updated modules integration test (part-8)
-        if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
+      - name: Set MAVEN_OPTS
         run: |
-          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 8 7`
-          if [ ! -z $sub_modules ]; then
-            ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $sub_modules -am -Pci
-          else
-            echo "sub modules is empty, skipping"
-          fi
-        env:
-          MAVEN_OPTS: -Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
+            if [ "${{ matrix.java }}" = "17" ]; then
+              echo "MAVEN_OPTS=-Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
             --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED \
             --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
             --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
@@ -685,7 +727,21 @@ jobs:
             --add-opens=java.base/java.util=ALL-UNNAMED \
             --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
             --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED
+            --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED" >> $GITHUB_OUTPUT
+            elif [ "${{ matrix.java }}" = "8" ]; then
+              echo "MAVEN_OPTS=-Xmx4096m" >> $GITHUB_OUTPUT
+            fi
+      - name: run updated modules integration test (part-8)
+        if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
+        run: |
+          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 8 7`
+          if [ ! -z $sub_modules ]; then
+            ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $sub_modules -am -Pci
+          else
+            echo "sub modules is empty, skipping"
+          fi
+        env:
+          MAVEN_OPTS: ${{ env.MAVEN_OPTS }}
 
   engine-v2-it:
     needs: [ changes, sanity-check ]
@@ -704,31 +760,38 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - name: Set MAVEN_OPTS
+        run: |
+          if [ "${{ matrix.java }}" = "17" ]; then
+            echo "MAVEN_OPTS=-Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
+          --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED \
+          --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED \
+          --add-opens=java.base/java.lang=ALL-UNNAMED \
+          --add-opens=java.base/java.net=ALL-UNNAMED \
+          --add-opens=java.base/java.io=ALL-UNNAMED \
+          --add-opens=java.base/java.nio=ALL-UNNAMED \
+          --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
+          --add-opens=java.base/java.lang.reflect=ALL-UNNAMED \
+          --add-opens=java.base/java.text=ALL-UNNAMED \
+          --add-opens=java.base/java.time=ALL-UNNAMED \
+          --add-opens=java.base/java.util=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED" >> $GITHUB_OUTPUT
+          elif [ "${{ matrix.java }}" = "8" ]; then
+            echo "MAVEN_OPTS=-Xmx4096m" >> $GITHUB_OUTPUT
+          fi
       - name: run seatunnel zeta integration test
         if: needs.changes.outputs.api == 'true'
         run: |
           ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :connector-seatunnel-e2e-base,:connector-console-seatunnel-e2e -am -Pci
         env:
-          MAVEN_OPTS: -Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
-            --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED \
-            --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED \
-            --add-opens=java.base/java.lang=ALL-UNNAMED \
-            --add-opens=java.base/java.net=ALL-UNNAMED \
-            --add-opens=java.base/java.io=ALL-UNNAMED \
-            --add-opens=java.base/java.nio=ALL-UNNAMED \
-            --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
-            --add-opens=java.base/java.lang.reflect=ALL-UNNAMED \
-            --add-opens=java.base/java.text=ALL-UNNAMED \
-            --add-opens=java.base/java.time=ALL-UNNAMED \
-            --add-opens=java.base/java.util=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED
+          MAVEN_OPTS: ${{ env.MAVEN_OPTS }}
   engine-k8s-it:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true' || contains(needs.changes.outputs.it-modules, 'seatunnel-engine-k8s-e2e')
@@ -750,17 +813,10 @@ jobs:
       - uses: actions/checkout@v2
       - name: free disk space
         run: tools/github/free_disk_space.sh
-      - name: Set up JDK ${{ matrix.java }}
-        uses: actions/setup-java@v3
-        with:
-          java-version: ${{ matrix.java }}
-          distribution: 'temurin'
-          cache: 'maven'
-      - name: run seatunnel zeta on k8s test
+      - name: Set MAVEN_OPTS
         run: |
-          ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :seatunnel-engine-k8s-e2e -am -Pci
-        env:
-          MAVEN_OPTS: -Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
+            if [ "${{ matrix.java }}" = "17" ]; then
+              echo "MAVEN_OPTS=-Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
             --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED \
             --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
             --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
@@ -779,7 +835,21 @@ jobs:
             --add-opens=java.base/java.util=ALL-UNNAMED \
             --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
             --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED
+            --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED" >> $GITHUB_OUTPUT
+            elif [ "${{ matrix.java }}" = "8" ]; then
+              echo "MAVEN_OPTS=-Xmx4096m" >> $GITHUB_OUTPUT
+            fi
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v3
+        with:
+          java-version: ${{ matrix.java }}
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: run seatunnel zeta on k8s test
+        run: |
+          ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :seatunnel-engine-k8s-e2e -am -Pci
+        env:
+          MAVEN_OPTS: ${{ env.MAVEN_OPTS }}
           KUBECONFIG: /etc/rancher/k3s/k3s.yaml
   transform-v2-it-part-1:
     needs: [ changes, sanity-check ]
@@ -798,31 +868,38 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - name: Set MAVEN_OPTS
+        run: |
+          if [ "${{ matrix.java }}" = "17" ]; then
+            echo "MAVEN_OPTS=-Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
+          --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED \
+          --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED \
+          --add-opens=java.base/java.lang=ALL-UNNAMED \
+          --add-opens=java.base/java.net=ALL-UNNAMED \
+          --add-opens=java.base/java.io=ALL-UNNAMED \
+          --add-opens=java.base/java.nio=ALL-UNNAMED \
+          --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
+          --add-opens=java.base/java.lang.reflect=ALL-UNNAMED \
+          --add-opens=java.base/java.text=ALL-UNNAMED \
+          --add-opens=java.base/java.time=ALL-UNNAMED \
+          --add-opens=java.base/java.util=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED" >> $GITHUB_OUTPUT
+          elif [ "${{ matrix.java }}" = "8" ]; then
+            echo "MAVEN_OPTS=-Xmx4096m" >> $GITHUB_OUTPUT
+          fi
       - name: run transform-v2 integration test (part-1)
         if: needs.changes.outputs.api == 'true'
         run: |
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :seatunnel-transforms-v2-e2e-part-1 -am -Pci
         env:
-          MAVEN_OPTS: -Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
-            --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED \
-            --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED \
-            --add-opens=java.base/java.lang=ALL-UNNAMED \
-            --add-opens=java.base/java.net=ALL-UNNAMED \
-            --add-opens=java.base/java.io=ALL-UNNAMED \
-            --add-opens=java.base/java.nio=ALL-UNNAMED \
-            --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
-            --add-opens=java.base/java.lang.reflect=ALL-UNNAMED \
-            --add-opens=java.base/java.text=ALL-UNNAMED \
-            --add-opens=java.base/java.time=ALL-UNNAMED \
-            --add-opens=java.base/java.util=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED
+          MAVEN_OPTS: ${{ env.MAVEN_OPTS }}
 
   transform-v2-it-part-2:
     needs: [ changes, sanity-check ]
@@ -841,31 +918,38 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - name: Set MAVEN_OPTS
+        run: |
+          if [ "${{ matrix.java }}" = "17" ]; then
+            echo "MAVEN_OPTS=-Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
+          --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED \
+          --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED \
+          --add-opens=java.base/java.lang=ALL-UNNAMED \
+          --add-opens=java.base/java.net=ALL-UNNAMED \
+          --add-opens=java.base/java.io=ALL-UNNAMED \
+          --add-opens=java.base/java.nio=ALL-UNNAMED \
+          --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
+          --add-opens=java.base/java.lang.reflect=ALL-UNNAMED \
+          --add-opens=java.base/java.text=ALL-UNNAMED \
+          --add-opens=java.base/java.time=ALL-UNNAMED \
+          --add-opens=java.base/java.util=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED" >> $GITHUB_OUTPUT
+          elif [ "${{ matrix.java }}" = "8" ]; then
+            echo "MAVEN_OPTS=-Xmx4096m" >> $GITHUB_OUTPUT
+          fi
       - name: run transform-v2 integration test (part-2)
         if: needs.changes.outputs.api == 'true'
         run: |
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :seatunnel-transforms-v2-e2e-part-2 -am -Pci
         env:
-          MAVEN_OPTS: -Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
-            --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED \
-            --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED \
-            --add-opens=java.base/java.lang=ALL-UNNAMED \
-            --add-opens=java.base/java.net=ALL-UNNAMED \
-            --add-opens=java.base/java.io=ALL-UNNAMED \
-            --add-opens=java.base/java.nio=ALL-UNNAMED \
-            --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
-            --add-opens=java.base/java.lang.reflect=ALL-UNNAMED \
-            --add-opens=java.base/java.text=ALL-UNNAMED \
-            --add-opens=java.base/java.time=ALL-UNNAMED \
-            --add-opens=java.base/java.util=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED
+          MAVEN_OPTS: ${{ env.MAVEN_OPTS }}
 
   all-connectors-it-1:
     needs: [ changes, sanity-check ]
@@ -884,6 +968,32 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - name: Set MAVEN_OPTS
+        run: |
+          if [ "${{ matrix.java }}" = "17" ]; then
+            echo "MAVEN_OPTS=-Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
+          --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED \
+          --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED \
+          --add-opens=java.base/java.lang=ALL-UNNAMED \
+          --add-opens=java.base/java.net=ALL-UNNAMED \
+          --add-opens=java.base/java.io=ALL-UNNAMED \
+          --add-opens=java.base/java.nio=ALL-UNNAMED \
+          --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
+          --add-opens=java.base/java.lang.reflect=ALL-UNNAMED \
+          --add-opens=java.base/java.text=ALL-UNNAMED \
+          --add-opens=java.base/java.time=ALL-UNNAMED \
+          --add-opens=java.base/java.util=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED" >> $GITHUB_OUTPUT
+          elif [ "${{ matrix.java }}" = "8" ]; then
+            echo "MAVEN_OPTS=-Xmx4096m" >> $GITHUB_OUTPUT
+          fi
       - name: run connector-v2 integration test (part-1)
         if: needs.changes.outputs.api == 'true'
         run: |
@@ -892,26 +1002,7 @@ jobs:
           run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module "$sub_modules" 7 0`
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
         env:
-          MAVEN_OPTS: -Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
-            --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED \
-            --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED \
-            --add-opens=java.base/java.lang=ALL-UNNAMED \
-            --add-opens=java.base/java.net=ALL-UNNAMED \
-            --add-opens=java.base/java.io=ALL-UNNAMED \
-            --add-opens=java.base/java.nio=ALL-UNNAMED \
-            --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
-            --add-opens=java.base/java.lang.reflect=ALL-UNNAMED \
-            --add-opens=java.base/java.text=ALL-UNNAMED \
-            --add-opens=java.base/java.time=ALL-UNNAMED \
-            --add-opens=java.base/java.util=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED
+          MAVEN_OPTS: ${{ env.MAVEN_OPTS }}
 
   all-connectors-it-2:
     needs: [ changes, sanity-check ]
@@ -930,6 +1021,32 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - name: Set MAVEN_OPTS
+        run: |
+          if [ "${{ matrix.java }}" = "17" ]; then
+            echo "MAVEN_OPTS=-Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
+          --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED \
+          --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED \
+          --add-opens=java.base/java.lang=ALL-UNNAMED \
+          --add-opens=java.base/java.net=ALL-UNNAMED \
+          --add-opens=java.base/java.io=ALL-UNNAMED \
+          --add-opens=java.base/java.nio=ALL-UNNAMED \
+          --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
+          --add-opens=java.base/java.lang.reflect=ALL-UNNAMED \
+          --add-opens=java.base/java.text=ALL-UNNAMED \
+          --add-opens=java.base/java.time=ALL-UNNAMED \
+          --add-opens=java.base/java.util=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED" >> $GITHUB_OUTPUT
+          elif [ "${{ matrix.java }}" = "8" ]; then
+            echo "MAVEN_OPTS=-Xmx4096m" >> $GITHUB_OUTPUT
+          fi
       - name: run connector-v2 integration test (part-2)
         if: needs.changes.outputs.api == 'true'
         run: |
@@ -938,26 +1055,7 @@ jobs:
           run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module "$sub_modules" 7 1`
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
         env:
-          MAVEN_OPTS: -Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
-            --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED \
-            --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED \
-            --add-opens=java.base/java.lang=ALL-UNNAMED \
-            --add-opens=java.base/java.net=ALL-UNNAMED \
-            --add-opens=java.base/java.io=ALL-UNNAMED \
-            --add-opens=java.base/java.nio=ALL-UNNAMED \
-            --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
-            --add-opens=java.base/java.lang.reflect=ALL-UNNAMED \
-            --add-opens=java.base/java.text=ALL-UNNAMED \
-            --add-opens=java.base/java.time=ALL-UNNAMED \
-            --add-opens=java.base/java.util=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED
+          MAVEN_OPTS: ${{ env.MAVEN_OPTS }}
 
   all-connectors-it-3:
     needs: [ changes, sanity-check ]
@@ -976,6 +1074,32 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - name: Set MAVEN_OPTS
+        run: |
+          if [ "${{ matrix.java }}" = "17" ]; then
+            echo "MAVEN_OPTS=-Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
+          --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED \
+          --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED \
+          --add-opens=java.base/java.lang=ALL-UNNAMED \
+          --add-opens=java.base/java.net=ALL-UNNAMED \
+          --add-opens=java.base/java.io=ALL-UNNAMED \
+          --add-opens=java.base/java.nio=ALL-UNNAMED \
+          --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
+          --add-opens=java.base/java.lang.reflect=ALL-UNNAMED \
+          --add-opens=java.base/java.text=ALL-UNNAMED \
+          --add-opens=java.base/java.time=ALL-UNNAMED \
+          --add-opens=java.base/java.util=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED" >> $GITHUB_OUTPUT
+          elif [ "${{ matrix.java }}" = "8" ]; then
+            echo "MAVEN_OPTS=-Xmx4096m" >> $GITHUB_OUTPUT
+          fi
       - name: run connector-v2 integration test (part-3)
         if: needs.changes.outputs.api == 'true'
         run: |
@@ -984,26 +1108,7 @@ jobs:
           run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module "$sub_modules" 7 2`
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
         env:
-          MAVEN_OPTS: -Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
-            --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED \
-            --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED \
-            --add-opens=java.base/java.lang=ALL-UNNAMED \
-            --add-opens=java.base/java.net=ALL-UNNAMED \
-            --add-opens=java.base/java.io=ALL-UNNAMED \
-            --add-opens=java.base/java.nio=ALL-UNNAMED \
-            --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
-            --add-opens=java.base/java.lang.reflect=ALL-UNNAMED \
-            --add-opens=java.base/java.text=ALL-UNNAMED \
-            --add-opens=java.base/java.time=ALL-UNNAMED \
-            --add-opens=java.base/java.util=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED
+          MAVEN_OPTS: ${{ env.MAVEN_OPTS }}
 
   all-connectors-it-4:
     needs: [ changes, sanity-check ]
@@ -1022,6 +1127,32 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - name: Set MAVEN_OPTS
+        run: |
+          if [ "${{ matrix.java }}" = "17" ]; then
+            echo "MAVEN_OPTS=-Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
+          --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED \
+          --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED \
+          --add-opens=java.base/java.lang=ALL-UNNAMED \
+          --add-opens=java.base/java.net=ALL-UNNAMED \
+          --add-opens=java.base/java.io=ALL-UNNAMED \
+          --add-opens=java.base/java.nio=ALL-UNNAMED \
+          --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
+          --add-opens=java.base/java.lang.reflect=ALL-UNNAMED \
+          --add-opens=java.base/java.text=ALL-UNNAMED \
+          --add-opens=java.base/java.time=ALL-UNNAMED \
+          --add-opens=java.base/java.util=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED" >> $GITHUB_OUTPUT
+          elif [ "${{ matrix.java }}" = "8" ]; then
+            echo "MAVEN_OPTS=-Xmx4096m" >> $GITHUB_OUTPUT
+          fi
       - name: run connector-v2 integration test (part-4)
         if: needs.changes.outputs.api == 'true'
         run: |
@@ -1030,26 +1161,7 @@ jobs:
           run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module "$sub_modules" 7 3`
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
         env:
-          MAVEN_OPTS: -Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
-            --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED \
-            --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED \
-            --add-opens=java.base/java.lang=ALL-UNNAMED \
-            --add-opens=java.base/java.net=ALL-UNNAMED \
-            --add-opens=java.base/java.io=ALL-UNNAMED \
-            --add-opens=java.base/java.nio=ALL-UNNAMED \
-            --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
-            --add-opens=java.base/java.lang.reflect=ALL-UNNAMED \
-            --add-opens=java.base/java.text=ALL-UNNAMED \
-            --add-opens=java.base/java.time=ALL-UNNAMED \
-            --add-opens=java.base/java.util=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED
+          MAVEN_OPTS: ${{ env.MAVEN_OPTS }}
 
   all-connectors-it-5:
     needs: [ changes, sanity-check ]
@@ -1068,6 +1180,32 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - name: Set MAVEN_OPTS
+        run: |
+          if [ "${{ matrix.java }}" = "17" ]; then
+            echo "MAVEN_OPTS=-Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
+          --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED \
+          --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED \
+          --add-opens=java.base/java.lang=ALL-UNNAMED \
+          --add-opens=java.base/java.net=ALL-UNNAMED \
+          --add-opens=java.base/java.io=ALL-UNNAMED \
+          --add-opens=java.base/java.nio=ALL-UNNAMED \
+          --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
+          --add-opens=java.base/java.lang.reflect=ALL-UNNAMED \
+          --add-opens=java.base/java.text=ALL-UNNAMED \
+          --add-opens=java.base/java.time=ALL-UNNAMED \
+          --add-opens=java.base/java.util=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED" >> $GITHUB_OUTPUT
+          elif [ "${{ matrix.java }}" = "8" ]; then
+            echo "MAVEN_OPTS=-Xmx4096m" >> $GITHUB_OUTPUT
+          fi
       - name: run connector-v2 integration test (part-5)
         if: needs.changes.outputs.api == 'true'
         run: |
@@ -1076,26 +1214,7 @@ jobs:
           run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module "$sub_modules" 7 4`
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
         env:
-          MAVEN_OPTS: -Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
-            --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED \
-            --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED \
-            --add-opens=java.base/java.lang=ALL-UNNAMED \
-            --add-opens=java.base/java.net=ALL-UNNAMED \
-            --add-opens=java.base/java.io=ALL-UNNAMED \
-            --add-opens=java.base/java.nio=ALL-UNNAMED \
-            --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
-            --add-opens=java.base/java.lang.reflect=ALL-UNNAMED \
-            --add-opens=java.base/java.text=ALL-UNNAMED \
-            --add-opens=java.base/java.time=ALL-UNNAMED \
-            --add-opens=java.base/java.util=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED
+          MAVEN_OPTS: ${{ env.MAVEN_OPTS }}
 
   all-connectors-it-6:
     needs: [ changes, sanity-check ]
@@ -1114,6 +1233,32 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - name: Set MAVEN_OPTS
+        run: |
+          if [ "${{ matrix.java }}" = "17" ]; then
+            echo "MAVEN_OPTS=-Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
+          --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED \
+          --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED \
+          --add-opens=java.base/java.lang=ALL-UNNAMED \
+          --add-opens=java.base/java.net=ALL-UNNAMED \
+          --add-opens=java.base/java.io=ALL-UNNAMED \
+          --add-opens=java.base/java.nio=ALL-UNNAMED \
+          --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
+          --add-opens=java.base/java.lang.reflect=ALL-UNNAMED \
+          --add-opens=java.base/java.text=ALL-UNNAMED \
+          --add-opens=java.base/java.time=ALL-UNNAMED \
+          --add-opens=java.base/java.util=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED" >> $GITHUB_OUTPUT
+          elif [ "${{ matrix.java }}" = "8" ]; then
+            echo "MAVEN_OPTS=-Xmx4096m" >> $GITHUB_OUTPUT
+          fi
       - name: run connector-v2 integration test (part-6)
         if: needs.changes.outputs.api == 'true'
         run: |
@@ -1122,26 +1267,7 @@ jobs:
           run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module "$sub_modules" 7 5`
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
         env:
-          MAVEN_OPTS: -Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
-            --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED \
-            --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED \
-            --add-opens=java.base/java.lang=ALL-UNNAMED \
-            --add-opens=java.base/java.net=ALL-UNNAMED \
-            --add-opens=java.base/java.io=ALL-UNNAMED \
-            --add-opens=java.base/java.nio=ALL-UNNAMED \
-            --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
-            --add-opens=java.base/java.lang.reflect=ALL-UNNAMED \
-            --add-opens=java.base/java.text=ALL-UNNAMED \
-            --add-opens=java.base/java.time=ALL-UNNAMED \
-            --add-opens=java.base/java.util=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED
+          MAVEN_OPTS: ${{ env.MAVEN_OPTS }}
 
   all-connectors-it-7:
     needs: [ changes, sanity-check ]
@@ -1160,6 +1286,32 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - name: Set MAVEN_OPTS
+        run: |
+          if [ "${{ matrix.java }}" = "17" ]; then
+            echo "MAVEN_OPTS=-Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
+          --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED \
+          --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED \
+          --add-opens=java.base/java.lang=ALL-UNNAMED \
+          --add-opens=java.base/java.net=ALL-UNNAMED \
+          --add-opens=java.base/java.io=ALL-UNNAMED \
+          --add-opens=java.base/java.nio=ALL-UNNAMED \
+          --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
+          --add-opens=java.base/java.lang.reflect=ALL-UNNAMED \
+          --add-opens=java.base/java.text=ALL-UNNAMED \
+          --add-opens=java.base/java.time=ALL-UNNAMED \
+          --add-opens=java.base/java.util=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED" >> $GITHUB_OUTPUT
+          elif [ "${{ matrix.java }}" = "8" ]; then
+            echo "MAVEN_OPTS=-Xmx4096m" >> $GITHUB_OUTPUT
+          fi
       - name: run connector-v2 integration test (part-7)
         if: needs.changes.outputs.api == 'true'
         run: |
@@ -1168,26 +1320,7 @@ jobs:
           run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module "$sub_modules" 7 6`
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
         env:
-          MAVEN_OPTS: -Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
-            --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED \
-            --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED \
-            --add-opens=java.base/java.lang=ALL-UNNAMED \
-            --add-opens=java.base/java.net=ALL-UNNAMED \
-            --add-opens=java.base/java.io=ALL-UNNAMED \
-            --add-opens=java.base/java.nio=ALL-UNNAMED \
-            --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
-            --add-opens=java.base/java.lang.reflect=ALL-UNNAMED \
-            --add-opens=java.base/java.text=ALL-UNNAMED \
-            --add-opens=java.base/java.time=ALL-UNNAMED \
-            --add-opens=java.base/java.util=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED
+          MAVEN_OPTS: ${{ env.MAVEN_OPTS }}
 
   jdbc-connectors-it-part-1:
     needs: [ changes, sanity-check ]
@@ -1208,12 +1341,10 @@ jobs:
           cache: 'maven'
       - name: free disk space
         run: tools/github/free_disk_space.sh
-      - name: run jdbc connectors integration test (part-1)
-        if: needs.changes.outputs.api == 'true'
+      - name: Set MAVEN_OPTS
         run: |
-          ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :connector-jdbc-e2e-part-1 -am -Pci
-        env:
-          MAVEN_OPTS: -Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
+            if [ "${{ matrix.java }}" = "17" ]; then
+              echo "MAVEN_OPTS=-Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
             --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED \
             --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
             --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
@@ -1232,7 +1363,16 @@ jobs:
             --add-opens=java.base/java.util=ALL-UNNAMED \
             --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
             --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED
+            --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED" >> $GITHUB_OUTPUT
+            elif [ "${{ matrix.java }}" = "8" ]; then
+              echo "MAVEN_OPTS=-Xmx4096m" >> $GITHUB_OUTPUT
+            fi
+      - name: run jdbc connectors integration test (part-1)
+        if: needs.changes.outputs.api == 'true'
+        run: |
+          ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :connector-jdbc-e2e-part-1 -am -Pci
+        env:
+          MAVEN_OPTS: ${{ env.MAVEN_OPTS }}
 
   jdbc-connectors-it-part-2:
     needs: [ changes, sanity-check ]
@@ -1253,12 +1393,10 @@ jobs:
           cache: 'maven'
       - name: free disk space
         run: tools/github/free_disk_space.sh
-      - name: run jdbc connectors integration test (part-2)
-        if: needs.changes.outputs.api == 'true'
+      - name: Set MAVEN_OPTS
         run: |
-          ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :connector-jdbc-e2e-part-2 -am -Pci
-        env:
-          MAVEN_OPTS: -Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
+            if [ "${{ matrix.java }}" = "17" ]; then
+              echo "MAVEN_OPTS=-Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
             --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED \
             --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
             --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
@@ -1277,7 +1415,16 @@ jobs:
             --add-opens=java.base/java.util=ALL-UNNAMED \
             --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
             --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED
+            --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED" >> $GITHUB_OUTPUT
+            elif [ "${{ matrix.java }}" = "8" ]; then
+              echo "MAVEN_OPTS=-Xmx4096m" >> $GITHUB_OUTPUT
+            fi
+      - name: run jdbc connectors integration test (part-2)
+        if: needs.changes.outputs.api == 'true'
+        run: |
+          ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :connector-jdbc-e2e-part-2 -am -Pci
+        env:
+          MAVEN_OPTS: ${{ env.MAVEN_OPTS }}
 
   jdbc-connectors-it-part-3:
     needs: [ changes, sanity-check ]
@@ -1296,31 +1443,38 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - name: Set MAVEN_OPTS
+        run: |
+          if [ "${{ matrix.java }}" = "17" ]; then
+            echo "MAVEN_OPTS=-Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
+          --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED \
+          --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED \
+          --add-opens=java.base/java.lang=ALL-UNNAMED \
+          --add-opens=java.base/java.net=ALL-UNNAMED \
+          --add-opens=java.base/java.io=ALL-UNNAMED \
+          --add-opens=java.base/java.nio=ALL-UNNAMED \
+          --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
+          --add-opens=java.base/java.lang.reflect=ALL-UNNAMED \
+          --add-opens=java.base/java.text=ALL-UNNAMED \
+          --add-opens=java.base/java.time=ALL-UNNAMED \
+          --add-opens=java.base/java.util=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED" >> $GITHUB_OUTPUT
+          elif [ "${{ matrix.java }}" = "8" ]; then
+            echo "MAVEN_OPTS=-Xmx4096m" >> $GITHUB_OUTPUT
+          fi
       - name: run jdbc connectors integration test (part-3)
         if: needs.changes.outputs.api == 'true'
         run: |
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :connector-jdbc-e2e-part-3 -am -Pci
         env:
-          MAVEN_OPTS: -Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
-            --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED \
-            --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED \
-            --add-opens=java.base/java.lang=ALL-UNNAMED \
-            --add-opens=java.base/java.net=ALL-UNNAMED \
-            --add-opens=java.base/java.io=ALL-UNNAMED \
-            --add-opens=java.base/java.nio=ALL-UNNAMED \
-            --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
-            --add-opens=java.base/java.lang.reflect=ALL-UNNAMED \
-            --add-opens=java.base/java.text=ALL-UNNAMED \
-            --add-opens=java.base/java.time=ALL-UNNAMED \
-            --add-opens=java.base/java.util=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED
+          MAVEN_OPTS: ${{ env.MAVEN_OPTS }}
 
   jdbc-connectors-it-part-4:
     needs: [ changes, sanity-check ]
@@ -1339,31 +1493,38 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - name: Set MAVEN_OPTS
+        run: |
+          if [ "${{ matrix.java }}" = "17" ]; then
+            echo "MAVEN_OPTS=-Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
+          --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED \
+          --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED \
+          --add-opens=java.base/java.lang=ALL-UNNAMED \
+          --add-opens=java.base/java.net=ALL-UNNAMED \
+          --add-opens=java.base/java.io=ALL-UNNAMED \
+          --add-opens=java.base/java.nio=ALL-UNNAMED \
+          --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
+          --add-opens=java.base/java.lang.reflect=ALL-UNNAMED \
+          --add-opens=java.base/java.text=ALL-UNNAMED \
+          --add-opens=java.base/java.time=ALL-UNNAMED \
+          --add-opens=java.base/java.util=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED" >> $GITHUB_OUTPUT
+          elif [ "${{ matrix.java }}" = "8" ]; then
+            echo "MAVEN_OPTS=-Xmx4096m" >> $GITHUB_OUTPUT
+          fi
       - name: run jdbc connectors integration test (part-4)
         if: needs.changes.outputs.api == 'true'
         run: |
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :connector-jdbc-e2e-part-4 -am -Pci
         env:
-          MAVEN_OPTS: -Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
-            --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED \
-            --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED \
-            --add-opens=java.base/java.lang=ALL-UNNAMED \
-            --add-opens=java.base/java.net=ALL-UNNAMED \
-            --add-opens=java.base/java.io=ALL-UNNAMED \
-            --add-opens=java.base/java.nio=ALL-UNNAMED \
-            --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
-            --add-opens=java.base/java.lang.reflect=ALL-UNNAMED \
-            --add-opens=java.base/java.text=ALL-UNNAMED \
-            --add-opens=java.base/java.time=ALL-UNNAMED \
-            --add-opens=java.base/java.util=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED
+          MAVEN_OPTS: ${{ env.MAVEN_OPTS }}
 
   jdbc-connectors-it-part-5:
     needs: [ changes, sanity-check ]
@@ -1382,31 +1543,38 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - name: Set MAVEN_OPTS
+        run: |
+          if [ "${{ matrix.java }}" = "17" ]; then
+            echo "MAVEN_OPTS=-Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
+          --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED \
+          --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED \
+          --add-opens=java.base/java.lang=ALL-UNNAMED \
+          --add-opens=java.base/java.net=ALL-UNNAMED \
+          --add-opens=java.base/java.io=ALL-UNNAMED \
+          --add-opens=java.base/java.nio=ALL-UNNAMED \
+          --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
+          --add-opens=java.base/java.lang.reflect=ALL-UNNAMED \
+          --add-opens=java.base/java.text=ALL-UNNAMED \
+          --add-opens=java.base/java.time=ALL-UNNAMED \
+          --add-opens=java.base/java.util=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED" >> $GITHUB_OUTPUT
+          elif [ "${{ matrix.java }}" = "8" ]; then
+            echo "MAVEN_OPTS=-Xmx4096m" >> $GITHUB_OUTPUT
+          fi
       - name: run jdbc connectors integration test (part-5)
         if: needs.changes.outputs.api == 'true'
         run: |
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :connector-jdbc-e2e-part-5 -am -Pci
         env:
-          MAVEN_OPTS: -Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
-            --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED \
-            --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED \
-            --add-opens=java.base/java.lang=ALL-UNNAMED \
-            --add-opens=java.base/java.net=ALL-UNNAMED \
-            --add-opens=java.base/java.io=ALL-UNNAMED \
-            --add-opens=java.base/java.nio=ALL-UNNAMED \
-            --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
-            --add-opens=java.base/java.lang.reflect=ALL-UNNAMED \
-            --add-opens=java.base/java.text=ALL-UNNAMED \
-            --add-opens=java.base/java.time=ALL-UNNAMED \
-            --add-opens=java.base/java.util=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED
+          MAVEN_OPTS: ${{ env.MAVEN_OPTS }}
 
   jdbc-connectors-it-part-6:
     needs: [ changes, sanity-check ]
@@ -1427,12 +1595,10 @@ jobs:
           cache: 'maven'
       - name: free disk space
         run: tools/github/free_disk_space.sh
-      - name: run jdbc connectors integration test (part-6)
-        if: needs.changes.outputs.api == 'true'
+      - name: Set MAVEN_OPTS
         run: |
-          ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :connector-jdbc-e2e-part-6 -am -Pci
-        env:
-          MAVEN_OPTS: -Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
+            if [ "${{ matrix.java }}" = "17" ]; then
+              echo "MAVEN_OPTS=-Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
             --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED \
             --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
             --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
@@ -1451,7 +1617,16 @@ jobs:
             --add-opens=java.base/java.util=ALL-UNNAMED \
             --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
             --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED
+            --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED" >> $GITHUB_OUTPUT
+            elif [ "${{ matrix.java }}" = "8" ]; then
+              echo "MAVEN_OPTS=-Xmx4096m" >> $GITHUB_OUTPUT
+            fi
+      - name: run jdbc connectors integration test (part-6)
+        if: needs.changes.outputs.api == 'true'
+        run: |
+          ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :connector-jdbc-e2e-part-6 -am -Pci
+        env:
+          MAVEN_OPTS: ${{ env.MAVEN_OPTS }}
 
   jdbc-connectors-it-part-7:
     needs: [ changes, sanity-check ]
@@ -1470,31 +1645,38 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - name: Set MAVEN_OPTS
+        run: |
+          if [ "${{ matrix.java }}" = "17" ]; then
+            echo "MAVEN_OPTS=-Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
+          --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED \
+          --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED \
+          --add-opens=java.base/java.lang=ALL-UNNAMED \
+          --add-opens=java.base/java.net=ALL-UNNAMED \
+          --add-opens=java.base/java.io=ALL-UNNAMED \
+          --add-opens=java.base/java.nio=ALL-UNNAMED \
+          --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
+          --add-opens=java.base/java.lang.reflect=ALL-UNNAMED \
+          --add-opens=java.base/java.text=ALL-UNNAMED \
+          --add-opens=java.base/java.time=ALL-UNNAMED \
+          --add-opens=java.base/java.util=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED" >> $GITHUB_OUTPUT
+          elif [ "${{ matrix.java }}" = "8" ]; then
+            echo "MAVEN_OPTS=-Xmx4096m" >> $GITHUB_OUTPUT
+          fi
       - name: run jdbc connectors integration test (part-7)
         if: needs.changes.outputs.api == 'true'
         run: |
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :connector-jdbc-e2e-part-7 -am -Pci
         env:
-          MAVEN_OPTS: -Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
-            --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED \
-            --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED \
-            --add-opens=java.base/java.lang=ALL-UNNAMED \
-            --add-opens=java.base/java.net=ALL-UNNAMED \
-            --add-opens=java.base/java.io=ALL-UNNAMED \
-            --add-opens=java.base/java.nio=ALL-UNNAMED \
-            --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
-            --add-opens=java.base/java.lang.reflect=ALL-UNNAMED \
-            --add-opens=java.base/java.text=ALL-UNNAMED \
-            --add-opens=java.base/java.time=ALL-UNNAMED \
-            --add-opens=java.base/java.util=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED
+          MAVEN_OPTS: ${{ env.MAVEN_OPTS }}
 
   kudu-connector-it:
     needs: [ changes, sanity-check ]
@@ -1513,30 +1695,37 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - name: Set MAVEN_OPTS
+        run: |
+          if [ "${{ matrix.java }}" = "17" ]; then
+            echo "MAVEN_OPTS=-Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
+          --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED \
+          --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED \
+          --add-opens=java.base/java.lang=ALL-UNNAMED \
+          --add-opens=java.base/java.net=ALL-UNNAMED \
+          --add-opens=java.base/java.io=ALL-UNNAMED \
+          --add-opens=java.base/java.nio=ALL-UNNAMED \
+          --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
+          --add-opens=java.base/java.lang.reflect=ALL-UNNAMED \
+          --add-opens=java.base/java.text=ALL-UNNAMED \
+          --add-opens=java.base/java.time=ALL-UNNAMED \
+          --add-opens=java.base/java.util=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED" >> $GITHUB_OUTPUT
+          elif [ "${{ matrix.java }}" = "8" ]; then
+            echo "MAVEN_OPTS=-Xmx4096m" >> $GITHUB_OUTPUT
+          fi
       - name: run kudu connector integration test
         run: |
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :connector-kudu-e2e -am -Pci
         env:
-          MAVEN_OPTS: -Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
-            --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED \
-            --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED \
-            --add-opens=java.base/java.lang=ALL-UNNAMED \
-            --add-opens=java.base/java.net=ALL-UNNAMED \
-            --add-opens=java.base/java.io=ALL-UNNAMED \
-            --add-opens=java.base/java.nio=ALL-UNNAMED \
-            --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
-            --add-opens=java.base/java.lang.reflect=ALL-UNNAMED \
-            --add-opens=java.base/java.text=ALL-UNNAMED \
-            --add-opens=java.base/java.time=ALL-UNNAMED \
-            --add-opens=java.base/java.util=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED
+          MAVEN_OPTS: ${{ env.MAVEN_OPTS }}
 
   amazonSqs-connector-it:
     needs: [ changes, sanity-check ]
@@ -1555,30 +1744,37 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - name: Set MAVEN_OPTS
+        run: |
+          if [ "${{ matrix.java }}" = "17" ]; then
+            echo "MAVEN_OPTS=-Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
+          --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED \
+          --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED \
+          --add-opens=java.base/java.lang=ALL-UNNAMED \
+          --add-opens=java.base/java.net=ALL-UNNAMED \
+          --add-opens=java.base/java.io=ALL-UNNAMED \
+          --add-opens=java.base/java.nio=ALL-UNNAMED \
+          --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
+          --add-opens=java.base/java.lang.reflect=ALL-UNNAMED \
+          --add-opens=java.base/java.text=ALL-UNNAMED \
+          --add-opens=java.base/java.time=ALL-UNNAMED \
+          --add-opens=java.base/java.util=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED" >> $GITHUB_OUTPUT
+          elif [ "${{ matrix.java }}" = "8" ]; then
+            echo "MAVEN_OPTS=-Xmx4096m" >> $GITHUB_OUTPUT
+          fi
       - name: run amazonsqs connector integration test
         run: |
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :connector-amazonsqs-e2e -am -Pci
         env:
-          MAVEN_OPTS: -Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
-            --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED \
-            --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED \
-            --add-opens=java.base/java.lang=ALL-UNNAMED \
-            --add-opens=java.base/java.net=ALL-UNNAMED \
-            --add-opens=java.base/java.io=ALL-UNNAMED \
-            --add-opens=java.base/java.nio=ALL-UNNAMED \
-            --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
-            --add-opens=java.base/java.lang.reflect=ALL-UNNAMED \
-            --add-opens=java.base/java.text=ALL-UNNAMED \
-            --add-opens=java.base/java.time=ALL-UNNAMED \
-            --add-opens=java.base/java.util=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED
+          MAVEN_OPTS: ${{ env.MAVEN_OPTS }}
 
   kafka-connector-it:
     needs: [ changes, sanity-check ]
@@ -1597,31 +1793,38 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - name: Set MAVEN_OPTS
+        run: |
+          if [ "${{ matrix.java }}" = "17" ]; then
+            echo "MAVEN_OPTS=-Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
+          --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED \
+          --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED \
+          --add-opens=java.base/java.lang=ALL-UNNAMED \
+          --add-opens=java.base/java.net=ALL-UNNAMED \
+          --add-opens=java.base/java.io=ALL-UNNAMED \
+          --add-opens=java.base/java.nio=ALL-UNNAMED \
+          --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
+          --add-opens=java.base/java.lang.reflect=ALL-UNNAMED \
+          --add-opens=java.base/java.text=ALL-UNNAMED \
+          --add-opens=java.base/java.time=ALL-UNNAMED \
+          --add-opens=java.base/java.util=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED" >> $GITHUB_OUTPUT
+          elif [ "${{ matrix.java }}" = "8" ]; then
+            echo "MAVEN_OPTS=-Xmx4096m" >> $GITHUB_OUTPUT
+          fi
       - name: run kafka connector integration test
         if: needs.changes.outputs.api == 'true'
         run: |
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :connector-kafka-e2e -am -Pci
         env:
-          MAVEN_OPTS: -Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
-            --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED \
-            --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED \
-            --add-opens=java.base/java.lang=ALL-UNNAMED \
-            --add-opens=java.base/java.net=ALL-UNNAMED \
-            --add-opens=java.base/java.io=ALL-UNNAMED \
-            --add-opens=java.base/java.nio=ALL-UNNAMED \
-            --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
-            --add-opens=java.base/java.lang.reflect=ALL-UNNAMED \
-            --add-opens=java.base/java.text=ALL-UNNAMED \
-            --add-opens=java.base/java.time=ALL-UNNAMED \
-            --add-opens=java.base/java.util=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED
+          MAVEN_OPTS: ${{ env.MAVEN_OPTS }}
 
   rocketmq-connector-it:
     needs: [ changes, sanity-check ]
@@ -1640,31 +1843,38 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - name: Set MAVEN_OPTS
+        run: |
+          if [ "${{ matrix.java }}" = "17" ]; then
+            echo "MAVEN_OPTS=-Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
+          --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED \
+          --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED \
+          --add-opens=java.base/java.lang=ALL-UNNAMED \
+          --add-opens=java.base/java.net=ALL-UNNAMED \
+          --add-opens=java.base/java.io=ALL-UNNAMED \
+          --add-opens=java.base/java.nio=ALL-UNNAMED \
+          --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
+          --add-opens=java.base/java.lang.reflect=ALL-UNNAMED \
+          --add-opens=java.base/java.text=ALL-UNNAMED \
+          --add-opens=java.base/java.time=ALL-UNNAMED \
+          --add-opens=java.base/java.util=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED" >> $GITHUB_OUTPUT
+          elif [ "${{ matrix.java }}" = "8" ]; then
+            echo "MAVEN_OPTS=-Xmx4096m" >> $GITHUB_OUTPUT
+          fi
       - name: run rocket connector integration test
         if: needs.changes.outputs.api == 'true'
         run: |
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :connector-rocketmq-e2e -am -Pci
         env:
-          MAVEN_OPTS: -Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
-            --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED \
-            --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED \
-            --add-opens=java.base/java.lang=ALL-UNNAMED \
-            --add-opens=java.base/java.net=ALL-UNNAMED \
-            --add-opens=java.base/java.io=ALL-UNNAMED \
-            --add-opens=java.base/java.nio=ALL-UNNAMED \
-            --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
-            --add-opens=java.base/java.lang.reflect=ALL-UNNAMED \
-            --add-opens=java.base/java.text=ALL-UNNAMED \
-            --add-opens=java.base/java.time=ALL-UNNAMED \
-            --add-opens=java.base/java.util=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED
+          MAVEN_OPTS: ${{ env.MAVEN_OPTS }}
 
 
   doris-connector-it:
@@ -1686,11 +1896,10 @@ jobs:
           cache: 'maven'
       - name: free disk space
         run: tools/github/free_disk_space.sh
-      - name: run doris connector integration test
+      - name: Set MAVEN_OPTS
         run: |
-          ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :connector-doris-e2e -am -Pci
-        env:
-          MAVEN_OPTS: -Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
+            if [ "${{ matrix.java }}" = "17" ]; then
+              echo "MAVEN_OPTS=-Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
             --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED \
             --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
             --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
@@ -1709,7 +1918,15 @@ jobs:
             --add-opens=java.base/java.util=ALL-UNNAMED \
             --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
             --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED
+            --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED" >> $GITHUB_OUTPUT
+            elif [ "${{ matrix.java }}" = "8" ]; then
+              echo "MAVEN_OPTS=-Xmx4096m" >> $GITHUB_OUTPUT
+            fi
+      - name: run doris connector integration test
+        run: |
+          ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :connector-doris-e2e -am -Pci
+        env:
+          MAVEN_OPTS: ${{ env.MAVEN_OPTS }}
 
 
   oracle-cdc-connector-it:
@@ -1729,27 +1946,34 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - name: Set MAVEN_OPTS
+        run: |
+          if [ "${{ matrix.java }}" = "17" ]; then
+            echo "MAVEN_OPTS=-Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
+          --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED \
+          --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED \
+          --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED \
+          --add-opens=java.base/java.lang=ALL-UNNAMED \
+          --add-opens=java.base/java.net=ALL-UNNAMED \
+          --add-opens=java.base/java.io=ALL-UNNAMED \
+          --add-opens=java.base/java.nio=ALL-UNNAMED \
+          --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
+          --add-opens=java.base/java.lang.reflect=ALL-UNNAMED \
+          --add-opens=java.base/java.text=ALL-UNNAMED \
+          --add-opens=java.base/java.time=ALL-UNNAMED \
+          --add-opens=java.base/java.util=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
+          --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED" >> $GITHUB_OUTPUT
+          elif [ "${{ matrix.java }}" = "8" ]; then
+            echo "MAVEN_OPTS=-Xmx4096m" >> $GITHUB_OUTPUT
+          fi
       - name: run oracle cdc connector integration test
         run: |
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :connector-cdc-oracle-e2e -am -Pci
         env:
-          MAVEN_OPTS: -Xmx4096m --add-exports=java.base/sun.net.util=ALL-UNNAMED \
-            --add-exports=java.rmi/sun.rmi.registry=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED \
-            --add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED \
-            --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED \
-            --add-opens=java.base/java.lang=ALL-UNNAMED \
-            --add-opens=java.base/java.net=ALL-UNNAMED \
-            --add-opens=java.base/java.io=ALL-UNNAMED \
-            --add-opens=java.base/java.nio=ALL-UNNAMED \
-            --add-opens=java.base/sun.nio.ch=ALL-UNNAMED \
-            --add-opens=java.base/java.lang.reflect=ALL-UNNAMED \
-            --add-opens=java.base/java.text=ALL-UNNAMED \
-            --add-opens=java.base/java.time=ALL-UNNAMED \
-            --add-opens=java.base/java.util=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED \
-            --add-opens=java.base/java.util.concurrent.locks=ALL-UNNAMED
+          MAVEN_OPTS: ${{ env.MAVEN_OPTS }}
