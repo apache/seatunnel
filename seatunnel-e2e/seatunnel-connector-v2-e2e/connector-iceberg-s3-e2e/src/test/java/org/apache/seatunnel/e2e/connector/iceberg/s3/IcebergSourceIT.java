@@ -88,7 +88,7 @@ import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCa
 public class IcebergSourceIT extends TestSuiteBase implements TestResource {
 
     public static final String HADOOP_AWS_DOWNLOAD =
-            "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.1.4/hadoop-aws-3.1.4.jar";
+            "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.3.4/hadoop-aws-3.3.4.jar";
     public static final String AWS_SDK_DOWNLOAD =
             "https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.11.271/aws-java-sdk-bundle-1.11.271.jar";
 
