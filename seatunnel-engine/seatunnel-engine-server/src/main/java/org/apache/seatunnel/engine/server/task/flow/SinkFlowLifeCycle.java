@@ -275,17 +275,16 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                     sinkWriteBytesPerSeconds.markEvent(size);
                     String tableId = ((SeaTunnelRow) record.getData()).getTableId();
                     if (StringUtils.isNotBlank(tableId)) {
-                        String tableName = TablePath.of(tableId).getTableName();
-                        if (StringUtils.isNotBlank(tableName)) {
-                            Counter sinkTableCounter = sinkWriteCountPerTable.get(tableName);
-                            if (Objects.nonNull(sinkTableCounter)) {
-                                sinkTableCounter.inc();
-                            } else {
-                                Counter counter =
-                                        metricsContext.counter(SINK_WRITE_COUNT + "#" + tableName);
-                                counter.inc();
-                                sinkWriteCountPerTable.put(tableName, counter);
-                            }
+                        String tableName =
+                                Optional.of(TablePath.of(tableId).getTableName()).orElse("null");
+                        Counter sinkTableCounter = sinkWriteCountPerTable.get(tableName);
+                        if (Objects.nonNull(sinkTableCounter)) {
+                            sinkTableCounter.inc();
+                        } else {
+                            Counter counter =
+                                    metricsContext.counter(SINK_WRITE_COUNT + "#" + tableName);
+                            counter.inc();
+                            sinkWriteCountPerTable.put(tableName, counter);
                         }
                     }
                 }

@@ -45,6 +45,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -133,17 +134,16 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
                 sourceReceivedBytesPerSeconds.markEvent(size);
                 flowControlGate.audit((SeaTunnelRow) row);
                 if (StringUtils.isNotEmpty(tableId)) {
-                    String tableName = TablePath.of(tableId).getTableName();
-                    if (StringUtils.isNotBlank(tableName)) {
-                        Counter sourceTableCounter = sourceReceivedCountPerTable.get(tableName);
-                        if (Objects.nonNull(sourceTableCounter)) {
-                            sourceTableCounter.inc();
-                        } else {
-                            Counter counter =
-                                    metricsContext.counter(SOURCE_RECEIVED_COUNT + "#" + tableName);
-                            counter.inc();
-                            sourceReceivedCountPerTable.put(tableName, counter);
-                        }
+                    String tableName =
+                            Optional.of(TablePath.of(tableId).getTableName()).orElse("null");
+                    Counter sourceTableCounter = sourceReceivedCountPerTable.get(tableName);
+                    if (Objects.nonNull(sourceTableCounter)) {
+                        sourceTableCounter.inc();
+                    } else {
+                        Counter counter =
+                                metricsContext.counter(SOURCE_RECEIVED_COUNT + "#" + tableName);
+                        counter.inc();
+                        sourceReceivedCountPerTable.put(tableName, counter);
                     }
                 }
             }
