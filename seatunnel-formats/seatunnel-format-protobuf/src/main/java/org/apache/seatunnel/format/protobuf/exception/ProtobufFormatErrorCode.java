@@ -15,17 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.kafka.config;
+package org.apache.seatunnel.format.protobuf.exception;
 
-public enum MessageFormat {
-    JSON,
-    TEXT,
-    CANAL_JSON,
-    DEBEZIUM_JSON,
-    COMPATIBLE_DEBEZIUM_JSON,
-    COMPATIBLE_KAFKA_CONNECT_JSON,
-    OGG_JSON,
-    AVRO,
-    MAXWELL_JSON,
-    PROTOBUF
+import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
+
+public enum ProtobufFormatErrorCode implements SeaTunnelErrorCode {
+    DESCRIPTOR_CONVERT_FAILED("PROTOBUF-01", "Protobuf descriptor conversion failed.");
+
+    private final String code;
+    private final String description;
+
+    ProtobufFormatErrorCode(String code, String description) {
+        this.code = code;
+        this.description = description;
+    }
+
+    @Override
+    public String getCode() {
+        return code;
+    }
+
+    @Override
+    public String getDescription() {
+        return description;
+    }
 }
