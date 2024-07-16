@@ -196,6 +196,5 @@ public class Config {
             Options.key("protobuf_message_name")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription(
-                            "Parsing entity class names from Protobuf data.");
+                    .withDescription("Parsing entity class names from Protobuf data.");
 }
