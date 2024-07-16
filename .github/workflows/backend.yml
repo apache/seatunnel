@@ -313,7 +313,7 @@ jobs:
       - name: run updated modules integration test (part-1)
         if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
         run: |
-          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 8 0`
+          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 10 0`
           if [ ! -z $sub_modules ]; then
             ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $sub_modules -am -Pci
           else
@@ -344,7 +344,7 @@ jobs:
       - name: run updated modules integration test (part-2)
         if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
         run: |
-          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 8 1`
+          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 10 1`
           if [ ! -z $sub_modules ]; then
             ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $sub_modules -am -Pci
           else
@@ -375,7 +375,7 @@ jobs:
       - name: run updated modules integration test (part-3)
         if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
         run: |
-          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 8 2`
+          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 10 2`
           if [ ! -z $sub_modules ]; then
             ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $sub_modules -am -Pci
           else
@@ -406,7 +406,7 @@ jobs:
       - name: run updated modules integration test (part-4)
         if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
         run: |
-          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 8 3`
+          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 10 3`
           if [ ! -z $sub_modules ]; then
             ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $sub_modules -am -Pci
           else
@@ -436,7 +436,7 @@ jobs:
       - name: run updated modules integration test (part-5)
         if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
         run: |
-          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 8 4`
+          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 10 4`
           if [ ! -z $sub_modules ]; then
             ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $sub_modules -am -Pci
           else
@@ -466,7 +466,7 @@ jobs:
       - name: run updated modules integration test (part-6)
         if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
         run: |
-          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 8 5`
+          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 10 5`
           if [ ! -z $sub_modules ]; then
             ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $sub_modules -am -Pci
           else
@@ -496,7 +496,7 @@ jobs:
       - name: run updated modules integration test (part-7)
         if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
         run: |
-          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 8 6`
+          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 10 6`
           if [ ! -z $sub_modules ]; then
             ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $sub_modules -am -Pci
           else
@@ -527,7 +527,69 @@ jobs:
       - name: run updated modules integration test (part-8)
         if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
         run: |
-          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 8 7`
+          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 10 7`
+          if [ ! -z $sub_modules ]; then
+            ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $sub_modules -am -Pci
+          else
+            echo "sub modules is empty, skipping"
+          fi
+        env:
+          MAVEN_OPTS: -Xmx2048m
+
+  updated-modules-integration-test-part-9:
+    needs: [ changes, sanity-check ]
+    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        java: [ '8', '11' ]
+        os: [ 'ubuntu-latest' ]
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v3
+        with:
+          java-version: ${{ matrix.java }}
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: free disk space
+        run: tools/github/free_disk_space.sh
+      - name: run updated modules integration test (part-8)
+        if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
+        run: |
+          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 10 8`
+          if [ ! -z $sub_modules ]; then
+            ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $sub_modules -am -Pci
+          else
+            echo "sub modules is empty, skipping"
+          fi
+        env:
+          MAVEN_OPTS: -Xmx2048m
+
+  updated-modules-integration-test-part-10:
+    needs: [ changes, sanity-check ]
+    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        java: [ '8', '11' ]
+        os: [ 'ubuntu-latest' ]
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v3
+        with:
+          java-version: ${{ matrix.java }}
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: free disk space
+        run: tools/github/free_disk_space.sh
+      - name: run updated modules integration test (part-8)
+        if: needs.changes.outputs.api == 'false' && needs.changes.outputs.it-modules != ''
+        run: |
+          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 10 9`
           if [ ! -z $sub_modules ]; then
             ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl $sub_modules -am -Pci
           else
