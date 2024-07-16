@@ -30,6 +30,9 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.common.utils.DateTimeUtils;
+import org.apache.seatunnel.common.utils.DateUtils;
+import org.apache.seatunnel.common.utils.TimeUtils;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
 import java.io.Serializable;
@@ -42,12 +45,15 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.function.IntFunction;
 
-import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
-import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME;
-
 public class RowToJsonConverters implements Serializable {
 
     private static final long serialVersionUID = 6988876688930916940L;
+
+    private final DateTimeUtils.Formatter dateTimeFormatter =
+            DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS_SSSSSS;
+    private final DateUtils.Formatter dateFormatter = DateUtils.Formatter.YYYY_MM_DD;
+
+    private final TimeUtils.Formatter timeFormatter = TimeUtils.Formatter.HH_MM_SS;
 
     public RowToJsonConverter createConverter(SeaTunnelDataType<?> type) {
         return wrapIntoNullableConverter(createNotNullConverter(type));
@@ -152,7 +158,7 @@ public class RowToJsonConverters implements Serializable {
                     @Override
                     public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
                         return mapper.getNodeFactory()
-                                .textNode(ISO_LOCAL_DATE.format((LocalDate) value));
+                                .textNode(DateUtils.toString((LocalDate) value, dateFormatter));
                     }
                 };
             case TIME:
@@ -160,7 +166,7 @@ public class RowToJsonConverters implements Serializable {
                     @Override
                     public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
                         return mapper.getNodeFactory()
-                                .textNode(TimeFormat.TIME_FORMAT.format((LocalTime) value));
+                                .textNode(TimeUtils.toString((LocalTime) value, timeFormatter));
                     }
                 };
             case TIMESTAMP:
@@ -168,7 +174,9 @@ public class RowToJsonConverters implements Serializable {
                     @Override
                     public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
                         return mapper.getNodeFactory()
-                                .textNode(ISO_LOCAL_DATE_TIME.format((LocalDateTime) value));
+                                .textNode(
+                                        DateTimeUtils.toString(
+                                                (LocalDateTime) value, dateTimeFormatter));
                     }
                 };
             case ARRAY:

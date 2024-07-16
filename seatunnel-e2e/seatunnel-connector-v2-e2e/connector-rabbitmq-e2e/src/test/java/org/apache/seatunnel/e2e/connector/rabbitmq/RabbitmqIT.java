@@ -245,13 +245,8 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
         sinkRabbitmqClient.close();
         // assert source and sink data
         Assertions.assertTrue(resultSet.size() > 0);
-        Assertions.assertTrue(
-                resultSet.stream()
-                        .findAny()
-                        .get()
-                        .equals(
-                                new String(
-                                        JSON_SERIALIZATION_SCHEMA.serialize(
-                                                TEST_DATASET.getValue().get(1)))));
+        Assertions.assertEquals(
+                resultSet.stream().findAny().get(),
+                new String(JSON_SERIALIZATION_SCHEMA.serialize(TEST_DATASET.getValue().get(1))));
     }
 }
