@@ -32,7 +32,6 @@ import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
-import org.apache.commons.compress.compressors.lzma.LZMACompressorOutputStream;
 import org.apache.commons.lang3.StringUtils;
 
 import org.junit.jupiter.api.Assertions;
@@ -41,15 +40,16 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.shaded.com.github.dockerjava.core.command.ExecStartResultCallback;
 
 import com.github.dockerjava.api.command.ExecCreateCmdResponse;
+import io.airlift.compress.lzo.LzopCodec;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -267,21 +267,11 @@ public class LocalFileIT extends TestSuiteBase {
     }
 
     private Path convertToLzoFile(File file) throws IOException {
-        // Define the output path
-        Path path = Paths.get(file.getAbsolutePath() + ".lzma");
-
-        // Use try-with-resources to ensure streams are closed properly
-        try (FileInputStream fis = new FileInputStream(file);
-                FileOutputStream fos = new FileOutputStream(path.toFile());
-                LZMACompressorOutputStream lzmaOut = new LZMACompressorOutputStream(fos)) {
-
-            byte[] buffer = new byte[1024];
-            int len;
-            while ((len = fis.read(buffer)) != -1) {
-                lzmaOut.write(buffer, 0, len);
-            }
-        }
-
+        LzopCodec lzo = new LzopCodec();
+        Path path = Paths.get(file.getAbsolutePath() + ".lzo");
+        OutputStream outputStream = lzo.createOutputStream(Files.newOutputStream(path));
+        outputStream.write(Files.readAllBytes(file.toPath()));
+        outputStream.close();
         return path;
     }
 }

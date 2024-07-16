@@ -27,6 +27,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.Handover;
+import org.apache.seatunnel.common.utils.DateTimeUtils;
+import org.apache.seatunnel.common.utils.DateTimeUtils.Formatter;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.client.RabbitmqClient;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig;
 import org.apache.seatunnel.e2e.common.TestResource;
@@ -80,36 +82,9 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
             generateTestDataSet();
     private static final JsonSerializationSchema JSON_SERIALIZATION_SCHEMA =
             new JsonSerializationSchema(TEST_DATASET.getKey());
-
-    private GenericContainer<?> rabbitmqContainer;
     Connection connection;
     RabbitmqClient rabbitmqClient;
-
-    @BeforeAll
-    @Override
-    public void startUp() throws Exception {
-        this.rabbitmqContainer =
-                new GenericContainer<>(DockerImageName.parse(IMAGE))
-                        .withNetwork(NETWORK)
-                        .withNetworkAliases(HOST)
-                        .withExposedPorts(PORT, 15672)
-                        .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)))
-                        .waitingFor(
-                                new HostPortWaitStrategy()
-                                        .withStartupTimeout(Duration.ofMinutes(2)));
-        Startables.deepStart(Stream.of(rabbitmqContainer)).join();
-        log.info("rabbitmq container started");
-        this.initRabbitMQ();
-    }
-
-    private void initSourceData() throws IOException, InterruptedException {
-        List<SeaTunnelRow> rows = TEST_DATASET.getValue();
-        for (int i = 0; i < rows.size(); i++) {
-            rabbitmqClient.write(
-                    new String(JSON_SERIALIZATION_SCHEMA.serialize(rows.get(1)))
-                            .getBytes(StandardCharsets.UTF_8));
-        }
-    }
+    private GenericContainer<?> rabbitmqContainer;
 
     private static Pair<SeaTunnelRowType, List<SeaTunnelRow>> generateTestDataSet() {
 
@@ -152,6 +127,8 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
 
         List<SeaTunnelRow> rows = new ArrayList<>();
         for (int i = 0; i < 10; i++) {
+            final String datetime = "2023-12-22 00:00:00";
+            LocalDateTime parse = DateTimeUtils.parse(datetime, Formatter.YYYY_MM_DD_HH_MM_SS);
             SeaTunnelRow row =
                     new SeaTunnelRow(
                             new Object[] {
@@ -169,11 +146,46 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
                                 BigDecimal.valueOf(11, 1),
                                 "test".getBytes(),
                                 LocalDate.now(),
-                                LocalDateTime.now()
+                                parse
                             });
             rows.add(row);
         }
         return Pair.of(rowType, rows);
+    }
+
+    @BeforeAll
+    @Override
+    public void startUp() throws Exception {
+        this.rabbitmqContainer =
+                new GenericContainer<>(DockerImageName.parse(IMAGE))
+                        .withNetwork(NETWORK)
+                        .withNetworkAliases(HOST)
+                        .withExposedPorts(PORT, 15672)
+                        .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)))
+                        .waitingFor(
+                                new HostPortWaitStrategy()
+                                        .withStartupTimeout(Duration.ofMinutes(2)));
+        Startables.deepStart(Stream.of(rabbitmqContainer)).join();
+        log.info("rabbitmq container started");
+        this.initRabbitMQ();
+    }
+
+    @AfterAll
+    @Override
+    public void tearDown() throws Exception {
+        if (connection != null) {
+            connection.close();
+        }
+        rabbitmqContainer.close();
+    }
+
+    private void initSourceData() throws IOException, InterruptedException {
+        List<SeaTunnelRow> rows = TEST_DATASET.getValue();
+        for (int i = 0; i < rows.size(); i++) {
+            rabbitmqClient.write(
+                    new String(JSON_SERIALIZATION_SCHEMA.serialize(rows.get(1)))
+                            .getBytes(StandardCharsets.UTF_8));
+        }
     }
 
     private void initRabbitMQ() {
@@ -205,15 +217,6 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
         } catch (Exception e) {
             throw new RuntimeException("init Rabbitmq error", e);
         }
-    }
-
-    @AfterAll
-    @Override
-    public void tearDown() throws Exception {
-        if (connection != null) {
-            connection.close();
-        }
-        rabbitmqContainer.close();
     }
 
     @TestTemplate
