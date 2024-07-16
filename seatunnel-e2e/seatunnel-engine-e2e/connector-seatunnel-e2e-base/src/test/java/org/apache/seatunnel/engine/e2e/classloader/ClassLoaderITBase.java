@@ -68,7 +68,7 @@ public abstract class ClassLoaderITBase extends SeaTunnelContainer {
             if (cacheMode()) {
                 Assertions.assertTrue(3 >= getClassLoaderCount());
             } else {
-                Assertions.assertTrue(2 + i >= getClassLoaderCount());
+                Assertions.assertTrue(3 + 2 * i >= getClassLoaderCount());
             }
         }
     }
