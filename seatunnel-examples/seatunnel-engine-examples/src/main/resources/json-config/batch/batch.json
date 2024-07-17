@@ -1,42 +1,105 @@
 {
   "env": {
-    "job.name": "唯一id测试",
+    "execution.parallelism": 1,
+    "job.name": "数据处理模型",
     "job.mode": "batch"
   },
-  "preHandler": [],
+  "preHandler": [
+
+  ],
   "source": [
     {
-      "plugin_name": "Jdbc",
-      "dsId": "1584788710849748994",
-      "dsName": "mysql8.4",
-      "dsType": "mysql",
-      "resourceType": "table",
-      "driver": "com.mysql.cj.jdbc.Driver",
-      "connection_check_timeout_sec": 100,
-      "query": "SELECT\n `id`,\n `name`,\n `age`,\n `sex`,\n `birthday`,\n `create_time`,\n `county`\nFROM\n `test_tb`",
-      "database": "mysql_test",
-      "url": "jdbc:mysql://172.16.8.4:3306/mysql_test?remarks=true&useInformationSchema=true&useCursorFetch=true&defaultFetchSize=2048&rewriteBatchedStatements=true",
-      "user": "root",
-      "password": "123456",
+      "plugin_name": "S3File",
+      "resourceType": "file",
+      "path": "/file-node/upload/excel/6694c0f90776445105625701.xlsx",
+      "fs.s3a.endpoint": "http://172.16.8.137:9000",
+      "fs.s3a.aws.credentials.provider": "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider",
+      "access_key": "Q4LR09FOKQ8KHV9J0SQU",
+      "secret_key": "dqmGmXnL8icM+3CcVEfsXmUofZtWhGd8HrxVxP3J",
+      "bucket": "s3a://ottomi",
+      "file_format_type": "excel",
+      "skip_header_row_number": 1,
+      "date_format": "yyyy-MM-dd",
+      "datetime_format": "yyyy-MM-dd HH:mm:ss",
+      "time_format": "HH:mm:ss",
+      "schema": {
+        "fields": {
+          "Name": "string",
+          "URL": "string",
+          "FP16 Value": "float",
+          "FP16 Unit": "string",
+          "FP16 Ratio": "string",
+          "FP32 Value": "float",
+          "FP32 Unit": "string",
+          "CUDA": "float"
+        }
+      },
       "resources": [
-        "test_tb"
+        "gpu.xlsx"
       ],
-      "result_table_name": "ot_6f6f3d07f529482da2d54b3aaeabf807"
+      "result_table_name": "ot_a5ceff42de9b4efba0e7d7f3dd32f32f",
+      "ottomi_node_type": "ExcelSource"
     }
   ],
   "transform": [
     {
-      "plugin_name": "sql",
-      "source_table_name": "ot_6f6f3d07f529482da2d54b3aaeabf807",
-      "result_table_name": "ot_test",
-      "query": "select AES_ENC(id,'juHyTYMIkxkq4LIt') from ot_6f6f3d07f529482da2d54b3aaeabf807"
+      "plugin_name": "Sql",
+      "query": "select Name,AES_ENC(URL,'esIgd6.vumQcbfIA') as URL,FP16Value,FP16Unit,FP16Ratio,FP32Value,FP32Unit,CUDA from ot_cd73846c0f9741bda88cbfa580d799df",
+      "result_table_name": "ot_e09f8e40088f4e2dacee13149751307a",
+      "ottomi_node_type": "dx_crypto",
+      "source_table_name": [
+        "ot_cd73846c0f9741bda88cbfa580d799df"
+      ]
+    },
+    {
+      "plugin_name": "Sql",
+      "query": "select Name,AES_DEC(URL,'esIgd6.vumQcbfIA') as URL,FP16Value,FP16Unit,FP16Ratio,FP32Value,FP32Unit,CUDA from ot_e09f8e40088f4e2dacee13149751307a",
+      "result_table_name": "ot_45290e24c45b42cfac4cb565fa27e274",
+      "ottomi_node_type": "dx_decrypt",
+      "source_table_name": [
+        "ot_e09f8e40088f4e2dacee13149751307a"
+      ]
+    },
+    {
+      "plugin_name": "FieldMapper",
+      "field_mapper": {
+        "Name": "Name",
+        "URL": "URL",
+        "FP16 Value": "FP16Value",
+        "FP16 Unit": "FP16Unit",
+        "FP16 Ratio": "FP16Ratio",
+        "FP32 Value": "FP32Value",
+        "FP32 Unit": "FP32Unit",
+        "CUDA": "CUDA"
+      },
+      "result_table_name": "ot_cd73846c0f9741bda88cbfa580d799df",
+      "ottomi_node_type": "dx_fieldMapping",
+      "source_table_name": [
+        "ot_a5ceff42de9b4efba0e7d7f3dd32f32f"
+      ]
     }
   ],
   "sink": [
     {
-      "plugin_name": "Console",
+      "file_format_type": "excel",
+      "sheet_name": "ottomi",
+      "custom_filename": true,
+      "file_name_expression": "testOut",
+      "is_enable_transaction": false,
+      "batch_size": 1000000000,
+      "max_rows_in_memory ": 2048,
+      "plugin_name": "S3File",
+      "bucket": "s3a://ottomi",
+      "fs.s3a.endpoint": "http://172.16.8.137:9000",
+      "fs.s3a.aws.credentials.provider": "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider",
+      "access_key": "Q4LR09FOKQ8KHV9J0SQU",
+      "secret_key": "dqmGmXnL8icM+3CcVEfsXmUofZtWhGd8HrxVxP3J",
+      "tmp_path": "/tmp/ottomi",
+      "path": "/file-node/download/1812723928325386241/excel/",
+      "result_table_name": "ot_a9572b3f59cf494580775036b159d58e",
+      "ottomi_node_type": "ExcelSink",
       "source_table_name": [
-        "ot_test"
+        "ot_45290e24c45b42cfac4cb565fa27e274"
       ]
     }
   ]
