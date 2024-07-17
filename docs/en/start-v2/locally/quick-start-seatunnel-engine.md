@@ -5,11 +5,11 @@ sidebar_position: 2
 
 # Quick Start With SeaTunnel Engine
 
-## Step 1: Deployment SeaTunnel And Connectors
+## Step 1: Deploy SeaTunnel And Connectors
 
-Before starting, make sure you have downloaded and deployed SeaTunnel as described in [deployment](deployment.md)
+Before starting, make sure you have downloaded and deployed SeaTunnel as described in [Deployment](deployment.md)
 
-## Step 2: Add Job Config File to define a job
+## Step 2: Add Job Config File To Define A Job
 
 Edit `config/v2.batch.config.template`, which determines the way and logic of data input, processing, and output after seatunnel is started.
 The following is an example of the configuration file, which is the same as the example application mentioned above.
@@ -52,11 +52,11 @@ sink {
 
 ```
 
-More information about config please check [config concept](../../concept/config.md)
+More information can be found in [Config Concept](../../concept/config.md)
 
 ## Step 3: Run SeaTunnel Application
 
-You could start the application by the following commands
+You could start the application by the following commands:
 
 :::tip
 
@@ -70,10 +70,10 @@ cd "apache-seatunnel-${version}"
 
 ```
 
-**See The Output**: When you run the command, you could see its output in your console. You can think this
-is a sign that the command ran successfully or not.
+**See The Output**: When you run the command, you can see its output in your console. This
+is a sign to determine whether the command ran successfully or not.
 
-The SeaTunnel console will prints some logs as below:
+The SeaTunnel console will print some logs as below:
 
 ```shell
 2022-12-19 11:01:45,417 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - output rowType: name<STRING>, age<INT>
@@ -97,5 +97,5 @@ The SeaTunnel console will prints some logs as below:
 
 ## What's More
 
-For now, you are already take a quick look about SeaTunnel, you could see [connector](../../connector-v2/source/FakeSource.md) to find all
-source and sink SeaTunnel supported. Or see [SeaTunnel Engine(Zeta)](../../seatunnel-engine/about.md) if you want to know more about SeaTunnel Engine. Here you will learn how to deploy SeaTunnel Engine in cluster mode and how to use it in cluster mode.
+For now, you have taken a quick look about SeaTunnel, and you can see [connector](../../connector-v2/source/FakeSource.md) to find all
+sources and sinks SeaTunnel supported. Or see [SeaTunnel Engine(Zeta)](../../seatunnel-engine/about.md) if you want to know more about SeaTunnel Engine. Here you will learn how to deploy SeaTunnel Engine and how to use it in cluster mode.

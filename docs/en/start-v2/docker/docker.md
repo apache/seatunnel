@@ -3,7 +3,7 @@
 sidebar_position: 3
 -------------------
 
-# Set Up with Docker
+# Set Up With Docker
 
 <!-- TODO -->
 -->
