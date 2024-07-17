@@ -26,8 +26,8 @@ import org.apache.seatunnel.connectors.seatunnel.timeplus.config.FileReaderOptio
 import org.apache.seatunnel.connectors.seatunnel.timeplus.exception.TimeplusConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.exception.TimeplusConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.shard.Shard;
-import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.client.ClickhouseProxy;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.client.ShardRouter;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.client.TimeplusProxy;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.state.TPFileCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.state.TimeplusSinkState;
 
@@ -70,7 +70,7 @@ public class TimeplusFileSinkWriter
     private static final int UUID_LENGTH = 10;
     private final FileReaderOption readerOption;
     private final ShardRouter shardRouter;
-    private final ClickhouseProxy proxy;
+    private final TimeplusProxy proxy;
     private final TimeplusTable clickhouseTable;
     private final Map<Shard, List<String>> shardLocalDataPaths;
     private final Map<Shard, FileChannel> rowCache;
@@ -85,9 +85,7 @@ public class TimeplusFileSinkWriter
     public TimeplusFileSinkWriter(FileReaderOption readerOption, SinkWriter.Context context) {
         this.readerOption = readerOption;
         this.context = context;
-        proxy =
-                new ClickhouseProxy(
-                        this.readerOption.getShardMetadata().getDefaultShard().getNode());
+        proxy = new TimeplusProxy(this.readerOption.getShardMetadata().getDefaultShard().getNode());
         shardRouter = new ShardRouter(proxy, this.readerOption.getShardMetadata());
         clickhouseTable =
                 proxy.getClickhouseTable(

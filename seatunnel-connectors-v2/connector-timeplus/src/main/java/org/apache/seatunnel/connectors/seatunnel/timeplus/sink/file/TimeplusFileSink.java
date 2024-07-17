@@ -37,7 +37,7 @@ import org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusFileCop
 import org.apache.seatunnel.connectors.seatunnel.timeplus.exception.TimeplusConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.shard.Shard;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.shard.ShardMetadata;
-import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.client.ClickhouseProxy;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.client.TimeplusProxy;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.state.TPFileAggCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.state.TPFileCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.state.TimeplusSinkState;
@@ -119,7 +119,7 @@ public class TimeplusFileSink
                         config.getString(PASSWORD.key()),
                         null);
 
-        ClickhouseProxy proxy = new ClickhouseProxy(nodes.get(0));
+        TimeplusProxy proxy = new TimeplusProxy(nodes.get(0));
         Map<String, String> tableSchema =
                 proxy.getClickhouseTableSchema(config.getString(TABLE.key()));
         TimeplusTable table =

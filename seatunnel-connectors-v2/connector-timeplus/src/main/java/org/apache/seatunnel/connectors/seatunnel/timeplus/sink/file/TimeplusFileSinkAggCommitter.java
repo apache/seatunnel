@@ -21,7 +21,7 @@ import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.config.FileReaderOption;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.shard.Shard;
-import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.client.ClickhouseProxy;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.client.TimeplusProxy;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.state.TPFileAggCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.state.TPFileCommitInfo;
 
@@ -38,14 +38,14 @@ import java.util.Map;
 public class TimeplusFileSinkAggCommitter
         implements SinkAggregatedCommitter<TPFileCommitInfo, TPFileAggCommitInfo> {
 
-    private transient ClickhouseProxy proxy;
+    private transient TimeplusProxy proxy;
     private final TimeplusTable clickhouseTable;
 
     private final FileReaderOption fileReaderOption;
 
     public TimeplusFileSinkAggCommitter(FileReaderOption readerOption) {
         fileReaderOption = readerOption;
-        proxy = new ClickhouseProxy(readerOption.getShardMetadata().getDefaultShard().getNode());
+        proxy = new TimeplusProxy(readerOption.getShardMetadata().getDefaultShard().getNode());
         clickhouseTable =
                 proxy.getClickhouseTable(
                         readerOption.getShardMetadata().getDatabase(),
@@ -91,7 +91,7 @@ public class TimeplusFileSinkAggCommitter
     @Override
     public void abort(List<TPFileAggCommitInfo> aggregatedCommitInfo) throws Exception {}
 
-    private ClickhouseProxy getProxy() {
+    private TimeplusProxy getProxy() {
         if (proxy != null) {
             return proxy;
         }
@@ -100,7 +100,7 @@ public class TimeplusFileSinkAggCommitter
                 return proxy;
             }
             proxy =
-                    new ClickhouseProxy(
+                    new TimeplusProxy(
                             fileReaderOption.getShardMetadata().getDefaultShard().getNode());
             return proxy;
         }

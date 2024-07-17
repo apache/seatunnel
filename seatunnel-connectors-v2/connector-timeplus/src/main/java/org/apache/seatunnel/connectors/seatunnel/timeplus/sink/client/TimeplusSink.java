@@ -68,7 +68,7 @@ import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.Timeplus
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.USERNAME;
 
 @AutoService(SeaTunnelSink.class)
-public class ClickhouseSink
+public class TimeplusSink
         implements SeaTunnelSink<SeaTunnelRow, TimeplusSinkState, TPCommitInfo, TPAggCommitInfo> {
 
     private ReaderOption option;
@@ -140,7 +140,7 @@ public class ClickhouseSink
             clickhouseProperties.put("password", config.getString(PASSWORD.key()));
         }
 
-        ClickhouseProxy proxy = new ClickhouseProxy(nodes.get(0));
+        TimeplusProxy proxy = new TimeplusProxy(nodes.get(0));
         Map<String, String> tableSchema =
                 proxy.getClickhouseTableSchema(config.getString(TABLE.key()));
         String shardKey = null;
@@ -226,7 +226,7 @@ public class ClickhouseSink
     @Override
     public SinkWriter<SeaTunnelRow, TPCommitInfo, TimeplusSinkState> createWriter(
             SinkWriter.Context context) throws IOException {
-        return new ClickhouseSinkWriter(option, context);
+        return new TimeplusSinkWriter(option, context);
     }
 
     @Override

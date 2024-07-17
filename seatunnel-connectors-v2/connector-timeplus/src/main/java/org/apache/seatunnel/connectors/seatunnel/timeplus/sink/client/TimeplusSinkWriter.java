@@ -46,20 +46,20 @@ import java.util.Optional;
 import java.util.stream.Stream;
 
 @Slf4j
-public class ClickhouseSinkWriter
+public class TimeplusSinkWriter
         implements SinkWriter<SeaTunnelRow, TPCommitInfo, TimeplusSinkState> {
 
     private final Context context;
     private final ReaderOption option;
     private final ShardRouter shardRouter;
-    private final transient ClickhouseProxy proxy;
+    private final transient TimeplusProxy proxy;
     private final Map<Shard, TimeplusBatchStatement> statementMap;
 
-    ClickhouseSinkWriter(ReaderOption option, Context context) {
+    TimeplusSinkWriter(ReaderOption option, Context context) {
         this.option = option;
         this.context = context;
 
-        this.proxy = new ClickhouseProxy(option.getShardMetadata().getDefaultShard().getNode());
+        this.proxy = new TimeplusProxy(option.getShardMetadata().getDefaultShard().getNode());
         this.shardRouter = new ShardRouter(proxy, option.getShardMetadata());
         this.statementMap = initStatementMap();
     }

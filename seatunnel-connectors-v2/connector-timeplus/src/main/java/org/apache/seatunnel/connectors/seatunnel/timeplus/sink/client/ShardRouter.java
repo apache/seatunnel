@@ -55,7 +55,7 @@ public class ShardRouter implements Serializable {
     private static final XXHash64 HASH_INSTANCE = XXHashFactory.fastestInstance().hash64();
     private final ThreadLocalRandom threadLocalRandom = ThreadLocalRandom.current();
 
-    public ShardRouter(ClickhouseProxy proxy, ShardMetadata shardMetadata) {
+    public ShardRouter(TimeplusProxy proxy, ShardMetadata shardMetadata) {
         this.shards = new TreeMap<>();
         this.shardKey = shardMetadata.getShardKey();
         this.shardKeyType = shardMetadata.getShardKeyType();

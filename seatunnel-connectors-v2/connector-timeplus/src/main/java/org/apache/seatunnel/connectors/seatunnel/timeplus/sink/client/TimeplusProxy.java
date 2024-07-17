@@ -42,14 +42,14 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 @SuppressWarnings("magicnumber")
-public class ClickhouseProxy {
+public class TimeplusProxy {
 
     private final ClickHouseRequest<?> clickhouseRequest;
     private final ClickHouseClient client;
 
     private final Map<Shard, ClickHouseClient> shardToDataSource = new ConcurrentHashMap<>(16);
 
-    public ClickhouseProxy(ClickHouseNode node) {
+    public TimeplusProxy(ClickHouseNode node) {
         this.client = ClickHouseClient.newInstance(node.getProtocol());
         this.clickhouseRequest =
                 client.connect(node).format(ClickHouseFormat.RowBinaryWithNamesAndTypes);
