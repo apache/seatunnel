@@ -15,13 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client;
+package org.apache.seatunnel.connectors.seatunnel.timeplus.sink.client;
 
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.Shard;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.ShardMetadata;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.DistributedEngine;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.exception.ClickhouseConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.exception.ClickhouseConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.shard.Shard;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.shard.ShardMetadata;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.DistributedEngine;
 
 import org.apache.commons.lang3.StringUtils;
 

@@ -15,7 +15,7 @@
  *     limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.clickhouse.exception;
+package org.apache.seatunnel.connectors.seatunnel.timeplus.exception;
 
 import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;

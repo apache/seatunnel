@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client.executor;
+package org.apache.seatunnel.connectors.seatunnel.timeplus.sink.client.executor;
 
 import java.util.Arrays;
 import java.util.stream.Collectors;

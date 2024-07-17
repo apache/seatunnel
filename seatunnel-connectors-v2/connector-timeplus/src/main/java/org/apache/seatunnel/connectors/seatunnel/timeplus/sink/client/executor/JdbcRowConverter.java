@@ -15,21 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client.executor;
+package org.apache.seatunnel.connectors.seatunnel.timeplus.sink.client.executor;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.inject.ArrayInjectFunction;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.inject.BigDecimalInjectFunction;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.inject.ClickhouseFieldInjectFunction;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.inject.DateInjectFunction;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.inject.DateTimeInjectFunction;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.inject.DoubleInjectFunction;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.inject.FloatInjectFunction;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.inject.IntInjectFunction;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.inject.LongInjectFunction;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.inject.MapInjectFunction;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.inject.StringInjectFunction;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.inject.ArrayInjectFunction;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.inject.BigDecimalInjectFunction;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.inject.ClickhouseFieldInjectFunction;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.inject.DateInjectFunction;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.inject.DateTimeInjectFunction;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.inject.DoubleInjectFunction;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.inject.FloatInjectFunction;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.inject.IntInjectFunction;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.inject.LongInjectFunction;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.inject.MapInjectFunction;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.inject.StringInjectFunction;
 
 import lombok.NonNull;
 

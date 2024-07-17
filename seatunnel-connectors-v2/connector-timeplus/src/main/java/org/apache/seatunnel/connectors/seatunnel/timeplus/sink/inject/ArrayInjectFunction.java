@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.inject;
+package org.apache.seatunnel.connectors.seatunnel.timeplus.sink.inject;
 
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.exception.ClickhouseConnectorException;
 
 import java.sql.PreparedStatement;
 import java.sql.SQLException;

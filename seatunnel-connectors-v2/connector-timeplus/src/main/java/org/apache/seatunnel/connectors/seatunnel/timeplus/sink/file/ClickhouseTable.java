@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file;
+package org.apache.seatunnel.connectors.seatunnel.timeplus.sink.file;
 
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.DistributedEngine;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.DistributedEngine;
 
 import lombok.Getter;
 import lombok.Setter;

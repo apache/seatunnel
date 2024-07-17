@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.clickhouse.shard;
+package org.apache.seatunnel.connectors.seatunnel.timeplus.shard;
 
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;

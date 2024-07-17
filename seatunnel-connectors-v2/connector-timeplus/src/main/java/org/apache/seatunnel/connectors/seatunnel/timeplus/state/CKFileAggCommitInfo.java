@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.clickhouse.state;
+package org.apache.seatunnel.connectors.seatunnel.timeplus.state;
 
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.Shard;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.shard.Shard;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

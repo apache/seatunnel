@@ -15,21 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file;
+package org.apache.seatunnel.connectors.seatunnel.timeplus.sink.file;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.FileReaderOption;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.Shard;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client.ClickhouseProxy;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client.ShardRouter;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.state.CKFileCommitInfo;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.state.ClickhouseSinkState;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.config.FileReaderOption;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.exception.ClickhouseConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.exception.ClickhouseConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.shard.Shard;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.client.ClickhouseProxy;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.client.ShardRouter;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.state.CKFileCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.state.ClickhouseSinkState;
 
 import org.apache.commons.io.FileUtils;
 

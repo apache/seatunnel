@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.clickhouse.source;
+package org.apache.seatunnel.connectors.seatunnel.timeplus.source;
 
 import org.apache.seatunnel.api.source.SourceSplit;
 

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.clickhouse.state;
+package org.apache.seatunnel.connectors.seatunnel.timeplus.state;
 
 import java.io.Serializable;
 

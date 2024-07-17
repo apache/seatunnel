@@ -15,15 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file;
+package org.apache.seatunnel.connectors.seatunnel.timeplus.sink.file;
 
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.FileReaderOption;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.Shard;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.client.ClickhouseProxy;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.state.CKFileAggCommitInfo;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.state.CKFileCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.config.FileReaderOption;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.shard.Shard;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.client.ClickhouseProxy;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.state.CKFileAggCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.state.CKFileCommitInfo;
 
 import com.clickhouse.client.ClickHouseException;
 import com.clickhouse.client.ClickHouseRequest;

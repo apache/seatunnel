@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.inject;
+package org.apache.seatunnel.connectors.seatunnel.timeplus.sink.inject;
 
 import java.math.BigDecimal;
 import java.sql.PreparedStatement;

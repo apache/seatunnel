@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.clickhouse.sink;
+package org.apache.seatunnel.connectors.seatunnel.timeplus.sink;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
