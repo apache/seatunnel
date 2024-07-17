@@ -18,7 +18,9 @@
 package org.apache.seatunnel.engine.e2e;
 
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestTemplate;
@@ -26,6 +28,10 @@ import org.testcontainers.containers.Container;
 
 import java.io.IOException;
 
+@DisabledOnContainer(
+        value = {},
+        type = {EngineType.FLINK, EngineType.SPARK},
+        disabledReason = "Currently not supported in Flink and Spark of in-memory sink.")
 public class UserSinkPlaceholderIT extends TestSuiteBase {
 
     @TestTemplate
