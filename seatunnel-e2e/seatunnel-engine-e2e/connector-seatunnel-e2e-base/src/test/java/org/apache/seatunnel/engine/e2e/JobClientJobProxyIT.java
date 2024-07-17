@@ -22,7 +22,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 
 import java.io.IOException;
@@ -128,7 +127,7 @@ public class JobClientJobProxyIT extends SeaTunnelContainer {
                                         "org.apache.seatunnel.engine.server.resourcemanager.NoEnoughResourceException"));
     }
 
-    @TestTemplate
+    @Test
     public void testSinkPlaceholder() throws IOException, InterruptedException {
         Container.ExecResult execResult =
                 executeSeaTunnelJob("/fake_to_inmemory_with_sink_placeholder.conf");
