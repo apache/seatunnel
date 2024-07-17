@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.timeplus.exception;
 
 import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
-public enum ClickhouseConnectorErrorCode implements SeaTunnelErrorCode {
+public enum TimeplusConnectorErrorCode implements SeaTunnelErrorCode {
     FIELD_NOT_IN_TABLE("CLICKHOUSE-01", "Field is not existed in target table"),
     PASSWORD_NOT_FOUND_IN_SHARD_NODE("CLICKHOUSE-02", "Can’t find password of shard node"),
     DELETE_DIRECTORY_FIELD("CLICKHOUSE-03", "Can’t delete directory"),
@@ -33,7 +33,7 @@ public enum ClickhouseConnectorErrorCode implements SeaTunnelErrorCode {
     private final String code;
     private final String description;
 
-    ClickhouseConnectorErrorCode(String code, String description) {
+    TimeplusConnectorErrorCode(String code, String description) {
         this.code = code;
         this.description = description;
     }

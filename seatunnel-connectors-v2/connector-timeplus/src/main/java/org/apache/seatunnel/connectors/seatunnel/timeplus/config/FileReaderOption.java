@@ -33,7 +33,7 @@ public class FileReaderOption implements Serializable {
     private Map<String, String> tableSchema;
     private List<String> fields;
     private String clickhouseLocalPath;
-    private ClickhouseFileCopyMethod copyMethod;
+    private TimeplusFileCopyMethod copyMethod;
     private boolean nodeFreePass;
     private Map<String, String> nodeUser;
     private Map<String, String> nodePassword;
@@ -47,7 +47,7 @@ public class FileReaderOption implements Serializable {
             Map<String, String> tableSchema,
             List<String> fields,
             String clickhouseLocalPath,
-            ClickhouseFileCopyMethod copyMethod,
+            TimeplusFileCopyMethod copyMethod,
             Map<String, String> nodeUser,
             boolean nodeFreePass,
             Map<String, String> nodePassword,

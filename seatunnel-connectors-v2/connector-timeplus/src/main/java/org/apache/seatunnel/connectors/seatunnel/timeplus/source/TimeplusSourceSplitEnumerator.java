@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.timeplus.source;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
-import org.apache.seatunnel.connectors.seatunnel.timeplus.state.ClickhouseSourceState;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.state.TimeplusSourceState;
 
 import java.io.IOException;
 import java.util.HashSet;
@@ -27,7 +27,7 @@ import java.util.Optional;
 import java.util.Set;
 
 public class TimeplusSourceSplitEnumerator
-        implements SourceSplitEnumerator<TimeplusSourceSplit, ClickhouseSourceState> {
+        implements SourceSplitEnumerator<TimeplusSourceSplit, TimeplusSourceState> {
 
     private final Context<TimeplusSourceSplit> context;
     private final Set<Integer> readers;
@@ -81,7 +81,7 @@ public class TimeplusSourceSplitEnumerator
     }
 
     @Override
-    public ClickhouseSourceState snapshotState(long checkpointId) throws Exception {
+    public TimeplusSourceState snapshotState(long checkpointId) throws Exception {
         return null;
     }
 

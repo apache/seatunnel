@@ -22,13 +22,13 @@ import org.apache.seatunnel.connectors.seatunnel.timeplus.tool.IntHolder;
 
 import com.clickhouse.jdbc.internal.ClickHouseConnectionImpl;
 
-public class ClickhouseBatchStatement {
+public class TimeplusBatchStatement {
 
     private final ClickHouseConnectionImpl clickHouseConnection;
     private final JdbcBatchStatementExecutor jdbcBatchStatementExecutor;
     private final IntHolder intHolder;
 
-    public ClickhouseBatchStatement(
+    public TimeplusBatchStatement(
             ClickHouseConnectionImpl clickHouseConnection,
             JdbcBatchStatementExecutor jdbcBatchStatementExecutor,
             IntHolder intHolder) {

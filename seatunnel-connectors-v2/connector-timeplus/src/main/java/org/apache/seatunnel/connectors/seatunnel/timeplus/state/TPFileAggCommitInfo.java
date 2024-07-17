@@ -17,6 +17,18 @@
 
 package org.apache.seatunnel.connectors.seatunnel.timeplus.state;
 
-import java.io.Serializable;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.shard.Shard;
 
-public class CKCommitInfo implements Serializable {}
+import lombok.AllArgsConstructor;
+import lombok.Data;
+
+import java.io.Serializable;
+import java.util.List;
+import java.util.Map;
+
+@Data
+@AllArgsConstructor
+public class TPFileAggCommitInfo implements Serializable {
+
+    private Map<Shard, List<String>> detachedFiles;
+}

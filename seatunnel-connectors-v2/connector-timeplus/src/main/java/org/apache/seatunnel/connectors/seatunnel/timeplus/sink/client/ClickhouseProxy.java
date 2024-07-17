@@ -19,8 +19,8 @@ package org.apache.seatunnel.connectors.seatunnel.timeplus.sink.client;
 
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.connectors.seatunnel.timeplus.exception.ClickhouseConnectorErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.timeplus.exception.ClickhouseConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.exception.TimeplusConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.exception.TimeplusConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.shard.Shard;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.DistributedEngine;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.file.TimeplusTable;
@@ -99,7 +99,7 @@ public class ClickhouseProxy {
                     List<ClickHouseRecord> localTableRecords =
                             localTableResponse.stream().collect(Collectors.toList());
                     if (localTableRecords.isEmpty()) {
-                        throw new ClickhouseConnectorException(
+                        throw new TimeplusConnectorException(
                                 SeaTunnelAPIErrorCode.TABLE_NOT_EXISTED,
                                 "Cannot get table from clickhouse, resultSet is empty");
                     }
@@ -111,11 +111,11 @@ public class ClickhouseProxy {
                 return new DistributedEngine(
                         clusterName, localDatabase, localTable, localTableEngine, localTableDDL);
             }
-            throw new ClickhouseConnectorException(
+            throw new TimeplusConnectorException(
                     SeaTunnelAPIErrorCode.TABLE_NOT_EXISTED,
                     "Cannot get distributed table from clickhouse, resultSet is empty");
         } catch (ClickHouseException e) {
-            throw new ClickhouseConnectorException(
+            throw new TimeplusConnectorException(
                     SeaTunnelAPIErrorCode.TABLE_NOT_EXISTED,
                     "Cannot get distributed table from clickhouse",
                     e);
@@ -146,7 +146,7 @@ public class ClickhouseProxy {
                                 }
                             });
         } catch (ClickHouseException e) {
-            throw new ClickhouseConnectorException(
+            throw new TimeplusConnectorException(
                     CommonErrorCodeDeprecated.TABLE_SCHEMA_GET_FAILED,
                     "Cannot get table schema from clickhouse",
                     e);
@@ -194,8 +194,8 @@ public class ClickhouseProxy {
                             });
             return shardList;
         } catch (ClickHouseException e) {
-            throw new ClickhouseConnectorException(
-                    ClickhouseConnectorErrorCode.CLUSTER_LIST_GET_FAILED,
+            throw new TimeplusConnectorException(
+                    TimeplusConnectorErrorCode.CLUSTER_LIST_GET_FAILED,
                     "Cannot get cluster shard list from clickhouse",
                     e);
         }
@@ -216,7 +216,7 @@ public class ClickhouseProxy {
         try (ClickHouseResponse response = clickhouseRequest.query(sql).executeAndWait()) {
             List<ClickHouseRecord> records = response.stream().collect(Collectors.toList());
             if (records.isEmpty()) {
-                throw new ClickhouseConnectorException(
+                throw new TimeplusConnectorException(
                         SeaTunnelAPIErrorCode.TABLE_NOT_EXISTED,
                         "Cannot get table from clickhouse, resultSet is empty");
             }
@@ -246,7 +246,7 @@ public class ClickhouseProxy {
                     sortingKey,
                     getClickhouseTableSchema(clickhouseRequest, table));
         } catch (ClickHouseException e) {
-            throw new ClickhouseConnectorException(
+            throw new TimeplusConnectorException(
                     SeaTunnelAPIErrorCode.TABLE_NOT_EXISTED, "Cannot get clickhouse table", e);
         }
     }

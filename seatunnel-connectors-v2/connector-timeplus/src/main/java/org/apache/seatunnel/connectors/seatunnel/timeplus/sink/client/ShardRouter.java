@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.timeplus.sink.client;
 
-import org.apache.seatunnel.connectors.seatunnel.timeplus.exception.ClickhouseConnectorErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.timeplus.exception.ClickhouseConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.exception.TimeplusConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.exception.TimeplusConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.shard.Shard;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.shard.ShardMetadata;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.DistributedEngine;
@@ -64,8 +64,8 @@ public class ShardRouter implements Serializable {
         this.table = shardMetadata.getTable();
         this.tableEngine = shardMetadata.getTableEngine();
         if (StringUtils.isNotEmpty(shardKey) && StringUtils.isEmpty(shardKeyType)) {
-            throw new ClickhouseConnectorException(
-                    ClickhouseConnectorErrorCode.SHARD_KEY_NOT_FOUND,
+            throw new TimeplusConnectorException(
+                    TimeplusConnectorErrorCode.SHARD_KEY_NOT_FOUND,
                     "Shard key " + shardKey + " not found in table " + table);
         }
         ClickHouseRequest<?> connection = proxy.getClickhouseConnection();

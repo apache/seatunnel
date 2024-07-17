@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.timeplus.sink.inject;
 
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.connectors.seatunnel.timeplus.exception.ClickhouseConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.exception.TimeplusConnectorException;
 
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -78,7 +78,7 @@ public class ArrayInjectFunction implements ClickhouseFieldInjectFunction {
                 elements = Arrays.copyOf(elements, elements.length, Boolean[].class);
                 break;
             default:
-                throw new ClickhouseConnectorException(
+                throw new TimeplusConnectorException(
                         CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
                         "array inject error, unsupported data type: " + type);
         }

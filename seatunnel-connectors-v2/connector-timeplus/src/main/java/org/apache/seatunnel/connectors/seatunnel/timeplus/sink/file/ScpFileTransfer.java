@@ -19,8 +19,8 @@ package org.apache.seatunnel.connectors.seatunnel.timeplus.sink.file;
 
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.connectors.seatunnel.timeplus.exception.ClickhouseConnectorErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.timeplus.exception.ClickhouseConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.exception.TimeplusConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.exception.TimeplusConnectorException;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.sshd.client.SshClient;
@@ -64,14 +64,14 @@ public class ScpFileTransfer implements FileTransfer {
             }
             // TODO support add publicKey to identity
             if (!clientSession.auth().verify().isSuccess()) {
-                throw new ClickhouseConnectorException(
-                        ClickhouseConnectorErrorCode.SSH_OPERATION_FAILED,
+                throw new TimeplusConnectorException(
+                        TimeplusConnectorErrorCode.SSH_OPERATION_FAILED,
                         "ssh host " + host + "authentication failed");
             }
             scpClient = ScpClientCreator.instance().createScpClient(clientSession);
         } catch (IOException e) {
-            throw new ClickhouseConnectorException(
-                    ClickhouseConnectorErrorCode.SSH_OPERATION_FAILED,
+            throw new TimeplusConnectorException(
+                    TimeplusConnectorErrorCode.SSH_OPERATION_FAILED,
                     "Failed to connect to host: " + host + " by user: " + user + " on port 22",
                     e);
         }
@@ -112,7 +112,7 @@ public class ScpFileTransfer implements FileTransfer {
     @Override
     public void transferAndChown(List<String> sourcePaths, String targetPath) {
         if (sourcePaths == null) {
-            throw new ClickhouseConnectorException(
+            throw new TimeplusConnectorException(
                     CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT, "sourcePath is null");
         }
         sourcePaths.forEach(sourcePath -> transferAndChown(sourcePath, targetPath));
@@ -124,8 +124,8 @@ public class ScpFileTransfer implements FileTransfer {
             try {
                 clientSession.close();
             } catch (IOException e) {
-                throw new ClickhouseConnectorException(
-                        ClickhouseConnectorErrorCode.SSH_OPERATION_FAILED,
+                throw new TimeplusConnectorException(
+                        TimeplusConnectorErrorCode.SSH_OPERATION_FAILED,
                         "Failed to close ssh session",
                         e);
             }
@@ -135,8 +135,8 @@ public class ScpFileTransfer implements FileTransfer {
             try {
                 sshClient.close();
             } catch (IOException e) {
-                throw new ClickhouseConnectorException(
-                        ClickhouseConnectorErrorCode.SSH_OPERATION_FAILED,
+                throw new TimeplusConnectorException(
+                        TimeplusConnectorErrorCode.SSH_OPERATION_FAILED,
                         "Failed to close ssh client",
                         e);
             }

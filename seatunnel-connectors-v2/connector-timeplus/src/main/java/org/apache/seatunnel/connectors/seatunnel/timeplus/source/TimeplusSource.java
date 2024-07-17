@@ -34,9 +34,9 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.timeplus.exception.ClickhouseConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.timeplus.state.ClickhouseSourceState;
-import org.apache.seatunnel.connectors.seatunnel.timeplus.util.ClickhouseUtil;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.exception.TimeplusConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.state.TimeplusSourceState;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.util.TimeplusUtil;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.util.TypeConvertUtil;
 
 import com.clickhouse.client.ClickHouseClient;
@@ -52,17 +52,17 @@ import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.ClickhouseConfig.CLICKHOUSE_CONFIG;
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.ClickhouseConfig.DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.ClickhouseConfig.HOST;
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.ClickhouseConfig.PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.ClickhouseConfig.SERVER_TIME_ZONE;
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.ClickhouseConfig.SQL;
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.ClickhouseConfig.USERNAME;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.CLICKHOUSE_CONFIG;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.DATABASE;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.HOST;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.SERVER_TIME_ZONE;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.SQL;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.USERNAME;
 
 @AutoService(SeaTunnelSource.class)
 public class TimeplusSource
-        implements SeaTunnelSource<SeaTunnelRow, TimeplusSourceSplit, ClickhouseSourceState>,
+        implements SeaTunnelSource<SeaTunnelRow, TimeplusSourceSplit, TimeplusSourceState>,
                 SupportParallelism,
                 SupportColumnProjection {
 
@@ -86,7 +86,7 @@ public class TimeplusSource
                         USERNAME.key(),
                         PASSWORD.key());
         if (!result.isSuccess()) {
-            throw new ClickhouseConnectorException(
+            throw new TimeplusConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                     String.format(
                             "PluginName: %s, PluginType: %s, Message: %s",
@@ -112,7 +112,7 @@ public class TimeplusSource
         }
 
         servers =
-                ClickhouseUtil.createNodes(
+                TimeplusUtil.createNodes(
                         config.getString(HOST.key()),
                         config.getString(DATABASE.key()),
                         config.getString(SERVER_TIME_ZONE.key()),
@@ -142,7 +142,7 @@ public class TimeplusSource
             this.rowTypeInfo = new SeaTunnelRowType(fieldNames, seaTunnelDataTypes);
 
         } catch (ClickHouseException e) {
-            throw new ClickhouseConnectorException(
+            throw new TimeplusConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                     String.format(
                             "PluginName: %s, PluginType: %s, Message: %s",
@@ -171,16 +171,16 @@ public class TimeplusSource
     }
 
     @Override
-    public SourceSplitEnumerator<TimeplusSourceSplit, ClickhouseSourceState> createEnumerator(
+    public SourceSplitEnumerator<TimeplusSourceSplit, TimeplusSourceState> createEnumerator(
             SourceSplitEnumerator.Context<TimeplusSourceSplit> enumeratorContext)
             throws Exception {
         return new TimeplusSourceSplitEnumerator(enumeratorContext);
     }
 
     @Override
-    public SourceSplitEnumerator<TimeplusSourceSplit, ClickhouseSourceState> restoreEnumerator(
+    public SourceSplitEnumerator<TimeplusSourceSplit, TimeplusSourceState> restoreEnumerator(
             SourceSplitEnumerator.Context<TimeplusSourceSplit> enumeratorContext,
-            ClickhouseSourceState checkpointState)
+            TimeplusSourceState checkpointState)
             throws Exception {
         return new TimeplusSourceSplitEnumerator(enumeratorContext);
     }

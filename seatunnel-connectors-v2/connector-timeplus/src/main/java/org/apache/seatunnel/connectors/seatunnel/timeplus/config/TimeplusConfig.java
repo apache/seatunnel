@@ -25,7 +25,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-public class ClickhouseConfig {
+public class TimeplusConfig {
 
     /** Bulk size of clickhouse jdbc */
     public static final Option<Integer> BULK_SIZE =
@@ -127,10 +127,10 @@ public class ClickhouseConfig {
                             "ClickhouseFile sink connector used clickhouse-local program's path");
 
     /** The method of copy Clickhouse file */
-    public static final Option<ClickhouseFileCopyMethod> COPY_METHOD =
+    public static final Option<TimeplusFileCopyMethod> COPY_METHOD =
             Options.key("copy_method")
-                    .enumType(ClickhouseFileCopyMethod.class)
-                    .defaultValue(ClickhouseFileCopyMethod.SCP)
+                    .enumType(TimeplusFileCopyMethod.class)
+                    .defaultValue(TimeplusFileCopyMethod.SCP)
                     .withDescription("The method of copy Clickhouse file");
 
     public static final Option<Boolean> COMPATIBLE_MODE =

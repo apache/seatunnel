@@ -24,12 +24,12 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 
 import com.google.auto.service.AutoService;
 
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.ClickhouseConfig.CLICKHOUSE_CONFIG;
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.ClickhouseConfig.DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.ClickhouseConfig.HOST;
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.ClickhouseConfig.PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.ClickhouseConfig.SQL;
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.ClickhouseConfig.USERNAME;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.CLICKHOUSE_CONFIG;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.DATABASE;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.HOST;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.SQL;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.USERNAME;
 
 @AutoService(Factory.class)
 public class TimeplusSourceFactory implements TableSourceFactory {

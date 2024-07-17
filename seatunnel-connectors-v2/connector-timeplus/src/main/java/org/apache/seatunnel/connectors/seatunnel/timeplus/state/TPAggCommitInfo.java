@@ -19,4 +19,4 @@ package org.apache.seatunnel.connectors.seatunnel.timeplus.state;
 
 import java.io.Serializable;
 
-public class ClickhouseSinkState implements Serializable {}
+public class TPAggCommitInfo implements Serializable {}

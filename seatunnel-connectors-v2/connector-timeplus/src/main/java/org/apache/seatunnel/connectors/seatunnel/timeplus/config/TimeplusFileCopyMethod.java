@@ -18,15 +18,15 @@
 package org.apache.seatunnel.connectors.seatunnel.timeplus.config;
 
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.connectors.seatunnel.timeplus.exception.ClickhouseConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.exception.TimeplusConnectorException;
 
-public enum ClickhouseFileCopyMethod {
+public enum TimeplusFileCopyMethod {
     SCP("scp"),
     RSYNC("rsync"),
     ;
     private final String name;
 
-    ClickhouseFileCopyMethod(String name) {
+    TimeplusFileCopyMethod(String name) {
         this.name = name;
     }
 
@@ -34,14 +34,14 @@ public enum ClickhouseFileCopyMethod {
         return name;
     }
 
-    public static ClickhouseFileCopyMethod from(String name) {
-        for (ClickhouseFileCopyMethod clickhouseFileCopyMethod :
-                ClickhouseFileCopyMethod.values()) {
+    public static TimeplusFileCopyMethod from(String name) {
+        for (TimeplusFileCopyMethod clickhouseFileCopyMethod :
+                TimeplusFileCopyMethod.values()) {
             if (clickhouseFileCopyMethod.getName().equalsIgnoreCase(name)) {
                 return clickhouseFileCopyMethod;
             }
         }
-        throw new ClickhouseConnectorException(
+        throw new TimeplusConnectorException(
                 CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                 "Unknown ClickhouseFileCopyMethod: " + name);
     }

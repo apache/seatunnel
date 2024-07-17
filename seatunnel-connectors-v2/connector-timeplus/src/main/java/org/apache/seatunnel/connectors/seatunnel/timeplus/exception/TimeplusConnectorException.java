@@ -20,18 +20,18 @@ package org.apache.seatunnel.connectors.seatunnel.timeplus.exception;
 import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
-public class ClickhouseConnectorException extends SeaTunnelRuntimeException {
-    public ClickhouseConnectorException(
+public class TimeplusConnectorException extends SeaTunnelRuntimeException {
+    public TimeplusConnectorException(
             SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage) {
         super(seaTunnelErrorCode, errorMessage);
     }
 
-    public ClickhouseConnectorException(
+    public TimeplusConnectorException(
             SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
         super(seaTunnelErrorCode, errorMessage, cause);
     }
 
-    public ClickhouseConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, Throwable cause) {
+    public TimeplusConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, Throwable cause) {
         super(seaTunnelErrorCode, cause);
     }
 }

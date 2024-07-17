@@ -17,18 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.timeplus.state;
 
-import org.apache.seatunnel.connectors.seatunnel.timeplus.shard.Shard;
-
-import lombok.AllArgsConstructor;
-import lombok.Data;
-
 import java.io.Serializable;
-import java.util.List;
-import java.util.Map;
 
-@Data
-@AllArgsConstructor
-public class CKFileCommitInfo implements Serializable {
-
-    private Map<Shard, List<String>> detachedFiles;
-}
+public class TimeplusSinkState implements Serializable {}

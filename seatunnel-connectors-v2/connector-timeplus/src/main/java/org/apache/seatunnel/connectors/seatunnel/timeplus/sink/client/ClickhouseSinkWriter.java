@@ -22,12 +22,12 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.config.ReaderOption;
-import org.apache.seatunnel.connectors.seatunnel.timeplus.exception.ClickhouseConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.exception.TimeplusConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.shard.Shard;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.client.executor.JdbcBatchStatementExecutor;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.client.executor.JdbcBatchStatementExecutorBuilder;
-import org.apache.seatunnel.connectors.seatunnel.timeplus.state.CKCommitInfo;
-import org.apache.seatunnel.connectors.seatunnel.timeplus.state.ClickhouseSinkState;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.state.TPCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.state.TimeplusSinkState;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.tool.IntHolder;
 
 import org.apache.commons.lang3.StringUtils;
@@ -47,13 +47,13 @@ import java.util.stream.Stream;
 
 @Slf4j
 public class ClickhouseSinkWriter
-        implements SinkWriter<SeaTunnelRow, CKCommitInfo, ClickhouseSinkState> {
+        implements SinkWriter<SeaTunnelRow, TPCommitInfo, TimeplusSinkState> {
 
     private final Context context;
     private final ReaderOption option;
     private final ShardRouter shardRouter;
     private final transient ClickhouseProxy proxy;
-    private final Map<Shard, ClickhouseBatchStatement> statementMap;
+    private final Map<Shard, TimeplusBatchStatement> statementMap;
 
     ClickhouseSinkWriter(ReaderOption option, Context context) {
         this.option = option;
@@ -75,7 +75,7 @@ public class ClickhouseSinkWriter
                             .indexOf(this.option.getShardMetadata().getShardKey());
             shardKey = element.getField(i);
         }
-        ClickhouseBatchStatement statement = statementMap.get(shardRouter.getShard(shardKey));
+        TimeplusBatchStatement statement = statementMap.get(shardRouter.getShard(shardKey));
         JdbcBatchStatementExecutor clickHouseStatement = statement.getJdbcBatchStatementExecutor();
         IntHolder sizeHolder = statement.getIntHolder();
         // add into batch
@@ -89,8 +89,8 @@ public class ClickhouseSinkWriter
     }
 
     @Override
-    public Optional<CKCommitInfo> prepareCommit() throws IOException {
-        for (ClickhouseBatchStatement batchStatement : statementMap.values()) {
+    public Optional<TPCommitInfo> prepareCommit() throws IOException {
+        for (TimeplusBatchStatement batchStatement : statementMap.values()) {
             JdbcBatchStatementExecutor statement = batchStatement.getJdbcBatchStatementExecutor();
             IntHolder intHolder = batchStatement.getIntHolder();
             if (intHolder.getValue() > 0) {
@@ -114,7 +114,7 @@ public class ClickhouseSinkWriter
         try {
             clickHouseStatement.addToBatch(row);
         } catch (SQLException e) {
-            throw new ClickhouseConnectorException(
+            throw new TimeplusConnectorException(
                     CommonErrorCodeDeprecated.SQL_OPERATION_FAILED,
                     "Add row data into batch error",
                     e);
@@ -125,7 +125,7 @@ public class ClickhouseSinkWriter
         try {
             clickHouseStatement.executeBatch();
         } catch (Exception e) {
-            throw new ClickhouseConnectorException(
+            throw new TimeplusConnectorException(
                     CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
                     "Clickhouse execute batch statement error",
                     e);
@@ -133,7 +133,7 @@ public class ClickhouseSinkWriter
     }
 
     private void flush() {
-        for (ClickhouseBatchStatement batchStatement : statementMap.values()) {
+        for (TimeplusBatchStatement batchStatement : statementMap.values()) {
             try (ClickHouseConnectionImpl needClosedConnection =
                             batchStatement.getClickHouseConnection();
                     JdbcBatchStatementExecutor needClosedStatement =
@@ -144,7 +144,7 @@ public class ClickhouseSinkWriter
                     intHolder.setValue(0);
                 }
             } catch (SQLException e) {
-                throw new ClickhouseConnectorException(
+                throw new TimeplusConnectorException(
                         CommonErrorCodeDeprecated.SQL_OPERATION_FAILED,
                         "Failed to close prepared statement.",
                         e);
@@ -152,8 +152,8 @@ public class ClickhouseSinkWriter
         }
     }
 
-    private Map<Shard, ClickhouseBatchStatement> initStatementMap() {
-        Map<Shard, ClickhouseBatchStatement> result = new HashMap<>(Common.COLLECTION_SIZE);
+    private Map<Shard, TimeplusBatchStatement> initStatementMap() {
+        Map<Shard, TimeplusBatchStatement> result = new HashMap<>(Common.COLLECTION_SIZE);
         shardRouter
                 .getShards()
                 .forEach(
@@ -188,14 +188,14 @@ public class ClickhouseSinkWriter
                                                 .build();
                                 jdbcBatchStatementExecutor.prepareStatements(clickhouseConnection);
                                 IntHolder intHolder = new IntHolder();
-                                ClickhouseBatchStatement batchStatement =
-                                        new ClickhouseBatchStatement(
+                                TimeplusBatchStatement batchStatement =
+                                        new TimeplusBatchStatement(
                                                 clickhouseConnection,
                                                 jdbcBatchStatementExecutor,
                                                 intHolder);
                                 result.put(s, batchStatement);
                             } catch (SQLException e) {
-                                throw new ClickhouseConnectorException(
+                                throw new TimeplusConnectorException(
                                         CommonErrorCodeDeprecated.SQL_OPERATION_FAILED,
                                         "Clickhouse prepare statement error: " + e.getMessage(),
                                         e);

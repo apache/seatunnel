@@ -23,19 +23,19 @@ import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 
 import com.google.auto.service.AutoService;
 
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.ClickhouseConfig.CLICKHOUSE_LOCAL_PATH;
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.ClickhouseConfig.COMPATIBLE_MODE;
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.ClickhouseConfig.COPY_METHOD;
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.ClickhouseConfig.DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.ClickhouseConfig.FILE_FIELDS_DELIMITER;
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.ClickhouseConfig.FILE_TEMP_PATH;
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.ClickhouseConfig.HOST;
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.ClickhouseConfig.NODE_FREE_PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.ClickhouseConfig.NODE_PASS;
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.ClickhouseConfig.PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.ClickhouseConfig.SHARDING_KEY;
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.ClickhouseConfig.TABLE;
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.ClickhouseConfig.USERNAME;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.CLICKHOUSE_LOCAL_PATH;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.COMPATIBLE_MODE;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.COPY_METHOD;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.DATABASE;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.FILE_FIELDS_DELIMITER;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.FILE_TEMP_PATH;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.HOST;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.NODE_FREE_PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.NODE_PASS;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.SHARDING_KEY;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.TABLE;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.USERNAME;
 
 @AutoService(Factory.class)
 public class TimeplusFileSinkFactory implements TableSinkFactory {

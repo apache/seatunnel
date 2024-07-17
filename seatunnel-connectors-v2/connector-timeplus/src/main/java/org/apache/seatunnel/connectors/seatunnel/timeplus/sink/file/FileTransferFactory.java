@@ -18,19 +18,19 @@
 package org.apache.seatunnel.connectors.seatunnel.timeplus.sink.file;
 
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.connectors.seatunnel.timeplus.config.ClickhouseFileCopyMethod;
-import org.apache.seatunnel.connectors.seatunnel.timeplus.exception.ClickhouseConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusFileCopyMethod;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.exception.TimeplusConnectorException;
 
 public class FileTransferFactory {
     public static FileTransfer createFileTransfer(
-            ClickhouseFileCopyMethod type, String host, String user, String password) {
+        TimeplusFileCopyMethod type, String host, String user, String password) {
         switch (type) {
             case SCP:
                 return new ScpFileTransfer(host, user, password);
             case RSYNC:
                 return new RsyncFileTransfer(host, user, password);
             default:
-                throw new ClickhouseConnectorException(
+                throw new TimeplusConnectorException(
                         CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                         "unsupported clickhouse file copy method:" + type);
         }

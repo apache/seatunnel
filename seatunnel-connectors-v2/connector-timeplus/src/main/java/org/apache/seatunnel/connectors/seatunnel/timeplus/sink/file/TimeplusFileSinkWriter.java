@@ -23,13 +23,13 @@ import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.config.FileReaderOption;
-import org.apache.seatunnel.connectors.seatunnel.timeplus.exception.ClickhouseConnectorErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.timeplus.exception.ClickhouseConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.exception.TimeplusConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.exception.TimeplusConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.shard.Shard;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.client.ClickhouseProxy;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.client.ShardRouter;
-import org.apache.seatunnel.connectors.seatunnel.timeplus.state.CKFileCommitInfo;
-import org.apache.seatunnel.connectors.seatunnel.timeplus.state.ClickhouseSinkState;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.state.TPFileCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.state.TimeplusSinkState;
 
 import org.apache.commons.io.FileUtils;
 
@@ -59,7 +59,7 @@ import java.util.stream.Collectors;
 
 @Slf4j
 public class TimeplusFileSinkWriter
-        implements SinkWriter<SeaTunnelRow, CKFileCommitInfo, ClickhouseSinkState> {
+        implements SinkWriter<SeaTunnelRow, TPFileCommitInfo, TimeplusSinkState> {
 
     private static final String CK_LOCAL_CONFIG_TEMPLATE =
             "<yandex><path> %s </path> <users><default><password/> <profile>default</profile> <quota>default</quota>"
@@ -159,8 +159,8 @@ public class TimeplusFileSinkWriter
                                         && !this.readerOption
                                                 .getNodePassword()
                                                 .containsKey(shard.getNode().getHost())) {
-                                    throw new ClickhouseConnectorException(
-                                            ClickhouseConnectorErrorCode
+                                    throw new TimeplusConnectorException(
+                                            TimeplusConnectorErrorCode
                                                     .PASSWORD_NOT_FOUND_IN_SHARD_NODE,
                                             "Cannot find password of shard "
                                                     + shard.getNode().getAddress().getHostName());
@@ -170,7 +170,7 @@ public class TimeplusFileSinkWriter
     }
 
     @Override
-    public Optional<CKFileCommitInfo> prepareCommit() throws IOException {
+    public Optional<TPFileCommitInfo> prepareCommit() throws IOException {
         for (FileChannel channel : rowCache.values()) {
             channel.close();
         }
@@ -184,7 +184,7 @@ public class TimeplusFileSinkWriter
                         moveClickhouseLocalFileToServer(shard, clickhouseLocalFiles);
                         detachedFiles.put(shard, clickhouseLocalFiles);
                     } catch (Exception e) {
-                        throw new ClickhouseConnectorException(
+                        throw new TimeplusConnectorException(
                                 CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
                                 "Flush data into clickhouse file error",
                                 e);
@@ -197,7 +197,7 @@ public class TimeplusFileSinkWriter
                 });
         rowCache.clear();
         shardTempFile.clear();
-        return Optional.of(new CKFileCommitInfo(detachedFiles));
+        return Optional.of(new TPFileCommitInfo(detachedFiles));
     }
 
     @Override
@@ -344,14 +344,14 @@ public class TimeplusFileSinkWriter
                                 + "/data/_local/"
                                 + clickhouseTable.getLocalTableName());
         if (!file.exists()) {
-            throw new ClickhouseConnectorException(
-                    ClickhouseConnectorErrorCode.FILE_NOT_EXISTS,
+            throw new TimeplusConnectorException(
+                    TimeplusConnectorErrorCode.FILE_NOT_EXISTS,
                     "clickhouse local file not exists");
         }
         File[] files = file.listFiles();
         if (files == null) {
-            throw new ClickhouseConnectorException(
-                    ClickhouseConnectorErrorCode.FILE_NOT_EXISTS,
+            throw new TimeplusConnectorException(
+                    TimeplusConnectorErrorCode.FILE_NOT_EXISTS,
                     "clickhouse local file not exists");
         }
         return Arrays.stream(files)
@@ -403,8 +403,8 @@ public class TimeplusFileSinkWriter
                 FileUtils.deleteDirectory(file);
             }
         } catch (IOException e) {
-            throw new ClickhouseConnectorException(
-                    ClickhouseConnectorErrorCode.DELETE_DIRECTORY_FIELD,
+            throw new TimeplusConnectorException(
+                    TimeplusConnectorErrorCode.DELETE_DIRECTORY_FIELD,
                     "Unable to delete directory " + localFileDir,
                     e);
         }

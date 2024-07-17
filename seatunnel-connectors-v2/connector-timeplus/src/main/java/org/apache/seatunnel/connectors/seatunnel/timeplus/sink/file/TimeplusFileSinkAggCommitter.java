@@ -22,8 +22,8 @@ import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.config.FileReaderOption;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.shard.Shard;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.client.ClickhouseProxy;
-import org.apache.seatunnel.connectors.seatunnel.timeplus.state.CKFileAggCommitInfo;
-import org.apache.seatunnel.connectors.seatunnel.timeplus.state.CKFileCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.state.TPFileAggCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.state.TPFileCommitInfo;
 
 import com.clickhouse.client.ClickHouseException;
 import com.clickhouse.client.ClickHouseRequest;
@@ -36,7 +36,7 @@ import java.util.List;
 import java.util.Map;
 
 public class TimeplusFileSinkAggCommitter
-        implements SinkAggregatedCommitter<CKFileCommitInfo, CKFileAggCommitInfo> {
+        implements SinkAggregatedCommitter<TPFileCommitInfo, TPFileAggCommitInfo> {
 
     private transient ClickhouseProxy proxy;
     private final TimeplusTable clickhouseTable;
@@ -53,7 +53,7 @@ public class TimeplusFileSinkAggCommitter
     }
 
     @Override
-    public List<CKFileAggCommitInfo> commit(List<CKFileAggCommitInfo> aggregatedCommitInfo)
+    public List<TPFileAggCommitInfo> commit(List<TPFileAggCommitInfo> aggregatedCommitInfo)
             throws IOException {
         aggregatedCommitInfo.forEach(
                 commitInfo ->
@@ -72,7 +72,7 @@ public class TimeplusFileSinkAggCommitter
     }
 
     @Override
-    public CKFileAggCommitInfo combine(List<CKFileCommitInfo> commitInfos) {
+    public TPFileAggCommitInfo combine(List<TPFileCommitInfo> commitInfos) {
         Map<Shard, List<String>> files = new HashMap<>();
         commitInfos.forEach(
                 infos ->
@@ -85,11 +85,11 @@ public class TimeplusFileSinkAggCommitter
                                                 files.put(shard, file);
                                             }
                                         }));
-        return new CKFileAggCommitInfo(files);
+        return new TPFileAggCommitInfo(files);
     }
 
     @Override
-    public void abort(List<CKFileAggCommitInfo> aggregatedCommitInfo) throws Exception {}
+    public void abort(List<TPFileAggCommitInfo> aggregatedCommitInfo) throws Exception {}
 
     private ClickhouseProxy getProxy() {
         if (proxy != null) {

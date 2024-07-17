@@ -33,14 +33,14 @@ import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.config.ReaderOption;
-import org.apache.seatunnel.connectors.seatunnel.timeplus.exception.ClickhouseConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.exception.TimeplusConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.shard.Shard;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.shard.ShardMetadata;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.file.TimeplusTable;
-import org.apache.seatunnel.connectors.seatunnel.timeplus.state.CKAggCommitInfo;
-import org.apache.seatunnel.connectors.seatunnel.timeplus.state.CKCommitInfo;
-import org.apache.seatunnel.connectors.seatunnel.timeplus.state.ClickhouseSinkState;
-import org.apache.seatunnel.connectors.seatunnel.timeplus.util.ClickhouseUtil;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.state.TPAggCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.state.TPCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.state.TimeplusSinkState;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.util.TimeplusUtil;
 
 import com.clickhouse.client.ClickHouseNode;
 import com.google.auto.service.AutoService;
@@ -53,23 +53,23 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.ClickhouseConfig.ALLOW_EXPERIMENTAL_LIGHTWEIGHT_DELETE;
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.ClickhouseConfig.BULK_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.ClickhouseConfig.CLICKHOUSE_CONFIG;
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.ClickhouseConfig.DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.ClickhouseConfig.HOST;
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.ClickhouseConfig.PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.ClickhouseConfig.PRIMARY_KEY;
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.ClickhouseConfig.SERVER_TIME_ZONE;
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.ClickhouseConfig.SHARDING_KEY;
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.ClickhouseConfig.SPLIT_MODE;
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.ClickhouseConfig.SUPPORT_UPSERT;
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.ClickhouseConfig.TABLE;
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.ClickhouseConfig.USERNAME;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.ALLOW_EXPERIMENTAL_LIGHTWEIGHT_DELETE;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.BULK_SIZE;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.CLICKHOUSE_CONFIG;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.DATABASE;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.HOST;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.PRIMARY_KEY;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.SERVER_TIME_ZONE;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.SHARDING_KEY;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.SPLIT_MODE;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.SUPPORT_UPSERT;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.TABLE;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.USERNAME;
 
 @AutoService(SeaTunnelSink.class)
 public class ClickhouseSink
-        implements SeaTunnelSink<SeaTunnelRow, ClickhouseSinkState, CKCommitInfo, CKAggCommitInfo> {
+        implements SeaTunnelSink<SeaTunnelRow, TimeplusSinkState, TPCommitInfo, TPAggCommitInfo> {
 
     private ReaderOption option;
 
@@ -90,7 +90,7 @@ public class ClickhouseSink
         }
 
         if (!result.isSuccess()) {
-            throw new ClickhouseConnectorException(
+            throw new TimeplusConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                     String.format(
                             "PluginName: %s, PluginType: %s, Message: %s",
@@ -108,7 +108,7 @@ public class ClickhouseSink
         List<ClickHouseNode> nodes;
         if (!isCredential) {
             nodes =
-                    ClickhouseUtil.createNodes(
+                    TimeplusUtil.createNodes(
                             config.getString(HOST.key()),
                             config.getString(DATABASE.key()),
                             config.getString(SERVER_TIME_ZONE.key()),
@@ -117,7 +117,7 @@ public class ClickhouseSink
                             null);
         } else {
             nodes =
-                    ClickhouseUtil.createNodes(
+                    TimeplusUtil.createNodes(
                             config.getString(HOST.key()),
                             config.getString(DATABASE.key()),
                             config.getString(SERVER_TIME_ZONE.key()),
@@ -150,7 +150,7 @@ public class ClickhouseSink
                         config.getString(DATABASE.key()), config.getString(TABLE.key()));
         if (config.getBoolean(SPLIT_MODE.key())) {
             if (!"Distributed".equals(table.getEngine())) {
-                throw new ClickhouseConnectorException(
+                throw new TimeplusConnectorException(
                         CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                         "split mode only support table which engine is "
                                 + "'Distributed' engine at now");
@@ -194,7 +194,7 @@ public class ClickhouseSink
         if (config.hasPath(PRIMARY_KEY.key())) {
             String primaryKey = config.getString(PRIMARY_KEY.key());
             if (shardKey != null && !Objects.equals(primaryKey, shardKey)) {
-                throw new ClickhouseConnectorException(
+                throw new TimeplusConnectorException(
                         CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
                         "sharding_key and primary_key must be consistent to ensure correct processing of cdc events");
             }
@@ -224,19 +224,19 @@ public class ClickhouseSink
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, CKCommitInfo, ClickhouseSinkState> createWriter(
+    public SinkWriter<SeaTunnelRow, TPCommitInfo, TimeplusSinkState> createWriter(
             SinkWriter.Context context) throws IOException {
         return new ClickhouseSinkWriter(option, context);
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, CKCommitInfo, ClickhouseSinkState> restoreWriter(
-            SinkWriter.Context context, List<ClickhouseSinkState> states) throws IOException {
+    public SinkWriter<SeaTunnelRow, TPCommitInfo, TimeplusSinkState> restoreWriter(
+            SinkWriter.Context context, List<TimeplusSinkState> states) throws IOException {
         return SeaTunnelSink.super.restoreWriter(context, states);
     }
 
     @Override
-    public Optional<Serializer<ClickhouseSinkState>> getWriterStateSerializer() {
+    public Optional<Serializer<TimeplusSinkState>> getWriterStateSerializer() {
         return Optional.of(new DefaultSerializer<>());
     }
 

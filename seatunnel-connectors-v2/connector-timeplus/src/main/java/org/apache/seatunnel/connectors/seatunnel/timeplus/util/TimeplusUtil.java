@@ -29,7 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-public class ClickhouseUtil {
+public class TimeplusUtil {
 
     public static List<ClickHouseNode> createNodes(
             String nodeAddress,
