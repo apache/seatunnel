@@ -3,9 +3,9 @@
 sidebar_position: 11
 --------------------
 
-# REST API
+# RESTful API
 
-SeaTunnel有一个用于监控的API，可用于查询运行作业的状态和统计信息，以及最近完成的作业。监控API是REST-ful风格的，它接受HTTP请求并使用JSON数据格式进行响应。
+SeaTunnel有一个用于监控的API，可用于查询运行作业的状态和统计信息，以及最近完成的作业。监控API是RESTful风格的，它接受HTTP请求并使用JSON数据格式进行响应。
 
 ## 概述
 
