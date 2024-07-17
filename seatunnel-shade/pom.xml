@@ -33,6 +33,8 @@
         <module>seatunnel-arrow-5.0</module>
         <module>seatunnel-thrift-service</module>
         <module>seatunnel-hazelcast</module>
+        <module>seatunnel-janino</module>
+
     </modules>
 
     <build>

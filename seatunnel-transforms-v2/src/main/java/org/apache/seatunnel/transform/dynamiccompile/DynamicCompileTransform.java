@@ -20,10 +20,12 @@ package org.apache.seatunnel.transform.dynamiccompile;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.transform.common.MultipleFieldOutputTransform;
 import org.apache.seatunnel.transform.common.SeaTunnelRowAccessor;
 import org.apache.seatunnel.transform.dynamiccompile.parse.AbstractParse;
 import org.apache.seatunnel.transform.dynamiccompile.parse.GroovyClassParse;
+import org.apache.seatunnel.transform.dynamiccompile.parse.JavaClassParse;
 import org.apache.seatunnel.transform.exception.TransformException;
 
 import static org.apache.seatunnel.transform.dynamiccompile.CompileTransformErrorCode.COMPILE_TRANSFORM_ERROR_CODE;
@@ -46,6 +48,8 @@ public class DynamicCompileTransform extends MultipleFieldOutputTransform {
         // todo other compile
         if (CompileLanguage.GROOVY.equals(compileLanguage)) {
             DynamicCompileParse = new GroovyClassParse();
+        } else if (CompileLanguage.JAVA.equals(compileLanguage)) {
+            DynamicCompileParse = new JavaClassParse();
         }
         sourceCode = readonlyConfig.get(DynamicCompileTransformConfig.SOURCE_CODE);
     }
@@ -60,8 +64,8 @@ public class DynamicCompileTransform extends MultipleFieldOutputTransform {
         Object result;
         try {
             result =
-                    DynamicCompileParse.invoke(
-                            DynamicCompileParse.parseClass(sourceCode),
+                    ReflectionUtils.invoke(
+                            DynamicCompileParse.parseClass(sourceCode).newInstance(),
                             getInlineOutputColumns,
                             inputCatalogTable);
 
@@ -77,8 +81,8 @@ public class DynamicCompileTransform extends MultipleFieldOutputTransform {
         Object result;
         try {
             result =
-                    DynamicCompileParse.invoke(
-                            DynamicCompileParse.parseClass(sourceCode),
+                    ReflectionUtils.invoke(
+                            DynamicCompileParse.parseClass(sourceCode).newInstance(),
                             getInlineOutputFieldValues,
                             inputRow);
 

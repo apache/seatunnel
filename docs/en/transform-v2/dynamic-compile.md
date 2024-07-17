@@ -4,6 +4,8 @@
 
 ## Description
 
+Provide a programmable way to process rows, allowing users to customize any business behavior, even RPC requests based on existing row fields as parameters, or to expand fields by retrieving associated data from other data sources. To distinguish businesses, you can also define multiple transforms to combine
+
 ## Options
 
 |       name       |  type  | required | default value |
@@ -15,7 +17,7 @@
 
 The code must implement two methods: getInlineOutputColumns and getInlineOutputFieldValues. getInlineOutputColumns determines the columns you want to add or convert, and the original column structure can be obtained from CatalogTable
 GetInlineOutputFieldValues determines your column values. You can fulfill any of your requirements, and even complete RPC requests to obtain new values based on the original columns
-If there are third-party dependency packages, please place them in lib
+If there are third-party dependency packages, please place them in ${SEATUNNEL_HOME}/lib, if you use spark or flink, you need to put it under the libs of the corresponding service.
 
 ### common options [string]
 
@@ -23,7 +25,8 @@ Transform plugin common parameters, please refer to [Transform Plugin](common-op
 
 ### compile_language [string]
 
-GROOVY
+Some syntax in Java may not be supported, please refer https://github.com/janino-compiler/janino
+GROOVY,JAVA
 
 ## Example
 
@@ -72,6 +75,43 @@ transform {
 
   }
 }
+
+transform {
+ DynamicCompile {
+    source_table_name = "fake"
+    result_table_name = "fake1"
+    compile_language="JAVA"
+    source_code="""
+                 import org.apache.seatunnel.api.table.catalog.Column;
+                 import org.apache.seatunnel.transform.common.SeaTunnelRowAccessor;
+                 import org.apache.seatunnel.api.table.catalog.*;
+                 import org.apache.seatunnel.api.table.type.*;
+                 import java.util.ArrayList;
+                     public Column[] getInlineOutputColumns(CatalogTable inputCatalogTable) {
+
+                       ArrayList<Column> columns = new ArrayList<Column>();
+                                               PhysicalColumn destColumn =
+                                               PhysicalColumn.of(
+                                               "aa",
+                                              BasicType.STRING_TYPE,
+                                               10,
+                                              true,
+                                              "",
+                                              "");
+                                                 return new Column[]{
+                                                                destColumn
+                                                        };
+
+                     }
+                     public Object[] getInlineOutputFieldValues(SeaTunnelRowAccessor inputRow) {
+                       Object[] fieldValues = new Object[1];
+                       fieldValues[0]="AA";
+                       return fieldValues;
+                     }
+                """
+
+  }
+ } 
 ```
 
 Then the data in result table `fake1` will like this

@@ -18,5 +18,6 @@
 package org.apache.seatunnel.transform.dynamiccompile;
 
 public enum CompileLanguage {
-    GROOVY
+    GROOVY,
+    JAVA
 }

@@ -18,21 +18,8 @@
 package org.apache.seatunnel.transform.dynamiccompile.parse;
 
 import java.io.Serializable;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 
 public abstract class AbstractParse implements Serializable {
 
     public abstract Class<?> parseClass(String sourceCode);
-
-    public Object invoke(Class<?> clazz, String methodName, Object... args)
-            throws InstantiationException, IllegalAccessException, InvocationTargetException {
-
-        for (Method method : clazz.getMethods()) {
-            if (method.getName().equals(methodName)) {
-                return method.invoke(clazz.newInstance(), args);
-            }
-        }
-        return null;
-    }
 }
