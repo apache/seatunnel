@@ -17,11 +17,14 @@
 
 package org.apache.seatunnel.engine.e2e;
 
+import org.apache.seatunnel.e2e.common.container.TestContainer;
+
 import org.apache.commons.lang3.StringUtils;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 
 import java.io.IOException;
@@ -125,5 +128,13 @@ public class JobClientJobProxyIT extends SeaTunnelContainer {
                                 .getStderr()
                                 .contains(
                                         "org.apache.seatunnel.engine.server.resourcemanager.NoEnoughResourceException"));
+    }
+
+    @TestTemplate
+    public void testSinkPlaceholder(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                executeSeaTunnelJob("/fake_to_inmemory_with_sink_placeholder.conf");
+        Assertions.assertNotEquals(0, execResult.getExitCode());
     }
 }
