@@ -19,7 +19,7 @@ package org.apache.seatunnel.api.sink;
 
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.EventListener;
-import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 
 import java.io.IOException;
 import java.io.Serializable;
@@ -46,12 +46,8 @@ public interface SinkWriter<T, CommitInfoT, StateT> {
      */
     void write(T element) throws IOException;
 
-    /**
-     * apply schema change to third party data receiver.
-     *
-     * @param event
-     * @throws IOException
-     */
+    /** @deprecated instead by {@link SupportSchemaEvolutionSinkWriter} TODO: remove this method */
+    @Deprecated
     default void applySchemaChange(SchemaChangeEvent event) throws IOException {}
 
     /**

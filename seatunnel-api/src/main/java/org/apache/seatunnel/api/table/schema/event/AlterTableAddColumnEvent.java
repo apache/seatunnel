@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.table.event;
+package org.apache.seatunnel.api.table.schema.event;
 
 import org.apache.seatunnel.api.event.EventType;
 import org.apache.seatunnel.api.table.catalog.Column;
