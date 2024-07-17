@@ -351,3 +351,7 @@ The plugin can be completely independent from SeaTunnel project, so you can writ
 ## When I import a project, the compiler has the exception "class not found `org.apache.seatunnel.shade.com.typesafe.config.Config`"
 
 Run `mvn install` first. In the `seatunnel-config/seatunnel-config-base` subproject, the package `com.typesafe.config` has been relocated to `org.apache.seatunnel.shade.com.typesafe.config` and installed to the maven local repository in the subproject `seatunnel-config/seatunnel-config-shade`.
+
+## How to solve java.lang.NoClassDefFoundError: org/apache/hadoop/shaded/com/ctc/wstx/io/InputBootstrapper in jdk17
+
+Upgrade hadoop version to 3.3.4
