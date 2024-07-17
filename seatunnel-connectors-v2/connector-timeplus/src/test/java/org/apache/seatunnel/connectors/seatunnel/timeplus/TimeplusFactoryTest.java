@@ -15,16 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.clickhouse;
+package org.apache.seatunnel.connectors.seatunnel.timeplus;
 
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.ClickhouseSinkFactory;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file.ClickhouseFileSinkFactory;
-import org.apache.seatunnel.connectors.seatunnel.clickhouse.source.ClickhouseSourceFactory;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.ClickhouseSinkFactory;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.file.ClickhouseFileSinkFactory;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.source.ClickhouseSourceFactory;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-public class ClickhouseFactoryTest {
+public class TimeplusFactoryTest {
 
     @Test
     public void testOptionRule() {
