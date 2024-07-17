@@ -75,7 +75,7 @@ public class TimeplusSink
 
     @Override
     public String getPluginName() {
-        return "Clickhouse";
+        return "Timeplus";
     }
 
     @Override
