@@ -24,25 +24,25 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 
 import com.google.auto.service.AutoService;
 
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.CLICKHOUSE_CONFIG;
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.DATABASE;
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.HOST;
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.PASSWORD;
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.SQL;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.TIMEPLUS_CONFIG;
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.USERNAME;
 
 @AutoService(Factory.class)
 public class TimeplusSourceFactory implements TableSourceFactory {
     @Override
     public String factoryIdentifier() {
-        return "Clickhouse";
+        return "Timeplus";
     }
 
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(HOST, DATABASE, SQL, USERNAME, PASSWORD)
-                .optional(CLICKHOUSE_CONFIG)
+                .optional(TIMEPLUS_CONFIG)
                 .build();
     }
 

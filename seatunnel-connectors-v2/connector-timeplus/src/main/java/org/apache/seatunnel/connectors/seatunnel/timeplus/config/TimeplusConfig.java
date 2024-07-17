@@ -158,7 +158,7 @@ public class TimeplusConfig {
                     .noDefaultValue()
                     .withDescription("The password of Clickhouse server node");
 
-    public static final Option<Map<String, String>> CLICKHOUSE_CONFIG =
+    public static final Option<Map<String, String>> TIMEPLUS_CONFIG =
             Options.key("clickhouse.config")
                     .mapType()
                     .defaultValue(Collections.emptyMap())

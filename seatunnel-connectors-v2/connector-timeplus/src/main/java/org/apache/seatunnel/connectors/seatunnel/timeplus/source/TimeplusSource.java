@@ -52,12 +52,12 @@ import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.CLICKHOUSE_CONFIG;
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.DATABASE;
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.HOST;
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.PASSWORD;
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.SERVER_TIME_ZONE;
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.SQL;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.TIMEPLUS_CONFIG;
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.USERNAME;
 
 @AutoService(SeaTunnelSource.class)
@@ -101,9 +101,9 @@ public class TimeplusSource
 
         Map<String, String> customConfig = null;
 
-        if (CheckConfigUtil.isValidParam(config, CLICKHOUSE_CONFIG.key())) {
+        if (CheckConfigUtil.isValidParam(config, TIMEPLUS_CONFIG.key())) {
             customConfig =
-                    config.getObject(CLICKHOUSE_CONFIG.key()).entrySet().stream()
+                    config.getObject(TIMEPLUS_CONFIG.key()).entrySet().stream()
                             .collect(
                                     Collectors.toMap(
                                             Map.Entry::getKey,

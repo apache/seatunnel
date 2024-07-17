@@ -25,7 +25,6 @@ import com.google.auto.service.AutoService;
 
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.ALLOW_EXPERIMENTAL_LIGHTWEIGHT_DELETE;
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.BULK_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.CLICKHOUSE_CONFIG;
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.DATABASE;
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.HOST;
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.PASSWORD;
@@ -34,13 +33,14 @@ import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.Timeplus
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.SPLIT_MODE;
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.SUPPORT_UPSERT;
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.TABLE;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.TIMEPLUS_CONFIG;
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.USERNAME;
 
 @AutoService(Factory.class)
 public class TimeplusSinkFactory implements TableSinkFactory {
     @Override
     public String factoryIdentifier() {
-        return "Clickhouse";
+        return "Timeplus";
     }
 
     @Override
@@ -48,7 +48,7 @@ public class TimeplusSinkFactory implements TableSinkFactory {
         return OptionRule.builder()
                 .required(HOST, DATABASE, TABLE)
                 .optional(
-                        CLICKHOUSE_CONFIG,
+                        TIMEPLUS_CONFIG,
                         BULK_SIZE,
                         SPLIT_MODE,
                         SHARDING_KEY,

@@ -55,7 +55,6 @@ import java.util.Properties;
 
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.ALLOW_EXPERIMENTAL_LIGHTWEIGHT_DELETE;
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.BULK_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.CLICKHOUSE_CONFIG;
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.DATABASE;
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.HOST;
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.PASSWORD;
@@ -65,6 +64,7 @@ import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.Timeplus
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.SPLIT_MODE;
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.SUPPORT_UPSERT;
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.TABLE;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.TIMEPLUS_CONFIG;
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.USERNAME;
 
 @AutoService(SeaTunnelSink.class)
@@ -127,8 +127,8 @@ public class ClickhouseSink
         }
 
         Properties clickhouseProperties = new Properties();
-        if (CheckConfigUtil.isValidParam(config, CLICKHOUSE_CONFIG.key())) {
-            config.getObject(CLICKHOUSE_CONFIG.key())
+        if (CheckConfigUtil.isValidParam(config, TIMEPLUS_CONFIG.key())) {
+            config.getObject(TIMEPLUS_CONFIG.key())
                     .forEach(
                             (key, value) ->
                                     clickhouseProperties.put(
