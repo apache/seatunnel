@@ -70,20 +70,7 @@ public class ProtobufToRowConverter implements Serializable {
     private Descriptors.Descriptor createDescriptor()
             throws IOException, InterruptedException, Descriptors.DescriptorValidationException {
 
-        String targetDesc = compileDescriptorTempFile();
-
-        FileInputStream fis = new FileInputStream(targetDesc);
-        DescriptorProtos.FileDescriptorSet descriptorSet =
-                DescriptorProtos.FileDescriptorSet.parseFrom(fis);
-
-        List<DescriptorProtos.FileDescriptorProto> fileDescriptors = descriptorSet.getFileList();
-        Descriptors.FileDescriptor[] descriptorsArray =
-                new Descriptors.FileDescriptor[fileDescriptors.size()];
-        for (int i = 0; i < fileDescriptors.size(); i++) {
-            descriptorsArray[i] =
-                    Descriptors.FileDescriptor.buildFrom(
-                            fileDescriptors.get(i), new Descriptors.FileDescriptor[] {});
-        }
+        Descriptors.FileDescriptor[] descriptorsArray = CompileDescriptor.compileDescriptorTempFile(protoContent);
 
         Descriptors.Descriptor personDescriptor =
                 descriptorsArray[0].findMessageTypeByName(this.messageName);

@@ -20,7 +20,8 @@ package org.apache.seatunnel.format.protobuf.exception;
 import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
 public enum ProtobufFormatErrorCode implements SeaTunnelErrorCode {
-    DESCRIPTOR_CONVERT_FAILED("PROTOBUF-01", "Protobuf descriptor conversion failed.");
+    DESCRIPTOR_CONVERT_FAILED("PROTOBUF-01", "Protobuf descriptor conversion failed."),
+    UNSUPPORTED_DATA_TYPE("PROTOBUF-02", "Unsupported data type.");
 
     private final String code;
     private final String description;
