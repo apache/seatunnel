@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.cdc.base.source.reader;
 
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.source.event.CompletedSnapshotPhaseEvent;
@@ -215,7 +215,7 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
                         incrementalSplit.splitId(),
                         incrementalSplit.getCheckpointDataType());
                 debeziumDeserializationSchema.restoreCheckpointProducedType(
-                        incrementalSplit.getCheckpointDataType());
+                        incrementalSplit.getCheckpointTables());
             }
             IncrementalSplitState splitState = new IncrementalSplitState(incrementalSplit);
             if (splitState.autoEnterPureIncrementPhaseIfAllowed()) {
@@ -265,13 +265,13 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
     }
 
     private List<SourceSplitBase> snapshotCheckpointDataType(IncrementalSplit incrementalSplit) {
-        // Snapshot current datatype to checkpoint
-        SeaTunnelDataType<T> checkpointDataType = debeziumDeserializationSchema.getProducedType();
+        // Snapshot current table struct to checkpoint
+        List<CatalogTable> checkpointTables = debeziumDeserializationSchema.getProducedType();
         IncrementalSplit newIncrementalSplit =
-                new IncrementalSplit(incrementalSplit, checkpointDataType);
+                new IncrementalSplit(incrementalSplit, checkpointTables);
         log.debug(
                 "Snapshot checkpoint datatype {} into split[{}] state.",
-                checkpointDataType,
+                checkpointTables,
                 incrementalSplit.splitId());
         return Arrays.asList(newIncrementalSplit);
     }

@@ -15,32 +15,43 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.table.event;
+package org.apache.seatunnel.api.table.schema.event;
 
-import org.apache.seatunnel.api.event.EventType;
+import org.apache.seatunnel.api.event.Event;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 
-import lombok.Getter;
-import lombok.ToString;
+/** Represents a structural change to a table schema. */
+public interface SchemaChangeEvent extends Event {
 
-@Getter
-@ToString(callSuper = true)
-public class AlterTableNameEvent extends AlterTableEvent {
-    private final TableIdentifier newTableIdentifier;
-
-    public AlterTableNameEvent(
-            TableIdentifier tableIdentifier, TableIdentifier newTableIdentifier) {
-        super(tableIdentifier);
-        this.newTableIdentifier = newTableIdentifier;
+    /**
+     * Path of the change table object
+     *
+     * @return
+     */
+    default TablePath tablePath() {
+        return tableIdentifier().toTablePath();
     }
 
-    public TablePath getNewTablePath() {
-        return newTableIdentifier.toTablePath();
-    }
+    /**
+     * Path of the change table object
+     *
+     * @return
+     */
+    TableIdentifier tableIdentifier();
 
-    @Override
-    public EventType getEventType() {
-        return EventType.SCHEMA_CHANGE_RENAME_TABLE;
-    }
+    /**
+     * Get the table struct after the change
+     *
+     * @return
+     */
+    CatalogTable getChangeAfter();
+
+    /**
+     * Set the table struct after the change
+     *
+     * @param table
+     */
+    void setChangeAfter(CatalogTable table);
 }

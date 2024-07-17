@@ -157,7 +157,8 @@ public class CatalogTableUtil implements Serializable {
         }
     }
 
-    public static MultipleRowType convertToMultipleRowType(List<CatalogTable> catalogTables) {
+    @Deprecated
+    private static MultipleRowType convertToMultipleRowType(List<CatalogTable> catalogTables) {
         Map<String, SeaTunnelRowType> rowTypeMap = new HashMap<>();
         for (CatalogTable catalogTable : catalogTables) {
             String tableId = catalogTable.getTableId().toTablePath().toString();

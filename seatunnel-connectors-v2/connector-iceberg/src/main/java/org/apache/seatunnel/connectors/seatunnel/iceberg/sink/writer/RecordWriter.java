@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.iceberg.sink.writer;
 
 import org.apache.seatunnel.shade.com.google.common.collect.ImmutableList;
 
-import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 

@@ -25,9 +25,11 @@ import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkCommonOptions;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.factory.MultiTableFactoryContext;
+import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import lombok.Getter;
@@ -35,6 +37,7 @@ import lombok.Getter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -44,10 +47,11 @@ import java.util.stream.Collectors;
 
 public class MultiTableSink
         implements SeaTunnelSink<
-                SeaTunnelRow,
-                MultiTableState,
-                MultiTableCommitInfo,
-                MultiTableAggregatedCommitInfo> {
+                        SeaTunnelRow,
+                        MultiTableState,
+                        MultiTableCommitInfo,
+                        MultiTableAggregatedCommitInfo>,
+                SupportSchemaEvolutionSink {
 
     @Getter private final Map<String, SeaTunnelSink> sinks;
     private final int replicaNum;
@@ -187,5 +191,14 @@ public class MultiTableSink
     @Override
     public Optional<CatalogTable> getWriteCatalogTable() {
         return SeaTunnelSink.super.getWriteCatalogTable();
+    }
+
+    @Override
+    public List<SchemaChangeType> supports() {
+        SeaTunnelSink firstSink = sinks.entrySet().iterator().next().getValue();
+        if (firstSink instanceof SupportSchemaEvolutionSink) {
+            return ((SupportSchemaEvolutionSink) firstSink).supports();
+        }
+        return Collections.emptyList();
     }
 }

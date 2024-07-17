@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.cdc.base.source.split.state;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.connectors.cdc.base.source.event.SnapshotSplitWatermark;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.source.split.CompletedSnapshotSplitInfo;
@@ -137,7 +138,7 @@ public class IncrementalSplitStateTest {
                 startupOffset,
                 null,
                 snapshotSplits,
-                null);
+                (List<CatalogTable>) null);
     }
 
     private static CompletedSnapshotSplitInfo createCompletedSnapshotSplitInfo(

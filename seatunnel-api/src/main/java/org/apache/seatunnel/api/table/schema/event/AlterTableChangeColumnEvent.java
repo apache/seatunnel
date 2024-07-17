@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.table.event;
+package org.apache.seatunnel.api.table.schema.event;
 
 import org.apache.seatunnel.api.event.EventType;
 import org.apache.seatunnel.api.table.catalog.Column;
@@ -26,36 +26,43 @@ import lombok.ToString;
 
 @Getter
 @ToString(callSuper = true)
-public class AlterTableModifyColumnEvent extends AlterTableColumnEvent {
+public class AlterTableChangeColumnEvent extends AlterTableColumnEvent {
     private final Column column;
     private final boolean first;
     private final String afterColumn;
+    private final String oldColumn;
 
-    public AlterTableModifyColumnEvent(
-            TableIdentifier tableIdentifier, Column column, boolean first, String afterColumn) {
+    public AlterTableChangeColumnEvent(
+            TableIdentifier tableIdentifier,
+            String oldColumn,
+            Column column,
+            boolean first,
+            String afterColumn) {
         super(tableIdentifier);
+        this.oldColumn = oldColumn;
         this.column = column;
         this.first = first;
         this.afterColumn = afterColumn;
     }
 
-    public static AlterTableModifyColumnEvent modifyFirst(
-            TableIdentifier tableIdentifier, Column column) {
-        return new AlterTableModifyColumnEvent(tableIdentifier, column, true, null);
+    public static AlterTableChangeColumnEvent changeFirst(
+            TableIdentifier tableIdentifier, String oldColumn, Column column) {
+        return new AlterTableChangeColumnEvent(tableIdentifier, oldColumn, column, true, null);
     }
 
-    public static AlterTableModifyColumnEvent modify(
-            TableIdentifier tableIdentifier, Column column) {
-        return new AlterTableModifyColumnEvent(tableIdentifier, column, false, null);
+    public static AlterTableChangeColumnEvent change(
+            TableIdentifier tableIdentifier, String oldColumn, Column column) {
+        return new AlterTableChangeColumnEvent(tableIdentifier, oldColumn, column, false, null);
     }
 
-    public static AlterTableModifyColumnEvent modifyAfter(
-            TableIdentifier tableIdentifier, Column column, String afterColumn) {
-        return new AlterTableModifyColumnEvent(tableIdentifier, column, false, afterColumn);
+    public static AlterTableChangeColumnEvent changeAfter(
+            TableIdentifier tableIdentifier, String oldColumn, Column column, String afterColumn) {
+        return new AlterTableChangeColumnEvent(
+                tableIdentifier, oldColumn, column, false, afterColumn);
     }
 
     @Override
     public EventType getEventType() {
-        return EventType.SCHEMA_CHANGE_MODIFY_COLUMN;
+        return EventType.SCHEMA_CHANGE_CHANGE_COLUMN;
     }
 }

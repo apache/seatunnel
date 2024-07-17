@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.cdc.base.schema;
 
-import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
 import org.apache.kafka.connect.source.SourceRecord;
