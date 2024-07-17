@@ -35,8 +35,7 @@ public enum TimeplusFileCopyMethod {
     }
 
     public static TimeplusFileCopyMethod from(String name) {
-        for (TimeplusFileCopyMethod clickhouseFileCopyMethod :
-                TimeplusFileCopyMethod.values()) {
+        for (TimeplusFileCopyMethod clickhouseFileCopyMethod : TimeplusFileCopyMethod.values()) {
             if (clickhouseFileCopyMethod.getName().equalsIgnoreCase(name)) {
                 return clickhouseFileCopyMethod;
             }

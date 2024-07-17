@@ -21,8 +21,7 @@ import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
 public class TimeplusConnectorException extends SeaTunnelRuntimeException {
-    public TimeplusConnectorException(
-            SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage) {
+    public TimeplusConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage) {
         super(seaTunnelErrorCode, errorMessage);
     }
 

@@ -23,7 +23,7 @@ import org.apache.seatunnel.connectors.seatunnel.timeplus.exception.TimeplusConn
 
 public class FileTransferFactory {
     public static FileTransfer createFileTransfer(
-        TimeplusFileCopyMethod type, String host, String user, String password) {
+            TimeplusFileCopyMethod type, String host, String user, String password) {
         switch (type) {
             case SCP:
                 return new ScpFileTransfer(host, user, password);

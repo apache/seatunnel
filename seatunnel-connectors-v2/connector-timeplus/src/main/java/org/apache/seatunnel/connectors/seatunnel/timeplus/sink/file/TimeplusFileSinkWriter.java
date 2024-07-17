@@ -345,14 +345,12 @@ public class TimeplusFileSinkWriter
                                 + clickhouseTable.getLocalTableName());
         if (!file.exists()) {
             throw new TimeplusConnectorException(
-                    TimeplusConnectorErrorCode.FILE_NOT_EXISTS,
-                    "clickhouse local file not exists");
+                    TimeplusConnectorErrorCode.FILE_NOT_EXISTS, "clickhouse local file not exists");
         }
         File[] files = file.listFiles();
         if (files == null) {
             throw new TimeplusConnectorException(
-                    TimeplusConnectorErrorCode.FILE_NOT_EXISTS,
-                    "clickhouse local file not exists");
+                    TimeplusConnectorErrorCode.FILE_NOT_EXISTS, "clickhouse local file not exists");
         }
         return Arrays.stream(files)
                 .filter(File::isDirectory)

@@ -172,8 +172,7 @@ public class TimeplusSource
 
     @Override
     public SourceSplitEnumerator<TimeplusSourceSplit, TimeplusSourceState> createEnumerator(
-            SourceSplitEnumerator.Context<TimeplusSourceSplit> enumeratorContext)
-            throws Exception {
+            SourceSplitEnumerator.Context<TimeplusSourceSplit> enumeratorContext) throws Exception {
         return new TimeplusSourceSplitEnumerator(enumeratorContext);
     }
 
