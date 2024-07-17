@@ -35,15 +35,15 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-public class ClickhouseFileSinkAggCommitter
+public class TimeplusFileSinkAggCommitter
         implements SinkAggregatedCommitter<CKFileCommitInfo, CKFileAggCommitInfo> {
 
     private transient ClickhouseProxy proxy;
-    private final ClickhouseTable clickhouseTable;
+    private final TimeplusTable clickhouseTable;
 
     private final FileReaderOption fileReaderOption;
 
-    public ClickhouseFileSinkAggCommitter(FileReaderOption readerOption) {
+    public TimeplusFileSinkAggCommitter(FileReaderOption readerOption) {
         fileReaderOption = readerOption;
         proxy = new ClickhouseProxy(readerOption.getShardMetadata().getDefaultShard().getNode());
         clickhouseTable =

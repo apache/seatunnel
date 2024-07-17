@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.timeplus;
 
-import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.ClickhouseSinkFactory;
-import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.file.ClickhouseFileSinkFactory;
-import org.apache.seatunnel.connectors.seatunnel.timeplus.source.ClickhouseSourceFactory;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.TimeplusSinkFactory;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.file.TimeplusFileSinkFactory;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.source.TimeplusSourceFactory;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -28,8 +28,8 @@ public class TimeplusFactoryTest {
 
     @Test
     public void testOptionRule() {
-        Assertions.assertNotNull((new ClickhouseSourceFactory()).optionRule());
-        Assertions.assertNotNull((new ClickhouseSinkFactory()).optionRule());
-        Assertions.assertNotNull((new ClickhouseFileSinkFactory()).optionRule());
+        Assertions.assertNotNull((new TimeplusSourceFactory()).optionRule());
+        Assertions.assertNotNull((new TimeplusSinkFactory()).optionRule());
+        Assertions.assertNotNull((new TimeplusFileSinkFactory()).optionRule());
     }
 }

@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.timeplus.source;
 
 import org.apache.seatunnel.api.source.SourceSplit;
 
-public class ClickhouseSourceSplit implements SourceSplit {
+public class TimeplusSourceSplit implements SourceSplit {
     @Override
     public String splitId() {
         return null;

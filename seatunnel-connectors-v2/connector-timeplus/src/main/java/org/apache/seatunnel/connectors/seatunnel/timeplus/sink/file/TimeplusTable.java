@@ -28,7 +28,7 @@ import java.util.Map;
 
 @Getter
 @Setter
-public class ClickhouseTable implements Serializable {
+public class TimeplusTable implements Serializable {
 
     private String database;
     private String tableName;
@@ -40,7 +40,7 @@ public class ClickhouseTable implements Serializable {
     private final DistributedEngine distributedEngine;
     private Map<String, String> tableSchema;
 
-    public ClickhouseTable(
+    public TimeplusTable(
             String database,
             String tableName,
             DistributedEngine distributedEngine,

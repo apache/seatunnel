@@ -61,8 +61,8 @@ import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.Clickhou
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.ClickhouseConfig.USERNAME;
 
 @AutoService(SeaTunnelSource.class)
-public class ClickhouseSource
-        implements SeaTunnelSource<SeaTunnelRow, ClickhouseSourceSplit, ClickhouseSourceState>,
+public class TimeplusSource
+        implements SeaTunnelSource<SeaTunnelRow, TimeplusSourceSplit, ClickhouseSourceState>,
                 SupportParallelism,
                 SupportColumnProjection {
 
@@ -165,23 +165,23 @@ public class ClickhouseSource
     }
 
     @Override
-    public SourceReader<SeaTunnelRow, ClickhouseSourceSplit> createReader(
+    public SourceReader<SeaTunnelRow, TimeplusSourceSplit> createReader(
             SourceReader.Context readerContext) throws Exception {
-        return new ClickhouseSourceReader(servers, readerContext, this.rowTypeInfo, sql);
+        return new TimeplusSourceReader(servers, readerContext, this.rowTypeInfo, sql);
     }
 
     @Override
-    public SourceSplitEnumerator<ClickhouseSourceSplit, ClickhouseSourceState> createEnumerator(
-            SourceSplitEnumerator.Context<ClickhouseSourceSplit> enumeratorContext)
+    public SourceSplitEnumerator<TimeplusSourceSplit, ClickhouseSourceState> createEnumerator(
+            SourceSplitEnumerator.Context<TimeplusSourceSplit> enumeratorContext)
             throws Exception {
-        return new ClickhouseSourceSplitEnumerator(enumeratorContext);
+        return new TimeplusSourceSplitEnumerator(enumeratorContext);
     }
 
     @Override
-    public SourceSplitEnumerator<ClickhouseSourceSplit, ClickhouseSourceState> restoreEnumerator(
-            SourceSplitEnumerator.Context<ClickhouseSourceSplit> enumeratorContext,
+    public SourceSplitEnumerator<TimeplusSourceSplit, ClickhouseSourceState> restoreEnumerator(
+            SourceSplitEnumerator.Context<TimeplusSourceSplit> enumeratorContext,
             ClickhouseSourceState checkpointState)
             throws Exception {
-        return new ClickhouseSourceSplitEnumerator(enumeratorContext);
+        return new TimeplusSourceSplitEnumerator(enumeratorContext);
     }
 }

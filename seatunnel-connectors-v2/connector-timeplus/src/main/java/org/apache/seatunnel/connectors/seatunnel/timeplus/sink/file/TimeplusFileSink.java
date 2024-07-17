@@ -71,7 +71,7 @@ import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.Clickhou
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.ClickhouseConfig.USERNAME;
 
 @AutoService(SeaTunnelSink.class)
-public class ClickhouseFileSink
+public class TimeplusFileSink
         implements SeaTunnelSink<
                 SeaTunnelRow, ClickhouseSinkState, CKFileCommitInfo, CKFileAggCommitInfo> {
 
@@ -122,7 +122,7 @@ public class ClickhouseFileSink
         ClickhouseProxy proxy = new ClickhouseProxy(nodes.get(0));
         Map<String, String> tableSchema =
                 proxy.getClickhouseTableSchema(config.getString(TABLE.key()));
-        ClickhouseTable table =
+        TimeplusTable table =
                 proxy.getClickhouseTable(
                         config.getString(DATABASE.key()), config.getString(TABLE.key()));
         String shardKey = null;
@@ -194,7 +194,7 @@ public class ClickhouseFileSink
     @Override
     public SinkWriter<SeaTunnelRow, CKFileCommitInfo, ClickhouseSinkState> createWriter(
             SinkWriter.Context context) throws IOException {
-        return new ClickhouseFileSinkWriter(readerOption, context);
+        return new TimeplusFileSinkWriter(readerOption, context);
     }
 
     @Override
@@ -205,7 +205,7 @@ public class ClickhouseFileSink
     @Override
     public Optional<SinkAggregatedCommitter<CKFileCommitInfo, CKFileAggCommitInfo>>
             createAggregatedCommitter() throws IOException {
-        return Optional.of(new ClickhouseFileSinkAggCommitter(this.readerOption));
+        return Optional.of(new TimeplusFileSinkAggCommitter(this.readerOption));
     }
 
     @Override

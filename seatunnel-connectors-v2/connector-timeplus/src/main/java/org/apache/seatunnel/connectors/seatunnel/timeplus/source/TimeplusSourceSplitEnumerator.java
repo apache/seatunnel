@@ -26,15 +26,15 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-public class ClickhouseSourceSplitEnumerator
-        implements SourceSplitEnumerator<ClickhouseSourceSplit, ClickhouseSourceState> {
+public class TimeplusSourceSplitEnumerator
+        implements SourceSplitEnumerator<TimeplusSourceSplit, ClickhouseSourceState> {
 
-    private final Context<ClickhouseSourceSplit> context;
+    private final Context<TimeplusSourceSplit> context;
     private final Set<Integer> readers;
     private volatile int assigned = -1;
 
     // TODO support read distributed engine use multi split
-    ClickhouseSourceSplitEnumerator(Context<ClickhouseSourceSplit> enumeratorContext) {
+    TimeplusSourceSplitEnumerator(Context<TimeplusSourceSplit> enumeratorContext) {
         this.context = enumeratorContext;
         this.readers = new HashSet<>();
     }
@@ -49,7 +49,7 @@ public class ClickhouseSourceSplitEnumerator
     public void close() throws IOException {}
 
     @Override
-    public void addSplitsBack(List<ClickhouseSourceSplit> splits, int subtaskId) {
+    public void addSplitsBack(List<TimeplusSourceSplit> splits, int subtaskId) {
         if (splits.isEmpty()) {
             return;
         }
@@ -76,7 +76,7 @@ public class ClickhouseSourceSplitEnumerator
         readers.add(subtaskId);
         if (assigned < 0) {
             assigned = subtaskId;
-            context.assignSplit(subtaskId, new ClickhouseSourceSplit());
+            context.assignSplit(subtaskId, new TimeplusSourceSplit());
         }
     }
 

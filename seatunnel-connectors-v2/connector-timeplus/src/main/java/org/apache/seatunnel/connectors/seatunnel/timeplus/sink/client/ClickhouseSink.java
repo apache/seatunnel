@@ -36,7 +36,7 @@ import org.apache.seatunnel.connectors.seatunnel.timeplus.config.ReaderOption;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.exception.ClickhouseConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.shard.Shard;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.shard.ShardMetadata;
-import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.file.ClickhouseTable;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.file.TimeplusTable;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.state.CKAggCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.state.CKCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.state.ClickhouseSinkState;
@@ -145,7 +145,7 @@ public class ClickhouseSink
                 proxy.getClickhouseTableSchema(config.getString(TABLE.key()));
         String shardKey = null;
         String shardKeyType = null;
-        ClickhouseTable table =
+        TimeplusTable table =
                 proxy.getClickhouseTable(
                         config.getString(DATABASE.key()), config.getString(TABLE.key()));
         if (config.getBoolean(SPLIT_MODE.key())) {

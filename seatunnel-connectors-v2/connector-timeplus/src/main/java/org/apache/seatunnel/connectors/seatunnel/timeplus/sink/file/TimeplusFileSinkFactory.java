@@ -38,7 +38,7 @@ import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.Clickhou
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.ClickhouseConfig.USERNAME;
 
 @AutoService(Factory.class)
-public class ClickhouseFileSinkFactory implements TableSinkFactory {
+public class TimeplusFileSinkFactory implements TableSinkFactory {
     @Override
     public String factoryIdentifier() {
         return "ClickhouseFile";

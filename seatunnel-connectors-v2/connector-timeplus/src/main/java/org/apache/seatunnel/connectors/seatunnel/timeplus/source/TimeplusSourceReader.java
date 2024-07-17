@@ -35,7 +35,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
-public class ClickhouseSourceReader implements SourceReader<SeaTunnelRow, ClickhouseSourceSplit> {
+public class TimeplusSourceReader implements SourceReader<SeaTunnelRow, TimeplusSourceSplit> {
 
     private final List<ClickHouseNode> servers;
     private ClickHouseClient client;
@@ -44,9 +44,9 @@ public class ClickhouseSourceReader implements SourceReader<SeaTunnelRow, Clickh
     private ClickHouseRequest<?> request;
     private final String sql;
 
-    private final List<ClickhouseSourceSplit> splits;
+    private final List<TimeplusSourceSplit> splits;
 
-    ClickhouseSourceReader(
+    TimeplusSourceReader(
             List<ClickHouseNode> servers,
             SourceReader.Context readerContext,
             SeaTunnelRowType rowTypeInfo,
@@ -101,12 +101,12 @@ public class ClickhouseSourceReader implements SourceReader<SeaTunnelRow, Clickh
     }
 
     @Override
-    public List<ClickhouseSourceSplit> snapshotState(long checkpointId) throws Exception {
+    public List<TimeplusSourceSplit> snapshotState(long checkpointId) throws Exception {
         return Collections.emptyList();
     }
 
     @Override
-    public void addSplits(List<ClickhouseSourceSplit> splits) {
+    public void addSplits(List<TimeplusSourceSplit> splits) {
         this.splits.addAll(splits);
     }
 

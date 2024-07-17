@@ -23,7 +23,7 @@ import org.apache.seatunnel.connectors.seatunnel.timeplus.exception.ClickhouseCo
 import org.apache.seatunnel.connectors.seatunnel.timeplus.exception.ClickhouseConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.shard.Shard;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.DistributedEngine;
-import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.file.ClickhouseTable;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.file.TimeplusTable;
 
 import com.clickhouse.client.ClickHouseClient;
 import com.clickhouse.client.ClickHouseException;
@@ -208,7 +208,7 @@ public class ClickhouseProxy {
      * @param table table name of the table.
      * @return clickhouse table info.
      */
-    public ClickhouseTable getClickhouseTable(String database, String table) {
+    public TimeplusTable getClickhouseTable(String database, String table) {
         String sql =
                 String.format(
                         "select engine,create_table_query,engine_full,data_paths,sorting_key from system.tables where database = '%s' and name = '%s'",
@@ -235,7 +235,7 @@ public class ClickhouseProxy {
                         getClickhouseDistributedTable(clickhouseRequest, database, table);
                 createTableDDL = distributedEngine.getTableDDL();
             }
-            return new ClickhouseTable(
+            return new TimeplusTable(
                     database,
                     table,
                     distributedEngine,

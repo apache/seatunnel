@@ -58,7 +58,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Slf4j
-public class ClickhouseFileSinkWriter
+public class TimeplusFileSinkWriter
         implements SinkWriter<SeaTunnelRow, CKFileCommitInfo, ClickhouseSinkState> {
 
     private static final String CK_LOCAL_CONFIG_TEMPLATE =
@@ -71,7 +71,7 @@ public class ClickhouseFileSinkWriter
     private final FileReaderOption readerOption;
     private final ShardRouter shardRouter;
     private final ClickhouseProxy proxy;
-    private final ClickhouseTable clickhouseTable;
+    private final TimeplusTable clickhouseTable;
     private final Map<Shard, List<String>> shardLocalDataPaths;
     private final Map<Shard, FileChannel> rowCache;
     private final Map<Shard, MappedByteBuffer> bufferCache;
@@ -82,7 +82,7 @@ public class ClickhouseFileSinkWriter
     private final SinkWriter.Context context;
     private final ThreadLocalRandom threadLocalRandom = ThreadLocalRandom.current();
 
-    public ClickhouseFileSinkWriter(FileReaderOption readerOption, SinkWriter.Context context) {
+    public TimeplusFileSinkWriter(FileReaderOption readerOption, SinkWriter.Context context) {
         this.readerOption = readerOption;
         this.context = context;
         proxy =
@@ -105,7 +105,7 @@ public class ClickhouseFileSinkWriter
                                 Collectors.toMap(
                                         Function.identity(),
                                         shard -> {
-                                            ClickhouseTable shardTable =
+                                            TimeplusTable shardTable =
                                                     proxy.getClickhouseTable(
                                                             shard.getNode().getDatabase().get(),
                                                             clickhouseTable.getLocalTableName());
