@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -144,5 +145,46 @@ public class TextFormatSchemaTest {
                 (byte[]) seaTunnelRow.getField(12), "tyrantlucifer".getBytes());
         Assertions.assertEquals(seaTunnelRow.getField(2), "tyrantlucifer");
         Assertions.assertEquals(data, content);
+    }
+
+    @Test
+    public void testParseUnsupportedDateTimeFormat() throws IOException {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"date_field"},
+                        new SeaTunnelDataType<?>[] {LocalTimeType.LOCAL_DATE_TYPE});
+        TextDeserializationSchema deserializationSchema =
+                TextDeserializationSchema.builder()
+                        .seaTunnelRowType(rowType)
+                        .delimiter("\u0001")
+                        .build();
+        String content = "2022-092-24";
+        SeaTunnelRuntimeException exception =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () -> deserializationSchema.deserialize(content.getBytes()));
+        Assertions.assertEquals(
+                "ErrorCode:[COMMON-32], ErrorDescription:[The date format '2022-092-24' of field 'date_field' is not supported. Please check the date format.]",
+                exception.getMessage());
+
+        SeaTunnelRowType rowType2 =
+                new SeaTunnelRowType(
+                        new String[] {"timestamp_field"},
+                        new SeaTunnelDataType<?>[] {
+                            LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                        });
+        TextDeserializationSchema deserializationSchema2 =
+                TextDeserializationSchema.builder()
+                        .seaTunnelRowType(rowType2)
+                        .delimiter("\u0001")
+                        .build();
+        String content2 = "2022-09-24-22:45:00";
+        SeaTunnelRuntimeException exception2 =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () -> deserializationSchema2.deserialize(content2.getBytes()));
+        Assertions.assertEquals(
+                "ErrorCode:[COMMON-33], ErrorDescription:[The datetime format '2022-09-24-22:45:00' of field 'timestamp_field' is not supported. Please check the datetime format.]",
+                exception2.getMessage());
     }
 }
