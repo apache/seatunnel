@@ -16,7 +16,7 @@ import TabItem from '@theme/TabItem';
 
 ## 步骤 2: 下载 SeaTunnel
 
-进入[seatunnel下载页面](https://seatunnel.apache.org/download)下载最新版本的发布版安装包`seatunnel-<version>-bin.tar.gz`
+进入[SeaTunnel下载页面](https://seatunnel.apache.org/download)下载最新版本的发布版安装包`seatunnel-<version>-bin.tar.gz`
 
 或者您也可以通过终端下载
 
