@@ -23,7 +23,6 @@ import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 
 import com.google.auto.service.AutoService;
 
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.CLICKHOUSE_LOCAL_PATH;
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.COMPATIBLE_MODE;
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.COPY_METHOD;
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.DATABASE;
@@ -35,6 +34,7 @@ import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.Timeplus
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.PASSWORD;
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.SHARDING_KEY;
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.TABLE;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.TIMEPLUS_LOCAL_PATH;
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.USERNAME;
 
 @AutoService(Factory.class)
@@ -47,7 +47,7 @@ public class TimeplusFileSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(HOST, TABLE, DATABASE, USERNAME, PASSWORD, CLICKHOUSE_LOCAL_PATH)
+                .required(HOST, TABLE, DATABASE, USERNAME, PASSWORD, TIMEPLUS_LOCAL_PATH)
                 .optional(
                         COPY_METHOD,
                         SHARDING_KEY,

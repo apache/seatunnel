@@ -54,7 +54,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.CLICKHOUSE_LOCAL_PATH;
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.COMPATIBLE_MODE;
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.COPY_METHOD;
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.DATABASE;
@@ -68,6 +67,7 @@ import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.Timeplus
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.SERVER_TIME_ZONE;
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.SHARDING_KEY;
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.TABLE;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.TIMEPLUS_LOCAL_PATH;
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.USERNAME;
 
 @AutoService(SeaTunnelSink.class)
@@ -92,7 +92,7 @@ public class TimeplusFileSink
                         DATABASE.key(),
                         USERNAME.key(),
                         PASSWORD.key(),
-                        CLICKHOUSE_LOCAL_PATH.key());
+                        TIMEPLUS_LOCAL_PATH.key());
         if (!checkResult.isSuccess()) {
             throw new TimeplusConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
@@ -176,7 +176,7 @@ public class TimeplusFileSink
                         shardMetadata,
                         tableSchema,
                         fields,
-                        config.getString(CLICKHOUSE_LOCAL_PATH.key()),
+                        config.getString(TIMEPLUS_LOCAL_PATH.key()),
                         TimeplusFileCopyMethod.from(config.getString(COPY_METHOD.key())),
                         nodeUser,
                         config.getBoolean(NODE_FREE_PASSWORD.key()),

@@ -27,55 +27,55 @@ import java.util.Map;
 
 public class TimeplusConfig {
 
-    /** Bulk size of clickhouse jdbc */
+    /** Bulk size of timeplus jdbc */
     public static final Option<Integer> BULK_SIZE =
             Options.key("bulk_size")
                     .intType()
                     .defaultValue(20000)
-                    .withDescription("Bulk size of clickhouse jdbc");
+                    .withDescription("Bulk size of timeplus jdbc");
 
     public static final Option<String> SQL =
             Options.key("sql")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("Clickhouse sql used to query data");
+                    .withDescription("Timeplus sql used to query data");
 
-    /** Clickhouse server host */
+    /** Timeplus server host */
     public static final Option<String> HOST =
             Options.key("host")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("Clickhouse server host");
+                    .withDescription("Timeplus server host");
 
-    /** Clickhouse table name */
+    /** Timeplus table name */
     public static final Option<String> TABLE =
             Options.key("table")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("Clickhouse table name");
+                    .withDescription("Timeplus table name");
 
-    /** Clickhouse database name */
+    /** Timeplus database name */
     public static final Option<String> DATABASE =
             Options.key("database")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("Clickhouse database name");
+                    .withDescription("Timeplus database name");
 
-    /** Clickhouse server username */
+    /** Timeplus server username */
     public static final Option<String> USERNAME =
             Options.key("username")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("Clickhouse server username");
+                    .withDescription("Timeplus server username");
 
-    /** Clickhouse server password */
+    /** Timeplus server password */
     public static final Option<String> PASSWORD =
             Options.key("password")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("Clickhouse server password");
+                    .withDescription("Timeplus server password");
 
-    /** Clickhouse server timezone */
+    /** Timeplus server timezone */
     public static final Option<String> SERVER_TIME_ZONE =
             Options.key("server_time_zone")
                     .stringType()
@@ -103,7 +103,7 @@ public class TimeplusConfig {
                     .stringType()
                     .noDefaultValue()
                     .withDescription(
-                            "Mark the primary key column from clickhouse table, and based on primary key execute INSERT/UPDATE/DELETE to clickhouse table");
+                            "Mark the primary key column from timeplus table, and based on primary key execute INSERT/UPDATE/DELETE to timeplus table");
 
     public static final Option<Boolean> SUPPORT_UPSERT =
             Options.key("support_upsert")
@@ -118,27 +118,27 @@ public class TimeplusConfig {
                     .withDescription(
                             "Allow experimental lightweight delete based on `*MergeTree` table engine");
 
-    /** ClickhouseFile sink connector used clickhouse-local program's path */
-    public static final Option<String> CLICKHOUSE_LOCAL_PATH =
-            Options.key("clickhouse_local_path")
+    /** TimeplusFile sink connector used timeplus-local program's path */
+    public static final Option<String> TIMEPLUS_LOCAL_PATH =
+            Options.key("timeplus_local_path")
                     .stringType()
                     .noDefaultValue()
                     .withDescription(
-                            "ClickhouseFile sink connector used clickhouse-local program's path");
+                            "TimeplusFile sink connector used timeplus-local program's path");
 
-    /** The method of copy Clickhouse file */
+    /** The method of copy Timeplus file */
     public static final Option<TimeplusFileCopyMethod> COPY_METHOD =
             Options.key("copy_method")
                     .enumType(TimeplusFileCopyMethod.class)
                     .defaultValue(TimeplusFileCopyMethod.SCP)
-                    .withDescription("The method of copy Clickhouse file");
+                    .withDescription("The method of copy Timeplus file");
 
     public static final Option<Boolean> COMPATIBLE_MODE =
             Options.key("compatible_mode")
                     .booleanType()
                     .defaultValue(false)
                     .withDescription(
-                            "In the lower version of Clickhouse, the ClickhouseLocal program does not support the `--path` parameter, "
+                            "In the lower version of Timeplus, the TimeplusLocal program does not support the `--path` parameter, "
                                     + "you need to use this mode to take other ways to realize the --path parameter function");
 
     public static final String NODE_ADDRESS = "node_address";
@@ -149,33 +149,33 @@ public class TimeplusConfig {
                     .defaultValue(false)
                     .withDescription(
                             "Because seatunnel need to use scp or rsync for file transfer, "
-                                    + "seatunnel need clickhouse server-side access. If each spark node and clickhouse server are configured with password-free login, "
+                                    + "seatunnel need timeplus server-side access. If each spark node and timeplus server are configured with password-free login, "
                                     + "you can configure this option to true, otherwise you need to configure the corresponding node password in the node_pass configuration");
-    /** The password of Clickhouse server node */
+    /** The password of Timeplus server node */
     public static final Option<List<NodePassConfig>> NODE_PASS =
             Options.key("node_pass")
                     .listType(NodePassConfig.class)
                     .noDefaultValue()
-                    .withDescription("The password of Clickhouse server node");
+                    .withDescription("The password of Timeplus server node");
 
     public static final Option<Map<String, String>> TIMEPLUS_CONFIG =
-            Options.key("clickhouse.config")
+            Options.key("timeplus.config")
                     .mapType()
                     .defaultValue(Collections.emptyMap())
-                    .withDescription("Clickhouse custom config");
+                    .withDescription("Timeplus custom config");
 
     public static final Option<String> FILE_FIELDS_DELIMITER =
             Options.key("file_fields_delimiter")
                     .stringType()
                     .defaultValue("\t")
                     .withDescription(
-                            "ClickhouseFile uses csv format to temporarily save data. If the data in the row contains the delimiter value of csv,"
+                            "TimeplusFile uses csv format to temporarily save data. If the data in the row contains the delimiter value of csv,"
                                     + " it may cause program exceptions. Avoid this with this configuration. Value string has to be an exactly one character long");
 
     public static final Option<String> FILE_TEMP_PATH =
             Options.key("file_temp_path")
                     .stringType()
-                    .defaultValue("/tmp/seatunnel/clickhouse-local/file")
+                    .defaultValue("/tmp/seatunnel/timeplus-local/file")
                     .withDescription(
-                            "The directory where ClickhouseFile stores temporary files locally.");
+                            "The directory where TimeplusFile stores temporary files locally.");
 }
