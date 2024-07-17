@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.engine.e2e;
 
-import org.apache.seatunnel.e2e.common.container.TestContainer;
-
 import org.apache.commons.lang3.StringUtils;
 
 import org.junit.jupiter.api.Assertions;
@@ -131,8 +129,7 @@ public class JobClientJobProxyIT extends SeaTunnelContainer {
     }
 
     @TestTemplate
-    public void testSinkPlaceholder(TestContainer container)
-            throws IOException, InterruptedException {
+    public void testSinkPlaceholder() throws IOException, InterruptedException {
         Container.ExecResult execResult =
                 executeSeaTunnelJob("/fake_to_inmemory_with_sink_placeholder.conf");
         Assertions.assertNotEquals(0, execResult.getExitCode());
