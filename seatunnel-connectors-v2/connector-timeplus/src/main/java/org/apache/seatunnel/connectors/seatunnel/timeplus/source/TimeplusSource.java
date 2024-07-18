@@ -39,13 +39,13 @@ import org.apache.seatunnel.connectors.seatunnel.timeplus.state.TimeplusSourceSt
 import org.apache.seatunnel.connectors.seatunnel.timeplus.util.TimeplusUtil;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.util.TypeConvertUtil;
 
-import com.clickhouse.client.ClickHouseClient;
-import com.clickhouse.client.ClickHouseException;
-import com.clickhouse.client.ClickHouseFormat;
-import com.clickhouse.client.ClickHouseNode;
-import com.clickhouse.client.ClickHouseResponse;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableMap;
+import com.timeplus.proton.client.ProtonClient;
+import com.timeplus.proton.client.ProtonException;
+import com.timeplus.proton.client.ProtonFormat;
+import com.timeplus.proton.client.ProtonNode;
+import com.timeplus.proton.client.ProtonResponse;
 
 import java.util.List;
 import java.util.Map;
@@ -66,7 +66,7 @@ public class TimeplusSource
                 SupportParallelism,
                 SupportColumnProjection {
 
-    private List<ClickHouseNode> servers;
+    private List<ProtonNode> servers;
     private SeaTunnelRowType rowTypeInfo;
     private String sql;
 
@@ -121,12 +121,11 @@ public class TimeplusSource
                         customConfig);
 
         sql = config.getString(SQL.key());
-        ClickHouseNode currentServer =
-                servers.get(ThreadLocalRandom.current().nextInt(servers.size()));
-        try (ClickHouseClient client = ClickHouseClient.newInstance(currentServer.getProtocol());
-                ClickHouseResponse response =
+        ProtonNode currentServer = servers.get(ThreadLocalRandom.current().nextInt(servers.size()));
+        try (ProtonClient client = ProtonClient.newInstance(currentServer.getProtocol());
+                ProtonResponse response =
                         client.connect(currentServer)
-                                .format(ClickHouseFormat.RowBinaryWithNamesAndTypes)
+                                .format(ProtonFormat.RowBinaryWithNamesAndTypes)
                                 .query(modifySQLToLimit1(config.getString(SQL.key())))
                                 .executeAndWait()) {
 
@@ -141,7 +140,7 @@ public class TimeplusSource
 
             this.rowTypeInfo = new SeaTunnelRowType(fieldNames, seaTunnelDataTypes);
 
-        } catch (ClickHouseException e) {
+        } catch (ProtonException e) {
             throw new TimeplusConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                     String.format(

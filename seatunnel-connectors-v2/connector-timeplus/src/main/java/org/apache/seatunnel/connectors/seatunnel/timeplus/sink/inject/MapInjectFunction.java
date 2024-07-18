@@ -21,7 +21,7 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.regex.Pattern;
 
-public class MapInjectFunction implements ClickhouseFieldInjectFunction {
+public class MapInjectFunction implements ProtonFieldInjectFunction {
 
     private static final Pattern PATTERN = Pattern.compile("(Map.*)");
 

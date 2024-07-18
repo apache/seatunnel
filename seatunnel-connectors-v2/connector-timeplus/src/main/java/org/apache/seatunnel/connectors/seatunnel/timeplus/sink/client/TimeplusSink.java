@@ -42,9 +42,9 @@ import org.apache.seatunnel.connectors.seatunnel.timeplus.state.TPCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.state.TimeplusSinkState;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.util.TimeplusUtil;
 
-import com.clickhouse.client.ClickHouseNode;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableMap;
+import com.timeplus.proton.client.ProtonNode;
 
 import java.io.IOException;
 import java.util.List;
@@ -105,7 +105,7 @@ public class TimeplusSink
 
         config = config.withFallback(ConfigFactory.parseMap(defaultConfig));
 
-        List<ClickHouseNode> nodes;
+        List<ProtonNode> nodes;
         if (!isCredential) {
             nodes =
                     TimeplusUtil.createNodes(

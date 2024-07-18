@@ -21,7 +21,7 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.regex.Pattern;
 
-public class BigDecimalInjectFunction implements ClickhouseFieldInjectFunction {
+public class BigDecimalInjectFunction implements ProtonFieldInjectFunction {
 
     private static final Pattern PATTERN = Pattern.compile("(Decimal.*)");
 

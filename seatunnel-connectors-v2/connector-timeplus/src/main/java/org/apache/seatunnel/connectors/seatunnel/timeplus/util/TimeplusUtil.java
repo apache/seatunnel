@@ -20,9 +20,9 @@ package org.apache.seatunnel.connectors.seatunnel.timeplus.util;
 import org.apache.commons.collections4.MapUtils;
 import org.apache.commons.lang3.StringUtils;
 
-import com.clickhouse.client.ClickHouseCredentials;
-import com.clickhouse.client.ClickHouseNode;
-import com.clickhouse.client.ClickHouseProtocol;
+import com.timeplus.proton.client.ProtonCredentials;
+import com.timeplus.proton.client.ProtonNode;
+import com.timeplus.proton.client.ProtonProtocol;
 
 import java.util.Arrays;
 import java.util.List;
@@ -31,7 +31,7 @@ import java.util.stream.Collectors;
 
 public class TimeplusUtil {
 
-    public static List<ClickHouseNode> createNodes(
+    public static List<ProtonNode> createNodes(
             String nodeAddress,
             String database,
             String serverTimeZone,
@@ -42,17 +42,18 @@ public class TimeplusUtil {
                 .map(
                         address -> {
                             String[] nodeAndPort = address.split(":", 2);
-                            ClickHouseNode.Builder builder =
-                                    ClickHouseNode.builder()
+                            ProtonNode.Builder builder =
+                                    ProtonNode.builder()
                                             .host(nodeAndPort[0])
                                             .port(
-                                                    ClickHouseProtocol.HTTP,
+                                                    ProtonProtocol.HTTP,
                                                     Integer.parseInt(nodeAndPort[1]))
                                             .database(database)
                                             .timeZone(serverTimeZone);
                             if (MapUtils.isNotEmpty(options)) {
                                 for (Map.Entry<String, String> entry : options.entrySet()) {
-                                    builder = builder.addOption(entry.getKey(), entry.getValue());
+                                    // TODO: need new version of proton-java to support addOption
+                                    // builder=builder.addOption(entry.getKey(), entry.getValue());
                                 }
                             }
 
@@ -60,7 +61,7 @@ public class TimeplusUtil {
                                     && StringUtils.isNotEmpty(password)) {
                                 builder =
                                         builder.credentials(
-                                                ClickHouseCredentials.fromUserAndPassword(
+                                                ProtonCredentials.fromUserAndPassword(
                                                         username, password));
                             }
 

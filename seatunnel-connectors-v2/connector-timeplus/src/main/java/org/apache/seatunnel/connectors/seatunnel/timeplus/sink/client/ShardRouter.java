@@ -25,7 +25,7 @@ import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.DistributedEngine
 
 import org.apache.commons.lang3.StringUtils;
 
-import com.clickhouse.client.ClickHouseRequest;
+import com.timeplus.proton.client.ProtonRequest;
 import lombok.Getter;
 import net.jpountz.xxhash.XXHash64;
 import net.jpountz.xxhash.XXHashFactory;
@@ -68,11 +68,10 @@ public class ShardRouter implements Serializable {
                     TimeplusConnectorErrorCode.SHARD_KEY_NOT_FOUND,
                     "Shard key " + shardKey + " not found in table " + table);
         }
-        ClickHouseRequest<?> connection = proxy.getClickhouseConnection();
+        ProtonRequest<?> connection = proxy.getProtonConnection();
         if (splitMode) {
             DistributedEngine localTable =
-                    proxy.getClickhouseDistributedTable(
-                            connection, shardMetadata.getDatabase(), table);
+                    proxy.getProtonDistributedTable(connection, shardMetadata.getDatabase(), table);
             this.shardTable = localTable.getTable();
             this.shardTableEngine = localTable.getTableEngine();
             List<Shard> shardList =

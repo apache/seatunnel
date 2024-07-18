@@ -88,7 +88,7 @@ public class ScpFileTransfer implements FileTransfer {
                     ScpClient.Option.PreserveAttributes);
         } catch (IOException e) {
             throw CommonError.fileOperationFailed(
-                    "ClickhouseFile", "transfer", sourcePath + " -> " + targetPath, e);
+                    "ProtonFile", "transfer", sourcePath + " -> " + targetPath, e);
         }
         // remote exec command to change file owner. Only file owner equal with server's clickhouse
         // user can

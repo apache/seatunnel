@@ -32,8 +32,8 @@ import org.apache.seatunnel.connectors.seatunnel.timeplus.tool.IntHolder;
 
 import org.apache.commons.lang3.StringUtils;
 
-import com.clickhouse.jdbc.internal.ClickHouseConnectionImpl;
 import com.google.common.base.Strings;
+import com.timeplus.proton.jdbc.internal.ProtonConnectionImpl;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -134,8 +134,7 @@ public class TimeplusSinkWriter
 
     private void flush() {
         for (TimeplusBatchStatement batchStatement : statementMap.values()) {
-            try (ClickHouseConnectionImpl needClosedConnection =
-                            batchStatement.getClickHouseConnection();
+            try (ProtonConnectionImpl needClosedConnection = batchStatement.getProtonConnection();
                     JdbcBatchStatementExecutor needClosedStatement =
                             batchStatement.getJdbcBatchStatementExecutor()) {
                 IntHolder intHolder = batchStatement.getIntHolder();
@@ -159,8 +158,8 @@ public class TimeplusSinkWriter
                 .forEach(
                         (weight, s) -> {
                             try {
-                                ClickHouseConnectionImpl clickhouseConnection =
-                                        new ClickHouseConnectionImpl(
+                                ProtonConnectionImpl ProtonConnection =
+                                        new ProtonConnectionImpl(
                                                 s.getJdbcUrl(), this.option.getProperties());
 
                                 String[] orderByKeys = null;
@@ -183,14 +182,14 @@ public class TimeplusSinkWriter
                                                                 .isAllowExperimentalLightweightDelete())
                                                 .setClickhouseServerEnableExperimentalLightweightDelete(
                                                         clickhouseServerEnableExperimentalLightweightDelete(
-                                                                clickhouseConnection))
+                                                                ProtonConnection))
                                                 .setSupportUpsert(option.isSupportUpsert())
                                                 .build();
-                                jdbcBatchStatementExecutor.prepareStatements(clickhouseConnection);
+                                jdbcBatchStatementExecutor.prepareStatements(ProtonConnection);
                                 IntHolder intHolder = new IntHolder();
                                 TimeplusBatchStatement batchStatement =
                                         new TimeplusBatchStatement(
-                                                clickhouseConnection,
+                                                ProtonConnection,
                                                 jdbcBatchStatementExecutor,
                                                 intHolder);
                                 result.put(s, batchStatement);
@@ -205,12 +204,12 @@ public class TimeplusSinkWriter
     }
 
     private boolean clickhouseServerEnableExperimentalLightweightDelete(
-            ClickHouseConnectionImpl clickhouseConnection) {
+            ProtonConnectionImpl ProtonConnection) {
         if (!option.isAllowExperimentalLightweightDelete()) {
             return false;
         }
         String configKey = "allow_experimental_lightweight_delete";
-        try (Statement stmt = clickhouseConnection.createStatement()) {
+        try (Statement stmt = ProtonConnection.createStatement()) {
             ResultSet resultSet = stmt.executeQuery("SHOW SETTINGS ILIKE '%" + configKey + "%'");
             while (resultSet.next()) {
                 String name = resultSet.getString("name");

@@ -20,25 +20,25 @@ package org.apache.seatunnel.connectors.seatunnel.timeplus.sink.client;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.client.executor.JdbcBatchStatementExecutor;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.tool.IntHolder;
 
-import com.clickhouse.jdbc.internal.ClickHouseConnectionImpl;
+import com.timeplus.proton.jdbc.internal.ProtonConnectionImpl;
 
 public class TimeplusBatchStatement {
 
-    private final ClickHouseConnectionImpl clickHouseConnection;
+    private final ProtonConnectionImpl protonConnection;
     private final JdbcBatchStatementExecutor jdbcBatchStatementExecutor;
     private final IntHolder intHolder;
 
     public TimeplusBatchStatement(
-            ClickHouseConnectionImpl clickHouseConnection,
+            ProtonConnectionImpl ProtonConnection,
             JdbcBatchStatementExecutor jdbcBatchStatementExecutor,
             IntHolder intHolder) {
-        this.clickHouseConnection = clickHouseConnection;
+        this.protonConnection = ProtonConnection;
         this.jdbcBatchStatementExecutor = jdbcBatchStatementExecutor;
         this.intHolder = intHolder;
     }
 
-    public ClickHouseConnectionImpl getClickHouseConnection() {
-        return clickHouseConnection;
+    public ProtonConnectionImpl getProtonConnection() {
+        return protonConnection;
     }
 
     public JdbcBatchStatementExecutor getJdbcBatchStatementExecutor() {

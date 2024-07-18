@@ -25,7 +25,7 @@ import java.sql.SQLException;
  * Injects a field into a ClickHouse statement, used to transform a java type into a ClickHouse
  * type.
  */
-public interface ClickhouseFieldInjectFunction extends Serializable {
+public interface ProtonFieldInjectFunction extends Serializable {
 
     /**
      * Inject the value into the statement.

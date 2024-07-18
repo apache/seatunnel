@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.timeplus.sink.inject;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
-public class LongInjectFunction implements ClickhouseFieldInjectFunction {
+public class LongInjectFunction implements ProtonFieldInjectFunction {
 
     @Override
     public void injectFields(PreparedStatement statement, int index, Object value)

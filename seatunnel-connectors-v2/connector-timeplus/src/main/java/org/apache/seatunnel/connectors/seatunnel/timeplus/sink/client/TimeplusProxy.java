@@ -25,13 +25,13 @@ import org.apache.seatunnel.connectors.seatunnel.timeplus.shard.Shard;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.DistributedEngine;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.file.TimeplusTable;
 
-import com.clickhouse.client.ClickHouseClient;
-import com.clickhouse.client.ClickHouseException;
-import com.clickhouse.client.ClickHouseFormat;
-import com.clickhouse.client.ClickHouseNode;
-import com.clickhouse.client.ClickHouseRecord;
-import com.clickhouse.client.ClickHouseRequest;
-import com.clickhouse.client.ClickHouseResponse;
+import com.timeplus.proton.client.ProtonClient;
+import com.timeplus.proton.client.ProtonException;
+import com.timeplus.proton.client.ProtonFormat;
+import com.timeplus.proton.client.ProtonNode;
+import com.timeplus.proton.client.ProtonRecord;
+import com.timeplus.proton.client.ProtonRequest;
+import com.timeplus.proton.client.ProtonResponse;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -44,38 +44,37 @@ import java.util.stream.Collectors;
 @SuppressWarnings("magicnumber")
 public class TimeplusProxy {
 
-    private final ClickHouseRequest<?> clickhouseRequest;
-    private final ClickHouseClient client;
+    private final ProtonRequest<?> ProtonRequest;
+    private final ProtonClient client;
 
-    private final Map<Shard, ClickHouseClient> shardToDataSource = new ConcurrentHashMap<>(16);
+    private final Map<Shard, ProtonClient> shardToDataSource = new ConcurrentHashMap<>(16);
 
-    public TimeplusProxy(ClickHouseNode node) {
-        this.client = ClickHouseClient.newInstance(node.getProtocol());
-        this.clickhouseRequest =
-                client.connect(node).format(ClickHouseFormat.RowBinaryWithNamesAndTypes);
+    public TimeplusProxy(ProtonNode node) {
+        this.client = ProtonClient.newInstance(node.getProtocol());
+        this.ProtonRequest = client.connect(node).format(ProtonFormat.RowBinaryWithNamesAndTypes);
     }
 
-    public ClickHouseRequest<?> getClickhouseConnection() {
-        return this.clickhouseRequest;
+    public ProtonRequest<?> getProtonConnection() {
+        return this.ProtonRequest;
     }
 
-    public ClickHouseRequest<?> getClickhouseConnection(Shard shard) {
-        ClickHouseClient c =
+    public ProtonRequest<?> getProtonConnection(Shard shard) {
+        ProtonClient c =
                 shardToDataSource.computeIfAbsent(
-                        shard, s -> ClickHouseClient.newInstance(s.getNode().getProtocol()));
-        return c.connect(shard.getNode()).format(ClickHouseFormat.RowBinaryWithNamesAndTypes);
+                        shard, s -> ProtonClient.newInstance(s.getNode().getProtocol()));
+        return c.connect(shard.getNode()).format(ProtonFormat.RowBinaryWithNamesAndTypes);
     }
 
-    public DistributedEngine getClickhouseDistributedTable(
-            ClickHouseRequest<?> connection, String database, String table) {
+    public DistributedEngine getProtonDistributedTable(
+            ProtonRequest<?> connection, String database, String table) {
         String sql =
                 String.format(
                         "select engine_full from system.tables where database = '%s' and name = '%s' and engine = 'Distributed'",
                         database, table);
-        try (ClickHouseResponse response = connection.query(sql).executeAndWait()) {
-            List<ClickHouseRecord> records = response.stream().collect(Collectors.toList());
+        try (ProtonResponse response = connection.query(sql).executeAndWait()) {
+            List<ProtonRecord> records = response.stream().collect(Collectors.toList());
             if (!records.isEmpty()) {
-                ClickHouseRecord record = records.get(0);
+                ProtonRecord record = records.get(0);
                 // engineFull field will be like : Distributed(cluster, database, table[,
                 // sharding_key[, policy_name]])
                 String engineFull = record.getValue(0).asString();
@@ -94,9 +93,9 @@ public class TimeplusProxy {
                                 localDatabase, localTable);
                 String localTableDDL;
                 String localTableEngine;
-                try (ClickHouseResponse localTableResponse =
-                        clickhouseRequest.query(localTableSQL).executeAndWait()) {
-                    List<ClickHouseRecord> localTableRecords =
+                try (ProtonResponse localTableResponse =
+                        ProtonRequest.query(localTableSQL).executeAndWait()) {
+                    List<ProtonRecord> localTableRecords =
                             localTableResponse.stream().collect(Collectors.toList());
                     if (localTableRecords.isEmpty()) {
                         throw new TimeplusConnectorException(
@@ -114,7 +113,7 @@ public class TimeplusProxy {
             throw new TimeplusConnectorException(
                     SeaTunnelAPIErrorCode.TABLE_NOT_EXISTED,
                     "Cannot get distributed table from clickhouse, resultSet is empty");
-        } catch (ClickHouseException e) {
+        } catch (ProtonException e) {
             throw new TimeplusConnectorException(
                     SeaTunnelAPIErrorCode.TABLE_NOT_EXISTED,
                     "Cannot get distributed table from clickhouse",
@@ -129,15 +128,14 @@ public class TimeplusProxy {
      * @return schema map.
      */
     public Map<String, String> getClickhouseTableSchema(String table) {
-        ClickHouseRequest<?> request = getClickhouseConnection();
+        ProtonRequest<?> request = getProtonConnection();
         return getClickhouseTableSchema(request, table);
     }
 
-    public Map<String, String> getClickhouseTableSchema(
-            ClickHouseRequest<?> request, String table) {
+    public Map<String, String> getClickhouseTableSchema(ProtonRequest<?> request, String table) {
         String sql = "desc " + table;
         Map<String, String> schema = new LinkedHashMap<>();
-        try (ClickHouseResponse response = request.query(sql).executeAndWait()) {
+        try (ProtonResponse response = request.query(sql).executeAndWait()) {
             response.records()
                     .forEach(
                             r -> {
@@ -145,10 +143,10 @@ public class TimeplusProxy {
                                     schema.put(r.getValue(0).asString(), r.getValue(1).asString());
                                 }
                             });
-        } catch (ClickHouseException e) {
+        } catch (ProtonException e) {
             throw new TimeplusConnectorException(
                     CommonErrorCodeDeprecated.TABLE_SCHEMA_GET_FAILED,
-                    "Cannot get table schema from clickhouse",
+                    "Cannot get schema from Timeplus",
                     e);
         }
         return schema;
@@ -164,7 +162,7 @@ public class TimeplusProxy {
      * @return shard list.
      */
     public List<Shard> getClusterShardList(
-            ClickHouseRequest<?> connection,
+            ProtonRequest<?> connection,
             String clusterName,
             String database,
             int port,
@@ -176,7 +174,7 @@ public class TimeplusProxy {
                         + "'"
                         + " and replica_num=1";
         List<Shard> shardList = new ArrayList<>();
-        try (ClickHouseResponse response = connection.query(sql).executeAndWait()) {
+        try (ProtonResponse response = connection.query(sql).executeAndWait()) {
             response.records()
                     .forEach(
                             r -> {
@@ -193,7 +191,7 @@ public class TimeplusProxy {
                                                 password));
                             });
             return shardList;
-        } catch (ClickHouseException e) {
+        } catch (ProtonException e) {
             throw new TimeplusConnectorException(
                     TimeplusConnectorErrorCode.CLUSTER_LIST_GET_FAILED,
                     "Cannot get cluster shard list from clickhouse",
@@ -213,14 +211,14 @@ public class TimeplusProxy {
                 String.format(
                         "select engine,create_table_query,engine_full,data_paths,sorting_key from system.tables where database = '%s' and name = '%s'",
                         database, table);
-        try (ClickHouseResponse response = clickhouseRequest.query(sql).executeAndWait()) {
-            List<ClickHouseRecord> records = response.stream().collect(Collectors.toList());
+        try (ProtonResponse response = ProtonRequest.query(sql).executeAndWait()) {
+            List<ProtonRecord> records = response.stream().collect(Collectors.toList());
             if (records.isEmpty()) {
                 throw new TimeplusConnectorException(
                         SeaTunnelAPIErrorCode.TABLE_NOT_EXISTED,
                         "Cannot get table from clickhouse, resultSet is empty");
             }
-            ClickHouseRecord record = records.get(0);
+            ProtonRecord record = records.get(0);
             String engine = record.getValue(0).asString();
             String createTableDDL = record.getValue(1).asString();
             String engineFull = record.getValue(2).asString();
@@ -231,8 +229,7 @@ public class TimeplusProxy {
             String sortingKey = record.getValue(4).asString();
             DistributedEngine distributedEngine = null;
             if ("Distributed".equals(engine)) {
-                distributedEngine =
-                        getClickhouseDistributedTable(clickhouseRequest, database, table);
+                distributedEngine = getProtonDistributedTable(ProtonRequest, database, table);
                 createTableDDL = distributedEngine.getTableDDL();
             }
             return new TimeplusTable(
@@ -244,8 +241,8 @@ public class TimeplusProxy {
                     engineFull,
                     dataPaths,
                     sortingKey,
-                    getClickhouseTableSchema(clickhouseRequest, table));
-        } catch (ClickHouseException e) {
+                    getClickhouseTableSchema(ProtonRequest, table));
+        } catch (ProtonException e) {
             throw new TimeplusConnectorException(
                     SeaTunnelAPIErrorCode.TABLE_NOT_EXISTED, "Cannot get clickhouse table", e);
         }
@@ -272,6 +269,6 @@ public class TimeplusProxy {
         if (this.client != null) {
             this.client.close();
         }
-        shardToDataSource.values().forEach(ClickHouseClient::close);
+        shardToDataSource.values().forEach(ProtonClient::close);
     }
 }

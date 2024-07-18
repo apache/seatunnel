@@ -35,13 +35,13 @@ public enum TimeplusFileCopyMethod {
     }
 
     public static TimeplusFileCopyMethod from(String name) {
-        for (TimeplusFileCopyMethod clickhouseFileCopyMethod : TimeplusFileCopyMethod.values()) {
-            if (clickhouseFileCopyMethod.getName().equalsIgnoreCase(name)) {
-                return clickhouseFileCopyMethod;
+        for (TimeplusFileCopyMethod ProtonFileCopyMethod : TimeplusFileCopyMethod.values()) {
+            if (ProtonFileCopyMethod.getName().equalsIgnoreCase(name)) {
+                return ProtonFileCopyMethod;
             }
         }
         throw new TimeplusConnectorException(
                 CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
-                "Unknown ClickhouseFileCopyMethod: " + name);
+                "Unknown ProtonFileCopyMethod: " + name);
     }
 }

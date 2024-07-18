@@ -43,9 +43,9 @@ import org.apache.seatunnel.connectors.seatunnel.timeplus.state.TPFileCommitInfo
 import org.apache.seatunnel.connectors.seatunnel.timeplus.state.TimeplusSinkState;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.util.TimeplusUtil;
 
-import com.clickhouse.client.ClickHouseNode;
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableMap;
+import com.timeplus.proton.client.ProtonNode;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -79,7 +79,7 @@ public class TimeplusFileSink
 
     @Override
     public String getPluginName() {
-        return "ClickhouseFile";
+        return "ProtonFile";
     }
 
     @Override
@@ -110,7 +110,7 @@ public class TimeplusFileSink
                         .build();
 
         config = config.withFallback(ConfigFactory.parseMap(defaultConfigs));
-        List<ClickHouseNode> nodes =
+        List<ProtonNode> nodes =
                 TimeplusUtil.createNodes(
                         config.getString(HOST.key()),
                         config.getString(DATABASE.key()),

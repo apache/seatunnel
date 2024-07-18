@@ -41,7 +41,7 @@ import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.Timeplus
 public class TimeplusFileSinkFactory implements TableSinkFactory {
     @Override
     public String factoryIdentifier() {
-        return "ClickhouseFile";
+        return "ProtonFile";
     }
 
     @Override

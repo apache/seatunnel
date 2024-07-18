@@ -26,8 +26,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.exception.TimeplusConnectorException;
 
-import com.clickhouse.client.ClickHouseColumn;
-import com.clickhouse.client.ClickHouseValue;
+import com.timeplus.proton.client.ProtonColumn;
+import com.timeplus.proton.client.ProtonValue;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -40,9 +40,9 @@ import java.util.UUID;
 
 public class TypeConvertUtil {
 
-    public static SeaTunnelDataType<?> convert(ClickHouseColumn column) {
+    public static SeaTunnelDataType<?> convert(ProtonColumn column) {
         if (column.isArray()) {
-            ClickHouseColumn subArrayDataType = column.getNestedColumns().get(0);
+            ProtonColumn subArrayDataType = column.getNestedColumns().get(0);
             SeaTunnelDataType<?> dataType = convert(subArrayDataType);
             if (BasicType.INT_TYPE.equals(dataType)) {
                 return ArrayType.INT_ARRAY_TYPE;
@@ -111,7 +111,7 @@ public class TypeConvertUtil {
         }
     }
 
-    public static Object valueUnwrap(SeaTunnelDataType<?> dataType, ClickHouseValue record) {
+    public static Object valueUnwrap(SeaTunnelDataType<?> dataType, ProtonValue record) {
         if (dataType instanceof DecimalType) {
             return record.asBigDecimal();
         } else if (dataType.equals(BasicType.BOOLEAN_TYPE)) {

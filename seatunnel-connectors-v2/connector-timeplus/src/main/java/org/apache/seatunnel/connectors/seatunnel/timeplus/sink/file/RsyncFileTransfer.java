@@ -114,7 +114,7 @@ public class RsyncFileTransfer implements FileTransfer {
             start.waitFor();
         } catch (IOException | InterruptedException ex) {
             throw CommonError.fileOperationFailed(
-                    "ClickhouseFile", "transfer", sourcePath + " -> " + targetPath, ex);
+                    "ProtonFile", "transfer", sourcePath + " -> " + targetPath, ex);
         }
         // remote exec command to change file owner. Only file owner equal with server's clickhouse
         // user can

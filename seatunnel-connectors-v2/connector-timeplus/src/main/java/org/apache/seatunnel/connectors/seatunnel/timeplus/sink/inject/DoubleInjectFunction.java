@@ -21,7 +21,7 @@ import java.math.BigDecimal;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
-public class DoubleInjectFunction implements ClickhouseFieldInjectFunction {
+public class DoubleInjectFunction implements ProtonFieldInjectFunction {
     @Override
     public void injectFields(PreparedStatement statement, int index, Object value)
             throws SQLException {

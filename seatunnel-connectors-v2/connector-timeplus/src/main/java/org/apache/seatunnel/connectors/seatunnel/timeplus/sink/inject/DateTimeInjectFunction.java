@@ -23,7 +23,7 @@ import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.regex.Pattern;
 
-public class DateTimeInjectFunction implements ClickhouseFieldInjectFunction {
+public class DateTimeInjectFunction implements ProtonFieldInjectFunction {
 
     private static final Pattern PATTERN = Pattern.compile("(DateTime.*)");
 

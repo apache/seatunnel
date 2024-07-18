@@ -25,7 +25,7 @@ import org.apache.seatunnel.common.exception.CommonError;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
-public class StringInjectFunction implements ClickhouseFieldInjectFunction {
+public class StringInjectFunction implements ProtonFieldInjectFunction {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private String fieldType;

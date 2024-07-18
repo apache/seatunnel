@@ -21,7 +21,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.inject.ArrayInjectFunction;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.inject.BigDecimalInjectFunction;
-import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.inject.ClickhouseFieldInjectFunction;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.inject.DateInjectFunction;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.inject.DateTimeInjectFunction;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.inject.DoubleInjectFunction;
@@ -29,6 +28,7 @@ import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.inject.FloatInjec
 import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.inject.IntInjectFunction;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.inject.LongInjectFunction;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.inject.MapInjectFunction;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.inject.ProtonFieldInjectFunction;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.inject.StringInjectFunction;
 
 import lombok.NonNull;
@@ -46,11 +46,11 @@ import java.util.regex.Pattern;
 public class JdbcRowConverter implements Serializable {
     private static final Pattern NULLABLE = Pattern.compile("Nullable\\((.*)\\)");
     private static final Pattern LOW_CARDINALITY = Pattern.compile("LowCardinality\\((.*)\\)");
-    private static final ClickhouseFieldInjectFunction DEFAULT_INJECT_FUNCTION =
+    private static final ProtonFieldInjectFunction DEFAULT_INJECT_FUNCTION =
             new StringInjectFunction();
 
     private final String[] projectionFields;
-    private final Map<String, ClickhouseFieldInjectFunction> fieldInjectFunctionMap;
+    private final Map<String, ProtonFieldInjectFunction> fieldInjectFunctionMap;
     private final Map<String, Function<SeaTunnelRow, Object>> fieldGetterMap;
 
     public JdbcRowConverter(
@@ -81,12 +81,12 @@ public class JdbcRowConverter implements Serializable {
         return statement;
     }
 
-    private Map<String, ClickhouseFieldInjectFunction> createFieldInjectFunctionMap(
+    private Map<String, ProtonFieldInjectFunction> createFieldInjectFunctionMap(
             String[] fields, Map<String, String> clickhouseTableSchema) {
-        Map<String, ClickhouseFieldInjectFunction> fieldInjectFunctionMap = new HashMap<>();
+        Map<String, ProtonFieldInjectFunction> fieldInjectFunctionMap = new HashMap<>();
         for (String field : fields) {
             String fieldType = clickhouseTableSchema.get(field);
-            ClickhouseFieldInjectFunction injectFunction =
+            ProtonFieldInjectFunction injectFunction =
                     Arrays.asList(
                                     new ArrayInjectFunction(),
                                     new MapInjectFunction(),

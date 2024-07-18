@@ -25,9 +25,9 @@ import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.client.TimeplusPr
 import org.apache.seatunnel.connectors.seatunnel.timeplus.state.TPFileAggCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.state.TPFileCommitInfo;
 
-import com.clickhouse.client.ClickHouseException;
-import com.clickhouse.client.ClickHouseRequest;
-import com.clickhouse.client.ClickHouseResponse;
+import com.timeplus.proton.client.ProtonException;
+import com.timeplus.proton.client.ProtonRequest;
+import com.timeplus.proton.client.ProtonResponse;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -63,7 +63,7 @@ public class TimeplusFileSinkAggCommitter
                                         (shard, files) -> {
                                             try {
                                                 this.attachFileToClickhouse(shard, files);
-                                            } catch (ClickHouseException e) {
+                                            } catch (ProtonException e) {
                                                 throw new SeaTunnelException(
                                                         "failed commit file to clickhouse", e);
                                             }
@@ -114,10 +114,10 @@ public class TimeplusFileSinkAggCommitter
     }
 
     private void attachFileToClickhouse(Shard shard, List<String> clickhouseLocalFiles)
-            throws ClickHouseException {
-        ClickHouseRequest<?> request = getProxy().getClickhouseConnection(shard);
+            throws ProtonException {
+        ProtonRequest<?> request = getProxy().getProtonConnection(shard);
         for (String clickhouseLocalFile : clickhouseLocalFiles) {
-            ClickHouseResponse response =
+            ProtonResponse response =
                     request.query(
                                     String.format(
                                             "ALTER TABLE %s ATTACH PART '%s'",

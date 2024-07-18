@@ -21,7 +21,7 @@ import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
-public class DateInjectFunction implements ClickhouseFieldInjectFunction {
+public class DateInjectFunction implements ProtonFieldInjectFunction {
     @Override
     public void injectFields(PreparedStatement statement, int index, Object value)
             throws SQLException {

@@ -23,11 +23,11 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.util.TypeConvertUtil;
 
-import com.clickhouse.client.ClickHouseClient;
-import com.clickhouse.client.ClickHouseFormat;
-import com.clickhouse.client.ClickHouseNode;
-import com.clickhouse.client.ClickHouseRequest;
-import com.clickhouse.client.ClickHouseResponse;
+import com.timeplus.proton.client.ProtonClient;
+import com.timeplus.proton.client.ProtonFormat;
+import com.timeplus.proton.client.ProtonNode;
+import com.timeplus.proton.client.ProtonRequest;
+import com.timeplus.proton.client.ProtonResponse;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -37,17 +37,17 @@ import java.util.Random;
 
 public class TimeplusSourceReader implements SourceReader<SeaTunnelRow, TimeplusSourceSplit> {
 
-    private final List<ClickHouseNode> servers;
-    private ClickHouseClient client;
+    private final List<ProtonNode> servers;
+    private ProtonClient client;
     private final SeaTunnelRowType rowTypeInfo;
     private final SourceReader.Context readerContext;
-    private ClickHouseRequest<?> request;
+    private ProtonRequest<?> request;
     private final String sql;
 
     private final List<TimeplusSourceSplit> splits;
 
     TimeplusSourceReader(
-            List<ClickHouseNode> servers,
+            List<ProtonNode> servers,
             SourceReader.Context readerContext,
             SeaTunnelRowType rowTypeInfo,
             String sql) {
@@ -61,9 +61,9 @@ public class TimeplusSourceReader implements SourceReader<SeaTunnelRow, Timeplus
     @Override
     public void open() {
         Random random = new Random();
-        ClickHouseNode server = servers.get(random.nextInt(servers.size()));
-        client = ClickHouseClient.newInstance(server.getProtocol());
-        request = client.connect(server).format(ClickHouseFormat.RowBinaryWithNamesAndTypes);
+        ProtonNode server = servers.get(random.nextInt(servers.size()));
+        client = ProtonClient.newInstance(server.getProtocol());
+        request = client.connect(server).format(ProtonFormat.RowBinaryWithNamesAndTypes);
     }
 
     @Override
@@ -76,7 +76,7 @@ public class TimeplusSourceReader implements SourceReader<SeaTunnelRow, Timeplus
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         if (!splits.isEmpty()) {
-            try (ClickHouseResponse response = this.request.query(sql).executeAndWait()) {
+            try (ProtonResponse response = this.request.query(sql).executeAndWait()) {
                 response.stream()
                         .forEach(
                                 record -> {

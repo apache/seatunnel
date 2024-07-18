@@ -17,9 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.timeplus.shard;
 
-import com.clickhouse.client.ClickHouseCredentials;
-import com.clickhouse.client.ClickHouseNode;
-import com.clickhouse.client.ClickHouseProtocol;
+import com.timeplus.proton.client.ProtonCredentials;
+import com.timeplus.proton.client.ProtonNode;
+import com.timeplus.proton.client.ProtonProtocol;
 
 import java.io.Serializable;
 import java.util.Objects;
@@ -30,7 +30,7 @@ public class Shard implements Serializable {
     private final int shardNum;
     private final int replicaNum;
 
-    private final ClickHouseNode node;
+    private final ProtonNode node;
 
     // cache the hash code
     private int hashCode = -1;
@@ -48,16 +48,16 @@ public class Shard implements Serializable {
         this.shardNum = shardNum;
         this.replicaNum = replicaNum;
         this.node =
-                ClickHouseNode.builder()
+                ProtonNode.builder()
                         .host(hostname)
-                        .port(ClickHouseProtocol.HTTP, port)
+                        .port(ProtonProtocol.HTTP, port)
                         .database(database)
                         .weight(shardWeight)
-                        .credentials(ClickHouseCredentials.fromUserAndPassword(username, password))
+                        .credentials(ProtonCredentials.fromUserAndPassword(username, password))
                         .build();
     }
 
-    public Shard(int shardNum, int replicaNum, ClickHouseNode node) {
+    public Shard(int shardNum, int replicaNum, ProtonNode node) {
         this.shardNum = shardNum;
         this.replicaNum = replicaNum;
         this.node = node;
@@ -71,7 +71,7 @@ public class Shard implements Serializable {
         return replicaNum;
     }
 
-    public ClickHouseNode getNode() {
+    public ProtonNode getNode() {
         return node;
     }
 

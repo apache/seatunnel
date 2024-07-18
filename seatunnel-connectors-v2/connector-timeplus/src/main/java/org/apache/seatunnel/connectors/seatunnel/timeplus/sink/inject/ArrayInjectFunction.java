@@ -25,7 +25,7 @@ import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.regex.Pattern;
 
-public class ArrayInjectFunction implements ClickhouseFieldInjectFunction {
+public class ArrayInjectFunction implements ProtonFieldInjectFunction {
 
     private static final Pattern PATTERN = Pattern.compile("(Array.*)");
     private String fieldType;

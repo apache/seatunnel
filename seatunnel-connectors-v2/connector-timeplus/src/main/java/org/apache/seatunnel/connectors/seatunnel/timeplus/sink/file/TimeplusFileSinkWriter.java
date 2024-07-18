@@ -137,7 +137,7 @@ public class TimeplusFileSinkWriter
                                         StandardOpenOption.CREATE_NEW);
                             } catch (IOException e) {
                                 throw CommonError.fileOperationFailed(
-                                        "ClickhouseFile", "write", clickhouseLocalFile, e);
+                                        "ProtonFile", "write", clickhouseLocalFile, e);
                             }
                         });
         saveDataToFile(channel, element, shard);
@@ -237,7 +237,7 @@ public class TimeplusFileSinkWriter
                                         FileChannel.MapMode.READ_WRITE, 0, bufferSize);
                             } catch (IOException e) {
                                 throw CommonError.fileOperationFailed(
-                                        "ClickhouseFile", "write", "UNKNOWN", e);
+                                        "ProtonFile", "write", "UNKNOWN", e);
                             }
                         });
         byte[] byteData = data.getBytes(StandardCharsets.UTF_8);
@@ -287,7 +287,7 @@ public class TimeplusFileSinkWriter
         command.add(
                 String.format(
                         "\"%s; INSERT INTO TABLE %s SELECT %s FROM temp_table%s;\"",
-                        adjustClickhouseDDL(),
+                        adjustProtonDDL(),
                         clickhouseTable.getLocalTableName(),
                         readerOption.getTableSchema().keySet().stream()
                                 .map(
@@ -307,7 +307,7 @@ public class TimeplusFileSinkWriter
                 writer.write(String.format(CK_LOCAL_CONFIG_TEMPLATE, clickhouseLocalFile));
             } catch (IOException e) {
                 throw CommonError.fileOperationFailed(
-                        "ClickhouseFile", "write", clickhouseLocalFile, e);
+                        "ProtonFile", "write", clickhouseLocalFile, e);
             }
             command.add("--config-file");
             command.add("\"" + ckLocalConfigPath + "\"");
@@ -406,7 +406,7 @@ public class TimeplusFileSinkWriter
         }
     }
 
-    private String adjustClickhouseDDL() {
+    private String adjustProtonDDL() {
         String createTableDDL =
                 clickhouseTable
                         .getCreateTableDDL()
