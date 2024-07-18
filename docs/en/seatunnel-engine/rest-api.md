@@ -3,14 +3,14 @@
 sidebar_position: 11
 --------------------
 
-# REST API
+# RESTful API
 
 SeaTunnel has a monitoring API that can be used to query status and statistics of running jobs, as well as recent
-completed jobs. The monitoring API is a REST-ful API that accepts HTTP requests and responds with JSON data.
+completed jobs. The monitoring API is a RESTful API that accepts HTTP requests and responds with JSON data.
 
 ## Overview
 
-The monitoring API is backed by a web server that runs as part of the node, each node member can provide rest api capability.
+The monitoring API is backed by a web server that runs as part of the node, each node member can provide RESTful api capability.
 By default, this server listens at port 5801, which can be configured in hazelcast.yaml like :
 
 ```yaml
@@ -70,7 +70,7 @@ network:
 
 ------------------------------------------------------------------------------------------
 
-### Returns an overview over all jobs and their current state.
+### Returns An Overview And State Of All Jobs
 
 <details>
  <summary><code>GET</code> <code><b>/hazelcast/rest/maps/running-jobs</b></code> <code>(Returns an overview over all jobs and their current state.)</code></summary>
@@ -109,7 +109,7 @@ network:
 
 ------------------------------------------------------------------------------------------
 
-### Return details of a job.
+### Return Details Of A Job
 
 <details>
  <summary><code>GET</code> <code><b>/hazelcast/rest/maps/job-info/:jobId</b></code> <code>(Return details of a job. )</code></summary>
@@ -164,7 +164,7 @@ When we can't get the job info, the response will be:
 
 ------------------------------------------------------------------------------------------
 
-### Return details of a job.
+### Return Details Of A Job
 
 This API has been deprecated, please use /hazelcast/rest/maps/job-info/:jobId instead
 
@@ -221,7 +221,7 @@ When we can't get the job info, the response will be:
 
 ------------------------------------------------------------------------------------------
 
-### Return all finished Jobs Info.
+### Return All Finished Jobs Info
 
 <details>
  <summary><code>GET</code> <code><b>/hazelcast/rest/maps/finished-jobs/:state</b></code> <code>(Return all finished Jobs Info.)</code></summary>
@@ -253,7 +253,7 @@ When we can't get the job info, the response will be:
 
 ------------------------------------------------------------------------------------------
 
-### Returns system monitoring information.
+### Returns System Monitoring Information
 
 <details>
  <summary><code>GET</code> <code><b>/hazelcast/rest/maps/system-monitoring-information</b></code> <code>(Returns system monitoring information.)</code></summary>
@@ -318,7 +318,7 @@ When we can't get the job info, the response will be:
 
 ------------------------------------------------------------------------------------------
 
-### Submit Job.
+### Submit A Job
 
 <details>
 <summary><code>POST</code> <code><b>/hazelcast/rest/maps/submit-job</b></code> <code>(Returns jobId and jobName if job submitted successfully.)</code></summary>
@@ -376,7 +376,7 @@ When we can't get the job info, the response will be:
 
 ------------------------------------------------------------------------------------------
 
-### Stop Job.
+### Stop A Job
 
 <details>
 <summary><code>POST</code> <code><b>/hazelcast/rest/maps/stop-job</b></code> <code>(Returns jobId if job stoped successfully.)</code></summary>
@@ -402,7 +402,7 @@ When we can't get the job info, the response will be:
 
 ------------------------------------------------------------------------------------------
 
-### Encrypt Config.
+### Encrypt Config
 
 <details>
 <summary><code>POST</code> <code><b>/hazelcast/rest/maps/encrypt-config</b></code> <code>(Returns the encrypted config if config is encrypted successfully.)</code></summary>

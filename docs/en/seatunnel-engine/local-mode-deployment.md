@@ -3,7 +3,7 @@
 sidebar_position: 4
 -------------------
 
-# Run Jobs in Local Mode
+# Run Jobs In Local Mode
 
 Only for testing.
 
@@ -14,9 +14,9 @@ In local mode, each task will start a separate process, and the process will exi
 3. Jobs cannot be cancelled via commands, only by killing the process.
 4. REST API is not supported.
 
-The [separated cluster mode](separated-cluster-deployment.md) of SeaTunnel Engine is recommended for use in production environments.
+The [Separated Cluster Mode](separated-cluster-deployment.md) of SeaTunnel Engine is recommended for use in production environments.
 
-## Deploying SeaTunnel Engine in Local Mode
+## Deploying SeaTunnel Engine In Local Mode
 
 In local mode, there is no need to deploy a SeaTunnel Engine cluster. You only need to use the following command to submit jobs. The system will start the SeaTunnel Engine (Zeta) service in the process that submitted the job to run the submitted job, and the process will exit after the job is completed.
 
@@ -25,7 +25,7 @@ In this mode, you only need to copy the downloaded and created installation pack
 ## Submitting Jobs
 
 ```shell
-$SEATUNNEL_HOME/bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template -e local
+$SEATUNNEL_HOME/bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template -m local
 ```
 
 ## Job Operations
