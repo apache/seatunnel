@@ -127,7 +127,7 @@ public class TimeplusSinkWriter
         } catch (Exception e) {
             throw new TimeplusConnectorException(
                     CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
-                    "Clickhouse execute batch statement error",
+                    "Timeplus execute batch statement error",
                     e);
         }
     }
