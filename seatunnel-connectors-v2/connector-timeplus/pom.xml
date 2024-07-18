@@ -28,9 +28,7 @@
     <name>SeaTunnel : Connectors V2 : Timeplus</name>
 
     <properties>
-        <timeplus.jdbc.version>2.0.1</timeplus.jdbc.version>
         <timeplus.java.version>0.6.0</timeplus.java.version>
-        <clickhouse.version>0.3.2-patch11</clickhouse.version>
         <sshd.scp.version>2.7.0</sshd.scp.version>
     </properties>
     <dependencies>
@@ -51,11 +49,6 @@
             <artifactId>proton-http-client</artifactId>
             <version>${timeplus.java.version}</version>
         </dependency>
-        <dependency>
-            <groupId>com.clickhouse</groupId>
-            <artifactId>clickhouse-http-client</artifactId>
-            <version>${clickhouse.version}</version>
-        </dependency>
 
         <dependency>
             <groupId>commons-io</groupId>
@@ -67,11 +60,6 @@
             <groupId>com.timeplus</groupId>
             <artifactId>proton-jdbc</artifactId>
             <version>${timeplus.java.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.clickhouse</groupId>
-            <artifactId>clickhouse-jdbc</artifactId>
-            <version>${clickhouse.version}</version>
         </dependency>
 
         <dependency>
