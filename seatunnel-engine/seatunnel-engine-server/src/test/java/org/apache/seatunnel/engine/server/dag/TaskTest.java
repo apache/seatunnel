@@ -85,7 +85,8 @@ public class TaskTest extends AbstractSeaTunnelServerTest {
                                 jobImmutableInformation.getJobId(),
                                 nodeEngine
                                         .getSerializationService()
-                                        .toData(jobImmutableInformation));
+                                        .toData(jobImmutableInformation),
+                                jobImmutableInformation.isStartWithSavePoint());
 
         Assertions.assertNotNull(voidPassiveCompletableFuture);
     }

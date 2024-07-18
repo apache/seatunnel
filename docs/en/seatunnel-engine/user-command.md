@@ -28,7 +28,7 @@ Usage: seatunnel.sh [options]
     --decrypt                       Decrypt the config file. When both --decrypt and --encrypt are specified, only --encrypt will take effect (default: false). 
     -m, --master, -e, --deploy-mode SeaTunnel job submit master, support [local, cluster] (default: cluster).
     --encrypt                       Encrypt the config file. When both --decrypt and --encrypt are specified, only --encrypt will take effect (default: false). 
-    --get_running_job_metrics       Gets metrics for running jobs (default: false).
+    --get_running_job_metrics       Get metrics for running jobs (default: false).
     -h, --help                      Show the usage message.
     -j, --job-id                    Get the job status by JobId.
     -l, --list                      List the job status (default: false).
@@ -58,7 +58,7 @@ The **-n** or **--name** parameter can specify the name of the job.
 sh bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --async -n myjob
 ```
 
-## Viewing the Job List
+## Viewing The Job List
 
 ```shell
 sh bin/seatunnel.sh -l
@@ -66,7 +66,7 @@ sh bin/seatunnel.sh -l
 
 This command will output the list of all jobs in the current cluster (including completed historical jobs and running jobs).
 
-## Viewing the Job Status
+## Viewing The Job Status
 
 ```shell
 sh bin/seatunnel.sh -j &lt;jobId&gt;
@@ -74,7 +74,7 @@ sh bin/seatunnel.sh -j &lt;jobId&gt;
 
 This command will output the status information of the specified job.
 
-## Getting the Monitoring Information of Running Jobs
+## Getting The Monitoring Information Of Running Jobs
 
 ```shell
 sh bin/seatunnel.sh --get_running_job_metrics

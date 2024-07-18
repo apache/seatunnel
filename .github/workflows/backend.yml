@@ -587,7 +587,6 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
       - name: run seatunnel zeta on k8s test
-        if: needs.changes.outputs.api == 'true'
         run: |
           ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :seatunnel-engine-k8s-e2e -am -Pci
         env:
