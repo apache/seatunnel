@@ -14,11 +14,11 @@ sidebar_position: 7
 SeaTunnel Engine支持以下检查点存储类型:
 
 - HDFS (OSS,S3,HDFS,LocalFile)
-- LocalFile (本地)，(已弃用: 使用Hdfs(LocalFile)替代).
+- LocalFile (本地)，(已弃用: 使用HDFS(LocalFile)替代).
 
 我们使用微内核设计模式将检查点存储模块从引擎中分离出来。这允许用户实现他们自己的检查点存储模块。
 
-`checkpoint-storage-api`是检查点存储模块API，它定义了检查点存储模块的接口。
+`checkpoint-storage-api`是检查点   存储模块API，它定义了检查点存储模块的接口。
 
 如果你想实现你自己的检查点存储模块，你需要实现`CheckpointStorage`并提供相应的`CheckpointStorageFactory`实现。
 
@@ -44,9 +44,9 @@ seatunnel:
 
 #### OSS
 
-阿里云oss是基于hdfs-file，所以你可以参考[hadoop oss文档](https://hadoop.apache.org/docs/stable/hadoop-aliyun/tools/hadoop-aliyun/index.html)来配置oss.
+阿里云OSS是基于hdfs-file，所以你可以参考[Hadoop OSS文档](https://hadoop.apache.org/docs/stable/hadoop-aliyun/tools/hadoop-aliyun/index.html)来配置oss.
 
-除了与oss buckets交互外，oss客户端需要与buckets交互所需的凭据。
+OSS buckets交互外，oss客户端需要与buckets交互所需的凭据。
 客户端支持多种身份验证机制，并且可以配置使用哪种机制及其使用顺序。也可以使用of org.apache.hadoop.fs.aliyun.oss.AliyunCredentialsProvider的自定义实现。
 如果您使用AliyunCredentialsProvider(可以从阿里云访问密钥管理中获得)，它们包括一个access key和一个secret key。
 你可以这样配置:
@@ -71,11 +71,11 @@ seatunnel:
 
 有关Hadoop Credential Provider API的更多信息，请参见: [Credential Provider API](https://hadoop.apache.org/docs/stable/hadoop-project-dist/hadoop-common/CredentialProviderAPI.html).
 
-阿里云oss凭证提供程序实现见: [验证凭证提供](https://github.com/aliyun/aliyun-oss-java-sdk/tree/master/src/main/java/com/aliyun/oss/common/auth)
+阿里云OSS凭证提供程序实现见: [验证凭证提供](https://github.com/aliyun/aliyun-oss-java-sdk/tree/master/src/main/java/com/aliyun/oss/common/auth)
 
 #### S3
 
-S3基于hdfs-file，所以你可以参考[hadoop s3文档](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html)来配置s3。
+S3基于hdfs-file，所以你可以参考[Hadoop s3文档](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html)来配置s3。
 
 除了与公共S3 buckets交互之外，S3A客户端需要与buckets交互所需的凭据。
 客户端支持多种身份验证机制，并且可以配置使用哪种机制及其使用顺序。也可以使用com.amazonaws.auth.AWSCredentialsProvider的自定义实现。
