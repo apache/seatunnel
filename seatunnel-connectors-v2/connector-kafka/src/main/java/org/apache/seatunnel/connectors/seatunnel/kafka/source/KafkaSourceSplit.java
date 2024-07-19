@@ -30,8 +30,6 @@ public class KafkaSourceSplit implements SourceSplit {
     private TopicPartition topicPartition;
     private long startOffset = -1L;
     private long endOffset = -1L;
-    // whether this split should be recovered
-    private boolean recover = false;
 
     public KafkaSourceSplit(TablePath tablePath, TopicPartition topicPartition) {
         this.tablePath = tablePath;
@@ -44,14 +42,6 @@ public class KafkaSourceSplit implements SourceSplit {
         this.topicPartition = topicPartition;
         this.startOffset = startOffset;
         this.endOffset = endOffset;
-    }
-
-    public boolean isRecover() {
-        return recover;
-    }
-
-    public void setRecover(boolean recover) {
-        this.recover = recover;
     }
 
     public long getStartOffset() {

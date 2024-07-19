@@ -30,7 +30,6 @@ import org.apache.kafka.clients.admin.OffsetSpec;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.TopicPartition;
 
-import com.google.common.annotations.VisibleForTesting;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -181,7 +180,9 @@ public class KafkaSourceSplitEnumerator
     @Override
     public void addSplitsBack(List<KafkaSourceSplit> splits, int subtaskId) {
         if (!splits.isEmpty()) {
-            pendingSplit.putAll(convertToNextSplit(splits));
+            Map<TopicPartition, ? extends KafkaSourceSplit> nextSplit = convertToNextSplit(splits);
+            nextSplit.keySet().forEach(assignedSplit::remove);
+            pendingSplit.putAll(nextSplit);
         }
     }
 
@@ -195,24 +196,17 @@ public class KafkaSourceSplitEnumerator
                                     .filter(Objects::nonNull)
                                     .collect(Collectors.toList()),
                             OffsetSpec.latest());
-            return resetOffset(splits, listOffsets);
+            splits.forEach(
+                    split -> {
+                        split.setStartOffset(split.getEndOffset() + 1);
+                        split.setEndOffset(listOffsets.get(split.getTopicPartition()));
+                    });
+            return splits.stream()
+                    .collect(Collectors.toMap(KafkaSourceSplit::getTopicPartition, split -> split));
         } catch (Exception e) {
             throw new KafkaConnectorException(
                     KafkaConnectorErrorCode.ADD_SPLIT_BACK_TO_ENUMERATOR_FAILED, e);
         }
-    }
-
-    @VisibleForTesting
-    protected static Map<TopicPartition, KafkaSourceSplit> resetOffset(
-            List<KafkaSourceSplit> splits, Map<TopicPartition, Long> listOffsets) {
-        splits.forEach(
-                split -> {
-                    split.setStartOffset(split.getEndOffset() + 1);
-                    split.setEndOffset(listOffsets.get(split.getTopicPartition()));
-                    split.setRecover(true);
-                });
-        return splits.stream()
-                .collect(Collectors.toMap(KafkaSourceSplit::getTopicPartition, split -> split));
     }
 
     @Override
@@ -310,9 +304,7 @@ public class KafkaSourceSplitEnumerator
 
         pendingSplit.forEach(
                 (key, value) -> {
-                    // if this split is fault recovery even it has been assigned before, we also
-                    // need to process it again
-                    if (shouldAssignSplit(assignedSplit, key, value)) {
+                    if (!assignedSplit.containsKey(key)) {
                         readySplit.get(getSplitOwner(key, context.currentParallelism())).add(value);
                     }
                 });
@@ -327,14 +319,6 @@ public class KafkaSourceSplitEnumerator
 
         assignedSplit.putAll(pendingSplit);
         pendingSplit.clear();
-    }
-
-    @VisibleForTesting
-    protected static boolean shouldAssignSplit(
-            Map<TopicPartition, KafkaSourceSplit> assignedSplitMap,
-            TopicPartition key,
-            KafkaSourceSplit value) {
-        return !assignedSplitMap.containsKey(key) || value.isRecover();
     }
 
     private static int getSplitOwner(TopicPartition tp, int numReaders) {
