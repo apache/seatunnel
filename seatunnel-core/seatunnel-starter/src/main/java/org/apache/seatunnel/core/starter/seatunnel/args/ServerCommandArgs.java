@@ -38,6 +38,12 @@ public class ServerCommandArgs extends CommandArgs {
             description = "The cluster daemon mode")
     private boolean daemonMode = false;
 
+    @Parameter(
+            names = {"-r", "--role"},
+            description =
+                    "The cluster node role, default is master_and_worker, support master, worker, master_and_worker")
+    private String clusterRole;
+
     @Override
     public Command<?> buildCommand() {
         return new ServerExecuteCommand(this);

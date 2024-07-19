@@ -355,11 +355,18 @@ public abstract class AbstractJdbcCatalog implements Catalog {
         throw new UnsupportedOperationException();
     }
 
+    protected List<String> getCreateTableSqls(TablePath tablePath, CatalogTable table) {
+        return Collections.singletonList(getCreateTableSql(tablePath, table));
+    }
+
     protected void createTableInternal(TablePath tablePath, CatalogTable table)
             throws CatalogException {
         String dbUrl = getUrlFromDatabaseName(tablePath.getDatabaseName());
         try {
-            executeInternal(dbUrl, getCreateTableSql(tablePath, table));
+            final List<String> createTableSqlList = getCreateTableSqls(tablePath, table);
+            for (String sql : createTableSqlList) {
+                executeInternal(dbUrl, sql);
+            }
         } catch (Exception e) {
             throw new CatalogException(
                     String.format("Failed creating table %s", tablePath.getFullName()), e);
@@ -498,8 +505,6 @@ public abstract class AbstractJdbcCatalog implements Catalog {
         options.put("connector", "jdbc");
         options.put("url", getUrlFromDatabaseName(tablePath.getDatabaseName()));
         options.put("table-name", getOptionTableName(tablePath));
-        options.put("username", username);
-        options.put("password", pwd);
         return options;
     }
 

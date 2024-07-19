@@ -102,6 +102,8 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
                         .setPhysicalRowType(physicalRowType)
                         .setResultTypeInfo(physicalRowType)
                         .setServerTimeZone(ZoneId.of(zoneId))
+                        .setSchemaChangeResolver(
+                                new MySqlSchemaChangeResolver(createSourceConfigFactory(config)))
                         .build();
     }
 
