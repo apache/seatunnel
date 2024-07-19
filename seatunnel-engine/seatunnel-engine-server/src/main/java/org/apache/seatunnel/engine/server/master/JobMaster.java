@@ -464,13 +464,16 @@ public class JobMaster {
                                         jobImmutableInformation.getJobId(),
                                         Collections.singletonList(taskGroupSlotProfile))
                                 .join();
-
+                        // remove the task group from the ownedSlotProfilesIMap
+                        taskGroupLocationSlotProfileMap.remove(taskGroupLocation);
+                        ownedSlotProfilesIMap.put(
+                                pipelineLocation, taskGroupLocationSlotProfileMap);
                         return null;
                     },
                     new RetryUtils.RetryMaterial(
                             Constant.OPERATION_RETRY_TIME,
                             true,
-                            exception -> ExceptionUtil.isOperationNeedRetryException(exception),
+                            ExceptionUtil::isOperationNeedRetryException,
                             Constant.OPERATION_RETRY_SLEEP));
         } catch (Exception e) {
             LOGGER.warning(
