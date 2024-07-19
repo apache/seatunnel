@@ -89,6 +89,11 @@ public abstract class AbstractResourceManager implements ResourceManager {
                                                             if (p != null) {
                                                                 registerWorker.put(
                                                                         node, (WorkerProfile) p);
+                                                                log.info(
+                                                                        "received new worker register: "
+                                                                                + ((WorkerProfile)
+                                                                                                p)
+                                                                                        .getAddress());
                                                             }
                                                         }))
                         .collect(Collectors.toList());
