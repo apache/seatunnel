@@ -74,25 +74,26 @@ public abstract class AbstractResourceManager implements ResourceManager {
 
     private void initWorker() {
         log.info("initWorker... ");
-        List<Address> aliveWorker =
+        List<Address> aliveNode =
                 nodeEngine.getClusterService().getMembers().stream()
-                        .filter(Member::isLiteMember)
                         .map(Member::getAddress)
                         .collect(Collectors.toList());
-        log.info("initWorker live nodes: " + aliveWorker);
+        log.info("init live nodes: {}", aliveNode);
         List<CompletableFuture<Void>> futures =
-                aliveWorker.stream()
+                aliveNode.stream()
                         .map(
-                                worker ->
-                                        sendToMember(new SyncWorkerProfileOperation(), worker)
+                                node ->
+                                        sendToMember(new SyncWorkerProfileOperation(), node)
                                                 .thenAccept(
                                                         p -> {
-                                                            registerWorker.put(
-                                                                    worker, (WorkerProfile) p);
+                                                            if (p != null) {
+                                                                registerWorker.put(
+                                                                        node, (WorkerProfile) p);
+                                                            }
                                                         }))
                         .collect(Collectors.toList());
         futures.forEach(CompletableFuture::join);
-        log.info("registerWorker: " + registerWorker);
+        log.info("registerWorker: {}", registerWorker);
     }
 
     @Override

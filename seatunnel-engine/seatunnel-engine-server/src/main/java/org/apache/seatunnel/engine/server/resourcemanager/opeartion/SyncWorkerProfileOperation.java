@@ -33,7 +33,11 @@ public class SyncWorkerProfileOperation extends Operation implements IdentifiedD
     @Override
     public void run() throws Exception {
         SeaTunnelServer server = getService();
-        result = server.getSlotService().getWorkerProfile();
+        if (server.getSlotService() != null) {
+            result = server.getSlotService().getWorkerProfile();
+        } else {
+            result = null;
+        }
     }
 
     @Override
