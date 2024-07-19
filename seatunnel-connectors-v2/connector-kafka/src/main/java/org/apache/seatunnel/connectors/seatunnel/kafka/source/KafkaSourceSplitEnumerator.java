@@ -30,6 +30,7 @@ import org.apache.kafka.clients.admin.OffsetSpec;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.TopicPartition;
 
+import com.google.common.annotations.VisibleForTesting;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -181,9 +182,17 @@ public class KafkaSourceSplitEnumerator
     public void addSplitsBack(List<KafkaSourceSplit> splits, int subtaskId) {
         if (!splits.isEmpty()) {
             Map<TopicPartition, ? extends KafkaSourceSplit> nextSplit = convertToNextSplit(splits);
-            nextSplit.keySet().forEach(assignedSplit::remove);
-            pendingSplit.putAll(nextSplit);
+            addSplitsBack(nextSplit, pendingSplit, assignedSplit);
         }
+    }
+
+    @VisibleForTesting
+    protected static void addSplitsBack(
+            Map<TopicPartition, ? extends KafkaSourceSplit> nextSplit,
+            Map<TopicPartition, KafkaSourceSplit> pendingSplit,
+            Map<TopicPartition, KafkaSourceSplit> assignedSplit) {
+        nextSplit.keySet().forEach(assignedSplit::remove);
+        pendingSplit.putAll(nextSplit);
     }
 
     private Map<TopicPartition, ? extends KafkaSourceSplit> convertToNextSplit(
