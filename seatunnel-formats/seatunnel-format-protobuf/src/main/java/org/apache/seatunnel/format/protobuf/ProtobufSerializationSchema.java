@@ -18,12 +18,12 @@
 
 package org.apache.seatunnel.format.protobuf;
 
-import com.google.protobuf.Descriptors;
 import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
-import java.io.ByteArrayOutputStream;
+import com.google.protobuf.Descriptors;
+
 import java.io.IOException;
 
 public class ProtobufSerializationSchema implements SerializationSchema {
@@ -32,23 +32,20 @@ public class ProtobufSerializationSchema implements SerializationSchema {
 
     private final RowToProtobufConverter converter;
 
-    public ProtobufSerializationSchema(SeaTunnelRowType rowType,String protobufMessageName,String protobufSchema) {
+    public ProtobufSerializationSchema(
+            SeaTunnelRowType rowType, String protobufMessageName, String protobufSchema) {
         try {
-            Descriptors.FileDescriptor[] fileDescriptors = CompileDescriptor.compileDescriptorTempFile(protobufSchema);
-            this.converter = new RowToProtobufConverter(rowType,fileDescriptors,protobufMessageName);
-
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        } catch (Descriptors.DescriptorValidationException e) {
+            Descriptors.Descriptor descriptor =
+                    CompileDescriptor.compileDescriptorTempFile(
+                            protobufSchema, protobufMessageName);
+            this.converter = new RowToProtobufConverter(rowType, descriptor);
+        } catch (IOException | InterruptedException | Descriptors.DescriptorValidationException e) {
             throw new RuntimeException(e);
         }
     }
 
     @Override
     public byte[] serialize(SeaTunnelRow element) {
-        // TODO 返回序列化数据
-        return  converter.convertRowToGenericRecord(element);
+        return converter.convertRowToGenericRecord(element);
     }
 }
