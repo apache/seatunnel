@@ -271,6 +271,17 @@ map:
         fs.oss.credentials.provider: org.apache.hadoop.fs.aliyun.oss.AliyunCredentialsProvider
 ```
 
+Notice: When using OSS, make sure that the following jars are in the lib directory.
+
+```
+aliyun-sdk-oss-3.13.2.jar
+hadoop-aliyun-3.3.6.jar
+jdom2-2.0.6.jar
+netty-buffer-4.1.89.Final.jar 
+netty-common-4.1.89.Final.jar
+seatunnel-hadoop3-3.1.4-uber.jar
+```
+
 ## 5. Configuring SeaTunnel Engine Network Services
 
 All network-related configurations of the SeaTunnel Engine are in the `hazelcast-master.yaml` and `hazelcast-worker.yaml` files.
