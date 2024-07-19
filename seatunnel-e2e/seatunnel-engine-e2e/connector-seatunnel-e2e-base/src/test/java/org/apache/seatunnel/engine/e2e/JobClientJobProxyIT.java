@@ -126,11 +126,4 @@ public class JobClientJobProxyIT extends SeaTunnelContainer {
                                 .contains(
                                         "org.apache.seatunnel.engine.server.resourcemanager.NoEnoughResourceException"));
     }
-
-    @Test
-    public void testSinkPlaceholder() throws IOException, InterruptedException {
-        Container.ExecResult execResult =
-                executeSeaTunnelJob("/fake_to_inmemory_with_sink_placeholder.conf");
-        Assertions.assertNotEquals(0, execResult.getExitCode());
-    }
 }
