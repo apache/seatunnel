@@ -166,9 +166,9 @@ public class CheckpointManager {
     }
 
     public void reportedPipelineRunning(int pipelineId, boolean alreadyStarted) {
-        log.info(
-                "reported pipeline running stack: "
-                        + Arrays.toString(Thread.currentThread().getStackTrace()));
+        log.debug(
+                "reported pipeline running stack: {}",
+                Arrays.toString(Thread.currentThread().getStackTrace()));
         getCheckpointCoordinator(pipelineId).restoreCoordinator(alreadyStarted);
     }
 
