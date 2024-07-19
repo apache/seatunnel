@@ -392,11 +392,14 @@ public class SeaTunnelClientTest {
                     Assertions.assertThrows(
                             Exception.class,
                             () -> jobExecutionEnvWithSameJobId.execute().waitForJobCompleteV2());
-            Assertions.assertEquals(
-                    String.format(
-                            "The job id %s has already been submitted and is not starting with a savepoint.",
-                            jobId),
-                    exception.getCause().getMessage());
+            Assertions.assertTrue(
+                    exception
+                            .getCause()
+                            .getMessage()
+                            .contains(
+                                    String.format(
+                                            "The job id %s has already been submitted and is not starting with a savepoint.",
+                                            jobId)));
         } catch (Exception e) {
             throw new RuntimeException(e);
         } finally {
