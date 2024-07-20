@@ -169,6 +169,20 @@ public class SapHanaTypeConverterTest {
         Assertions.assertEquals(typeDefine2.getName(), column2.getName());
         Assertions.assertEquals(new DecimalType(10, 5), column2.getDataType());
         Assertions.assertEquals(typeDefine2.getColumnType(), column2.getSourceType());
+
+        BasicTypeDefine<Object> typeDefine3 =
+                BasicTypeDefine.builder()
+                        .name("test")
+                        .columnType("DECIMAL")
+                        .dataType("DECIMAL")
+                        .precision(10L)
+                        .length(10L)
+                        .scale(0)
+                        .build();
+        Column column3 = SapHanaTypeConverter.INSTANCE.convert(typeDefine3);
+        Assertions.assertEquals(typeDefine3.getName(), column3.getName());
+        Assertions.assertEquals(new DecimalType(10, 0), column3.getDataType());
+        Assertions.assertEquals(typeDefine3.getColumnType(), column3.getSourceType());
     }
 
     @Test

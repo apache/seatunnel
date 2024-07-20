@@ -356,6 +356,58 @@ public class SeaTunnelClientTest {
     }
 
     @Test
+    public void testSetJobIdDuplicate() {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath = TestUtils.getResource("/streaming_fake_to_console.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setName("testSetJobId");
+        long jobId = System.currentTimeMillis();
+        SeaTunnelClient seaTunnelClient = createSeaTunnelClient();
+        JobClient jobClient = seaTunnelClient.getJobClient();
+        try {
+            ClientJobExecutionEnvironment jobExecutionEnv =
+                    seaTunnelClient.createExecutionContext(
+                            filePath, new ArrayList<>(), jobConfig, SEATUNNEL_CONFIG, jobId);
+
+            final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+
+            Assertions.assertEquals(jobId, clientJobProxy.getJobId());
+
+            await().atMost(30000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            "RUNNING", jobClient.getJobStatus(jobId)));
+            jobClient.cancelJob(jobId);
+            await().atMost(30000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            "CANCELED", jobClient.getJobStatus(jobId)));
+
+            ClientJobExecutionEnvironment jobExecutionEnvWithSameJobId =
+                    seaTunnelClient.createExecutionContext(
+                            filePath, new ArrayList<>(), jobConfig, SEATUNNEL_CONFIG, jobId);
+            Exception exception =
+                    Assertions.assertThrows(
+                            Exception.class,
+                            () -> jobExecutionEnvWithSameJobId.execute().waitForJobCompleteV2());
+            Assertions.assertTrue(
+                    exception
+                            .getCause()
+                            .getMessage()
+                            .contains(
+                                    String.format(
+                                            "The job id %s has already been submitted and is not starting with a savepoint.",
+                                            jobId)));
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        } finally {
+            seaTunnelClient.close();
+        }
+    }
+
+    @Test
     public void testGetJobInfo() {
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = TestUtils.getResource("/client_test.conf");
