@@ -15,15 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.sink;
+package org.apache.seatunnel.engine.e2e;
 
-/** @deprecated instead by {@link TablePlaceholder} todo remove this class */
-@Deprecated
-public final class SinkReplaceNameConstant {
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.testcontainers.containers.Container;
 
-    public static final String REPLACE_TABLE_NAME_KEY = "${table_name}";
+import java.io.IOException;
 
-    public static final String REPLACE_SCHEMA_NAME_KEY = "${schema_name}";
+public class SinkPlaceholderIT extends SeaTunnelContainer {
 
-    public static final String REPLACE_DATABASE_NAME_KEY = "${database_name}";
+    @Test
+    public void testSinkPlaceholder() throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                executeSeaTunnelJob("/fake_to_inmemory_with_sink_placeholder.conf");
+        Assertions.assertNotEquals(0, execResult.getExitCode());
+    }
 }

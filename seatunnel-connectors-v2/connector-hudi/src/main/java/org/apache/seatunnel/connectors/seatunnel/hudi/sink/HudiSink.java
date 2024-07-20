@@ -60,8 +60,8 @@ public class HudiSink
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, HudiCommitInfo, HudiSinkState> restoreWriter(
-            SinkWriter.Context context, List<HudiSinkState> states) throws IOException {
+    public HudiSinkWriter restoreWriter(SinkWriter.Context context, List<HudiSinkState> states)
+            throws IOException {
         return new HudiSinkWriter(context, seaTunnelRowType, hudiSinkConfig, states);
     }
 
@@ -87,8 +87,7 @@ public class HudiSink
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, HudiCommitInfo, HudiSinkState> createWriter(
-            SinkWriter.Context context) throws IOException {
+    public HudiSinkWriter createWriter(SinkWriter.Context context) throws IOException {
         return new HudiSinkWriter(context, seaTunnelRowType, hudiSinkConfig, new ArrayList<>());
     }
 }

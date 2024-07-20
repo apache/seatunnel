@@ -18,18 +18,32 @@
 package org.apache.seatunnel.api.table.factory;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.sink.TablePlaceholder;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 
 import lombok.Getter;
+
+import java.util.Collection;
 
 @Getter
 public class TableSinkFactoryContext extends TableFactoryContext {
 
     private final CatalogTable catalogTable;
 
-    public TableSinkFactoryContext(
+    protected TableSinkFactoryContext(
             CatalogTable catalogTable, ReadonlyConfig options, ClassLoader classLoader) {
         super(options, classLoader);
         this.catalogTable = catalogTable;
+    }
+
+    public static TableSinkFactoryContext replacePlaceholderAndCreate(
+            CatalogTable catalogTable,
+            ReadonlyConfig options,
+            ClassLoader classLoader,
+            Collection<String> excludeTablePlaceholderReplaceKeys) {
+        ReadonlyConfig rewriteConfig =
+                TablePlaceholder.replaceTablePlaceholder(
+                        options, catalogTable, excludeTablePlaceholderReplaceKeys);
+        return new TableSinkFactoryContext(catalogTable, rewriteConfig, classLoader);
     }
 }
