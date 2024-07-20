@@ -70,7 +70,6 @@ import org.apache.seatunnel.engine.server.task.operation.CleanTaskGroupContextOp
 import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupMetricsOperation;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
-import com.google.common.collect.Lists;
 import com.hazelcast.cluster.Address;
 import com.hazelcast.core.HazelcastInstanceNotActiveException;
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
@@ -92,6 +91,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 
@@ -146,6 +146,8 @@ public class JobMaster {
 
     private Map<Integer, CheckpointPlan> checkpointPlanMap;
 
+    private List<SlotProfile> releasedSlotWhenTaskGroupFinished;
+
     private final IMap<Long, JobInfo> runningJobInfoIMap;
 
     private final IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap;
@@ -190,6 +192,7 @@ public class JobMaster {
         this.engineConfig = engineConfig;
         this.metricsImap = metricsImap;
         this.seaTunnelServer = seaTunnelServer;
+        this.releasedSlotWhenTaskGroupFinished = new CopyOnWriteArrayList<>();
     }
 
     public synchronized void init(long initializationTimestamp, boolean restart) throws Exception {
@@ -464,10 +467,7 @@ public class JobMaster {
                                         jobImmutableInformation.getJobId(),
                                         Collections.singletonList(taskGroupSlotProfile))
                                 .join();
-                        // remove the task group from the ownedSlotProfilesIMap
-                        taskGroupLocationSlotProfileMap.remove(taskGroupLocation);
-                        ownedSlotProfilesIMap.put(
-                                pipelineLocation, taskGroupLocationSlotProfileMap);
+                        releasedSlotWhenTaskGroupFinished.add(taskGroupSlotProfile);
                         return null;
                     },
                     new RetryUtils.RetryMaterial(
@@ -500,8 +500,12 @@ public class JobMaster {
                         resourceManager
                                 .releaseResources(
                                         jobImmutableInformation.getJobId(),
-                                        Lists.newArrayList(
-                                                taskGroupLocationSlotProfileMap.values()))
+                                        taskGroupLocationSlotProfileMap.values().stream()
+                                                .filter(
+                                                        p ->
+                                                                !releasedSlotWhenTaskGroupFinished
+                                                                        .contains(p))
+                                                .collect(Collectors.toList()))
                                 .join();
                         ownedSlotProfilesIMap.remove(subPlan.getPipelineLocation());
                         return null;
