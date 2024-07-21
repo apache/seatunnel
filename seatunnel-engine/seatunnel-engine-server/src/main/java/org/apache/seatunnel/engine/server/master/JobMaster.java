@@ -91,6 +91,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
@@ -146,7 +147,7 @@ public class JobMaster {
 
     private Map<Integer, CheckpointPlan> checkpointPlanMap;
 
-    private List<SlotProfile> releasedSlotWhenTaskGroupFinished;
+    private final Map<Integer, List<SlotProfile>> releasedSlotWhenTaskGroupFinished;
 
     private final IMap<Long, JobInfo> runningJobInfoIMap;
 
@@ -192,7 +193,7 @@ public class JobMaster {
         this.engineConfig = engineConfig;
         this.metricsImap = metricsImap;
         this.seaTunnelServer = seaTunnelServer;
-        this.releasedSlotWhenTaskGroupFinished = new CopyOnWriteArrayList<>();
+        this.releasedSlotWhenTaskGroupFinished = new ConcurrentHashMap<>();
     }
 
     public synchronized void init(long initializationTimestamp, boolean restart) throws Exception {
@@ -467,7 +468,11 @@ public class JobMaster {
                                         jobImmutableInformation.getJobId(),
                                         Collections.singletonList(taskGroupSlotProfile))
                                 .join();
-                        releasedSlotWhenTaskGroupFinished.add(taskGroupSlotProfile);
+                        releasedSlotWhenTaskGroupFinished
+                                .computeIfAbsent(
+                                        pipelineLocation.getPipelineId(),
+                                        k -> new CopyOnWriteArrayList<>())
+                                .add(taskGroupSlotProfile);
                         return null;
                     },
                     new RetryUtils.RetryMaterial(
@@ -490,6 +495,11 @@ public class JobMaster {
             if (taskGroupLocationSlotProfileMap == null) {
                 return;
             }
+            List<SlotProfile> alreadyReleased = new ArrayList<>();
+            if (releasedSlotWhenTaskGroupFinished.containsKey(subPlan.getPipelineId())) {
+                alreadyReleased.addAll(
+                        releasedSlotWhenTaskGroupFinished.get(subPlan.getPipelineId()));
+            }
 
             RetryUtils.retryWithException(
                     () -> {
@@ -501,13 +511,11 @@ public class JobMaster {
                                 .releaseResources(
                                         jobImmutableInformation.getJobId(),
                                         taskGroupLocationSlotProfileMap.values().stream()
-                                                .filter(
-                                                        p ->
-                                                                !releasedSlotWhenTaskGroupFinished
-                                                                        .contains(p))
+                                                .filter(p -> !alreadyReleased.contains(p))
                                                 .collect(Collectors.toList()))
                                 .join();
                         ownedSlotProfilesIMap.remove(subPlan.getPipelineLocation());
+                        releasedSlotWhenTaskGroupFinished.remove(subPlan.getPipelineId());
                         return null;
                     },
                     new RetryUtils.RetryMaterial(
