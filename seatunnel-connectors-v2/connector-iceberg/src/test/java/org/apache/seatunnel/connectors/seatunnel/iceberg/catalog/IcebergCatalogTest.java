@@ -80,11 +80,8 @@ class IcebergCatalogTest {
         // hadoop kerberos config
         configs.put(CommonConfig.KERBEROS_PRINCIPAL.key(), "hive/xxxx@xxxx.COM");
         configs.put(
-                CommonConfig.KERBEROS_KEYTAB_PATH.key(),
-                "/tmp/hadoop/conf/hive.service.keytab");
-        configs.put(
-                CommonConfig.KERBEROS_KRB5_CONF_PATH.key(),
-                "/tmp/hadoop/conf/krb5.conf");
+                CommonConfig.KERBEROS_KEYTAB_PATH.key(), "/tmp/hadoop/conf/hive.service.keytab");
+        configs.put(CommonConfig.KERBEROS_KRB5_CONF_PATH.key(), "/tmp/hadoop/conf/krb5.conf");
         icebergCatalog = new IcebergCatalog(CATALOG_NAME, ReadonlyConfig.fromMap(configs));
         icebergCatalog.open();
     }
