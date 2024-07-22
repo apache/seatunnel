@@ -83,6 +83,20 @@ public class KafkaSourceSplitEnumerator
         this.discoveryIntervalMillis = kafkaSourceConfig.getDiscoveryIntervalMillis();
     }
 
+    @VisibleForTesting
+    protected KafkaSourceSplitEnumerator(
+            AdminClient adminClient,
+            Map<TopicPartition, KafkaSourceSplit> pendingSplit,
+            Map<TopicPartition, KafkaSourceSplit> assignedSplit) {
+        this.tablePathMetadataMap = new HashMap<>();
+        this.context = null;
+        this.discoveryIntervalMillis = -1;
+        this.adminClient = adminClient;
+        this.kafkaSourceConfig = null;
+        this.pendingSplit = pendingSplit;
+        this.assignedSplit = assignedSplit;
+    }
+
     @Override
     public void open() {
         if (discoveryIntervalMillis > 0) {
@@ -182,17 +196,10 @@ public class KafkaSourceSplitEnumerator
     public void addSplitsBack(List<KafkaSourceSplit> splits, int subtaskId) {
         if (!splits.isEmpty()) {
             Map<TopicPartition, ? extends KafkaSourceSplit> nextSplit = convertToNextSplit(splits);
-            addSplitsBack(nextSplit, pendingSplit, assignedSplit);
+            // remove them from the assignedSplit, so we can reassign them
+            nextSplit.keySet().forEach(assignedSplit::remove);
+            pendingSplit.putAll(nextSplit);
         }
-    }
-
-    @VisibleForTesting
-    protected static void addSplitsBack(
-            Map<TopicPartition, ? extends KafkaSourceSplit> nextSplit,
-            Map<TopicPartition, KafkaSourceSplit> pendingSplit,
-            Map<TopicPartition, KafkaSourceSplit> assignedSplit) {
-        nextSplit.keySet().forEach(assignedSplit::remove);
-        pendingSplit.putAll(nextSplit);
     }
 
     private Map<TopicPartition, ? extends KafkaSourceSplit> convertToNextSplit(

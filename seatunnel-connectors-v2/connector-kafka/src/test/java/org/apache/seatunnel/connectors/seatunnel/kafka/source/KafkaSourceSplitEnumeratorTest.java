@@ -17,37 +17,58 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.source;
 
+import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.admin.KafkaAdminClient;
+import org.apache.kafka.clients.admin.ListOffsetsResult;
+import org.apache.kafka.common.KafkaFuture;
 import org.apache.kafka.common.TopicPartition;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 class KafkaSourceSplitEnumeratorTest {
 
     @Test
     void addSplitsBack() {
+        // prepare
         TopicPartition partition = new TopicPartition("test", 0);
-        KafkaSourceSplit split = new KafkaSourceSplit(null, partition);
-        Map<TopicPartition, KafkaSourceSplit> nextSplit =
-                new HashMap<TopicPartition, KafkaSourceSplit>() {
-                    {
-                        put(partition, split);
-                    }
-                };
-        Map<TopicPartition, KafkaSourceSplit> pendingSplit = new HashMap();
+
+        AdminClient adminClient = Mockito.mock(KafkaAdminClient.class);
+        Mockito.when(adminClient.listOffsets(Mockito.any(java.util.Map.class)))
+                .thenReturn(
+                        new ListOffsetsResult(
+                                new HashMap<
+                                        TopicPartition,
+                                        KafkaFuture<ListOffsetsResult.ListOffsetsResultInfo>>() {
+                                    {
+                                        put(
+                                                partition,
+                                                KafkaFuture.completedFuture(
+                                                        new ListOffsetsResult.ListOffsetsResultInfo(
+                                                                0, 0, Optional.of(0))));
+                                    }
+                                }));
+
+        // test
         Map<TopicPartition, KafkaSourceSplit> assignedSplit =
                 new HashMap<TopicPartition, KafkaSourceSplit>() {
                     {
-                        put(partition, split);
+                        put(partition, new KafkaSourceSplit(null, partition));
                     }
                 };
-
-        // test add back
-        KafkaSourceSplitEnumerator.addSplitsBack(nextSplit, pendingSplit, assignedSplit);
+        Map<TopicPartition, KafkaSourceSplit> pendingSplit = new HashMap<>();
+        List<KafkaSourceSplit> splits = Arrays.asList(new KafkaSourceSplit(null, partition));
+        KafkaSourceSplitEnumerator enumerator =
+                new KafkaSourceSplitEnumerator(adminClient, pendingSplit, assignedSplit);
+        enumerator.addSplitsBack(splits, 1);
+        Assertions.assertTrue(pendingSplit.size() == splits.size());
         Assertions.assertNull(assignedSplit.get(partition));
-        Assertions.assertTrue(pendingSplit.get(partition).equals(split));
     }
 }
