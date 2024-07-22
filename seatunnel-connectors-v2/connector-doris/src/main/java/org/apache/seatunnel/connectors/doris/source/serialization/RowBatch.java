@@ -75,7 +75,6 @@ import java.util.function.IntFunction;
 
 @Slf4j
 public class RowBatch {
-    public static final String DECIMAL = "DECIMAL";
     SeaTunnelDataType<?>[] fieldTypes;
     private final ArrowStreamReader arrowStreamReader;
     private final String DATETIME_PATTERN = "yyyy-MM-dd HH:mm:ss";
