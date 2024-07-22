@@ -92,8 +92,7 @@ public class PaimonSink
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, PaimonCommitInfo, PaimonSinkState> createWriter(
-            SinkWriter.Context context) throws IOException {
+    public PaimonSinkWriter createWriter(SinkWriter.Context context) throws IOException {
         return new PaimonSinkWriter(
                 context, table, seaTunnelRowType, jobContext, paimonHadoopConfiguration);
     }

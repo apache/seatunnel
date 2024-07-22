@@ -3,17 +3,17 @@
 sidebar_position: 6
 -------------------
 
-# Deploy SeaTunnel Engine in Separated Cluster Mode
+# Deploy SeaTunnel Engine In Separated Cluster Mode
 
-The Master service and Worker service of SeaTunnel Engine are separated, and each service is a separate process. The Master node is only responsible for job scheduling, REST API, task submission, etc., and the Imap data is only stored on the Master node. The Worker node is only responsible for the execution of tasks and does not participate in the election to become the master nor stores Imap data.
+The Master service and Worker service of SeaTunnel Engine are separated, and each service is a separate process. The Master node is only responsible for job scheduling, RESTful API, task submission, etc., and the Imap data is only stored on the Master node. The Worker node is only responsible for the execution of tasks and does not participate in the election to become the master nor stores Imap data.
 
 Among all the Master nodes, only one Master node works at the same time, and the other Master nodes are in the standby state. When the current Master node fails or the heartbeat times out, a new Master Active node will be elected from the other Master nodes.
 
-This is the most recommended usage method. In this mode, the load on the Master will be very small, and the Master has more resources for job scheduling, task fault tolerance index monitoring, and providing REST API services, etc., and will have higher stability. At the same time, the Worker node does not store Imap data. All Imap data is stored on the Master node. Even if the Worker node has a high load or crashes, it will not cause the Imap data to be redistributed.
+This is the most recommended usage method. In this mode, the load on the Master will be very low, and the Master has more resources for job scheduling, task fault tolerance index monitoring, and providing RESTful API services, etc., and will have higher stability. At the same time, the Worker node does not store Imap data. All Imap data is stored on the Master node. Even if the Worker node has a high load or crashes, it will not cause the Imap data to be redistributed.
 
 ## 1. Download
 
-[Download and Make SeaTunnel Installation Package](download-seatunnel.md)
+[Download And Make SeaTunnel Installation Package](download-seatunnel.md)
 
 ## 2. Configure SEATUNNEL_HOME
 
@@ -24,7 +24,7 @@ export SEATUNNEL_HOME=${seatunnel install path}
 export PATH=$PATH:$SEATUNNEL_HOME/bin
 ```
 
-## 3. Configure JVM Options for Master Nodes
+## 3. Configure JVM Options For Master Nodes
 
 The JVM parameters of the Master node are configured in the `$SEATUNNEL_HOME/config/jvm_master_options` file.
 
@@ -271,15 +271,26 @@ map:
         fs.oss.credentials.provider: org.apache.hadoop.fs.aliyun.oss.AliyunCredentialsProvider
 ```
 
+Notice: When using OSS, make sure that the following jars are in the lib directory.
+
+```
+aliyun-sdk-oss-3.13.2.jar
+hadoop-aliyun-3.3.6.jar
+jdom2-2.0.6.jar
+netty-buffer-4.1.89.Final.jar 
+netty-common-4.1.89.Final.jar
+seatunnel-hadoop3-3.1.4-uber.jar
+```
+
 ## 5. Configuring SeaTunnel Engine Network Services
 
 All network-related configurations of the SeaTunnel Engine are in the `hazelcast-master.yaml` and `hazelcast-worker.yaml` files.
 
-### 5.1 Cluster Name
+### 5.1 cluster-name
 
 SeaTunnel Engine nodes use the `cluster-name` to determine whether another node is in the same cluster as themselves. If the cluster names between two nodes are different, the SeaTunnel Engine will reject service requests.
 
-### 5.2 Network
+### 5.2 network
 
 Based on [Hazelcast](https://docs.hazelcast.com/imdg/4.1/clusters/discovery-mechanisms), a SeaTunnel Engine cluster is a network composed of cluster members running the SeaTunnel Engine server. Cluster members automatically join together to form a cluster. This automatic joining is through the various discovery mechanisms used by cluster members to discover each other.
 
@@ -287,7 +298,7 @@ Please note that after the cluster is formed, the communication between cluster 
 
 The SeaTunnel Engine uses the following discovery mechanisms.
 
-#### TCP
+#### tcp-ip
 
 You can configure the SeaTunnel Engine as a complete TCP/IP cluster. For configuration details, please refer to the [Discovering Members by TCP section](tcp.md).
 
@@ -367,7 +378,7 @@ mkdir -p $SEATUNNEL_HOME/logs
 
 The logs will be written to `$SEATUNNEL_HOME/logs/seatunnel-engine-master.log`.
 
-## 7. Starting the SeaTunnel Engine Worker Node
+## 7. Starting The SeaTunnel Engine Worker Node
 
 It can be started using the `-d` parameter through the daemon.
 
@@ -378,7 +389,7 @@ mkdir -p $SEATUNNEL_HOME/logs
 
 The logs will be written to `$SEATUNNEL_HOME/logs/seatunnel-engine-worker.log`.
 
-## 8. Installing the SeaTunnel Engine Client
+## 8. Installing The SeaTunnel Engine Client
 
 ### 8.1 Setting the `SEATUNNEL_HOME` the same as the server
 
@@ -389,7 +400,7 @@ export SEATUNNEL_HOME=${seatunnel install path}
 export PATH=$PATH:$SEATUNNEL_HOME/bin
 ```
 
-### 8.2 Configuring the SeaTunnel Engine Client
+### 8.2 Configuring The SeaTunnel Engine Client
 
 All configurations of the SeaTunnel Engine client are in the `hazelcast-client.yaml`.
 
@@ -412,6 +423,6 @@ hazelcast-client:
       - master-node-2:5801
 ```
 
-# 9 Submitting and Managing Jobs
+# 9 Submitting And Managing Jobs
 
-Now that the cluster has been deployed, you can complete the job submission and management through the following tutorial: [Submitting and Managing Jobs](user-command.md).
+Now that the cluster has been deployed, you can complete the job submission and management through the following tutorial: [Submitting And Managing Jobs](user-command.md).

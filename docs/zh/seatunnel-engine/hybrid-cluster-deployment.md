@@ -109,7 +109,7 @@ seatunnel:
 
 如果集群的节点大于1，检查点存储必须是一个分布式存储，或者共享存储，这样才能保证任意节点挂掉后依然可以在另一个节点加载到存储中的任务状态信息。
 
-有关检查点存储的信息，您可以查看 [checkpoint storage](checkpoint-storage.md)
+有关检查点存储的信息，您可以查看 [Checkpoint Storage](checkpoint-storage.md)
 
 ### 4.4 历史作业过期配置
 
@@ -155,7 +155,7 @@ SeaTunnel Engine 使用以下发现机制。
 
 #### TCP
 
-您可以将 SeaTunnel Engine 配置为完整的 TCP/IP 集群。有关配置详细信息，请参阅 [Discovering Members by TCP section](tcp.md)。
+您可以将 SeaTunnel Engine 配置为完整的 TCP/IP 集群。有关配置详细信息，请参阅 [Discovering Members By TCP Section](tcp.md)。
 
 一个示例如下 `hazelcast.yaml`
 
@@ -177,7 +177,7 @@ hazelcast:
 
 TCP 是我们建议在独立 SeaTunnel Engine 集群中使用的方式。
 
-另一方面，Hazelcast 提供了一些其他的服务发现方法。有关详细信息，请参阅  [hazelcast network](https://docs.hazelcast.com/imdg/4.1/clusters/setting-up-clusters)
+另一方面，Hazelcast 提供了一些其他的服务发现方法。有关详细信息，请参阅  [Hazelcast Network](https://docs.hazelcast.com/imdg/4.1/clusters/setting-up-clusters)
 
 ### 5.3 IMap持久化配置
 
@@ -187,7 +187,7 @@ TCP 是我们建议在独立 SeaTunnel Engine 集群中使用的方式。
 
 为了解决这个问题，我们可以将Imap中的数据持久化到外部存储中，如HDFS、OSS等。这样即使所有节点都被停止，Imap中的数据也不会丢失，当集群节点再次启动后，所有之前正在运行的任务都会被自动恢复。
 
-下面介绍如何使用 MapStore 持久化配置。有关详细信息，请参阅 [hazelcast map](https://docs.hazelcast.com/imdg/4.2/data-structures/map)
+下面介绍如何使用 MapStore 持久化配置。有关详细信息，请参阅 [Hazelcast Map](https://docs.hazelcast.com/imdg/4.2/data-structures/map)
 
 **type**
 
@@ -261,6 +261,17 @@ map:
            fs.oss.credentials.provider: org.apache.hadoop.fs.aliyun.oss.AliyunCredentialsProvider
 ```
 
+注意：使用OSS 时，确保 lib目录下有这几个jar.
+
+```
+aliyun-sdk-oss-3.13.2.jar
+hadoop-aliyun-3.3.6.jar
+jdom2-2.0.6.jar
+netty-buffer-4.1.89.Final.jar 
+netty-common-4.1.89.Final.jar
+seatunnel-hadoop3-3.1.4-uber.jar
+```
+
 ## 6. 配置 SeaTunnel Engine 客户端
 
 所有 SeaTunnel Engine 客户端的配置都在 `hazelcast-client.yaml` 里。
@@ -300,6 +311,6 @@ mkdir -p $SEATUNNEL_HOME/logs
 
 您只需将 SeaTunnel Engine 节点上的 `$SEATUNNEL_HOME` 目录复制到客户端节点，并像 SeaTunnel Engine 服务器节点一样配置 `SEATUNNEL_HOME`。
 
-# 9 提交作业和管理作业
+## 9. 提交作业和管理作业
 
 现在集群部署完成了，您可以通过以下教程完成作业的提交和管理：[提交和管理作业](user-command.md)
