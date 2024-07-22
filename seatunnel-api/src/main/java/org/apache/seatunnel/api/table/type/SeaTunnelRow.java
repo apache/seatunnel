@@ -141,6 +141,8 @@ public final class SeaTunnelRow implements Serializable {
                 return 12;
             case TIMESTAMP:
                 return 48;
+            case FLOAT_VECTOR:
+                return getArrayNotNullSize((Object[]) v) * 4;
             case ARRAY:
                 SeaTunnelDataType elementType = ((ArrayType) dataType).getElementType();
                 if (elementType instanceof DecimalType) {

@@ -100,12 +100,13 @@ public class JdbcSink
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, XidInfo, JdbcSinkState> createWriter(
-            SinkWriter.Context context) {
-        SinkWriter<SeaTunnelRow, XidInfo, JdbcSinkState> sinkWriter;
+    public AbstractJdbcSinkWriter createWriter(SinkWriter.Context context) {
+        TablePath sinkTablePath = catalogTable.getTablePath();
+        AbstractJdbcSinkWriter sinkWriter;
         if (jdbcSinkConfig.isExactlyOnce()) {
             sinkWriter =
                     new JdbcExactlyOnceSinkWriter(
+                            sinkTablePath,
                             context,
                             jobContext,
                             dialect,
@@ -117,10 +118,12 @@ public class JdbcSink
                 String keyName = tableSchema.getPrimaryKey().getColumnNames().get(0);
                 int index = tableSchema.toPhysicalRowDataType().indexOf(keyName);
                 if (index > -1) {
-                    return new JdbcSinkWriter(dialect, jdbcSinkConfig, tableSchema, index);
+                    return new JdbcSinkWriter(
+                            sinkTablePath, dialect, jdbcSinkConfig, tableSchema, index);
                 }
             }
-            sinkWriter = new JdbcSinkWriter(dialect, jdbcSinkConfig, tableSchema, null);
+            sinkWriter =
+                    new JdbcSinkWriter(sinkTablePath, dialect, jdbcSinkConfig, tableSchema, null);
         }
         return sinkWriter;
     }
@@ -128,9 +131,16 @@ public class JdbcSink
     @Override
     public SinkWriter<SeaTunnelRow, XidInfo, JdbcSinkState> restoreWriter(
             SinkWriter.Context context, List<JdbcSinkState> states) throws IOException {
+        TablePath sinkTablePath = catalogTable.getTablePath();
         if (jdbcSinkConfig.isExactlyOnce()) {
             return new JdbcExactlyOnceSinkWriter(
-                    context, jobContext, dialect, jdbcSinkConfig, tableSchema, states);
+                    sinkTablePath,
+                    context,
+                    jobContext,
+                    dialect,
+                    jdbcSinkConfig,
+                    tableSchema,
+                    states);
         }
         return SeaTunnelSink.super.restoreWriter(context, states);
     }

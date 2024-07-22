@@ -111,10 +111,12 @@ public class SinkExecuteProcessor
                 sink.setTypeInfo(sourceType);
             } else {
                 TableSinkFactoryContext context =
-                        new TableSinkFactoryContext(
+                        TableSinkFactoryContext.replacePlaceholderAndCreate(
                                 stream.getCatalogTable(),
                                 ReadonlyConfig.fromConfig(sinkConfig),
-                                classLoader);
+                                classLoader,
+                                ((TableSinkFactory) factory.get())
+                                        .excludeTablePlaceholderReplaceKeys());
                 ConfigValidator.of(context.getOptions()).validate(factory.get().optionRule());
                 sink = ((TableSinkFactory) factory.get()).createSink(context).createSink();
                 sink.setJobContext(jobContext);

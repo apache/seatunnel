@@ -15,6 +15,7 @@ If you use SeaTunnel Engine, You need put seatunnel-hadoop3-3.1.4-uber.jar and h
 
 ## Key features
 
+- [x] [support multiple table write](../../concept/connector-v2-features.md)
 - [x] [exactly-once](../../concept/connector-v2-features.md)
 
 By default, we use 2PC commit to ensure `exactly-once`
@@ -176,6 +177,7 @@ sink {
     metastore_uri = "thrift://ctyun7:9083"
     hive.hadoop.conf = {
       bucket = "s3a://mybucket"
+      fs.s3a.aws.credentials.provider="com.amazonaws.auth.InstanceProfileCredentialsProvider"
     }
 }
 ```
@@ -258,6 +260,7 @@ sink {
     hive.hadoop.conf-path = "/home/ec2-user/hadoop-conf"
     hive.hadoop.conf = {
        bucket="s3://ws-package"
+       fs.s3a.aws.credentials.provider="com.amazonaws.auth.InstanceProfileCredentialsProvider"
     }
   }
 }

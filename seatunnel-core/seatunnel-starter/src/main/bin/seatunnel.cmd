@@ -73,7 +73,7 @@ set "JAVA_OPTS=%JAVA_OPTS% -Dseatunnel.config=%SEATUNNEL_CONFIG%"
 set "JAVA_OPTS=%JAVA_OPTS% -Dhazelcast.config=%HAZELCAST_CONFIG%"
 
 REM if you want to debug, please
-REM set "JAVA_OPTS=%JAVA_OPTS% -Xdebug -Xrunjdwp:transport=dt_socket,server=y,address=5000,suspend=y"
+REM set "JAVA_OPTS=%JAVA_OPTS% -Xdebug -Xrunjdwp:transport=dt_socket,server=y,address=5000,suspend=n"
 
 REM Log4j2 Config
 if exist "%CONF_DIR%\log4j2_client.properties" (

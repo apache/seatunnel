@@ -112,7 +112,7 @@ public class IcebergSourceIT extends TestSuiteBase implements TestResource {
                 Assertions.assertEquals(0, extraCommands.getExitCode());
             };
 
-    private static final String MINIO_DOCKER_IMAGE = "minio/minio";
+    private static final String MINIO_DOCKER_IMAGE = "minio/minio:RELEASE.2024-06-13T22-53-53Z";
     private static final String HOST = "minio";
     private static final int MINIO_PORT = 9000;
 
