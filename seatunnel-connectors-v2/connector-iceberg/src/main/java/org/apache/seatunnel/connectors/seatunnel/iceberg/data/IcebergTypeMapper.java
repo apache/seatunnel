@@ -137,8 +137,7 @@ public class IcebergTypeMapper {
                 Type elementType = toIcebergType(arrayType.getElementType());
                 return Types.ListType.ofOptional(nextId(), elementType);
             case MAP:
-                org.apache.seatunnel.api.table.type.MapType mapType =
-                        (org.apache.seatunnel.api.table.type.MapType) dataType;
+                MapType mapType = (MapType) dataType;
                 Type keyType = toIcebergType(mapType.getKeyType());
                 Type valueType = toIcebergType(mapType.getValueType());
                 return Types.MapType.ofOptional(nextId(), nextId(), keyType, valueType);
