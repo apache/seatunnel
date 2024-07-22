@@ -5,7 +5,7 @@ sidebar_position: 6
 
 # 部署 SeaTunnel Engine 分离模式集群
 
-SeaTunnel Engine 的Master服务和Worker服务分离，每个服务单独一个进程。Master节点只负责作业调度，rest api，任务提交等，Imap数据只存储在Master节点中。Worker节点只负责任务的执行，不参与选举成为master，也不存储Imap数据。
+SeaTunnel Engine 的Master服务和Worker服务分离，每个服务单独一个进程。Master节点只负责作业调度，RESTful API，任务提交等，Imap数据只存储在Master节点中。Worker节点只负责任务的执行，不参与选举成为master，也不存储Imap数据。
 
 在所有Master节点中，同一时间只有一个Master节点工作，其他Master节点处于standby状态。当当前Master节点宕机或心跳超时，会从其它Master节点中选举出一个新的Master Active节点。
 
@@ -159,7 +159,7 @@ seatunnel:
 
 :::
 
-有关检查点存储的信息，您可以查看 [checkpoint storage](checkpoint-storage.md)
+有关检查点存储的信息，您可以查看 [Checkpoint Storage](checkpoint-storage.md)
 
 ### 4.4 历史作业过期配置
 
@@ -195,13 +195,13 @@ seatunnel:
 
 :::
 
-在SeaTunnel中，我们使用IMap(一种分布式的Map，可以实现数据跨节点跨进程的写入的读取 有关详细信息，请参阅 [hazelcast map](https://docs.hazelcast.com/imdg/4.2/data-structures/map)) 来存储每个任务及其task的状态，以便在任务所在节点宕机后，可以在其他节点上获取到任务之前的状态信息，从而恢复任务实现任务的容错。
+在SeaTunnel中，我们使用IMap(一种分布式的Map，可以实现数据跨节点跨进程的写入的读取 有关详细信息，请参阅 [Hazelcast Map](https://docs.hazelcast.com/imdg/4.2/data-structures/map)) 来存储每个任务及其task的状态，以便在任务所在节点宕机后，可以在其他节点上获取到任务之前的状态信息，从而恢复任务实现任务的容错。
 
 默认情况下Imap的信息只是存储在内存中，我们可以设置Imap数据的复本数，具体可参考(4.1 Imap中数据的备份数设置)，如果复本数是2，代表每个数据会同时存储在2个不同的节点中。一旦节点宕机，Imap中的数据会重新在其它节点上自动补充到设置的复本数。但是当所有节点都被停止后，Imap中的数据会丢失。当集群节点再次启动后，所有之前正在运行的任务都会被标记为失败，需要用户手工通过seatunnel.sh -r 指令恢复运行。
 
 为了解决这个问题，我们可以将Imap中的数据持久化到外部存储中，如HDFS、OSS等。这样即使所有节点都被停止，Imap中的数据也不会丢失，当集群节点再次启动后，所有之前正在运行的任务都会被自动恢复。
 
-下面介绍如何使用 MapStore 持久化配置。有关详细信息，请参阅 [hazelcast map](https://docs.hazelcast.com/imdg/4.2/data-structures/map)
+下面介绍如何使用 MapStore 持久化配置。有关详细信息，请参阅 [Hazelcast Map](https://docs.hazelcast.com/imdg/4.2/data-structures/map)
 
 **type**
 
@@ -273,6 +273,17 @@ map:
         fs.oss.accessKeySecret: OSS access key secret
         fs.oss.endpoint: OSS endpoint
         fs.oss.credentials.provider: org.apache.hadoop.fs.aliyun.oss.AliyunCredentialsProvider
+```
+
+注意：使用OSS 时，确保 lib目录下有这几个jar.
+
+```
+aliyun-sdk-oss-3.13.2.jar
+hadoop-aliyun-3.3.6.jar
+jdom2-2.0.6.jar
+netty-buffer-4.1.89.Final.jar 
+netty-common-4.1.89.Final.jar
+seatunnel-hadoop3-3.1.4-uber.jar
 ```
 
 ## 5. 配置 SeaTunnel Engine 网络服务
@@ -360,7 +371,7 @@ hazelcast:
 
 TCP 是我们建议在独立 SeaTunnel Engine 集群中使用的方式。
 
-另一方面，Hazelcast 提供了一些其他的服务发现方法。有关详细信息，请参阅  [hazelcast network](https://docs.hazelcast.com/imdg/4.1/clusters/setting-up-clusters)
+另一方面，Hazelcast 提供了一些其他的服务发现方法。有关详细信息，请参阅  [Hazelcast Network](https://docs.hazelcast.com/imdg/4.1/clusters/setting-up-clusters)
 
 ## 6. 启动 SeaTunnel Engine Master 节点
 
@@ -418,6 +429,6 @@ hazelcast-client:
       - master-node-2:5801
 ```
 
-# 9 提交作业和管理作业
+## 9. 提交作业和管理作业
 
 现在集群部署完成了，您可以通过以下教程完成作业的提交和管理：[提交和管理作业](user-command.md)

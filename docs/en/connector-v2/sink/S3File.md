@@ -12,6 +12,7 @@
 
 - [x] [exactly-once](../../concept/connector-v2-features.md)
 - [ ] [cdc](../../concept/connector-v2-features.md)
+- [x] [support multiple table write](../../concept/connector-v2-features.md)
 
 By default, we use 2PC commit to ensure `exactly-once`
 
@@ -445,45 +446,34 @@ For orc file format simple config with `org.apache.hadoop.fs.s3a.SimpleAWSCreden
 
 Multi-table writing and saveMode
 
-```
+```hocon
 env {
-"job.name"="SeaTunnel_job"
-"job.mode"=STREAMING
+  "job.name"="SeaTunnel_job"
+  "job.mode"=STREAMING
 }
 source {
-MySQL-CDC {
-    
-    "connect.max-retries"=3
-    "connection.pool.size"=6
-    "startup.mode"=INITIAL
-    "exactly_once"="true"
-    "stop.mode"=NEVER
-    parallelism=1
-    "result_table_name"=Table11519548644512
-    "dag-parsing.mode"=MULTIPLEX
-    catalog {
-        factory=Mysql
-    }
-    database-names=[
-        "wls_t1"
-    ]
-    table-names=[
-        "wls_t1.mysqlcdc_to_s3_t3",
-        "wls_t1.mysqlcdc_to_s3_t4",
-        "wls_t1.mysqlcdc_to_s3_t5",
-        "wls_t1.mysqlcdc_to_s3_t1",
-        "wls_t1.mysqlcdc_to_s3_t2"
-    ]
-    password="xxxxxx"
-    username="xxxxxxxxxxxxx"
-    base-url="jdbc:mysql://localhost:3306/qa_source"
-    server-time-zone=UTC
+  MySQL-CDC {
+      database-names=[
+          "wls_t1"
+      ]
+      table-names=[
+          "wls_t1.mysqlcdc_to_s3_t3",
+          "wls_t1.mysqlcdc_to_s3_t4",
+          "wls_t1.mysqlcdc_to_s3_t5",
+          "wls_t1.mysqlcdc_to_s3_t1",
+          "wls_t1.mysqlcdc_to_s3_t2"
+      ]
+      password="xxxxxx"
+      username="xxxxxxxxxxxxx"
+      base-url="jdbc:mysql://localhost:3306/qa_source"
+  }
 }
-}
+
 transform {
 }
+
 sink {
-S3File {
+  S3File {
     bucket = "s3a://seatunnel-test"
     tmp_path = "/tmp/seatunnel/${table_name}"
     path="/test/${table_name}"

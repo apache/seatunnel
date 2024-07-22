@@ -90,8 +90,7 @@ public abstract class BaseMultipleTableFileSink
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, FileCommitInfo, FileSinkState> createWriter(
-            SinkWriter.Context context) {
+    public BaseFileSinkWriter createWriter(SinkWriter.Context context) {
         return new BaseFileSinkWriter(createWriteStrategy(), hadoopConf, context, jobId);
     }
 

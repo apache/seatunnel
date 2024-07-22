@@ -51,3 +51,5 @@ kotlin-stdlib-jdk8-1.8.21.jar
 okhttp-4.12.0.jar
 okio-3.6.0.jar
 okio-jvm-3.6.0.jar
+groovy-4.0.16.jar
+seatunnel-janino-2.3.6-SNAPSHOT-optional.jar

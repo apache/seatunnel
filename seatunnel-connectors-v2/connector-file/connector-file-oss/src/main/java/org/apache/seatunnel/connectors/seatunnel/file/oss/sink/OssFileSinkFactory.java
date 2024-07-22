@@ -42,10 +42,7 @@ public class OssFileSinkFactory extends BaseMultipleTableFileSinkFactory {
     public TableSink createSink(TableSinkFactoryContext context) {
         ReadonlyConfig readonlyConfig = context.getOptions();
         CatalogTable catalogTable = context.getCatalogTable();
-
-        ReadonlyConfig finalReadonlyConfig =
-                generateCurrentReadonlyConfig(readonlyConfig, catalogTable);
-        return () -> new OssFileSink(finalReadonlyConfig, catalogTable);
+        return () -> new OssFileSink(readonlyConfig, catalogTable);
     }
 
     @Override

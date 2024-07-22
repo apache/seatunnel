@@ -134,6 +134,7 @@
         <jsqlparser.version>4.5</jsqlparser.version>
         <json-path.version>2.7.0</json-path.version>
         <okhttp.version>4.12.0</okhttp.version>
+        <groovy.version>4.0.16</groovy.version>
         <surefire.argLine />
         <!-- Option args -->
         <skipUT>false</skipUT>
