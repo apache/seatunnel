@@ -132,7 +132,6 @@ public class IcebergCatalogLoader implements Serializable {
 
     /**
      * kerberos authentication
-     *
      * @param configuration Configuration
      */
     private Configuration doKerberosLogin(Configuration configuration) {
