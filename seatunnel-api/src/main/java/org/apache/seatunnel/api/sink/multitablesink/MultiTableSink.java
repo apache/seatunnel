@@ -28,6 +28,8 @@ import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.factory.MultiTableFactoryContext;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
+import lombok.Getter;
+
 import java.io.IOException;
 import java.util.Collection;
 import java.util.HashMap;
@@ -44,7 +46,7 @@ public class MultiTableSink
                 MultiTableCommitInfo,
                 MultiTableAggregatedCommitInfo> {
 
-    private final Map<String, SeaTunnelSink> sinks;
+    @Getter private final Map<String, SeaTunnelSink> sinks;
     private final int replicaNum;
 
     public MultiTableSink(MultiTableFactoryContext context) {
