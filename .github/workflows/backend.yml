@@ -831,7 +831,7 @@ jobs:
 
   jdbc-connectors-it-part-1:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true'
+    if: needs.changes.outputs.api == 'true' || contains(needs.changes.outputs.it-modules, 'connector-jdbc-e2e-part-1')
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -857,7 +857,7 @@ jobs:
 
   jdbc-connectors-it-part-2:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true'
+    if: needs.changes.outputs.api == 'true' || contains(needs.changes.outputs.it-modules, 'connector-jdbc-e2e-part-2')
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -883,7 +883,7 @@ jobs:
 
   jdbc-connectors-it-part-3:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true'
+    if: needs.changes.outputs.api == 'true' || contains(needs.changes.outputs.it-modules, 'connector-jdbc-e2e-part-3')
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -907,7 +907,7 @@ jobs:
 
   jdbc-connectors-it-part-4:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true'
+    if: needs.changes.outputs.api == 'true' || contains(needs.changes.outputs.it-modules, 'connector-jdbc-e2e-part-4')
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -931,7 +931,7 @@ jobs:
 
   jdbc-connectors-it-part-5:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true'
+    if: needs.changes.outputs.api == 'true' || contains(needs.changes.outputs.it-modules, 'connector-jdbc-e2e-part-5')
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -955,7 +955,7 @@ jobs:
 
   jdbc-connectors-it-part-6:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true'
+    if: needs.changes.outputs.api == 'true' || contains(needs.changes.outputs.it-modules, 'connector-jdbc-e2e-part-6')
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -981,7 +981,7 @@ jobs:
 
   jdbc-connectors-it-part-7:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true'
+    if: needs.changes.outputs.api == 'true' || contains(needs.changes.outputs.it-modules, 'connector-jdbc-e2e-part-7')
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
