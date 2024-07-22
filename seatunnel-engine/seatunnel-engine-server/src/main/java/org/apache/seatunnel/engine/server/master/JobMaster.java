@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.sink.SaveModeExecuteWrapper;
 import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SupportSaveMode;
+import org.apache.seatunnel.api.sink.multitablesink.MultiTableSink;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
@@ -375,11 +376,7 @@ public class JobMaster {
                     throw new SeaTunnelRuntimeException(HANDLE_SAVE_MODE_FAILED, e);
                 }
             }
-        } else if (sink.getClass()
-                .getName()
-                .equals(
-                        "org.apache.seatunnel.connectors.seatunnel.common.multitablesink.MultiTableSink")) {
-            // TODO we should not use class name to judge the sink type
+        } else if (sink instanceof MultiTableSink) {
             Map<String, SeaTunnelSink> sinks =
                     (Map<String, SeaTunnelSink>) ReflectionUtils.getField(sink, "sinks").get();
             for (SeaTunnelSink seaTunnelSink : sinks.values()) {

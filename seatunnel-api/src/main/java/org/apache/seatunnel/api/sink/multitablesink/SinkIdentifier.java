@@ -15,16 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.common.multitablesink;
+package org.apache.seatunnel.api.sink.multitablesink;
 
-import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 
 import java.io.Serializable;
-import java.util.Map;
 
 @Getter
-@AllArgsConstructor
-public class MultiTableCommitInfo implements Serializable {
-    private Map<SinkIdentifier, Object> commitInfo;
+@EqualsAndHashCode
+public class SinkIdentifier implements Serializable {
+
+    private final String tableIdentifier;
+
+    private final int index;
+
+    private SinkIdentifier(String tableIdentifier, int index) {
+        this.tableIdentifier = tableIdentifier;
+        this.index = index;
+    }
+
+    public static SinkIdentifier of(String tableIdentifier, int index) {
+        return new SinkIdentifier(tableIdentifier, index);
+    }
 }
