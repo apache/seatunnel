@@ -647,4 +647,35 @@ public class JsonRowDataSerDeSchemaTest {
                 "{\"mapii\":{\"1\":2},\"mapbb\":{\"true\":3}}",
                 new String(new JsonSerializationSchema(schema, "\\N").serialize(expected)));
     }
+
+    @Test
+    public void testSerializationWithTimestamp() {
+        SeaTunnelRowType schema =
+                new SeaTunnelRowType(
+                        new String[] {"timestamp"},
+                        new SeaTunnelDataType[] {LocalTimeType.LOCAL_DATE_TIME_TYPE});
+        LocalDateTime timestamp = LocalDateTime.of(2022, 9, 24, 22, 45, 0, 123456000);
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {timestamp});
+        assertEquals(
+                "{\"timestamp\":\"2022-09-24T22:45:00.123456\"}",
+                new String(new JsonSerializationSchema(schema, "\\N").serialize(row)));
+
+        timestamp = LocalDateTime.of(2022, 9, 24, 22, 45, 0, 0);
+        row = new SeaTunnelRow(new Object[] {timestamp});
+        assertEquals(
+                "{\"timestamp\":\"2022-09-24T22:45:00\"}",
+                new String(new JsonSerializationSchema(schema, "\\N").serialize(row)));
+
+        timestamp = LocalDateTime.of(2022, 9, 24, 22, 45, 0, 1000);
+        row = new SeaTunnelRow(new Object[] {timestamp});
+        assertEquals(
+                "{\"timestamp\":\"2022-09-24T22:45:00.000001\"}",
+                new String(new JsonSerializationSchema(schema, "\\N").serialize(row)));
+
+        timestamp = LocalDateTime.of(2022, 9, 24, 22, 45, 0, 123456);
+        row = new SeaTunnelRow(new Object[] {timestamp});
+        assertEquals(
+                "{\"timestamp\":\"2022-09-24T22:45:00.000123456\"}",
+                new String(new JsonSerializationSchema(schema, "\\N").serialize(row)));
+    }
 }
