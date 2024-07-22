@@ -18,6 +18,9 @@
 package org.apache.seatunnel.api.connector;
 
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSink;
+import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.factory.FactoryUtil;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
@@ -123,8 +126,8 @@ public class ConnectorSpecificationCheckTest {
                         sinkWithSPI.containsKey(factory.factoryIdentifier()),
                         "Please remove `@AutoService(SeaTunnelSink.class)` annotation in "
                                 + sinkWithSPI.get(factory.factoryIdentifier()));
-                Class<? extends SeaTunnelSource> sinkClass =
-                        (Class<? extends SeaTunnelSource>)
+                Class<? extends SeaTunnelSink> sinkClass =
+                        (Class<? extends SeaTunnelSink>)
                                 Class.forName(
                                         factory.getClass()
                                                 .getName()
@@ -148,7 +151,31 @@ public class ConnectorSpecificationCheckTest {
                         "Please remove `getConsumedType` method in " + sinkClass.getSimpleName());
                 log.info(
                         "Check sink connector {} successfully", factory.getClass().getSimpleName());
+
+                checkSupportMultiTableSink(sinkClass);
             }
         }
+    }
+
+    private void checkSupportMultiTableSink(Class<? extends SeaTunnelSink> sinkClass) {
+        if (!SupportMultiTableSink.class.isAssignableFrom(sinkClass)) {
+            return;
+        }
+
+        // Validate the `createWriter` method return type
+        Optional<Method> createWriter =
+                ReflectionUtils.getDeclaredMethod(
+                        sinkClass, "createWriter", SinkWriter.Context.class);
+        Assertions.assertTrue(
+                createWriter.isPresent(),
+                "Please add `createWriter` method in " + sinkClass.getSimpleName());
+        Class<? extends SinkWriter> createWriterClass =
+                (Class<? extends SinkWriter>) createWriter.get().getReturnType();
+        Assertions.assertTrue(
+                SupportMultiTableSinkWriter.class.isAssignableFrom(createWriterClass),
+                String.format(
+                        "Please update the `createWriter` method return type to the subclass of `SupportMultiTableSinkWriter`, "
+                                + "because `%s` implements `SupportMultiTableSink` interface",
+                        sinkClass.getSimpleName()));
     }
 }

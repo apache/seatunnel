@@ -231,7 +231,7 @@ public interface DorisOptions {
                             "CREATE TABLE IF NOT EXISTS `"
                                     + SaveModePlaceHolder.DATABASE.getPlaceHolder()
                                     + "`.`"
-                                    + SaveModePlaceHolder.TABLE_NAME.getPlaceHolder()
+                                    + SaveModePlaceHolder.TABLE.getPlaceHolder()
                                     + "` (\n"
                                     + SaveModePlaceHolder.ROWTYPE_PRIMARY_KEY.getPlaceHolder()
                                     + ",\n"
