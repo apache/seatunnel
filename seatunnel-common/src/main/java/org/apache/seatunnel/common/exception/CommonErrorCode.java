@@ -77,7 +77,6 @@ public enum CommonErrorCode implements SeaTunnelErrorCode {
             "The datetime format '<datetime>' of field '<field>' is not supported. Please check the datetime format."),
 
     KERBEROS_AUTHORIZED_FAILED("COMMON-24", "Kerberos authorized failed"),
-
     ;
 
     private final String code;
