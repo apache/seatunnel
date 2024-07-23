@@ -1,0 +1,55 @@
+/*
+ *  Licensed to the Apache Software Foundation (ASF) under one or more
+ *     contributor license agreements.  See the NOTICE file distributed with
+ *     this work for additional information regarding copyright ownership.
+ *     The ASF licenses this file to You under the Apache License, Version 2.0
+ *     (the "License"); you may not use this file except in compliance with
+ *     the License.  You may obtain a copy of the License at
+ *
+ *        http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *     Unless required by applicable law or agreed to in writing, software
+ *     distributed under the License is distributed on an "AS IS" BASIS,
+ *     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *     See the License for the specific language governing permissions and
+ *     limitations under the License.
+ */
+
+package org.apache.seatunnel.connectors.seatunnel.activemq.sink;
+
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import com.google.auto.service.AutoService;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqConfig.*;
+
+@AutoService(Factory.class)
+public class ActivemqSinkFactory implements TableSinkFactory {
+
+    @Override
+    public String factoryIdentifier() {
+        return "ActiveMQ";
+    }
+
+    @Override
+    public OptionRule optionRule() {
+        return OptionRule.builder()
+                .required(QUEUE_NAME, URI)
+                .bundled(USERNAME, PASSWORD)
+                .optional(
+                        HOST,
+                        PORT,
+                        CLIENT_ID,
+                        CHECK_FOR_DUPLICATE,
+                        COPY_MESSAGE_ON_SEND,
+                        DISABLE_TIMESTAMP_BY_DEFAULT,
+                        USE_COMPRESSION,
+                        ALWAYS_SESSION_ASYNC,
+                        ALWAYS_SYNC_SEND,
+                        CLOSE_TIMEOUT,
+                        DISPATCH_ASYNC,
+                        NESTED_MAP_AND_LIST_ENABLED,
+                        WARN_ABOUT_UNSTARTED_CONNECTION_TIMEOUT)
+                .build();
+    }
+}
