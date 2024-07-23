@@ -272,6 +272,44 @@ source {
 }
 ```
 
+> Use the select count(*) instead of analysis table for count table rows in full stage
+>
+> ```conf
+> source {
+> # This is a example source plugin **only for test and demonstrate the feature source plugin**
+> Oracle-CDC {
+> result_table_name = "customers"
+> use_select_count = true 
+> username = "system"
+> password = "oracle"
+> database-names = ["XE"]
+> schema-names = ["DEBEZIUM"]
+> table-names = ["XE.DEBEZIUM.FULL_TYPES"]
+> base-url = "jdbc:oracle:thin:system/oracle@oracle-host:1521:xe"
+> source.reader.close.timeout = 120000
+> }
+> }
+> ```
+>
+> Use the select NUM_ROWS from all_tables for the table rows but skip the analyze table.
+>
+> ```conf
+> source {
+> # This is a example source plugin **only for test and demonstrate the feature source plugin**
+> Oracle-CDC {
+> result_table_name = "customers"
+> skip_analyze = true 
+> username = "system"
+> password = "oracle"
+> database-names = ["XE"]
+> schema-names = ["DEBEZIUM"]
+> table-names = ["XE.DEBEZIUM.FULL_TYPES"]
+> base-url = "jdbc:oracle:thin:system/oracle@oracle-host:1521:xe"
+> source.reader.close.timeout = 120000
+> }
+> }
+> ```
+
 ### Support custom primary key for table
 
 ```

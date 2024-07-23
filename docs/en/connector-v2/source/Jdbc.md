@@ -119,6 +119,8 @@ there are some reference value for params above.
 
 ### simple
 
+#### Case 1
+
 ```
 Jdbc {
     url = "jdbc:mysql://localhost/test?serverTimezone=GMT%2b8"
@@ -126,6 +128,34 @@ Jdbc {
     connection_check_timeout_sec = 100
     user = "root"
     password = "123456"
+    query = "select * from type_bin"
+}
+```
+
+#### Case 2 Use the select count(*) instead of analysis table for count table rows in dynamic chunk split stage
+
+```
+Jdbc {
+    url = "jdbc:mysql://localhost/test?serverTimezone=GMT%2b8"
+    driver = "com.mysql.cj.jdbc.Driver"
+    connection_check_timeout_sec = 100
+    user = "root"
+    password = "123456"
+    use_select_count = true 
+    query = "select * from type_bin"
+}
+```
+
+#### Case 3 Use the select NUM_ROWS from all_tables for the table rows but skip the analyze table.
+
+```
+Jdbc {
+    url = "jdbc:mysql://localhost/test?serverTimezone=GMT%2b8"
+    driver = "com.mysql.cj.jdbc.Driver"
+    connection_check_timeout_sec = 100
+    user = "root"
+    password = "123456"
+    skip_analyze = true 
     query = "select * from type_bin"
 }
 ```
