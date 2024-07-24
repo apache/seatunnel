@@ -74,12 +74,6 @@ public class PrometheusSource extends HttpSource {
         prometheusSourceParameter.buildWithConfig(pluginConfig);
     }
 
-
-    @Override
-    protected void buildSchemaWithConfig(Config pluginConfig) {
-        super.buildSchemaWithConfig(pluginConfig);
-    }
-
     @Override
     public String getPluginName() {
         return "Prometheus";
