@@ -17,11 +17,11 @@
 
 package org.apache.seatunnel.engine.server.task;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.common.metrics.Counter;
 import org.apache.seatunnel.api.common.metrics.Meter;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.event.handler.DataTypeChangeEventDispatcher;
 import org.apache.seatunnel.api.table.event.handler.DataTypeChangeEventHandler;
@@ -35,10 +35,17 @@ import org.apache.seatunnel.core.starter.flowcontrol.FlowControlStrategy;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.server.task.flow.OneInputFlowLifeCycle;
 
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.commons.lang3.StringUtils;
+
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_BYTES;
@@ -224,5 +231,13 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
                 output.received(record);
             }
         }
+    }
+
+    private String getFullName(TablePath tablePath) {
+        if (StringUtils.isBlank(tablePath.getTableName())) {
+            tablePath =
+                    TablePath.of(tablePath.getDatabaseName(), tablePath.getSchemaName(), "default");
+        }
+        return tablePath.getFullName();
     }
 }

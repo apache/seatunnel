@@ -97,10 +97,18 @@ public class MultiTableMetricsIT {
                                     .body("jobStatus", equalTo("FINISHED"))
                                     .body("metrics.SourceReceivedCount", equalTo("50"))
                                     .body("metrics.SinkWriteCount", equalTo("50"))
-                                    .body("metrics.TableSourceReceivedCount.fake1", equalTo("20"))
-                                    .body("metrics.TableSourceReceivedCount.fake2", equalTo("30"))
-                                    .body("metrics.TableSinkWriteCount.fake1", equalTo("20"))
-                                    .body("metrics.TableSinkWriteCount.fake2", equalTo("30"));
+                                    .body(
+                                            "metrics.TableSourceReceivedCount.'fake.table1'",
+                                            equalTo("20"))
+                                    .body(
+                                            "metrics.TableSourceReceivedCount.'fake.public.table2'",
+                                            equalTo("30"))
+                                    .body(
+                                            "metrics.TableSinkWriteCount.'fake.table1'",
+                                            equalTo("20"))
+                                    .body(
+                                            "metrics.TableSinkWriteCount.'fake.public.table2'",
+                                            equalTo("30"));
                         });
     }
 

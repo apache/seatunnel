@@ -382,7 +382,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                     .forEach(
                             metricName -> {
                                 String tableName =
-                                        TablePath.of(metricName.split("#")[1]).getTableName();
+                                        TablePath.of(metricName.split("#")[1]).getFullName();
                                 if (metricName.startsWith(SOURCE_RECEIVED_COUNT)) {
                                     tableSourceReceivedCountMap.put(
                                             tableName, jobMetricsStr.get(metricName));

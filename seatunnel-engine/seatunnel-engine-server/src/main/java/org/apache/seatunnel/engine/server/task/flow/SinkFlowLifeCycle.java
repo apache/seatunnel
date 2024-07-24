@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.engine.server.task.flow;
 
-import com.hazelcast.cluster.Address;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.common.metrics.Counter;
 import org.apache.seatunnel.api.common.metrics.Meter;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
@@ -28,6 +26,8 @@ import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportResourceShare;
+import org.apache.seatunnel.api.sink.multitablesink.MultiTableSink;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -45,15 +45,22 @@ import org.apache.seatunnel.engine.server.task.operation.sink.SinkPrepareCommitO
 import org.apache.seatunnel.engine.server.task.operation.sink.SinkRegisterOperation;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 
+import org.apache.commons.lang3.StringUtils;
+
+import com.hazelcast.cluster.Address;
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 
@@ -337,5 +344,13 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                     ((SupportResourceShare) this.writer).initMultiTableResourceManager(1, 1);
             ((SupportResourceShare) this.writer).setMultiTableResourceManager(resourceManager, 0);
         }
+    }
+
+    private String getFullName(TablePath tablePath) {
+        if (StringUtils.isBlank(tablePath.getTableName())) {
+            tablePath =
+                    TablePath.of(tablePath.getDatabaseName(), tablePath.getSchemaName(), "default");
+        }
+        return tablePath.getFullName();
     }
 }
