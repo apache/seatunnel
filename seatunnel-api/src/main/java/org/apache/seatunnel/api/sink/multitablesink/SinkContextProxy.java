@@ -15,27 +15,35 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.common.multitablesink;
+package org.apache.seatunnel.api.sink.multitablesink;
 
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
+import org.apache.seatunnel.api.common.metrics.MetricsContext;
+import org.apache.seatunnel.api.event.EventListener;
+import org.apache.seatunnel.api.sink.SinkWriter;
 
-import java.io.Serializable;
-
-@Getter
-@EqualsAndHashCode
-public class SinkIdentifier implements Serializable {
-
-    private final String tableIdentifier;
+public class SinkContextProxy implements SinkWriter.Context {
 
     private final int index;
 
-    private SinkIdentifier(String tableIdentifier, int index) {
-        this.tableIdentifier = tableIdentifier;
+    private final SinkWriter.Context context;
+
+    public SinkContextProxy(int index, SinkWriter.Context context) {
         this.index = index;
+        this.context = context;
     }
 
-    public static SinkIdentifier of(String tableIdentifier, int index) {
-        return new SinkIdentifier(tableIdentifier, index);
+    @Override
+    public int getIndexOfSubtask() {
+        return index;
+    }
+
+    @Override
+    public MetricsContext getMetricsContext() {
+        return context.getMetricsContext();
+    }
+
+    @Override
+    public EventListener getEventListener() {
+        return context.getEventListener();
     }
 }
