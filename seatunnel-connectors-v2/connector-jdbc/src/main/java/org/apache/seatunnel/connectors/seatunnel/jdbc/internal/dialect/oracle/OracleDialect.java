@@ -206,16 +206,15 @@ public class OracleDialect implements JdbcDialect {
 
         if (useTableStats) {
             TablePath tablePath = table.getTablePath();
-            String analyzeTable =
-                    String.format(
-                            "analyze table %s compute statistics for table",
-                            tableIdentifier(tablePath));
             String rowCountQuery =
                     String.format(
                             "select NUM_ROWS from all_tables where OWNER = '%s' AND TABLE_NAME = '%s' ",
                             tablePath.getSchemaName(), tablePath.getTableName());
-
             try (Statement stmt = connection.createStatement()) {
+                String analyzeTable =
+                        String.format(
+                                "analyze table %s compute statistics for table",
+                                tableIdentifier(tablePath));
                 if (!table.getSkipAnalyze()) {
                     log.info("Split Chunk, approximateRowCntStatement: {}", analyzeTable);
                     stmt.execute(analyzeTable);

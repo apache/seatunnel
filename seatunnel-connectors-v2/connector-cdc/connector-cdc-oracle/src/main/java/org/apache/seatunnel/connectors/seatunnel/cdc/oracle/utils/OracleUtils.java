@@ -86,13 +86,7 @@ public class OracleUtils {
             OracleSourceConfig oracleSourceConfig, JdbcConnection jdbc, TableId tableId)
             throws SQLException {
         Boolean useSelectCount = oracleSourceConfig.getUseSelectCount();
-        Boolean skipAnalyze = oracleSourceConfig.getSkipAnalyze();
-        final String analyzeTable =
-                String.format(
-                        "analyze table %s compute statistics for table",
-                        quoteSchemaAndTable(tableId));
         String rowCountQuery;
-
         if (useSelectCount) {
             rowCountQuery = String.format("select count(*) from %s", quoteSchemaAndTable(tableId));
         } else {
@@ -100,7 +94,12 @@ public class OracleUtils {
                     String.format(
                             "select NUM_ROWS from all_tables where TABLE_NAME = '%s'",
                             tableId.table());
+            Boolean skipAnalyze = oracleSourceConfig.getSkipAnalyze();
             if (!skipAnalyze) {
+                final String analyzeTable =
+                        String.format(
+                                "analyze table %s compute statistics for table",
+                                quoteSchemaAndTable(tableId));
                 // not skip analyze
                 log.info("analyze table sql: {}", analyzeTable);
                 jdbc.execute(analyzeTable);
