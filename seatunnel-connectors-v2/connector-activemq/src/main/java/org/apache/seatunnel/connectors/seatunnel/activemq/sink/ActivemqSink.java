@@ -41,8 +41,7 @@ import static org.apache.seatunnel.connectors.seatunnel.activemq.config.Activemq
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqConfig.URI;
 
 @AutoService(SeaTunnelSink.class)
-public class ActivemqSink
-        extends AbstractSimpleSink<SeaTunnelRow, Void> {
+public class ActivemqSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     private SeaTunnelRowType seaTunnelRowType;
     private Config pluginConfig;
     private ActivemqConfig activeMQConfig;
