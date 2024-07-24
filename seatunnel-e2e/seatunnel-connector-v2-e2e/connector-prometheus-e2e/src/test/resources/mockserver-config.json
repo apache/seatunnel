@@ -1,0 +1,99 @@
+[
+  {
+    "httpRequest": {
+      "path": "/api/v1/query",
+      "method": "GET",
+    },
+    "httpResponse": {
+      "body": {
+    "status": "success",
+    "data": {
+        "resultType": "vector",
+        "result": [
+            {
+                "metric": {
+                    "__name__": "Hadoop_DataNode_PublishAvgTime",
+                    "instance": "ddp-001:27002",
+                    "job": "datanode",
+                    "name": "MetricsSystem",
+                    "sub": "Stats"
+                },
+                "value": [
+                    1721629781,
+                    "0"
+                ]
+            },
+            {
+                "metric": {
+                    "__name__": "Hadoop_DataNode_PublishAvgTime",
+                    "instance": "ddp-002:27002",
+                    "job": "datanode",
+                    "name": "MetricsSystem",
+                    "sub": "Stats"
+                },
+                "value": [
+                    1721629781,
+                    "0"
+                ]
+            },
+            {
+                "metric": {
+                    "__name__": "Hadoop_DataNode_PublishAvgTime",
+                    "instance": "ddp-003:27002",
+                    "job": "datanode",
+                    "name": "MetricsSystem",
+                    "sub": "Stats"
+                },
+                "value": [
+                    1721629781,
+                    "0"
+                ]
+            },
+            {
+                "metric": {
+                    "__name__": "Hadoop_DataNode_PublishAvgTime",
+                    "instance": "ddp-004:27002",
+                    "job": "datanode",
+                    "name": "MetricsSystem",
+                    "sub": "Stats"
+                },
+                "value": [
+                    1721629781,
+                    "0"
+                ]
+            },
+            {
+                "metric": {
+                    "__name__": "Hadoop_DataNode_PublishAvgTime",
+                    "instance": "ddp-005:27002",
+                    "job": "datanode",
+                    "name": "MetricsSystem",
+                    "sub": "Stats"
+                },
+                "value": [
+                    1721629781,
+                    "0"
+                ]
+            },
+            {
+                "metric": {
+                    "__name__": "Hadoop_DataNode_PublishAvgTime",
+                    "instance": "ddp-006:27002",
+                    "job": "datanode",
+                    "name": "MetricsSystem",
+                    "sub": "Stats"
+                },
+                "value": [
+                    1721629781,
+                    "0"
+                ]
+            }
+        ]
+
+}},
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    }
+  }
+]
