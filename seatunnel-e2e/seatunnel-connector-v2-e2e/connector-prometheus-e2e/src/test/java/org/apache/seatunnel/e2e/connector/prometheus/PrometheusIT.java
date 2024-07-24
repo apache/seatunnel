@@ -58,7 +58,7 @@ public class PrometheusIT extends TestSuiteBase implements TestResource {
                 new GenericContainer<>(DockerImageName.parse(IMAGE))
                         .withNetwork(NETWORK)
                         .withNetworkAliases("mockserver")
-                        .withExposedPorts(9090)
+                        .withExposedPorts(1080)
                         .withCopyFileToContainer(
                                 MountableFile.forHostPath(
                                         new File(
