@@ -30,7 +30,7 @@
     <name>SeaTunnel : Connectors V2 : Activemq</name>
 
     <properties>
-        <activemq.version>6.1.2</activemq.version>
+        <activemq.version>5.14.5</activemq.version>
     </properties>
     <dependencies>
         <dependency>
@@ -41,7 +41,7 @@
         <dependency>
             <groupId>org.apache.activemq</groupId>
             <artifactId>activemq-client</artifactId>
-            <version>6.1.2</version>
+            <version>${activemq.version}</version>
         </dependency>
 
         <dependency>

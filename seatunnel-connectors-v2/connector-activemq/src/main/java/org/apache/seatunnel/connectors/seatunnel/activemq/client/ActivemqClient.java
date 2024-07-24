@@ -23,14 +23,15 @@ import org.apache.seatunnel.connectors.seatunnel.activemq.exception.ActivemqConn
 
 import org.apache.activemq.ActiveMQConnectionFactory;
 
-import jakarta.jms.Connection;
-import jakarta.jms.Destination;
-import jakarta.jms.JMSException;
-import jakarta.jms.MessageProducer;
-import jakarta.jms.Session;
-import jakarta.jms.TextMessage;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
+import javax.jms.Connection;
+import javax.jms.Destination;
+import javax.jms.JMSException;
+import javax.jms.MessageProducer;
+import javax.jms.Session;
+import javax.jms.TextMessage;
 
 import java.nio.charset.StandardCharsets;
 
