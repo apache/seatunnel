@@ -15,18 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.common.multitablesink;
+package org.apache.seatunnel.api.sink.multitablesink;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 import java.io.Serializable;
-import java.util.List;
 import java.util.Map;
 
 @Getter
 @AllArgsConstructor
-public class MultiTableState implements Serializable {
-
-    private Map<SinkIdentifier, List<?>> states;
+public class MultiTableAggregatedCommitInfo implements Serializable {
+    private Map<String, Object> commitInfo;
 }

@@ -28,6 +28,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import com.google.auto.service.AutoService;
 
+import java.util.List;
+
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 
 @AutoService(Factory.class)
@@ -49,6 +51,9 @@ public class InMemorySinkFactory
             Options.key("assert_options_key").stringType().noDefaultValue();
     public static final Option<String> ASSERT_OPTIONS_VALUE =
             Options.key("assert_options_value").stringType().noDefaultValue();
+
+    public static final Option<List<String>> THROW_RUNTIME_EXCEPTION_LIST =
+            Options.key("throw_runtime_exception_list").listType().noDefaultValue();
 
     @Override
     public String factoryIdentifier() {
