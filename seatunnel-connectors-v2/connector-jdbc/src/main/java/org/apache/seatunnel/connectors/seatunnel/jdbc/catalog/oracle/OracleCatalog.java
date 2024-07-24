@@ -22,7 +22,6 @@ import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
-import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalog;
@@ -111,6 +110,33 @@ public class OracleCatalog extends AbstractJdbcCatalog {
     }
 
     @Override
+    public boolean databaseExists(String databaseName) throws CatalogException {
+        if (StringUtils.isBlank(databaseName)) {
+            return false;
+        }
+        return queryExists(
+                this.getUrlFromDatabaseName(databaseName),
+                getListDatabaseSql() + "  where name=?",
+                databaseName);
+    }
+
+    @Override
+    public boolean tableExists(TablePath tablePath) throws CatalogException {
+        String databaseName = tablePath.getDatabaseName();
+        if (!databaseExists(databaseName)) {
+            return false;
+        }
+        if (EXCLUDED_SCHEMAS.contains(tablePath.getSchemaName().toUpperCase())) {
+            return false;
+        }
+        return queryExists(
+                this.getUrlFromDatabaseName(databaseName),
+                getListTableSql(databaseName) + "  and  OWNER= ? and table_name = ?",
+                tablePath.getSchemaName(),
+                tablePath.getTableName());
+    }
+
+    @Override
     protected String getListDatabaseSql() {
         return "SELECT name FROM v$database";
     }
@@ -189,20 +215,6 @@ public class OracleCatalog extends AbstractJdbcCatalog {
     @Override
     protected String getOptionTableName(TablePath tablePath) {
         return tablePath.getSchemaAndTableName();
-    }
-
-    @Override
-    public boolean tableExists(TablePath tablePath) throws CatalogException {
-        try {
-            if (StringUtils.isNotBlank(tablePath.getDatabaseName())) {
-                return databaseExists(tablePath.getDatabaseName())
-                        && listTables(tablePath.getDatabaseName())
-                                .contains(tablePath.getSchemaAndTableName());
-            }
-            return listTables().contains(tablePath.getSchemaAndTableName());
-        } catch (DatabaseNotExistException e) {
-            return false;
-        }
     }
 
     private List<String> listTables() {

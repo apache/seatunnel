@@ -44,6 +44,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
@@ -64,6 +66,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 
+@Slf4j
 public abstract class AbstractJdbcCatalog implements Catalog {
     private static final Logger LOG = LoggerFactory.getLogger(AbstractJdbcCatalog.class);
 
@@ -525,6 +528,20 @@ public abstract class AbstractJdbcCatalog implements Catalog {
                 }
             }
             return result;
+        }
+    }
+
+    protected boolean queryExists(String dbUrl, String sql, String... parmas) {
+        try (PreparedStatement stmt = getConnection(dbUrl).prepareStatement(sql)) {
+            for (int i = 0; i < parmas.length; i++) {
+                stmt.setString(i + 1, parmas[i]);
+            }
+            try (ResultSet rs = stmt.executeQuery()) {
+                return rs.next();
+            }
+        } catch (Exception e) {
+            log.info("query exists error", e);
+            return false;
         }
     }
 

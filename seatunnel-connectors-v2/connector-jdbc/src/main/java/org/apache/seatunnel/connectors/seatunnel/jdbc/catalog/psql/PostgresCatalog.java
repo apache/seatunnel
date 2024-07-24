@@ -21,7 +21,6 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
-import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalog;
@@ -105,13 +104,40 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
     }
 
     @Override
+    public boolean databaseExists(String databaseName) throws CatalogException {
+        if (StringUtils.isBlank(databaseName)) {
+            return false;
+        }
+        if (SYS_DATABASES.contains(databaseName.toLowerCase())) {
+            return false;
+        }
+        return queryExists(
+                this.getUrlFromDatabaseName(databaseName),
+                getListDatabaseSql() + " where datname=?",
+                databaseName);
+    }
+
+    @Override
+    public boolean tableExists(TablePath tablePath) throws CatalogException {
+        String databaseName = tablePath.getDatabaseName();
+        if (!databaseExists(databaseName)) {
+            return false;
+        }
+        return queryExists(
+                this.getUrlFromDatabaseName(databaseName),
+                getListTableSql(databaseName) + " where table_schema = ? and table_name= ?",
+                tablePath.getSchemaName(),
+                tablePath.getTableName());
+    }
+
+    @Override
     protected String getListDatabaseSql() {
-        return "select datname from pg_database;";
+        return "select datname from pg_database";
     }
 
     @Override
     protected String getListTableSql(String databaseName) {
-        return "SELECT table_schema, table_name FROM information_schema.tables;";
+        return "SELECT table_schema, table_name FROM information_schema.tables";
     }
 
     @Override
@@ -229,21 +255,6 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
     protected void dropDatabaseInternal(String databaseName) throws CatalogException {
         closeDatabaseConnection(databaseName);
         super.dropDatabaseInternal(databaseName);
-    }
-
-    @Override
-    public boolean tableExists(TablePath tablePath) throws CatalogException {
-        try {
-            if (StringUtils.isNotBlank(tablePath.getDatabaseName())) {
-                return databaseExists(tablePath.getDatabaseName())
-                        && listTables(tablePath.getDatabaseName())
-                                .contains(tablePath.getSchemaAndTableName());
-            }
-
-            return listTables(defaultDatabase).contains(tablePath.getSchemaAndTableName());
-        } catch (DatabaseNotExistException e) {
-            return false;
-        }
     }
 
     @Override

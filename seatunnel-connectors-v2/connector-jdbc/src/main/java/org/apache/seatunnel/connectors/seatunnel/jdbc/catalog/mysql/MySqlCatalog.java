@@ -32,6 +32,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MyS
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeMapper;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlVersion;
 
+import org.apache.commons.lang3.StringUtils;
+
 import com.google.common.base.Preconditions;
 import com.mysql.cj.MysqlType;
 import lombok.extern.slf4j.Slf4j;
@@ -51,6 +53,12 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
     private static final String SELECT_COLUMNS_SQL_TEMPLATE =
             "SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = '%s' AND TABLE_NAME ='%s' ORDER BY ORDINAL_POSITION ASC";
 
+    private static final String SELECT_DATABASE_EXISTS =
+            "SELECT SCHEMA_NAME FROM information_schema.schemata WHERE SCHEMA_NAME = ?";
+
+    private static final String SELECT_TABLE_EXISTS =
+            "SELECT TABLE_SCHEMA,TABLE_NAME FROM information_schema.tables WHERE table_schema = ? AND table_name = ?";
+
     static {
         SYS_DATABASES.add("information_schema");
         SYS_DATABASES.add("mysql");
@@ -66,6 +74,31 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
         super(catalogName, username, pwd, urlInfo, null);
         this.version = resolveVersion();
         this.typeConverter = new MySqlTypeConverter(version);
+    }
+
+    @Override
+    public boolean databaseExists(String databaseName) throws CatalogException {
+        if (StringUtils.isBlank(databaseName)) {
+            return false;
+        }
+        if (SYS_DATABASES.contains(databaseName.toLowerCase())) {
+            return false;
+        }
+        return queryExists(
+                this.getUrlFromDatabaseName(databaseName), SELECT_DATABASE_EXISTS, databaseName);
+    }
+
+    @Override
+    public boolean tableExists(TablePath tablePath) throws CatalogException {
+        String databaseName = tablePath.getDatabaseName();
+        if (!databaseExists(databaseName)) {
+            return false;
+        }
+        return queryExists(
+                this.getUrlFromDatabaseName(databaseName),
+                SELECT_TABLE_EXISTS,
+                databaseName,
+                tablePath.getTableName());
     }
 
     @Override
