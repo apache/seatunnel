@@ -27,7 +27,7 @@
     </parent>
 
     <artifactId>connector-prometheus</artifactId>
-    <name>SeaTunnel : Connectors V2 : prometheus</name>
+    <name>SeaTunnel : Connectors V2 : Prometheus</name>
 
     <properties>
         <prometheus-client.version>0.16.0</prometheus-client.version>
