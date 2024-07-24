@@ -14,36 +14,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.seatunnel.transform.dynamiccompile.parse;
 
-package org.apache.seatunnel.connectors.seatunnel.common.multitablesink;
+import groovy.lang.GroovyClassLoader;
 
-import org.apache.seatunnel.api.common.metrics.MetricsContext;
-import org.apache.seatunnel.api.event.EventListener;
-import org.apache.seatunnel.api.sink.SinkWriter;
+public class GroovyClassUtil extends ParseUtil {
+    private static final GroovyClassLoader groovyClassLoader = new GroovyClassLoader();
 
-public class SinkContextProxy implements SinkWriter.Context {
-
-    private final int index;
-
-    private final SinkWriter.Context context;
-
-    public SinkContextProxy(int index, SinkWriter.Context context) {
-        this.index = index;
-        this.context = context;
-    }
-
-    @Override
-    public int getIndexOfSubtask() {
-        return index;
-    }
-
-    @Override
-    public MetricsContext getMetricsContext() {
-        return context.getMetricsContext();
-    }
-
-    @Override
-    public EventListener getEventListener() {
-        return context.getEventListener();
+    public static Class<?> parseWithCache(String sourceCode) {
+        return classCache.computeIfAbsent(
+                getClassKey(sourceCode), clazz -> groovyClassLoader.parseClass(sourceCode));
     }
 }

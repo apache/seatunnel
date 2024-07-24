@@ -15,18 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.common.multitablesink;
+package org.apache.seatunnel.transform.dynamiccompile;
 
-import lombok.AllArgsConstructor;
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
+
 import lombok.Getter;
+import lombok.Setter;
 
 import java.io.Serializable;
-import java.util.List;
-import java.util.Map;
 
 @Getter
-@AllArgsConstructor
-public class MultiTableState implements Serializable {
+@Setter
+public class DynamicCompileTransformConfig implements Serializable {
+    public static final Option<String> SOURCE_CODE =
+            Options.key("source_code")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("source_code to compile");
 
-    private Map<SinkIdentifier, List<?>> states;
+    public static final Option<CompileLanguage> COMPILE_LANGUAGE =
+            Options.key("compile_language")
+                    .enumType(CompileLanguage.class)
+                    .noDefaultValue()
+                    .withDescription("compile language");
 }

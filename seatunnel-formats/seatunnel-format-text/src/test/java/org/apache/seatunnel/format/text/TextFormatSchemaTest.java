@@ -36,6 +36,13 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Map;
 
+import static org.apache.seatunnel.api.table.type.BasicType.BOOLEAN_TYPE;
+import static org.apache.seatunnel.api.table.type.BasicType.FLOAT_TYPE;
+import static org.apache.seatunnel.api.table.type.BasicType.INT_TYPE;
+import static org.apache.seatunnel.api.table.type.BasicType.LONG_TYPE;
+import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 public class TextFormatSchemaTest {
     public String content =
             String.join("\u0002", Arrays.asList("1", "2", "3", "4", "5", "6"))
@@ -186,5 +193,39 @@ public class TextFormatSchemaTest {
         Assertions.assertEquals(
                 "ErrorCode:[COMMON-33], ErrorDescription:[The datetime format '2022-09-24-22:45:00' of field 'timestamp_field' is not supported. Please check the datetime format.]",
                 exception2.getMessage());
+    }
+
+    @Test
+    public void testSerializationWithNullValue() throws Exception {
+        SeaTunnelRowType schema =
+                new SeaTunnelRowType(
+                        new String[] {
+                            "bool", "int", "longValue", "float", "name", "date", "time", "timestamp"
+                        },
+                        new SeaTunnelDataType[] {
+                            BOOLEAN_TYPE,
+                            INT_TYPE,
+                            LONG_TYPE,
+                            FLOAT_TYPE,
+                            STRING_TYPE,
+                            LocalTimeType.LOCAL_DATE_TYPE,
+                            LocalTimeType.LOCAL_TIME_TYPE,
+                            LocalTimeType.LOCAL_DATE_TIME_TYPE
+                        });
+
+        Object[] fields = new Object[] {null, null, null, null, null, null, null, null};
+        SeaTunnelRow expected = new SeaTunnelRow(fields);
+
+        TextSerializationSchema textSerializationSchema =
+                TextSerializationSchema.builder()
+                        .seaTunnelRowType(schema)
+                        .delimiter("\u0001")
+                        .nullValue("\\N")
+                        .build();
+
+        System.out.println(new String(textSerializationSchema.serialize(expected)));
+        assertEquals(
+                "\\N\u0001\\N\u0001\\N\u0001\\N\u0001\\N\u0001\\N\u0001\\N\u0001\\N",
+                new String(textSerializationSchema.serialize(expected)));
     }
 }

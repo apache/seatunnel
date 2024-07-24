@@ -26,9 +26,9 @@ import org.apache.seatunnel.api.sink.SaveModeExecuteWrapper;
 import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SupportSaveMode;
+import org.apache.seatunnel.api.sink.multitablesink.MultiTableSink;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
-import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
@@ -70,7 +70,6 @@ import org.apache.seatunnel.engine.server.task.operation.CleanTaskGroupContextOp
 import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupMetricsOperation;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
-import com.google.common.collect.Lists;
 import com.hazelcast.cluster.Address;
 import com.hazelcast.core.HazelcastInstanceNotActiveException;
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
@@ -92,6 +91,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 
@@ -146,6 +147,8 @@ public class JobMaster {
 
     private Map<Integer, CheckpointPlan> checkpointPlanMap;
 
+    private final Map<Integer, List<SlotProfile>> releasedSlotWhenTaskGroupFinished;
+
     private final IMap<Long, JobInfo> runningJobInfoIMap;
 
     private final IMap<Long, HashMap<TaskLocation, SeaTunnelMetricsContext>> metricsImap;
@@ -190,6 +193,7 @@ public class JobMaster {
         this.engineConfig = engineConfig;
         this.metricsImap = metricsImap;
         this.seaTunnelServer = seaTunnelServer;
+        this.releasedSlotWhenTaskGroupFinished = new ConcurrentHashMap<>();
     }
 
     public synchronized void init(long initializationTimestamp, boolean restart) throws Exception {
@@ -371,13 +375,8 @@ public class JobMaster {
                     throw new SeaTunnelRuntimeException(HANDLE_SAVE_MODE_FAILED, e);
                 }
             }
-        } else if (sink.getClass()
-                .getName()
-                .equals(
-                        "org.apache.seatunnel.connectors.seatunnel.common.multitablesink.MultiTableSink")) {
-            // TODO we should not use class name to judge the sink type
-            Map<String, SeaTunnelSink> sinks =
-                    (Map<String, SeaTunnelSink>) ReflectionUtils.getField(sink, "sinks").get();
+        } else if (sink instanceof MultiTableSink) {
+            Map<String, SeaTunnelSink> sinks = ((MultiTableSink) sink).getSinks();
             for (SeaTunnelSink seaTunnelSink : sinks.values()) {
                 handleSaveMode(seaTunnelSink);
             }
@@ -464,13 +463,17 @@ public class JobMaster {
                                         jobImmutableInformation.getJobId(),
                                         Collections.singletonList(taskGroupSlotProfile))
                                 .join();
-
+                        releasedSlotWhenTaskGroupFinished
+                                .computeIfAbsent(
+                                        pipelineLocation.getPipelineId(),
+                                        k -> new CopyOnWriteArrayList<>())
+                                .add(taskGroupSlotProfile);
                         return null;
                     },
                     new RetryUtils.RetryMaterial(
                             Constant.OPERATION_RETRY_TIME,
                             true,
-                            exception -> ExceptionUtil.isOperationNeedRetryException(exception),
+                            ExceptionUtil::isOperationNeedRetryException,
                             Constant.OPERATION_RETRY_SLEEP));
         } catch (Exception e) {
             LOGGER.warning(
@@ -487,6 +490,11 @@ public class JobMaster {
             if (taskGroupLocationSlotProfileMap == null) {
                 return;
             }
+            List<SlotProfile> alreadyReleased = new ArrayList<>();
+            if (releasedSlotWhenTaskGroupFinished.containsKey(subPlan.getPipelineId())) {
+                alreadyReleased.addAll(
+                        releasedSlotWhenTaskGroupFinished.get(subPlan.getPipelineId()));
+            }
 
             RetryUtils.retryWithException(
                     () -> {
@@ -497,10 +505,12 @@ public class JobMaster {
                         resourceManager
                                 .releaseResources(
                                         jobImmutableInformation.getJobId(),
-                                        Lists.newArrayList(
-                                                taskGroupLocationSlotProfileMap.values()))
+                                        taskGroupLocationSlotProfileMap.values().stream()
+                                                .filter(p -> !alreadyReleased.contains(p))
+                                                .collect(Collectors.toList()))
                                 .join();
                         ownedSlotProfilesIMap.remove(subPlan.getPipelineLocation());
+                        releasedSlotWhenTaskGroupFinished.remove(subPlan.getPipelineId());
                         return null;
                     },
                     new RetryUtils.RetryMaterial(

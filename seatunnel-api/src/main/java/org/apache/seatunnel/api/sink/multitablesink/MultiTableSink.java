@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.common.multitablesink;
+package org.apache.seatunnel.api.sink.multitablesink;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
@@ -27,6 +27,8 @@ import org.apache.seatunnel.api.sink.SinkCommonOptions;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.factory.MultiTableFactoryContext;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+
+import lombok.Getter;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -44,7 +46,7 @@ public class MultiTableSink
                 MultiTableCommitInfo,
                 MultiTableAggregatedCommitInfo> {
 
-    private final Map<String, SeaTunnelSink> sinks;
+    @Getter private final Map<String, SeaTunnelSink> sinks;
     private final int replicaNum;
 
     public MultiTableSink(MultiTableFactoryContext context) {

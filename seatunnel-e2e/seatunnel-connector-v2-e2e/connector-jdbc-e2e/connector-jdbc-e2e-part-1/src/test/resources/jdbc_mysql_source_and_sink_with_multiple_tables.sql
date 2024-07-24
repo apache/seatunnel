@@ -56,6 +56,7 @@ CREATE TABLE sink_table WITH (
   'password' = 'Abc!@#135_seatunnel',
   'generate_sink_sql' = 'true',
   'database' = 'sink'
+  'table' = '${table_name}'
 );
 
 -- If it's multi-table synchronization, there's no need to set select columns.

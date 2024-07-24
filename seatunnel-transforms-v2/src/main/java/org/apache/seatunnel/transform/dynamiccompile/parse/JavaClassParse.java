@@ -14,17 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.seatunnel.transform.dynamiccompile.parse;
 
-package org.apache.seatunnel.connectors.seatunnel.common.multitablesink;
+public class JavaClassParse extends AbstractParse {
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-
-import java.io.Serializable;
-import java.util.Map;
-
-@Getter
-@AllArgsConstructor
-public class MultiTableCommitInfo implements Serializable {
-    private Map<SinkIdentifier, Object> commitInfo;
+    @Override
+    public Class<?> parseClass(String sourceCode) {
+        return JavaClassUtil.parseWithCache(sourceCode);
+    }
 }
