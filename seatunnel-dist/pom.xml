@@ -883,12 +883,6 @@
                     <version>${project.version}</version>
                     <scope>provided</scope>
                 </dependency>
-                <dependency>
-                    <groupId>com.amazonaws</groupId>
-                    <artifactId>aws-java-sdk-bundle</artifactId>
-                    <version>${aws-java-sdk.version}</version>
-                    <scope>provided</scope>
-                </dependency>
                 <!-- seatunnel connectors for demo -->
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
