@@ -19,6 +19,7 @@ package org.apache.seatunnel.api.table.catalog;
 
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
+import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 
 import java.io.Serializable;
@@ -32,7 +33,7 @@ public final class TablePath implements Serializable {
     private static final long serialVersionUID = 1L;
     private final String databaseName;
     private final String schemaName;
-    private final String tableName;
+    @NonNull private final String tableName;
 
     public static final TablePath DEFAULT = TablePath.of("default", "default", "default");
 

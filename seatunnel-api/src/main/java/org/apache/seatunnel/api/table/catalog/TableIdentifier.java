@@ -19,6 +19,7 @@ package org.apache.seatunnel.api.table.catalog;
 
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
+import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 
 import java.io.Serializable;
@@ -35,7 +36,7 @@ public final class TableIdentifier implements Serializable {
 
     private final String schemaName;
 
-    private final String tableName;
+    @NonNull private final String tableName;
 
     public static TableIdentifier of(String catalogName, String databaseName, String tableName) {
         return new TableIdentifier(catalogName, databaseName, null, tableName);
