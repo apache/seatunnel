@@ -17,13 +17,18 @@
 
 package org.apache.seatunnel.connectors.seatunnel.activemq.client;
 
-import jakarta.jms.*;
 import org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqConfig;
 import org.apache.seatunnel.connectors.seatunnel.activemq.exception.ActivemqConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.activemq.exception.ActivemqConnectorException;
 
 import org.apache.activemq.ActiveMQConnectionFactory;
 
+import jakarta.jms.Connection;
+import jakarta.jms.Destination;
+import jakarta.jms.JMSException;
+import jakarta.jms.MessageProducer;
+import jakarta.jms.Session;
+import jakarta.jms.TextMessage;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 

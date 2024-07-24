@@ -32,10 +32,13 @@ import org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqConfig;
 import org.apache.seatunnel.connectors.seatunnel.activemq.exception.ActivemqConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
-import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqConfig.*;
+
 import com.google.auto.service.AutoService;
 
 import java.io.IOException;
+
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqConfig.QUEUE_NAME;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqConfig.URI;
 
 @AutoService(SeaTunnelSink.class)
 public class ActivemqSink
