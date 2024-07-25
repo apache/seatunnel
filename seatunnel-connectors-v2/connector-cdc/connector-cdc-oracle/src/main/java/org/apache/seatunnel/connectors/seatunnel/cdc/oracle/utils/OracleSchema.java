@@ -29,11 +29,13 @@ import io.debezium.relational.TableId;
 import io.debezium.relational.Tables;
 import io.debezium.relational.history.TableChanges;
 import io.debezium.relational.history.TableChanges.TableChange;
+import lombok.extern.slf4j.Slf4j;
 
 import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 
+@Slf4j
 /** A component used to get schema by table path. */
 public class OracleSchema {
 
@@ -87,6 +89,13 @@ public class OracleSchema {
         } catch (SQLException e) {
             throw new SeaTunnelException(
                     String.format("Failed to read schema for table %s ", tableId), e);
+        } catch (Exception e) {
+            log.error(
+                    "mergeCatalogTableConfig for table [{}] from tableMap [{}]",
+                    tableId,
+                    tableMap,
+                    e);
+            throw e;
         }
 
         if (!schemasByTableId.containsKey(tableId)) {
