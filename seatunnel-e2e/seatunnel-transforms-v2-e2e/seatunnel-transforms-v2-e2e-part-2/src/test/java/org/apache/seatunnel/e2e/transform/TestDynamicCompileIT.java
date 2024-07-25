@@ -65,8 +65,7 @@ public class TestDynamicCompileIT extends TestSuiteBase {
     public void testDynamicMixedCompileJavaAndGroovy(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
-                container.executeJob(
-                        "/dynamic_compile/conf/mixed_dynamic_groovy_java_compile_transform.conf");
+                container.executeJob(basePath + "mixed_dynamic_groovy_java_compile_transform.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
@@ -76,7 +75,7 @@ public class TestDynamicCompileIT extends TestSuiteBase {
         container.copyFileMyselfContainers(
                 "/dynamic_compile/source_file/GroovyFile", "/tmp/GroovyFile");
         Container.ExecResult execResult =
-                container.executeJob("/dynamic_compile/conf/single_groovy_path_compile.conf");
+                container.executeJob(basePath + "single_groovy_path_compile.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
@@ -86,7 +85,7 @@ public class TestDynamicCompileIT extends TestSuiteBase {
         container.copyFileMyselfContainers(
                 "/dynamic_compile/source_file/JavaFile", "/tmp/JavaFile");
         Container.ExecResult execResult =
-                container.executeJob("/dynamic_compile/conf/single_java_path_compile.conf");
+                container.executeJob(basePath + "single_java_path_compile.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 }
