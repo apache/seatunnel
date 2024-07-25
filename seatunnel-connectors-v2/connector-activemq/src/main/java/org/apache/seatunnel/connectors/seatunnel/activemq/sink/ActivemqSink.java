@@ -29,7 +29,6 @@ import com.google.auto.service.AutoService;
 
 import java.io.IOException;
 
-@AutoService(SeaTunnelSink.class)
 public class ActivemqSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     private final SeaTunnelRowType seaTunnelRowType;
     private final ReadonlyConfig pluginConfig;
