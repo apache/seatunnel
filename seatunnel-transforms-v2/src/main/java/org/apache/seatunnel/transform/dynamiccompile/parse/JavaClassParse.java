@@ -19,7 +19,12 @@ package org.apache.seatunnel.transform.dynamiccompile.parse;
 public class JavaClassParse extends AbstractParse {
 
     @Override
-    public Class<?> parseClass(String sourceCode) {
-        return JavaClassUtil.parseWithCache(sourceCode);
+    public Class<?> parseClassSourceCode(String sourceCode) {
+        return JavaClassLayer.parseSourceCodeWithCache(sourceCode);
+    }
+
+    @Override
+    public Class<?> parseClassAbsolutePath(String absolutePath) {
+        return JavaClassLayer.parseClassAbsolutePath(absolutePath);
     }
 }

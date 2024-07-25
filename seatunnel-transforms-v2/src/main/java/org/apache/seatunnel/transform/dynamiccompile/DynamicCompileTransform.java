@@ -39,12 +39,17 @@ public class DynamicCompileTransform extends MultipleFieldOutputTransform {
 
     private final String sourceCode;
 
+    private final String absolutePath;
+
+    private final CompilePattern compilePattern;
+
     private AbstractParse DynamicCompileParse;
 
     public DynamicCompileTransform(ReadonlyConfig readonlyConfig, CatalogTable catalogTable) {
         super(catalogTable);
         CompileLanguage compileLanguage =
                 readonlyConfig.get(DynamicCompileTransformConfig.COMPILE_LANGUAGE);
+        compilePattern = readonlyConfig.get(DynamicCompileTransformConfig.COMPILE_PATTERN);
         // todo other compile
         if (CompileLanguage.GROOVY.equals(compileLanguage)) {
             DynamicCompileParse = new GroovyClassParse();
@@ -52,6 +57,7 @@ public class DynamicCompileTransform extends MultipleFieldOutputTransform {
             DynamicCompileParse = new JavaClassParse();
         }
         sourceCode = readonlyConfig.get(DynamicCompileTransformConfig.SOURCE_CODE);
+        absolutePath = readonlyConfig.get(DynamicCompileTransformConfig.ABSOLUTE_PATH);
     }
 
     @Override
@@ -65,7 +71,7 @@ public class DynamicCompileTransform extends MultipleFieldOutputTransform {
         try {
             result =
                     ReflectionUtils.invoke(
-                            DynamicCompileParse.parseClass(sourceCode).newInstance(),
+                            getCompileLanguageInstance(),
                             getInlineOutputColumns,
                             inputCatalogTable);
 
@@ -82,13 +88,20 @@ public class DynamicCompileTransform extends MultipleFieldOutputTransform {
         try {
             result =
                     ReflectionUtils.invoke(
-                            DynamicCompileParse.parseClass(sourceCode).newInstance(),
-                            getInlineOutputFieldValues,
-                            inputRow);
+                            getCompileLanguageInstance(), getInlineOutputFieldValues, inputRow);
 
         } catch (Exception e) {
             throw new TransformException(COMPILE_TRANSFORM_ERROR_CODE, e.getMessage());
         }
         return (Object[]) result;
+    }
+
+    private Object getCompileLanguageInstance()
+            throws InstantiationException, IllegalAccessException {
+        Class<?> compileClass =
+                compilePattern.equals(CompilePattern.SOURCE_CODE)
+                        ? DynamicCompileParse.parseClassSourceCode(sourceCode)
+                        : DynamicCompileParse.parseClassAbsolutePath(absolutePath);
+        return compileClass.newInstance();
     }
 }

@@ -38,7 +38,15 @@ public class DynamicCompileTransformFactory implements TableTransformFactory {
         return OptionRule.builder()
                 .required(
                         DynamicCompileTransformConfig.COMPILE_LANGUAGE,
+                        DynamicCompileTransformConfig.COMPILE_PATTERN)
+                .conditional(
+                        DynamicCompileTransformConfig.COMPILE_PATTERN,
+                        CompilePattern.SOURCE_CODE,
                         DynamicCompileTransformConfig.SOURCE_CODE)
+                .conditional(
+                        DynamicCompileTransformConfig.COMPILE_PATTERN,
+                        CompilePattern.ABSOLUTE_PATH,
+                        DynamicCompileTransformConfig.ABSOLUTE_PATH)
                 .build();
     }
 

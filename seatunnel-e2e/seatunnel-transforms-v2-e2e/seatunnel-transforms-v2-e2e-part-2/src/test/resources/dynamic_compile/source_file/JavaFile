@@ -14,18 +14,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.transform.common.SeaTunnelRowAccessor;
 
-package org.apache.seatunnel.transform.dynamiccompile.parse;
+import java.util.ArrayList;
 
-public class GroovyClassParse extends AbstractParse {
 
-    @Override
-    public Class<?> parseClassSourceCode(String sourceCode) {
-        return GroovyClassLayer.parseSourceCodeWithCache(sourceCode);
+    public Column[] getInlineOutputColumns(CatalogTable inputCatalogTable) {
+
+        ArrayList<Column> columns = new ArrayList<Column>();
+        PhysicalColumn destColumn =
+                PhysicalColumn.of("col1", BasicType.STRING_TYPE, 10, true, "", "");
+        return new Column[] {destColumn};
     }
 
-    @Override
-    public Class<?> parseClassAbsolutePath(String absolutePath) {
-        return GroovyClassLayer.parseAbsolutePathWithCache(absolutePath);
+    public Object[] getInlineOutputFieldValues(SeaTunnelRowAccessor inputRow) {
+
+        Object[] fieldValues = new Object[1];
+        fieldValues[0] = "test1";
+        return fieldValues;
     }
-}

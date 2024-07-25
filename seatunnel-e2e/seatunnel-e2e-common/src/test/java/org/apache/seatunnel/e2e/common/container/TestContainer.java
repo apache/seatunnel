@@ -55,4 +55,6 @@ public interface TestContainer extends TestResource {
     }
 
     String getServerLogs();
+
+    void copyFileMyselfContainers(String path, String targetPath);
 }
