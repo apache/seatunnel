@@ -90,9 +90,13 @@ public class PrometheusIT extends TestSuiteBase implements TestResource {
     public void testSourceToAssertSink(TestContainer container)
             throws IOException, InterruptedException {
 
-        // http github
-        Container.ExecResult execResult2 =
+        // http prometheus
+        Container.ExecResult execResult1 =
                 container.executeJob("/prometheus_instant_json_to_assert.conf");
+        Assertions.assertEquals(0, execResult1.getExitCode());
+
+        Container.ExecResult execResult2 =
+                container.executeJob("/prometheus_range_json_to_assert.conf");
         Assertions.assertEquals(0, execResult2.getExitCode());
     }
 

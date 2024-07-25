@@ -55,21 +55,21 @@ public class PrometheusSourceConfig extends HttpConfig {
 
     public static class RangeConfig {
 
-        public static final Option<Long> START =
+        public static final Option<String> START =
                 Options.key("start")
-                        .longType()
+                        .stringType()
                         .noDefaultValue()
                         .withDescription("Start timestamp, inclusive.");
 
-        public static final Option<Long> END =
-                Options.key("start")
-                        .longType()
+        public static final Option<String> END =
+                Options.key("end")
+                        .stringType()
                         .noDefaultValue()
                         .withDescription("End timestamp, inclusive.");
 
-        public static final Option<Float> STEP =
+        public static final Option<String> STEP =
                 Options.key("step")
-                        .floatType()
+                        .stringType()
                         .noDefaultValue()
                         .withDescription(
                                 " Query resolution step width in duration format or float number of seconds.");
