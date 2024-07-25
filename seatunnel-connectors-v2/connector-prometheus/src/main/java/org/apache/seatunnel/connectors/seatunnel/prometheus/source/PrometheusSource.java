@@ -17,11 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.prometheus.source;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
+import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.source.Boundedness;
-import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
@@ -33,15 +31,12 @@ import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSource;
 import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceReader;
 import org.apache.seatunnel.connectors.seatunnel.prometheus.config.PrometheusSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.prometheus.config.PrometheusSourceParameter;
-
-import com.google.auto.service.AutoService;
-import lombok.extern.slf4j.Slf4j;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import static org.apache.seatunnel.connectors.seatunnel.prometheus.config.PrometheusSourceConfig.QUERY_TYPE;
 import static org.apache.seatunnel.connectors.seatunnel.prometheus.config.PrometheusSourceConfig.RANGE_QUERY;
 
 @Slf4j
-@AutoService(SeaTunnelSource.class)
 public class PrometheusSource extends HttpSource {
 
     private final PrometheusSourceParameter prometheusSourceParameter =

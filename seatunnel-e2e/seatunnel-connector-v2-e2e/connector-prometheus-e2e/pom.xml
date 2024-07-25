@@ -23,7 +23,7 @@
     </parent>
 
     <artifactId>connector-prometheus-e2e</artifactId>
-    <name>SeaTunnel : E2E : Connector V2 : prometheus</name>
+    <name>SeaTunnel : E2E : Connector V2 : Prometheus</name>
 
     <dependencies>
         <dependency>
