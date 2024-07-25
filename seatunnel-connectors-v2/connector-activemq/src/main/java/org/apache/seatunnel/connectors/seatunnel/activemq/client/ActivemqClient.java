@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.activemq.client;
 
-import org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqConfig;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.activemq.exception.ActivemqConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.activemq.exception.ActivemqConnectorException;
 
@@ -35,14 +35,28 @@ import javax.jms.TextMessage;
 
 import java.nio.charset.StandardCharsets;
 
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqConfig.ALWAYS_SESSION_ASYNC;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqConfig.ALWAYS_SYNC_SEND;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqConfig.CHECK_FOR_DUPLICATE;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqConfig.CLIENT_ID;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqConfig.CLOSE_TIMEOUT;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqConfig.CONSUMER_EXPIRY_CHECK_ENABLED;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqConfig.DISPATCH_ASYNC;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqConfig.NESTED_MAP_AND_LIST_ENABLED;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqConfig.PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqConfig.QUEUE_NAME;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqConfig.URI;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqConfig.USERNAME;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqConfig.WARN_ABOUT_UNSTARTED_CONNECTION_TIMEOUT;
+
 @Slf4j
 @AllArgsConstructor
 public class ActivemqClient {
-    private final ActivemqConfig config;
+    private final ReadonlyConfig config;
     private final ActiveMQConnectionFactory connectionFactory;
     private final Connection connection;
 
-    public ActivemqClient(ActivemqConfig config) {
+    public ActivemqClient(ReadonlyConfig config) {
         this.config = config;
         try {
             this.connectionFactory = getConnectionFactory();
@@ -52,50 +66,55 @@ public class ActivemqClient {
             throw new ActivemqConnectorException(
                     ActivemqConnectorErrorCode.CREATE_ACTIVEMQ_CLIENT_FAILED,
                     String.format(
-                            "Error while create AMQ client with %s at %s",
-                            config.getQueueName(), config.getHost()),
+                            "Error while create AMQ client with %s at %s", config.get(QUEUE_NAME)),
                     e);
         }
     }
 
     public ActiveMQConnectionFactory getConnectionFactory() {
-        ActiveMQConnectionFactory factory = new ActiveMQConnectionFactory(config.getUri());
+        ActiveMQConnectionFactory factory = new ActiveMQConnectionFactory(config.get(URI));
 
-        if (config.getAlwaysSessionAsync() != null) {
-            factory.setAlwaysSessionAsync(config.getAlwaysSessionAsync());
+        if (config.get(ALWAYS_SESSION_ASYNC) != null) {
+            factory.setAlwaysSessionAsync(config.get(ALWAYS_SESSION_ASYNC));
         }
-        if (config.getClientID() != null) {
-            factory.setClientID(config.getClientID());
+
+        if (config.get(CLIENT_ID) != null) {
+            factory.setClientID(config.get(CLIENT_ID));
         }
-        if (config.getAlwaysSyncSend() != null) {
-            factory.setAlwaysSyncSend(config.getAlwaysSyncSend());
+
+        if (config.get(ALWAYS_SYNC_SEND) != null) {
+            factory.setAlwaysSyncSend(config.get(ALWAYS_SYNC_SEND));
         }
-        if (config.getCheckForDuplicate() != null) {
-            factory.setCheckForDuplicates(config.getCheckForDuplicate());
+
+        if (config.get(CHECK_FOR_DUPLICATE) != null) {
+            factory.setCheckForDuplicates(config.get(CHECK_FOR_DUPLICATE));
         }
-        if (config.getCloseTimeout() != null) {
-            factory.setCloseTimeout(config.getCloseTimeout());
+
+        if (config.get(CLOSE_TIMEOUT) != null) {
+            factory.setCloseTimeout(config.get(CLOSE_TIMEOUT));
         }
-        if (config.getConsumerExpiryCheckEnabled() != null) {
-            factory.setConsumerExpiryCheckEnabled(config.getConsumerExpiryCheckEnabled());
+
+        if (config.get(CONSUMER_EXPIRY_CHECK_ENABLED) != null) {
+            factory.setConsumerExpiryCheckEnabled(config.get(CONSUMER_EXPIRY_CHECK_ENABLED));
         }
-        if (config.getDispatchAsync() != null) {
-            factory.setDispatchAsync(config.getDispatchAsync());
+        if (config.get(DISPATCH_ASYNC) != null) {
+            factory.setDispatchAsync(config.get(DISPATCH_ASYNC));
         }
-        if (config.getAlwaysSessionAsync() != null) {
-            factory.setAlwaysSessionAsync(config.getAlwaysSessionAsync());
+        if (config.get(ALWAYS_SESSION_ASYNC) != null) {
+            factory.setAlwaysSessionAsync(config.get(ALWAYS_SESSION_ASYNC));
         }
-        if (config.getAlwaysSyncSend() != null) {
-            factory.setAlwaysSyncSend(config.getAlwaysSyncSend());
+        if (config.get(ALWAYS_SYNC_SEND) != null) {
+            factory.setAlwaysSyncSend(config.get(ALWAYS_SYNC_SEND));
         }
-        if (config.getWarnAboutUnstartedConnectionTimeout() != null) {
+
+        if (config.get(WARN_ABOUT_UNSTARTED_CONNECTION_TIMEOUT) != null) {
             factory.setWarnAboutUnstartedConnectionTimeout(
-                    config.getWarnAboutUnstartedConnectionTimeout());
-        }
-        if (config.getNestedMapAndListEnabled() != null) {
-            factory.setNestedMapAndListEnabled(config.getNestedMapAndListEnabled());
+                    config.get(WARN_ABOUT_UNSTARTED_CONNECTION_TIMEOUT));
         }
 
+        if (config.get(NESTED_MAP_AND_LIST_ENABLED) != null) {
+            factory.setNestedMapAndListEnabled(config.get(NESTED_MAP_AND_LIST_ENABLED));
+        }
         return factory;
     }
 
@@ -103,7 +122,7 @@ public class ActivemqClient {
         try {
             this.connection.start();
             Session session = this.connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
-            Destination destination = session.createQueue(config.getQueueName());
+            Destination destination = session.createQueue(config.get(QUEUE_NAME));
             MessageProducer producer = session.createProducer(destination);
             String messageBody = new String(msg, StandardCharsets.UTF_8);
             TextMessage objectMessage = session.createTextMessage(messageBody);
@@ -114,7 +133,7 @@ public class ActivemqClient {
                     ActivemqConnectorErrorCode.SEND_MESSAGE_FAILED,
                     String.format(
                             "Cannot send AMQ message %s at %s",
-                            config.getQueueName(), config.getClientID()),
+                            config.get(QUEUE_NAME), config.get(CLIENT_ID)),
                     e);
         }
     }
@@ -129,13 +148,13 @@ public class ActivemqClient {
                     ActivemqConnectorErrorCode.CLOSE_CONNECTION_FAILED,
                     String.format(
                             "Error while closing AMQ connection with  %s at %s",
-                            config.getQueueName(), config.getHost()));
+                            config.get(QUEUE_NAME), config.get(CLIENT_ID)));
         }
     }
 
-    private Connection createConnection(ActivemqConfig config) throws JMSException {
-        if (!config.getUsername().isEmpty() || !config.getPassword().isEmpty()) {
-            return connectionFactory.createConnection(config.getUsername(), config.getPassword());
+    private Connection createConnection(ReadonlyConfig config) throws JMSException {
+        if (!config.get(USERNAME).isEmpty() || !config.get(PASSWORD).isEmpty()) {
+            return connectionFactory.createConnection(config.get(USERNAME), config.get(PASSWORD));
         }
         return connectionFactory.createConnection();
     }

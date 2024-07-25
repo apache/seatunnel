@@ -18,8 +18,10 @@
 package org.apache.seatunnel.connectors.seatunnel.activemq.sink;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 
 import com.google.auto.service.AutoService;
 
@@ -69,5 +71,13 @@ public class ActivemqSinkFactory implements TableSinkFactory {
                         NESTED_MAP_AND_LIST_ENABLED,
                         WARN_ABOUT_UNSTARTED_CONNECTION_TIMEOUT)
                 .build();
+    }
+
+    @Override
+    public TableSink createSink(TableSinkFactoryContext context) {
+        return () ->
+                new ActivemqSink(
+                        context.getOptions(),
+                        context.getCatalogTable().getTableSchema().toPhysicalRowDataType());
     }
 }

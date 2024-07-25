@@ -17,19 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.activemq.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqConfig;
-import org.apache.seatunnel.connectors.seatunnel.activemq.exception.ActivemqConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 
@@ -37,44 +29,24 @@ import com.google.auto.service.AutoService;
 
 import java.io.IOException;
 
-import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqConfig.QUEUE_NAME;
-import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqConfig.URI;
-
 @AutoService(SeaTunnelSink.class)
 public class ActivemqSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
-    private SeaTunnelRowType seaTunnelRowType;
-    private Config pluginConfig;
-    private ActivemqConfig activeMQConfig;
+    private final SeaTunnelRowType seaTunnelRowType;
+    private final ReadonlyConfig pluginConfig;
 
     @Override
     public String getPluginName() {
         return "ActiveMQ";
     }
 
-    @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
+    public ActivemqSink(ReadonlyConfig pluginConfig, SeaTunnelRowType rowType) {
         this.pluginConfig = pluginConfig;
-
-        CheckResult result =
-                CheckConfigUtil.checkAllExists(pluginConfig, QUEUE_NAME.key(), URI.key());
-        if (!result.isSuccess()) {
-            throw new ActivemqConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SINK, result.getMsg()));
-        }
-        activeMQConfig = new ActivemqConfig(pluginConfig);
-    }
-
-    @Override
-    public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
-        this.seaTunnelRowType = seaTunnelRowType;
+        this.seaTunnelRowType = rowType;
     }
 
     @Override
     public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context)
             throws IOException {
-        return new ActivemqSinkWriter(activeMQConfig, seaTunnelRowType);
+        return new ActivemqSinkWriter(pluginConfig, seaTunnelRowType);
     }
 }

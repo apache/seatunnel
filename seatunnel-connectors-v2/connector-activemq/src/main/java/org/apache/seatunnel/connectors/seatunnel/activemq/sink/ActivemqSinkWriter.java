@@ -17,11 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.activemq.sink;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.activemq.client.ActivemqClient;
-import org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqConfig;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.format.text.TextSerializationSchema;
 
@@ -32,7 +32,7 @@ public class ActivemqSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     private final SerializationSchema serializationSchema;
 
-    public ActivemqSinkWriter(ActivemqConfig config, SeaTunnelRowType seaTunnelRowType) {
+    public ActivemqSinkWriter(ReadonlyConfig config, SeaTunnelRowType seaTunnelRowType) {
         this.activeMQClient = new ActivemqClient(config);
         this.serializationSchema =
                 TextSerializationSchema.builder().seaTunnelRowType(seaTunnelRowType).build();

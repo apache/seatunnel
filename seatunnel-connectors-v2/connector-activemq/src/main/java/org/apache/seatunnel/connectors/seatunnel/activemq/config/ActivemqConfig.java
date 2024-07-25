@@ -182,6 +182,14 @@ public class ActivemqConfig implements Serializable {
                                     + "so this option makes the default case to create a warning if the user forgets. "
                                     + "To disable the warning just set the value to < 0.");
 
+    public static final Option<Boolean> CONSUMER_EXPIRY_CHECK_ENABLED =
+            Options.key("consumer_expiry_check_enabled")
+                    .booleanType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Controls whether message expiration checking is done in each "
+                                    + "MessageConsumer prior to dispatching a message.");
+
     public ActivemqConfig(Config config) {
         this.host = config.getString(HOST.key());
         this.port = config.getInt(PORT.key());
