@@ -71,6 +71,7 @@ public abstract class AbstractJdbcCatalog implements Catalog {
     private static final Logger LOG = LoggerFactory.getLogger(AbstractJdbcCatalog.class);
 
     protected static final Set<String> SYS_DATABASES = new HashSet<>();
+    protected static final Set<String> EXCLUDED_SCHEMAS = new HashSet<>();
 
     protected final String catalogName;
     protected final String defaultDatabase;
@@ -262,6 +263,10 @@ public abstract class AbstractJdbcCatalog implements Catalog {
         throw new UnsupportedOperationException();
     }
 
+    protected String getDatabaseWithConditionSql(String databaseName) {
+        throw new UnsupportedOperationException();
+    }
+
     @Override
     public List<String> listDatabases() throws CatalogException {
         try {
@@ -280,12 +285,21 @@ public abstract class AbstractJdbcCatalog implements Catalog {
 
     @Override
     public boolean databaseExists(String databaseName) throws CatalogException {
-        checkArgument(StringUtils.isNotBlank(databaseName));
-
-        return listDatabases().contains(databaseName);
+        if (StringUtils.isBlank(databaseName)) {
+            return false;
+        }
+        if (!SYS_DATABASES.isEmpty() && SYS_DATABASES.contains(databaseName)) {
+            return false;
+        }
+        return queryExists(
+                getUrlFromDatabaseName(databaseName), getDatabaseWithConditionSql(databaseName));
     }
 
     protected String getListTableSql(String databaseName) {
+        throw new UnsupportedOperationException();
+    }
+
+    protected String getTableWithConditionSql(TablePath tablePath) {
         throw new UnsupportedOperationException();
     }
 
@@ -320,12 +334,15 @@ public abstract class AbstractJdbcCatalog implements Catalog {
 
     @Override
     public boolean tableExists(TablePath tablePath) throws CatalogException {
-        try {
-            return databaseExists(tablePath.getDatabaseName())
-                    && listTables(tablePath.getDatabaseName()).contains(getTableName(tablePath));
-        } catch (DatabaseNotExistException e) {
+        String databaseName = tablePath.getDatabaseName();
+        if (!databaseExists(databaseName)) {
             return false;
         }
+        if (EXCLUDED_SCHEMAS.contains(tablePath.getSchemaName())) {
+            return false;
+        }
+        return queryExists(
+                this.getUrlFromDatabaseName(databaseName), getTableWithConditionSql(tablePath));
     }
 
     @Override
@@ -531,11 +548,8 @@ public abstract class AbstractJdbcCatalog implements Catalog {
         }
     }
 
-    protected boolean queryExists(String dbUrl, String sql, String... parmas) {
+    protected boolean queryExists(String dbUrl, String sql) {
         try (PreparedStatement stmt = getConnection(dbUrl).prepareStatement(sql)) {
-            for (int i = 0; i < parmas.length; i++) {
-                stmt.setString(i + 1, parmas[i]);
-            }
             try (ResultSet rs = stmt.executeQuery()) {
                 return rs.next();
             }

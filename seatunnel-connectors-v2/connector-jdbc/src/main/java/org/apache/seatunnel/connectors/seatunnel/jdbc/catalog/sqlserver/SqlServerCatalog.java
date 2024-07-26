@@ -69,25 +69,15 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
     }
 
     @Override
-    public boolean databaseExists(String databaseName) throws CatalogException {
-        if (StringUtils.isBlank(databaseName)) {
-            return false;
-        }
-        return queryExists(
-                this.getUrlFromDatabaseName(databaseName),
-                getListDatabaseSql() + "  where name=?",
-                databaseName);
+    protected String getDatabaseWithConditionSql(String databaseName) {
+        return String.format(getListDatabaseSql() + "  where name='%s'", databaseName);
     }
 
     @Override
-    public boolean tableExists(TablePath tablePath) throws CatalogException {
-        String databaseName = tablePath.getDatabaseName();
-        if (!databaseExists(databaseName)) {
-            return false;
-        }
-        return queryExists(
-                this.getUrlFromDatabaseName(databaseName),
-                getListTableSql(databaseName) + "  and  TABLE_SCHEMA= ? and TABLE_NAME = ?",
+    protected String getTableWithConditionSql(TablePath tablePath) {
+        return String.format(
+                getListTableSql(tablePath.getDatabaseName())
+                        + "  and  TABLE_SCHEMA= '%s' and TABLE_NAME = '%s'",
                 tablePath.getSchemaName(),
                 tablePath.getTableName());
     }

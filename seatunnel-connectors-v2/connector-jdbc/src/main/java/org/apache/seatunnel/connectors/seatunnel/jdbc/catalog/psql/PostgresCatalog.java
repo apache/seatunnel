@@ -29,7 +29,6 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.Post
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresTypeMapper;
 
 import org.apache.commons.collections4.CollectionUtils;
-import org.apache.commons.lang3.StringUtils;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -104,28 +103,15 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
     }
 
     @Override
-    public boolean databaseExists(String databaseName) throws CatalogException {
-        if (StringUtils.isBlank(databaseName)) {
-            return false;
-        }
-        if (SYS_DATABASES.contains(databaseName.toLowerCase())) {
-            return false;
-        }
-        return queryExists(
-                this.getUrlFromDatabaseName(databaseName),
-                getListDatabaseSql() + " where datname=?",
-                databaseName);
+    protected String getDatabaseWithConditionSql(String databaseName) {
+        return String.format(getListDatabaseSql() + " where datname='%s'", databaseName);
     }
 
     @Override
-    public boolean tableExists(TablePath tablePath) throws CatalogException {
-        String databaseName = tablePath.getDatabaseName();
-        if (!databaseExists(databaseName)) {
-            return false;
-        }
-        return queryExists(
-                this.getUrlFromDatabaseName(databaseName),
-                getListTableSql(databaseName) + " where table_schema = ? and table_name= ?",
+    protected String getTableWithConditionSql(TablePath tablePath) {
+        return String.format(
+                getListTableSql(tablePath.getDatabaseName())
+                        + " where table_schema = '%s' and table_name= '%s'",
                 tablePath.getSchemaName(),
                 tablePath.getTableName());
     }
