@@ -25,7 +25,6 @@ SeaTunnel提供了丰富的事件监听器功能，用于管理数据同步时�
 
 - `org.apache.seatunnel.api.event.EventHandler` - 事件处理器的接口，SPI将会自动从类路径中加载子类。
 
-
 ### Event Collect API
 
 - `org.apache.seatunnel.api.source.SourceSplitEnumerator` - 在`SourceSplitEnumerator`加载事件监听器。
