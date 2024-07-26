@@ -23,6 +23,7 @@ import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.splitter.AbstractJdbcSourceChunkSplitter;
 import org.apache.seatunnel.connectors.cdc.base.utils.ObjectUtils;
+import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.config.OracleSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.utils.OracleTypeUtils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.utils.OracleUtils;
 
@@ -41,8 +42,11 @@ import java.sql.SQLException;
 @Slf4j
 public class OracleChunkSplitter extends AbstractJdbcSourceChunkSplitter {
 
+    private final OracleSourceConfig oracleSourceConfig;
+
     public OracleChunkSplitter(JdbcSourceConfig sourceConfig, JdbcDataSourceDialect dialect) {
         super(sourceConfig, dialect);
+        this.oracleSourceConfig = (OracleSourceConfig) sourceConfig;
     }
 
     @Override
@@ -80,7 +84,7 @@ public class OracleChunkSplitter extends AbstractJdbcSourceChunkSplitter {
 
     @Override
     public Long queryApproximateRowCnt(JdbcConnection jdbc, TableId tableId) throws SQLException {
-        return OracleUtils.queryApproximateRowCnt(jdbc, tableId);
+        return OracleUtils.queryApproximateRowCnt(oracleSourceConfig, jdbc, tableId);
     }
 
     @Override

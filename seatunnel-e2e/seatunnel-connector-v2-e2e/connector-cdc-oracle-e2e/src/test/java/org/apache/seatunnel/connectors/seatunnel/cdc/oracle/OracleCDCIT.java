@@ -137,7 +137,22 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     public void testOracleCdcCheckDataE2e(TestContainer container) throws Exception {
+        checkDataForTheJob(container, "/oraclecdc_to_oracle.conf", false);
+    }
 
+    @TestTemplate
+    public void testOracleCdcCheckDataE2eForUseSelectCount(TestContainer container)
+            throws Exception {
+        checkDataForTheJob(container, "/oraclecdc_to_oracle_use_select_count.conf", false);
+    }
+
+    @TestTemplate
+    public void testOracleCdcCheckDataE2eForSkipAnalysis(TestContainer container) throws Exception {
+        checkDataForTheJob(container, "/oraclecdc_to_oracle_skip_analysis.conf", true);
+    }
+
+    private void checkDataForTheJob(
+            TestContainer container, String jobConfPath, Boolean skipAnalysis) throws Exception {
         clearTable(DATABASE, SOURCE_TABLE1);
         clearTable(DATABASE, SOURCE_TABLE2);
         clearTable(DATABASE, SINK_TABLE1);
@@ -145,10 +160,24 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
 
         insertSourceTable(DATABASE, SOURCE_TABLE1);
 
+        if (skipAnalysis) {
+            // analyzeTable before execute job
+            String analyzeTable =
+                    String.format(
+                            "analyze table "
+                                    + "\"DEBEZIUM\".\"FULL_TYPES\" "
+                                    + "compute statistics for table");
+            log.info("analyze table {}", analyzeTable);
+            try (Connection connection = testConnection(ORACLE_CONTAINER);
+                    Statement statement = connection.createStatement()) {
+                statement.execute(analyzeTable);
+            }
+        }
+
         CompletableFuture.supplyAsync(
                 () -> {
                     try {
-                        container.executeJob("/oraclecdc_to_console.conf");
+                        container.executeJob(jobConfPath);
                     } catch (Exception e) {
                         log.error("Commit task exception :" + e.getMessage());
                         throw new RuntimeException(e);
