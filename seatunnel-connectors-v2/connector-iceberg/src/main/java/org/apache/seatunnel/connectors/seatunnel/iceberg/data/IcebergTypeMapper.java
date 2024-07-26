@@ -37,8 +37,6 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class IcebergTypeMapper {
-    private static int fieldId = 1;
-
     public static SeaTunnelDataType<?> mapping(String field, @NonNull Type icebergType) {
         switch (icebergType.typeId()) {
             case BOOLEAN:
