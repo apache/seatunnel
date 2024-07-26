@@ -24,11 +24,14 @@ import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.Properties;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
+@Slf4j
 public class KafkaConsumerThread implements Runnable {
 
     private final KafkaConsumer<byte[], byte[]> consumer;
@@ -58,8 +61,7 @@ public class KafkaConsumerThread implements Runnable {
                         task.accept(consumer);
                     }
                 } catch (Exception e) {
-                    throw new KafkaConnectorException(
-                            KafkaConnectorErrorCode.CONSUME_THREAD_RUN_ERROR, e);
+                    log.error("Error occurred when the kafka consumer thread was running.", e);
                 }
             }
         } finally {
