@@ -17,34 +17,24 @@
 
 package org.apache.seatunnel.connectors.doris.util;
 
-import org.apache.http.HttpRequestInterceptor;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.DefaultRedirectStrategy;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
-import org.apache.http.protocol.HTTP;
+import org.apache.http.protocol.RequestContent;
 
 /** util to build http client. */
 public class HttpUtil {
     private final HttpClientBuilder httpClientBuilder =
             HttpClients.custom()
-                    .addInterceptorFirst(
-                            (HttpRequestInterceptor)
-                                    (request, context) -> {
-                                        // If there is no data for the first time, TRANSFER_ENCODING
-                                        // will be added to the request header. Doris initiates a
-                                        // redirect to be and checks whether there is
-                                        // TRANSFER_ENCODING in the request header. If there is, it
-                                        // will be abnormal, so it needs to be removed.
-                                        request.removeHeaders(HTTP.TRANSFER_ENCODING);
-                                    })
                     .setRedirectStrategy(
                             new DefaultRedirectStrategy() {
                                 @Override
                                 protected boolean isRedirectable(String method) {
                                     return true;
                                 }
-                            });
+                            })
+                    .addInterceptorLast(new RequestContent(true));;
 
     public CloseableHttpClient getHttpClient() {
         return httpClientBuilder.build();
