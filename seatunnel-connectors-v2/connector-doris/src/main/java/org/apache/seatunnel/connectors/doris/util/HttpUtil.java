@@ -29,11 +29,15 @@ public class HttpUtil {
     private final HttpClientBuilder httpClientBuilder =
             HttpClients.custom()
                     .addInterceptorFirst(
-                                (HttpRequestInterceptor)
-                                        (request, context) -> {
-                                            //If there is no data for the first time, TRANSFER_ENCODING will be added to the request header. Doris initiates a redirect to be and checks whether there is TRANSFER_ENCODING in the request header. If there is, it will be abnormal, so it needs to be removed.
-                                            request.removeHeaders(HTTP.TRANSFER_ENCODING);
-                                        })
+                            (HttpRequestInterceptor)
+                                    (request, context) -> {
+                                        // If there is no data for the first time, TRANSFER_ENCODING
+                                        // will be added to the request header. Doris initiates a
+                                        // redirect to be and checks whether there is
+                                        // TRANSFER_ENCODING in the request header. If there is, it
+                                        // will be abnormal, so it needs to be removed.
+                                        request.removeHeaders(HTTP.TRANSFER_ENCODING);
+                                    })
                     .setRedirectStrategy(
                             new DefaultRedirectStrategy() {
                                 @Override
