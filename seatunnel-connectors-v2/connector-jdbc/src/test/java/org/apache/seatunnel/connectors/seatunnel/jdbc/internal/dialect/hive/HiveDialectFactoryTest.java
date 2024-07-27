@@ -18,31 +18,19 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.hive;
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.inceptor.InceptorDialect;
 
-import com.google.auto.service.AutoService;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-/** Factory for {@link HiveDialect}. */
-@AutoService(JdbcDialectFactory.class)
-public class HiveDialectFactory implements JdbcDialectFactory {
+public class HiveDialectFactoryTest {
 
-    @Override
-    public boolean acceptsURL(String url) {
-        return url.startsWith("jdbc:hive2:");
-    }
-
-    @Override
-    public JdbcDialect create() {
-        throw new UnsupportedOperationException(
-                "Can't create JdbcDialect without compatible mode for Hive");
-    }
-
-    @Override
-    public JdbcDialect create(String compatibleMode, String fieldId) {
-        if ("inceptor".equals(compatibleMode)) {
-            return new InceptorDialect();
-        }
-        return new HiveDialect();
+    @Test
+    public void testWithCompatibleMode() {
+        HiveDialectFactory hiveDialectFactory = new HiveDialectFactory();
+        JdbcDialect inceptorDialect = hiveDialectFactory.create("inceptor", "");
+        Assertions.assertTrue(inceptorDialect instanceof InceptorDialect);
+        JdbcDialect hiveDialect = hiveDialectFactory.create("", "");
+        Assertions.assertTrue(hiveDialect instanceof HiveDialect);
     }
 }
