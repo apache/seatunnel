@@ -81,29 +81,17 @@ public class ProtobufToRowConverter implements Serializable {
         Object[] values = new Object[fieldNames.length];
         for (int i = 0; i < fieldNames.length; i++) {
             Descriptors.FieldDescriptor fieldByName = descriptor.findFieldByName(fieldNames[i]);
-            if (fieldByName == null) {
-                Descriptors.Descriptor nestedTypeByName =
-                        descriptor.findNestedTypeByName(fieldNames[i]);
-                if (nestedTypeByName != null) {
-                    values[i] =
-                            convertField(
-                                    descriptor,
-                                    dynamicMessage,
-                                    rowType.getFieldType(i),
-                                    null,
-                                    fieldNames[i]);
-                } else {
-                    values[i] = null;
-                }
-                continue;
+            if (fieldByName == null && descriptor.findNestedTypeByName(fieldNames[i]) == null) {
+                values[i] = null;
+            } else {
+                values[i] =
+                        convertField(
+                                descriptor,
+                                dynamicMessage,
+                                rowType.getFieldType(i),
+                                fieldByName == null?null:dynamicMessage.getField(fieldByName),
+                                fieldNames[i]);
             }
-            values[i] =
-                    convertField(
-                            descriptor,
-                            dynamicMessage,
-                            rowType.getFieldType(i),
-                            dynamicMessage.getField(fieldByName),
-                            fieldNames[i]);
         }
         return new SeaTunnelRow(values);
     }
