@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.Handover;
 import org.apache.seatunnel.translation.source.BaseSourceFunction;
 import org.apache.seatunnel.translation.source.ParallelSource;
+import org.apache.seatunnel.translation.spark.serialization.InternalMultiRowCollector;
 import org.apache.seatunnel.translation.spark.serialization.InternalRowCollector;
 import org.apache.seatunnel.translation.util.ThreadPoolExecutorFactory;
 
@@ -104,9 +105,22 @@ public class ParallelBatchPartitionReader {
             throw new RuntimeException("Failed to open internal source.", e);
         }
 
-        this.internalRowCollector =
-                new InternalRowCollector(
-                        handover, checkpointLock, source.getProducedType(), envOptions);
+        if (source.getProducedCatalogTables().size() > 1) {
+            this.internalRowCollector =
+                    new InternalMultiRowCollector(
+                            handover,
+                            checkpointLock,
+                            source.getProducedCatalogTables(),
+                            envOptions);
+        } else {
+            this.internalRowCollector =
+                    new InternalRowCollector(
+                            handover,
+                            checkpointLock,
+                            source.getProducedCatalogTables(),
+                            envOptions);
+        }
+
         executorService.execute(
                 () -> {
                     try {

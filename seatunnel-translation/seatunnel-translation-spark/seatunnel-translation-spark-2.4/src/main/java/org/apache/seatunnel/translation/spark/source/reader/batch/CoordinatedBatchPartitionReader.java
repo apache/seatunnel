@@ -48,7 +48,7 @@ public class CoordinatedBatchPartitionReader extends ParallelBatchPartitionReade
             collectorMap.put(
                     i,
                     new InternalRowCollector(
-                            handover, new Object(), source.getProducedType(), envOptions));
+                            handover, new Object(), source.getProducedCatalogTables(), envOptions));
         }
     }
 

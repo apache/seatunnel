@@ -33,15 +33,15 @@ import java.io.IOException;
 public class SparkDataWriterFactory<CommitInfoT, StateT> implements DataWriterFactory<InternalRow> {
 
     private final SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, ?> sink;
-    private final CatalogTable catalogTable;
+    private final CatalogTable[] catalogTables;
     private final String jobId;
 
     SparkDataWriterFactory(
             SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, ?> sink,
-            CatalogTable catalogTable,
+            CatalogTable[] catalogTables,
             String jobId) {
         this.sink = sink;
-        this.catalogTable = catalogTable;
+        this.catalogTables = catalogTables;
         this.jobId = jobId;
     }
 
@@ -61,7 +61,9 @@ public class SparkDataWriterFactory<CommitInfoT, StateT> implements DataWriterFa
         } catch (IOException e) {
             throw new RuntimeException("Failed to create SinkCommitter.", e);
         }
-        return new SparkDataWriter<>(
-                writer, committer, catalogTable.getSeaTunnelRowType(), epochId);
+        if (catalogTables.length > 1) {
+            return new SparkDataMultiWriter(writer, committer, catalogTables, epochId);
+        }
+        return new SparkDataWriter<>(writer, committer, catalogTables[0], epochId);
     }
 }

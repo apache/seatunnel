@@ -21,7 +21,7 @@ import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportResourceShare;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.translation.serialization.RowConverter;
 import org.apache.seatunnel.translation.spark.serialization.InternalRowConverter;
@@ -41,7 +41,7 @@ import java.util.Optional;
 @Slf4j
 public class SeaTunnelSparkDataWriter<CommitInfoT, StateT> implements DataWriter<InternalRow> {
 
-    private final SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter;
+    protected final SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter;
 
     @Nullable private final SinkCommitter<CommitInfoT> sinkCommitter;
     private final RowConverter<InternalRow> rowConverter;
@@ -52,11 +52,11 @@ public class SeaTunnelSparkDataWriter<CommitInfoT, StateT> implements DataWriter
     public SeaTunnelSparkDataWriter(
             SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter,
             @Nullable SinkCommitter<CommitInfoT> sinkCommitter,
-            SeaTunnelDataType<?> dataType,
+            CatalogTable catalogTable,
             long epochId) {
         this.sinkWriter = sinkWriter;
         this.sinkCommitter = sinkCommitter;
-        this.rowConverter = new InternalRowConverter(dataType);
+        this.rowConverter = new InternalRowConverter(catalogTable.getSeaTunnelRowType());
         this.epochId = epochId == 0 ? 1 : epochId;
         initResourceManger();
     }

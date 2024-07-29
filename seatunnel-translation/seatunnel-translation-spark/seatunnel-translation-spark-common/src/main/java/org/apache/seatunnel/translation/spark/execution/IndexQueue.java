@@ -14,24 +14,41 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.seatunnel.translation.spark.execution;
 
-package org.apache.seatunnel.core.starter.spark.execution;
+import java.util.List;
+import java.util.ListIterator;
 
-import org.apache.seatunnel.api.table.catalog.CatalogTable;
+public class IndexQueue<T> {
+    private List<T> list;
+    private ListIterator<T> listIterator;
 
-import org.apache.spark.sql.Dataset;
-import org.apache.spark.sql.Row;
+    public IndexQueue(List<T> list) {
+        this.list = list;
+        this.listIterator = list.listIterator();
+    }
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+    public boolean hasNext() {
+        return listIterator.hasNext();
+    }
 
-@Data
-@AllArgsConstructor
-public class DatasetTableInfo {
+    public T next() {
+        return listIterator.next();
+    }
 
-    private Dataset<Row> dataset;
+    public void add(T t) {
+        listIterator.add(t);
+    }
 
-    private CatalogTable catalogTable;
+    public void append(T t) {
+        list.add(t);
+    }
 
-    private String tableName;
+    public void set(T t) {
+        listIterator.set(t);
+    }
+
+    public void reset() {
+        listIterator = list.listIterator();
+    }
 }

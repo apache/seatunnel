@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.utils.SerializationUtils;
 import org.apache.seatunnel.translation.spark.source.scan.SeaTunnelScanBuilder;
+import org.apache.seatunnel.translation.spark.utils.SchemaUtil;
 import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
 
 import org.apache.commons.lang3.StringUtils;
@@ -81,7 +82,14 @@ public class SeaTunnelSourceTable implements Table, SupportsRead {
     /** Returns the schema of this table */
     @Override
     public StructType schema() {
-        return (StructType) TypeConverterUtils.convert(source.getProducedType());
+        if (source.getProducedCatalogTables().size() == 1) {
+            return (StructType) TypeConverterUtils.parcel(source.getProducedType());
+        }
+        return (StructType)
+                TypeConverterUtils.parcel(
+                        SchemaUtil.mergeSchema(source.getProducedCatalogTables())[0]
+                                .getMergeCatalogTable()
+                                .getSeaTunnelRowType());
     }
 
     /** Returns the set of capabilities for this table */

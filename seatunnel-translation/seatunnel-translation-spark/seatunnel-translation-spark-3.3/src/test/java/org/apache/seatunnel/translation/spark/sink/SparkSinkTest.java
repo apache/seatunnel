@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.translation.spark.sink;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
@@ -405,7 +406,10 @@ public class SparkSinkTest {
         SparkSinkInjector.inject(
                         dataset.write(),
                         new SeaTunnelSinkWithBuffer(),
-                        CatalogTableUtil.getCatalogTable("test", "test", "test", "test", rowType),
+                        new CatalogTable[] {
+                            CatalogTableUtil.getCatalogTable(
+                                    "test", "test", "test", "test", rowType)
+                        },
                         spark.sparkContext().applicationId())
                 .option("checkpointLocation", "/tmp")
                 .mode(SaveMode.Append)

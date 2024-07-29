@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.translation.spark.source.partition.batch.SeaTunnelBatch;
 import org.apache.seatunnel.translation.spark.source.partition.micro.SeaTunnelMicroBatch;
+import org.apache.seatunnel.translation.spark.utils.SchemaUtil;
 import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
 
 import org.apache.spark.sql.connector.read.Batch;
@@ -53,7 +54,14 @@ public class SeaTunnelScan implements Scan {
 
     @Override
     public StructType readSchema() {
-        return (StructType) TypeConverterUtils.convert(source.getProducedType());
+        if (source.getProducedCatalogTables().size() == 1) {
+            return (StructType) TypeConverterUtils.parcel(source.getProducedType());
+        }
+        return (StructType)
+                TypeConverterUtils.parcel(
+                        SchemaUtil.mergeSchema(source.getProducedCatalogTables())[0]
+                                .getMergeCatalogTable()
+                                .getSeaTunnelRowType());
     }
 
     @Override

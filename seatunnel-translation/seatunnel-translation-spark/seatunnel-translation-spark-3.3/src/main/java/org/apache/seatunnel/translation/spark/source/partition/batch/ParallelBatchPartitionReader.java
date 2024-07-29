@@ -106,7 +106,7 @@ public class ParallelBatchPartitionReader {
 
         this.internalRowCollector =
                 new InternalRowCollector(
-                        handover, checkpointLock, source.getProducedType(), envOptions);
+                        handover, checkpointLock, source.getProducedCatalogTables(), envOptions);
         executorService.execute(
                 () -> {
                     try {

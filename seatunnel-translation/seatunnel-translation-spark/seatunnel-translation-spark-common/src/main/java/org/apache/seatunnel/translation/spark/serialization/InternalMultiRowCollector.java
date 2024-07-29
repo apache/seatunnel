@@ -17,46 +17,51 @@
 
 package org.apache.seatunnel.translation.spark.serialization;
 
-import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.Handover;
-import org.apache.seatunnel.core.starter.flowcontrol.FlowControlGate;
-import org.apache.seatunnel.core.starter.flowcontrol.FlowControlStrategy;
+import org.apache.seatunnel.translation.spark.execution.ColumnWithIndex;
+import org.apache.seatunnel.translation.spark.utils.SchemaUtil;
 
 import org.apache.spark.sql.catalyst.InternalRow;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Collectors;
 
-public class InternalRowCollector implements Collector<SeaTunnelRow> {
-    protected final Handover<InternalRow> handover;
-    protected final Object checkpointLock;
-    private final InternalRowConverter rowSerialization;
-    protected final AtomicLong collectTotalCount;
-    private Map<String, Object> envOptions;
-    protected FlowControlGate flowControlGate;
-    protected volatile boolean emptyThisPollNext;
+public class InternalMultiRowCollector extends InternalRowCollector {
+    private final Map<String, InternalRowConverter> rowSerializationMap;
 
-    public InternalRowCollector(
+    public InternalMultiRowCollector(
             Handover<InternalRow> handover,
             Object checkpointLock,
             List<CatalogTable> catalogTables,
             Map<String, String> envOptionsInfo) {
-        this.handover = handover;
-        this.checkpointLock = checkpointLock;
-        this.rowSerialization =
-                new InternalRowConverter(catalogTables.get(0).getSeaTunnelRowType());
-        this.collectTotalCount = new AtomicLong(0);
-        this.envOptions = (Map) envOptionsInfo;
-        this.flowControlGate = FlowControlGate.create(FlowControlStrategy.fromMap(envOptions));
+        super(handover, checkpointLock, catalogTables, envOptionsInfo);
+        ColumnWithIndex[] columnWithIndexes = SchemaUtil.mergeSchema(catalogTables);
+        CatalogTable mergeCatalogTable = columnWithIndexes[0].getMergeCatalogTable();
+        this.rowSerializationMap =
+                Arrays.stream(columnWithIndexes)
+                        .collect(
+                                Collectors.toMap(
+                                        columnWithIndex ->
+                                                columnWithIndex
+                                                        .getCatalogTable()
+                                                        .getTablePath()
+                                                        .toString(),
+                                        columnWithIndex ->
+                                                new InternalRowConverter(
+                                                        mergeCatalogTable.getSeaTunnelRowType(),
+                                                        columnWithIndex.getIndex())));
     }
 
     @Override
     public void collect(SeaTunnelRow record) {
         try {
             synchronized (checkpointLock) {
+                InternalRowConverter rowSerialization =
+                        rowSerializationMap.get(record.getTableId());
                 flowControlGate.audit(record);
                 handover.produce(rowSerialization.convert(record));
             }
@@ -65,24 +70,5 @@ public class InternalRowCollector implements Collector<SeaTunnelRow> {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-    }
-
-    public long collectTotalCount() {
-        return collectTotalCount.get();
-    }
-
-    @Override
-    public Object getCheckpointLock() {
-        return this.checkpointLock;
-    }
-
-    @Override
-    public boolean isEmptyThisPollNext() {
-        return emptyThisPollNext;
-    }
-
-    @Override
-    public void resetEmptyThisPollNext() {
-        this.emptyThisPollNext = true;
     }
 }

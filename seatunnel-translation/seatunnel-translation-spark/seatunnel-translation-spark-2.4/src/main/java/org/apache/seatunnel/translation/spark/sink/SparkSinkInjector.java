@@ -38,23 +38,23 @@ public class SparkSinkInjector {
     public static DataStreamWriter<Row> inject(
             DataStreamWriter<Row> dataset,
             SeaTunnelSink<?, ?, ?, ?> sink,
-            CatalogTable catalogTable,
+            CatalogTable[] catalogTables,
             String applicationId) {
         return dataset.format(SPARK_SINK_CLASS_NAME)
                 .outputMode(OutputMode.Append())
                 .option(Constants.SINK_SERIALIZATION, SerializationUtils.objectToString(sink))
-                .option(SINK_CATALOG_TABLE, SerializationUtils.objectToString(catalogTable))
+                .option(SINK_CATALOG_TABLE, SerializationUtils.objectToString(catalogTables))
                 .option(JOB_ID, applicationId);
     }
 
     public static DataFrameWriter<Row> inject(
             DataFrameWriter<Row> dataset,
             SeaTunnelSink<?, ?, ?, ?> sink,
-            CatalogTable catalogTable,
+            CatalogTable[] catalogTables,
             String applicationId) {
         return dataset.format(SPARK_SINK_CLASS_NAME)
                 .option(Constants.SINK_SERIALIZATION, SerializationUtils.objectToString(sink))
-                .option(SINK_CATALOG_TABLE, SerializationUtils.objectToString(catalogTable))
+                .option(SINK_CATALOG_TABLE, SerializationUtils.objectToString(catalogTables))
                 .option(JOB_ID, applicationId);
     }
 }

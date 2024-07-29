@@ -35,15 +35,15 @@ public class SeaTunnelSparkDataWriterFactory<CommitInfoT, StateT>
         implements DataWriterFactory, StreamingDataWriterFactory {
 
     private final SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, ?> sink;
-    private final CatalogTable catalogTable;
+    private final CatalogTable[] catalogTables;
     private final String jobId;
 
     public SeaTunnelSparkDataWriterFactory(
             SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, ?> sink,
-            CatalogTable catalogTable,
+            CatalogTable[] catalogTables,
             String jobId) {
         this.sink = sink;
-        this.catalogTable = catalogTable;
+        this.catalogTables = catalogTables;
         this.jobId = jobId;
     }
 
@@ -62,8 +62,10 @@ public class SeaTunnelSparkDataWriterFactory<CommitInfoT, StateT>
         } catch (IOException e) {
             throw new RuntimeException("Failed to create SinkCommitter.", e);
         }
-        return new SeaTunnelSparkDataWriter<>(
-                writer, committer, catalogTable.getSeaTunnelRowType(), 0);
+        if (catalogTables.length > 1) {
+            return new SeaTunnelSparkDataMultiWriter(writer, committer, catalogTables, 0);
+        }
+        return new SeaTunnelSparkDataWriter<>(writer, committer, catalogTables[0], 0);
     }
 
     @Override
