@@ -288,10 +288,10 @@ public abstract class AbstractJdbcCatalog implements Catalog {
         if (StringUtils.isBlank(databaseName)) {
             return false;
         }
-        if (!SYS_DATABASES.isEmpty() && SYS_DATABASES.contains(databaseName)) {
+        if (SYS_DATABASES.contains(databaseName)) {
             return false;
         }
-        return queryExists(
+        return querySQLResultExists(
                 getUrlFromDatabaseName(databaseName), getDatabaseWithConditionSql(databaseName));
     }
 
@@ -335,13 +335,10 @@ public abstract class AbstractJdbcCatalog implements Catalog {
     @Override
     public boolean tableExists(TablePath tablePath) throws CatalogException {
         String databaseName = tablePath.getDatabaseName();
-        if (!databaseExists(databaseName)) {
-            return false;
-        }
         if (EXCLUDED_SCHEMAS.contains(tablePath.getSchemaName())) {
             return false;
         }
-        return queryExists(
+        return querySQLResultExists(
                 this.getUrlFromDatabaseName(databaseName), getTableWithConditionSql(tablePath));
     }
 
@@ -548,7 +545,7 @@ public abstract class AbstractJdbcCatalog implements Catalog {
         }
     }
 
-    protected boolean queryExists(String dbUrl, String sql) {
+    protected boolean querySQLResultExists(String dbUrl, String sql) {
         try (PreparedStatement stmt = getConnection(dbUrl).prepareStatement(sql)) {
             try (ResultSet rs = stmt.executeQuery()) {
                 return rs.next();

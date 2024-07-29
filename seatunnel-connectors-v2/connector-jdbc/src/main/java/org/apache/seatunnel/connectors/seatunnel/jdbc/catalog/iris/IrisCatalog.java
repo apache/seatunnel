@@ -140,7 +140,7 @@ public class IrisCatalog extends AbstractJdbcCatalog {
         if (EXCLUDED_SCHEMAS.contains(tablePath.getSchemaName())) {
             return false;
         }
-        return queryExists(
+        return querySQLResultExists(
                 this.getUrlFromDatabaseName(tablePath.getDatabaseName()),
                 getTableWithConditionSql(tablePath));
     }
