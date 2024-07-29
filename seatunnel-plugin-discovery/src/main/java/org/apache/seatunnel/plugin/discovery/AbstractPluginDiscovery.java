@@ -429,12 +429,19 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
                                                         pathname.getName(), pluginJarPrefix);
                                     }
                                 });
-        if (ArrayUtils.isEmpty(targetPluginFiles) || targetPluginFiles == null) {
+        if (ArrayUtils.isEmpty(targetPluginFiles)) {
             return Optional.empty();
         }
         try {
-            URL pluginJarPath =
-                    findMostSimlarPluginJarFile(targetPluginFiles, pluginJarPrefix).toURI().toURL();
+            URL pluginJarPath;
+            if (targetPluginFiles.length == 1) {
+                pluginJarPath = targetPluginFiles[0].toURI().toURL();
+            } else {
+                pluginJarPath =
+                        findMostSimlarPluginJarFile(targetPluginFiles, pluginJarPrefix)
+                                .toURI()
+                                .toURL();
+            }
             log.info("Discovery plugin jar for: {} at: {}", pluginIdentifier, pluginJarPath);
             return Optional.of(pluginJarPath);
         } catch (MalformedURLException e) {
@@ -475,7 +482,7 @@ public abstract class AbstractPluginDiscovery<T> implements PluginDiscovery<T> {
             return calculateCosineSimilarity(termFrequency1, termFrequency2);
         }
 
-        public static int[] calculateTermFrequencyVector(
+        private static int[] calculateTermFrequencyVector(
                 String text, Set<String> words, String splitRegrex) {
             int[] termFrequencyVector = new int[words.size()];
             String[] textArray = text.toLowerCase().split(splitRegrex);
