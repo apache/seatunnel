@@ -197,8 +197,12 @@ public class PluginUtil {
                 catalogTables.forEach(
                         catalogTable -> {
                             TableSinkFactoryContext context =
-                                    new TableSinkFactoryContext(
-                                            catalogTable, readonlyConfig, classLoader);
+                                    TableSinkFactoryContext.replacePlaceholderAndCreate(
+                                            catalogTable,
+                                            ReadonlyConfig.fromConfig(sinkConfig),
+                                            classLoader,
+                                            ((TableSinkFactory) factory.get())
+                                                    .excludeTablePlaceholderReplaceKeys());
                             ConfigValidator.of(context.getOptions())
                                     .validate(factory.get().optionRule());
                             SeaTunnelSink action =
@@ -211,10 +215,12 @@ public class PluginUtil {
                 return FactoryUtil.createMultiTableSink(sinks, readonlyConfig, classLoader);
             }
             TableSinkFactoryContext context =
-                    new TableSinkFactoryContext(
+                    TableSinkFactoryContext.replacePlaceholderAndCreate(
                             catalogTables.get(0),
                             ReadonlyConfig.fromConfig(sinkConfig),
-                            classLoader);
+                            classLoader,
+                            ((TableSinkFactory) factory.get())
+                                    .excludeTablePlaceholderReplaceKeys());
             ConfigValidator.of(context.getOptions()).validate(factory.get().optionRule());
             SeaTunnelSink sink =
                     ((TableSinkFactory) factory.get()).createSink(context).createSink();
