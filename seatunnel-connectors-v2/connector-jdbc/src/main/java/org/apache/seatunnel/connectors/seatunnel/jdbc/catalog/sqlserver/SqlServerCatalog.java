@@ -70,14 +70,14 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
 
     @Override
     protected String getDatabaseWithConditionSql(String databaseName) {
-        return String.format(getListDatabaseSql() + "  where name='%s'", databaseName);
+        return String.format(getListDatabaseSql() + "  where name = '%s'", databaseName);
     }
 
     @Override
     protected String getTableWithConditionSql(TablePath tablePath) {
         return String.format(
                 getListTableSql(tablePath.getDatabaseName())
-                        + "  and  TABLE_SCHEMA= '%s' and TABLE_NAME = '%s'",
+                        + "  and  TABLE_SCHEMA = '%s' and TABLE_NAME = '%s'",
                 tablePath.getSchemaName(),
                 tablePath.getTableName());
     }

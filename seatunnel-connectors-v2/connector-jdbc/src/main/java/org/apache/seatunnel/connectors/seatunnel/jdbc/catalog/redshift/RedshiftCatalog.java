@@ -75,14 +75,14 @@ public class RedshiftCatalog extends AbstractJdbcCatalog {
 
     @Override
     protected String getDatabaseWithConditionSql(String databaseName) {
-        return String.format(getListDatabaseSql() + " where datname='%s'", databaseName);
+        return String.format(getListDatabaseSql() + " where datname = '%s'", databaseName);
     }
 
     @Override
     protected String getTableWithConditionSql(TablePath tablePath) {
         return String.format(
                 getListTableSql(tablePath.getDatabaseName())
-                        + " where table_schema = '%s' and table_name= '%s'",
+                        + " where table_schema = '%s' and table_name = '%s'",
                 tablePath.getSchemaName(),
                 tablePath.getTableName());
     }
@@ -102,12 +102,12 @@ public class RedshiftCatalog extends AbstractJdbcCatalog {
 
     @Override
     protected String getListDatabaseSql() {
-        return "select datname from pg_database;";
+        return "select datname from pg_database";
     }
 
     @Override
     protected String getListTableSql(String databaseName) {
-        return "SELECT table_schema, table_name FROM information_schema.tables;";
+        return "SELECT table_schema, table_name FROM information_schema.tables";
     }
 
     @Override

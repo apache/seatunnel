@@ -111,13 +111,13 @@ public class SapHanaCatalog extends AbstractJdbcCatalog {
 
     @Override
     protected String getDatabaseWithConditionSql(String databaseName) {
-        return String.format(getListDatabaseSql() + " where SCHEMA_NAME='%s'", databaseName);
+        return String.format(getListDatabaseSql() + " where SCHEMA_NAME = '%s'", databaseName);
     }
 
     @Override
     protected String getTableWithConditionSql(TablePath tablePath) {
         return String.format(
-                getListTableSql(tablePath.getDatabaseName()) + " and TABLE_NAME='%s'",
+                getListTableSql(tablePath.getDatabaseName()) + " and TABLE_NAME = '%s'",
                 tablePath.getTableName());
     }
 

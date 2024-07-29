@@ -118,7 +118,7 @@ public class OracleCatalog extends AbstractJdbcCatalog {
     @Override
     protected String getTableWithConditionSql(TablePath tablePath) {
         return getListTableSql(tablePath.getDatabaseName())
-                + "  and  OWNER= '"
+                + "  and  OWNER = '"
                 + tablePath.getSchemaName()
                 + "' and table_name = '"
                 + tablePath.getTableName()

@@ -126,14 +126,14 @@ public class XuguCatalog extends AbstractJdbcCatalog {
 
     @Override
     protected String getDatabaseWithConditionSql(String databaseName) {
-        return String.format(getListDatabaseSql() + "  where DB_NAME='%s'", databaseName);
+        return String.format(getListDatabaseSql() + "  where DB_NAME = '%s'", databaseName);
     }
 
     @Override
     protected String getTableWithConditionSql(TablePath tablePath) {
         return String.format(
                 getListTableSql(tablePath.getDatabaseName())
-                        + "  where user_name= '%s' and table_name = '%s'",
+                        + "  where user_name = '%s' and table_name = '%s'",
                 tablePath.getSchemaName(),
                 tablePath.getTableName());
     }

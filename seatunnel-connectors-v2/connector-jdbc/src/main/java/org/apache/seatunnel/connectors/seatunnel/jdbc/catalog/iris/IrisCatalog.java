@@ -148,7 +148,7 @@ public class IrisCatalog extends AbstractJdbcCatalog {
     @Override
     protected String getTableWithConditionSql(TablePath tablePath) {
         return String.format(
-                getListTableSql(tablePath.getSchemaName()) + " and TABLE_NAME= '%s'",
+                getListTableSql(tablePath.getSchemaName()) + " and TABLE_NAME = '%s'",
                 tablePath.getTableName());
     }
 

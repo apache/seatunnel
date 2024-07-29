@@ -104,7 +104,7 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
 
     @Override
     protected String getDatabaseWithConditionSql(String databaseName) {
-        return String.format(getListDatabaseSql() + " where datname='%s'", databaseName);
+        return String.format(getListDatabaseSql() + " where datname = '%s'", databaseName);
     }
 
     @Override
