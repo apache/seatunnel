@@ -291,8 +291,16 @@ public abstract class AbstractJdbcCatalog implements Catalog {
         if (SYS_DATABASES.contains(databaseName)) {
             return false;
         }
-        return querySQLResultExists(
-                getUrlFromDatabaseName(databaseName), getDatabaseWithConditionSql(databaseName));
+        try {
+            return querySQLResultExists(
+                    getUrlFromDatabaseName(databaseName),
+                    getDatabaseWithConditionSql(databaseName));
+        } catch (UnsupportedOperationException e) {
+            log.warn(
+                    "The catalog: {} is not supported the getDatabaseWithConditionSql for databaseExists",
+                    this.catalogName);
+            return listDatabases().contains(databaseName);
+        }
     }
 
     protected String getListTableSql(String databaseName) {
@@ -338,8 +346,21 @@ public abstract class AbstractJdbcCatalog implements Catalog {
         if (EXCLUDED_SCHEMAS.contains(tablePath.getSchemaName())) {
             return false;
         }
-        return querySQLResultExists(
-                this.getUrlFromDatabaseName(databaseName), getTableWithConditionSql(tablePath));
+        try {
+            return querySQLResultExists(
+                    this.getUrlFromDatabaseName(databaseName), getTableWithConditionSql(tablePath));
+        } catch (UnsupportedOperationException e1) {
+            log.warn(
+                    "The catalog: {} is not supported the getTableWithConditionSql for tableExists ",
+                    this.catalogName);
+            try {
+                return databaseExists(tablePath.getDatabaseName())
+                        && listTables(tablePath.getDatabaseName())
+                                .contains(getTableName(tablePath));
+            } catch (DatabaseNotExistException e2) {
+                return false;
+            }
+        }
     }
 
     @Override
