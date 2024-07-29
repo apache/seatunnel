@@ -457,7 +457,7 @@ public class SeaTunnelContainer extends AbstractTestContainer {
     }
 
     @Override
-    public void copyFileMyselfContainers(String path, String targetPath) {
+    public void copyFileToContainer(String path, String targetPath) {
         ContainerUtil.copyFileIntoContainers(
                 ContainerUtil.getResourcesFile(path).toPath(), targetPath, server);
     }

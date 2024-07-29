@@ -72,8 +72,7 @@ public class TestDynamicCompileIT extends TestSuiteBase {
     @TestTemplate
     public void testDynamicSinglePathGroovy(TestContainer container)
             throws IOException, InterruptedException {
-        container.copyFileMyselfContainers(
-                "/dynamic_compile/source_file/GroovyFile", "/tmp/GroovyFile");
+        container.copyFileToContainer("/dynamic_compile/source_file/GroovyFile", "/tmp/GroovyFile");
         Container.ExecResult execResult =
                 container.executeJob(basePath + "single_groovy_path_compile.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
@@ -82,8 +81,7 @@ public class TestDynamicCompileIT extends TestSuiteBase {
     @TestTemplate
     public void testDynamicSinglePathJava(TestContainer container)
             throws IOException, InterruptedException {
-        container.copyFileMyselfContainers(
-                "/dynamic_compile/source_file/JavaFile", "/tmp/JavaFile");
+        container.copyFileToContainer("/dynamic_compile/source_file/JavaFile", "/tmp/JavaFile");
         Container.ExecResult execResult =
                 container.executeJob(basePath + "single_java_path_compile.conf");
         Assertions.assertEquals(0, execResult.getExitCode());

@@ -22,9 +22,4 @@ public class JavaClassParse extends AbstractParse {
     public Class<?> parseClassSourceCode(String sourceCode) {
         return JavaClassLayer.parseSourceCodeWithCache(sourceCode);
     }
-
-    @Override
-    public Class<?> parseClassAbsolutePath(String absolutePath) {
-        return JavaClassLayer.parseClassAbsolutePath(absolutePath);
-    }
 }

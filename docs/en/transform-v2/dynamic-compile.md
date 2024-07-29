@@ -9,12 +9,12 @@ If the conversion is too complex, it may affect performance
 
 ## Options
 
-|       name       |  type  | required |       default value       |
-|------------------|--------|----------|---------------------------|
-| source_code      | string | no       |                           |
-| compile_language | Enum   | yes      | GROOVY,JAVA               |
-| compile_pattern  | Enum   | yes      | SOURCE_CODE,ABSOLUTE_PATH |
-| absolute_path    | string | no       |                           |
+|       name       |  type  | required | default value |
+|------------------|--------|----------|---------------|
+| source_code      | string | no       |               |
+| compile_language | Enum   | yes      |               |
+| compile_pattern  | Enum   | no       | SOURCE_CODE   |
+| absolute_path    | string | no       |               |
 
 ### source_code [string]
 

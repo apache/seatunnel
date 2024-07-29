@@ -18,26 +18,11 @@ package org.apache.seatunnel.transform.dynamiccompile.parse;
 
 import groovy.lang.GroovyClassLoader;
 
-import java.io.File;
-import java.io.IOException;
-
 public class GroovyClassLayer extends AbstractLayer {
     private static final GroovyClassLoader groovyClassLoader = new GroovyClassLoader();
 
     public static Class<?> parseSourceCodeWithCache(String sourceCode) {
         return classCache.computeIfAbsent(
                 getClassKey(sourceCode), clazz -> groovyClassLoader.parseClass(sourceCode));
-    }
-
-    public static Class<?> parseAbsolutePathWithCache(String absolutePath) {
-        return classCache.computeIfAbsent(
-                getClassKey(absolutePath),
-                clazz -> {
-                    try {
-                        return groovyClassLoader.parseClass(new File(absolutePath));
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
-                });
     }
 }

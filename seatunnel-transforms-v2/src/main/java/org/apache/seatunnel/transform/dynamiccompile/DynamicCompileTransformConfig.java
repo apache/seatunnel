@@ -49,6 +49,6 @@ public class DynamicCompileTransformConfig implements Serializable {
     public static final Option<CompilePattern> COMPILE_PATTERN =
             Options.key("compile_pattern")
                     .enumType(CompilePattern.class)
-                    .noDefaultValue()
+                    .defaultValue(CompilePattern.SOURCE_CODE)
                     .withDescription("compile_pattern");
 }

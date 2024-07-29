@@ -23,9 +23,4 @@ public class GroovyClassParse extends AbstractParse {
     public Class<?> parseClassSourceCode(String sourceCode) {
         return GroovyClassLayer.parseSourceCodeWithCache(sourceCode);
     }
-
-    @Override
-    public Class<?> parseClassAbsolutePath(String absolutePath) {
-        return GroovyClassLayer.parseAbsolutePathWithCache(absolutePath);
-    }
 }

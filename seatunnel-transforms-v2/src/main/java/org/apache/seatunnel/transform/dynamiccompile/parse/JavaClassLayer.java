@@ -19,10 +19,6 @@ package org.apache.seatunnel.transform.dynamiccompile.parse;
 import org.apache.seatunnel.shade.org.codehaus.commons.compiler.CompileException;
 import org.apache.seatunnel.shade.org.codehaus.janino.ClassBodyEvaluator;
 
-import org.apache.seatunnel.transform.dynamiccompile.CompilePattern;
-
-import java.io.File;
-import java.io.IOException;
 import java.util.function.Function;
 
 public class JavaClassLayer extends AbstractLayer {
@@ -33,34 +29,20 @@ public class JavaClassLayer extends AbstractLayer {
                 new Function<String, Class<?>>() {
                     @Override
                     public Class<?> apply(String classKey) {
-                        return getInnerClass(sourceCode, CompilePattern.SOURCE_CODE);
+                        return getInnerClass(sourceCode);
                     }
                 });
     }
 
-    public static Class<?> parseClassAbsolutePath(String absolutePath) {
-        return classCache.computeIfAbsent(
-                getClassKey(absolutePath),
-                new Function<String, Class<?>>() {
-                    @Override
-                    public Class<?> apply(String classKey) {
-                        return getInnerClass(absolutePath, CompilePattern.ABSOLUTE_PATH);
-                    }
-                });
-    }
-
-    private static Class<?> getInnerClass(
-            String FilePathOrSourceCode, CompilePattern compilePattern) {
+    private static Class<?> getInnerClass(String FilePathOrSourceCode) {
         try {
             ClassBodyEvaluator cbe = new ClassBodyEvaluator();
-            if (compilePattern.equals(CompilePattern.ABSOLUTE_PATH)) {
-                cbe.cookFile(new File(FilePathOrSourceCode));
-            } else {
-                cbe.cook(FilePathOrSourceCode);
-            }
+
+            cbe.cook(FilePathOrSourceCode);
+
             return cbe.getClazz();
 
-        } catch (IOException | CompileException e) {
+        } catch (CompileException e) {
             throw new RuntimeException(e);
         }
     }
