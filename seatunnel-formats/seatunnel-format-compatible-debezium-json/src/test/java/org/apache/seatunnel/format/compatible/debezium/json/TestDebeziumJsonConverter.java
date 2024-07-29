@@ -40,12 +40,11 @@ public class TestDebeziumJsonConverter {
         String key = "k";
         String value = "v";
         Struct keyStruct =
-                new Struct(SchemaBuilder.struct().field(key, Decimal.builder(12).build()).build());
-        keyStruct.put(key, BigDecimal.valueOf(0000000000001l, 12));
+                new Struct(SchemaBuilder.struct().field(key, Decimal.builder(2).build()).build());
+        keyStruct.put(key, BigDecimal.valueOf(1101, 2));
         Struct valueStruct =
-                new Struct(
-                        SchemaBuilder.struct().field(value, Decimal.builder(12).build()).build());
-        valueStruct.put(value, BigDecimal.valueOf(0000000000001l, 12));
+                new Struct(SchemaBuilder.struct().field(value, Decimal.builder(2).build()).build());
+        valueStruct.put(value, BigDecimal.valueOf(1101, 2));
 
         SourceRecord sourceRecord =
                 new SourceRecord(
@@ -58,8 +57,8 @@ public class TestDebeziumJsonConverter {
                         valueStruct);
 
         DebeziumJsonConverter converter = new DebeziumJsonConverter(false, false);
-        Assertions.assertEquals("{\"k\":0000000000001}", converter.serializeKey(sourceRecord));
-        Assertions.assertEquals("{\"v\":0000000000001}", converter.serializeValue(sourceRecord));
+        Assertions.assertEquals("{\"k\":11.01}", converter.serializeKey(sourceRecord));
+        Assertions.assertEquals("{\"v\":11.01}", converter.serializeValue(sourceRecord));
     }
 
     @Test
@@ -84,3 +83,4 @@ public class TestDebeziumJsonConverter {
         Assertions.assertEquals("{\"v\":\"DebeziumTest\"}", converter.serializeValue(sourceRecord));
     }
 }
+
