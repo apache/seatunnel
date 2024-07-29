@@ -83,4 +83,3 @@ public class TestDebeziumJsonConverter {
         Assertions.assertEquals("{\"v\":\"DebeziumTest\"}", converter.serializeValue(sourceRecord));
     }
 }
-
