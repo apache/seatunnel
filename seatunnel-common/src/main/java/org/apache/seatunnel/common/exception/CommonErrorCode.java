@@ -77,6 +77,7 @@ public enum CommonErrorCode implements SeaTunnelErrorCode {
     FORMAT_DATETIME_ERROR(
             "COMMON-33",
             "The datetime format '<datetime>' of field '<field>' is not supported. Please check the datetime format."),
+    UNSUPPORTED_METHOD("COMMON-34", "'<identifier>' unsupported the method '<methodName>'"),
     ;
 
     private final String code;
