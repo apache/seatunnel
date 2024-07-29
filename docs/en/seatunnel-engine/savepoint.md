@@ -3,11 +3,11 @@
 sidebar_position: 8
 -------------------
 
-# savepoint and restore with savepoint
+# Savepoint And Restore With Savepoint
 
-savepoint is created using the checkpoint. a global mirror of job execution status, which can be used for job or seatunnel stop and recovery, upgrade, etc.
+Savepoint is created for using the checkpoint. A global mirror of job execution status can be used for job or seatunnel stop and recovery, upgrade, etc.
 
-## use savepoint
+## Use Savepoint
 
 To use savepoint, you need to ensure that the connector used by the job supports checkpoint, otherwise data may be lost or duplicated.
 
@@ -18,7 +18,7 @@ To use savepoint, you need to ensure that the connector used by the job supports
 
 After successful execution, the checkpoint data will be saved and the task will end.
 
-## use restore with savepoint
+## Use Restore With Savepoint
 
 Resume from savepoint using jobId  
 ```./bin/seatunnel.sh -c {jobConfig} -r {jobId}```

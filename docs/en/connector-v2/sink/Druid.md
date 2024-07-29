@@ -9,6 +9,7 @@ Write data to Druid
 ## Key features
 
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
+- [x] [support multiple table write](../../concept/connector-v2-features.md)
 
 ## Data Type Mapping
 
@@ -52,10 +53,25 @@ Sink plugin common parameters, please refer to [Sink Common Options](common-opti
 
 ## Example
 
+Simple example:
+
 ```hocon
-Druid {
-  coordinatorUrl = "testHost:8888"
-  datasource = "seatunnel"
+sink {
+  Druid {
+    coordinatorUrl = "testHost:8888"
+    datasource = "seatunnel"
+  }
+}
+```
+
+Use placeholders get upstream table metadata example:
+
+```hocon
+sink {
+  Druid {
+    coordinatorUrl = "testHost:8888"
+    datasource = "${table_name}_test"
+  }
 }
 ```
 

@@ -39,6 +39,8 @@ public class InMemorySinkWriter
     // use a daemon thread to test classloader leak
     private static final Thread THREAD;
 
+    private static int restoreCount = -1;
+
     static {
         // use the daemon thread to always hold the classloader
         ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
@@ -79,6 +81,12 @@ public class InMemorySinkWriter
     public void write(SeaTunnelRow element) throws IOException {
         if (config.get(InMemorySinkFactory.THROW_OUT_OF_MEMORY)) {
             throw new OutOfMemoryError();
+        }
+
+        if (config.getOptional(InMemorySinkFactory.THROW_RUNTIME_EXCEPTION_LIST).isPresent()) {
+            restoreCount++;
+            throw new RuntimeException(
+                    config.get(InMemorySinkFactory.THROW_RUNTIME_EXCEPTION_LIST).get(restoreCount));
         }
     }
 

@@ -3,14 +3,14 @@
 sidebar_position: 11
 --------------------
 
-# REST API
+# RESTful API
 
 SeaTunnel has a monitoring API that can be used to query status and statistics of running jobs, as well as recent
-completed jobs. The monitoring API is a REST-ful API that accepts HTTP requests and responds with JSON data.
+completed jobs. The monitoring API is a RESTful API that accepts HTTP requests and responds with JSON data.
 
 ## Overview
 
-The monitoring API is backed by a web server that runs as part of the node, each node member can provide rest api capability.
+The monitoring API is backed by a web server that runs as part of the node, each node member can provide RESTful api capability.
 By default, this server listens at port 5801, which can be configured in hazelcast.yaml like :
 
 ```yaml
@@ -38,9 +38,13 @@ network:
 ### Returns an overview over the Zeta engine cluster.
 
 <details>
- <summary><code>GET</code> <code><b>/hazelcast/rest/maps/overview</b></code> <code>(Returns an overview over the Zeta engine cluster.)</code></summary>
+ <summary><code>GET</code> <code><b>/hazelcast/rest/maps/overview?tag1=value1&tag2=value2</b></code> <code>(Returns an overview over the Zeta engine cluster.)</code></summary>
 
 #### Parameters
+
+> |   name   |   type   | data type |                                             description                                              |
+> |----------|----------|-----------|------------------------------------------------------------------------------------------------------|
+> | tag_name | optional | string    | the tags filter, you can add tag filter to get those matched worker count, and slot on those workers |
 
 #### Responses
 
@@ -50,22 +54,23 @@ network:
     "gitCommitAbbrev":"DeadD0d0",
     "totalSlot":"0",
     "unassignedSlot":"0",
+    "works":"1",
     "runningJobs":"0",
     "finishedJobs":"0",
     "failedJobs":"0",
-    "cancelledJobs":"0",
-    "works":"1"
+    "cancelledJobs":"0"
 }
 ```
 
-If you use `dynamic-slot`, the `totalSlot` and `unassignedSlot` always be `0`.
-If you set it to fix slot number, it will return the correct total and unassigned slot number
+**Notes:**
+- If you use `dynamic-slot`, the `totalSlot` and `unassignedSlot` always be `0`. when you set it to fix slot number, it will return the correct total and unassigned slot number
+- If the url has tag filter, the `works`, `totalSlot` and `unassignedSlot` will return the result on the matched worker. but the job related metric will always return the cluster level information.
 
 </details>
 
 ------------------------------------------------------------------------------------------
 
-### Returns an overview over all jobs and their current state.
+### Returns An Overview And State Of All Jobs
 
 <details>
  <summary><code>GET</code> <code><b>/hazelcast/rest/maps/running-jobs</b></code> <code>(Returns an overview over all jobs and their current state.)</code></summary>
@@ -104,7 +109,7 @@ If you set it to fix slot number, it will return the correct total and unassigne
 
 ------------------------------------------------------------------------------------------
 
-### Return details of a job.
+### Return Details Of A Job
 
 <details>
  <summary><code>GET</code> <code><b>/hazelcast/rest/maps/job-info/:jobId</b></code> <code>(Return details of a job. )</code></summary>
@@ -159,7 +164,7 @@ When we can't get the job info, the response will be:
 
 ------------------------------------------------------------------------------------------
 
-### Return details of a job.
+### Return Details Of A Job
 
 This API has been deprecated, please use /hazelcast/rest/maps/job-info/:jobId instead
 
@@ -216,7 +221,7 @@ When we can't get the job info, the response will be:
 
 ------------------------------------------------------------------------------------------
 
-### Return all finished Jobs Info.
+### Return All Finished Jobs Info
 
 <details>
  <summary><code>GET</code> <code><b>/hazelcast/rest/maps/finished-jobs/:state</b></code> <code>(Return all finished Jobs Info.)</code></summary>
@@ -248,7 +253,7 @@ When we can't get the job info, the response will be:
 
 ------------------------------------------------------------------------------------------
 
-### Returns system monitoring information.
+### Returns System Monitoring Information
 
 <details>
  <summary><code>GET</code> <code><b>/hazelcast/rest/maps/system-monitoring-information</b></code> <code>(Returns system monitoring information.)</code></summary>
@@ -313,7 +318,7 @@ When we can't get the job info, the response will be:
 
 ------------------------------------------------------------------------------------------
 
-### Submit Job.
+### Submit A Job
 
 <details>
 <summary><code>POST</code> <code><b>/hazelcast/rest/maps/submit-job</b></code> <code>(Returns jobId and jobName if job submitted successfully.)</code></summary>
@@ -371,7 +376,7 @@ When we can't get the job info, the response will be:
 
 ------------------------------------------------------------------------------------------
 
-### Stop Job.
+### Stop A Job
 
 <details>
 <summary><code>POST</code> <code><b>/hazelcast/rest/maps/stop-job</b></code> <code>(Returns jobId if job stoped successfully.)</code></summary>
@@ -397,7 +402,7 @@ When we can't get the job info, the response will be:
 
 ------------------------------------------------------------------------------------------
 
-### Encrypt Config.
+### Encrypt Config
 
 <details>
 <summary><code>POST</code> <code><b>/hazelcast/rest/maps/encrypt-config</b></code> <code>(Returns the encrypted config if config is encrypted successfully.)</code></summary>

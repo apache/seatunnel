@@ -58,7 +58,7 @@ REM Server Debug Config
 REM Usage instructions:
 REM If you need to debug your code in cluster mode, please enable this configuration option and listen to the specified
 REM port in your IDE. After that, you can happily debug your code.
-REM set "JAVA_OPTS=%JAVA_OPTS% -Xdebug -Xrunjdwp:server=y,transport=dt_socket,address=5001,suspend=y"
+REM set "JAVA_OPTS=%JAVA_OPTS% -Xdebug -Xrunjdwp:server=y,transport=dt_socket,address=5001,suspend=n"
 
 if exist "%CONF_DIR%\log4j2.properties" (
     set "JAVA_OPTS=%JAVA_OPTS% -Dhazelcast.logging.type=log4j2 -Dlog4j2.configurationFile=%CONF_DIR%\log4j2.properties"

@@ -222,7 +222,8 @@ public class PaimonCatalog implements Catalog, PaimonTable {
                             BasicTypeDefine.<DataType>builder()
                                     .name(dataField.name())
                                     .comment(dataField.description())
-                                    .nativeType(dataField.type());
+                                    .nativeType(dataField.type())
+                                    .nullable(dataField.type().isNullable());
                     Column column = SchemaUtil.toSeaTunnelType(typeDefineBuilder.build());
                     builder.column(column);
                 });

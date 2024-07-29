@@ -86,7 +86,7 @@ JAVA_OPTS="${JAVA_OPTS} -Dhazelcast.config=${HAZELCAST_CONFIG}"
 # Usage instructions:
 # If you need to debug your code in cluster mode, please enable this configuration option and listen to the specified
 # port in your IDE. After that, you can happily debug your code.
-# JAVA_OPTS="${JAVA_OPTS} -Xdebug -Xrunjdwp:transport=dt_socket,server=y,address=5000,suspend=y"
+# JAVA_OPTS="${JAVA_OPTS} -Xdebug -Xrunjdwp:transport=dt_socket,server=y,address=5000,suspend=n"
 
 # Log4j2 Config
 if [ -e "${CONF_DIR}/log4j2_client.properties" ]; then

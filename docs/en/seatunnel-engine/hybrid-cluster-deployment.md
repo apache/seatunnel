@@ -5,13 +5,13 @@ sidebar_position: 5
 
 # Deploy SeaTunnel Engine Hybrid Mode Cluster
 
-The Master service and Worker service of SeaTunnel Engine are mixed in the same process, and all nodes can run jobs and participate in the election to become master, that is, the master node is also running synchronous tasks simultaneously. In this mode, the Imap (which saves the status information of the task to provide support for the task's fault tolerance) data will be distributed across all nodes.
+The Master service and Worker service of SeaTunnel Engine are mixed in the same process, and all nodes can run jobs and participate in the election to become master. The master node is also running synchronous tasks simultaneously. In this mode, the Imap (which saves the status information of the task to provide support for the task's fault tolerance) data will be distributed across all nodes.
 
-Usage Recommendation: It is recommended to use the [separated cluster mode](separated-cluster-deployment.md). In the hybrid cluster mode, the Master node needs to run tasks synchronously. When the task scale is large, it will affect the stability of the Master node. Once the Master node crashes or the heartbeat times out, it will cause the Master node to switch, and the Master node switch will cause all running tasks to perform fault tolerance, further increasing the load on the cluster. Therefore, we recommend using the [separated cluster mode](separated-cluster-deployment.md).
+Usage Recommendation: It is recommended to use the [Separated Cluster Mode](separated-cluster-deployment.md). In the hybrid cluster mode, the Master node needs to run tasks synchronously. When the task scale is large, it will affect the stability of the Master node. Once the Master node crashes or the heartbeat times out, it will cause the Master node to switch, and the Master node switch will cause all running tasks to perform fault tolerance, further increasing the load on the cluster. Therefore, we recommend using the [Separated Cluster Mode](separated-cluster-deployment.md).
 
 ## 1. Download
 
-[Download and Create the SeaTunnel Installation Package](download-seatunnel.md)
+[Download And Create The SeaTunnel Installation Package](download-seatunnel.md)
 
 ## 2. Configure SEATUNNEL_HOME
 
@@ -22,7 +22,7 @@ export SEATUNNEL_HOME=${seatunnel install path}
 export PATH=$PATH:$SEATUNNEL_HOME/bin
 ```
 
-## 3. Configure the JVM Options for the SeaTunnel Engine
+## 3. Configure The JVM Options For The SeaTunnel Engine
 
 The SeaTunnel Engine supports two methods for setting JVM options:
 
@@ -32,11 +32,11 @@ The SeaTunnel Engine supports two methods for setting JVM options:
 
 2. Add JVM options when starting the SeaTunnel Engine. For example, `seatunnel-cluster.sh -DJvmOption="-Xms2G -Xmx2G"`
 
-## 4. Configure the SeaTunnel Engine
+## 4. Configure The SeaTunnel Engine
 
 The SeaTunnel Engine provides many functions that need to be configured in the `seatunnel.yaml` file.
 
-### 4.1 Backup count setting for data in Imap
+### 4.1 Backup Count Setting For Data In Imap
 
 The SeaTunnel Engine implements cluster management based on [Hazelcast IMDG](https://docs.hazelcast.com/imdg/4.1/). The cluster's status data (job running status, resource status) is stored in the [Hazelcast IMap](https://docs.hazelcast.com/imdg/4.1/data-structures/map).
 The data stored in the Hazelcast IMap is distributed and stored on all nodes in the cluster. Hazelcast partitions the data stored in the Imap. Each partition can specify the number of backups.
@@ -53,7 +53,7 @@ seatunnel:
         # Other configurations
 ```
 
-### 4.2 Slot configuration
+### 4.2 Slot Configuration
 
 The number of slots determines the number of task groups that the cluster node can run in parallel. The formula for the number of slots required for a task is N = 2 + P (the parallelism configured by the task). By default, the number of slots in the SeaTunnel Engine is dynamic, that is, there is no limit on the number. We recommend that the number of slots be set to twice the number of CPU cores on the node.
 
@@ -77,7 +77,7 @@ seatunnel:
             slot-num: 20
 ```
 
-### 4.3_checkpoint manager
+### 4.3 Checkpoint Manager
 
 Like Flink, the SeaTunnel Engine supports the Chandy–Lamport algorithm. Therefore, it is possible to achieve data synchronization without data loss and duplication.
 
@@ -111,7 +111,7 @@ If the cluster has more than one node, the checkpoint storage must be a distribu
 
 For information about checkpoint storage, you can refer to [Checkpoint Storage](checkpoint-storage.md)
 
-# 4.4 Expiration configuration for historical jobs
+### 4.4 Expiration Configuration For Historical Jobs
 
 The information of each completed job, such as status, counters, and error logs, is stored in the IMap object. As the number of running jobs increases, the memory usage will increase, and eventually, the memory will overflow. Therefore, you can adjust the `history-job-expire-minutes` parameter to address this issue. The time unit for this parameter is minutes. The default value is 1440 minutes, which is one day.
 
@@ -123,7 +123,7 @@ seatunnel:
     history-job-expire-minutes: 1440
 ```
 
-# 4.5 Class Loader Cache Mode
+### 4.5 Class Loader Cache Mode
 
 This configuration primarily addresses the issue of resource leakage caused by constantly creating and attempting to destroy the class loader.
 If you encounter exceptions related to metaspace overflow, you can try enabling this configuration.
@@ -137,15 +137,15 @@ seatunnel:
     classloader-cache-mode: true
 ```
 
-# 5. Configure the SeaTunnel Engine network service
+## 5. Configure The SeaTunnel Engine Network Service
 
 All SeaTunnel Engine network-related configurations are in the `hazelcast.yaml` file.
 
-# 5.1 Cluster name
+### 5.1 Cluster Name
 
 The SeaTunnel Engine node uses the `cluster-name` to determine if another node is in the same cluster as itself. If the cluster names of the two nodes are different, the SeaTunnel Engine will reject the service request.
 
-# 5.2 Network
+### 5.2 Network
 
 Based on [Hazelcast](https://docs.hazelcast.com/imdg/4.1/clusters/discovery-mechanisms), a SeaTunnel Engine cluster is a network composed of cluster members running the SeaTunnel Engine server. Cluster members automatically join together to form a cluster. This automatic joining occurs through various discovery mechanisms used by cluster members to detect each other.
 
@@ -177,13 +177,13 @@ hazelcast:
 
 TCP is the recommended method for use in a standalone SeaTunnel Engine cluster.
 
-Alternatively, Hazelcast provides several other service discovery methods. For more details, please refer to [hazelcast network](https://docs.hazelcast.com/imdg/4.1/clusters/setting-up-clusters)
+Alternatively, Hazelcast provides several other service discovery methods. For more details, please refer to [Hazelcast Network](https://docs.hazelcast.com/imdg/4.1/clusters/setting-up-clusters)
 --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 sidebar_position: 5
 -------------------
 
-# 5.3 IMap Persistence Configuration
+### 5.3 IMap Persistence Configuration
 
 In SeaTunnel, we use IMap (a distributed Map that enables the writing and reading of data across nodes and processes. For more information, please refer to [hazelcast map](https://docs.hazelcast.com/imdg/4.2/data-structures/map)) to store the status of each task and task, allowing us to recover tasks and achieve task fault tolerance in the event of a node failure.
 
@@ -265,15 +265,26 @@ map:
            fs.oss.credentials.provider: org.apache.hadoop.fs.aliyun.oss.AliyunCredentialsProvider
 ```
 
-# 6. Configure the SeaTunnel Engine client
+Notice: When using OSS, make sure that the following jars are in the lib directory.
+
+```
+aliyun-sdk-oss-3.13.2.jar
+hadoop-aliyun-3.3.6.jar
+jdom2-2.0.6.jar
+netty-buffer-4.1.89.Final.jar 
+netty-common-4.1.89.Final.jar
+seatunnel-hadoop3-3.1.4-uber.jar
+```
+
+## 6. Configure The SeaTunnel Engine Client
 
 All SeaTunnel Engine client configurations are in the `hazelcast-client.yaml`.
 
-# 6.1 cluster-name
+### 6.1 cluster-name
 
 The client must have the same `cluster-name` as the SeaTunnel Engine. Otherwise, the SeaTunnel Engine will reject the client's request.
 
-# 6.2 Network
+### 6.2 network
 
 **cluster-members**
 
@@ -289,7 +300,7 @@ hazelcast-client:
       - hostname1:5801
 ```
 
-# 7. Start the SeaTunnel Engine server node
+## 7. Start The SeaTunnel Engine Server Node
 
 It can be started with the `-d` parameter through the daemon.
 
@@ -300,10 +311,10 @@ mkdir -p $SEATUNNEL_HOME/logs
 
 The logs will be written to `$SEATUNNEL_HOME/logs/seatunnel-engine-server.log`
 
-# 8. Install the SeaTunnel Engine client
+## 8. Install The SeaTunnel Engine Client
 
 You only need to copy the `$SEATUNNEL_HOME` directory on the SeaTunnel Engine node to the client node and configure `SEATUNNEL_HOME` in the same way as the SeaTunnel Engine server node.
 
-# 9. Submit and manage jobs
+## 9. Submit And Manage Jobs
 
-Now that the cluster is deployed, you can complete the submission and management of jobs through the following tutorials: [Submit and manage jobs](user-command.md)
+Now that the cluster is deployed, you can complete the submission and management of jobs through the following tutorials: [Submit And Manage Jobs](user-command.md)

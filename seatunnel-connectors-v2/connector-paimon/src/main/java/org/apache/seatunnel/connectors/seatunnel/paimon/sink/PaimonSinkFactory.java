@@ -36,12 +36,6 @@ import com.google.auto.service.AutoService;
 @AutoService(Factory.class)
 public class PaimonSinkFactory implements TableSinkFactory {
 
-    public static final String REPLACE_TABLE_NAME_KEY = "${table_name}";
-
-    public static final String REPLACE_SCHEMA_NAME_KEY = "${schema_name}";
-
-    public static final String REPLACE_DATABASE_NAME_KEY = "${database_name}";
-
     @Override
     public String factoryIdentifier() {
         return "Paimon";
@@ -80,13 +74,13 @@ public class PaimonSinkFactory implements TableSinkFactory {
         String tableName;
         String namespace;
         if (StringUtils.isNotEmpty(paimonSinkConfig.getTable())) {
-            tableName = replaceName(paimonSinkConfig.getTable(), tableId);
+            tableName = paimonSinkConfig.getTable();
         } else {
             tableName = tableId.getTableName();
         }
 
         if (StringUtils.isNotEmpty(paimonSinkConfig.getNamespace())) {
-            namespace = replaceName(paimonSinkConfig.getNamespace(), tableId);
+            namespace = paimonSinkConfig.getNamespace();
         } else {
             namespace = tableId.getSchemaName();
         }
@@ -96,18 +90,5 @@ public class PaimonSinkFactory implements TableSinkFactory {
                         tableId.getCatalogName(), namespace, tableId.getSchemaName(), tableName);
 
         return CatalogTable.of(newTableId, catalogTable);
-    }
-
-    private String replaceName(String original, TableIdentifier tableId) {
-        if (tableId.getTableName() != null) {
-            original = original.replace(REPLACE_TABLE_NAME_KEY, tableId.getTableName());
-        }
-        if (tableId.getSchemaName() != null) {
-            original = original.replace(REPLACE_SCHEMA_NAME_KEY, tableId.getSchemaName());
-        }
-        if (tableId.getDatabaseName() != null) {
-            original = original.replace(REPLACE_DATABASE_NAME_KEY, tableId.getDatabaseName());
-        }
-        return original;
     }
 }

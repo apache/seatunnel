@@ -3,9 +3,9 @@
 sidebar_position: 11
 --------------------
 
-# REST API
+# RESTful API
 
-SeaTunnel有一个用于监控的API，可用于查询运行作业的状态和统计信息，以及最近完成的作业。监控API是REST-ful风格的，它接受HTTP请求并使用JSON数据格式进行响应。
+SeaTunnel有一个用于监控的API，可用于查询运行作业的状态和统计信息，以及最近完成的作业。监控API是RESTful风格的，它接受HTTP请求并使用JSON数据格式进行响应。
 
 ## 概述
 
@@ -37,9 +37,13 @@ network:
 ### 返回Zeta集群的概览
 
 <details>
- <summary><code>GET</code> <code><b>/hazelcast/rest/maps/overview</b></code> <code>(Returns an overview over the Zeta engine cluster.)</code></summary>
+ <summary><code>GET</code> <code><b>/hazelcast/rest/maps/overview?tag1=value1&tag2=value2</b></code> <code>(Returns an overview over the Zeta engine cluster.)</code></summary>
 
 #### 参数
+
+> |  参数名称  | 是否必传 | 参数类型 |           参数描述           |
+> |--------|------|------|--------------------------|
+> | tag键值对 | 否    | 字符串  | 一组标签值, 通过该标签值过滤满足条件的节点信息 |
 
 #### 响应
 
@@ -49,16 +53,17 @@ network:
     "gitCommitAbbrev":"DeadD0d0",
     "totalSlot":"0",
     "unassignedSlot":"0",
+    "works":"1",
     "runningJobs":"0",
     "finishedJobs":"0",
     "failedJobs":"0",
-    "cancelledJobs":"0",
-    "works":"1"
+    "cancelledJobs":"0"
 }
 ```
 
-当你使用`dynamic-slot`时, 返回结果中的`totalSlot`和`unassignedSlot`将始终为0.
-当你设置为固定的slot值时, 将正确返回集群中总共的slot数量以及未分配的slot数量.
+**注意:**
+- 当你使用`dynamic-slot`时, 返回结果中的`totalSlot`和`unassignedSlot`将始终为0. 设置为固定的slot值后, 将正确返回集群中总共的slot数量以及未分配的slot数量.
+- 当添加标签过滤后, `works`, `totalSlot`, `unassignedSlot`将返回满足条件的节点的相关指标. 注意`runningJobs`等job相关指标为集群级别结果, 无法根据标签进行过滤.
 
 </details>
 
@@ -110,9 +115,9 @@ network:
 
 #### 参数
 
-> | name  |   type   | data type | description |
-> |-------|----------|-----------|-------------|
-> | jobId | required | long      | job id      |
+> | 参数名称  | 是否必传 | 参数类型 |  参数描述  |
+> |-------|------|------|--------|
+> | jobId | 是    | long | job id |
 
 #### 响应
 
@@ -167,9 +172,9 @@ network:
 
 #### 参数
 
-> | name  |   type   | data type | description |
-> |-------|----------|-----------|-------------|
-> | jobId | required | long      | job id      |
+> | 参数名称  | 是否必传 | 参数类型 |  参数描述  |
+> |-------|------|------|--------|
+> | jobId | 是    | long | job id |
 
 #### 响应
 
@@ -222,9 +227,9 @@ network:
 
 #### 参数
 
-> | name  |   type   | data type |                           description                            |
-> |-------|----------|-----------|------------------------------------------------------------------|
-> | state | optional | string    | finished job status. `FINISHED`,`CANCELED`,`FAILED`,`UNKNOWABLE` |
+> | 参数名称  |   是否必传   |  参数类型  |                               参数描述                               |
+> |-------|----------|--------|------------------------------------------------------------------|
+> | state | optional | string | finished job status. `FINISHED`,`CANCELED`,`FAILED`,`UNKNOWABLE` |
 
 #### 响应
 
@@ -319,11 +324,11 @@ network:
 
 #### 参数
 
-> |         name         |   type   | data type |            description            |
-> |----------------------|----------|-----------|-----------------------------------|
-> | jobId                | optional | string    | job id                            |
-> | jobName              | optional | string    | job name                          |
-> | isStartWithSavePoint | optional | string    | if job is started with save point |
+> |         参数名称         |   是否必传   |  参数类型  |               参数描述                |
+> |----------------------|----------|--------|-----------------------------------|
+> | jobId                | optional | string | job id                            |
+> | jobName              | optional | string | job name                          |
+> | isStartWithSavePoint | optional | string | if job is started with save point |
 
 #### 请求体
 

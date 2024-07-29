@@ -70,7 +70,14 @@ public enum CommonErrorCode implements SeaTunnelErrorCode {
 
     WRITE_SEATUNNEL_ROW_ERROR_WITH_FILEDS_NOT_MATCH(
             "COMMON-31",
-            "<connector>: The source has '<sourceFieldsNum>' fields, but the table of sink has '<sinkFieldsNum>' fields. Please check schema of sink table.");
+            "<connector>: The source has '<sourceFieldsNum>' fields, but the table of sink has '<sinkFieldsNum>' fields. Please check schema of sink table."),
+    FORMAT_DATE_ERROR(
+            "COMMON-32",
+            "The date format '<date>' of field '<field>' is not supported. Please check the date format."),
+    FORMAT_DATETIME_ERROR(
+            "COMMON-33",
+            "The datetime format '<datetime>' of field '<field>' is not supported. Please check the datetime format."),
+    ;
 
     private final String code;
     private final String description;

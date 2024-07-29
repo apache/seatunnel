@@ -133,6 +133,7 @@
         <spotless.version>2.29.0</spotless.version>
         <jsqlparser.version>4.5</jsqlparser.version>
         <json-path.version>2.7.0</json-path.version>
+        <groovy.version>4.0.16</groovy.version>
         <!-- Option args -->
         <skipUT>false</skipUT>
         <skipIT>true</skipIT>

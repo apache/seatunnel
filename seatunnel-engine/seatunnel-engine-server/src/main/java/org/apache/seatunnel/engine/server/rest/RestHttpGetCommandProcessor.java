@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.engine.common.Constant;
@@ -64,7 +65,10 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.Spliterators;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_500;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.FINISHED_JOBS_INFO;
@@ -78,7 +82,9 @@ import static org.apache.seatunnel.engine.server.rest.RestConstant.SYSTEM_MONITO
 public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCommand> {
 
     private static final String SOURCE_RECEIVED_COUNT = "SourceReceivedCount";
+    private static final String TABLE_SOURCE_RECEIVED_COUNT = "TableSourceReceivedCount";
     private static final String SINK_WRITE_COUNT = "SinkWriteCount";
+    private static final String TABLE_SINK_WRITE_COUNT = "TableSinkWriteCount";
     private final Log4j2HttpGetCommandProcessor original;
     private NodeEngine nodeEngine;
 
@@ -110,7 +116,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
             } else if (uri.startsWith(RUNNING_THREADS)) {
                 getRunningThread(httpGetCommand);
             } else if (uri.startsWith(OVERVIEW)) {
-                overView(httpGetCommand);
+                overView(httpGetCommand, uri);
             } else {
                 original.handle(httpGetCommand);
             }
@@ -129,8 +135,20 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         handle(httpGetCommand);
     }
 
-    public void overView(HttpGetCommand command) {
-
+    public void overView(HttpGetCommand command, String uri) {
+        uri = StringUtil.stripTrailingSlash(uri);
+        String tagStr;
+        if (uri.contains("?")) {
+            int index = uri.indexOf("?");
+            tagStr = uri.substring(index + 1);
+        } else {
+            tagStr = "";
+        }
+        Map<String, String> tags =
+                Arrays.stream(tagStr.split("&"))
+                        .map(variable -> variable.split("=", 2))
+                        .filter(pair -> pair.length == 2)
+                        .collect(Collectors.toMap(pair -> pair[0], pair -> pair[1]));
         Version version = EnvironmentUtil.getVersion();
 
         SeaTunnelServer seaTunnelServer = getSeaTunnelServer(true);
@@ -141,14 +159,14 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
             overviewInfo =
                     (OverviewInfo)
                             NodeEngineUtil.sendOperationToMasterNode(
-                                            getNode().nodeEngine, new GetOverviewOperation())
+                                            getNode().nodeEngine, new GetOverviewOperation(tags))
                                     .join();
             overviewInfo.setProjectVersion(version.getProjectVersion());
             overviewInfo.setGitCommitAbbrev(version.getGitCommitAbbrev());
         } else {
 
             NodeEngineImpl nodeEngine = this.textCommandService.getNode().getNodeEngine();
-            overviewInfo = GetOverviewOperation.getOverviewInfo(seaTunnelServer, nodeEngine);
+            overviewInfo = GetOverviewOperation.getOverviewInfo(seaTunnelServer, nodeEngine, tags);
             overviewInfo.setProjectVersion(version.getProjectVersion());
             overviewInfo.setGitCommitAbbrev(version.getGitCommitAbbrev());
         }
@@ -349,12 +367,31 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                         .collect(JsonArray::new, JsonArray::add, JsonArray::add));
     }
 
-    private Map<String, Long> getJobMetrics(String jobMetrics) {
-        Map<String, Long> metricsMap = new HashMap<>();
+    private Map<String, Object> getJobMetrics(String jobMetrics) {
+        Map<String, Object> metricsMap = new HashMap<>();
         long sourceReadCount = 0L;
         long sinkWriteCount = 0L;
+        Map<String, JsonNode> tableSourceReceivedCountMap = new HashMap<>();
+        Map<String, JsonNode> tableSinkWriteCountMap = new HashMap<>();
         try {
             JsonNode jobMetricsStr = new ObjectMapper().readTree(jobMetrics);
+            StreamSupport.stream(
+                            Spliterators.spliteratorUnknownSize(jobMetricsStr.fieldNames(), 0),
+                            false)
+                    .filter(metricName -> metricName.contains("#"))
+                    .forEach(
+                            metricName -> {
+                                String tableName =
+                                        TablePath.of(metricName.split("#")[1]).getFullName();
+                                if (metricName.startsWith(SOURCE_RECEIVED_COUNT)) {
+                                    tableSourceReceivedCountMap.put(
+                                            tableName, jobMetricsStr.get(metricName));
+                                }
+                                if (metricName.startsWith(SOURCE_RECEIVED_COUNT)) {
+                                    tableSinkWriteCountMap.put(
+                                            tableName, jobMetricsStr.get(metricName));
+                                }
+                            });
             JsonNode sourceReceivedCountJson = jobMetricsStr.get(SOURCE_RECEIVED_COUNT);
             JsonNode sinkWriteCountJson = jobMetricsStr.get(SINK_WRITE_COUNT);
             for (int i = 0; i < jobMetricsStr.get(SOURCE_RECEIVED_COUNT).size(); i++) {
@@ -366,9 +403,36 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         } catch (JsonProcessingException | NullPointerException e) {
             return metricsMap;
         }
+
+        Map<String, Long> tableSourceReceivedCount =
+                tableSourceReceivedCountMap.entrySet().stream()
+                        .collect(
+                                Collectors.toMap(
+                                        Map.Entry::getKey,
+                                        entry ->
+                                                StreamSupport.stream(
+                                                                entry.getValue().spliterator(),
+                                                                false)
+                                                        .mapToLong(
+                                                                node -> node.get("value").asLong())
+                                                        .sum()));
+        Map<String, Long> tableSinkWriteCount =
+                tableSinkWriteCountMap.entrySet().stream()
+                        .collect(
+                                Collectors.toMap(
+                                        Map.Entry::getKey,
+                                        entry ->
+                                                StreamSupport.stream(
+                                                                entry.getValue().spliterator(),
+                                                                false)
+                                                        .mapToLong(
+                                                                node -> node.get("value").asLong())
+                                                        .sum()));
+
         metricsMap.put(SOURCE_RECEIVED_COUNT, sourceReadCount);
         metricsMap.put(SINK_WRITE_COUNT, sinkWriteCount);
-
+        metricsMap.put(TABLE_SOURCE_RECEIVED_COUNT, tableSourceReceivedCount);
+        metricsMap.put(TABLE_SINK_WRITE_COUNT, tableSinkWriteCount);
         return metricsMap;
     }
 
@@ -462,9 +526,22 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                 .add(
                         RestConstant.IS_START_WITH_SAVE_POINT,
                         jobImmutableInformation.isStartWithSavePoint())
-                .add(RestConstant.METRICS, JsonUtil.toJsonObject(getJobMetrics(jobMetrics)));
+                .add(RestConstant.METRICS, toJsonObject(getJobMetrics(jobMetrics)));
 
         return jobInfoJson;
+    }
+
+    private JsonObject toJsonObject(Map<String, Object> jobMetrics) {
+        JsonObject members = new JsonObject();
+        jobMetrics.forEach(
+                (key, value) -> {
+                    if (value instanceof Map) {
+                        members.add(key, toJsonObject((Map<String, Object>) value));
+                    } else {
+                        members.add(key, value.toString());
+                    }
+                });
+        return members;
     }
 
     private JsonObject getJobInfoJson(JobState jobState, String jobMetrics, JobDAGInfo jobDAGInfo) {
@@ -485,6 +562,6 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                                 DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS))
                 .add(RestConstant.JOB_DAG, JsonUtils.toJsonString(jobDAGInfo))
                 .add(RestConstant.PLUGIN_JARS_URLS, new JsonArray())
-                .add(RestConstant.METRICS, JsonUtil.toJsonObject(getJobMetrics(jobMetrics)));
+                .add(RestConstant.METRICS, toJsonObject(getJobMetrics(jobMetrics)));
     }
 }
