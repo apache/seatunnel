@@ -43,11 +43,11 @@ public class SparkDataWriter<CommitInfoT, StateT> implements DataWriter<Internal
 
     protected final SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter;
 
-    @Nullable private final SinkCommitter<CommitInfoT> sinkCommitter;
-    private final RowConverter<InternalRow> rowConverter;
-    private CommitInfoT latestCommitInfoT;
-    private long epochId;
-    private volatile MultiTableResourceManager resourceManager;
+    @Nullable protected final SinkCommitter<CommitInfoT> sinkCommitter;
+    protected final RowConverter<InternalRow> rowConverter;
+    protected CommitInfoT latestCommitInfoT;
+    protected long epochId;
+    protected volatile MultiTableResourceManager resourceManager;
 
     SparkDataWriter(
             SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter,
@@ -66,7 +66,7 @@ public class SparkDataWriter<CommitInfoT, StateT> implements DataWriter<Internal
         sinkWriter.write(rowConverter.reconvert(record));
     }
 
-    private void initResourceManger() {
+    protected void initResourceManger() {
         if (sinkWriter instanceof SupportResourceShare) {
             resourceManager =
                     ((SupportResourceShare) sinkWriter).initMultiTableResourceManager(1, 1);

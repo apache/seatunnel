@@ -18,6 +18,7 @@ package org.apache.seatunnel.translation.spark.sink.write;
 
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportResourceShare;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.translation.serialization.RowConverter;
 import org.apache.seatunnel.translation.spark.execution.ColumnWithIndex;
@@ -58,6 +59,16 @@ public class SeaTunnelSparkDataMultiWriter extends SeaTunnelSparkDataWriter {
                                                 new InternalRowConverter(
                                                         mergeCatalogTable.getSeaTunnelRowType(),
                                                         columnWithIndex.getIndex())));
+    }
+
+    @Override
+    protected void initResourceManger() {
+        if (sinkWriter instanceof SupportResourceShare) {
+            resourceManager =
+                    ((SupportResourceShare) sinkWriter)
+                            .initMultiTableResourceManager(rowConverterMap.size(), 1);
+            ((SupportResourceShare) sinkWriter).setMultiTableResourceManager(resourceManager, 0);
+        }
     }
 
     @Override
