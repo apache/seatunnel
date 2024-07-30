@@ -47,7 +47,7 @@ public class ActivemqIT extends TestSuiteBase {
             new GenericContainer<>(DockerImageName.parse("rmohr/activemq"))
                     .withExposedPorts(61616)
                     .withCopyFileToContainer(
-                            MountableFile.forClasspathResource("e2e.json"), "e2e.json");
+                            MountableFile.forClasspathResource("/e2e.json"), "/e2e.json");
     private Connection connection;
     private Session session;
 
