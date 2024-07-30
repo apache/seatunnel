@@ -24,6 +24,7 @@ import org.apache.seatunnel.transform.exception.TransformException;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -98,6 +99,8 @@ public class SystemFunction {
                 return Long.parseLong(v1.toString());
             case "BYTE":
                 return Byte.parseByte(v1.toString());
+            case "BYTES":
+                return v1.toString().getBytes(StandardCharsets.UTF_8);
             case "DOUBLE":
                 return Double.parseDouble(v1.toString());
             case "FLOAT":
