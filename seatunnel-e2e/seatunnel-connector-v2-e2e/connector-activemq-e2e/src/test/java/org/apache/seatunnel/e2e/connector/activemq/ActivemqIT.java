@@ -44,7 +44,7 @@ import java.util.ArrayList;
 public class ActivemqIT extends TestSuiteBase {
 
     public GenericContainer<?> activeMQContainer =
-            new GenericContainer<>(DockerImageName.parse("apache/activemq:classic"))
+            new GenericContainer<>(DockerImageName.parse("rmohr/activemq"))
                     .withExposedPorts(61616)
                     .withCopyFileToContainer(
                             MountableFile.forClasspathResource("e2e.json"), "e2e.json");
