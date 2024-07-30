@@ -91,6 +91,8 @@ GRANT SELECT ON V_$ARCHIVED_LOG TO logminer_user;
 GRANT SELECT ON V_$ARCHIVE_DEST_STATUS TO logminer_user;
 GRANT EXECUTE ON DBMS_LOGMNR TO logminer_user;
 GRANT EXECUTE ON DBMS_LOGMNR_D TO logminer_user;
+GRANT SELECT ANY TRANSACTION TO logminer_user; 
+GRANT SELECT ON V_$TRANSACTION TO logminer_user;
 ```
 
 ##### Oracle 11g is not supported
