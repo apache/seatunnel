@@ -119,5 +119,5 @@ sink {
 
 ### next version
 
-- Add Rabbitmq Source Connector
+- Add Activemq Source Connector
 

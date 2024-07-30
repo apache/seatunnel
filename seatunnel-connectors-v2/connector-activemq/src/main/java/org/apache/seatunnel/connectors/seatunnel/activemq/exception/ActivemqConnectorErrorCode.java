@@ -21,7 +21,7 @@ import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
 public enum ActivemqConnectorErrorCode implements SeaTunnelErrorCode {
     HANDLE_SHUTDOWN_SIGNAL_FAILED("ACTIVEMQ-01", "handle queue consumer shutdown signal failed"),
-    CREATE_ACTIVEMQ_CLIENT_FAILED("ACTIVEMQ-02", "create rabbitmq client failed"),
+    CREATE_ACTIVEMQ_CLIENT_FAILED("ACTIVEMQ-02", "create activemq client failed"),
     CLOSE_CONNECTION_FAILED("ACTIVEMQ-03", "close connection failed"),
     SEND_MESSAGE_FAILED("ACTIVEMQ-04", "send messages failed"),
     MESSAGE_ACK_FAILED(
