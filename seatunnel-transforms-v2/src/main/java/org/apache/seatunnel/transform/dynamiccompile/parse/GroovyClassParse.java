@@ -21,6 +21,6 @@ public class GroovyClassParse extends AbstractParse {
 
     @Override
     public Class<?> parseClassSourceCode(String sourceCode) {
-        return GroovyClassLayer.parseSourceCodeWithCache(sourceCode);
+        return GroovyClassParser.parseSourceCodeWithCache(sourceCode);
     }
 }

@@ -18,7 +18,7 @@ package org.apache.seatunnel.transform.dynamiccompile.parse;
 
 import groovy.lang.GroovyClassLoader;
 
-public class GroovyClassLayer extends AbstractLayer {
+public class GroovyClassParser extends AbstractParser {
     private static final GroovyClassLoader groovyClassLoader = new GroovyClassLoader();
 
     public static Class<?> parseSourceCodeWithCache(String sourceCode) {

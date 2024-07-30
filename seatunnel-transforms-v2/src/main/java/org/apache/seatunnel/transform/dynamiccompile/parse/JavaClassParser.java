@@ -21,7 +21,7 @@ import org.apache.seatunnel.shade.org.codehaus.janino.ClassBodyEvaluator;
 
 import java.util.function.Function;
 
-public class JavaClassLayer extends AbstractLayer {
+public class JavaClassParser extends AbstractParser {
 
     public static Class<?> parseSourceCodeWithCache(String sourceCode) {
         return classCache.computeIfAbsent(

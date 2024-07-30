@@ -20,6 +20,6 @@ public class JavaClassParse extends AbstractParse {
 
     @Override
     public Class<?> parseClassSourceCode(String sourceCode) {
-        return JavaClassLayer.parseSourceCodeWithCache(sourceCode);
+        return JavaClassParser.parseSourceCodeWithCache(sourceCode);
     }
 }
