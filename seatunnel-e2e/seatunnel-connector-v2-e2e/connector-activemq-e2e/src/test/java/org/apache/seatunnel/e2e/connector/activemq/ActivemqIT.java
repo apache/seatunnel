@@ -72,7 +72,7 @@ public class ActivemqIT extends TestSuiteBase {
 
     @TestTemplate
     public void testActivemqFakeSource(TestContainer container) throws Exception {
-        Container.ExecResult execResult = container.executeJob("fake_source_to_sink.conf");
+        Container.ExecResult execResult = container.executeJob("/fake_source_to_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
 
         Queue queue = session.createQueue("fakesource");
@@ -97,7 +97,7 @@ public class ActivemqIT extends TestSuiteBase {
 
     @TestTemplate
     public void testActivemqLocalFileSource(TestContainer container) throws Exception {
-        Container.ExecResult execResult = container.executeJob("localfile_source_to_sink.conf");
+        Container.ExecResult execResult = container.executeJob("/localfile_source_to_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 }
