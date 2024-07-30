@@ -53,6 +53,7 @@ public class ActivemqIT extends TestSuiteBase {
 
     @BeforeEach
     public void setup() throws JMSException {
+        activeMQContainer.start();
         String brokerUrl = "tcp://localhost:" + activeMQContainer.getMappedPort(61616);
         ConnectionFactory connectionFactory = new ActiveMQConnectionFactory(brokerUrl);
         connection = connectionFactory.createConnection();
