@@ -16,29 +16,13 @@
  */
 package org.apache.seatunnel.transform.dynamiccompile.parse;
 
-import org.apache.seatunnel.shade.org.codehaus.commons.compiler.CompileException;
-import org.apache.seatunnel.shade.org.codehaus.janino.ClassBodyEvaluator;
+import groovy.lang.GroovyClassLoader;
 
-import java.util.function.Function;
+public class GroovyClassParser extends AbstractParser {
+    private static final GroovyClassLoader groovyClassLoader = new GroovyClassLoader();
 
-public class JavaClassUtil extends ParseUtil {
-
-    public static Class<?> parseWithCache(String sourceCode) {
-
+    public static Class<?> parseSourceCodeWithCache(String sourceCode) {
         return classCache.computeIfAbsent(
-                getClassKey(sourceCode),
-                new Function<String, Class<?>>() {
-                    @Override
-                    public Class<?> apply(String classKey) {
-                        try {
-                            ClassBodyEvaluator cbe = new ClassBodyEvaluator();
-                            cbe.cook(sourceCode);
-                            return cbe.getClazz();
-
-                        } catch (CompileException e) {
-                            throw new RuntimeException(e);
-                        }
-                    }
-                });
+                getClassKey(sourceCode), clazz -> groovyClassLoader.parseClass(sourceCode));
     }
 }

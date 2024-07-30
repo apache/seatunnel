@@ -11,8 +11,10 @@ If the conversion is too complex, it may affect performance
 
 |       name       |  type  | required | default value |
 |------------------|--------|----------|---------------|
-| source_code      | string | yes      |               |
-| compile_language | string | yes      |               |
+| source_code      | string | no       |               |
+| compile_language | Enum   | yes      |               |
+| compile_pattern  | Enum   | no       | SOURCE_CODE   |
+| absolute_path    | string | no       |               |
 
 ### source_code [string]
 
@@ -24,10 +26,19 @@ If there are third-party dependency packages, please place them in ${SEATUNNEL_H
 
 Transform plugin common parameters, please refer to [Transform Plugin](common-options.md) for details
 
-### compile_language [string]
+### compile_language [Enum]
 
 Some syntax in Java may not be supported, please refer https://github.com/janino-compiler/janino
 GROOVY,JAVA
+
+### compile_pattern [Enum]
+
+SOURCE_CODE,ABSOLUTE_PATH
+If it is a SOURCE-CODE enumeration; the SOURCE-CODE attribute is required, and the ABSOLUTE_PATH enumeration;ABSOLUTE_PATH attribute is required
+
+### absolute_path [string]
+
+The absolute path of Java or Groovy files on the server
 
 ## Example
 
@@ -46,6 +57,7 @@ transform {
     source_table_name = "fake"
     result_table_name = "fake1"
     compile_language="GROOVY"
+    compile_pattern="SOURCE_CODE"
     source_code="""
                  import org.apache.seatunnel.api.table.catalog.Column
                  import org.apache.seatunnel.transform.common.SeaTunnelRowAccessor
@@ -82,6 +94,7 @@ transform {
     source_table_name = "fake"
     result_table_name = "fake1"
     compile_language="JAVA"
+    compile_pattern="SOURCE_CODE"
     source_code="""
                  import org.apache.seatunnel.api.table.catalog.Column;
                  import org.apache.seatunnel.transform.common.SeaTunnelRowAccessor;
@@ -113,6 +126,17 @@ transform {
 
   }
  } 
+ 
+ transform {
+ DynamicCompile {
+    source_table_name = "fake"
+    result_table_name = "fake1"
+    compile_language="GROOVY"
+    compile_pattern="ABSOLUTE_PATH"
+    absolute_path="""/tmp/GroovyFile"""
+
+  }
+}
 ```
 
 Then the data in result table `fake1` will like this
