@@ -134,7 +134,7 @@ public class TransformExecuteProcessor
                 tableInfo.getCatalogTables().get(0).getSeaTunnelRowType();
         SeaTunnelDataType<?> outputDataTYpe =
                 transform.getProducedCatalogTable().getSeaTunnelRowType();
-        StructType outputSchema = (StructType) TypeConverterUtils.convert(outputDataTYpe);
+        StructType outputSchema = (StructType) TypeConverterUtils.parcel(outputDataTYpe);
         SeaTunnelRowConverter inputRowConverter = new SeaTunnelRowConverter(inputDataType);
         SeaTunnelRowConverter outputRowConverter = new SeaTunnelRowConverter(outputDataTYpe);
         ExpressionEncoder<Row> encoder = RowEncoder.apply(outputSchema);
@@ -180,15 +180,12 @@ public class TransformExecuteProcessor
         public Row next() {
             try {
                 Row row = sourceIterator.next();
-                SeaTunnelRow seaTunnelRow =
-                        inputRowConverter.reconvert(
-                                new SeaTunnelRow(((GenericRowWithSchema) row).values()));
+                SeaTunnelRow seaTunnelRow = inputRowConverter.unpack((GenericRowWithSchema) row);
                 seaTunnelRow = (SeaTunnelRow) transform.map(seaTunnelRow);
                 if (seaTunnelRow == null) {
                     return null;
                 }
-                seaTunnelRow = outputRowConverter.convert(seaTunnelRow);
-                return new GenericRowWithSchema(seaTunnelRow.getFields(), structType);
+                return outputRowConverter.parcel(seaTunnelRow);
             } catch (Exception e) {
                 throw new TaskExecuteException("Row convert failed, caused: " + e.getMessage(), e);
             }
