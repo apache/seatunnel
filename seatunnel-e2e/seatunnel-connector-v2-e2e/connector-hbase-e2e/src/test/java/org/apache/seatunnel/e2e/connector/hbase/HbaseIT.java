@@ -167,9 +167,11 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    public void testHbaseSourceWithBatchQuery(TestContainer container) throws IOException, InterruptedException {
+    public void testHbaseSourceWithBatchQuery(TestContainer container)
+            throws IOException, InterruptedException {
         fakeToHbase(container);
-        Container.ExecResult sourceExecResult = container.executeJob("/hbase-source-to-assert-with-batch-query.conf");
+        Container.ExecResult sourceExecResult =
+                container.executeJob("/hbase-source-to-assert-with-batch-query.conf");
         Assertions.assertEquals(0, sourceExecResult.getExitCode());
     }
 
