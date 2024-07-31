@@ -31,7 +31,11 @@ public class TiDBCatalog extends MySqlCatalog {
     }
 
     public TiDBCatalog(
-            String catalogName, String username, String pwd, JdbcUrlUtil.UrlInfo urlInfo) {
-        super(catalogName, username, pwd, urlInfo);
+            String catalogName,
+            boolean skipIndexWhenAutoCreateTable,
+            String username,
+            String pwd,
+            JdbcUrlUtil.UrlInfo urlInfo) {
+        super(catalogName, skipIndexWhenAutoCreateTable, username, pwd, urlInfo);
     }
 }

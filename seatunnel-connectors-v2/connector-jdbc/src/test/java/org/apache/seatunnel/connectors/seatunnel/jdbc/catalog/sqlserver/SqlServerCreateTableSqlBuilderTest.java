@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sql;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
@@ -27,9 +27,6 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MysqlCreateTableSqlBuilder;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeConverter;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -41,13 +38,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 
-public class MysqlCreateTableSqlBuilderTest {
+public class SqlServerCreateTableSqlBuilderTest {
 
     private static final PrintStream CONSOLE = System.out;
 
     @Test
     public void testBuild() {
-        // todo
         String dataBaseName = "test_database";
         String tableName = "test_table";
         TablePath tablePath = TablePath.of(dataBaseName, tableName);
@@ -108,24 +104,61 @@ public class MysqlCreateTableSqlBuilderTest {
                         new ArrayList<>(),
                         "User table");
 
-        String createTableSql =
-                MysqlCreateTableSqlBuilder.builder(
-                                tablePath, catalogTable, MySqlTypeConverter.DEFAULT_INSTANCE)
-                        .build(DatabaseIdentifier.MYSQL);
+        SqlServerCreateTableSqlBuilder sqlServerCreateTableSqlBuilder =
+                SqlServerCreateTableSqlBuilder.builder(tablePath, catalogTable, false);
+        String createTableSql = sqlServerCreateTableSqlBuilder.build(tablePath, catalogTable);
         // create table sql is change; The old unit tests are no longer applicable
         String expect =
-                "CREATE TABLE `test_table` (\n"
-                        + "\t`id` BIGINT NOT NULL COMMENT 'id', \n"
-                        + "\t`name` VARCHAR(128) NOT NULL COMMENT 'name', \n"
-                        + "\t`age` INT NULL COMMENT 'age', \n"
-                        + "\t`blob_v` LONGBLOB NULL COMMENT 'blob_v', \n"
-                        + "\t`createTime` DATETIME NULL COMMENT 'createTime', \n"
-                        + "\t`lastUpdateTime` DATETIME NULL COMMENT 'lastUpdateTime', \n"
-                        + "\tPRIMARY KEY (`id`), \n"
-                        + "\tKEY `name` (`name`), \n"
-                        + "\tKEY `blob_v` (`blob_v`(255))\n"
-                        + ") COMMENT = 'User table';";
+                "IF OBJECT_ID('[test_database].[test_table]', 'U') IS NULL \n"
+                        + "BEGIN \n"
+                        + "CREATE TABLE [test_database].[test_table] ( \n"
+                        + "\t[id] BIGINT NOT NULL, \n"
+                        + "\t[name] NVARCHAR(128) NOT NULL, \n"
+                        + "\t[age] INT NULL, \n"
+                        + "\t[blob_v] VARBINARY(MAX) NULL, \n"
+                        + "\t[createTime] DATETIME2 NULL, \n"
+                        + "\t[lastUpdateTime] DATETIME2 NULL, \n"
+                        + "\tPRIMARY KEY ([id])\n"
+                        + ");\n"
+                        + "EXEC test_database.sys.sp_addextendedproperty 'MS_Description', N'User table', 'schema', N'null', 'table', N'test_table';\n"
+                        + "EXEC test_database.sys.sp_addextendedproperty 'MS_Description', N'blob_v', 'schema', N'null', 'table', N'test_table', 'column', N'blob_v';\n"
+                        + "EXEC test_database.sys.sp_addextendedproperty 'MS_Description', N'createTime', 'schema', N'null', 'table', N'test_table', 'column', N'createTime';\n"
+                        + "EXEC test_database.sys.sp_addextendedproperty 'MS_Description', N'name', 'schema', N'null', 'table', N'test_table', 'column', N'name';\n"
+                        + "EXEC test_database.sys.sp_addextendedproperty 'MS_Description', N'id', 'schema', N'null', 'table', N'test_table', 'column', N'id';\n"
+                        + "EXEC test_database.sys.sp_addextendedproperty 'MS_Description', N'age', 'schema', N'null', 'table', N'test_table', 'column', N'age';\n"
+                        + "EXEC test_database.sys.sp_addextendedproperty 'MS_Description', N'lastUpdateTime', 'schema', N'null', 'table', N'test_table', 'column', N'lastUpdateTime';\n"
+                        + "\n"
+                        + "END";
+
         CONSOLE.println(expect);
         Assertions.assertEquals(expect, createTableSql);
+
+        // skip index
+        SqlServerCreateTableSqlBuilder sqlServerCreateTableSqlBuilderSkipIndex =
+                SqlServerCreateTableSqlBuilder.builder(tablePath, catalogTable, true);
+        String createTableSqlSkipIndex =
+                sqlServerCreateTableSqlBuilderSkipIndex.build(tablePath, catalogTable);
+        String expectSkipIndex =
+                "IF OBJECT_ID('[test_database].[test_table]', 'U') IS NULL \n"
+                        + "BEGIN \n"
+                        + "CREATE TABLE [test_database].[test_table] ( \n"
+                        + "\t[id] BIGINT NOT NULL, \n"
+                        + "\t[name] NVARCHAR(128) NOT NULL, \n"
+                        + "\t[age] INT NULL, \n"
+                        + "\t[blob_v] VARBINARY(MAX) NULL, \n"
+                        + "\t[createTime] DATETIME2 NULL, \n"
+                        + "\t[lastUpdateTime] DATETIME2 NULL\n"
+                        + ");\n"
+                        + "EXEC test_database.sys.sp_addextendedproperty 'MS_Description', N'User table', 'schema', N'null', 'table', N'test_table';\n"
+                        + "EXEC test_database.sys.sp_addextendedproperty 'MS_Description', N'blob_v', 'schema', N'null', 'table', N'test_table', 'column', N'blob_v';\n"
+                        + "EXEC test_database.sys.sp_addextendedproperty 'MS_Description', N'createTime', 'schema', N'null', 'table', N'test_table', 'column', N'createTime';\n"
+                        + "EXEC test_database.sys.sp_addextendedproperty 'MS_Description', N'name', 'schema', N'null', 'table', N'test_table', 'column', N'name';\n"
+                        + "EXEC test_database.sys.sp_addextendedproperty 'MS_Description', N'id', 'schema', N'null', 'table', N'test_table', 'column', N'id';\n"
+                        + "EXEC test_database.sys.sp_addextendedproperty 'MS_Description', N'age', 'schema', N'null', 'table', N'test_table', 'column', N'age';\n"
+                        + "EXEC test_database.sys.sp_addextendedproperty 'MS_Description', N'lastUpdateTime', 'schema', N'null', 'table', N'test_table', 'column', N'lastUpdateTime';\n"
+                        + "\n"
+                        + "END";
+        CONSOLE.println(expectSkipIndex);
+        Assertions.assertEquals(expectSkipIndex, createTableSqlSkipIndex);
     }
 }

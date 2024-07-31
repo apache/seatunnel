@@ -40,11 +40,12 @@ public class OceanBaseOracleCatalog extends OracleCatalog {
 
     public OceanBaseOracleCatalog(
             String catalogName,
+            boolean skipIndexWhenAutoCreateTable,
             String username,
             String pwd,
             JdbcUrlUtil.UrlInfo urlInfo,
             String defaultSchema) {
-        super(catalogName, username, pwd, urlInfo, defaultSchema);
+        super(catalogName, skipIndexWhenAutoCreateTable, username, pwd, urlInfo, defaultSchema);
     }
 
     @Override

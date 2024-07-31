@@ -40,6 +40,7 @@ class PostgresCatalogTest {
         catalog =
                 new PostgresCatalog(
                         "postgres",
+                        false,
                         "pg",
                         "pg#2024",
                         JdbcUrlUtil.getUrlInfo("jdbc:postgresql://127.0.0.1:5432/postgres"),
@@ -53,6 +54,7 @@ class PostgresCatalogTest {
         MySqlCatalog mySqlCatalog =
                 new MySqlCatalog(
                         "mysql",
+                        false,
                         "root",
                         "root@123",
                         JdbcUrlUtil.getUrlInfo("jdbc:mysql://127.0.0.1:33062/mingdongtest"));

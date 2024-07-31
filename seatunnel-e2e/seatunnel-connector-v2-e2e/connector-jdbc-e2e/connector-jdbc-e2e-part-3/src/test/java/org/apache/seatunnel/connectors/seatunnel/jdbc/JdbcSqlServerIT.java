@@ -321,9 +321,15 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
 
     @Override
     protected void initCatalog() {
+        initCatalogSkipIndex(false);
+    }
+
+    @Override
+    protected void initCatalogSkipIndex(boolean skipIndex) {
         catalog =
                 new SqlServerCatalog(
                         "sqlserver",
+                        skipIndex,
                         jdbcCase.getUserName(),
                         jdbcCase.getPassword(),
                         SqlServerURLParser.parse(
@@ -336,39 +342,53 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
     public void testCatalog() {
         TablePath tablePathSqlserver = TablePath.of("master", "dbo", "source");
         TablePath tablePathSqlserverSink = TablePath.of("master", "dbo", "sink_lw");
-        SqlServerCatalog sqlServerCatalog = (SqlServerCatalog) catalog;
-        // add comment
-        sqlServerCatalog.executeSql(
-                tablePathSqlserver,
-                "execute sp_addextendedproperty 'MS_Description','\"#¥%……&*();\\\\;'',,..``````//''@Xx''\\''\"','user','dbo','table','source','column','BIGINT_TEST';");
-        CatalogTable catalogTable = sqlServerCatalog.getTable(tablePathSqlserver);
-        // sink tableExists ?
-        boolean tableExistsBefore = sqlServerCatalog.tableExists(tablePathSqlserverSink);
-        Assertions.assertFalse(tableExistsBefore);
-        // create table
-        sqlServerCatalog.createTable(tablePathSqlserverSink, catalogTable, true);
-        boolean tableExistsAfter = sqlServerCatalog.tableExists(tablePathSqlserverSink);
-        Assertions.assertTrue(tableExistsAfter);
-        // comment
-        final CatalogTable sinkTable = sqlServerCatalog.getTable(tablePathSqlserverSink);
-        Assertions.assertEquals(
-                sinkTable.getTableSchema().getColumns().get(1).getComment(),
-                "\"#¥%……&*();\\\\;',,..``````//'@Xx'\\'\"");
-        // isExistsData ?
-        boolean existsDataBefore = sqlServerCatalog.isExistsData(tablePathSqlserverSink);
-        Assertions.assertFalse(existsDataBefore);
-        // insert one data
-        sqlServerCatalog.executeSql(
-                tablePathSqlserverSink,
-                "insert into sink_lw(INT_IDENTITY_TEST, BIGINT_TEST) values(1, 12)");
-        boolean existsDataAfter = sqlServerCatalog.isExistsData(tablePathSqlserverSink);
-        Assertions.assertTrue(existsDataAfter);
-        // truncateTable
-        sqlServerCatalog.truncateTable(tablePathSqlserverSink, true);
-        Assertions.assertFalse(sqlServerCatalog.isExistsData(tablePathSqlserverSink));
-        // drop table
-        sqlServerCatalog.dropTable(tablePathSqlserverSink, true);
-        Assertions.assertFalse(sqlServerCatalog.tableExists(tablePathSqlserverSink));
-        sqlServerCatalog.close();
+        Lists.newArrayList(true, false)
+                .forEach(
+                        skipIndex -> {
+                            initCatalogSkipIndex(skipIndex);
+                            SqlServerCatalog sqlServerCatalog = (SqlServerCatalog) catalog;
+                            // add comment
+                            sqlServerCatalog.executeSql(
+                                    tablePathSqlserver,
+                                    "execute sp_addextendedproperty 'MS_Description','\"#¥%……&*();\\\\;'',,..``````//''@Xx''\\''\"','user','dbo','table','source','column','BIGINT_TEST';");
+                            CatalogTable catalogTable =
+                                    sqlServerCatalog.getTable(tablePathSqlserver);
+                            // sink tableExists ?
+                            boolean tableExistsBefore =
+                                    sqlServerCatalog.tableExists(tablePathSqlserverSink);
+                            Assertions.assertFalse(tableExistsBefore);
+                            // create table
+                            sqlServerCatalog.createTable(
+                                    tablePathSqlserverSink, catalogTable, true);
+                            boolean tableExistsAfter =
+                                    sqlServerCatalog.tableExists(tablePathSqlserverSink);
+                            Assertions.assertTrue(tableExistsAfter);
+                            // comment
+                            final CatalogTable sinkTable =
+                                    sqlServerCatalog.getTable(tablePathSqlserverSink);
+                            Assertions.assertEquals(
+                                    sinkTable.getTableSchema().getColumns().get(1).getComment(),
+                                    "\"#¥%……&*();\\\\;',,..``````//'@Xx'\\'\"");
+                            // isExistsData ?
+                            boolean existsDataBefore =
+                                    sqlServerCatalog.isExistsData(tablePathSqlserverSink);
+                            Assertions.assertFalse(existsDataBefore);
+                            // insert one data
+                            sqlServerCatalog.executeSql(
+                                    tablePathSqlserverSink,
+                                    "insert into sink_lw(INT_IDENTITY_TEST, BIGINT_TEST) values(1, 12)");
+                            boolean existsDataAfter =
+                                    sqlServerCatalog.isExistsData(tablePathSqlserverSink);
+                            Assertions.assertTrue(existsDataAfter);
+                            // truncateTable
+                            sqlServerCatalog.truncateTable(tablePathSqlserverSink, true);
+                            Assertions.assertFalse(
+                                    sqlServerCatalog.isExistsData(tablePathSqlserverSink));
+                            // drop table
+                            sqlServerCatalog.dropTable(tablePathSqlserverSink, true);
+                            Assertions.assertFalse(
+                                    sqlServerCatalog.tableExists(tablePathSqlserverSink));
+                            sqlServerCatalog.close();
+                        });
     }
 }

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.saphana;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
@@ -26,16 +26,21 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import com.google.common.collect.Lists;
 
+import java.io.PrintStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 
-public class SapHanaCreateTableSqlBuilderTest {
+public class OracleCreateTableSqlBuilderTest {
+
+    private static final PrintStream CONSOLE = System.out;
 
     @Test
     public void testBuild() {
@@ -51,6 +56,14 @@ public class SapHanaCreateTableSqlBuilderTest {
                         .column(
                                 PhysicalColumn.of(
                                         "age", BasicType.INT_TYPE, (Long) null, true, null, "age"))
+                        .column(
+                                PhysicalColumn.of(
+                                        "blob_v",
+                                        PrimitiveByteArrayType.INSTANCE,
+                                        Long.MAX_VALUE,
+                                        true,
+                                        null,
+                                        "blob_v"))
                         .column(
                                 PhysicalColumn.of(
                                         "createTime",
@@ -69,12 +82,19 @@ public class SapHanaCreateTableSqlBuilderTest {
                                         "lastUpdateTime"))
                         .primaryKey(PrimaryKey.of("id", Lists.newArrayList("id")))
                         .constraintKey(
-                                ConstraintKey.of(
-                                        ConstraintKey.ConstraintType.UNIQUE_KEY,
-                                        "name",
-                                        Lists.newArrayList(
-                                                ConstraintKey.ConstraintKeyColumn.of(
-                                                        "name", null))))
+                                Arrays.asList(
+                                        ConstraintKey.of(
+                                                ConstraintKey.ConstraintType.INDEX_KEY,
+                                                "name",
+                                                Lists.newArrayList(
+                                                        ConstraintKey.ConstraintKeyColumn.of(
+                                                                "name", null))),
+                                        ConstraintKey.of(
+                                                ConstraintKey.ConstraintType.INDEX_KEY,
+                                                "blob_v",
+                                                Lists.newArrayList(
+                                                        ConstraintKey.ConstraintKeyColumn.of(
+                                                                "blob_v", null)))))
                         .build();
         CatalogTable catalogTable =
                 CatalogTable.of(
@@ -84,31 +104,43 @@ public class SapHanaCreateTableSqlBuilderTest {
                         new ArrayList<>(),
                         "User table");
 
-        String createTableSql =
-                new SapHanaCreateTableSqlBuilder(catalogTable, false).build(tablePath);
+        OracleCreateTableSqlBuilder oracleCreateTableSqlBuilder =
+                new OracleCreateTableSqlBuilder(catalogTable, false);
+        String createTableSql = oracleCreateTableSqlBuilder.build(tablePath).get(0);
+        // create table sql is change; The old unit tests are no longer applicable
         String expect =
-                "CREATE TABLE \"test_database\".\"test_table\" (\n"
-                        + "\"id\" BIGINT NOT NULL COMMENT 'id',\n"
-                        + "\"name\" NVARCHAR(128) NOT NULL COMMENT 'name',\n"
-                        + "\"age\" INTEGER NULL COMMENT 'age',\n"
-                        + "\"createTime\" SECONDDATE NULL COMMENT 'createTime',\n"
-                        + "\"lastUpdateTime\" SECONDDATE NULL COMMENT 'lastUpdateTime',\n"
-                        + "PRIMARY KEY (\"id\"),\n"
-                        + "UNIQUE (\"name\")\n"
-                        + ") COMMENT 'User table'";
-        Assertions.assertEquals(expect, createTableSql);
+                "CREATE TABLE \"test_table\" (\n"
+                        + "\"id\" INTEGER NOT NULL,\n"
+                        + "\"name\" VARCHAR2(128) NOT NULL,\n"
+                        + "\"age\" INTEGER,\n"
+                        + "\"blob_v\" BLOB,\n"
+                        + "\"createTime\" TIMESTAMP WITH LOCAL TIME ZONE,\n"
+                        + "\"lastUpdateTime\" TIMESTAMP WITH LOCAL TIME ZONE,\n"
+                        + "CONSTRAINT id_9a8b PRIMARY KEY (\"id\")\n"
+                        + ")";
+
+        // replace "CONSTRAINT id_xxxx" because it's dynamically generated(random)
+        String regex = "id_\\w+";
+        String replacedStr1 = createTableSql.replaceAll(regex, "id_");
+        String replacedStr2 = expect.replaceAll(regex, "id_");
+        CONSOLE.println(replacedStr2);
+        Assertions.assertEquals(replacedStr2, replacedStr1);
 
         // skip index
+        OracleCreateTableSqlBuilder oracleCreateTableSqlBuilderSkipIndex =
+                new OracleCreateTableSqlBuilder(catalogTable, true);
         String createTableSqlSkipIndex =
-                new SapHanaCreateTableSqlBuilder(catalogTable, true).build(tablePath);
+                oracleCreateTableSqlBuilderSkipIndex.build(tablePath).get(0);
         String expectSkipIndex =
-                "CREATE TABLE \"test_database\".\"test_table\" (\n"
-                        + "\"id\" BIGINT NOT NULL COMMENT 'id',\n"
-                        + "\"name\" NVARCHAR(128) NOT NULL COMMENT 'name',\n"
-                        + "\"age\" INTEGER NULL COMMENT 'age',\n"
-                        + "\"createTime\" SECONDDATE NULL COMMENT 'createTime',\n"
-                        + "\"lastUpdateTime\" SECONDDATE NULL COMMENT 'lastUpdateTime'\n"
-                        + ") COMMENT 'User table'";
+                "CREATE TABLE \"test_table\" (\n"
+                        + "\"id\" INTEGER NOT NULL,\n"
+                        + "\"name\" VARCHAR2(128) NOT NULL,\n"
+                        + "\"age\" INTEGER,\n"
+                        + "\"blob_v\" BLOB,\n"
+                        + "\"createTime\" TIMESTAMP WITH LOCAL TIME ZONE,\n"
+                        + "\"lastUpdateTime\" TIMESTAMP WITH LOCAL TIME ZONE\n"
+                        + ")";
+        CONSOLE.println(expectSkipIndex);
         Assertions.assertEquals(expectSkipIndex, createTableSqlSkipIndex);
     }
 }

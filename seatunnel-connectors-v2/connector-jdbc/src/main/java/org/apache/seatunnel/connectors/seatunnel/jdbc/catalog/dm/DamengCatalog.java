@@ -61,11 +61,12 @@ public class DamengCatalog extends AbstractJdbcCatalog {
 
     public DamengCatalog(
             String catalogName,
+            boolean skipIndexWhenAutoCreateTable,
             String username,
             String pwd,
             JdbcUrlUtil.UrlInfo urlInfo,
             String defaultSchema) {
-        super(catalogName, username, pwd, urlInfo, defaultSchema);
+        super(catalogName, skipIndexWhenAutoCreateTable, username, pwd, urlInfo, defaultSchema);
     }
 
     @Override

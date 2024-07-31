@@ -212,6 +212,7 @@ public class JdbcOracleLowercaseTableIT extends AbstractJdbcIT {
         catalog =
                 new OracleCatalog(
                         "oracle",
+                        false,
                         jdbcCase.getUserName(),
                         jdbcCase.getPassword(),
                         OracleURLParser.parse(jdbcUrl),
@@ -227,6 +228,7 @@ public class JdbcOracleLowercaseTableIT extends AbstractJdbcIT {
         OracleCatalog oracleCatalog =
                 new OracleCatalog(
                         "Oracle",
+                        false,
                         jdbcCase.getUserName(),
                         jdbcCase.getPassword(),
                         OracleURLParser.parse(

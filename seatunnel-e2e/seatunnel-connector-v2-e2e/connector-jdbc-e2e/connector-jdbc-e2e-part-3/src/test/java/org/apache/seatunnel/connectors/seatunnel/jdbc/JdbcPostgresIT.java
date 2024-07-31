@@ -277,6 +277,19 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
         }
     }
 
+    public Catalog initCatalogSkipIndex(boolean skipIndex, String schema) {
+        Catalog catalog =
+                new PostgresCatalog(
+                        DatabaseIdentifier.POSTGRESQL,
+                        false,
+                        POSTGRESQL_CONTAINER.getUsername(),
+                        POSTGRESQL_CONTAINER.getPassword(),
+                        JdbcUrlUtil.getUrlInfo(POSTGRESQL_CONTAINER.getJdbcUrl()),
+                        schema);
+        catalog.open();
+        return catalog;
+    }
+
     @Test
     public void testCatalog() {
         String schema = "public";
@@ -285,33 +298,35 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
         String catalogDatabaseName = "pg_e2e_catalog_database";
         String catalogTableName = "pg_e2e_catalog_table";
 
-        Catalog catalog =
-                new PostgresCatalog(
-                        DatabaseIdentifier.POSTGRESQL,
-                        POSTGRESQL_CONTAINER.getUsername(),
-                        POSTGRESQL_CONTAINER.getPassword(),
-                        JdbcUrlUtil.getUrlInfo(POSTGRESQL_CONTAINER.getJdbcUrl()),
-                        schema);
-        catalog.open();
-
         TablePath tablePath = new TablePath(databaseName, schema, tableName);
         TablePath catalogTablePath = new TablePath(catalogDatabaseName, schema, catalogTableName);
 
-        Assertions.assertFalse(catalog.databaseExists(catalogTablePath.getDatabaseName()));
-        catalog.createDatabase(catalogTablePath, false);
-        Assertions.assertTrue(catalog.databaseExists(catalogTablePath.getDatabaseName()));
+        Lists.newArrayList(true, false)
+                .forEach(
+                        skipIndex -> {
+                            Catalog catalog = initCatalogSkipIndex(skipIndex, schema);
+                            Assertions.assertFalse(
+                                    catalog.databaseExists(catalogTablePath.getDatabaseName()));
+                            catalog.createDatabase(catalogTablePath, false);
+                            Assertions.assertTrue(
+                                    catalog.databaseExists(catalogTablePath.getDatabaseName()));
 
-        CatalogTable catalogTable = catalog.getTable(tablePath);
-        catalog.createTable(catalogTablePath, catalogTable, false);
-        Assertions.assertTrue(catalog.tableExists(catalogTablePath));
+                            catalog.dropTable(catalogTablePath, true);
+                            Assertions.assertFalse(catalog.tableExists(catalogTablePath));
 
-        catalog.dropTable(catalogTablePath, false);
-        Assertions.assertFalse(catalog.tableExists(catalogTablePath));
+                            CatalogTable catalogTable = catalog.getTable(tablePath);
+                            catalog.createTable(catalogTablePath, catalogTable, false);
+                            Assertions.assertTrue(catalog.tableExists(catalogTablePath));
 
-        catalog.dropDatabase(catalogTablePath, false);
-        Assertions.assertFalse(catalog.databaseExists(catalogTablePath.getDatabaseName()));
+                            catalog.dropTable(catalogTablePath, false);
+                            Assertions.assertFalse(catalog.tableExists(catalogTablePath));
 
-        catalog.close();
+                            catalog.dropDatabase(catalogTablePath, false);
+                            Assertions.assertFalse(
+                                    catalog.databaseExists(catalogTablePath.getDatabaseName()));
+
+                            catalog.close();
+                        });
     }
 
     private void initializeJdbcTable() {
@@ -469,6 +484,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
         PostgresCatalog postgresCatalog =
                 new PostgresCatalog(
                         DatabaseIdentifier.POSTGRESQL,
+                        false,
                         POSTGRESQL_CONTAINER.getUsername(),
                         POSTGRESQL_CONTAINER.getPassword(),
                         JdbcUrlUtil.getUrlInfo(POSTGRESQL_CONTAINER.getJdbcUrl()),

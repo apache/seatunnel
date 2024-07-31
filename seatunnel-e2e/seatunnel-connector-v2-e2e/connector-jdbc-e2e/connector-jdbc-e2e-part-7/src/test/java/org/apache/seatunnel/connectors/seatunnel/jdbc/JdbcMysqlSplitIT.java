@@ -362,7 +362,7 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
 
         TablePath tablePathMySql = TablePath.of(MYSQL_DATABASE, MYSQL_TABLE);
         MySqlCatalog mySqlCatalog =
-                new MySqlCatalog("mysql", MYSQL_USERNAME, MYSQL_PASSWORD, mysqlUrlInfo);
+                new MySqlCatalog("mysql", false, MYSQL_USERNAME, MYSQL_PASSWORD, mysqlUrlInfo);
         mySqlCatalog.open();
         Assertions.assertTrue(mySqlCatalog.tableExists(tablePathMySql));
         CatalogTable table = mySqlCatalog.getTable(tablePathMySql);

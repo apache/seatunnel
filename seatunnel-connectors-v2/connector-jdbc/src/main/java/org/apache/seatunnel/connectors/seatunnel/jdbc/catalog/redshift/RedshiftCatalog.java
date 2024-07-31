@@ -65,11 +65,12 @@ public class RedshiftCatalog extends AbstractJdbcCatalog {
 
     public RedshiftCatalog(
             String catalogName,
+            boolean skipIndexWhenAutoCreateTable,
             String username,
             String pwd,
             JdbcUrlUtil.UrlInfo urlInfo,
             String schema) {
-        super(catalogName, username, pwd, urlInfo, schema);
+        super(catalogName, skipIndexWhenAutoCreateTable, username, pwd, urlInfo, schema);
         this.connectionMap = new ConcurrentHashMap<>();
     }
 
@@ -124,7 +125,7 @@ public class RedshiftCatalog extends AbstractJdbcCatalog {
     @Override
     protected String getCreateTableSql(TablePath tablePath, CatalogTable table) {
         String createTableSql =
-                new RedshiftCreateTableSqlBuilder(table)
+                new RedshiftCreateTableSqlBuilder(table, skipIndexWhenAutoCreateTable)
                         .build(tablePath, table.getOptions().get("fieldIde"));
         return CatalogUtils.getFieldIde(createTableSql, table.getOptions().get("fieldIde"));
     }

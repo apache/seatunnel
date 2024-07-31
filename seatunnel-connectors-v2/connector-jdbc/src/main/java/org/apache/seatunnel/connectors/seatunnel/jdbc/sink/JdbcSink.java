@@ -194,7 +194,10 @@ public class JdbcSink
                 return Optional.empty();
             }
             Optional<Catalog> catalogOptional =
-                    JdbcCatalogUtils.findCatalog(jdbcSinkConfig.getJdbcConnectionConfig(), dialect);
+                    JdbcCatalogUtils.findCatalog(
+                            jdbcSinkConfig.getJdbcConnectionConfig(),
+                            dialect,
+                            jdbcSinkConfig.isSkipIndexWhenAutoCreateTable());
             if (catalogOptional.isPresent()) {
                 try {
                     Catalog catalog = catalogOptional.get();

@@ -233,10 +233,16 @@ public class JdbcXuguIT extends AbstractJdbcIT {
 
     @Override
     protected void initCatalog() {
+        initCatalogSkipIndex(false);
+    }
+
+    @Override
+    protected void initCatalogSkipIndex(boolean skipIndex) {
         String jdbcUrl = jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost());
         catalog =
                 new XuguCatalog(
                         "xugu",
+                        skipIndex,
                         jdbcCase.getUserName(),
                         jdbcCase.getPassword(),
                         JdbcUrlUtil.getUrlInfo(jdbcUrl),

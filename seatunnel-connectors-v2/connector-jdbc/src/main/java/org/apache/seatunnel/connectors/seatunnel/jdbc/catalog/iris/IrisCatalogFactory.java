@@ -49,6 +49,7 @@ public class IrisCatalogFactory implements CatalogFactory {
         JdbcUrlUtil.UrlInfo urlInfo = JdbcUrlUtil.getUrlInfo(urlWithDatabase);
         return new IrisCatalog(
                 catalogName,
+                options.get(JdbcCatalogOptions.SKIP_INDEX_WHEN_AUTO_CREATE_TABLE),
                 options.get(JdbcCatalogOptions.USERNAME),
                 options.get(JdbcCatalogOptions.PASSWORD),
                 urlInfo);

@@ -61,22 +61,31 @@ public class MysqlCreateTableSqlBuilder {
     private String fieldIde;
 
     private final MySqlTypeConverter typeConverter;
+    private Boolean skipIndexWhenAutoCreateTable;
 
-    private MysqlCreateTableSqlBuilder(String tableName, MySqlTypeConverter typeConverter) {
+    private MysqlCreateTableSqlBuilder(
+            String tableName,
+            MySqlTypeConverter typeConverter,
+            Boolean skipIndexWhenAutoCreateTable) {
         checkNotNull(tableName, "tableName must not be null");
         this.tableName = tableName;
         this.typeConverter = typeConverter;
+        this.skipIndexWhenAutoCreateTable = skipIndexWhenAutoCreateTable;
     }
 
     public static MysqlCreateTableSqlBuilder builder(
-            TablePath tablePath, CatalogTable catalogTable, MySqlTypeConverter typeConverter) {
+            TablePath tablePath,
+            CatalogTable catalogTable,
+            MySqlTypeConverter typeConverter,
+            Boolean skipIndexWhenAutoCreateTable) {
         checkNotNull(tablePath, "tablePath must not be null");
         checkNotNull(catalogTable, "catalogTable must not be null");
 
         TableSchema tableSchema = catalogTable.getTableSchema();
         checkNotNull(tableSchema, "tableSchema must not be null");
 
-        return new MysqlCreateTableSqlBuilder(tablePath.getTableName(), typeConverter)
+        return new MysqlCreateTableSqlBuilder(
+                        tablePath.getTableName(), typeConverter, skipIndexWhenAutoCreateTable)
                 .comment(catalogTable.getComment())
                 // todo: set charset and collate
                 .engine(null)
@@ -156,10 +165,10 @@ public class MysqlCreateTableSqlBuilder {
         for (Column column : columns) {
             columnSqls.add("\t" + buildColumnIdentifySql(column, catalogName, columnTypeMap));
         }
-        if (primaryKey != null) {
+        if (!skipIndexWhenAutoCreateTable && primaryKey != null) {
             columnSqls.add("\t" + buildPrimaryKeySql());
         }
-        if (CollectionUtils.isNotEmpty(constraintKeys)) {
+        if (!skipIndexWhenAutoCreateTable && CollectionUtils.isNotEmpty(constraintKeys)) {
             for (ConstraintKey constraintKey : constraintKeys) {
                 if (StringUtils.isBlank(constraintKey.getConstraintName())) {
                     continue;

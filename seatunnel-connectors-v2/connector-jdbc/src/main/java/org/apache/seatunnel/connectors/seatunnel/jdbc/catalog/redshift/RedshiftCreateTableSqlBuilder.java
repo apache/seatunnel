@@ -35,11 +35,14 @@ public class RedshiftCreateTableSqlBuilder {
     private List<Column> columns;
     private PrimaryKey primaryKey;
     private String sourceCatalogName;
+    private Boolean skipIndexWhenAutoCreateTable;
 
-    public RedshiftCreateTableSqlBuilder(CatalogTable catalogTable) {
+    public RedshiftCreateTableSqlBuilder(
+            CatalogTable catalogTable, boolean skipIndexWhenAutoCreateTable) {
         this.columns = catalogTable.getTableSchema().getColumns();
         this.primaryKey = catalogTable.getTableSchema().getPrimaryKey();
         this.sourceCatalogName = catalogTable.getCatalogName();
+        this.skipIndexWhenAutoCreateTable = skipIndexWhenAutoCreateTable;
     }
 
     public String build(TablePath tablePath) {
@@ -61,7 +64,9 @@ public class RedshiftCreateTableSqlBuilder {
                                                 buildColumnSql(column), fieldIde))
                         .collect(Collectors.toList());
 
-        if (primaryKey != null && primaryKey.getColumnNames().size() > 1) {
+        if (!skipIndexWhenAutoCreateTable
+                && primaryKey != null
+                && primaryKey.getColumnNames().size() > 1) {
             columnSqls.add(
                     CatalogUtils.quoteIdentifier(
                             "PRIMARY KEY ("
@@ -109,7 +114,8 @@ public class RedshiftCreateTableSqlBuilder {
             columnSql.append(" NOT NULL");
         }
 
-        if (primaryKey != null
+        if (!skipIndexWhenAutoCreateTable
+                && primaryKey != null
                 && primaryKey.getColumnNames().contains(column.getName())
                 && primaryKey.getColumnNames().size() == 1) {
             columnSql.append(" PRIMARY KEY");

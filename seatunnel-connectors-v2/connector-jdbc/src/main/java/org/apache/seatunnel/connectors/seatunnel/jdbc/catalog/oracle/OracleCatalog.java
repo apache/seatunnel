@@ -103,11 +103,12 @@ public class OracleCatalog extends AbstractJdbcCatalog {
 
     public OracleCatalog(
             String catalogName,
+            boolean skipIndexWhenAutoCreateTable,
             String username,
             String pwd,
             JdbcUrlUtil.UrlInfo urlInfo,
             String defaultSchema) {
-        super(catalogName, username, pwd, urlInfo, defaultSchema);
+        super(catalogName, skipIndexWhenAutoCreateTable, username, pwd, urlInfo, defaultSchema);
     }
 
     @Override
@@ -132,11 +133,14 @@ public class OracleCatalog extends AbstractJdbcCatalog {
 
     @Override
     protected String getCreateTableSql(TablePath tablePath, CatalogTable table) {
-        return new OracleCreateTableSqlBuilder(table).build(tablePath).get(0);
+        return new OracleCreateTableSqlBuilder(table, skipIndexWhenAutoCreateTable)
+                .build(tablePath)
+                .get(0);
     }
 
     protected List<String> getCreateTableSqls(TablePath tablePath, CatalogTable table) {
-        return new OracleCreateTableSqlBuilder(table).build(tablePath);
+        return new OracleCreateTableSqlBuilder(table, skipIndexWhenAutoCreateTable)
+                .build(tablePath);
     }
 
     @Override

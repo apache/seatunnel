@@ -86,8 +86,11 @@ public abstract class AbstractJdbcCatalog implements Catalog {
 
     protected final Map<String, Connection> connectionMap;
 
+    protected final Boolean skipIndexWhenAutoCreateTable;
+
     public AbstractJdbcCatalog(
             String catalogName,
+            boolean skipIndexWhenAutoCreateTable,
             String username,
             String pwd,
             JdbcUrlUtil.UrlInfo urlInfo,
@@ -96,6 +99,7 @@ public abstract class AbstractJdbcCatalog implements Catalog {
         checkArgument(StringUtils.isNotBlank(username));
         checkArgument(StringUtils.isNotBlank(urlInfo.getUrlWithoutDatabase()));
         this.catalogName = catalogName;
+        this.skipIndexWhenAutoCreateTable = skipIndexWhenAutoCreateTable;
         this.defaultDatabase = urlInfo.getDefaultDatabase().orElse(null);
         this.username = username;
         this.pwd = pwd;

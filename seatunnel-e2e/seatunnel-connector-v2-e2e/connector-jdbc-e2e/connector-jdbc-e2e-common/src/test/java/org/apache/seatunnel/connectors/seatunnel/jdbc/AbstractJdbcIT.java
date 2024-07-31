@@ -48,6 +48,7 @@ import org.testcontainers.images.PullPolicy;
 import org.testcontainers.lifecycle.Startables;
 
 import com.github.dockerjava.api.model.Image;
+import com.google.common.collect.Lists;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -348,39 +349,53 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
 
     protected void initCatalog() {}
 
+    protected void initCatalogSkipIndex(boolean skipIndex) {}
+
     @Test
     public void testCatalog() {
-        if (catalog == null) {
-            return;
-        }
+        Lists.newArrayList(true, false)
+                .forEach(
+                        skipIndex -> {
+                            initCatalogSkipIndex(skipIndex);
+                            if (catalog == null) {
+                                return;
+                            }
+                            TablePath sourceTablePath =
+                                    new TablePath(
+                                            jdbcCase.getDatabase(),
+                                            jdbcCase.getSchema(),
+                                            jdbcCase.getSourceTable());
+                            TablePath targetTablePath =
+                                    new TablePath(
+                                            jdbcCase.getCatalogDatabase(),
+                                            jdbcCase.getCatalogSchema(),
+                                            jdbcCase.getCatalogTable());
+                            boolean createdDb = false;
 
-        TablePath sourceTablePath =
-                new TablePath(
-                        jdbcCase.getDatabase(), jdbcCase.getSchema(), jdbcCase.getSourceTable());
-        TablePath targetTablePath =
-                new TablePath(
-                        jdbcCase.getCatalogDatabase(),
-                        jdbcCase.getCatalogSchema(),
-                        jdbcCase.getCatalogTable());
-        boolean createdDb = false;
+                            if (!catalog.databaseExists(targetTablePath.getDatabaseName())) {
+                                catalog.createDatabase(targetTablePath, false);
+                                Assertions.assertTrue(
+                                        catalog.databaseExists(targetTablePath.getDatabaseName()));
+                                createdDb = true;
+                            }
 
-        if (!catalog.databaseExists(targetTablePath.getDatabaseName())) {
-            catalog.createDatabase(targetTablePath, false);
-            Assertions.assertTrue(catalog.databaseExists(targetTablePath.getDatabaseName()));
-            createdDb = true;
-        }
+                            catalog.dropTable(targetTablePath, true);
+                            Assertions.assertFalse(catalog.tableExists(targetTablePath));
 
-        CatalogTable catalogTable = catalog.getTable(sourceTablePath);
-        catalog.createTable(targetTablePath, catalogTable, false);
-        Assertions.assertTrue(catalog.tableExists(targetTablePath));
+                            CatalogTable catalogTable = catalog.getTable(sourceTablePath);
+                            catalog.createTable(targetTablePath, catalogTable, false);
+                            Assertions.assertTrue(catalog.tableExists(targetTablePath));
 
-        catalog.dropTable(targetTablePath, false);
-        Assertions.assertFalse(catalog.tableExists(targetTablePath));
+                            catalog.dropTable(targetTablePath, false);
+                            Assertions.assertFalse(catalog.tableExists(targetTablePath));
 
-        if (createdDb) {
-            catalog.dropDatabase(targetTablePath, false);
-            Assertions.assertFalse(catalog.databaseExists(targetTablePath.getDatabaseName()));
-        }
+                            if (createdDb) {
+                                catalog.dropDatabase(targetTablePath, false);
+                                Assertions.assertFalse(
+                                        catalog.databaseExists(targetTablePath.getDatabaseName()));
+                            }
+                            catalog.close();
+                        });
     }
 
     protected Object[] toArrayResult(ResultSet resultSet, String[] fieldNames)

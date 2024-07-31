@@ -42,6 +42,7 @@ public class SqlServerCatalogFactory implements CatalogFactory {
         JdbcUrlUtil.UrlInfo urlInfo = SqlServerURLParser.parse(url);
         return new SqlServerCatalog(
                 catalogName,
+                options.get(JdbcCatalogOptions.SKIP_INDEX_WHEN_AUTO_CREATE_TABLE),
                 options.get(JdbcCatalogOptions.USERNAME),
                 options.get(JdbcCatalogOptions.PASSWORD),
                 urlInfo,

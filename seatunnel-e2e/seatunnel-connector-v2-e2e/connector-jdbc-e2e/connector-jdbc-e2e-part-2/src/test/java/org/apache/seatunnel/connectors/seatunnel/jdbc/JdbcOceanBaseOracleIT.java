@@ -207,9 +207,15 @@ public class JdbcOceanBaseOracleIT extends JdbcOceanBaseITBase {
 
     @Override
     protected void initCatalog() {
+        initCatalogSkipIndex(false);
+    }
+
+    @Override
+    protected void initCatalogSkipIndex(boolean skipIndex) {
         catalog =
                 new OceanBaseOracleCatalog(
                         "oceanbase",
+                        skipIndex,
                         USERNAME,
                         PASSWORD,
                         JdbcUrlUtil.getUrlInfo(jdbcCase.getJdbcUrl().replace(HOST, HOSTNAME)),
@@ -220,20 +226,30 @@ public class JdbcOceanBaseOracleIT extends JdbcOceanBaseITBase {
     @Test
     @Override
     public void testCatalog() {
-        TablePath sourceTablePath =
-                new TablePath(
-                        jdbcCase.getDatabase(), jdbcCase.getSchema(), jdbcCase.getSourceTable());
-        TablePath targetTablePath =
-                new TablePath(
-                        jdbcCase.getCatalogDatabase(),
-                        jdbcCase.getCatalogSchema(),
-                        jdbcCase.getCatalogTable());
+        Lists.newArrayList(true, false)
+                .forEach(
+                        skipIndex -> {
+                            initCatalogSkipIndex(skipIndex);
+                            TablePath sourceTablePath =
+                                    new TablePath(
+                                            jdbcCase.getDatabase(),
+                                            jdbcCase.getSchema(),
+                                            jdbcCase.getSourceTable());
+                            TablePath targetTablePath =
+                                    new TablePath(
+                                            jdbcCase.getCatalogDatabase(),
+                                            jdbcCase.getCatalogSchema(),
+                                            jdbcCase.getCatalogTable());
 
-        CatalogTable catalogTable = catalog.getTable(sourceTablePath);
-        catalog.createTable(targetTablePath, catalogTable, false);
-        Assertions.assertTrue(catalog.tableExists(targetTablePath));
+                            catalog.dropTable(targetTablePath, true);
+                            Assertions.assertFalse(catalog.tableExists(targetTablePath));
 
-        catalog.dropTable(targetTablePath, false);
-        Assertions.assertFalse(catalog.tableExists(targetTablePath));
+                            CatalogTable catalogTable = catalog.getTable(sourceTablePath);
+                            catalog.createTable(targetTablePath, catalogTable, false);
+                            Assertions.assertTrue(catalog.tableExists(targetTablePath));
+
+                            catalog.dropTable(targetTablePath, false);
+                            Assertions.assertFalse(catalog.tableExists(targetTablePath));
+                        });
     }
 }

@@ -302,24 +302,34 @@ public class JdbcIrisIT extends AbstractJdbcIT {
     @Test
     @Override
     public void testCatalog() {
-        if (catalog == null) {
-            return;
-        }
-        TablePath sourceTablePath =
-                new TablePath(
-                        jdbcCase.getDatabase(), jdbcCase.getSchema(), jdbcCase.getSourceTable());
-        TablePath targetTablePath =
-                new TablePath(
-                        jdbcCase.getCatalogDatabase(),
-                        jdbcCase.getCatalogSchema(),
-                        jdbcCase.getCatalogTable());
+        Lists.newArrayList(true, false)
+                .forEach(
+                        skipIndex -> {
+                            initCatalogSkipIndex(skipIndex);
+                            if (catalog == null) {
+                                return;
+                            }
+                            TablePath sourceTablePath =
+                                    new TablePath(
+                                            jdbcCase.getDatabase(),
+                                            jdbcCase.getSchema(),
+                                            jdbcCase.getSourceTable());
+                            TablePath targetTablePath =
+                                    new TablePath(
+                                            jdbcCase.getCatalogDatabase(),
+                                            jdbcCase.getCatalogSchema(),
+                                            jdbcCase.getCatalogTable());
 
-        CatalogTable catalogTable = catalog.getTable(sourceTablePath);
-        catalog.createTable(targetTablePath, catalogTable, false);
-        Assertions.assertTrue(catalog.tableExists(targetTablePath));
+                            catalog.dropTable(targetTablePath, true);
+                            Assertions.assertFalse(catalog.tableExists(targetTablePath));
 
-        catalog.dropTable(targetTablePath, false);
-        Assertions.assertFalse(catalog.tableExists(targetTablePath));
+                            CatalogTable catalogTable = catalog.getTable(sourceTablePath);
+                            catalog.createTable(targetTablePath, catalogTable, false);
+                            Assertions.assertTrue(catalog.tableExists(targetTablePath));
+
+                            catalog.dropTable(targetTablePath, false);
+                            Assertions.assertFalse(catalog.tableExists(targetTablePath));
+                        });
     }
 
     @TestTemplate
@@ -578,10 +588,16 @@ public class JdbcIrisIT extends AbstractJdbcIT {
 
     @Override
     protected void initCatalog() {
+        initCatalogSkipIndex(false);
+    }
+
+    @Override
+    protected void initCatalogSkipIndex(boolean skipIndex) {
         String jdbcUrl = jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost());
         catalog =
                 new IrisCatalog(
                         "iris",
+                        skipIndex,
                         jdbcCase.getUserName(),
                         jdbcCase.getPassword(),
                         JdbcUrlUtil.getUrlInfo(jdbcUrl));

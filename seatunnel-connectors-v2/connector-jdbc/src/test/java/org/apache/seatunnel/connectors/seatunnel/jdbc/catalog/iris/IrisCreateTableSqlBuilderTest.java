@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sql;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.iris;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
@@ -26,7 +26,6 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.iris.IrisCreateTableSqlBuilder;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -91,7 +90,7 @@ public class IrisCreateTableSqlBuilderTest {
                         new ArrayList<>(),
                         "User table");
 
-        String createTableSql = new IrisCreateTableSqlBuilder(catalogTable).build(tablePath);
+        String createTableSql = new IrisCreateTableSqlBuilder(catalogTable, false).build(tablePath);
         // create table sql is change; The old unit tests are no longer applicable
         String expect =
                 "CREATE TABLE \"test_schema\".\"test_table\" (\n"
@@ -105,7 +104,21 @@ public class IrisCreateTableSqlBuilderTest {
                         + "UNIQUE (\"name\")\n"
                         + ");\n"
                         + "CREATE INDEX test_table_age ON \"test_schema\".\"test_table\"(\"age\");";
-        System.out.println(createTableSql);
         Assertions.assertEquals(expect, createTableSql);
+
+        // skip index
+        String createTableSqlSkipIndex =
+                new IrisCreateTableSqlBuilder(catalogTable, true).build(tablePath);
+        // create table sql is change; The old unit tests are no longer applicable
+        String expectSkipIndex =
+                "CREATE TABLE \"test_schema\".\"test_table\" (\n"
+                        + " %Description 'User table',\n"
+                        + "\"id\" BIGINT NOT NULL %Description 'id',\n"
+                        + "\"name\" VARCHAR(128) NOT NULL %Description 'name',\n"
+                        + "\"age\" INTEGER %Description 'age',\n"
+                        + "\"createTime\" TIMESTAMP2 %Description 'createTime',\n"
+                        + "\"lastUpdateTime\" TIMESTAMP2 %Description 'lastUpdateTime'\n"
+                        + ");\n";
+        Assertions.assertEquals(expectSkipIndex, createTableSqlSkipIndex);
     }
 }
