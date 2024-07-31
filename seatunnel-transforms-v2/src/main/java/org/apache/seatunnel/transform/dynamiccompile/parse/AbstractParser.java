@@ -16,13 +16,14 @@
  */
 package org.apache.seatunnel.transform.dynamiccompile.parse;
 
-import groovy.lang.GroovyClassLoader;
+import org.apache.commons.codec.digest.DigestUtils;
 
-public class GroovyClassUtil extends ParseUtil {
-    private static final GroovyClassLoader groovyClassLoader = new GroovyClassLoader();
+import java.util.concurrent.ConcurrentHashMap;
 
-    public static Class<?> parseWithCache(String sourceCode) {
-        return classCache.computeIfAbsent(
-                getClassKey(sourceCode), clazz -> groovyClassLoader.parseClass(sourceCode));
+public abstract class AbstractParser {
+    protected static ConcurrentHashMap<String, Class<?>> classCache = new ConcurrentHashMap<>();
+    // Abstraction layer: Do not want to serialize and pass the classloader
+    protected static String getClassKey(String sourceCode) {
+        return new String(DigestUtils.getMd5Digest().digest(sourceCode.getBytes()));
     }
 }

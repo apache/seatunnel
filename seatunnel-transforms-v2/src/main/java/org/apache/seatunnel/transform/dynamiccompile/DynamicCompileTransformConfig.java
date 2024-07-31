@@ -39,4 +39,16 @@ public class DynamicCompileTransformConfig implements Serializable {
                     .enumType(CompileLanguage.class)
                     .noDefaultValue()
                     .withDescription("compile language");
+
+    public static final Option<String> ABSOLUTE_PATH =
+            Options.key("absolute_path")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("absolute_path");
+
+    public static final Option<CompilePattern> COMPILE_PATTERN =
+            Options.key("compile_pattern")
+                    .enumType(CompilePattern.class)
+                    .defaultValue(CompilePattern.SOURCE_CODE)
+                    .withDescription("compile_pattern");
 }

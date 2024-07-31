@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
+import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
@@ -69,6 +70,7 @@ public class ZetaSQLType {
     public static final String BIGINT = "BIGINT";
     public static final String LONG = "LONG";
     public static final String BYTE = "BYTE";
+    public static final String BYTES = "BYTES";
     public static final String DOUBLE = "DOUBLE";
     public static final String FLOAT = "FLOAT";
     public static final String TIMESTAMP = "TIMESTAMP";
@@ -311,6 +313,8 @@ public class ZetaSQLType {
                 return BasicType.LONG_TYPE;
             case BYTE:
                 return BasicType.BYTE_TYPE;
+            case BYTES:
+                return PrimitiveByteArrayType.INSTANCE;
             case DOUBLE:
                 return BasicType.DOUBLE_TYPE;
             case FLOAT:
