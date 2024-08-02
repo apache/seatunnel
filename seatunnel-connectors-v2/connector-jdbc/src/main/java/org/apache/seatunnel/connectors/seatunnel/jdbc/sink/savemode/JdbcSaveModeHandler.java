@@ -28,7 +28,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class JdbcSaveModeHandler extends DefaultSaveModeHandler {
-    public boolean createIndex = true;
+    public boolean createIndex;
 
     public JdbcSaveModeHandler(
             SchemaSaveMode schemaSaveMode,
