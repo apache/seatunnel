@@ -94,6 +94,6 @@ public class ElasticsearchSink
         catalog.open();
         return Optional.of(
                 new DefaultSaveModeHandler(
-                        schemaSaveMode, dataSaveMode, catalog, tablePath, null, null, false));
+                        schemaSaveMode, dataSaveMode, catalog, tablePath, null, null));
     }
 }

@@ -38,15 +38,14 @@ public class OracleCreateTableSqlBuilder {
     private PrimaryKey primaryKey;
     private String sourceCatalogName;
     private String fieldIde;
-    private Boolean skipIndexWhenAutoCreateTable;
+    private Boolean createIndex;
 
-    public OracleCreateTableSqlBuilder(
-            CatalogTable catalogTable, Boolean skipIndexWhenAutoCreateTable) {
+    public OracleCreateTableSqlBuilder(CatalogTable catalogTable, Boolean createIndex) {
         this.columns = catalogTable.getTableSchema().getColumns();
         this.primaryKey = catalogTable.getTableSchema().getPrimaryKey();
         this.sourceCatalogName = catalogTable.getCatalogName();
         this.fieldIde = catalogTable.getOptions().get("fieldIde");
-        this.skipIndexWhenAutoCreateTable = skipIndexWhenAutoCreateTable;
+        this.createIndex = createIndex;
     }
 
     public List<String> build(TablePath tablePath) {
@@ -63,7 +62,7 @@ public class OracleCreateTableSqlBuilder {
                         .collect(Collectors.toList());
 
         // Add primary key directly in the create table statement
-        if (!skipIndexWhenAutoCreateTable
+        if (createIndex
                 && primaryKey != null
                 && primaryKey.getColumnNames() != null
                 && primaryKey.getColumnNames().size() > 0) {

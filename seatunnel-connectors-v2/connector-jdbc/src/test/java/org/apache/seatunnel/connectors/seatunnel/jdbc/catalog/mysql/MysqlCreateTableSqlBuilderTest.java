@@ -109,7 +109,7 @@ public class MysqlCreateTableSqlBuilderTest {
 
         String createTableSql =
                 MysqlCreateTableSqlBuilder.builder(
-                                tablePath, catalogTable, MySqlTypeConverter.DEFAULT_INSTANCE, false)
+                                tablePath, catalogTable, MySqlTypeConverter.DEFAULT_INSTANCE, true)
                         .build(DatabaseIdentifier.MYSQL);
         // create table sql is change; The old unit tests are no longer applicable
         String expect =
@@ -130,7 +130,7 @@ public class MysqlCreateTableSqlBuilderTest {
         // skip index
         String createTableSqlSkipIndex =
                 MysqlCreateTableSqlBuilder.builder(
-                                tablePath, catalogTable, MySqlTypeConverter.DEFAULT_INSTANCE, true)
+                                tablePath, catalogTable, MySqlTypeConverter.DEFAULT_INSTANCE, false)
                         .build(DatabaseIdentifier.MYSQL);
         String expectSkipIndex =
                 "CREATE TABLE `test_table` (\n"

@@ -67,8 +67,8 @@ public class IrisCatalog extends AbstractJdbcCatalog {
 
     @Override
     protected String getCreateTableSql(
-            TablePath tablePath, CatalogTable table, boolean skipIndexWhenAutoCreateTable) {
-        return new IrisCreateTableSqlBuilder(table, skipIndexWhenAutoCreateTable).build(tablePath);
+            TablePath tablePath, CatalogTable table, boolean createIndex) {
+        return new IrisCreateTableSqlBuilder(table, createIndex).build(tablePath);
     }
 
     @Override
@@ -226,10 +226,7 @@ public class IrisCatalog extends AbstractJdbcCatalog {
 
     @Override
     public void createTable(
-            TablePath tablePath,
-            CatalogTable table,
-            boolean ignoreIfExists,
-            boolean skipIndexWhenAutoCreateTable)
+            TablePath tablePath, CatalogTable table, boolean ignoreIfExists, boolean createIndex)
             throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
         checkNotNull(tablePath, "Table path cannot be null");
         if (defaultSchema.isPresent()) {
@@ -247,7 +244,7 @@ public class IrisCatalog extends AbstractJdbcCatalog {
             throw new TableAlreadyExistException(catalogName, tablePath);
         }
 
-        createTableInternal(tablePath, table, skipIndexWhenAutoCreateTable);
+        createTableInternal(tablePath, table, createIndex);
     }
 
     @Override

@@ -178,11 +178,7 @@ public class ElasticSearchCatalog implements Catalog {
     }
 
     @Override
-    public void createTable(
-            TablePath tablePath,
-            CatalogTable table,
-            boolean ignoreIfExists,
-            boolean skipIndexWhenAutoCreateTable)
+    public void createTable(TablePath tablePath, CatalogTable table, boolean ignoreIfExists)
             throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
         // Create the index
         checkNotNull(tablePath, "tablePath cannot be null");
@@ -210,7 +206,7 @@ public class ElasticSearchCatalog implements Catalog {
     @Override
     public void createDatabase(TablePath tablePath, boolean ignoreIfExists)
             throws DatabaseAlreadyExistException, CatalogException {
-        createTable(tablePath, null, ignoreIfExists, false);
+        createTable(tablePath, null, ignoreIfExists);
     }
 
     @Override

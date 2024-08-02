@@ -369,7 +369,7 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
         boolean tableExistsBefore = starRocksCatalog.tableExists(tablePathStarRocksSink);
         Assertions.assertFalse(tableExistsBefore);
         // create table
-        starRocksCatalog.createTable(tablePathStarRocksSink, catalogTable, true, false);
+        starRocksCatalog.createTable(tablePathStarRocksSink, catalogTable, true);
         boolean tableExistsAfter = starRocksCatalog.tableExists(tablePathStarRocksSink);
         Assertions.assertTrue(tableExistsAfter);
         // isExistsData ?

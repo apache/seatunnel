@@ -105,7 +105,7 @@ public class RedshiftCreateTableSqlBuilderTest {
                         "User table");
 
         RedshiftCreateTableSqlBuilder redshiftCreateTableSqlBuilder =
-                new RedshiftCreateTableSqlBuilder(catalogTable, false);
+                new RedshiftCreateTableSqlBuilder(catalogTable, true);
         String createTableSql = redshiftCreateTableSqlBuilder.build(tablePath);
         // create table sql is change; The old unit tests are no longer applicable
         String expect =
@@ -129,7 +129,7 @@ public class RedshiftCreateTableSqlBuilderTest {
 
         // skip index
         RedshiftCreateTableSqlBuilder redshiftCreateTableSqlBuilderSkipIndex =
-                new RedshiftCreateTableSqlBuilder(catalogTable, true);
+                new RedshiftCreateTableSqlBuilder(catalogTable, false);
         String createTableSqlSkipIndex = redshiftCreateTableSqlBuilderSkipIndex.build(tablePath);
         String expectSkipIndex =
                 "CREATE TABLE \"test_table\" (\n"

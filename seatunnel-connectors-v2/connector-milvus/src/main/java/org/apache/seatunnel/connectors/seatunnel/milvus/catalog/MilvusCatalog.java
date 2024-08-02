@@ -178,11 +178,7 @@ public class MilvusCatalog implements Catalog {
     }
 
     @Override
-    public void createTable(
-            TablePath tablePath,
-            CatalogTable catalogTable,
-            boolean ignoreIfExists,
-            boolean skipIndexWhenAutoCreateTable)
+    public void createTable(TablePath tablePath, CatalogTable catalogTable, boolean ignoreIfExists)
             throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
         checkNotNull(tablePath, "Table path cannot be null");
         if (!databaseExists(tablePath.getDatabaseName())) {

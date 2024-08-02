@@ -253,7 +253,7 @@ public class JdbcOracleLowercaseTableIT extends AbstractJdbcIT {
                 tablePathOracleCreateTablePath,
                 oracleCatalog.getTable(tablePathOracle),
                 true,
-                false);
+                true);
         Assertions.assertTrue(oracleCatalog.tableExists(tablePathOracleCreateTablePath));
         final CatalogTable table = oracleCatalog.getTable(tablePathOracleCreateTablePath);
         Assertions.assertEquals(

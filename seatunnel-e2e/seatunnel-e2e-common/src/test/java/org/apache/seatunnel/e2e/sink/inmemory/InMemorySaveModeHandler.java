@@ -114,11 +114,7 @@ public class InMemorySaveModeHandler implements SaveModeHandler {
             }
 
             @Override
-            public void createTable(
-                    TablePath tablePath,
-                    CatalogTable table,
-                    boolean ignoreIfExists,
-                    boolean skipIndexWhenAutoCreateTable)
+            public void createTable(TablePath tablePath, CatalogTable table, boolean ignoreIfExists)
                     throws TableAlreadyExistException, DatabaseNotExistException,
                             CatalogException {}
 

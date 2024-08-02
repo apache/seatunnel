@@ -222,7 +222,7 @@ public class JdbcOceanBaseOracleIT extends JdbcOceanBaseITBase {
     public void testCatalog() {
         Lists.newArrayList(true, false)
                 .forEach(
-                        skipIndex -> {
+                        createIndex -> {
                             TablePath sourceTablePath =
                                     new TablePath(
                                             jdbcCase.getDatabase(),
@@ -238,7 +238,7 @@ public class JdbcOceanBaseOracleIT extends JdbcOceanBaseITBase {
                             Assertions.assertFalse(catalog.tableExists(targetTablePath));
 
                             CatalogTable catalogTable = catalog.getTable(sourceTablePath);
-                            catalog.createTable(targetTablePath, catalogTable, false, skipIndex);
+                            catalog.createTable(targetTablePath, catalogTable, false, createIndex);
                             Assertions.assertTrue(catalog.tableExists(targetTablePath));
 
                             catalog.dropTable(targetTablePath, false);

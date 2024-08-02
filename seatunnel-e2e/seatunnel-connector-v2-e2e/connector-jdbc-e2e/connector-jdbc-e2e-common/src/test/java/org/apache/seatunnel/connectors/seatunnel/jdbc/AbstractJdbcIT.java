@@ -353,7 +353,7 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
     public void testCatalog() {
         Lists.newArrayList(true, false)
                 .forEach(
-                        skipIndex -> {
+                        createIndex -> {
                             if (catalog == null) {
                                 return;
                             }
@@ -380,7 +380,7 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
                             Assertions.assertFalse(catalog.tableExists(targetTablePath));
 
                             CatalogTable catalogTable = catalog.getTable(sourceTablePath);
-                            catalog.createTable(targetTablePath, catalogTable, false, skipIndex);
+                            catalog.createTable(targetTablePath, catalogTable, false, createIndex);
                             Assertions.assertTrue(catalog.tableExists(targetTablePath));
 
                             catalog.dropTable(targetTablePath, false);

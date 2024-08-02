@@ -85,7 +85,7 @@ public class SapHanaCreateTableSqlBuilderTest {
                         "User table");
 
         String createTableSql =
-                new SapHanaCreateTableSqlBuilder(catalogTable, false).build(tablePath);
+                new SapHanaCreateTableSqlBuilder(catalogTable, true).build(tablePath);
         String expect =
                 "CREATE TABLE \"test_database\".\"test_table\" (\n"
                         + "\"id\" BIGINT NOT NULL COMMENT 'id',\n"
@@ -100,7 +100,7 @@ public class SapHanaCreateTableSqlBuilderTest {
 
         // skip index
         String createTableSqlSkipIndex =
-                new SapHanaCreateTableSqlBuilder(catalogTable, true).build(tablePath);
+                new SapHanaCreateTableSqlBuilder(catalogTable, false).build(tablePath);
         String expectSkipIndex =
                 "CREATE TABLE \"test_database\".\"test_table\" (\n"
                         + "\"id\" BIGINT NOT NULL COMMENT 'id',\n"

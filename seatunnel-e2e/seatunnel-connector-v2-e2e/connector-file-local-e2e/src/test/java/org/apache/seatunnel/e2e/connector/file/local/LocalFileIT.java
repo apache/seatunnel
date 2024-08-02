@@ -259,7 +259,7 @@ public class LocalFileIT extends TestSuiteBase {
                         FileSystemType.LOCAL.getFileSystemPluginName());
         final TablePath tablePath = TablePath.DEFAULT;
         Assertions.assertFalse(localFileCatalog.tableExists(tablePath));
-        localFileCatalog.createTable(null, null, false, false);
+        localFileCatalog.createTable(null, null, false);
         Assertions.assertTrue(localFileCatalog.tableExists(tablePath));
         Assertions.assertFalse(localFileCatalog.isExistsData(tablePath));
         localFileCatalog.dropTable(tablePath, false);

@@ -44,16 +44,15 @@ public class PostgresCreateTableSqlBuilder {
     public Boolean isHaveConstraintKey = false;
 
     @Getter public List<String> createIndexSqls = new ArrayList<>();
-    private Boolean skipIndexWhenAutoCreateTable;
+    private Boolean createIndex;
 
-    public PostgresCreateTableSqlBuilder(
-            CatalogTable catalogTable, boolean skipIndexWhenAutoCreateTable) {
+    public PostgresCreateTableSqlBuilder(CatalogTable catalogTable, boolean createIndex) {
         this.columns = catalogTable.getTableSchema().getColumns();
         this.primaryKey = catalogTable.getTableSchema().getPrimaryKey();
         this.sourceCatalogName = catalogTable.getCatalogName();
         this.fieldIde = catalogTable.getOptions().get("fieldIde");
         this.constraintKeys = catalogTable.getTableSchema().getConstraintKeys();
-        this.skipIndexWhenAutoCreateTable = skipIndexWhenAutoCreateTable;
+        this.createIndex = createIndex;
     }
 
     public String build(TablePath tablePath) {
@@ -71,7 +70,7 @@ public class PostgresCreateTableSqlBuilder {
                                                 buildColumnSql(column), fieldIde))
                         .collect(Collectors.toList());
 
-        if (!skipIndexWhenAutoCreateTable && CollectionUtils.isNotEmpty(constraintKeys)) {
+        if (createIndex && CollectionUtils.isNotEmpty(constraintKeys)) {
             for (ConstraintKey constraintKey : constraintKeys) {
                 if (StringUtils.isBlank(constraintKey.getConstraintName())
                         || (primaryKey != null
@@ -134,7 +133,7 @@ public class PostgresCreateTableSqlBuilder {
         }
 
         // Add primary key directly after the column if it is a primary key
-        if (!skipIndexWhenAutoCreateTable
+        if (createIndex
                 && primaryKey != null
                 && primaryKey.getColumnNames().contains(column.getName())) {
             columnSql.append(" PRIMARY KEY");

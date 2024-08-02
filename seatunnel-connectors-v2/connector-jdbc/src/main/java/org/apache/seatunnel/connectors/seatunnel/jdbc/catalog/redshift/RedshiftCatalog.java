@@ -123,9 +123,9 @@ public class RedshiftCatalog extends AbstractJdbcCatalog {
 
     @Override
     protected String getCreateTableSql(
-            TablePath tablePath, CatalogTable table, boolean skipIndexWhenAutoCreateTable) {
+            TablePath tablePath, CatalogTable table, boolean createIndex) {
         String createTableSql =
-                new RedshiftCreateTableSqlBuilder(table, skipIndexWhenAutoCreateTable)
+                new RedshiftCreateTableSqlBuilder(table, createIndex)
                         .build(tablePath, table.getOptions().get("fieldIde"));
         return CatalogUtils.getFieldIde(createTableSql, table.getOptions().get("fieldIde"));
     }

@@ -87,7 +87,6 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void>
                         catalog,
                         tablePath,
                         catalogTable,
-                        sinkConfig.getCustomSql(),
-                        false));
+                        sinkConfig.getCustomSql()));
     }
 }

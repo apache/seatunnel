@@ -140,11 +140,7 @@ public class MaxComputeCatalog implements Catalog {
     }
 
     @Override
-    public void createTable(
-            TablePath tablePath,
-            CatalogTable table,
-            boolean ignoreIfExists,
-            boolean skipIndexWhenAutoCreateTable)
+    public void createTable(TablePath tablePath, CatalogTable table, boolean ignoreIfExists)
             throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
         throw new UnsupportedOperationException();
     }

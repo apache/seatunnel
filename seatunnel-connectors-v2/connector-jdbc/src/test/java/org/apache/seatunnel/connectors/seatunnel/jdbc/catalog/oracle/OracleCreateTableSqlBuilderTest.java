@@ -105,7 +105,7 @@ public class OracleCreateTableSqlBuilderTest {
                         "User table");
 
         OracleCreateTableSqlBuilder oracleCreateTableSqlBuilder =
-                new OracleCreateTableSqlBuilder(catalogTable, false);
+                new OracleCreateTableSqlBuilder(catalogTable, true);
         String createTableSql = oracleCreateTableSqlBuilder.build(tablePath).get(0);
         // create table sql is change; The old unit tests are no longer applicable
         String expect =
@@ -128,7 +128,7 @@ public class OracleCreateTableSqlBuilderTest {
 
         // skip index
         OracleCreateTableSqlBuilder oracleCreateTableSqlBuilderSkipIndex =
-                new OracleCreateTableSqlBuilder(catalogTable, true);
+                new OracleCreateTableSqlBuilder(catalogTable, false);
         String createTableSqlSkipIndex =
                 oracleCreateTableSqlBuilderSkipIndex.build(tablePath).get(0);
         String expectSkipIndex =

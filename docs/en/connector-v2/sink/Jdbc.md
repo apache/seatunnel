@@ -58,7 +58,7 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 | custom_sql                                | String  | No       | -                            |
 | enable_upsert                             | Boolean | No       | true                         |
 | use_copy_statement                        | Boolean | No       | false                        |
-| skip_index_when_auto_create_table         | Boolean | No       | false                        |
+| create_index                              | Boolean | No       | true                         |
 
 ### driver [string]
 
@@ -206,9 +206,9 @@ Use `COPY ${table} FROM STDIN` statement to import data. Only drivers with `getC
 
 NOTICE: `MAP`, `ARRAY`, `ROW` types are not supported.
 
-### skip_index_when_auto_create_table [boolean]
+### create_index [boolean]
 
-Skip the index(contains primary key and any other indexes) creation when auto-create table. You can use this option to improve the performance of jdbc writes when migrating large tables.
+Create the index(contains primary key and any other indexes) or not when auto-create table. You can use this option to improve the performance of jdbc writes when migrating large tables.
 
 Notice: Note that this will sacrifice read performance, so you'll need to manually create indexes after the table migration to improve read performance
 

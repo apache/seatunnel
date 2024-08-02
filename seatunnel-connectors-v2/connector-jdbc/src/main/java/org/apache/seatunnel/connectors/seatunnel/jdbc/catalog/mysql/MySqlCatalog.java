@@ -182,9 +182,8 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
 
     @Override
     protected String getCreateTableSql(
-            TablePath tablePath, CatalogTable table, boolean skipIndexWhenAutoCreateTable) {
-        return MysqlCreateTableSqlBuilder.builder(
-                        tablePath, table, typeConverter, skipIndexWhenAutoCreateTable)
+            TablePath tablePath, CatalogTable table, boolean createIndex) {
+        return MysqlCreateTableSqlBuilder.builder(tablePath, table, typeConverter, createIndex)
                 .build(table.getCatalogName());
     }
 

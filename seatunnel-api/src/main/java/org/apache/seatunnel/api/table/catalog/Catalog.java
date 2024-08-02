@@ -230,19 +230,31 @@ public interface Catalog extends AutoCloseable {
      * @param tablePath Path of the table
      * @param table The table definition
      * @param ignoreIfExists Flag to specify behavior when a table with the given name already exist
-     * @param skipIndexWhenAutoCreateTable Skip all index or not
      * @throws TableAlreadyExistException thrown if the table already exists in the catalog and
      *     ignoreIfExists is false
      * @throws DatabaseNotExistException thrown if the database in tablePath doesn't exist in the
      *     catalog
      * @throws CatalogException in case of any runtime exception
      */
-    void createTable(
-            TablePath tablePath,
-            CatalogTable table,
-            boolean ignoreIfExists,
-            boolean skipIndexWhenAutoCreateTable)
+    void createTable(TablePath tablePath, CatalogTable table, boolean ignoreIfExists)
             throws TableAlreadyExistException, DatabaseNotExistException, CatalogException;
+
+    /**
+     * Create a new table in this catalog.
+     *
+     * @param tablePath Path of the table
+     * @param table The table definition
+     * @param ignoreIfExists Flag to specify behavior when a table with the given name already exist
+     * @param createIndex If you want to create index or not
+     * @throws TableAlreadyExistException thrown if the table already exists in the catalog and
+     *     ignoreIfExists is false
+     * @throws DatabaseNotExistException thrown if the database in tablePath doesn't exist in the
+     *     catalog
+     * @throws CatalogException in case of any runtime exception
+     */
+    default void createTable(
+            TablePath tablePath, CatalogTable table, boolean ignoreIfExists, boolean createIndex)
+            throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {}
 
     /**
      * Drop an existing table in this catalog.

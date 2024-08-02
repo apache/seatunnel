@@ -40,17 +40,16 @@ public class IrisCreateTableSqlBuilder {
     private String fieldIde;
 
     private String comment;
-    private Boolean skipIndexWhenAutoCreateTable;
+    private Boolean createIndex;
 
-    public IrisCreateTableSqlBuilder(
-            CatalogTable catalogTable, Boolean skipIndexWhenAutoCreateTable) {
+    public IrisCreateTableSqlBuilder(CatalogTable catalogTable, Boolean createIndex) {
         this.columns = catalogTable.getTableSchema().getColumns();
         this.primaryKey = catalogTable.getTableSchema().getPrimaryKey();
         this.constraintKeys = catalogTable.getTableSchema().getConstraintKeys();
         this.sourceCatalogName = catalogTable.getCatalogName();
         this.fieldIde = catalogTable.getOptions().get("fieldIde");
         this.comment = catalogTable.getComment();
-        this.skipIndexWhenAutoCreateTable = skipIndexWhenAutoCreateTable;
+        this.createIndex = createIndex;
     }
 
     public String build(TablePath tablePath) {
@@ -67,13 +66,13 @@ public class IrisCreateTableSqlBuilder {
                         .collect(Collectors.toList());
 
         // Add primary key directly in the create table statement
-        if (!skipIndexWhenAutoCreateTable
+        if (createIndex
                 && primaryKey != null
                 && primaryKey.getColumnNames() != null
                 && primaryKey.getColumnNames().size() > 0) {
             columnSqls.add(buildPrimaryKeySql(primaryKey));
         }
-        if (!skipIndexWhenAutoCreateTable && CollectionUtils.isNotEmpty(constraintKeys)) {
+        if (createIndex && CollectionUtils.isNotEmpty(constraintKeys)) {
             for (ConstraintKey constraintKey : constraintKeys) {
                 if (StringUtils.isBlank(constraintKey.getConstraintName())
                         || (primaryKey != null

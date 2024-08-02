@@ -51,7 +51,7 @@ import static org.apache.seatunnel.api.sink.SinkCommonOptions.MULTI_TABLE_SINK_R
 import static org.apache.seatunnel.api.sink.SinkReplaceNameConstant.REPLACE_DATABASE_NAME_KEY;
 import static org.apache.seatunnel.api.sink.SinkReplaceNameConstant.REPLACE_SCHEMA_NAME_KEY;
 import static org.apache.seatunnel.api.sink.SinkReplaceNameConstant.REPLACE_TABLE_NAME_KEY;
-import static org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions.SKIP_INDEX_WHEN_AUTO_CREATE_TABLE;
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.JdbcCatalogOptions.CREATE_INDEX;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.AUTO_COMMIT;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.BATCH_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcOptions.COMPATIBLE_MODE;
@@ -238,7 +238,7 @@ public class JdbcSinkFactory implements TableSinkFactory {
         return OptionRule.builder()
                 .required(URL, DRIVER, SCHEMA_SAVE_MODE, DATA_SAVE_MODE)
                 .optional(
-                        SKIP_INDEX_WHEN_AUTO_CREATE_TABLE,
+                        CREATE_INDEX,
                         USER,
                         PASSWORD,
                         CONNECTION_CHECK_TIMEOUT_SEC,

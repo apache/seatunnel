@@ -145,8 +145,8 @@ public class XuguCatalog extends AbstractJdbcCatalog {
 
     @Override
     protected String getCreateTableSql(
-            TablePath tablePath, CatalogTable table, boolean skipIndexWhenAutoCreateTable) {
-        return new XuguCreateTableSqlBuilder(table, skipIndexWhenAutoCreateTable).build(tablePath);
+            TablePath tablePath, CatalogTable table, boolean createIndex) {
+        return new XuguCreateTableSqlBuilder(table, createIndex).build(tablePath);
     }
 
     @Override

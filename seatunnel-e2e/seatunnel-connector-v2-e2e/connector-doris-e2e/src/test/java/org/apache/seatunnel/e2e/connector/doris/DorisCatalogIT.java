@@ -135,7 +135,7 @@ public class DorisCatalogIT extends AbstractDorisIT {
         }
 
         Assertions.assertFalse(catalog.tableExists(tablePath));
-        catalog.createTable(tablePath, catalogTable, false, false);
+        catalog.createTable(tablePath, catalogTable, false);
         Assertions.assertTrue(catalog.tableExists(tablePath));
 
         List<String> tables = catalog.listTables(tablePath.getDatabaseName());
@@ -262,7 +262,7 @@ public class DorisCatalogIT extends AbstractDorisIT {
 
     @Test
     public void testDorisSourceSelectFieldsNotLossKeysInformation() {
-        catalog.createTable(tablePath, catalogTable, true, false);
+        catalog.createTable(tablePath, catalogTable, true);
         DorisSourceFactory dorisSourceFactory = new DorisSourceFactory();
         SeaTunnelSource dorisSource =
                 dorisSourceFactory

@@ -90,7 +90,7 @@ public class IrisCreateTableSqlBuilderTest {
                         new ArrayList<>(),
                         "User table");
 
-        String createTableSql = new IrisCreateTableSqlBuilder(catalogTable, false).build(tablePath);
+        String createTableSql = new IrisCreateTableSqlBuilder(catalogTable, true).build(tablePath);
         // create table sql is change; The old unit tests are no longer applicable
         String expect =
                 "CREATE TABLE \"test_schema\".\"test_table\" (\n"
@@ -108,7 +108,7 @@ public class IrisCreateTableSqlBuilderTest {
 
         // skip index
         String createTableSqlSkipIndex =
-                new IrisCreateTableSqlBuilder(catalogTable, true).build(tablePath);
+                new IrisCreateTableSqlBuilder(catalogTable, false).build(tablePath);
         // create table sql is change; The old unit tests are no longer applicable
         String expectSkipIndex =
                 "CREATE TABLE \"test_schema\".\"test_table\" (\n"

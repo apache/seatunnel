@@ -46,17 +46,16 @@ public class SapHanaCreateTableSqlBuilder extends AbstractJdbcCreateTableSqlBuil
     private final List<ConstraintKey> constraintKeys;
 
     @Getter public List<String> createIndexSqls = new ArrayList<>();
-    private Boolean skipIndexWhenAutoCreateTable;
+    private Boolean createIndex;
 
-    public SapHanaCreateTableSqlBuilder(
-            CatalogTable catalogTable, boolean skipIndexWhenAutoCreateTable) {
+    public SapHanaCreateTableSqlBuilder(CatalogTable catalogTable, boolean createIndex) {
         this.columns = catalogTable.getTableSchema().getColumns();
         this.primaryKey = catalogTable.getTableSchema().getPrimaryKey();
         this.sourceCatalogName = catalogTable.getCatalogName();
         this.fieldIde = catalogTable.getOptions().get("fieldIde");
         this.comment = catalogTable.getComment();
         constraintKeys = catalogTable.getTableSchema().getConstraintKeys();
-        this.skipIndexWhenAutoCreateTable = skipIndexWhenAutoCreateTable;
+        this.createIndex = createIndex;
     }
 
     public String build(TablePath tablePath) {
@@ -74,14 +73,14 @@ public class SapHanaCreateTableSqlBuilder extends AbstractJdbcCreateTableSqlBuil
                         .collect(Collectors.toList());
 
         // Add primary key directly in the create table statement
-        if (!skipIndexWhenAutoCreateTable
+        if (createIndex
                 && primaryKey != null
                 && primaryKey.getColumnNames() != null
                 && !primaryKey.getColumnNames().isEmpty()) {
             columnSqls.add(buildPrimaryKeySql(primaryKey));
         }
 
-        if (!skipIndexWhenAutoCreateTable && CollectionUtils.isNotEmpty(constraintKeys)) {
+        if (createIndex && CollectionUtils.isNotEmpty(constraintKeys)) {
             for (ConstraintKey constraintKey : constraintKeys) {
                 if (StringUtils.isBlank(constraintKey.getConstraintName())
                         || (primaryKey != null

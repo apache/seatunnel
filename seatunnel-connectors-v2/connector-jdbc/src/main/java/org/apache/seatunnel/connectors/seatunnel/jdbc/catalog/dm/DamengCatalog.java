@@ -89,7 +89,7 @@ public class DamengCatalog extends AbstractJdbcCatalog {
 
     @Override
     protected String getCreateTableSql(
-            TablePath tablePath, CatalogTable table, boolean skipIndexWhenAutoCreateTable) {
+            TablePath tablePath, CatalogTable table, boolean createIndex) {
         throw new UnsupportedOperationException();
     }
 

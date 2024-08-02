@@ -45,7 +45,7 @@ class PostgresCreateTableSqlBuilderTest {
                         otherDB -> {
                             CatalogTable catalogTable = catalogTable(otherDB);
                             PostgresCreateTableSqlBuilder postgresCreateTableSqlBuilder =
-                                    new PostgresCreateTableSqlBuilder(catalogTable, false);
+                                    new PostgresCreateTableSqlBuilder(catalogTable, true);
                             String createTableSql =
                                     postgresCreateTableSqlBuilder.build(
                                             catalogTable.getTableId().toTablePath());
@@ -64,7 +64,7 @@ class PostgresCreateTableSqlBuilderTest {
 
                             // skip index
                             PostgresCreateTableSqlBuilder postgresCreateTableSqlBuilderSkipIndex =
-                                    new PostgresCreateTableSqlBuilder(catalogTable, true);
+                                    new PostgresCreateTableSqlBuilder(catalogTable, false);
                             String createTableSqlSkipIndex =
                                     postgresCreateTableSqlBuilderSkipIndex.build(
                                             catalogTable.getTableId().toTablePath());

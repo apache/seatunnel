@@ -105,7 +105,7 @@ public class SqlServerCreateTableSqlBuilderTest {
                         "User table");
 
         SqlServerCreateTableSqlBuilder sqlServerCreateTableSqlBuilder =
-                SqlServerCreateTableSqlBuilder.builder(tablePath, catalogTable, false);
+                SqlServerCreateTableSqlBuilder.builder(tablePath, catalogTable, true);
         String createTableSql = sqlServerCreateTableSqlBuilder.build(tablePath, catalogTable);
         // create table sql is change; The old unit tests are no longer applicable
         String expect =
@@ -135,7 +135,7 @@ public class SqlServerCreateTableSqlBuilderTest {
 
         // skip index
         SqlServerCreateTableSqlBuilder sqlServerCreateTableSqlBuilderSkipIndex =
-                SqlServerCreateTableSqlBuilder.builder(tablePath, catalogTable, true);
+                SqlServerCreateTableSqlBuilder.builder(tablePath, catalogTable, false);
         String createTableSqlSkipIndex =
                 sqlServerCreateTableSqlBuilderSkipIndex.build(tablePath, catalogTable);
         String expectSkipIndex =

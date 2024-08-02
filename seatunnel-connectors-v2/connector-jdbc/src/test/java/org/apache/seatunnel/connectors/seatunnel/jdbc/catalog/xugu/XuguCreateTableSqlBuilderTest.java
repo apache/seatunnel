@@ -105,7 +105,7 @@ public class XuguCreateTableSqlBuilderTest {
                         "User table");
 
         XuguCreateTableSqlBuilder xuguCreateTableSqlBuilder =
-                new XuguCreateTableSqlBuilder(catalogTable, false);
+                new XuguCreateTableSqlBuilder(catalogTable, true);
         String createTableSql = xuguCreateTableSqlBuilder.build(tablePath);
         // create table sql is change; The old unit tests are no longer applicable
         String expect =
@@ -134,7 +134,7 @@ public class XuguCreateTableSqlBuilderTest {
 
         // skip index
         XuguCreateTableSqlBuilder xuguCreateTableSqlBuilderSkipIndex =
-                new XuguCreateTableSqlBuilder(catalogTable, true);
+                new XuguCreateTableSqlBuilder(catalogTable, false);
         String createTableSqlSkipIndex = xuguCreateTableSqlBuilderSkipIndex.build(tablePath);
         String expectSkipIndex =
                 "CREATE TABLE \"test_table\" (\n"

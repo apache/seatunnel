@@ -214,11 +214,7 @@ public class StarRocksCatalog implements Catalog {
     }
 
     @Override
-    public void createTable(
-            TablePath tablePath,
-            CatalogTable table,
-            boolean ignoreIfExists,
-            boolean skipIndexWhenAutoCreateTable)
+    public void createTable(TablePath tablePath, CatalogTable table, boolean ignoreIfExists)
             throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
         this.createTable(
                 StarRocksSaveModeUtil.getCreateTableSql(

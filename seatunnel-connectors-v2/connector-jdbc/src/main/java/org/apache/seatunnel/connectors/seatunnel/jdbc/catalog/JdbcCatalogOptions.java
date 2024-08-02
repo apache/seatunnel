@@ -75,10 +75,9 @@ public interface JdbcCatalogOptions {
                     .withDescription(
                             "The table suffix name added when the table is automatically created");
 
-    Option<Boolean> SKIP_INDEX_WHEN_AUTO_CREATE_TABLE =
-            Options.key("skip_index_when_auto_create_table")
+    Option<Boolean> CREATE_INDEX =
+            Options.key("create_index")
                     .booleanType()
-                    .defaultValue(false)
-                    .withDescription(
-                            "Skip index when auto create table which will also skip the primary key.");
+                    .defaultValue(true)
+                    .withDescription("Create index or not when auto create table");
 }

@@ -98,11 +98,7 @@ public class S3FileCatalog implements Catalog {
 
     @SneakyThrows
     @Override
-    public void createTable(
-            TablePath tablePath,
-            CatalogTable table,
-            boolean ignoreIfExists,
-            boolean skipIndexWhenAutoCreateTable)
+    public void createTable(TablePath tablePath, CatalogTable table, boolean ignoreIfExists)
             throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
         hadoopFileSystemProxy.createDir(readonlyConfig.get(S3ConfigOptions.FILE_PATH));
     }

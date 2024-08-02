@@ -70,7 +70,7 @@ public class JdbcCatalogUtils {
         JdbcDialect jdbcDialect =
                 JdbcDialectLoader.load(
                         jdbcConnectionConfig.getUrl(), jdbcConnectionConfig.getCompatibleMode());
-        Optional<Catalog> catalog = findCatalog(jdbcConnectionConfig, jdbcDialect, false);
+        Optional<Catalog> catalog = findCatalog(jdbcConnectionConfig, jdbcDialect, true);
         if (catalog.isPresent()) {
             try (AbstractJdbcCatalog jdbcCatalog = (AbstractJdbcCatalog) catalog.get()) {
                 log.info("Loading catalog tables for catalog : {}", jdbcCatalog.getClass());
@@ -378,8 +378,8 @@ public class JdbcCatalogUtils {
     }
 
     public static Optional<Catalog> findCatalog(
-            JdbcConnectionConfig config, JdbcDialect dialect, boolean skipIndex) {
-        ReadonlyConfig catalogConfig = extractCatalogConfig(config, skipIndex);
+            JdbcConnectionConfig config, JdbcDialect dialect, boolean createIndex) {
+        ReadonlyConfig catalogConfig = extractCatalogConfig(config, createIndex);
         return FactoryUtil.createOptionalCatalog(
                 dialect.dialectName(),
                 catalogConfig,
@@ -388,14 +388,14 @@ public class JdbcCatalogUtils {
     }
 
     private static ReadonlyConfig extractCatalogConfig(
-            JdbcConnectionConfig config, boolean skipIndex) {
+            JdbcConnectionConfig config, boolean createIndex) {
         Map<String, Object> catalogConfig = new HashMap<>();
         catalogConfig.put(JdbcCatalogOptions.BASE_URL.key(), config.getUrl());
         config.getUsername()
                 .ifPresent(val -> catalogConfig.put(JdbcCatalogOptions.USERNAME.key(), val));
         config.getPassword()
                 .ifPresent(val -> catalogConfig.put(JdbcCatalogOptions.PASSWORD.key(), val));
-        catalogConfig.put(JdbcCatalogOptions.SKIP_INDEX_WHEN_AUTO_CREATE_TABLE.key(), skipIndex);
+        catalogConfig.put(JdbcCatalogOptions.CREATE_INDEX.key(), createIndex);
         return ReadonlyConfig.fromMap(catalogConfig);
     }
 }

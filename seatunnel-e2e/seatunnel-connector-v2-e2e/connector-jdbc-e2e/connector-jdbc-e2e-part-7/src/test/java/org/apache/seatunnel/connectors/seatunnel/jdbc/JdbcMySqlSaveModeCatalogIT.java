@@ -166,7 +166,7 @@ public class JdbcMySqlSaveModeCatalogIT extends TestSuiteBase implements TestRes
         boolean tableExistsBefore = mySqlCatalog.tableExists(tablePathMySqlSink);
         Assertions.assertFalse(tableExistsBefore);
         // create table
-        mySqlCatalog.createTable(tablePathMySqlSink, catalogTable, true, false);
+        mySqlCatalog.createTable(tablePathMySqlSink, catalogTable, true, true);
         boolean tableExistsAfter = mySqlCatalog.tableExists(tablePathMySqlSink);
         Assertions.assertTrue(tableExistsAfter);
         // comment

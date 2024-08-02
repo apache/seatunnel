@@ -37,15 +37,14 @@ public class XuguCreateTableSqlBuilder {
     private PrimaryKey primaryKey;
     private String sourceCatalogName;
     private String fieldIde;
-    private Boolean skipIndexWhenAutoCreateTable;
+    private Boolean createIndex;
 
-    public XuguCreateTableSqlBuilder(
-            CatalogTable catalogTable, boolean skipIndexWhenAutoCreateTable) {
+    public XuguCreateTableSqlBuilder(CatalogTable catalogTable, boolean createIndex) {
         this.columns = catalogTable.getTableSchema().getColumns();
         this.primaryKey = catalogTable.getTableSchema().getPrimaryKey();
         this.sourceCatalogName = catalogTable.getCatalogName();
         this.fieldIde = catalogTable.getOptions().get("fieldIde");
-        this.skipIndexWhenAutoCreateTable = skipIndexWhenAutoCreateTable;
+        this.createIndex = createIndex;
     }
 
     public String build(TablePath tablePath) {
@@ -61,7 +60,7 @@ public class XuguCreateTableSqlBuilder {
                         .collect(Collectors.toList());
 
         // Add primary key directly in the create table statement
-        if (!skipIndexWhenAutoCreateTable
+        if (createIndex
                 && primaryKey != null
                 && primaryKey.getColumnNames() != null
                 && primaryKey.getColumnNames().size() > 0) {

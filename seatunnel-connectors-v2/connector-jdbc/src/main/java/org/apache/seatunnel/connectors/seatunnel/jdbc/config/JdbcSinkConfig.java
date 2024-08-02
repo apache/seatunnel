@@ -45,7 +45,7 @@ public class JdbcSinkConfig implements Serializable {
     @Builder.Default private boolean isPrimaryKeyUpdated = true;
     private boolean supportUpsertByInsertOnly;
     private boolean useCopyStatement;
-    @Builder.Default private boolean skipIndexWhenAutoCreateTable = false;
+    @Builder.Default private boolean createIndex = true;
 
     public static JdbcSinkConfig of(ReadonlyConfig config) {
         JdbcSinkConfigBuilder builder = JdbcSinkConfig.builder();
@@ -59,8 +59,7 @@ public class JdbcSinkConfig implements Serializable {
         builder.supportUpsertByInsertOnly(config.get(SUPPORT_UPSERT_BY_INSERT_ONLY));
         builder.simpleSql(config.get(JdbcOptions.QUERY));
         builder.useCopyStatement(config.get(JdbcOptions.USE_COPY_STATEMENT));
-        builder.skipIndexWhenAutoCreateTable(
-                config.get(JdbcCatalogOptions.SKIP_INDEX_WHEN_AUTO_CREATE_TABLE));
+        builder.createIndex(config.get(JdbcCatalogOptions.CREATE_INDEX));
         return builder.build();
     }
 }

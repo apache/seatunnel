@@ -344,7 +344,7 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
         catalog.close();
         Lists.newArrayList(true, false)
                 .forEach(
-                        skipIndex -> {
+                        createIndex -> {
                             SqlServerCatalog newSqlServerCatalog = (SqlServerCatalog) catalog;
                             CatalogTable catalogTable =
                                     newSqlServerCatalog.getTable(tablePathSqlserver);
@@ -354,7 +354,7 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
                             Assertions.assertFalse(tableExistsBefore);
                             // create table
                             newSqlServerCatalog.createTable(
-                                    tablePathSqlserverSink, catalogTable, true, skipIndex);
+                                    tablePathSqlserverSink, catalogTable, true, createIndex);
                             boolean tableExistsAfter =
                                     newSqlServerCatalog.tableExists(tablePathSqlserverSink);
                             Assertions.assertTrue(tableExistsAfter);
