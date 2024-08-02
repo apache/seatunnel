@@ -49,7 +49,6 @@ public class TiDBCatalogFactory implements CatalogFactory {
         }
         return new TiDBCatalog(
                 catalogName,
-                options.get(JdbcCatalogOptions.SKIP_INDEX_WHEN_AUTO_CREATE_TABLE),
                 options.get(JdbcCatalogOptions.USERNAME),
                 options.get(JdbcCatalogOptions.PASSWORD),
                 urlInfo);

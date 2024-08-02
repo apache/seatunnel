@@ -45,7 +45,7 @@ public class JdbcSinkConfig implements Serializable {
     @Builder.Default private boolean isPrimaryKeyUpdated = true;
     private boolean supportUpsertByInsertOnly;
     private boolean useCopyStatement;
-    private boolean skipIndexWhenAutoCreateTable;
+    @Builder.Default private boolean skipIndexWhenAutoCreateTable = false;
 
     public static JdbcSinkConfig of(ReadonlyConfig config) {
         JdbcSinkConfigBuilder builder = JdbcSinkConfig.builder();

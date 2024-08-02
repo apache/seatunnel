@@ -95,12 +95,11 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
 
     public PostgresCatalog(
             String catalogName,
-            boolean skipIndexWhenAutoCreateTable,
             String username,
             String pwd,
             JdbcUrlUtil.UrlInfo urlInfo,
             String defaultSchema) {
-        super(catalogName, skipIndexWhenAutoCreateTable, username, pwd, urlInfo, defaultSchema);
+        super(catalogName, username, pwd, urlInfo, defaultSchema);
     }
 
     @Override
@@ -170,7 +169,8 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
     }
 
     @Override
-    protected void createTableInternal(TablePath tablePath, CatalogTable table)
+    protected void createTableInternal(
+            TablePath tablePath, CatalogTable table, boolean skipIndexWhenAutoCreateTable)
             throws CatalogException {
         PostgresCreateTableSqlBuilder postgresCreateTableSqlBuilder =
                 new PostgresCreateTableSqlBuilder(table, skipIndexWhenAutoCreateTable);
@@ -200,7 +200,8 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
     }
 
     @Override
-    protected String getCreateTableSql(TablePath tablePath, CatalogTable table) {
+    protected String getCreateTableSql(
+            TablePath tablePath, CatalogTable table, boolean skipIndexWhenAutoCreateTable) {
         PostgresCreateTableSqlBuilder postgresCreateTableSqlBuilder =
                 new PostgresCreateTableSqlBuilder(table, skipIndexWhenAutoCreateTable);
         return postgresCreateTableSqlBuilder.build(tablePath);

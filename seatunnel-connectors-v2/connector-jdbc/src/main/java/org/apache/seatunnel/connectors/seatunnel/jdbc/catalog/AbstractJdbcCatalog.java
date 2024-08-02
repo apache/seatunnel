@@ -86,11 +86,8 @@ public abstract class AbstractJdbcCatalog implements Catalog {
 
     protected final Map<String, Connection> connectionMap;
 
-    protected final Boolean skipIndexWhenAutoCreateTable;
-
     public AbstractJdbcCatalog(
             String catalogName,
-            boolean skipIndexWhenAutoCreateTable,
             String username,
             String pwd,
             JdbcUrlUtil.UrlInfo urlInfo,
@@ -99,7 +96,6 @@ public abstract class AbstractJdbcCatalog implements Catalog {
         checkArgument(StringUtils.isNotBlank(username));
         checkArgument(StringUtils.isNotBlank(urlInfo.getUrlWithoutDatabase()));
         this.catalogName = catalogName;
-        this.skipIndexWhenAutoCreateTable = skipIndexWhenAutoCreateTable;
         this.defaultDatabase = urlInfo.getDefaultDatabase().orElse(null);
         this.username = username;
         this.pwd = pwd;
@@ -375,7 +371,11 @@ public abstract class AbstractJdbcCatalog implements Catalog {
     }
 
     @Override
-    public void createTable(TablePath tablePath, CatalogTable table, boolean ignoreIfExists)
+    public void createTable(
+            TablePath tablePath,
+            CatalogTable table,
+            boolean ignoreIfExists,
+            boolean skipIndexWhenAutoCreateTable)
             throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
         checkNotNull(tablePath, "Table path cannot be null");
 
@@ -397,22 +397,27 @@ public abstract class AbstractJdbcCatalog implements Catalog {
             throw new TableAlreadyExistException(catalogName, tablePath);
         }
 
-        createTableInternal(tablePath, table);
+        createTableInternal(tablePath, table, skipIndexWhenAutoCreateTable);
     }
 
-    protected String getCreateTableSql(TablePath tablePath, CatalogTable table) {
+    protected String getCreateTableSql(
+            TablePath tablePath, CatalogTable table, boolean skipIndexWhenAutoCreateTable) {
         throw new UnsupportedOperationException();
     }
 
-    protected List<String> getCreateTableSqls(TablePath tablePath, CatalogTable table) {
-        return Collections.singletonList(getCreateTableSql(tablePath, table));
+    protected List<String> getCreateTableSqls(
+            TablePath tablePath, CatalogTable table, boolean skipIndexWhenAutoCreateTable) {
+        return Collections.singletonList(
+                getCreateTableSql(tablePath, table, skipIndexWhenAutoCreateTable));
     }
 
-    protected void createTableInternal(TablePath tablePath, CatalogTable table)
+    protected void createTableInternal(
+            TablePath tablePath, CatalogTable table, boolean skipIndexWhenAutoCreateTable)
             throws CatalogException {
         String dbUrl = getUrlFromDatabaseName(tablePath.getDatabaseName());
         try {
-            final List<String> createTableSqlList = getCreateTableSqls(tablePath, table);
+            final List<String> createTableSqlList =
+                    getCreateTableSqls(tablePath, table, skipIndexWhenAutoCreateTable);
             for (String sql : createTableSqlList) {
                 executeInternal(dbUrl, sql);
             }
@@ -650,7 +655,7 @@ public abstract class AbstractJdbcCatalog implements Catalog {
             ActionType actionType, TablePath tablePath, Optional<CatalogTable> catalogTable) {
         if (actionType == ActionType.CREATE_TABLE) {
             checkArgument(catalogTable.isPresent(), "CatalogTable cannot be null");
-            return new SQLPreviewResult(getCreateTableSql(tablePath, catalogTable.get()));
+            return new SQLPreviewResult(getCreateTableSql(tablePath, catalogTable.get(), false));
         } else if (actionType == ActionType.DROP_TABLE) {
             return new SQLPreviewResult(getDropTableSql(tablePath));
         } else if (actionType == ActionType.TRUNCATE_TABLE) {

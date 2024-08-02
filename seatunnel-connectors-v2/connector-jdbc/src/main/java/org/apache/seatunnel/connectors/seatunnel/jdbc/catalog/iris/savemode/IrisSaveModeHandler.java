@@ -39,8 +39,16 @@ public class IrisSaveModeHandler extends DefaultSaveModeHandler {
             @Nonnull Catalog catalog,
             @Nonnull TablePath tablePath,
             @Nullable CatalogTable catalogTable,
-            @Nullable String customSql) {
-        super(schemaSaveMode, dataSaveMode, catalog, tablePath, catalogTable, customSql);
+            @Nullable String customSql,
+            boolean skipIndexWhenAutoCreateTable) {
+        super(
+                schemaSaveMode,
+                dataSaveMode,
+                catalog,
+                tablePath,
+                catalogTable,
+                customSql,
+                skipIndexWhenAutoCreateTable);
     }
 
     @Override
@@ -53,7 +61,7 @@ public class IrisSaveModeHandler extends DefaultSaveModeHandler {
                             Catalog.ActionType.CREATE_TABLE,
                             tablePath,
                             Optional.ofNullable(catalogTable)));
-            catalog.createTable(tablePath, catalogTable, true);
+            catalog.createTable(tablePath, catalogTable, true, skipIndexWhenAutoCreateTable);
         } catch (UnsupportedOperationException ignore) {
             log.info("Creating table {}", tablePath);
         }

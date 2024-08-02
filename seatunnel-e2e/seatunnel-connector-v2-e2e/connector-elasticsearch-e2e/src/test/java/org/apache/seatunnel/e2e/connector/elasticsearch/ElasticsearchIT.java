@@ -469,7 +469,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         Assertions.assertFalse(existsBefore, "Index should not exist initially");
 
         // Create index
-        elasticSearchCatalog.createTable(tablePath, null, false);
+        elasticSearchCatalog.createTable(tablePath, null, false, false);
         final boolean existsAfter = elasticSearchCatalog.tableExists(tablePath);
         Assertions.assertTrue(existsAfter, "Index should be created");
 

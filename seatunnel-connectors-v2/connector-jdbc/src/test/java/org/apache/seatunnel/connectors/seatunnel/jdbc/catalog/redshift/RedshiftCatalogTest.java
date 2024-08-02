@@ -89,7 +89,8 @@ public class RedshiftCatalogTest {
                                                 put("password", "test");
                                             }
                                         }));
-        String sql = catalog.getCreateTableSql(TablePath.of("test.test.test"), CATALOG_TABLE);
+        String sql =
+                catalog.getCreateTableSql(TablePath.of("test.test.test"), CATALOG_TABLE, false);
         Assertions.assertEquals(
                 "CREATE TABLE \"test\".\"test\" (\n"
                         + "\"test\" CHARACTER VARYING(65535),\n"

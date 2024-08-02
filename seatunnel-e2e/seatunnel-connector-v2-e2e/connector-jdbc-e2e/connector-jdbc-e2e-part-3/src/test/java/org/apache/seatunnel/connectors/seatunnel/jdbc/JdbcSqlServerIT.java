@@ -321,15 +321,9 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
 
     @Override
     protected void initCatalog() {
-        initCatalogSkipIndex(false);
-    }
-
-    @Override
-    protected void initCatalogSkipIndex(boolean skipIndex) {
         catalog =
                 new SqlServerCatalog(
                         "sqlserver",
-                        skipIndex,
                         jdbcCase.getUserName(),
                         jdbcCase.getPassword(),
                         SqlServerURLParser.parse(
@@ -351,7 +345,6 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
         Lists.newArrayList(true, false)
                 .forEach(
                         skipIndex -> {
-                            initCatalogSkipIndex(skipIndex);
                             SqlServerCatalog newSqlServerCatalog = (SqlServerCatalog) catalog;
                             CatalogTable catalogTable =
                                     newSqlServerCatalog.getTable(tablePathSqlserver);
@@ -361,7 +354,7 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
                             Assertions.assertFalse(tableExistsBefore);
                             // create table
                             newSqlServerCatalog.createTable(
-                                    tablePathSqlserverSink, catalogTable, true);
+                                    tablePathSqlserverSink, catalogTable, true, skipIndex);
                             boolean tableExistsAfter =
                                     newSqlServerCatalog.tableExists(tablePathSqlserverSink);
                             Assertions.assertTrue(tableExistsAfter);

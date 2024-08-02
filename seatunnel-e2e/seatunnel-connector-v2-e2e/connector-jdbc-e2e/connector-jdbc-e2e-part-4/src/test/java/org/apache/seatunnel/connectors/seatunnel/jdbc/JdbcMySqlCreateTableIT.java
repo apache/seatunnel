@@ -268,11 +268,10 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
         TablePath tablePathPG = TablePath.of("pg", "public", "mysql_auto_create_pg");
 
         SqlServerCatalog sqlServerCatalog =
-                new SqlServerCatalog("sqlserver", false, "sa", PASSWORD, sqlParse, "dbo");
-        MySqlCatalog mySqlCatalog =
-                new MySqlCatalog("mysql", false, "root", PASSWORD, MysqlUrlInfo);
+                new SqlServerCatalog("sqlserver", "sa", PASSWORD, sqlParse, "dbo");
+        MySqlCatalog mySqlCatalog = new MySqlCatalog("mysql", "root", PASSWORD, MysqlUrlInfo);
         PostgresCatalog postgresCatalog =
-                new PostgresCatalog("postgres", false, "testUser", PASSWORD, pg, "public");
+                new PostgresCatalog("postgres", "testUser", PASSWORD, pg, "public");
 
         mySqlCatalog.open();
         sqlServerCatalog.open();
@@ -280,9 +279,9 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
 
         CatalogTable mysqlTable = mySqlCatalog.getTable(tablePathMySql);
 
-        sqlServerCatalog.createTable(tablePathSQL, mysqlTable, true);
-        postgresCatalog.createTable(tablePathPG, mysqlTable, true);
-        mySqlCatalog.createTable(tablePathMySql_Mysql, mysqlTable, true);
+        sqlServerCatalog.createTable(tablePathSQL, mysqlTable, true, false);
+        postgresCatalog.createTable(tablePathPG, mysqlTable, true, false);
+        mySqlCatalog.createTable(tablePathMySql_Mysql, mysqlTable, true, false);
 
         Assertions.assertTrue(checkMysql(mysqlCheck));
         Assertions.assertTrue(checkSqlServer(sqlserverCheck));

@@ -61,12 +61,11 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
 
     public SqlServerCatalog(
             String catalogName,
-            boolean skipIndexWhenAutoCreateTable,
             String username,
             String pwd,
             JdbcUrlUtil.UrlInfo urlInfo,
             String defaultSchema) {
-        super(catalogName, skipIndexWhenAutoCreateTable, username, pwd, urlInfo, defaultSchema);
+        super(catalogName, username, pwd, urlInfo, defaultSchema);
     }
 
     @Override
@@ -131,7 +130,8 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
     }
 
     @Override
-    protected String getCreateTableSql(TablePath tablePath, CatalogTable table) {
+    protected String getCreateTableSql(
+            TablePath tablePath, CatalogTable table, boolean skipIndexWhenAutoCreateTable) {
         return SqlServerCreateTableSqlBuilder.builder(
                         tablePath, table, skipIndexWhenAutoCreateTable)
                 .build(tablePath, table);

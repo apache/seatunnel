@@ -435,14 +435,9 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
 
     @Override
     protected void initCatalog() {
-        initCatalogSkipIndex(false);
-    }
-
-    protected void initCatalogSkipIndex(boolean skipIndex) {
         catalog =
                 new MySqlCatalog(
                         "mysql",
-                        skipIndex,
                         jdbcCase.getUserName(),
                         jdbcCase.getPassword(),
                         JdbcUrlUtil.getUrlInfo(

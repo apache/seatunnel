@@ -94,7 +94,7 @@ class IcebergCatalogTest {
     @Order(2)
     void createTable() {
         CatalogTable catalogTable = buildAllTypesTable(tableIdentifier);
-        icebergCatalog.createTable(tablePath, catalogTable, true);
+        icebergCatalog.createTable(tablePath, catalogTable, true, false);
         Assertions.assertTrue(icebergCatalog.tableExists(tablePath));
     }
 

@@ -305,7 +305,6 @@ public class JdbcIrisIT extends AbstractJdbcIT {
         Lists.newArrayList(true, false)
                 .forEach(
                         skipIndex -> {
-                            initCatalogSkipIndex(skipIndex);
                             if (catalog == null) {
                                 return;
                             }
@@ -324,7 +323,7 @@ public class JdbcIrisIT extends AbstractJdbcIT {
                             Assertions.assertFalse(catalog.tableExists(targetTablePath));
 
                             CatalogTable catalogTable = catalog.getTable(sourceTablePath);
-                            catalog.createTable(targetTablePath, catalogTable, false);
+                            catalog.createTable(targetTablePath, catalogTable, false, skipIndex);
                             Assertions.assertTrue(catalog.tableExists(targetTablePath));
 
                             catalog.dropTable(targetTablePath, false);
@@ -588,16 +587,10 @@ public class JdbcIrisIT extends AbstractJdbcIT {
 
     @Override
     protected void initCatalog() {
-        initCatalogSkipIndex(false);
-    }
-
-    @Override
-    protected void initCatalogSkipIndex(boolean skipIndex) {
         String jdbcUrl = jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost());
         catalog =
                 new IrisCatalog(
                         "iris",
-                        skipIndex,
                         jdbcCase.getUserName(),
                         jdbcCase.getPassword(),
                         JdbcUrlUtil.getUrlInfo(jdbcUrl));

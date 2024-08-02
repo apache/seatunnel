@@ -281,7 +281,6 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
         Catalog catalog =
                 new PostgresCatalog(
                         DatabaseIdentifier.POSTGRESQL,
-                        false,
                         POSTGRESQL_CONTAINER.getUsername(),
                         POSTGRESQL_CONTAINER.getPassword(),
                         JdbcUrlUtil.getUrlInfo(POSTGRESQL_CONTAINER.getJdbcUrl()),
@@ -315,7 +314,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
                             Assertions.assertFalse(catalog.tableExists(catalogTablePath));
 
                             CatalogTable catalogTable = catalog.getTable(tablePath);
-                            catalog.createTable(catalogTablePath, catalogTable, false);
+                            catalog.createTable(catalogTablePath, catalogTable, false, skipIndex);
                             Assertions.assertTrue(catalog.tableExists(catalogTablePath));
 
                             catalog.dropTable(catalogTablePath, false);
@@ -484,7 +483,6 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
         PostgresCatalog postgresCatalog =
                 new PostgresCatalog(
                         DatabaseIdentifier.POSTGRESQL,
-                        false,
                         POSTGRESQL_CONTAINER.getUsername(),
                         POSTGRESQL_CONTAINER.getPassword(),
                         JdbcUrlUtil.getUrlInfo(POSTGRESQL_CONTAINER.getJdbcUrl()),
@@ -495,7 +493,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
         boolean tableExistsBefore = postgresCatalog.tableExists(tablePathPgSink);
         Assertions.assertFalse(tableExistsBefore);
         // create table
-        postgresCatalog.createTable(tablePathPgSink, catalogTable, true);
+        postgresCatalog.createTable(tablePathPgSink, catalogTable, true, false);
         boolean tableExistsAfter = postgresCatalog.tableExists(tablePathPgSink);
         Assertions.assertTrue(tableExistsAfter);
         // comment

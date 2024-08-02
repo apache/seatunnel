@@ -61,12 +61,11 @@ public class DamengCatalog extends AbstractJdbcCatalog {
 
     public DamengCatalog(
             String catalogName,
-            boolean skipIndexWhenAutoCreateTable,
             String username,
             String pwd,
             JdbcUrlUtil.UrlInfo urlInfo,
             String defaultSchema) {
-        super(catalogName, skipIndexWhenAutoCreateTable, username, pwd, urlInfo, defaultSchema);
+        super(catalogName, username, pwd, urlInfo, defaultSchema);
     }
 
     @Override
@@ -89,7 +88,8 @@ public class DamengCatalog extends AbstractJdbcCatalog {
     }
 
     @Override
-    protected String getCreateTableSql(TablePath tablePath, CatalogTable table) {
+    protected String getCreateTableSql(
+            TablePath tablePath, CatalogTable table, boolean skipIndexWhenAutoCreateTable) {
         throw new UnsupportedOperationException();
     }
 

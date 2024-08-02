@@ -33,11 +33,7 @@ public class OceanBaseMySqlCatalog extends MySqlCatalog {
     }
 
     public OceanBaseMySqlCatalog(
-            String catalogName,
-            boolean skipIndexWhenAutoCreateTable,
-            String username,
-            String pwd,
-            JdbcUrlUtil.UrlInfo urlInfo) {
-        super(catalogName, skipIndexWhenAutoCreateTable, username, pwd, urlInfo);
+            String catalogName, String username, String pwd, JdbcUrlUtil.UrlInfo urlInfo) {
+        super(catalogName, username, pwd, urlInfo);
     }
 }

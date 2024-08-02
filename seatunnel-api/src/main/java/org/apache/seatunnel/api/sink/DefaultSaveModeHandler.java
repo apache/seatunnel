@@ -43,6 +43,24 @@ public class DefaultSaveModeHandler implements SaveModeHandler {
     @Nonnull public TablePath tablePath;
     @Nullable public CatalogTable catalogTable;
     @Nullable public String customSql;
+    public boolean skipIndexWhenAutoCreateTable = false;
+
+    public DefaultSaveModeHandler(
+            SchemaSaveMode schemaSaveMode,
+            DataSaveMode dataSaveMode,
+            Catalog catalog,
+            CatalogTable catalogTable,
+            String customSql,
+            boolean skipIndexWhenAutoCreateTable) {
+        this(
+                schemaSaveMode,
+                dataSaveMode,
+                catalog,
+                catalogTable.getTableId().toTablePath(),
+                catalogTable,
+                customSql,
+                skipIndexWhenAutoCreateTable);
+    }
 
     public DefaultSaveModeHandler(
             SchemaSaveMode schemaSaveMode,
@@ -50,13 +68,12 @@ public class DefaultSaveModeHandler implements SaveModeHandler {
             Catalog catalog,
             CatalogTable catalogTable,
             String customSql) {
-        this(
-                schemaSaveMode,
-                dataSaveMode,
-                catalog,
-                catalogTable.getTableId().toTablePath(),
-                catalogTable,
-                customSql);
+        this.schemaSaveMode = schemaSaveMode;
+        this.dataSaveMode = dataSaveMode;
+        this.catalog = catalog;
+        this.tablePath = catalogTable.getTableId().toTablePath();
+        this.catalogTable = catalogTable;
+        this.customSql = customSql;
     }
 
     @Override
@@ -178,7 +195,7 @@ public class DefaultSaveModeHandler implements SaveModeHandler {
         } catch (UnsupportedOperationException ignore) {
             log.info("Creating table {}", tablePath);
         }
-        catalog.createTable(tablePath, catalogTable, true);
+        catalog.createTable(tablePath, catalogTable, true, skipIndexWhenAutoCreateTable);
     }
 
     protected void truncateTable() {

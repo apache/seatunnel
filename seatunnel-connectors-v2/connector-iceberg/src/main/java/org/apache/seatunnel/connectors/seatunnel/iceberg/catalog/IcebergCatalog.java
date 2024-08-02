@@ -156,7 +156,11 @@ public class IcebergCatalog implements Catalog {
     }
 
     @Override
-    public void createTable(TablePath tablePath, CatalogTable table, boolean ignoreIfExists)
+    public void createTable(
+            TablePath tablePath,
+            CatalogTable table,
+            boolean ignoreIfExists,
+            boolean skipIndexWhenAutoCreateTable)
             throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
         log.info("Creating table at path: {}", tablePath);
         SchemaUtils.autoCreateTable(catalog, tablePath, table, readonlyConfig);

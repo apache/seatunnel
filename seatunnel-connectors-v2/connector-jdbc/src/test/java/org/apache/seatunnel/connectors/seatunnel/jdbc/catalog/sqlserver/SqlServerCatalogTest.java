@@ -66,10 +66,9 @@ class SqlServerCatalogTest {
         tablePathMySql = TablePath.of(databaseName, schemaName, "mysql_to_sqlserver");
         tablePathPG = TablePath.of(databaseName, schemaName, "pg_to_sqlserver");
         tablePathOracle = TablePath.of(databaseName, schemaName, "oracle_to_sqlserver");
-        sqlServerCatalog =
-                new SqlServerCatalog("sqlserver", false, "sa", "root@123", sqlParse, null);
-        mySqlCatalog = new MySqlCatalog("mysql", false, "root", "root@123", MysqlUrlInfo);
-        postgresCatalog = new PostgresCatalog("postgres", false, "postgres", "postgres", pg, null);
+        sqlServerCatalog = new SqlServerCatalog("sqlserver", "sa", "root@123", sqlParse, null);
+        mySqlCatalog = new MySqlCatalog("mysql", "root", "root@123", MysqlUrlInfo);
+        postgresCatalog = new PostgresCatalog("postgres", "postgres", "postgres", pg, null);
         mySqlCatalog.open();
         sqlServerCatalog.open();
         postgresCatalog.open();
@@ -110,9 +109,9 @@ class SqlServerCatalogTest {
     @Test
     @Order(2)
     void createTableInternal() {
-        sqlServerCatalog.createTable(tablePathMySql, mySqlCatalogTable, true);
-        sqlServerCatalog.createTable(tablePathPG, postgresCatalogTable, true);
-        sqlServerCatalog.createTable(tablePathSQL, sqlServerCatalogTable, true);
+        sqlServerCatalog.createTable(tablePathMySql, mySqlCatalogTable, true, false);
+        sqlServerCatalog.createTable(tablePathPG, postgresCatalogTable, true, false);
+        sqlServerCatalog.createTable(tablePathSQL, sqlServerCatalogTable, true, false);
     }
 
     @Disabled

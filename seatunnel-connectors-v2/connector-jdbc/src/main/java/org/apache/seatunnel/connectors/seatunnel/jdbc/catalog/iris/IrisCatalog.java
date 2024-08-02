@@ -60,17 +60,14 @@ public class IrisCatalog extends AbstractJdbcCatalog {
             "SELECT TABLE_SCHEMA,TABLE_NAME FROM INFORMATION_SCHEMA.Tables WHERE TABLE_SCHEMA='%s' and TABLE_TYPE != 'SYSTEM TABLE' and TABLE_TYPE != 'SYSTEM VIEW'";
 
     public IrisCatalog(
-            String catalogName,
-            boolean skipIndexWhenAutoCreateTable,
-            String username,
-            String password,
-            JdbcUrlUtil.UrlInfo urlInfo) {
-        super(catalogName, skipIndexWhenAutoCreateTable, username, password, urlInfo, null);
+            String catalogName, String username, String password, JdbcUrlUtil.UrlInfo urlInfo) {
+        super(catalogName, username, password, urlInfo, null);
         SYS_DATABASES.add("%SYS");
     }
 
     @Override
-    protected String getCreateTableSql(TablePath tablePath, CatalogTable table) {
+    protected String getCreateTableSql(
+            TablePath tablePath, CatalogTable table, boolean skipIndexWhenAutoCreateTable) {
         return new IrisCreateTableSqlBuilder(table, skipIndexWhenAutoCreateTable).build(tablePath);
     }
 
@@ -228,7 +225,11 @@ public class IrisCatalog extends AbstractJdbcCatalog {
     }
 
     @Override
-    public void createTable(TablePath tablePath, CatalogTable table, boolean ignoreIfExists)
+    public void createTable(
+            TablePath tablePath,
+            CatalogTable table,
+            boolean ignoreIfExists,
+            boolean skipIndexWhenAutoCreateTable)
             throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
         checkNotNull(tablePath, "Table path cannot be null");
         if (defaultSchema.isPresent()) {
@@ -246,7 +247,7 @@ public class IrisCatalog extends AbstractJdbcCatalog {
             throw new TableAlreadyExistException(catalogName, tablePath);
         }
 
-        createTableInternal(tablePath, table);
+        createTableInternal(tablePath, table, skipIndexWhenAutoCreateTable);
     }
 
     @Override

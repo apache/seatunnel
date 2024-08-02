@@ -68,12 +68,8 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
     private MySqlTypeConverter typeConverter;
 
     public MySqlCatalog(
-            String catalogName,
-            boolean skipIndexWhenAutoCreateTable,
-            String username,
-            String pwd,
-            JdbcUrlUtil.UrlInfo urlInfo) {
-        super(catalogName, skipIndexWhenAutoCreateTable, username, pwd, urlInfo, null);
+            String catalogName, String username, String pwd, JdbcUrlUtil.UrlInfo urlInfo) {
+        super(catalogName, username, pwd, urlInfo, null);
         this.version = resolveVersion();
         this.typeConverter = new MySqlTypeConverter(version);
     }
@@ -185,7 +181,8 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
     }
 
     @Override
-    protected String getCreateTableSql(TablePath tablePath, CatalogTable table) {
+    protected String getCreateTableSql(
+            TablePath tablePath, CatalogTable table, boolean skipIndexWhenAutoCreateTable) {
         return MysqlCreateTableSqlBuilder.builder(
                         tablePath, table, typeConverter, skipIndexWhenAutoCreateTable)
                 .build(table.getCatalogName());

@@ -40,12 +40,11 @@ public class OceanBaseOracleCatalog extends OracleCatalog {
 
     public OceanBaseOracleCatalog(
             String catalogName,
-            boolean skipIndexWhenAutoCreateTable,
             String username,
             String pwd,
             JdbcUrlUtil.UrlInfo urlInfo,
             String defaultSchema) {
-        super(catalogName, skipIndexWhenAutoCreateTable, username, pwd, urlInfo, defaultSchema);
+        super(catalogName, username, pwd, urlInfo, defaultSchema);
     }
 
     @Override
@@ -81,7 +80,11 @@ public class OceanBaseOracleCatalog extends OracleCatalog {
     }
 
     @Override
-    public void createTable(TablePath tablePath, CatalogTable table, boolean ignoreIfExists)
+    public void createTable(
+            TablePath tablePath,
+            CatalogTable table,
+            boolean ignoreIfExists,
+            boolean skipIndexWhenAutoCreateTable)
             throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
         checkNotNull(tablePath, "Table path cannot be null");
 
@@ -100,6 +103,6 @@ public class OceanBaseOracleCatalog extends OracleCatalog {
             throw new TableAlreadyExistException(catalogName, tablePath);
         }
 
-        createTableInternal(tablePath, table);
+        createTableInternal(tablePath, table, skipIndexWhenAutoCreateTable);
     }
 }

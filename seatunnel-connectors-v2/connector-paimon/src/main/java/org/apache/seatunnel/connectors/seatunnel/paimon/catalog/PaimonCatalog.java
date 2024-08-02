@@ -149,7 +149,11 @@ public class PaimonCatalog implements Catalog, PaimonTable {
     }
 
     @Override
-    public void createTable(TablePath tablePath, CatalogTable table, boolean ignoreIfExists)
+    public void createTable(
+            TablePath tablePath,
+            CatalogTable table,
+            boolean ignoreIfExists,
+            boolean skipIndexWhenAutoCreateTable)
             throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
         try {
             Schema paimonSchema =

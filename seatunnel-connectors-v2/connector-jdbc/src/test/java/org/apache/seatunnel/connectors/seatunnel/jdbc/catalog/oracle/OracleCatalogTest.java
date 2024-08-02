@@ -37,7 +37,6 @@ class OracleCatalogTest {
         catalog =
                 new OracleCatalog(
                         "oracle",
-                        false,
                         "test",
                         "oracle",
                         OracleURLParser.parse("jdbc:oracle:thin:@127.0.0.1:1521:xe"),
@@ -53,7 +52,7 @@ class OracleCatalogTest {
 
         CatalogTable table = catalog.getTable(TablePath.of("XE", "TEST", "PG_TYPES_TABLE_CP1"));
 
-        catalog.createTable(new TablePath("XE", "TEST", "TEST003"), table, false);
+        catalog.createTable(new TablePath("XE", "TEST", "TEST003"), table, false, false);
     }
 
     @Test

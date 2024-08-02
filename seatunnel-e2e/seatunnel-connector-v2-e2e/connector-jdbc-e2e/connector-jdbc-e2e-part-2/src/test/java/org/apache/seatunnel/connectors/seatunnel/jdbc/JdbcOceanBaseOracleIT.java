@@ -207,15 +207,9 @@ public class JdbcOceanBaseOracleIT extends JdbcOceanBaseITBase {
 
     @Override
     protected void initCatalog() {
-        initCatalogSkipIndex(false);
-    }
-
-    @Override
-    protected void initCatalogSkipIndex(boolean skipIndex) {
         catalog =
                 new OceanBaseOracleCatalog(
                         "oceanbase",
-                        skipIndex,
                         USERNAME,
                         PASSWORD,
                         JdbcUrlUtil.getUrlInfo(jdbcCase.getJdbcUrl().replace(HOST, HOSTNAME)),
@@ -229,7 +223,6 @@ public class JdbcOceanBaseOracleIT extends JdbcOceanBaseITBase {
         Lists.newArrayList(true, false)
                 .forEach(
                         skipIndex -> {
-                            initCatalogSkipIndex(skipIndex);
                             TablePath sourceTablePath =
                                     new TablePath(
                                             jdbcCase.getDatabase(),
@@ -245,7 +238,7 @@ public class JdbcOceanBaseOracleIT extends JdbcOceanBaseITBase {
                             Assertions.assertFalse(catalog.tableExists(targetTablePath));
 
                             CatalogTable catalogTable = catalog.getTable(sourceTablePath);
-                            catalog.createTable(targetTablePath, catalogTable, false);
+                            catalog.createTable(targetTablePath, catalogTable, false, skipIndex);
                             Assertions.assertTrue(catalog.tableExists(targetTablePath));
 
                             catalog.dropTable(targetTablePath, false);

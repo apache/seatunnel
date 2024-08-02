@@ -314,15 +314,9 @@ public class JdbcOceanBaseMysqlIT extends JdbcOceanBaseITBase {
 
     @Override
     protected void initCatalog() {
-        initCatalogSkipIndex(false);
-    }
-
-    @Override
-    protected void initCatalogSkipIndex(boolean skipIndex) {
         catalog =
                 new OceanBaseMySqlCatalog(
                         "oceanbase",
-                        skipIndex,
                         USERNAME,
                         PASSWORD,
                         JdbcUrlUtil.getUrlInfo(

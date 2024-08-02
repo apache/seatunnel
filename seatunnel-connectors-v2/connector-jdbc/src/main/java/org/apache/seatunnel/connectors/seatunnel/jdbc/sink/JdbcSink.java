@@ -222,7 +222,8 @@ public class JdbcSink
                                         catalog,
                                         tablePath,
                                         catalogTable,
-                                        config.get(JdbcOptions.CUSTOM_SQL)));
+                                        config.get(JdbcOptions.CUSTOM_SQL),
+                                        jdbcSinkConfig.isSkipIndexWhenAutoCreateTable()));
                     }
                     return Optional.of(
                             new DefaultSaveModeHandler(
@@ -231,7 +232,8 @@ public class JdbcSink
                                     catalog,
                                     tablePath,
                                     catalogTable,
-                                    config.get(JdbcOptions.CUSTOM_SQL)));
+                                    config.get(JdbcOptions.CUSTOM_SQL),
+                                    jdbcSinkConfig.isSkipIndexWhenAutoCreateTable()));
                 } catch (Exception e) {
                     throw new JdbcConnectorException(HANDLE_SAVE_MODE_FAILED, e);
                 }

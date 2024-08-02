@@ -111,6 +111,7 @@ public class MilvusSink
                         catalog,
                         catalogTable.getTablePath(),
                         catalogTable,
-                        null));
+                        null,
+                        false));
     }
 }
