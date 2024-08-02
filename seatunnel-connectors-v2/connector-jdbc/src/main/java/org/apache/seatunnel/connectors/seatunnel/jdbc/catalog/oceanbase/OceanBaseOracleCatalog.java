@@ -25,8 +25,6 @@ import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistExcepti
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleCatalog;
 
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
@@ -34,9 +32,10 @@ import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.ch
 public class OceanBaseOracleCatalog extends OracleCatalog {
 
     static {
-        EXCLUDED_SCHEMAS =
-                Collections.unmodifiableList(
-                        Arrays.asList("oceanbase", "LBACSYS", "ORAAUDITOR", "SYS"));
+        EXCLUDED_SCHEMAS.add("oceanbase");
+        EXCLUDED_SCHEMAS.add("LBACSYS");
+        EXCLUDED_SCHEMAS.add("ORAAUDITOR");
+        EXCLUDED_SCHEMAS.add("SYS");
     }
 
     public OceanBaseOracleCatalog(
@@ -54,6 +53,21 @@ public class OceanBaseOracleCatalog extends OracleCatalog {
     }
 
     @Override
+    protected String getDatabaseWithConditionSql(String databaseName) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean tableExists(TablePath tablePath) throws CatalogException {
+        if (EXCLUDED_SCHEMAS.contains(tablePath.getSchemaName())) {
+            return false;
+        }
+        return querySQLResultExists(
+                this.getUrlFromDatabaseName(tablePath.getDatabaseName()),
+                getTableWithConditionSql(tablePath));
+    }
+
+    @Override
     public List<String> listTables(String databaseName)
             throws CatalogException, DatabaseNotExistException {
         String dbUrl = getUrlFromDatabaseName(databaseName);
@@ -62,15 +76,6 @@ public class OceanBaseOracleCatalog extends OracleCatalog {
         } catch (Exception e) {
             throw new CatalogException(
                     String.format("Failed listing database in catalog %s", catalogName), e);
-        }
-    }
-
-    @Override
-    public boolean tableExists(TablePath tablePath) throws CatalogException {
-        try {
-            return listTables(tablePath.getDatabaseName()).contains(getTableName(tablePath));
-        } catch (DatabaseNotExistException e) {
-            return false;
         }
     }
 

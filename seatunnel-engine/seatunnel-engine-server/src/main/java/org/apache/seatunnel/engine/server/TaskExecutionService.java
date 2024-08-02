@@ -626,7 +626,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         if (localMap.size() > 0) {
             try {
                 if (!metricsImap.tryLock(
-                        Constant.IMAP_RUNNING_JOB_METRICS_KEY, 2, TimeUnit.SECONDS)) {
+                        Constant.IMAP_RUNNING_JOB_METRICS_KEY, 5, TimeUnit.SECONDS)) {
                     logger.warning("try lock failed in update metrics");
                     return;
                 }
@@ -640,7 +640,11 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                         "The Imap acquisition failed due to the hazelcast node being offline or restarted, and will be retried next time",
                         e);
             } finally {
-                metricsImap.unlock(Constant.IMAP_RUNNING_JOB_METRICS_KEY);
+                try {
+                    metricsImap.unlock(Constant.IMAP_RUNNING_JOB_METRICS_KEY);
+                } catch (Throwable e) {
+                    logger.warning("unlock imap failed in update metrics", e);
+                }
             }
         }
         this.printTaskExecutionRuntimeInfo();

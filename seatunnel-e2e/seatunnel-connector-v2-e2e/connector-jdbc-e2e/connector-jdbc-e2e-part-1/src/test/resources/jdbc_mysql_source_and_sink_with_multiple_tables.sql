@@ -55,7 +55,7 @@ CREATE TABLE sink_table WITH (
   'user' = 'root',
   'password' = 'Abc!@#135_seatunnel',
   'generate_sink_sql' = 'true',
-  'database' = 'sink'
+  'database' = 'sink',
   'table' = '${table_name}'
 );
 
