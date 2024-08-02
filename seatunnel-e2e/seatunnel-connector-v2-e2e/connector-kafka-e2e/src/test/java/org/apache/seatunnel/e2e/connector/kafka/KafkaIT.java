@@ -446,7 +446,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
 
         CatalogTable catalogTable =
-                CatalogTableUtil.getCatalogTable("", "", "", "", SEATUNNEL_ROW_TYPE);
+                CatalogTableUtil.getCatalogTable("", "", "", "test", SEATUNNEL_ROW_TYPE);
 
         AvroDeserializationSchema avroDeserializationSchema =
                 new AvroDeserializationSchema(catalogTable);
