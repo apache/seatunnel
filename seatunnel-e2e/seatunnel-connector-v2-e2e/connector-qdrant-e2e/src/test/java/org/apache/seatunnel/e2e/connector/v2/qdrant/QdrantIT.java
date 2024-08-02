@@ -31,6 +31,7 @@ import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.qdrant.QdrantContainer;
+import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
 
 import io.qdrant.client.QdrantClient;
 import io.qdrant.client.QdrantGrpcClient;
@@ -42,7 +43,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
@@ -54,20 +55,20 @@ import static io.qdrant.client.VectorsFactory.namedVectors;
 @Slf4j
 @DisabledOnContainer(
         value = {},
-        type = {EngineType.SPARK, EngineType.FLINK},
-        disabledReason = "Currently SPARK and FLINK not support adapt")
+        type = {EngineType.SPARK, EngineType.FLINK})
 public class QdrantIT extends TestSuiteBase implements TestResource {
 
-    private static final String HOST = "qdrant-e2e";
+    private static final String ALIAS = "qdrante2e";
+    private static final String SOURCE_COLLECTION = "source_collection";
+    private static final String SINK_COLLECTION = "sink_collection";
     private static final String IMAGE = "qdrant/qdrant:v1.10.1";
     private QdrantContainer container;
     private QdrantClient qdrantClient;
-    private static final String COLLECTION_NAME = "simple_example";
 
     @BeforeAll
     @Override
     public void startUp() throws Exception {
-        this.container = new QdrantContainer(IMAGE).withNetwork(NETWORK).withNetworkAliases(HOST);
+        this.container = new QdrantContainer(IMAGE).withNetwork(NETWORK).withNetworkAliases(ALIAS);
         Startables.deepStart(Stream.of(this.container)).join();
         Awaitility.given().ignoreExceptions().await().atMost(10L, TimeUnit.SECONDS);
         this.initQdrant();
@@ -75,14 +76,18 @@ public class QdrantIT extends TestSuiteBase implements TestResource {
     }
 
     private void initQdrant() {
-        qdrantClient = new QdrantClient(QdrantGrpcClient.newBuilder(HOST, 6334).build());
+        qdrantClient =
+                new QdrantClient(
+                        QdrantGrpcClient.newBuilder(
+                                        container.getHost(), container.getGrpcPort(), false)
+                                .build());
     }
 
     private void initSourceData() throws Exception {
         qdrantClient
                 .createCollectionAsync(
-                        "source_collection",
-                        Map.of(
+                        SOURCE_COLLECTION,
+                        ImmutableMap.of(
                                 "my_vector",
                                 Collections.VectorParams.newBuilder()
                                         .setSize(4)
@@ -92,8 +97,8 @@ public class QdrantIT extends TestSuiteBase implements TestResource {
 
         qdrantClient
                 .createCollectionAsync(
-                        "sink_collection",
-                        Map.of(
+                        SINK_COLLECTION,
+                        ImmutableMap.of(
                                 "my_vector",
                                 Collections.VectorParams.newBuilder()
                                         .setSize(4)
@@ -101,14 +106,12 @@ public class QdrantIT extends TestSuiteBase implements TestResource {
                                         .build()))
                 .get();
 
-        log.info("Collection created");
-
         List<Points.PointStruct> points = new ArrayList<>();
-        for (long i = 1L; i <= 10; ++i) {
+        for (int i = 1; i <= 10; i++) {
             Points.PointStruct.Builder pointStruct = Points.PointStruct.newBuilder();
-            pointStruct.setId(id(1));
+            pointStruct.setId(id(i));
             List<Float> floats = Arrays.asList((float) i, (float) i, (float) i, (float) i);
-            pointStruct.setVectors(namedVectors(Map.of("my-vector", vector(floats))));
+            pointStruct.setVectors(namedVectors(ImmutableMap.of("my_vector", vector(floats))));
 
             pointStruct.putPayload("file_size", value(i));
             pointStruct.putPayload("file_name", value("file-name-" + i));
@@ -119,7 +122,7 @@ public class QdrantIT extends TestSuiteBase implements TestResource {
         qdrantClient
                 .upsertAsync(
                         Points.UpsertPoints.newBuilder()
-                                .setCollectionName("source_collection")
+                                .setCollectionName(SOURCE_COLLECTION)
                                 .addAllPoints(points)
                                 .build())
                 .get();
@@ -127,14 +130,15 @@ public class QdrantIT extends TestSuiteBase implements TestResource {
 
     @AfterAll
     @Override
-    public void tearDown() throws Exception {
+    public void tearDown() {
         this.qdrantClient.close();
-        this.container.close();
     }
 
     @TestTemplate
-    public void testQdrant(TestContainer container) throws IOException, InterruptedException {
+    public void testQdrant(TestContainer container)
+            throws IOException, InterruptedException, ExecutionException {
         Container.ExecResult execResult = container.executeJob("/qdrant-to-qdrant.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(execResult.getExitCode(), 0);
+        Assertions.assertEquals(qdrantClient.countAsync(SINK_COLLECTION).get(), 10);
     }
 }

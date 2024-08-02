@@ -57,7 +57,7 @@ public class QdrantBatchWriter {
             CatalogTable catalogTable, Integer batchSize, QdrantParameters params) {
         this.catalogTable = catalogTable;
         this.qdrantClient = params.buildQdrantClient();
-        this.collectionName = catalogTable.getTablePath().getTableName();
+        this.collectionName = params.getCollectionName();
         this.batchSize = batchSize;
         this.qdrantDataCache = new ArrayList<>(batchSize);
     }
