@@ -33,6 +33,8 @@ import java.util.Optional;
 
 @Slf4j
 public class IrisSaveModeHandler extends DefaultSaveModeHandler {
+    public boolean createIndex;
+
     public IrisSaveModeHandler(
             @Nonnull SchemaSaveMode schemaSaveMode,
             @Nonnull DataSaveMode dataSaveMode,
@@ -41,14 +43,8 @@ public class IrisSaveModeHandler extends DefaultSaveModeHandler {
             @Nullable CatalogTable catalogTable,
             @Nullable String customSql,
             boolean createIndex) {
-        super(
-                schemaSaveMode,
-                dataSaveMode,
-                catalog,
-                tablePath,
-                catalogTable,
-                customSql,
-                createIndex);
+        super(schemaSaveMode, dataSaveMode, catalog, tablePath, catalogTable, customSql);
+        this.createIndex = createIndex;
     }
 
     @Override
