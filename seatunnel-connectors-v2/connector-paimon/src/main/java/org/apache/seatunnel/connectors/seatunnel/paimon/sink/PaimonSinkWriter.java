@@ -34,6 +34,7 @@ import org.apache.seatunnel.connectors.seatunnel.paimon.utils.RowConverter;
 
 import org.apache.paimon.data.InternalRow;
 import org.apache.paimon.schema.TableSchema;
+import org.apache.paimon.table.BucketMode;
 import org.apache.paimon.table.FileStoreTable;
 import org.apache.paimon.table.Table;
 import org.apache.paimon.table.sink.BatchTableCommit;
@@ -81,6 +82,8 @@ public class PaimonSinkWriter
 
     private TableSchema tableSchema;
 
+    private final PaimonTableBloomFilterIndex bloomFilterIndex;
+
     public PaimonSinkWriter(
             Context context,
             Table table,
@@ -97,6 +100,7 @@ public class PaimonSinkWriter
         this.context = context;
         this.jobContext = jobContext;
         this.tableSchema = ((FileStoreTable) table).schema();
+        this.bloomFilterIndex = new PaimonTableBloomFilterIndex((FileStoreTable) table);
         PaimonSecurityContext.shouldEnableKerberos(paimonHadoopConfiguration);
     }
 
@@ -136,10 +140,17 @@ public class PaimonSinkWriter
     @Override
     public void write(SeaTunnelRow element) throws IOException {
         InternalRow rowData = RowConverter.reconvert(element, seaTunnelRowType, tableSchema);
+        BucketMode bucketMode = ((FileStoreTable) table).bucketMode();
         try {
             PaimonSecurityContext.runSecured(
                     () -> {
-                        tableWrite.write(rowData);
+                        if (bucketMode == BucketMode.DYNAMIC
+                                || bucketMode == BucketMode.GLOBAL_DYNAMIC) {
+                            tableWrite.write(
+                                    rowData, bloomFilterIndex.obtainDataRowBucket(rowData));
+                        } else {
+                            tableWrite.write(rowData);
+                        }
                         return null;
                     });
         } catch (Exception e) {
