@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
@@ -69,6 +70,11 @@ import java.net.ConnectException;
 import java.net.URI;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.temporal.ChronoField;
+import java.time.temporal.ChronoUnit;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -77,6 +83,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
+import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 import static org.awaitility.Awaitility.given;
 
 @Slf4j
@@ -91,6 +99,13 @@ public class AmazondynamodbIT extends TestSuiteBase implements TestResource {
 
     private GenericContainer<?> dynamoDB;
     protected DynamoDbClient dynamoDbClient;
+
+    private static final int MAX_TIME_PRECISION = 9;
+    public static final DateTimeFormatter TIME_FORMAT =
+            new DateTimeFormatterBuilder()
+                    .appendPattern("HH:mm:ss")
+                    .appendFraction(ChronoField.NANO_OF_SECOND, 0, MAX_TIME_PRECISION, true)
+                    .toFormatter();
 
     @TestTemplate
     public void testAmazondynamodb(TestContainer container) throws Exception {
@@ -254,7 +269,7 @@ public class AmazondynamodbIT extends TestSuiteBase implements TestResource {
                             BigDecimal.valueOf(11, 1),
                             "test".getBytes(),
                             LocalDate.now(),
-                            LocalDateTime.now()
+                            LocalDateTime.now().truncatedTo(ChronoUnit.MILLIS)
                         });
 
         Map<String, AttributeValue> data = new HashMap<>(seatunnelRowType.getTotalFields());
@@ -325,6 +340,19 @@ public class AmazondynamodbIT extends TestSuiteBase implements TestResource {
                         .n(Integer.toString(((Number) value).intValue()))
                         .build();
             case S:
+                if (seaTunnelDataType.getSqlType().equals(SqlType.DATE)) {
+                    return AttributeValue.builder()
+                            .s(ISO_LOCAL_DATE.format((LocalDate) value))
+                            .build();
+                } else if (seaTunnelDataType.getSqlType().equals(SqlType.TIME)) {
+                    return AttributeValue.builder()
+                            .s(TIME_FORMAT.format((LocalTime) value))
+                            .build();
+                } else if (seaTunnelDataType.getSqlType().equals(SqlType.TIMESTAMP)) {
+                    return AttributeValue.builder()
+                            .s(ISO_LOCAL_DATE_TIME.format((LocalDateTime) value))
+                            .build();
+                }
                 return AttributeValue.builder().s(String.valueOf(value)).build();
             case BOOL:
                 return AttributeValue.builder().bool((Boolean) value).build();

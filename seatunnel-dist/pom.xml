@@ -83,8 +83,8 @@
                 </property>
             </activation>
             <properties>
-                <mysql.version>8.0.27</mysql.version>
-                <postgresql.version>42.4.3</postgresql.version>
+                <mysql.version>8.0.32</mysql.version>
+                <postgresql.version>42.7.2</postgresql.version>
                 <postgis.jdbc.version>2.5.1</postgis.jdbc.version>
                 <dm-jdbc.version>8.1.2.141</dm-jdbc.version>
                 <sqlserver.version>9.2.1.jre8</sqlserver.version>
@@ -725,7 +725,7 @@
                 </dependency>
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
-                    <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
+                    <artifactId>seatunnel-hadoop3-3.3.4-uber</artifactId>
                     <version>${project.version}</version>
                     <classifier>optional</classifier>
                     <scope>provided</scope>
@@ -907,7 +907,7 @@
 
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
-                    <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
+                    <artifactId>seatunnel-hadoop3-3.3.4-uber</artifactId>
                     <version>${project.version}</version>
                     <classifier>optional</classifier>
                     <scope>provided</scope>

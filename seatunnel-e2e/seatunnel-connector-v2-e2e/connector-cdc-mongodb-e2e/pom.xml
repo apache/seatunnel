@@ -26,7 +26,7 @@
     <name>SeaTunnel : E2E : Connector V2 : CDC Mongodb</name>
 
     <properties>
-        <mysql.version>8.0.16</mysql.version>
+        <mysql.version>8.0.32</mysql.version>
     </properties>
 
     <dependencies>

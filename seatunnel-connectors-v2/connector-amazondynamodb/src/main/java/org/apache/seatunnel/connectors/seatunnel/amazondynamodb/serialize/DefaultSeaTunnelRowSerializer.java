@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBSourceOptions;
 
@@ -29,6 +30,12 @@ import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.temporal.ChronoField;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -37,11 +44,21 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
+import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME;
+
 public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
 
     private final SeaTunnelRowType seaTunnelRowType;
     private final AmazonDynamoDBSourceOptions amazondynamodbSourceOptions;
     private final List<AttributeValue.Type> measurementsType;
+
+    private static final int MAX_TIME_PRECISION = 9;
+    public static final DateTimeFormatter TIME_FORMAT =
+            new DateTimeFormatterBuilder()
+                    .appendPattern("HH:mm:ss")
+                    .appendFraction(ChronoField.NANO_OF_SECOND, 0, MAX_TIME_PRECISION, true)
+                    .toFormatter();
 
     public DefaultSeaTunnelRowSerializer(
             SeaTunnelRowType seaTunnelRowType,
@@ -125,6 +142,19 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
                         .n(Integer.toString(((Number) value).intValue()))
                         .build();
             case S:
+                if (seaTunnelDataType.getSqlType().equals(SqlType.DATE)) {
+                    return AttributeValue.builder()
+                            .s(ISO_LOCAL_DATE.format((LocalDate) value))
+                            .build();
+                } else if (seaTunnelDataType.getSqlType().equals(SqlType.TIME)) {
+                    return AttributeValue.builder()
+                            .s(TIME_FORMAT.format((LocalTime) value))
+                            .build();
+                } else if (seaTunnelDataType.getSqlType().equals(SqlType.TIMESTAMP)) {
+                    return AttributeValue.builder()
+                            .s(ISO_LOCAL_DATE_TIME.format((LocalDateTime) value))
+                            .build();
+                }
                 return AttributeValue.builder().s(String.valueOf(value)).build();
             case BOOL:
                 return AttributeValue.builder().bool((Boolean) value).build();

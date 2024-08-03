@@ -25,10 +25,6 @@
     <artifactId>connector-iceberg-hadoop3-e2e</artifactId>
     <name>SeaTunnel : E2E : Connector V2 : Iceberg : Hadoop3</name>
 
-    <properties>
-        <hadoop-client.version>3.3.4</hadoop-client.version>
-    </properties>
-
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
@@ -49,16 +45,11 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.apache.hadoop</groupId>
-            <artifactId>hadoop-client</artifactId>
-            <version>${hadoop-client.version}</version>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-hadoop3-3.3.4-uber</artifactId>
+            <version>${project.version}</version>
+            <classifier>optional</classifier>
             <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.slf4j</groupId>
-                    <artifactId>slf4j-reload4j</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
     </dependencies>
 </project>

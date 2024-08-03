@@ -23,8 +23,10 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.common.utils.DateTimeUtils;
+import org.apache.seatunnel.common.utils.DateUtils;
 
-import lombok.AllArgsConstructor;
+import lombok.RequiredArgsConstructor;
 import software.amazon.awssdk.core.SdkBytes;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 
@@ -34,15 +36,28 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.temporal.ChronoField;
+import java.time.temporal.TemporalAccessor;
+import java.time.temporal.TemporalQueries;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-@AllArgsConstructor
+@RequiredArgsConstructor
 public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer {
 
     private final SeaTunnelRowType typeInfo;
+
+    public static DateTimeFormatter TIME_FORMAT =
+            new DateTimeFormatterBuilder()
+                    .appendPattern("HH:mm:ss")
+                    .appendFraction(ChronoField.NANO_OF_SECOND, 0, 9, true)
+                    .toFormatter();
+
+    public Map<String, DateTimeFormatter> fieldFormatterMap = new HashMap<>();
 
     @Override
     public SeaTunnelRow deserialize(Map<String, AttributeValue> item) {
@@ -63,7 +78,9 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
     }
 
     private Object convert(
-            String field, SeaTunnelDataType<?> seaTunnelDataType, AttributeValue attributeValue) {
+            String fieldName,
+            SeaTunnelDataType<?> seaTunnelDataType,
+            AttributeValue attributeValue) {
         if (attributeValue.type().equals(AttributeValue.Type.NUL)) {
             return null;
         }
@@ -90,11 +107,26 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
             case STRING:
                 return attributeValue.s();
             case TIME:
-                return LocalTime.parse(attributeValue.s());
+                return TIME_FORMAT.parse(attributeValue.s());
             case DATE:
-                return LocalDate.parse(attributeValue.s());
+                DateTimeFormatter dateFormatter = fieldFormatterMap.get(fieldName);
+                if (dateFormatter == null) {
+                    dateFormatter = DateUtils.matchDateFormatter(attributeValue.s());
+                    fieldFormatterMap.put(fieldName, dateFormatter);
+                }
+
+                return dateFormatter.parse(attributeValue.s()).query(TemporalQueries.localDate());
             case TIMESTAMP:
-                return LocalDateTime.parse(attributeValue.s());
+                DateTimeFormatter dateTimeFormatter = fieldFormatterMap.get(fieldName);
+                if (dateTimeFormatter == null) {
+                    dateTimeFormatter = DateTimeUtils.matchDateTimeFormatter(attributeValue.s());
+                    fieldFormatterMap.put(fieldName, dateTimeFormatter);
+                }
+
+                TemporalAccessor parsedTimestamp = dateTimeFormatter.parse(attributeValue.s());
+                LocalTime localTime = parsedTimestamp.query(TemporalQueries.localTime());
+                LocalDate localDate = parsedTimestamp.query(TemporalQueries.localDate());
+                return LocalDateTime.of(localDate, localTime);
             case BYTES:
                 return attributeValue.b().asByteArray();
             case MAP:
@@ -106,7 +138,7 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
                                     seatunnelMap.put(
                                             s,
                                             convert(
-                                                    field,
+                                                    fieldName,
                                                     ((MapType) seaTunnelDataType).getValueType(),
                                                     attributeValueInfo));
                                 });
@@ -126,7 +158,7 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
                                 array,
                                 index,
                                 convert(
-                                        field,
+                                        fieldName,
                                         ((ArrayType<?, ?>) seaTunnelDataType).getElementType(),
                                         datas.get(index)));
                     }
@@ -149,7 +181,7 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
                 return array;
             default:
                 throw CommonError.convertToSeaTunnelTypeError(
-                        "AmazonDynamodb", seaTunnelDataType.getSqlType().toString(), field);
+                        "AmazonDynamodb", seaTunnelDataType.getSqlType().toString(), fieldName);
         }
     }
 }

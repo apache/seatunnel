@@ -65,7 +65,7 @@
         <maven.compiler.source>${java.version}</maven.compiler.source>
         <maven.compiler.target>${java.version}</maven.compiler.target>
 
-        <slf4j.version>1.7.25</slf4j.version>
+        <slf4j.version>1.7.36</slf4j.version>
         <log4j2.version>2.17.1</log4j2.version>
         <log4j2-disruptor.version>3.4.4</log4j2-disruptor.version>
         <log4j.version>1.2.17</log4j.version>
@@ -91,7 +91,7 @@
         <skip.pmd.check>false</skip.pmd.check>
         <maven.deploy.skip>false</maven.deploy.skip>
         <maven.javadoc.skip>false</maven.javadoc.skip>
-        <maven-surefire-plugin.version>2.22.2</maven-surefire-plugin.version>
+        <maven-surefire-plugin.version>3.3.1</maven-surefire-plugin.version>
         <maven-failsafe-plugin.version>2.22.2</maven-failsafe-plugin.version>
         <nexus-staging-maven-plugin.version>1.6.8</nexus-staging-maven-plugin.version>
         <maven-source-plugin.version>3.0.1</maven-source-plugin.version>
@@ -133,7 +133,9 @@
         <spotless.version>2.29.0</spotless.version>
         <jsqlparser.version>4.5</jsqlparser.version>
         <json-path.version>2.7.0</json-path.version>
+        <okhttp.version>4.12.0</okhttp.version>
         <groovy.version>4.0.16</groovy.version>
+        <surefire.argLine />
         <!-- Option args -->
         <skipUT>false</skipUT>
         <skipIT>true</skipIT>
@@ -471,7 +473,7 @@
 
             <dependency>
                 <groupId>org.apache.seatunnel</groupId>
-                <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
+                <artifactId>seatunnel-hadoop3-3.3.4-uber</artifactId>
                 <version>${project.version}</version>
                 <classifier>optional</classifier>
                 <scope>provided</scope>
@@ -586,6 +588,7 @@
                             <classpathDependencyExclude>ch.qos.logback:logback-core</classpathDependencyExclude>
                             <classpathDependencyExclude>org.apache.logging.log4j:log4j-to-slf4j</classpathDependencyExclude>
                         </classpathDependencyExcludes>
+                        <argLine>${surefire.argLine}</argLine>
                     </configuration>
                 </plugin>
                 <plugin>
@@ -937,6 +940,52 @@
             <activation>
                 <activeByDefault>false</activeByDefault>
             </activation>
+        </profile>
+        <profile>
+            <id>jdk8</id>
+            <activation>
+                <jdk>1.8</jdk>
+            </activation>
+            <properties>
+                <surefire.argLine />
+            </properties>
+        </profile>
+        <profile>
+            <id>jdk11</id>
+            <activation>
+                <jdk>11</jdk>
+            </activation>
+            <properties>
+                <surefire.argLine />
+            </properties>
+        </profile>
+        <profile>
+            <id>jdk17</id>
+            <activation>
+                <jdk>[17,)</jdk>
+            </activation>
+            <properties>
+                <surefire.argLine>--add-exports java.base/sun.net.util=ALL-UNNAMED
+                    --add-exports java.rmi/sun.rmi.registry=ALL-UNNAMED
+                    --add-exports jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED
+                    --add-exports jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED
+                    --add-exports jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED
+                    --add-exports jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED
+                    --add-exports jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED
+                    --add-exports java.security.jgss/sun.security.krb5=ALL-UNNAMED
+                    --add-opens java.base/java.lang=ALL-UNNAMED
+                    --add-opens java.base/java.net=ALL-UNNAMED
+                    --add-opens java.base/java.io=ALL-UNNAMED
+                    --add-opens java.base/java.nio=ALL-UNNAMED
+                    --add-opens java.base/sun.nio.ch=ALL-UNNAMED
+                    --add-opens java.base/java.lang.reflect=ALL-UNNAMED
+                    --add-opens java.base/java.text=ALL-UNNAMED
+                    --add-opens java.base/java.time=ALL-UNNAMED
+                    --add-opens java.base/java.util=ALL-UNNAMED
+                    --add-opens java.base/java.util.concurrent=ALL-UNNAMED
+                    --add-opens java.base/java.util.concurrent.atomic=ALL-UNNAMED
+                    --add-opens java.base/java.util.concurrent.locks=ALL-UNNAMED</surefire.argLine>
+            </properties>
         </profile>
     </profiles>
 

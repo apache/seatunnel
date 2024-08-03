@@ -37,10 +37,16 @@
             <artifactId>connector-file-local</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>io.airlift</groupId>
+                    <artifactId>aircompressor</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
+            <artifactId>seatunnel-hadoop3-3.3.4-uber</artifactId>
             <version>${project.version}</version>
             <classifier>optional</classifier>
             <scope>test</scope>
@@ -55,6 +61,12 @@
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-assert</artifactId>
             <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>aircompressor</artifactId>
+            <version>0.21</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

@@ -352,3 +352,7 @@ SeaTunnel 拥有完全抽象、结构化的代码实现，很多人都选择 Sea
 ## 当我导入项目时，编译器出现异常“找不到类`org.apache.seatunnel.shade.com.typesafe.config.Config`”
 
 首先运行“mvn install”。 在 `seatunnel-config/seatunnel-config-base` 子项目中，包 `com.typesafe.config` 已重新定位到 `org.apache.seatunnel.shade.com.typesafe.config` 并安装到 maven 本地存储库 在子项目 `seatunnel-config/seatunnel-config-shade` 中。
+
+## JDK17环境下，提示java.lang.NoClassDefFoundError: org/apache/hadoop/shaded/com/ctc/wstx/io/InputBootstrapper怎么处理？
+
+升级hadoop客户端版本为3.3.4。

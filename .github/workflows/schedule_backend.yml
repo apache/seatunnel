@@ -104,7 +104,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ]
+        java: [ '8', '11' ,'17']
         os: [ 'ubuntu-latest', 'windows-latest' ]
     timeout-minutes: 90
     steps:
@@ -126,7 +126,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        java: [ '8', '11' ]
+        java: [ '8', '11' ,'17']
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 90
     steps:
