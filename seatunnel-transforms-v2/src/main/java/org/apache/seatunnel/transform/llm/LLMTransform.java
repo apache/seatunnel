@@ -48,6 +48,12 @@ public class LLMTransform extends SingleFieldOutputTransform {
                         "output", config.get(LLMTransformConfig.OUTPUT_DATA_TYPE).toString());
     }
 
+    private void tryOpen() {
+        if (model == null) {
+            open();
+        }
+    }
+
     @Override
     public String getPluginName() {
         return "LLM";
@@ -72,6 +78,7 @@ public class LLMTransform extends SingleFieldOutputTransform {
 
     @Override
     protected Object getOutputFieldValue(SeaTunnelRowAccessor inputRow) {
+        tryOpen();
         SeaTunnelRow seaTunnelRow = new SeaTunnelRow(inputRow.getFields());
         try {
             List<String> values = model.inference(Collections.singletonList(seaTunnelRow));

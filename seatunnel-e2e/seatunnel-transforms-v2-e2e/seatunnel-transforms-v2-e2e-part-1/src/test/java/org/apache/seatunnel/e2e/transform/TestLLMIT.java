@@ -83,7 +83,8 @@ public class TestLLMIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    public void testSplit(TestContainer container) throws IOException, InterruptedException {
+    public void testLLMWithOpenAI(TestContainer container)
+            throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/llm_openai_transform.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
