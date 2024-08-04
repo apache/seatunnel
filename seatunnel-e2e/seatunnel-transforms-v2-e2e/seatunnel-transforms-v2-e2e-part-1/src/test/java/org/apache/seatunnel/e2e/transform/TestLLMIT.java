@@ -40,7 +40,6 @@ import java.util.Optional;
 import java.util.stream.Stream;
 
 public class TestLLMIT extends TestSuiteBase implements TestResource {
-
     private static final String TMP_DIR = "/tmp";
     private GenericContainer<?> mockserverContainer;
     private static final String IMAGE = "mockserver/mockserver:5.14.0";
