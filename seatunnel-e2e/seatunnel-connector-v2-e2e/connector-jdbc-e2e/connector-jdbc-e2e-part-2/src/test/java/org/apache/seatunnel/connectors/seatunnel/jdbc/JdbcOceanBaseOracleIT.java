@@ -220,29 +220,20 @@ public class JdbcOceanBaseOracleIT extends JdbcOceanBaseITBase {
     @Test
     @Override
     public void testCatalog() {
-        Lists.newArrayList(true, false)
-                .forEach(
-                        createIndex -> {
-                            TablePath sourceTablePath =
-                                    new TablePath(
-                                            jdbcCase.getDatabase(),
-                                            jdbcCase.getSchema(),
-                                            jdbcCase.getSourceTable());
-                            TablePath targetTablePath =
-                                    new TablePath(
-                                            jdbcCase.getCatalogDatabase(),
-                                            jdbcCase.getCatalogSchema(),
-                                            jdbcCase.getCatalogTable());
+        TablePath sourceTablePath =
+                new TablePath(
+                        jdbcCase.getDatabase(), jdbcCase.getSchema(), jdbcCase.getSourceTable());
+        TablePath targetTablePath =
+                new TablePath(
+                        jdbcCase.getCatalogDatabase(),
+                        jdbcCase.getCatalogSchema(),
+                        jdbcCase.getCatalogTable());
 
-                            catalog.dropTable(targetTablePath, true);
-                            Assertions.assertFalse(catalog.tableExists(targetTablePath));
+        CatalogTable catalogTable = catalog.getTable(sourceTablePath);
+        catalog.createTable(targetTablePath, catalogTable, false);
+        Assertions.assertTrue(catalog.tableExists(targetTablePath));
 
-                            CatalogTable catalogTable = catalog.getTable(sourceTablePath);
-                            catalog.createTable(targetTablePath, catalogTable, false, createIndex);
-                            Assertions.assertTrue(catalog.tableExists(targetTablePath));
-
-                            catalog.dropTable(targetTablePath, false);
-                            Assertions.assertFalse(catalog.tableExists(targetTablePath));
-                        });
+        catalog.dropTable(targetTablePath, false);
+        Assertions.assertFalse(catalog.tableExists(targetTablePath));
     }
 }

@@ -109,9 +109,9 @@ class SqlServerCatalogTest {
     @Test
     @Order(2)
     void createTableInternal() {
-        sqlServerCatalog.createTable(tablePathMySql, mySqlCatalogTable, true, false);
-        sqlServerCatalog.createTable(tablePathPG, postgresCatalogTable, true, false);
-        sqlServerCatalog.createTable(tablePathSQL, sqlServerCatalogTable, true, false);
+        sqlServerCatalog.createTable(tablePathMySql, mySqlCatalogTable, true);
+        sqlServerCatalog.createTable(tablePathPG, postgresCatalogTable, true);
+        sqlServerCatalog.createTable(tablePathSQL, sqlServerCatalogTable, true);
     }
 
     @Disabled

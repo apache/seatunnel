@@ -279,9 +279,9 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
 
         CatalogTable mysqlTable = mySqlCatalog.getTable(tablePathMySql);
 
-        sqlServerCatalog.createTable(tablePathSQL, mysqlTable, true, true);
-        postgresCatalog.createTable(tablePathPG, mysqlTable, true, true);
-        mySqlCatalog.createTable(tablePathMySql_Mysql, mysqlTable, true, true);
+        sqlServerCatalog.createTable(tablePathSQL, mysqlTable, true);
+        postgresCatalog.createTable(tablePathPG, mysqlTable, true);
+        mySqlCatalog.createTable(tablePathMySql_Mysql, mysqlTable, true);
 
         Assertions.assertTrue(checkMysql(mysqlCheck));
         Assertions.assertTrue(checkSqlServer(sqlserverCheck));

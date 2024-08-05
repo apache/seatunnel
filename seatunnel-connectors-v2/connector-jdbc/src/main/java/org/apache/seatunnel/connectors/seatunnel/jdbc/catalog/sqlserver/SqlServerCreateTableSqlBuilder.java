@@ -55,7 +55,7 @@ public class SqlServerCreateTableSqlBuilder {
     private List<ConstraintKey> constraintKeys;
 
     private String fieldIde;
-    private Boolean createIndex;
+    private boolean createIndex;
 
     private SqlServerCreateTableSqlBuilder(String tableName, boolean createIndex) {
         checkNotNull(tableName, "tableName must not be null");

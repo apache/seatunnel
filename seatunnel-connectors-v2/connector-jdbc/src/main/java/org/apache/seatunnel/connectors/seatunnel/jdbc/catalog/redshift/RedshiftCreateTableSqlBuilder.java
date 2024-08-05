@@ -35,7 +35,7 @@ public class RedshiftCreateTableSqlBuilder {
     private List<Column> columns;
     private PrimaryKey primaryKey;
     private String sourceCatalogName;
-    private Boolean createIndex;
+    private boolean createIndex;
 
     public RedshiftCreateTableSqlBuilder(CatalogTable catalogTable, boolean createIndex) {
         this.columns = catalogTable.getTableSchema().getColumns();

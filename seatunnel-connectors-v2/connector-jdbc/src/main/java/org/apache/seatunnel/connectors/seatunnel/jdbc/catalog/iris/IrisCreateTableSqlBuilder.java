@@ -40,9 +40,9 @@ public class IrisCreateTableSqlBuilder {
     private String fieldIde;
 
     private String comment;
-    private Boolean createIndex;
+    private boolean createIndex;
 
-    public IrisCreateTableSqlBuilder(CatalogTable catalogTable, Boolean createIndex) {
+    public IrisCreateTableSqlBuilder(CatalogTable catalogTable, boolean createIndex) {
         this.columns = catalogTable.getTableSchema().getColumns();
         this.primaryKey = catalogTable.getTableSchema().getPrimaryKey();
         this.constraintKeys = catalogTable.getTableSchema().getConstraintKeys();

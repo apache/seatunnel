@@ -61,10 +61,10 @@ public class MysqlCreateTableSqlBuilder {
     private String fieldIde;
 
     private final MySqlTypeConverter typeConverter;
-    private Boolean createIndex;
+    private boolean createIndex;
 
     private MysqlCreateTableSqlBuilder(
-            String tableName, MySqlTypeConverter typeConverter, Boolean createIndex) {
+            String tableName, MySqlTypeConverter typeConverter, boolean createIndex) {
         checkNotNull(tableName, "tableName must not be null");
         this.tableName = tableName;
         this.typeConverter = typeConverter;
@@ -75,7 +75,7 @@ public class MysqlCreateTableSqlBuilder {
             TablePath tablePath,
             CatalogTable catalogTable,
             MySqlTypeConverter typeConverter,
-            Boolean createIndex) {
+            boolean createIndex) {
         checkNotNull(tablePath, "tablePath must not be null");
         checkNotNull(catalogTable, "catalogTable must not be null");
 

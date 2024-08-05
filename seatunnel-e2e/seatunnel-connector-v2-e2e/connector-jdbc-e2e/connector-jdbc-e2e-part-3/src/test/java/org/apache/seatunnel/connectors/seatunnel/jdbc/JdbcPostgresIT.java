@@ -19,7 +19,10 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.ConstraintKey;
+import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.psql.PostgresCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
@@ -28,6 +31,8 @@ import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+
+import org.apache.commons.lang3.StringUtils;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -256,6 +261,66 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
         log.info("pg data initialization succeeded. Procedure");
     }
 
+    @Test
+    public void testCreateIndex() {
+        String schema = "public";
+        String databaseName = POSTGRESQL_CONTAINER.getDatabaseName();
+        TablePath sourceTablePath = TablePath.of(databaseName, "public", "pg_e2e_source_table");
+        TablePath targetTablePath = TablePath.of(databaseName, "public", "pg_ide_sink_table_2");
+        PostgresCatalog postgresCatalog =
+                new PostgresCatalog(
+                        DatabaseIdentifier.POSTGRESQL,
+                        POSTGRESQL_CONTAINER.getUsername(),
+                        POSTGRESQL_CONTAINER.getPassword(),
+                        JdbcUrlUtil.getUrlInfo(POSTGRESQL_CONTAINER.getJdbcUrl()),
+                        schema);
+        postgresCatalog.open();
+
+        CatalogTable catalogTable = postgresCatalog.getTable(sourceTablePath);
+
+        dropTableWithAssert(postgresCatalog, targetTablePath, true);
+        // not create index
+        createIndexOrNot(postgresCatalog, targetTablePath, catalogTable, false);
+        Assertions.assertFalse(hasIndex(postgresCatalog, targetTablePath));
+
+        dropTableWithAssert(postgresCatalog, targetTablePath, true);
+        // create index
+        createIndexOrNot(postgresCatalog, targetTablePath, catalogTable, true);
+        Assertions.assertTrue(hasIndex(postgresCatalog, targetTablePath));
+
+        dropTableWithAssert(postgresCatalog, targetTablePath, true);
+
+        postgresCatalog.close();
+    }
+
+    protected boolean hasIndex(Catalog catalog, TablePath targetTablePath) {
+        TableSchema tableSchema = catalog.getTable(targetTablePath).getTableSchema();
+        PrimaryKey primaryKey = tableSchema.getPrimaryKey();
+        List<ConstraintKey> constraintKeys = tableSchema.getConstraintKeys();
+        if (primaryKey != null && StringUtils.isNotBlank(primaryKey.getPrimaryKey())) {
+            return true;
+        }
+        if (!constraintKeys.isEmpty()) {
+            return true;
+        }
+        return false;
+    }
+
+    private void dropTableWithAssert(
+            PostgresCatalog postgresCatalog, TablePath targetTablePath, boolean ignoreIfNotExists) {
+        postgresCatalog.dropTable(targetTablePath, ignoreIfNotExists);
+        Assertions.assertFalse(postgresCatalog.tableExists(targetTablePath));
+    }
+
+    private void createIndexOrNot(
+            PostgresCatalog postgresCatalog,
+            TablePath targetTablePath,
+            CatalogTable catalogTable,
+            boolean createIndex) {
+        postgresCatalog.createTable(targetTablePath, catalogTable, false, createIndex);
+        Assertions.assertTrue(postgresCatalog.tableExists(targetTablePath));
+    }
+
     @TestTemplate
     public void testAutoGenerateSQL(TestContainer container)
             throws IOException, InterruptedException {
@@ -297,31 +362,21 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
         TablePath tablePath = new TablePath(databaseName, schema, tableName);
         TablePath catalogTablePath = new TablePath(catalogDatabaseName, schema, catalogTableName);
 
-        Lists.newArrayList(true, false)
-                .forEach(
-                        createIndex -> {
-                            Assertions.assertFalse(
-                                    catalog.databaseExists(catalogTablePath.getDatabaseName()));
-                            catalog.createDatabase(catalogTablePath, false);
-                            Assertions.assertTrue(
-                                    catalog.databaseExists(catalogTablePath.getDatabaseName()));
+        Assertions.assertFalse(catalog.databaseExists(catalogTablePath.getDatabaseName()));
+        catalog.createDatabase(catalogTablePath, false);
+        Assertions.assertTrue(catalog.databaseExists(catalogTablePath.getDatabaseName()));
 
-                            catalog.dropTable(catalogTablePath, true);
-                            Assertions.assertFalse(catalog.tableExists(catalogTablePath));
+        CatalogTable catalogTable = catalog.getTable(tablePath);
+        catalog.createTable(catalogTablePath, catalogTable, false);
+        Assertions.assertTrue(catalog.tableExists(catalogTablePath));
 
-                            CatalogTable catalogTable = catalog.getTable(tablePath);
-                            catalog.createTable(catalogTablePath, catalogTable, false, createIndex);
-                            Assertions.assertTrue(catalog.tableExists(catalogTablePath));
+        catalog.dropTable(catalogTablePath, false);
+        Assertions.assertFalse(catalog.tableExists(catalogTablePath));
 
-                            catalog.dropTable(catalogTablePath, false);
-                            Assertions.assertFalse(catalog.tableExists(catalogTablePath));
+        catalog.dropDatabase(catalogTablePath, false);
+        Assertions.assertFalse(catalog.databaseExists(catalogTablePath.getDatabaseName()));
 
-                            catalog.dropDatabase(catalogTablePath, false);
-                            Assertions.assertFalse(
-                                    catalog.databaseExists(catalogTablePath.getDatabaseName()));
-
-                            catalog.close();
-                        });
+        catalog.close();
     }
 
     private void initializeJdbcTable() {
@@ -489,7 +544,7 @@ public class JdbcPostgresIT extends TestSuiteBase implements TestResource {
         boolean tableExistsBefore = postgresCatalog.tableExists(tablePathPgSink);
         Assertions.assertFalse(tableExistsBefore);
         // create table
-        postgresCatalog.createTable(tablePathPgSink, catalogTable, true, true);
+        postgresCatalog.createTable(tablePathPgSink, catalogTable, true);
         boolean tableExistsAfter = postgresCatalog.tableExists(tablePathPgSink);
         Assertions.assertTrue(tableExistsAfter);
         // comment

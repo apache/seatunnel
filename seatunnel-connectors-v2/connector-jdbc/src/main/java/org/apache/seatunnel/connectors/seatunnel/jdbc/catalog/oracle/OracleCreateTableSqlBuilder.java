@@ -38,9 +38,9 @@ public class OracleCreateTableSqlBuilder {
     private PrimaryKey primaryKey;
     private String sourceCatalogName;
     private String fieldIde;
-    private Boolean createIndex;
+    private boolean createIndex;
 
-    public OracleCreateTableSqlBuilder(CatalogTable catalogTable, Boolean createIndex) {
+    public OracleCreateTableSqlBuilder(CatalogTable catalogTable, boolean createIndex) {
         this.columns = catalogTable.getTableSchema().getColumns();
         this.primaryKey = catalogTable.getTableSchema().getPrimaryKey();
         this.sourceCatalogName = catalogTable.getCatalogName();

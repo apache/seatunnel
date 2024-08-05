@@ -52,7 +52,7 @@ class OracleCatalogTest {
 
         CatalogTable table = catalog.getTable(TablePath.of("XE", "TEST", "PG_TYPES_TABLE_CP1"));
 
-        catalog.createTable(new TablePath("XE", "TEST", "TEST003"), table, false, false);
+        catalog.createTable(new TablePath("XE", "TEST", "TEST003"), table, false);
     }
 
     @Test

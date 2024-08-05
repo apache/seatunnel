@@ -37,7 +37,7 @@ public class XuguCreateTableSqlBuilder {
     private PrimaryKey primaryKey;
     private String sourceCatalogName;
     private String fieldIde;
-    private Boolean createIndex;
+    private boolean createIndex;
 
     public XuguCreateTableSqlBuilder(CatalogTable catalogTable, boolean createIndex) {
         this.columns = catalogTable.getTableSchema().getColumns();

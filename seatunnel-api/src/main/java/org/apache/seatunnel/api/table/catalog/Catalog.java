@@ -254,7 +254,9 @@ public interface Catalog extends AutoCloseable {
      */
     default void createTable(
             TablePath tablePath, CatalogTable table, boolean ignoreIfExists, boolean createIndex)
-            throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {}
+            throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
+        createTable(tablePath, table, ignoreIfExists);
+    }
 
     /**
      * Drop an existing table in this catalog.

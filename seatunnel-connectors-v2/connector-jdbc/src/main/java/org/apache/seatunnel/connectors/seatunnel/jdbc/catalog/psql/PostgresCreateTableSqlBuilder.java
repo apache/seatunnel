@@ -44,7 +44,7 @@ public class PostgresCreateTableSqlBuilder {
     public Boolean isHaveConstraintKey = false;
 
     @Getter public List<String> createIndexSqls = new ArrayList<>();
-    private Boolean createIndex;
+    private boolean createIndex;
 
     public PostgresCreateTableSqlBuilder(CatalogTable catalogTable, boolean createIndex) {
         this.columns = catalogTable.getTableSchema().getColumns();

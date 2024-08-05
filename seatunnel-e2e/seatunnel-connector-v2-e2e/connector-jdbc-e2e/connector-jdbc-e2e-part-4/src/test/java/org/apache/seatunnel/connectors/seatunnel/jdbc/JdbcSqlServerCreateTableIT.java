@@ -291,9 +291,9 @@ public class JdbcSqlServerCreateTableIT extends TestSuiteBase implements TestRes
 
         CatalogTable sqlServerCatalogTable = sqlServerCatalog.getTable(tablePathSQL);
 
-        sqlServerCatalog.createTable(tablePathSQL_Sql, sqlServerCatalogTable, true, true);
-        postgresCatalog.createTable(tablePathPG, sqlServerCatalogTable, true, true);
-        mySqlCatalog.createTable(tablePathMySql, sqlServerCatalogTable, true, true);
+        sqlServerCatalog.createTable(tablePathSQL_Sql, sqlServerCatalogTable, true);
+        postgresCatalog.createTable(tablePathPG, sqlServerCatalogTable, true);
+        mySqlCatalog.createTable(tablePathMySql, sqlServerCatalogTable, true);
 
         Assertions.assertTrue(checkMysql(mysqlCheck));
         Assertions.assertTrue(checkSqlServer(sqlserverCheck));

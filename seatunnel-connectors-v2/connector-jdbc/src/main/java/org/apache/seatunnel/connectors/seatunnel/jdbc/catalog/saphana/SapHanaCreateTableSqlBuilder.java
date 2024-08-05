@@ -46,7 +46,7 @@ public class SapHanaCreateTableSqlBuilder extends AbstractJdbcCreateTableSqlBuil
     private final List<ConstraintKey> constraintKeys;
 
     @Getter public List<String> createIndexSqls = new ArrayList<>();
-    private Boolean createIndex;
+    private boolean createIndex;
 
     public SapHanaCreateTableSqlBuilder(CatalogTable catalogTable, boolean createIndex) {
         this.columns = catalogTable.getTableSchema().getColumns();

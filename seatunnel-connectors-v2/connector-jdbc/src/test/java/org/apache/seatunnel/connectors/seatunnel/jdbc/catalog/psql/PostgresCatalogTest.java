@@ -67,7 +67,7 @@ class PostgresCatalogTest {
         log.info("find table: " + table);
 
         catalog.createTable(
-                new TablePath("liulitest", "public", "all_types_table_02"), table, false, false);
+                new TablePath("liulitest", "public", "all_types_table_02"), table, false);
     }
 
     @Test
