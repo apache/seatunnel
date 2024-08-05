@@ -29,6 +29,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
 import org.apache.seatunnel.core.starter.execution.PluginUtil;
+import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelFactoryDiscovery;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelTransformPluginDiscovery;
 import org.apache.seatunnel.translation.flink.serialization.FlinkRowConverter;
 import org.apache.seatunnel.translation.flink.utils.TypeConverterUtils;
@@ -41,6 +42,7 @@ import org.apache.flink.types.Row;
 import java.net.URL;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.api.common.CommonOptions.RESULT_TABLE_NAME;
@@ -59,15 +61,23 @@ public class TransformExecuteProcessor
     @Override
     protected List<TableTransformFactory> initializePlugins(
             List<URL> jarPaths, List<? extends Config> pluginConfigs) {
+
+        SeaTunnelFactoryDiscovery factoryDiscovery =
+                new SeaTunnelFactoryDiscovery(TableTransformFactory.class, ADD_URL_TO_CLASSLOADER);
         SeaTunnelTransformPluginDiscovery transformPluginDiscovery =
                 new SeaTunnelTransformPluginDiscovery();
-
         return pluginConfigs.stream()
                 .map(
                         transformConfig ->
                                 PluginUtil.createTransformFactory(
-                                        transformPluginDiscovery, transformConfig, jarPaths))
+                                        factoryDiscovery,
+                                        transformPluginDiscovery,
+                                        transformConfig,
+                                        jarPaths))
                 .distinct()
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .map(e -> (TableTransformFactory) e)
                 .collect(Collectors.toList());
     }
 
