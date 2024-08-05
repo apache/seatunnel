@@ -41,6 +41,8 @@ import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.format.avro.AvroDeserializationSchema;
 import org.apache.seatunnel.format.text.TextSerializationSchema;
 
+import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.admin.ListConsumerGroupOffsetsOptions;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -80,6 +82,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
@@ -306,8 +309,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    public void testSourceKafkaStartConfig(TestContainer container)
-            throws IOException, InterruptedException {
+    public void testSourceKafkaStartConfig(TestContainer container) throws Exception {
         DefaultSeaTunnelRowSerializer serializer =
                 DefaultSeaTunnelRowSerializer.create(
                         "test_topic_group",
@@ -508,10 +510,35 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     }
 
     public void testKafkaGroupOffsetsToConsole(TestContainer container)
-            throws IOException, InterruptedException {
+            throws IOException, InterruptedException, ExecutionException {
         Container.ExecResult execResult =
                 container.executeJob("/kafka/kafkasource_group_offset_to_console.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        String consumerGroup = "SeaTunnel-Consumer-Group-Test";
+        TopicPartition topicPartition = new TopicPartition("test_topic_group", 0);
+        try (AdminClient adminClient = createKafkaAdmin()) {
+            ListConsumerGroupOffsetsOptions options =
+                    new ListConsumerGroupOffsetsOptions()
+                            .topicPartitions(Arrays.asList(topicPartition));
+            Map<TopicPartition, Long> topicOffset =
+                    adminClient
+                            .listConsumerGroupOffsets(consumerGroup, options)
+                            .partitionsToOffsetAndMetadata()
+                            .thenApply(
+                                    result -> {
+                                        Map<TopicPartition, Long> offsets = new HashMap<>();
+                                        result.forEach(
+                                                (tp, oam) -> {
+                                                    if (oam != null) {
+                                                        offsets.put(tp, oam.offset());
+                                                    }
+                                                });
+                                        return offsets;
+                                    })
+                            .get();
+            Assertions.assertTrue(topicOffset.get(topicPartition) > 0);
+        }
     }
 
     public void testKafkaTimestampToConsole(TestContainer container)
@@ -519,6 +546,13 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         Container.ExecResult execResult =
                 container.executeJob("/kafka/kafkasource_timestamp_to_console.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    private AdminClient createKafkaAdmin() {
+        Properties props = new Properties();
+        String bootstrapServers = kafkaContainer.getBootstrapServers();
+        props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        return AdminClient.create(props);
     }
 
     private void initKafkaProducer() {
