@@ -22,12 +22,11 @@ import org.apache.seatunnel.e2e.common.container.TestContainer;
 
 import org.apache.activemq.ActiveMQConnectionFactory;
 
-import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestTemplate;
-import org.junit.jupiter.api.AfterAll;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.HostPortWaitStrategy;
@@ -51,7 +50,8 @@ public class ActivemqIT extends TestSuiteBase {
 
     private static final String ACTIVEMQ_CONTAINER_HOST = "activemq-host";
     public GenericContainer<?> activeMQContainer =
-            new GenericContainer<>(DockerImageName.parse("rmohr/activemq")).withExposedPorts(61616)
+            new GenericContainer<>(DockerImageName.parse("rmohr/activemq"))
+                    .withExposedPorts(61616)
                     .withNetworkAliases(ACTIVEMQ_CONTAINER_HOST)
                     .withNetwork(NETWORK);
 
