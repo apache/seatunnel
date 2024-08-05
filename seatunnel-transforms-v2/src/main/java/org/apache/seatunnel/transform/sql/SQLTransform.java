@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.transform.sql;
 
-import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
@@ -70,22 +69,6 @@ public class SQLTransform extends AbstractCatalogSupportTransform {
         } else {
             this.engineType = ZETA;
         }
-
-        List<String> sourceTableNames = config.get(CommonOptions.SOURCE_TABLE_NAME);
-        if (sourceTableNames != null && !sourceTableNames.isEmpty()) {
-            this.inputTableName = sourceTableNames.get(0);
-        } else {
-            this.inputTableName = catalogTable.getTableId().getTableName();
-        }
-        List<Column> columns = catalogTable.getTableSchema().getColumns();
-        String[] fieldNames = new String[columns.size()];
-        SeaTunnelDataType<?>[] fieldTypes = new SeaTunnelDataType<?>[columns.size()];
-        for (int i = 0; i < columns.size(); i++) {
-            Column column = columns.get(i);
-            fieldNames[i] = column.getName();
-            fieldTypes[i] = column.getDataType();
-        }
-        this.inputRowType = new SeaTunnelRowType(fieldNames, fieldTypes);
     }
 
     @Override
@@ -97,9 +80,9 @@ public class SQLTransform extends AbstractCatalogSupportTransform {
     public void open() {
         sqlEngine = SQLEngineFactory.getSQLEngine(engineType);
         sqlEngine.init(
-                inputTableName,
-                inputCatalogTable != null ? inputCatalogTable.getTableId().getTableName() : null,
-                inputRowType,
+                inputCatalogTable.getTableId().getTableName(),
+                inputCatalogTable.getTableId().getTableName(),
+                inputCatalogTable.getSeaTunnelRowType(),
                 query);
     }
 
