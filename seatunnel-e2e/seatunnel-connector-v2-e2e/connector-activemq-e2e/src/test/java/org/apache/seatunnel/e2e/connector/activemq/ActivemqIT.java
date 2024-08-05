@@ -24,80 +24,95 @@ import org.apache.activemq.ActiveMQConnectionFactory;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestTemplate;
+import org.junit.jupiter.api.AfterAll;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.wait.strategy.HostPortWaitStrategy;
 import org.testcontainers.utility.DockerImageName;
-import org.testcontainers.utility.MountableFile;
 
 import javax.jms.Connection;
 import javax.jms.ConnectionFactory;
 import javax.jms.JMSException;
 import javax.jms.MessageConsumer;
+import javax.jms.MessageProducer;
 import javax.jms.Queue;
 import javax.jms.Session;
 import javax.jms.TextMessage;
 
-import java.util.ArrayList;
+import java.io.IOException;
+import java.time.Duration;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class ActivemqIT extends TestSuiteBase {
 
+    private static final String ACTIVEMQ_CONTAINER_HOST = "activemq-host";
     public GenericContainer<?> activeMQContainer =
-            new GenericContainer<>(DockerImageName.parse("rmohr/activemq"))
-                    .withExposedPorts(61616)
-                    .withCopyFileToContainer(
-                            MountableFile.forClasspathResource("/e2e.json"), "/e2e.json");
+            new GenericContainer<>(DockerImageName.parse("rmohr/activemq")).withExposedPorts(61616)
+                    .withNetworkAliases(ACTIVEMQ_CONTAINER_HOST)
+                    .withNetwork(NETWORK);
+
     private Connection connection;
     private Session session;
+    private MessageProducer producer;
+    private MessageConsumer consumer;
 
-    @BeforeEach
-    public void setup() throws JMSException {
+    @BeforeAll
+    public void setup() throws JMSException, InterruptedException {
+        activeMQContainer
+                .withNetwork(NETWORK)
+                .waitingFor(new HostPortWaitStrategy().withStartupTimeout(Duration.ofMinutes(2)));
         activeMQContainer.start();
-        String brokerUrl = "tcp://localhost:" + activeMQContainer.getMappedPort(61616);
+        String brokerUrl = "tcp://127.0.0.1:" + activeMQContainer.getMappedPort(61616);
         ConnectionFactory connectionFactory = new ActiveMQConnectionFactory(brokerUrl);
         connection = connectionFactory.createConnection();
         connection.start();
 
         // Creating session for sending messages
         session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
-    }
 
-    @AfterEach
-    public void tearDown() throws JMSException {
-        // Cleaning up resources
-        connection.close();
-        activeMQContainer.close();
-    }
-
-    @TestTemplate
-    public void testActivemqFakeSource(TestContainer container) throws Exception {
-        Container.ExecResult execResult = container.executeJob("/fake_source_to_sink.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
-
-        Queue queue = session.createQueue("fakesource");
+        // Getting the queue
+        Queue queue = session.createQueue("testQueue");
 
         // Creating the producer & consumer
-        MessageConsumer consumer = session.createConsumer(queue);
+        producer = session.createProducer(queue);
+        consumer = session.createConsumer(queue);
+    }
 
-        ArrayList<String> messageList = new ArrayList<>();
-        for (int i = 0; i < 5; i++) {
-            TextMessage textMessage = (TextMessage) consumer.receive();
-            if (textMessage.getText() != null) {
-                messageList.add(textMessage.getText());
-            }
-        }
-        Assertions.assertFalse(messageList.isEmpty());
-        Assertions.assertEquals(5, messageList.size());
-        Assertions.assertTrue(messageList.get(0).contains("c_map"));
-        Assertions.assertTrue(messageList.get(0).contains("c_array"));
-        Assertions.assertTrue(messageList.get(0).contains("c_string"));
-        Assertions.assertTrue(messageList.get(0).contains("c_timestamp"));
+    @AfterAll
+    public void tearDown() throws JMSException {
+        // Cleaning up resources
+        if (producer != null) producer.close();
+        if (session != null) session.close();
+        if (connection != null) connection.close();
+    }
+
+    @Test
+    public void testSendMessage() throws JMSException {
+        String dummyPayload = "Dummy payload";
+
+        // Sending a text message to the queue
+        TextMessage message = session.createTextMessage(dummyPayload);
+        producer.send(message);
+
+        // Receiving the message from the queue
+        TextMessage receivedMessage = (TextMessage) consumer.receive(5000);
+
+        assertEquals(dummyPayload, receivedMessage.getText());
     }
 
     @TestTemplate
-    public void testActivemqLocalFileSource(TestContainer container) throws Exception {
-        Container.ExecResult execResult = container.executeJob("/localfile_source_to_sink.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
+    public void testSinkApacheActivemq(TestContainer container)
+            throws IOException, InterruptedException, JMSException {
+        Container.ExecResult execResult = container.executeJob("/fake_source_to_sink.conf");
+        TextMessage textMessage = (TextMessage) consumer.receive();
+        Assertions.assertTrue(textMessage.getText().contains("map"));
+        Assertions.assertTrue(textMessage.getText().contains("c_boolean"));
+        Assertions.assertTrue(textMessage.getText().contains("c_tinyint"));
+        Assertions.assertTrue(textMessage.getText().contains("c_timestamp"));
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 }

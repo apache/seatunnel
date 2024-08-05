@@ -60,18 +60,20 @@ public class ActivemqClient {
         this.config = config;
         try {
             this.connectionFactory = getConnectionFactory();
+            log.info("connection factory created");
             this.connection = createConnection(config);
+            log.error("connection created");
 
         } catch (Exception e) {
+            e.printStackTrace();
             throw new ActivemqConnectorException(
                     ActivemqConnectorErrorCode.CREATE_ACTIVEMQ_CLIENT_FAILED,
-                    String.format(
-                            "Error while create AMQ client with %s at %s", config.get(QUEUE_NAME)),
-                    e);
+                    "Error while create AMQ client ");
         }
     }
 
     public ActiveMQConnectionFactory getConnectionFactory() {
+        log.error("broker url : " + config.get(URI));
         ActiveMQConnectionFactory factory = new ActiveMQConnectionFactory(config.get(URI));
 
         if (config.get(ALWAYS_SESSION_ASYNC) != null) {
@@ -147,13 +149,12 @@ public class ActivemqClient {
             throw new ActivemqConnectorException(
                     ActivemqConnectorErrorCode.CLOSE_CONNECTION_FAILED,
                     String.format(
-                            "Error while closing AMQ connection with  %s at %s",
-                            config.get(QUEUE_NAME), config.get(CLIENT_ID)));
+                            "Error while closing AMQ connection with  %s", config.get(QUEUE_NAME)));
         }
     }
 
     private Connection createConnection(ReadonlyConfig config) throws JMSException {
-        if (!config.get(USERNAME).isEmpty() || !config.get(PASSWORD).isEmpty()) {
+        if (config.get(USERNAME) != null && config.get(PASSWORD) != null) {
             return connectionFactory.createConnection(config.get(USERNAME), config.get(PASSWORD));
         }
         return connectionFactory.createConnection();
