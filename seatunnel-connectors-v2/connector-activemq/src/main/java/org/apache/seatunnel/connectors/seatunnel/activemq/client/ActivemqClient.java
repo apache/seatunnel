@@ -62,7 +62,7 @@ public class ActivemqClient {
             this.connectionFactory = getConnectionFactory();
             log.info("connection factory created");
             this.connection = createConnection(config);
-            log.error("connection created");
+            log.info("connection created");
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -73,7 +73,7 @@ public class ActivemqClient {
     }
 
     public ActiveMQConnectionFactory getConnectionFactory() {
-        log.error("broker url : " + config.get(URI));
+        log.info("broker url : " + config.get(URI));
         ActiveMQConnectionFactory factory = new ActiveMQConnectionFactory(config.get(URI));
 
         if (config.get(ALWAYS_SESSION_ASYNC) != null) {
@@ -101,12 +101,6 @@ public class ActivemqClient {
         }
         if (config.get(DISPATCH_ASYNC) != null) {
             factory.setDispatchAsync(config.get(DISPATCH_ASYNC));
-        }
-        if (config.get(ALWAYS_SESSION_ASYNC) != null) {
-            factory.setAlwaysSessionAsync(config.get(ALWAYS_SESSION_ASYNC));
-        }
-        if (config.get(ALWAYS_SYNC_SEND) != null) {
-            factory.setAlwaysSyncSend(config.get(ALWAYS_SYNC_SEND));
         }
 
         if (config.get(WARN_ABOUT_UNSTARTED_CONNECTION_TIMEOUT) != null) {
