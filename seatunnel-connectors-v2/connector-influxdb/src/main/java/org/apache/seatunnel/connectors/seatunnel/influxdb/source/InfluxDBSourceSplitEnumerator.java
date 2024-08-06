@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.influxdb.source;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.connectors.seatunnel.influxdb.config.MultipleTableSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.config.SourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.exception.InfluxdbConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.state.InfluxDBSourceState;
@@ -41,23 +42,24 @@ import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.SourceCo
 @Slf4j
 public class InfluxDBSourceSplitEnumerator
         implements SourceSplitEnumerator<InfluxDBSourceSplit, InfluxDBSourceState> {
-    final SourceConfig config;
+    final MultipleTableSourceConfig multipleTableLocalFileSourceConfig;
     private final Context<InfluxDBSourceSplit> context;
     private final Map<Integer, List<InfluxDBSourceSplit>> pendingSplit;
     private final Object stateLock = new Object();
     private volatile boolean shouldEnumerate;
 
     public InfluxDBSourceSplitEnumerator(
-            SourceSplitEnumerator.Context<InfluxDBSourceSplit> context, SourceConfig config) {
-        this(context, null, config);
+            SourceSplitEnumerator.Context<InfluxDBSourceSplit> context,
+            MultipleTableSourceConfig multipleTableLocalFileSourceConfig) {
+        this(context, null, multipleTableLocalFileSourceConfig);
     }
 
     public InfluxDBSourceSplitEnumerator(
             SourceSplitEnumerator.Context<InfluxDBSourceSplit> context,
             InfluxDBSourceState sourceState,
-            SourceConfig config) {
+            MultipleTableSourceConfig multipleTableLocalFileSourceConfig) {
         this.context = context;
-        this.config = config;
+        this.multipleTableLocalFileSourceConfig = multipleTableLocalFileSourceConfig;
         this.pendingSplit = new HashMap<>();
         this.shouldEnumerate = sourceState == null;
         if (sourceState != null) {
@@ -115,44 +117,55 @@ public class InfluxDBSourceSplitEnumerator
     }
 
     private Set<InfluxDBSourceSplit> getInfluxDBSplit() {
-        String sql = config.getSql();
         Set<InfluxDBSourceSplit> influxDBSourceSplits = new HashSet<>();
-        // no need numPartitions, use one partition
-        if (config.getPartitionNum() == 0) {
-            influxDBSourceSplits.add(new InfluxDBSourceSplit(SourceConfig.DEFAULT_PARTITIONS, sql));
-            return influxDBSourceSplits;
-        }
-        // calculate numRange base on (lowerBound upperBound partitionNum)
-        List<Pair<Long, Long>> rangePairs =
-                genSplitNumRange(
-                        config.getLowerBound(), config.getUpperBound(), config.getPartitionNum());
-
-        String[] sqls = sql.split(SQL_WHERE.key());
-        if (sqls.length > 2) {
-            throw new InfluxdbConnectorException(
-                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
-                    "sql should not contain more than one where");
-        }
-
-        int i = 0;
-        while (i < rangePairs.size()) {
-            String query =
-                    " where ("
-                            + config.getSplitKey()
-                            + " >= "
-                            + rangePairs.get(i).getLeft()
-                            + " and "
-                            + config.getSplitKey()
-                            + " < "
-                            + rangePairs.get(i).getRight()
-                            + ") ";
-            i++;
-            query = sqls[0] + query;
-            if (sqls.length > 1) {
-                query = query + " and ( " + sqls[1] + " ) ";
+        for (SourceConfig config : multipleTableLocalFileSourceConfig.getSourceConfigs()) {
+            String sql = config.getSql();
+            // no need numPartitions, use one partition
+            if (config.getPartitionNum() == 0) {
+                influxDBSourceSplits.add(
+                        new InfluxDBSourceSplit(
+                                SourceConfig.DEFAULT_PARTITIONS,
+                                sql,
+                                config.getTablePath().getFullName()));
+                return influxDBSourceSplits;
             }
-            influxDBSourceSplits.add(
-                    new InfluxDBSourceSplit(String.valueOf(i + System.nanoTime()), query));
+            // calculate numRange base on (lowerBound upperBound partitionNum)
+            List<Pair<Long, Long>> rangePairs =
+                    genSplitNumRange(
+                            config.getLowerBound(),
+                            config.getUpperBound(),
+                            config.getPartitionNum());
+
+            String[] sqls = sql.split(SQL_WHERE.key());
+            if (sqls.length > 2) {
+                throw new InfluxdbConnectorException(
+                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                        "sql should not contain more than one where");
+            }
+
+            int i = 0;
+            while (i < rangePairs.size()) {
+                String query =
+                        " where ("
+                                + config.getSplitKey()
+                                + " >= "
+                                + rangePairs.get(i).getLeft()
+                                + " and "
+                                + config.getSplitKey()
+                                + " < "
+                                + rangePairs.get(i).getRight()
+                                + ") ";
+                i++;
+                query = sqls[0] + query;
+                if (sqls.length > 1) {
+                    query = query + " and ( " + sqls[1] + " ) ";
+                }
+                influxDBSourceSplits.add(
+                        new InfluxDBSourceSplit(
+                                String.valueOf(i + System.nanoTime()),
+                                query,
+                                config.getTablePath().getFullName()));
+            }
         }
         return influxDBSourceSplits;
     }

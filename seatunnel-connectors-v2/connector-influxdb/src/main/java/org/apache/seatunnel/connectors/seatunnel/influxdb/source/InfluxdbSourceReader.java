@@ -22,8 +22,10 @@ import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.client.InfluxDBClient;
-import org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDBConfig;
+import org.apache.seatunnel.connectors.seatunnel.influxdb.config.MultipleTableSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.influxdb.config.SourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.converter.InfluxDBRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.exception.InfluxdbConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.exception.InfluxdbConnectorException;
@@ -38,46 +40,48 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.net.ConnectException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Queue;
 
 @Slf4j
 public class InfluxdbSourceReader implements SourceReader<SeaTunnelRow, InfluxDBSourceSplit> {
     private InfluxDB influxdb;
-    InfluxDBConfig config;
 
     private final SourceReader.Context context;
 
-    private final SeaTunnelRowType seaTunnelRowType;
-
-    List<Integer> columnsIndexList;
     private final Queue<InfluxDBSourceSplit> pendingSplits;
 
     private volatile boolean noMoreSplitsAssignment;
+    private final Map<String, SourceConfig> configMap;
 
     InfluxdbSourceReader(
-            InfluxDBConfig config,
-            Context readerContext,
-            SeaTunnelRowType seaTunnelRowType,
-            List<Integer> columnsIndexList) {
-        this.config = config;
+            Context readerContext, MultipleTableSourceConfig multipleTableSourceConfig) {
         this.pendingSplits = new LinkedList<>();
         this.context = readerContext;
-        this.seaTunnelRowType = seaTunnelRowType;
-        this.columnsIndexList = columnsIndexList;
+        Map<String, SourceConfig> configMap = new HashMap<>();
+
+        multipleTableSourceConfig
+                .getSourceConfigs()
+                .forEach(
+                        sourceConfig ->
+                                configMap.put(
+                                        sourceConfig.getTablePath().getFullName(), sourceConfig));
+        this.configMap = configMap;
     }
 
     public void connect() throws ConnectException {
         if (influxdb == null) {
-            influxdb = InfluxDBClient.getInfluxDB(config);
+            influxdb = InfluxDBClient.getInfluxDB(configMap.values().stream().findFirst().get());
             String version = influxdb.version();
             if (!influxdb.ping().isGood()) {
                 throw new InfluxdbConnectorException(
                         InfluxdbConnectorErrorCode.CONNECT_FAILED,
                         String.format(
                                 "connect influxdb failed, due to influxdb version info is unknown, the url is: {%s}",
-                                config.getUrl()));
+                                configMap.values().stream().findFirst().get().getUrl()));
             }
             log.info("connect influxdb successful. sever version :{}.", version);
         }
@@ -134,15 +138,27 @@ public class InfluxdbSourceReader implements SourceReader<SeaTunnelRow, InfluxDB
     public void notifyCheckpointComplete(long checkpointId) {}
 
     private void read(InfluxDBSourceSplit split, Collector<SeaTunnelRow> output) {
-        QueryResult queryResult = influxdb.query(new Query(split.getQuery(), config.getDatabase()));
+        SourceConfig sourceConfig = configMap.get(split.getTableFullName());
+        QueryResult queryResult =
+                influxdb.query(new Query(split.getQuery(), sourceConfig.getDatabase()));
+        SeaTunnelRowType seaTunnelRowType = sourceConfig.getCatalogTable().getSeaTunnelRowType();
+
         for (QueryResult.Result result : queryResult.getResults()) {
             List<QueryResult.Series> serieList = result.getSeries();
             if (CollectionUtils.isNotEmpty(serieList)) {
                 for (QueryResult.Series series : serieList) {
                     for (List<Object> values : series.getValues()) {
+
                         SeaTunnelRow row =
                                 InfluxDBRowConverter.convert(
-                                        values, seaTunnelRowType, columnsIndexList);
+                                        values,
+                                        seaTunnelRowType,
+                                        sourceConfig.getColumnsIndex(),
+                                        sourceConfig.getCatalogTable().getTablePath().toString());
+                        log.info(JsonUtils.toJsonString(values));
+                        log.info(JsonUtils.toJsonString(sourceConfig.getColumnsIndex()));
+                        log.info(JsonUtils.toJsonString(seaTunnelRowType));
+                        log.info(JsonUtils.toJsonString(row));
                         output.collect(row);
                     }
                 }

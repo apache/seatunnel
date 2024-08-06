@@ -78,7 +78,7 @@ public class InfluxDBSinkFactory implements TableSinkFactory {
             map.put(KEY_MEASUREMENT.key(), catalogTable.getTableId().toTablePath().getFullName());
             config = ReadonlyConfig.fromMap(new HashMap<>(map));
         }
-        SinkConfig sinkConfig = new SinkConfig(config.toConfig());
+        SinkConfig sinkConfig = new SinkConfig(config);
         return () -> new InfluxDBSink(sinkConfig, catalogTable);
     }
 }

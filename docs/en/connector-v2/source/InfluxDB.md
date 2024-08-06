@@ -187,6 +187,43 @@ source {
 }
 ```
 
+### Example of Multiple tables
+
+```bash
+source {
+  InfluxDB {
+    tables_configs = [
+        {
+          url = "http://influxdb-host:8086"
+          sql = "select label, value, rt, time from test1"
+          database = "test"
+          schema {
+            fields {
+                label = STRING
+                value = INT
+                rt = STRING
+                time = BIGINT
+            }
+          }
+        },
+        {
+          url = "http://influxdb-host:8086"
+          sql = "select label, value, rt, time from test2"
+          database = "test"
+          schema {
+            fields {
+                label = STRING
+                value = INT
+                rt = STRING
+                time = BIGINT
+            }
+          }
+        }
+    ]
+  }
+}
+```
+
 ## Changelog
 
 ### 2.2.0-beta 2022-09-26

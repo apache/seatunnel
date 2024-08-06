@@ -17,10 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.influxdb.config;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
 import com.google.common.annotations.VisibleForTesting;
 import lombok.Data;
@@ -82,26 +81,31 @@ public class InfluxDBConfig implements Serializable {
     private long connectTimeOut = CONNECT_TIMEOUT_MS.defaultValue();
     private String epoch = EPOCH.defaultValue();
 
-    public InfluxDBConfig(Config config) {
-        this.url = config.getString(URL.key());
+    public InfluxDBConfig(ReadonlyConfig config) {
+        this.url = config.get(URL);
 
-        if (config.hasPath(USERNAME.key())) {
-            this.username = config.getString(USERNAME.key());
+        if (config.getOptional(USERNAME).isPresent()) {
+            this.username = config.get(USERNAME);
         }
-        if (config.hasPath(PASSWORD.key())) {
-            this.password = config.getString(PASSWORD.key());
+
+        if (config.getOptional(PASSWORD).isPresent()) {
+            this.password = config.get(PASSWORD);
         }
-        if (config.hasPath(DATABASES.key())) {
-            this.database = config.getString(DATABASES.key());
+
+        if (config.getOptional(DATABASES).isPresent()) {
+            this.database = config.get(DATABASES);
         }
-        if (config.hasPath(EPOCH.key())) {
-            this.epoch = config.getString(EPOCH.key());
+
+        if (config.getOptional(EPOCH).isPresent()) {
+            this.epoch = config.get(EPOCH);
         }
-        if (config.hasPath(CONNECT_TIMEOUT_MS.key())) {
-            this.connectTimeOut = config.getLong(CONNECT_TIMEOUT_MS.key());
+
+        if (config.getOptional(CONNECT_TIMEOUT_MS).isPresent()) {
+            this.connectTimeOut = config.get(CONNECT_TIMEOUT_MS);
         }
-        if (config.hasPath(QUERY_TIMEOUT_SEC.key())) {
-            this.queryTimeOut = config.getInt(QUERY_TIMEOUT_SEC.key());
+
+        if (config.getOptional(QUERY_TIMEOUT_SEC).isPresent()) {
+            this.queryTimeOut = config.get(QUERY_TIMEOUT_SEC);
         }
     }
 

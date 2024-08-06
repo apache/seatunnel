@@ -19,22 +19,23 @@ package org.apache.seatunnel.connectors.seatunnel.influxdb.source;
 
 import org.apache.seatunnel.api.source.SourceSplit;
 
+import lombok.Data;
+
+@Data
 public class InfluxDBSourceSplit implements SourceSplit {
     private final String splitId;
 
     private final String query;
+    private final String tableFullName;
 
-    public InfluxDBSourceSplit(String splitId, String query) {
+    public InfluxDBSourceSplit(String splitId, String query, String tableFullName) {
         this.query = query;
         this.splitId = splitId;
+        this.tableFullName = tableFullName;
     }
 
     @Override
     public String splitId() {
         return splitId;
-    }
-
-    public String getQuery() {
-        return query;
     }
 }

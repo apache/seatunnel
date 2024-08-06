@@ -97,10 +97,10 @@ public class InfluxdbIT extends TestSuiteBase implements TestResource {
                         influxdbContainer.getHost(), influxdbContainer.getFirstMappedPort());
         log.info("Influxdb container started");
         this.initializeInfluxDBClient();
-        this.initSourceData();
+        this.initSourceData(INFLUXDB_SOURCE_MEASUREMENT);
     }
 
-    private void initSourceData() {
+    private void initSourceData(String measurement) {
         influxDB.createDatabase(INFLUXDB_DATABASE);
         BatchPoints batchPoints = BatchPoints.database(INFLUXDB_DATABASE).build();
         List<SeaTunnelRow> rows = TEST_DATASET.getValue();
@@ -109,7 +109,7 @@ public class InfluxdbIT extends TestSuiteBase implements TestResource {
         for (int i = 0; i < rows.size(); i++) {
             SeaTunnelRow row = rows.get(i);
             Point point =
-                    Point.measurement(INFLUXDB_SOURCE_MEASUREMENT)
+                    Point.measurement(measurement)
                             .time((Long) row.getField(0), TimeUnit.NANOSECONDS)
                             .tag(rowType.getFieldName(1), (String) row.getField(1))
                             .addField(rowType.getFieldName(2), (String) row.getField(2))
@@ -292,11 +292,26 @@ public class InfluxdbIT extends TestSuiteBase implements TestResource {
                 });
     }
 
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "Currently SPARK/FLINK do not support multiple table read")
+    @TestTemplate
+    public void testInfluxdbMultipleRead(TestContainer container)
+            throws IOException, InterruptedException {
+        this.initSourceData("source1");
+        this.initSourceData("source2");
+        Container.ExecResult execResult =
+                container.executeJob("/influxdb_to_assert_with_multipletable.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
     public List<List<Object>> readData(String tableName) {
         String sinkSql =
                 String.format(
                         "select time, label, c_string, c_double, c_bigint, c_float,c_int, c_smallint, c_boolean from %s order by time",
                         tableName);
+
         QueryResult sinkQueryResult = influxDB.query(new Query(sinkSql, INFLUXDB_DATABASE));
 
         List<List<Object>> sinkValues =

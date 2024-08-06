@@ -19,11 +19,16 @@ package org.apache.seatunnel.connectors.seatunnel.influxdb.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
+import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 
 import com.google.auto.service.AutoService;
+
+import java.io.Serializable;
 
 import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDBConfig.CONNECT_TIMEOUT_MS;
 import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.InfluxDBConfig.DATABASES;
@@ -36,6 +41,7 @@ import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.SourceCo
 import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.SourceConfig.PARTITION_NUM;
 import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.SourceConfig.SPLIT_COLUMN;
 import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.SourceConfig.SQL;
+import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.SourceConfig.TABLE_CONFIGS;
 import static org.apache.seatunnel.connectors.seatunnel.influxdb.config.SourceConfig.UPPER_BOUND;
 
 @AutoService(Factory.class)
@@ -48,15 +54,31 @@ public class InfluxDBSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(URL, SQL, DATABASES, TableSchemaOptions.SCHEMA)
-                .bundled(USERNAME, PASSWORD)
-                .bundled(LOWER_BOUND, UPPER_BOUND, PARTITION_NUM, SPLIT_COLUMN)
-                .optional(EPOCH, CONNECT_TIMEOUT_MS, QUERY_TIMEOUT_SEC)
+                .optional(URL)
+                .optional(SQL)
+                .optional(DATABASES)
+                .optional(TableSchemaOptions.SCHEMA)
+                .optional(USERNAME)
+                .optional(PASSWORD)
+                .optional(LOWER_BOUND)
+                .optional(UPPER_BOUND)
+                .optional(PARTITION_NUM)
+                .optional(SPLIT_COLUMN)
+                .optional(EPOCH)
+                .optional(CONNECT_TIMEOUT_MS)
+                .optional(QUERY_TIMEOUT_SEC)
+                .optional(TABLE_CONFIGS)
                 .build();
     }
 
     @Override
     public Class<? extends SeaTunnelSource> getSourceClass() {
         return InfluxDBSource.class;
+    }
+
+    @Override
+    public <T, SplitT extends SourceSplit, StateT extends Serializable>
+            TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
+        return () -> (SeaTunnelSource<T, SplitT, StateT>) new InfluxDBSource(context.getOptions());
     }
 }
