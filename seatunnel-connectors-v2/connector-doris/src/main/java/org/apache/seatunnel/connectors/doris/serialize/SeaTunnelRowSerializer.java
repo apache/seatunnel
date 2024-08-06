@@ -29,6 +29,7 @@ import org.apache.seatunnel.format.json.JsonSerializationSchema;
 import org.apache.seatunnel.format.text.TextSerializationSchema;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -93,13 +94,15 @@ public class SeaTunnelRowSerializer implements DorisSerializer {
     @Override
     public byte[] serialize(SeaTunnelRow seaTunnelRow) throws IOException {
 
-        List<String> fieldNames = Arrays.asList(seaTunnelRowType.getFieldNames());
-        List<SeaTunnelDataType<?>> fieldTypes = Arrays.asList(seaTunnelRowType.getFieldTypes());
+        List<Object> fieldNames = new ArrayList<>(Arrays.asList(seaTunnelRowType.getFieldNames()));
+        List<SeaTunnelDataType<?>> fieldTypes =
+                new ArrayList<>(Arrays.asList(seaTunnelRowType.getFieldTypes()));
 
         if (enableDelete) {
-            SeaTunnelRow seaTunnelRowEnableDelete = seaTunnelRow.copy();
-            seaTunnelRowEnableDelete.setField(
-                    seaTunnelRow.getFields().length, parseDeleteSign(seaTunnelRow.getRowKind()));
+
+            List<Object> newFields = new ArrayList<>(Arrays.asList(seaTunnelRow.getFields()));
+            newFields.add(parseDeleteSign(seaTunnelRow.getRowKind()));
+            seaTunnelRow = new SeaTunnelRow(newFields.toArray());
             fieldNames.add(LoadConstants.DORIS_DELETE_SIGN);
             fieldTypes.add(STRING_TYPE);
         }
