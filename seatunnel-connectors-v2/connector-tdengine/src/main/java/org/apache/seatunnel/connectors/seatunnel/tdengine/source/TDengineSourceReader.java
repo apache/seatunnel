@@ -123,8 +123,8 @@ public class TDengineSourceReader implements SourceReader<SeaTunnelRow, TDengine
     }
 
     private void read(TDengineSourceSplit split, Collector<SeaTunnelRow> output) throws Exception {
-        try (Statement statement = conn.createStatement()) {
-            final ResultSet resultSet = statement.executeQuery(split.getQuery());
+        try (Statement statement = conn.createStatement();
+                ResultSet resultSet = statement.executeQuery(split.getQuery())) {
             ResultSetMetaData meta = resultSet.getMetaData();
 
             while (resultSet.next()) {

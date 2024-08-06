@@ -120,7 +120,8 @@ public class TDengineSourceSplitEnumerator
                         .map(name -> String.format("`%s`", name))
                         .collect(Collectors.joining(","));
         String subTableSQL =
-                "select " + selectFields + " from " + config.getDatabase() + "." + subTableName;
+                String.format(
+                        "select %s from %s.`%s`", selectFields, config.getDatabase(), subTableName);
         String start = config.getLowerBound();
         String end = config.getUpperBound();
         if (start != null || end != null) {
