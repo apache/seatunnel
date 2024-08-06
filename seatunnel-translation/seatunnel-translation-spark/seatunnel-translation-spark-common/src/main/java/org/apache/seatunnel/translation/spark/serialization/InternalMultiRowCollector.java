@@ -17,18 +17,12 @@
 
 package org.apache.seatunnel.translation.spark.serialization;
 
-import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.Handover;
-import org.apache.seatunnel.translation.spark.execution.ColumnWithIndex;
-import org.apache.seatunnel.translation.spark.utils.SchemaUtil;
 
 import org.apache.spark.sql.catalyst.InternalRow;
 
-import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 public class InternalMultiRowCollector extends InternalRowCollector {
     private final Map<String, InternalRowConverter> rowSerializationMap;
@@ -36,24 +30,10 @@ public class InternalMultiRowCollector extends InternalRowCollector {
     public InternalMultiRowCollector(
             Handover<InternalRow> handover,
             Object checkpointLock,
-            List<CatalogTable> catalogTables,
+            Map<String, InternalRowConverter> rowSerializationMap,
             Map<String, String> envOptionsInfo) {
-        super(handover, checkpointLock, catalogTables, envOptionsInfo);
-        ColumnWithIndex[] columnWithIndexes = SchemaUtil.mergeSchema(catalogTables);
-        CatalogTable mergeCatalogTable = columnWithIndexes[0].getMergeCatalogTable();
-        this.rowSerializationMap =
-                Arrays.stream(columnWithIndexes)
-                        .collect(
-                                Collectors.toMap(
-                                        columnWithIndex ->
-                                                columnWithIndex
-                                                        .getCatalogTable()
-                                                        .getTablePath()
-                                                        .toString(),
-                                        columnWithIndex ->
-                                                new InternalRowConverter(
-                                                        mergeCatalogTable.getSeaTunnelRowType(),
-                                                        columnWithIndex.getIndex())));
+        super(handover, checkpointLock, null, envOptionsInfo);
+        this.rowSerializationMap = rowSerializationMap;
     }
 
     @Override
@@ -70,5 +50,9 @@ public class InternalMultiRowCollector extends InternalRowCollector {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    public Map<String, InternalRowConverter> getRowSerializationMap() {
+        return rowSerializationMap;
     }
 }

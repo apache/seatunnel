@@ -18,7 +18,6 @@
 package org.apache.seatunnel.translation.spark.serialization;
 
 import org.apache.seatunnel.api.source.Collector;
-import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.Handover;
 import org.apache.seatunnel.core.starter.flowcontrol.FlowControlGate;
@@ -26,7 +25,6 @@ import org.apache.seatunnel.core.starter.flowcontrol.FlowControlStrategy;
 
 import org.apache.spark.sql.catalyst.InternalRow;
 
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -42,12 +40,11 @@ public class InternalRowCollector implements Collector<SeaTunnelRow> {
     public InternalRowCollector(
             Handover<InternalRow> handover,
             Object checkpointLock,
-            List<CatalogTable> catalogTables,
+            InternalRowConverter rowSerialization,
             Map<String, String> envOptionsInfo) {
         this.handover = handover;
         this.checkpointLock = checkpointLock;
-        this.rowSerialization =
-                new InternalRowConverter(catalogTables.get(0).getSeaTunnelRowType());
+        this.rowSerialization = rowSerialization;
         this.collectTotalCount = new AtomicLong(0);
         this.envOptions = (Map) envOptionsInfo;
         this.flowControlGate = FlowControlGate.create(FlowControlStrategy.fromMap(envOptions));
@@ -84,5 +81,9 @@ public class InternalRowCollector implements Collector<SeaTunnelRow> {
     @Override
     public void resetEmptyThisPollNext() {
         this.emptyThisPollNext = true;
+    }
+
+    public InternalRowConverter getRowSerialization() {
+        return rowSerialization;
     }
 }

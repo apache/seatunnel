@@ -19,25 +19,16 @@ package org.apache.seatunnel.translation.spark.execution;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 
 import java.io.Serializable;
+import java.util.Arrays;
 
 public class ColumnWithIndex implements Serializable {
 
     private int[] index;
     private CatalogTable catalogTable;
-    private CatalogTable mergeCatalogTable;
 
-    public ColumnWithIndex(int[] index, CatalogTable catalogTable, CatalogTable mergeCatalogTable) {
+    public ColumnWithIndex(int[] index, CatalogTable catalogTable) {
         this.index = index;
         this.catalogTable = catalogTable;
-        this.mergeCatalogTable = mergeCatalogTable;
-    }
-
-    public void setMergeCatalogTable(CatalogTable mergeCatalogTable) {
-        this.mergeCatalogTable = mergeCatalogTable;
-    }
-
-    public CatalogTable getMergeCatalogTable() {
-        return mergeCatalogTable;
     }
 
     public int[] getIndex() {
@@ -46,5 +37,17 @@ public class ColumnWithIndex implements Serializable {
 
     public CatalogTable getCatalogTable() {
         return catalogTable;
+    }
+
+    @Override
+    public String toString() {
+        return "ColumnWithIndex{"
+                + "table="
+                + catalogTable.getTablePath()
+                + ", index="
+                + Arrays.toString(index)
+                + ", schema="
+                + catalogTable.getSeaTunnelRowType()
+                + '}';
     }
 }

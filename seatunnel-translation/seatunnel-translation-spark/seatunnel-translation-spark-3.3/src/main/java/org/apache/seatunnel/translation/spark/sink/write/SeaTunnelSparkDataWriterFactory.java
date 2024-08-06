@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.translation.spark.execution.MultiTableManager;
 
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.connector.write.DataWriter;
@@ -62,10 +63,8 @@ public class SeaTunnelSparkDataWriterFactory<CommitInfoT, StateT>
         } catch (IOException e) {
             throw new RuntimeException("Failed to create SinkCommitter.", e);
         }
-        if (catalogTables.length > 1) {
-            return new SeaTunnelSparkDataMultiWriter(writer, committer, catalogTables, 0);
-        }
-        return new SeaTunnelSparkDataWriter<>(writer, committer, catalogTables[0], 0);
+        return new SeaTunnelSparkDataWriter<>(
+                writer, committer, new MultiTableManager(catalogTables), 0);
     }
 
     @Override

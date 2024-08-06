@@ -22,9 +22,8 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.utils.SerializationUtils;
+import org.apache.seatunnel.translation.spark.execution.MultiTableManager;
 import org.apache.seatunnel.translation.spark.sink.write.SeaTunnelWriteBuilder;
-import org.apache.seatunnel.translation.spark.utils.SchemaUtil;
-import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.spark.sql.connector.catalog.SupportsWrite;
@@ -36,7 +35,6 @@ import org.apache.spark.sql.types.StructType;
 
 import com.google.common.collect.Sets;
 
-import java.util.Arrays;
 import java.util.Map;
 import java.util.Set;
 
@@ -80,14 +78,7 @@ public class SeaTunnelSinkTable implements Table, SupportsWrite {
 
     @Override
     public StructType schema() {
-        if (catalogTables.length == 1) {
-            return (StructType) TypeConverterUtils.parcel(catalogTables[0].getSeaTunnelRowType());
-        }
-        return (StructType)
-                TypeConverterUtils.parcel(
-                        SchemaUtil.mergeSchema(Arrays.asList(catalogTables))[0]
-                                .getMergeCatalogTable()
-                                .getSeaTunnelRowType());
+        return new MultiTableManager(catalogTables).getTableSchema();
     }
 
     @Override

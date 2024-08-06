@@ -19,12 +19,14 @@ package org.apache.seatunnel.translation.spark.source;
 
 import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.utils.SerializationUtils;
+import org.apache.seatunnel.translation.spark.execution.MultiTableManager;
 import org.apache.seatunnel.translation.spark.source.scan.SeaTunnelScanBuilder;
-import org.apache.seatunnel.translation.spark.utils.SchemaUtil;
-import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.spark.sql.SparkSession;
@@ -38,6 +40,7 @@ import org.apache.spark.sql.util.CaseInsensitiveStringMap;
 
 import com.google.common.collect.Sets;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -49,6 +52,8 @@ public class SeaTunnelSourceTable implements Table, SupportsRead {
 
     private final SeaTunnelSource<SeaTunnelRow, ?, ?> source;
 
+    private final MultiTableManager multiTableManager;
+
     public SeaTunnelSourceTable(Map<String, String> properties) {
         this.properties = properties;
         String sourceSerialization = properties.getOrDefault(Constants.SOURCE_SERIALIZATION, "");
@@ -56,6 +61,16 @@ public class SeaTunnelSourceTable implements Table, SupportsRead {
             throw new IllegalArgumentException("source.serialization must be specified");
         }
         this.source = SerializationUtils.stringToObject(sourceSerialization);
+        List<CatalogTable> catalogTables;
+        try {
+            catalogTables = source.getProducedCatalogTables();
+        } catch (UnsupportedOperationException e) {
+            // TODO remove it when all connector use `getProducedCatalogTables`
+            SeaTunnelDataType<?> seaTunnelDataType = source.getProducedType();
+            catalogTables =
+                    CatalogTableUtil.convertDataTypeToCatalogTables(seaTunnelDataType, "default");
+        }
+        multiTableManager = new MultiTableManager(catalogTables.toArray(new CatalogTable[0]));
     }
 
     /**
@@ -70,7 +85,7 @@ public class SeaTunnelSourceTable implements Table, SupportsRead {
                 Integer.parseInt(properties.getOrDefault(CommonOptions.PARALLELISM.key(), "1"));
         String applicationId = SparkSession.getActiveSession().get().sparkContext().applicationId();
         return new SeaTunnelScanBuilder(
-                source, parallelism, applicationId, caseInsensitiveStringMap);
+                source, parallelism, applicationId, caseInsensitiveStringMap, multiTableManager);
     }
 
     /** A name to identify this table */
@@ -82,14 +97,7 @@ public class SeaTunnelSourceTable implements Table, SupportsRead {
     /** Returns the schema of this table */
     @Override
     public StructType schema() {
-        if (source.getProducedCatalogTables().size() == 1) {
-            return (StructType) TypeConverterUtils.parcel(source.getProducedType());
-        }
-        return (StructType)
-                TypeConverterUtils.parcel(
-                        SchemaUtil.mergeSchema(source.getProducedCatalogTables())[0]
-                                .getMergeCatalogTable()
-                                .getSeaTunnelRowType());
+        return multiTableManager.getTableSchema();
     }
 
     /** Returns the set of capabilities for this table */

@@ -21,10 +21,8 @@ import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportResourceShare;
-import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.translation.serialization.RowConverter;
-import org.apache.seatunnel.translation.spark.serialization.InternalRowConverter;
+import org.apache.seatunnel.translation.spark.execution.MultiTableManager;
 
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.sources.v2.writer.DataWriter;
@@ -44,26 +42,27 @@ public class SparkDataWriter<CommitInfoT, StateT> implements DataWriter<Internal
     protected final SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter;
 
     @Nullable protected final SinkCommitter<CommitInfoT> sinkCommitter;
-    protected final RowConverter<InternalRow> rowConverter;
     protected CommitInfoT latestCommitInfoT;
     protected long epochId;
     protected volatile MultiTableResourceManager resourceManager;
 
+    private final MultiTableManager multiTableManager;
+
     SparkDataWriter(
             SinkWriter<SeaTunnelRow, CommitInfoT, StateT> sinkWriter,
             @Nullable SinkCommitter<CommitInfoT> sinkCommitter,
-            CatalogTable catalogTable,
+            MultiTableManager multiTableManager,
             long epochId) {
         this.sinkWriter = sinkWriter;
         this.sinkCommitter = sinkCommitter;
-        this.rowConverter = new InternalRowConverter(catalogTable.getSeaTunnelRowType());
         this.epochId = epochId == 0 ? 1 : epochId;
+        this.multiTableManager = multiTableManager;
         initResourceManger();
     }
 
     @Override
     public void write(InternalRow record) throws IOException {
-        sinkWriter.write(rowConverter.reconvert(record));
+        sinkWriter.write(multiTableManager.reconvert(record));
     }
 
     protected void initResourceManger() {

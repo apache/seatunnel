@@ -106,7 +106,6 @@ public class SparkRuntimeEnvironment implements RuntimeEnvironment {
             this.jobName = config.getString("job.name");
         }
         sparkConf = createSparkConf();
-        sparkConf.set("spark.sql.unsafe.enabled", "false");
         SparkSession.Builder builder = SparkSession.builder().config(sparkConf);
         if (enableHive) {
             builder.enableHiveSupport();
