@@ -68,12 +68,13 @@ public class SeaTunnelRowSerializer implements DorisSerializer {
                         fieldNames.toArray(new String[0]),
                         fieldTypes.toArray(new SeaTunnelDataType<?>[0]));
 
-        this.jsonSerializationSchema = new JsonSerializationSchema(seaTunnelRowType, NULL_VALUE);
+        this.jsonSerializationSchema =
+                new JsonSerializationSchema(this.seaTunnelRowType, NULL_VALUE);
         ObjectMapper mapper = jsonSerializationSchema.getMapper();
         mapper.configure(JsonGenerator.Feature.WRITE_BIGDECIMAL_AS_PLAIN, true);
         this.textSerializationSchema =
                 TextSerializationSchema.builder()
-                        .seaTunnelRowType(seaTunnelRowType)
+                        .seaTunnelRowType(this.seaTunnelRowType)
                         .delimiter(fieldDelimiter)
                         .nullValue(NULL_VALUE)
                         .build();
