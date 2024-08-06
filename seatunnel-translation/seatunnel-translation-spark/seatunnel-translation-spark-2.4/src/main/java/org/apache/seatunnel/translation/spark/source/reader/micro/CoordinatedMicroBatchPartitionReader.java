@@ -60,7 +60,8 @@ public class CoordinatedMicroBatchPartitionReader extends ParallelMicroBatchPart
                 checkpointPath,
                 hdfsRoot,
                 hdfsUser,
-                envOptions);
+                envOptions,
+                multiTableManager);
         this.collectorMap = new HashMap<>(parallelism);
         for (int i = 0; i < parallelism; i++) {
             collectorMap.put(
