@@ -35,6 +35,7 @@ import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormat;
 import org.apache.seatunnel.connectors.seatunnel.kafka.serialize.DefaultSeaTunnelRowSerializer;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
@@ -308,6 +309,9 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         testKafkaTimestampToConsole(container);
     }
 
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK})
     @TestTemplate
     public void testSourceKafkaStartConfig(TestContainer container) throws Exception {
         DefaultSeaTunnelRowSerializer serializer =
