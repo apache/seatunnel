@@ -45,6 +45,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -130,9 +131,18 @@ public class DorisCDCSinkIT extends AbstractDorisIT {
 
     @TestTemplate
     public void testDorisCDCSink(TestContainer container) throws Exception {
-        Container.ExecResult execResult =
-                container.executeJob("/write-cdc-changelog-to-doris.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
+
+        clearTable(DATABASE, SINK_TABLE);
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.executeJob("/write-cdc-changelog-to-doris.conf");
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
 
         String sinkSql = String.format("select * from %s.%s", DATABASE, SINK_TABLE);
 
@@ -181,6 +191,8 @@ public class DorisCDCSinkIT extends AbstractDorisIT {
                             }
                             Assertions.assertIterableEquals(expectedAfterDelete, actual);
                         });
+        executeSql(
+                "INSERT INTO " + MYSQL_DATABASE + "." + SOURCE_TABLE + " VALUES (1, 'Alice', 95)");
     }
 
     private void initializeJdbcTable() {
@@ -191,6 +203,14 @@ public class DorisCDCSinkIT extends AbstractDorisIT {
             statement.execute(DDL_SINK);
         } catch (SQLException e) {
             throw new RuntimeException("Initializing table failed!", e);
+        }
+    }
+
+    private void executeDorisSql(String sql) {
+        try (Statement statement = jdbcConnection.createStatement()) {
+            statement.execute(sql);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
         }
     }
 
@@ -208,5 +228,9 @@ public class DorisCDCSinkIT extends AbstractDorisIT {
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private void clearTable(String database, String tableName) {
+        executeDorisSql("truncate table " + database + "." + tableName);
     }
 }
