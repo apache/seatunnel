@@ -220,7 +220,7 @@ public class TDengineIT extends TestSuiteBase implements TestResource {
                 "d1001,2018-10-03 14:38:05.000,10.30000,219,0.31000,'California.SanFrancisco',2,true",
                 "d1001,2018-10-03 14:38:15.000,12.60000,218,0.33000,'California.SanFrancisco',2,false",
                 "d1001,2018-10-03 14:38:16.800,12.30000,221,0.31000,'California.SanFrancisco',2,true",
-                "d1002,2018-10-03 14:38:16.650,10.30000,218,0.25000,'California.SanFrancisco',3,true",
+                "d1002,2018-10-03 14:38:16.650,10.30000,null,0.25000,'California.SanFrancisco',3,true",//without reader/sinker null checker,data like this will cause null-exception
                 "d1003,2018-10-03 14:38:05.500,11.80000,221,0.28000,'California.LosAngeles',2,true",
                 "d1003,2018-10-03 14:38:16.600,13.40000,223,0.29000,'California.LosAngeles',2,true",
                 "d1004,2018-10-03 14:38:05.000,10.80000,223,0.29000,'California.LosAngeles',3,true",

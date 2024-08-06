@@ -151,6 +151,10 @@ public class TDengineSourceReader implements SourceReader<SeaTunnelRow, TDengine
     }
 
     private Object convertDataType(Object object) {
+        if (object == null) {
+            log.debug("fast fail 2 prevent null exception followed");
+            return null;
+        }
         if (Timestamp.class.equals(object.getClass())) {
             return ((Timestamp) object).toLocalDateTime();
         } else if (byte[].class.equals(object.getClass())) {
