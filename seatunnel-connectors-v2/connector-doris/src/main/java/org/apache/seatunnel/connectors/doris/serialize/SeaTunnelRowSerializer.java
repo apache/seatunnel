@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.doris.serialize;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonGenerator;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
+import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -43,8 +44,7 @@ public class SeaTunnelRowSerializer implements DorisSerializer {
     private final SeaTunnelRowType seaTunnelRowType;
     private final String fieldDelimiter;
     private final boolean enableDelete;
-    private final JsonSerializationSchema jsonSerializationSchema;
-    private final TextSerializationSchema textSerializationSchema;
+    private final SerializationSchema serialize;
 
     public SeaTunnelRowSerializer(
             String type,
@@ -68,26 +68,30 @@ public class SeaTunnelRowSerializer implements DorisSerializer {
                         fieldNames.toArray(new String[0]),
                         fieldTypes.toArray(new SeaTunnelDataType<?>[0]));
 
-        this.jsonSerializationSchema =
-                new JsonSerializationSchema(this.seaTunnelRowType, NULL_VALUE);
-        ObjectMapper mapper = jsonSerializationSchema.getMapper();
-        mapper.configure(JsonGenerator.Feature.WRITE_BIGDECIMAL_AS_PLAIN, true);
-        this.textSerializationSchema =
-                TextSerializationSchema.builder()
-                        .seaTunnelRowType(this.seaTunnelRowType)
-                        .delimiter(fieldDelimiter)
-                        .nullValue(NULL_VALUE)
-                        .build();
+        if (JSON.equals(type)) {
+            JsonSerializationSchema jsonSerializationSchema =
+                    new JsonSerializationSchema(this.seaTunnelRowType, NULL_VALUE);
+            ObjectMapper mapper = jsonSerializationSchema.getMapper();
+            mapper.configure(JsonGenerator.Feature.WRITE_BIGDECIMAL_AS_PLAIN, true);
+            this.serialize = jsonSerializationSchema;
+        } else {
+            this.serialize =
+                    TextSerializationSchema.builder()
+                            .seaTunnelRowType(this.seaTunnelRowType)
+                            .delimiter(fieldDelimiter)
+                            .nullValue(NULL_VALUE)
+                            .build();
+        }
     }
 
     public byte[] buildJsonString(SeaTunnelRow row) {
 
-        return jsonSerializationSchema.serialize(row);
+        return serialize.serialize(row);
     }
 
     public byte[] buildCSVString(SeaTunnelRow row) {
 
-        return textSerializationSchema.serialize(row);
+        return serialize.serialize(row);
     }
 
     public String parseDeleteSign(RowKind rowKind) {
