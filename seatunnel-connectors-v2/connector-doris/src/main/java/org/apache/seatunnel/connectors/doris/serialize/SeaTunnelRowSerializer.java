@@ -43,6 +43,8 @@ public class SeaTunnelRowSerializer implements DorisSerializer {
     private final SeaTunnelRowType seaTunnelRowType;
     private final String fieldDelimiter;
     private final boolean enableDelete;
+    private final JsonSerializationSchema jsonSerializationSchema;
+    private final TextSerializationSchema textSerializationSchema;
 
     public SeaTunnelRowSerializer(
             String type,
@@ -50,32 +52,41 @@ public class SeaTunnelRowSerializer implements DorisSerializer {
             String fieldDelimiter,
             boolean enableDelete) {
         this.type = type;
-        this.seaTunnelRowType = seaTunnelRowType;
         this.fieldDelimiter = fieldDelimiter;
         this.enableDelete = enableDelete;
-    }
+        List<Object> fieldNames = new ArrayList<>(Arrays.asList(seaTunnelRowType.getFieldNames()));
+        List<SeaTunnelDataType<?>> fieldTypes =
+                new ArrayList<>(Arrays.asList(seaTunnelRowType.getFieldTypes()));
 
-    public byte[] buildJsonString(SeaTunnelRow row, SeaTunnelRowType seaTunnelRowType)
-            throws IOException {
+        if (enableDelete) {
+            fieldNames.add(LoadConstants.DORIS_DELETE_SIGN);
+            fieldTypes.add(STRING_TYPE);
+        }
 
-        JsonSerializationSchema jsonSerializationSchema =
-                new JsonSerializationSchema(seaTunnelRowType, NULL_VALUE);
+        this.seaTunnelRowType =
+                new SeaTunnelRowType(
+                        fieldNames.toArray(new String[0]),
+                        fieldTypes.toArray(new SeaTunnelDataType<?>[0]));
+
+        this.jsonSerializationSchema = new JsonSerializationSchema(seaTunnelRowType, NULL_VALUE);
         ObjectMapper mapper = jsonSerializationSchema.getMapper();
         mapper.configure(JsonGenerator.Feature.WRITE_BIGDECIMAL_AS_PLAIN, true);
-        return jsonSerializationSchema.serialize(row);
-    }
-
-    public byte[] buildCSVString(SeaTunnelRow row, SeaTunnelRowType seaTunnelRowType)
-            throws IOException {
-
-        TextSerializationSchema build =
+        this.textSerializationSchema =
                 TextSerializationSchema.builder()
                         .seaTunnelRowType(seaTunnelRowType)
                         .delimiter(fieldDelimiter)
                         .nullValue(NULL_VALUE)
                         .build();
+    }
 
-        return build.serialize(row);
+    public byte[] buildJsonString(SeaTunnelRow row) {
+
+        return jsonSerializationSchema.serialize(row);
+    }
+
+    public byte[] buildCSVString(SeaTunnelRow row) {
+
+        return textSerializationSchema.serialize(row);
     }
 
     public String parseDeleteSign(RowKind rowKind) {
@@ -94,31 +105,17 @@ public class SeaTunnelRowSerializer implements DorisSerializer {
     @Override
     public byte[] serialize(SeaTunnelRow seaTunnelRow) throws IOException {
 
-        List<Object> fieldNames = new ArrayList<>(Arrays.asList(seaTunnelRowType.getFieldNames()));
-        List<SeaTunnelDataType<?>> fieldTypes =
-                new ArrayList<>(Arrays.asList(seaTunnelRowType.getFieldTypes()));
-
         if (enableDelete) {
 
             List<Object> newFields = new ArrayList<>(Arrays.asList(seaTunnelRow.getFields()));
             newFields.add(parseDeleteSign(seaTunnelRow.getRowKind()));
             seaTunnelRow = new SeaTunnelRow(newFields.toArray());
-            fieldNames.add(LoadConstants.DORIS_DELETE_SIGN);
-            fieldTypes.add(STRING_TYPE);
         }
 
         if (JSON.equals(type)) {
-            return buildJsonString(
-                    seaTunnelRow,
-                    new SeaTunnelRowType(
-                            fieldNames.toArray(new String[0]),
-                            fieldTypes.toArray(new SeaTunnelDataType<?>[0])));
+            return buildJsonString(seaTunnelRow);
         } else if (CSV.equals(type)) {
-            return buildCSVString(
-                    seaTunnelRow,
-                    new SeaTunnelRowType(
-                            fieldNames.toArray(new String[0]),
-                            fieldTypes.toArray(new SeaTunnelDataType<?>[0])));
+            return buildCSVString(seaTunnelRow);
         } else {
             throw new IllegalArgumentException("The type " + type + " is not supported!");
         }
