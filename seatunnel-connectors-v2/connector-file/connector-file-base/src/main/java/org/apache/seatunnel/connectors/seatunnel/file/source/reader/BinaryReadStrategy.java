@@ -18,8 +18,8 @@
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
 import org.apache.seatunnel.api.source.Collector;
-import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
+import org.apache.seatunnel.api.table.type.BinaryRow;
+import org.apache.seatunnel.api.table.type.BinaryRowType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -37,10 +37,7 @@ public class BinaryReadStrategy extends AbstractReadStrategy {
 
     public static SeaTunnelRowType binaryRowType =
             new SeaTunnelRowType(
-                    new String[] {"data", "relativePath", "partIndex"},
-                    new SeaTunnelDataType[] {
-                        PrimitiveByteArrayType.INSTANCE, BasicType.STRING_TYPE, BasicType.LONG_TYPE
-                    });
+                    new String[] {"binary"}, new SeaTunnelDataType[] {BinaryRowType.INSTANCE});
 
     private File basePath;
 
@@ -75,7 +72,9 @@ public class BinaryReadStrategy extends AbstractReadStrategy {
                 if (readSize != maxSize) {
                     buffer = Arrays.copyOf(buffer, readSize);
                 }
-                SeaTunnelRow row = new SeaTunnelRow(new Object[] {buffer, relativePath, partIndex});
+                SeaTunnelRow row =
+                        new SeaTunnelRow(
+                                new Object[] {new BinaryRow(relativePath, buffer, partIndex)});
                 buffer = new byte[1024];
                 output.collect(row);
                 partIndex++;

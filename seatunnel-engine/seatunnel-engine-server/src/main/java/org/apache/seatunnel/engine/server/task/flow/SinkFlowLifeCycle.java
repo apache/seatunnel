@@ -267,10 +267,10 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                     return;
                 }
                 writer.write((T) record.getData());
-                sinkWriteCount.inc();
-                sinkWriteQPS.markEvent();
+                int count = 1;
                 if (record.getData() instanceof SeaTunnelRow) {
                     long size = ((SeaTunnelRow) record.getData()).getBytesSize();
+                    count = ((SeaTunnelRow) record.getData()).getCount();
                     sinkWriteBytes.inc(size);
                     sinkWriteBytesPerSeconds.markEvent(size);
                     String tableId = ((SeaTunnelRow) record.getData()).getTableId();
@@ -287,6 +287,8 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                         }
                     }
                 }
+                sinkWriteCount.inc(count);
+                sinkWriteQPS.markEvent();
             }
         } catch (Exception e) {
             throw new RuntimeException(e);

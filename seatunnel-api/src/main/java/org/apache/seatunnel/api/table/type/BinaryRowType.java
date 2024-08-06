@@ -17,30 +17,25 @@
 
 package org.apache.seatunnel.api.table.type;
 
-/** The sql type of {@link SeaTunnelDataType}. */
-public enum SqlType {
-    ARRAY,
-    MAP,
-    STRING,
-    BOOLEAN,
-    TINYINT,
-    SMALLINT,
-    INT,
-    BIGINT,
-    FLOAT,
-    DOUBLE,
-    DECIMAL,
-    NULL,
-    BYTES,
-    DATE,
-    TIME,
-    TIMESTAMP,
-    BINARY_VECTOR,
-    FLOAT_VECTOR,
-    FLOAT16_VECTOR,
-    BFLOAT16_VECTOR,
-    SPARSE_FLOAT_VECTOR,
-    ROW,
-    BINARY,
-    MULTIPLE_ROW;
+public class BinaryRowType implements SeaTunnelDataType<BinaryRow> {
+
+    public static final BinaryRowType INSTANCE = new BinaryRowType();
+
+    @Override
+    public Class<BinaryRow> getTypeClass() {
+        return BinaryRow.class;
+    }
+
+    @Override
+    public SqlType getSqlType() {
+        return SqlType.BINARY;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (obj == this) {
+            return true;
+        }
+        return obj instanceof PrimitiveByteArrayType;
+    }
 }

@@ -98,6 +98,19 @@ public final class SeaTunnelRow implements Serializable {
         return this.fields[pos] == null;
     }
 
+    public int getCount(SeaTunnelRowType rowType) {
+        int count = 1;
+        if (rowType.getFieldType(0) != null) {
+            switch (rowType.getFieldType(0).getSqlType()) {
+                case BINARY:
+                    return ((BinaryRow) fields[0]).getPartIndex() == 0 ? 1 : 0;
+                default:
+                    return count;
+            }
+        }
+        return count;
+    }
+
     public int getBytesSize(SeaTunnelRowType rowType) {
         if (size == 0) {
             int s = 0;
@@ -183,6 +196,9 @@ public final class SeaTunnelRow implements Serializable {
                     rowSize += getBytesForValue(row.fields[i], types[i]);
                 }
                 return rowSize;
+            case BINARY:
+                BinaryRow binaryObject = (BinaryRow) v;
+                return binaryObject.getData().length;
             default:
                 throw new UnsupportedOperationException("Unsupported type: " + sqlType);
         }
@@ -224,6 +240,20 @@ public final class SeaTunnelRow implements Serializable {
             }
         }
         return c;
+    }
+
+    public int getCount() {
+        int count = 1;
+        if (fields[0] != null) {
+            String clazz = (fields[0]).getClass().getSimpleName();
+            switch (clazz) {
+                case "BinaryRow":
+                    return ((BinaryRow) fields[0]).getPartIndex() == 0 ? 1 : 0;
+                default:
+                    return count;
+            }
+        }
+        return count;
     }
 
     public int getBytesSize() {

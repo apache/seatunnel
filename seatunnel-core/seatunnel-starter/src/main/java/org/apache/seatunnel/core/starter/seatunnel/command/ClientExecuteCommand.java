@@ -225,8 +225,12 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                                 Duration.between(startTime, endTime).getSeconds(),
                                 "Total Read Count",
                                 jobMetricsSummary.getSourceReadCount(),
+                                "Total Read Bytes",
+                                jobMetricsSummary.getSourceReadBytes(),
                                 "Total Write Count",
                                 jobMetricsSummary.getSinkWriteCount(),
+                                "Total Write Bytes",
+                                jobMetricsSummary.getSinkWriteBytes(),
                                 "Total Failed Count",
                                 jobMetricsSummary.getSourceReadCount()
                                         - jobMetricsSummary.getSinkWriteCount()));

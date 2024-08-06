@@ -116,10 +116,12 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
     @Override
     public void collect(T row) {
         try {
+            int count = 1;
             if (row instanceof SeaTunnelRow) {
                 String tableId = ((SeaTunnelRow) row).getTableId();
                 int size;
                 if (rowType instanceof SeaTunnelRowType) {
+                    count = ((SeaTunnelRow) row).getCount((SeaTunnelRowType) rowType);
                     size = ((SeaTunnelRow) row).getBytesSize((SeaTunnelRowType) rowType);
                 } else if (rowType instanceof MultipleRowType) {
                     size = ((SeaTunnelRow) row).getBytesSize(rowTypeMap.get(tableId));
@@ -145,7 +147,7 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
             }
             sendRecordToNext(new Record<>(row));
             emptyThisPollNext = false;
-            sourceReceivedCount.inc();
+            sourceReceivedCount.inc(count);
             sourceReceivedQPS.markEvent();
         } catch (IOException e) {
             throw new RuntimeException(e);
