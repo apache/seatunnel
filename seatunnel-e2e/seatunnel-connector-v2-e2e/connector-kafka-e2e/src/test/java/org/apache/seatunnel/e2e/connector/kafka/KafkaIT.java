@@ -309,11 +309,9 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         testKafkaTimestampToConsole(container);
     }
 
-    @DisabledOnContainer(
-            value = {},
-            type = {EngineType.SPARK})
     @TestTemplate
-    public void testSourceKafkaStartConfig(TestContainer container) throws Exception {
+    public void testSourceKafkaStartConfig(TestContainer container)
+            throws IOException, InterruptedException {
         DefaultSeaTunnelRowSerializer serializer =
                 DefaultSeaTunnelRowSerializer.create(
                         "test_topic_group",
@@ -322,6 +320,23 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                         DEFAULT_FIELD_DELIMITER);
         generateTestData(row -> serializer.serializeRow(row), 100, 150);
         testKafkaGroupOffsetsToConsole(container);
+    }
+
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "flink and spark won't commit offset when batch job finished")
+    @TestTemplate
+    public void testSourceKafkaStartConfigWithCommitOffset(TestContainer container)
+            throws Exception {
+        DefaultSeaTunnelRowSerializer serializer =
+                DefaultSeaTunnelRowSerializer.create(
+                        "test_topic_group_with_commit_offset",
+                        SEATUNNEL_ROW_TYPE,
+                        DEFAULT_FORMAT,
+                        DEFAULT_FIELD_DELIMITER);
+        generateTestData(row -> serializer.serializeRow(row), 0, 100);
+        testKafkaGroupOffsetsToConsoleWithCommitOffset(container);
     }
 
     @TestTemplate
@@ -514,13 +529,22 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     }
 
     public void testKafkaGroupOffsetsToConsole(TestContainer container)
-            throws IOException, InterruptedException, ExecutionException {
+            throws IOException, InterruptedException {
         Container.ExecResult execResult =
                 container.executeJob("/kafka/kafkasource_group_offset_to_console.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
 
-        String consumerGroup = "SeaTunnel-Consumer-Group-Test";
-        TopicPartition topicPartition = new TopicPartition("test_topic_group", 0);
+    public void testKafkaGroupOffsetsToConsoleWithCommitOffset(TestContainer container)
+            throws IOException, InterruptedException, ExecutionException {
+        Container.ExecResult execResult =
+                container.executeJob(
+                        "/kafka/kafkasource_group_offset_to_console_with_commit_offset.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        String consumerGroup = "SeaTunnel-Consumer-Group";
+        TopicPartition topicPartition =
+                new TopicPartition("test_topic_group_with_commit_offset", 0);
         try (AdminClient adminClient = createKafkaAdmin()) {
             ListConsumerGroupOffsetsOptions options =
                     new ListConsumerGroupOffsetsOptions()
@@ -541,7 +565,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                                         return offsets;
                                     })
                             .get();
-            Assertions.assertTrue(topicOffset.get(topicPartition) > 0);
+            Assertions.assertEquals(100L, topicOffset.get(topicPartition));
         }
     }
 
