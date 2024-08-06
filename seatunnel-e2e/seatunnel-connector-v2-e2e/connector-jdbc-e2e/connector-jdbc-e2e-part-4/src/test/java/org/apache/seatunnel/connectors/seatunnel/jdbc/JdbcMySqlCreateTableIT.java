@@ -59,7 +59,8 @@ import java.util.stream.Stream;
 @DisabledOnContainer(
         value = {},
         type = {EngineType.SPARK, EngineType.FLINK},
-        disabledReason = "Currently SPARK and FLINK do not support cdc")
+        disabledReason =
+                "Currently testcase does not depend on a specific engine, but needs to be started with the engine")
 public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResource {
     private static final String SQLSERVER_IMAGE = "mcr.microsoft.com/mssql/server:2022-latest";
     private static final String SQLSERVER_CONTAINER_HOST = "sqlserver";
