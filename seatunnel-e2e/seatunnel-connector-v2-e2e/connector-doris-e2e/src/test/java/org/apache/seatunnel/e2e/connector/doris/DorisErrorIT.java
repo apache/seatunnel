@@ -18,9 +18,7 @@
 package org.apache.seatunnel.e2e.connector.doris;
 
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
-import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
-import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
 import org.junit.jupiter.api.Assertions;
@@ -59,10 +57,6 @@ public class DorisErrorIT extends AbstractDorisIT {
             };
 
     @TestTemplate
-    @DisabledOnContainer(
-            value = {},
-            type = {EngineType.SPARK, EngineType.FLINK},
-            disabledReason = "flink/spark failed reason not same")
     public void testDoris(TestContainer container) throws InterruptedException, ExecutionException {
         initializeJdbcTable();
         CompletableFuture<Container.ExecResult> future =
