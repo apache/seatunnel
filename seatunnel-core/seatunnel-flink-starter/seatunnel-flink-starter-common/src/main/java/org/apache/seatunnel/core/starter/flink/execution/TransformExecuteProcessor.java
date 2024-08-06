@@ -36,7 +36,6 @@ import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.operators.StreamMap;
 
 import java.net.URL;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -107,7 +106,7 @@ public class TransformExecuteProcessor
                 upstreamDataStreams.add(
                         new DataStreamTableInfo(
                                 inputStream,
-                                Collections.singletonList(transform.getProducedCatalogTable()),
+                                transform.getProducedCatalogTable(),
                                 pluginConfig.hasPath(RESULT_TABLE_NAME.key())
                                         ? pluginConfig.getString(RESULT_TABLE_NAME.key())
                                         : null));

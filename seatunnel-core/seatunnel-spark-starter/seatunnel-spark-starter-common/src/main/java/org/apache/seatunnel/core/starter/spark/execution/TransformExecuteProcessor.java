@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactoryContext;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -48,7 +49,6 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.Serializable;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
@@ -122,7 +122,7 @@ public class TransformExecuteProcessor
                 upstreamDataStreams.add(
                         new DatasetTableInfo(
                                 inputDataset,
-                                Collections.singletonList(transform.getProducedCatalogTable()),
+                                transform.getProducedCatalogTable(),
                                 pluginConfig.hasPath(RESULT_TABLE_NAME.key())
                                         ? pluginConfig.getString(RESULT_TABLE_NAME.key())
                                         : null));
@@ -142,7 +142,7 @@ public class TransformExecuteProcessor
         SeaTunnelDataType<?> inputDataType =
                 tableInfo.getCatalogTables().get(0).getSeaTunnelRowType();
         SeaTunnelDataType<?> outputDataTYpe =
-                transform.getProducedCatalogTable().getSeaTunnelRowType();
+                ((CatalogTable) transform.getProducedCatalogTable().get(0)).getSeaTunnelRowType();
         StructType outputSchema = (StructType) TypeConverterUtils.parcel(outputDataTYpe);
         SeaTunnelRowConverter inputRowConverter = new SeaTunnelRowConverter(inputDataType);
         SeaTunnelRowConverter outputRowConverter = new SeaTunnelRowConverter(outputDataTYpe);

@@ -423,13 +423,6 @@ public class MultipleTableJobConfigParser {
                 inputIds.stream()
                         .map(tableWithActionMap::get)
                         .filter(Objects::nonNull)
-                        .peek(
-                                input -> {
-                                    if (input.size() > 1) {
-                                        throw new JobDefineCheckException(
-                                                "Adding transform to multi-table source is not supported.");
-                                    }
-                                })
                         .flatMap(Collection::stream)
                         .collect(Collectors.toList());
         if (inputs.isEmpty()) {
@@ -450,14 +443,18 @@ public class MultipleTableJobConfigParser {
                 inputs.stream()
                         .map(Tuple2::_2)
                         .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        List<CatalogTable> inputCatalogTables =
+                inputs.stream().map(Tuple2::_1).collect(Collectors.toList());
+
         checkProducedTypeEquals(inputActions);
         int spareParallelism = inputs.get(0)._2().getParallelism();
         int parallelism =
                 readonlyConfig.getOptional(CommonOptions.PARALLELISM).orElse(spareParallelism);
-        CatalogTable catalogTable = inputs.get(0)._1();
+
         SeaTunnelTransform<?> transform =
                 FactoryUtil.createAndPrepareTransform(
-                        catalogTable, readonlyConfig, classLoader, factoryId);
+                        inputCatalogTables, readonlyConfig, classLoader, factoryId);
         transform.setJobContext(jobConfig.getJobContext());
         long id = idGenerator.getNextId();
         String actionName = JobConfigParser.createTransformActionName(index, factoryId);
@@ -471,10 +468,14 @@ public class MultipleTableJobConfigParser {
                         jarUrls,
                         new HashSet<>());
         transformAction.setParallelism(parallelism);
-        tableWithActionMap.put(
-                tableId,
-                Collections.singletonList(
-                        new Tuple2<>(transform.getProducedCatalogTable(), transformAction)));
+        List<Tuple2<CatalogTable, Action>> actions = new ArrayList<>();
+        transform
+                .getProducedCatalogTable()
+                .forEach(
+                        t -> {
+                            actions.add(new Tuple2<>(t, transformAction));
+                        });
+        tableWithActionMap.put(tableId, actions);
     }
 
     public static SeaTunnelDataType<?> getProducedType(Action action) {
@@ -493,6 +494,7 @@ public class MultipleTableJobConfigParser {
             return ((TransformAction) action)
                     .getTransform()
                     .getProducedCatalogTable()
+                    .get(0)
                     .getSeaTunnelRowType();
         }
         throw new UnsupportedOperationException();

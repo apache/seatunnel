@@ -46,7 +46,6 @@ public class SplitTransform extends MultipleFieldOutputTransform {
             throw TransformCommonError.cannotFindInputFieldError(
                     getPluginName(), splitTransformConfig.getSplitField());
         }
-        this.outputCatalogTable = getProducedCatalogTable();
     }
 
     @Override

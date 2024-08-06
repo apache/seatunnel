@@ -25,10 +25,12 @@ import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 
 import lombok.NonNull;
 
-public abstract class AbstractCatalogSupportTransform implements SeaTunnelTransform<SeaTunnelRow> {
-    protected CatalogTable inputCatalogTable;
+import java.util.Collections;
+import java.util.List;
 
-    protected volatile CatalogTable outputCatalogTable;
+public abstract class AbstractCatalogSupportTransform implements SeaTunnelTransform<SeaTunnelRow> {
+
+    protected CatalogTable inputCatalogTable;
 
     public AbstractCatalogSupportTransform(@NonNull CatalogTable inputCatalogTable) {
         this.inputCatalogTable = inputCatalogTable;
@@ -47,16 +49,8 @@ public abstract class AbstractCatalogSupportTransform implements SeaTunnelTransf
     protected abstract SeaTunnelRow transformRow(SeaTunnelRow inputRow);
 
     @Override
-    public CatalogTable getProducedCatalogTable() {
-        if (outputCatalogTable == null) {
-            synchronized (this) {
-                if (outputCatalogTable == null) {
-                    outputCatalogTable = transformCatalogTable();
-                }
-            }
-        }
-
-        return outputCatalogTable;
+    public List<CatalogTable> getProducedCatalogTable() {
+        return Collections.singletonList(transformCatalogTable());
     }
 
     private CatalogTable transformCatalogTable() {
