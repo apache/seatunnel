@@ -35,12 +35,15 @@ import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormat;
 import org.apache.seatunnel.connectors.seatunnel.kafka.serialize.DefaultSeaTunnelRowSerializer;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.format.avro.AvroDeserializationSchema;
 import org.apache.seatunnel.format.text.TextSerializationSchema;
 
+import org.apache.kafka.clients.admin.AdminClient;
+import org.apache.kafka.clients.admin.ListConsumerGroupOffsetsOptions;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -80,13 +83,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 @Slf4j
-@DisabledOnContainer(
-        value = {},
-        disabledReason = "Override TestSuiteBase @DisabledOnContainer")
 public class KafkaIT extends TestSuiteBase implements TestResource {
     private static final String KAFKA_IMAGE_NAME = "confluentinc/cp-kafka:7.0.9";
 
@@ -318,6 +319,23 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         testKafkaGroupOffsetsToConsole(container);
     }
 
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "flink and spark won't commit offset when batch job finished")
+    @TestTemplate
+    public void testSourceKafkaStartConfigWithCommitOffset(TestContainer container)
+            throws Exception {
+        DefaultSeaTunnelRowSerializer serializer =
+                DefaultSeaTunnelRowSerializer.create(
+                        "test_topic_group_with_commit_offset",
+                        SEATUNNEL_ROW_TYPE,
+                        DEFAULT_FORMAT,
+                        DEFAULT_FIELD_DELIMITER);
+        generateTestData(row -> serializer.serializeRow(row), 0, 100);
+        testKafkaGroupOffsetsToConsoleWithCommitOffset(container);
+    }
+
     @TestTemplate
     @DisabledOnContainer(value = {TestContainerId.SPARK_2_4})
     public void testFakeSourceToKafkaAvroFormat(TestContainer container)
@@ -394,7 +412,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         };
         SeaTunnelRowType fake_source_row_type = new SeaTunnelRowType(fieldNames, fieldTypes);
         CatalogTable catalogTable =
-                CatalogTableUtil.getCatalogTable("", "", "", "", fake_source_row_type);
+                CatalogTableUtil.getCatalogTable("", "", "", "test", fake_source_row_type);
         AvroDeserializationSchema avroDeserializationSchema =
                 new AvroDeserializationSchema(catalogTable);
         List<SeaTunnelRow> kafkaSTRow =
@@ -446,7 +464,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
 
         CatalogTable catalogTable =
-                CatalogTableUtil.getCatalogTable("", "", "", "", SEATUNNEL_ROW_TYPE);
+                CatalogTableUtil.getCatalogTable("", "", "", "test", SEATUNNEL_ROW_TYPE);
 
         AvroDeserializationSchema avroDeserializationSchema =
                 new AvroDeserializationSchema(catalogTable);
@@ -514,11 +532,52 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
+    public void testKafkaGroupOffsetsToConsoleWithCommitOffset(TestContainer container)
+            throws IOException, InterruptedException, ExecutionException {
+        Container.ExecResult execResult =
+                container.executeJob(
+                        "/kafka/kafkasource_group_offset_to_console_with_commit_offset.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        String consumerGroup = "SeaTunnel-Consumer-Group";
+        TopicPartition topicPartition =
+                new TopicPartition("test_topic_group_with_commit_offset", 0);
+        try (AdminClient adminClient = createKafkaAdmin()) {
+            ListConsumerGroupOffsetsOptions options =
+                    new ListConsumerGroupOffsetsOptions()
+                            .topicPartitions(Arrays.asList(topicPartition));
+            Map<TopicPartition, Long> topicOffset =
+                    adminClient
+                            .listConsumerGroupOffsets(consumerGroup, options)
+                            .partitionsToOffsetAndMetadata()
+                            .thenApply(
+                                    result -> {
+                                        Map<TopicPartition, Long> offsets = new HashMap<>();
+                                        result.forEach(
+                                                (tp, oam) -> {
+                                                    if (oam != null) {
+                                                        offsets.put(tp, oam.offset());
+                                                    }
+                                                });
+                                        return offsets;
+                                    })
+                            .get();
+            Assertions.assertEquals(100L, topicOffset.get(topicPartition));
+        }
+    }
+
     public void testKafkaTimestampToConsole(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
                 container.executeJob("/kafka/kafkasource_timestamp_to_console.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    private AdminClient createKafkaAdmin() {
+        Properties props = new Properties();
+        String bootstrapServers = kafkaContainer.getBootstrapServers();
+        props.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        return AdminClient.create(props);
     }
 
     private void initKafkaProducer() {

@@ -178,10 +178,6 @@ hazelcast:
 TCP is the recommended method for use in a standalone SeaTunnel Engine cluster.
 
 Alternatively, Hazelcast provides several other service discovery methods. For more details, please refer to [Hazelcast Network](https://docs.hazelcast.com/imdg/4.1/clusters/setting-up-clusters)
---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-sidebar_position: 5
--------------------
 
 ### 5.3 IMap Persistence Configuration
 
@@ -262,7 +258,6 @@ map:
            fs.oss.accessKeyId: OSS access key id
            fs.oss.accessKeySecret: OSS access key secret
            fs.oss.endpoint: OSS endpoint
-           fs.oss.credentials.provider: org.apache.hadoop.fs.aliyun.oss.AliyunCredentialsProvider
 ```
 
 Notice: When using OSS, make sure that the following jars are in the lib directory.

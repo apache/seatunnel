@@ -4,6 +4,13 @@
 
 ## Description
 
+:::tip
+
+important clause
+You need to ensure the security of your service and prevent attackers from uploading destructive code
+
+:::
+
 Provide a programmable way to process rows, allowing users to customize any business behavior, even RPC requests based on existing row fields as parameters, or to expand fields by retrieving associated data from other data sources. To distinguish businesses, you can also define multiple transforms to combine,
 If the conversion is too complex, it may affect performance
 
@@ -55,7 +62,7 @@ The data read from source is a table like this:
 transform {
  DynamicCompile {
     source_table_name = "fake"
-    result_table_name = "fake1"
+    result_table_name = "groovy_out"
     compile_language="GROOVY"
     compile_pattern="SOURCE_CODE"
     source_code="""
@@ -70,7 +77,7 @@ transform {
                           List<Column> columns = new ArrayList<>();
                          PhysicalColumn destColumn =
                          PhysicalColumn.of(
-                         "aa",
+                         "compile_language",
                         BasicType.STRING_TYPE,
                          10,
                         true,
@@ -81,7 +88,7 @@ transform {
                      }
                      public Object[] getInlineOutputFieldValues(SeaTunnelRowAccessor inputRow) {
                        Object[] fieldValues = new Object[1];
-                       fieldValues[0]="AA"
+                       fieldValues[0]="GROOVY"
                        return fieldValues;
                      }
                  };"""
@@ -92,7 +99,7 @@ transform {
 transform {
  DynamicCompile {
     source_table_name = "fake"
-    result_table_name = "fake1"
+    result_table_name = "java_out"
     compile_language="JAVA"
     compile_pattern="SOURCE_CODE"
     source_code="""
@@ -106,7 +113,7 @@ transform {
                        ArrayList<Column> columns = new ArrayList<Column>();
                                                PhysicalColumn destColumn =
                                                PhysicalColumn.of(
-                                               "aa",
+                                               "compile_language",
                                               BasicType.STRING_TYPE,
                                                10,
                                               true,
@@ -119,7 +126,7 @@ transform {
                      }
                      public Object[] getInlineOutputFieldValues(SeaTunnelRowAccessor inputRow) {
                        Object[] fieldValues = new Object[1];
-                       fieldValues[0]="AA";
+                       fieldValues[0]="JAVA";
                        return fieldValues;
                      }
                 """
@@ -130,7 +137,7 @@ transform {
  transform {
  DynamicCompile {
     source_table_name = "fake"
-    result_table_name = "fake1"
+    result_table_name = "groovy_out"
     compile_language="GROOVY"
     compile_pattern="ABSOLUTE_PATH"
     absolute_path="""/tmp/GroovyFile"""
@@ -139,14 +146,26 @@ transform {
 }
 ```
 
-Then the data in result table `fake1` will like this
+Then the data in result table `groovy_out` will like this
 
-|   name   | age | card | aa |
-|----------|-----|------|----|
-| Joy Ding | 20  | 123  | AA |
-| May Ding | 20  | 123  | AA |
-| Kin Dom  | 20  | 123  | AA |
-| Joy Dom  | 20  | 123  | AA |
+|   name   | age | card | compile_language |
+|----------|-----|------|------------------|
+| Joy Ding | 20  | 123  | GROOVY           |
+| May Ding | 20  | 123  | GROOVY           |
+| Kin Dom  | 20  | 123  | GROOVY           |
+| Joy Dom  | 20  | 123  | GROOVY           |
+
+Then the data in result table `java_out` will like this
+
+|   name   | age | card | compile_language |
+|----------|-----|------|------------------|
+| Joy Ding | 20  | 123  | JAVA             |
+| May Ding | 20  | 123  | JAVA             |
+| Kin Dom  | 20  | 123  | JAVA             |
+| Joy Dom  | 20  | 123  | JAVA             |
+
+More complex examples can be referred to
+https://github.com/apache/seatunnel/tree/dev/seatunnel-e2e/seatunnel-transforms-v2-e2e/seatunnel-transforms-v2-e2e-part-2/src/test/resources/dynamic_compile/conf
 
 ## Changelog
 
