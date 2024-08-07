@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
@@ -57,6 +58,7 @@ public abstract class AbstractSeaTunnelServerTest<T extends AbstractSeaTunnelSer
                 TestUtils.getClusterName("AbstractSeaTunnelServerTest_" + name));
         SeaTunnelConfig seaTunnelConfig = loadSeaTunnelConfig();
         seaTunnelConfig.setHazelcastConfig(hazelcastConfig);
+        seaTunnelConfig.getEngineConfig().setMode(ExecutionMode.LOCAL);
         instance = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
         nodeEngine = instance.node.nodeEngine;
         server = nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
@@ -111,7 +113,8 @@ public abstract class AbstractSeaTunnelServerTest<T extends AbstractSeaTunnelSer
         Data data = nodeEngine.getSerializationService().toData(jobImmutableInformation);
 
         PassiveCompletableFuture<Void> voidPassiveCompletableFuture =
-                server.getCoordinatorService().submitJob(jobId, data);
+                server.getCoordinatorService()
+                        .submitJob(jobId, data, jobImmutableInformation.isStartWithSavePoint());
         voidPassiveCompletableFuture.join();
     }
 

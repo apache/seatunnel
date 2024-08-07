@@ -46,6 +46,8 @@ public class LocalFileSinkFactory extends BaseMultipleTableFileSinkFactory {
         return OptionRule.builder()
                 .required(BaseSinkConfig.FILE_PATH)
                 .optional(BaseSinkConfig.FILE_FORMAT_TYPE)
+                .optional(BaseSinkConfig.SCHEMA_SAVE_MODE)
+                .optional(BaseSinkConfig.DATA_SAVE_MODE)
                 .conditional(
                         BaseSinkConfig.FILE_FORMAT_TYPE,
                         FileFormat.TEXT,
@@ -102,9 +104,6 @@ public class LocalFileSinkFactory extends BaseMultipleTableFileSinkFactory {
             createSink(TableSinkFactoryContext context) {
         ReadonlyConfig readonlyConfig = context.getOptions();
         CatalogTable catalogTable = context.getCatalogTable();
-
-        ReadonlyConfig finalReadonlyConfig =
-                generateCurrentReadonlyConfig(readonlyConfig, catalogTable);
-        return () -> new LocalFileSink(finalReadonlyConfig, catalogTable);
+        return () -> new LocalFileSink(readonlyConfig, catalogTable);
     }
 }

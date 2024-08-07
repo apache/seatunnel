@@ -20,6 +20,7 @@ package org.apache.seatunnel.e2e.common.container.flink;
 import org.apache.seatunnel.e2e.common.container.AbstractTestContainer;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
@@ -167,5 +168,11 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
     public String executeJobManagerInnerCommand(String command)
             throws IOException, InterruptedException {
         return jobManager.execInContainer("bash", "-c", command).getStdout();
+    }
+
+    @Override
+    public void copyFileToContainer(String path, String targetPath) {
+        ContainerUtil.copyFileIntoContainers(
+                ContainerUtil.getResourcesFile(path).toPath(), targetPath, jobManager);
     }
 }

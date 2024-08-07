@@ -94,6 +94,7 @@
                 <db2.version>db2jcc4</db2.version>
                 <sqlite.version>3.39.3.0</sqlite.version>
                 <tablestore.version>5.13.9</tablestore.version>
+                <saphana.version>2.14.7</saphana.version>
                 <teradata.version>17.20.00.12</teradata.version>
                 <redshift.version>2.1.0.9</redshift.version>
                 <snowflake.version>3.13.29</snowflake.version>
@@ -575,6 +576,20 @@
                     <scope>provided</scope>
                 </dependency>
 
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-milvus</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-activemq</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+
                 <!-- jdbc driver -->
                 <dependency>
                     <groupId>com.aliyun.phoenix</groupId>
@@ -604,6 +619,12 @@
                     <groupId>com.dameng</groupId>
                     <artifactId>DmJdbcDriver18</artifactId>
                     <version>${dm-jdbc.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>com.sap.cloud.db.jdbc</groupId>
+                    <artifactId>ngdbc</artifactId>
+                    <version>${saphana.version}</version>
                     <scope>provided</scope>
                 </dependency>
                 <dependency>
@@ -688,7 +709,7 @@
                 <dependency>
                     <groupId>com.amazonaws</groupId>
                     <artifactId>aws-java-sdk-bundle</artifactId>
-                    <version>1.11.271</version>
+                    <version>${aws-java-sdk.version}</version>
                     <scope>provided</scope>
                 </dependency>
                 <dependency>
@@ -867,12 +888,6 @@
                     <groupId>org.apache.seatunnel</groupId>
                     <artifactId>seatunnel-spark-3-starter</artifactId>
                     <version>${project.version}</version>
-                    <scope>provided</scope>
-                </dependency>
-                <dependency>
-                    <groupId>com.amazonaws</groupId>
-                    <artifactId>aws-java-sdk-bundle</artifactId>
-                    <version>${aws-java-sdk.version}</version>
                     <scope>provided</scope>
                 </dependency>
                 <!-- seatunnel connectors for demo -->

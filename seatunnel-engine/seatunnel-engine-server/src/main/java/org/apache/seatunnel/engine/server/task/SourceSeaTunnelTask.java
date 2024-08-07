@@ -22,6 +22,8 @@ import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.core.starter.flowcontrol.FlowControlStrategy;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
@@ -37,9 +39,11 @@ import com.hazelcast.logging.Logger;
 import lombok.Getter;
 import lombok.NonNull;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunnelTask {
 
@@ -76,10 +80,16 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
                             + startFlowLifeCycle.getClass().getName());
         } else {
             SeaTunnelDataType sourceProducedType;
+            List<TablePath> tablePaths = new ArrayList<>();
             try {
                 List<CatalogTable> producedCatalogTables =
                         sourceFlow.getAction().getSource().getProducedCatalogTables();
                 sourceProducedType = CatalogTableUtil.convertToDataType(producedCatalogTables);
+                tablePaths =
+                        producedCatalogTables.stream()
+                                .map(CatalogTable::getTableId)
+                                .map(TableIdentifier::toTablePath)
+                                .collect(Collectors.toList());
             } catch (UnsupportedOperationException e) {
                 // TODO remove it when all connector use `getProducedCatalogTables`
                 sourceProducedType = sourceFlow.getAction().getSource().getProducedType();
@@ -90,7 +100,8 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
                             outputs,
                             this.getMetricsContext(),
                             FlowControlStrategy.fromMap(envOption),
-                            sourceProducedType);
+                            sourceProducedType,
+                            tablePaths);
             ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle).setCollector(collector);
         }
     }

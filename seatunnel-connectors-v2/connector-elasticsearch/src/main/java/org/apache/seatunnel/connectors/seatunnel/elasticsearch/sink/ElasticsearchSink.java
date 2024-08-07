@@ -71,8 +71,7 @@ public class ElasticsearchSink
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, ElasticsearchCommitInfo, ElasticsearchSinkState> createWriter(
-            SinkWriter.Context context) {
+    public ElasticsearchSinkWriter createWriter(SinkWriter.Context context) {
         return new ElasticsearchSinkWriter(
                 context, catalogTable, config, maxBatchSize, maxRetryCount);
     }

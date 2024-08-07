@@ -1,49 +1,46 @@
 ---
 
-sidebar_position: 1
+sidebar_position: 2
 -------------------
 
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-# Deployment
+# Download and Make Installation Packages
 
-## Step 1: Prepare the environment
+## Step 1: Preparation
 
-Before you getting start the local run, you need to make sure you already have installed the following software which SeaTunnel required:
+Before starting to download SeaTunnel, you need to ensure that you have installed the following software required by SeaTunnel:
 
-* [Java](https://www.java.com/en/download/) (Java 8 or 11, other versions greater than Java 8 can theoretically work as well) installed and `JAVA_HOME` set.
+* Install [Java](https://www.java.com/en/download/) (Java 8 or 11, and other versions higher than Java 8 can theoretically work) and set `JAVA_HOME`.
 
 ## Step 2: Download SeaTunnel
 
-Enter the [seatunnel download page](https://seatunnel.apache.org/download) and download the latest version of distribute
-package `seatunnel-<version>-bin.tar.gz`
+Visit the [SeaTunnel Download Page](https://seatunnel.apache.org/download) to download the latest binary package `seatunnel-<version>-bin.tar.gz`.
 
-Or you can download it by terminal
+Or you can also download it through the terminal:
 
 ```shell
-export version="2.3.6"
+export version="2.3.7"
 wget "https://archive.apache.org/dist/seatunnel/${version}/apache-seatunnel-${version}-bin.tar.gz"
 tar -xzvf "apache-seatunnel-${version}-bin.tar.gz"
 ```
 
-<!-- TODO: We should add example module as quick start which is no need for install Spark or Flink -->
+## Step 3: Download The Connector Plugins
 
-## Step 3: Install connectors plugin
-
-Since 2.2.0-beta, the binary package does not provide connector dependencies by default, so when using it for the first time, you need to execute the following command to install the connector: (Of course, you can also manually download the connector from [Apache Maven Repository](https://repo.maven.apache.org/maven2/org/apache/seatunnel/) to download, then manually move to the `connectors/seatunnel` directory).
+Starting from the 2.2.0-beta version, the binary package no longer provides the connector dependencies by default. Therefore, when using it for the first time, you need to execute the following command to install the connectors (Of course, you can also manually download the connector from the [Apache Maven Repository](https://repo.maven.apache.org/maven2/org/apache/seatunnel/), and then move it to the `connectors/seatunnel` directory) :
 
 ```bash
-sh bin/install-plugin.sh 2.3.6
+sh bin/install-plugin.sh
 ```
 
-If you need to specify the version of the connector, take 2.3.6 as an example, you need to execute
+If you need a specific connector version, taking 2.3.7 as an example, you need to execute the following command:
 
 ```bash
-sh bin/install-plugin.sh 2.3.6
+sh bin/install-plugin.sh 2.3.7
 ```
 
-Usually you don't need all the connector plugins, so you can specify the plugins you need by configuring `config/plugin_config`, for example, you only need the `connector-console` plugin, then you can modify plugin.properties as
+Usually you don't need all connector plugins, so you can specify the plugins you need through configuring `config/plugin_config`. For example, if you only need the `connector-console` plugin, you can modify the plugin.properties configuration file as follows:
 
 ```plugin_config
 --seatunnel-connectors--
@@ -51,7 +48,7 @@ connector-console
 --end--
 ```
 
-If you'd like to make a sample application to work properly, you need to add the following plugins
+If you want the example application to work properly, you need to add the following plugins.
 
 ```plugin_config
 --seatunnel-connectors--
@@ -60,25 +57,18 @@ connector-console
 --end--
 ```
 
-You can find out all supported connectors and corresponding plugin_config configuration names under `${SEATUNNEL_HOME}/connectors/plugins-mapping.properties`.
+You can find all supported connectors and the corresponding plugin_config configuration names under `${SEATUNNEL_HOME}/connectors/plugins-mapping.properties`.
 
-:::tip
+:::tip Tip
 
-If you'd like to install the connector plugin by manually downloading the connector, you need to pay special attention to the following
-
-The connectors directory contains the following subdirectories, if they do not exist, you need to create them manually
-
-```
-flink
-flink-sql
-seatunnel
-spark
-```
-
-If you'd like to install the V2 connector plugin manually, you only need to download the V2 connector plugin you need and put them in the seatunnel directory
+If you want to install connector plugins by manually downloading connectors, you only need to download the related connector plugins and place them in the `${SEATUNNEL_HOME}/connectors/` directory.
 
 :::
 
-## What's More
+Now you have downloaded the SeaTunnel binary package and the connector plugins. Next, you can choose different engine option to run synchronization tasks.
 
-For now, you are already deployment SeaTunnel complete. You can follow [Quick Start](quick-start-seatunnel-engine.md) to configure and run a data synchronization job.
+If you use Flink to run the synchronization task, there is no need to deploy the SeaTunnel Engine service cluster. You can refer to [Quick Start of SeaTunnel Flink Engine](quick-start-flink.md) to run your synchronization task.
+
+If you use Spark to run the synchronization task, there is no need to deploy the SeaTunnel Engine service cluster. You can refer to [Quick Start of SeaTunnel Spark Engine](quick-start-spark.md) to run your synchronization task.
+
+If you use the builtin SeaTunnel Engine (Zeta) to run tasks, you need to deploy the SeaTunnel Engine service first. Refer to [Deployment of SeaTunnel Engine (Zeta) Service](quick-start-seatunnel-engine.md).

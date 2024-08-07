@@ -100,10 +100,9 @@ public class JdbcSink
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, XidInfo, JdbcSinkState> createWriter(
-            SinkWriter.Context context) {
+    public AbstractJdbcSinkWriter createWriter(SinkWriter.Context context) {
         TablePath sinkTablePath = catalogTable.getTablePath();
-        SinkWriter<SeaTunnelRow, XidInfo, JdbcSinkState> sinkWriter;
+        AbstractJdbcSinkWriter sinkWriter;
         if (jdbcSinkConfig.isExactlyOnce()) {
             sinkWriter =
                     new JdbcExactlyOnceSinkWriter(

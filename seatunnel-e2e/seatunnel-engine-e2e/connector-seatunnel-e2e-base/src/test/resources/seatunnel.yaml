@@ -22,8 +22,7 @@ seatunnel:
     queue-type: blockingqueue
     print-execution-info-interval: 10
     slot-service:
-      dynamic-slot: false
-      slot-num: 20
+      dynamic-slot: true
     checkpoint:
       interval: 300000
       timeout: 100000

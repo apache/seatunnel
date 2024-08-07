@@ -26,6 +26,7 @@
 | encoding           | string  | no   | utf8            |
 | hbase_extra_config | string  | no   | -               |
 | common-options     |         | no   | -               |
+| ttl                | long    | no   | -               |
 
 ### zookeeper_quorum [string]
 
@@ -95,6 +96,10 @@ hbase 客户端的写入缓冲区大小，默认 8 * 1024 * 1024
 
 hbase扩展配置
 
+### ttl [long]
+
+hbase 写入数据 TTL 时间，默认以表设置的TTL为准，单位毫秒
+
 ### 常见选项
 
 Sink 插件常用参数，详见 Sink 常用选项 [Sink Common Options](common-options.md)
@@ -112,6 +117,20 @@ Hbase {
   }
 }
 
+```
+
+## 写入指定列族
+
+```hocon
+Hbase {
+  zookeeper_quorum = "hbase_e2e:2181"
+  table = "assign_cf_table"
+  rowkey_column = ["id"]
+  family_name {
+    c_double = "cf1"
+    c_bigint = "cf2"
+  }
+}
 ```
 
 ## 更改日志

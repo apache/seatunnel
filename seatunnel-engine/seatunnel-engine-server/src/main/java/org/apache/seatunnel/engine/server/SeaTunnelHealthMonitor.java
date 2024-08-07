@@ -202,6 +202,7 @@ public class SeaTunnelHealthMonitor {
         public String render() {
             update();
             sb.setLength(0);
+            ipPort();
             renderProcessors();
             renderPhysicalMemory();
             renderSwap();
@@ -218,6 +219,11 @@ public class SeaTunnelHealthMonitor {
             renderClient();
             renderConnection();
             return sb.toString();
+        }
+
+        private void ipPort() {
+            sb.append("host=").append(node.address.getHost()).append(", ");
+            sb.append("port=").append(node.address.getPort()).append(", ");
         }
 
         private void renderConnection() {
