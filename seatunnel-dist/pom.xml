@@ -66,8 +66,11 @@
                             <appendAssemblyId>true</appendAssemblyId>
                         </configuration>
                     </execution>
-
                 </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
             </plugin>
         </plugins>
     </build>
@@ -83,6 +86,9 @@
                 </property>
             </activation>
             <properties>
+                <docker.build.skip>false</docker.build.skip>
+                <docker.verify.skip>false</docker.verify.skip>
+                <docker.push.skip>false</docker.push.skip>
                 <mysql.version>8.0.27</mysql.version>
                 <postgresql.version>42.4.3</postgresql.version>
                 <postgis.jdbc.version>2.5.1</postgis.jdbc.version>
