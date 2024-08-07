@@ -138,9 +138,9 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
             sinkTables.forEach(
                     tablePath ->
                             sinkWriteCountPerTable.put(
-                                    getFullName(tablePath),
+                                    tablePath.getFullName(),
                                     metricsContext.counter(
-                                            SINK_WRITE_COUNT + "#" + getFullName(tablePath))));
+                                            SINK_WRITE_COUNT + "#" + tablePath.getFullName())));
         }
     }
 
@@ -275,7 +275,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                     sinkWriteBytesPerSeconds.markEvent(size);
                     String tableId = ((SeaTunnelRow) record.getData()).getTableId();
                     if (StringUtils.isNotBlank(tableId)) {
-                        String tableName = getFullName(TablePath.of(tableId));
+                        String tableName = TablePath.of(tableId).getFullName();
                         Counter sinkTableCounter = sinkWriteCountPerTable.get(tableName);
                         if (Objects.nonNull(sinkTableCounter)) {
                             sinkTableCounter.inc();
@@ -344,13 +344,5 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                     ((SupportResourceShare) this.writer).initMultiTableResourceManager(1, 1);
             ((SupportResourceShare) this.writer).setMultiTableResourceManager(resourceManager, 0);
         }
-    }
-
-    private String getFullName(TablePath tablePath) {
-        if (StringUtils.isBlank(tablePath.getTableName())) {
-            tablePath =
-                    TablePath.of(tablePath.getDatabaseName(), tablePath.getSchemaName(), "default");
-        }
-        return tablePath.getFullName();
     }
 }

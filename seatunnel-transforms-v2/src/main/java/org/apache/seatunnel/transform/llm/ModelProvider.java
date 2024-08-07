@@ -15,23 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.connector.fake;
+package org.apache.seatunnel.transform.llm;
 
-import org.apache.seatunnel.e2e.common.TestSuiteBase;
-import org.apache.seatunnel.e2e.common.container.TestContainer;
-
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.TestTemplate;
-import org.testcontainers.containers.Container;
-
-import java.io.IOException;
-
-public class FakeWithTableNamesTT extends TestSuiteBase {
-    @TestTemplate
-    public void testFakeConnector(TestContainer container)
-            throws IOException, InterruptedException {
-        Container.ExecResult fakeWithTableNames =
-                container.executeJob("/fake_to_assert_with_tablenames.conf");
-        Assertions.assertEquals(0, fakeWithTableNames.getExitCode());
-    }
+public enum ModelProvider {
+    OPENAI
 }

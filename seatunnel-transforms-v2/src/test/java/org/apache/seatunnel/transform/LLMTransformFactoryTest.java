@@ -15,23 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.connector.fake;
+package org.apache.seatunnel.transform;
 
-import org.apache.seatunnel.e2e.common.TestSuiteBase;
-import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.transform.llm.LLMTransformFactory;
 
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.TestTemplate;
-import org.testcontainers.containers.Container;
+import org.junit.jupiter.api.Test;
 
-import java.io.IOException;
+public class LLMTransformFactoryTest {
 
-public class FakeWithTableNamesTT extends TestSuiteBase {
-    @TestTemplate
-    public void testFakeConnector(TestContainer container)
-            throws IOException, InterruptedException {
-        Container.ExecResult fakeWithTableNames =
-                container.executeJob("/fake_to_assert_with_tablenames.conf");
-        Assertions.assertEquals(0, fakeWithTableNames.getExitCode());
+    @Test
+    public void testOptionRule() throws Exception {
+        LLMTransformFactory replaceTransformFactory = new LLMTransformFactory();
+        Assertions.assertNotNull(replaceTransformFactory.optionRule());
     }
 }

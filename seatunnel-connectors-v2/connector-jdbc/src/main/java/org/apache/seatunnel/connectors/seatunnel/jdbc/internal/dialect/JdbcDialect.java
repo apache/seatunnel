@@ -41,8 +41,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.mysql.cj.MysqlType;
-
 import java.io.Serializable;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -533,8 +531,7 @@ public interface JdbcDialect extends Serializable {
                     "ALTER TABLE %s drop column %s", tableName, quoteIdentifier(oldColumnName));
         }
         TypeConverter<?> typeConverter = ConverterLoader.loadTypeConverter(dialectName());
-        BasicTypeDefine<MysqlType> typeBasicTypeDefine =
-                (BasicTypeDefine<MysqlType>) typeConverter.reconvert(newColumn);
+        BasicTypeDefine typeBasicTypeDefine = (BasicTypeDefine) typeConverter.reconvert(newColumn);
 
         String basicSql = buildAlterTableBasicSql(alterOperation, tableName);
         basicSql =
@@ -617,8 +614,7 @@ public interface JdbcDialect extends Serializable {
      * @param typeBasicTypeDefine type basic type define of new column
      * @return alter table sql with nullable for sink table
      */
-    default String decorateWithNullable(
-            String basicSql, BasicTypeDefine<MysqlType> typeBasicTypeDefine) {
+    default String decorateWithNullable(String basicSql, BasicTypeDefine typeBasicTypeDefine) {
         StringBuilder sql = new StringBuilder(basicSql);
         if (typeBasicTypeDefine.isNullable()) {
             sql.append("NULL ");
@@ -635,8 +631,7 @@ public interface JdbcDialect extends Serializable {
      * @param typeBasicTypeDefine type basic type define of new column
      * @return alter table sql with default value for sink table
      */
-    default String decorateWithDefaultValue(
-            String basicSql, BasicTypeDefine<MysqlType> typeBasicTypeDefine) {
+    default String decorateWithDefaultValue(String basicSql, BasicTypeDefine typeBasicTypeDefine) {
         Object defaultValue = typeBasicTypeDefine.getDefaultValue();
         if (Objects.nonNull(defaultValue)
                 && needsQuotesWithDefaultValue(typeBasicTypeDefine.getColumnType())
@@ -657,8 +652,7 @@ public interface JdbcDialect extends Serializable {
      * @param typeBasicTypeDefine type basic type define of new column
      * @return alter table sql with comment for sink table
      */
-    default String decorateWithComment(
-            String basicSql, BasicTypeDefine<MysqlType> typeBasicTypeDefine) {
+    default String decorateWithComment(String basicSql, BasicTypeDefine typeBasicTypeDefine) {
         String comment = typeBasicTypeDefine.getComment();
         StringBuilder sql = new StringBuilder(basicSql);
         if (StringUtils.isNotBlank(comment)) {
