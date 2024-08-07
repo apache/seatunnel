@@ -56,6 +56,7 @@ public class OceanBaseMySqlCatalog extends AbstractJdbcCatalog {
         SYS_DATABASES.add("LBACSYS");
         SYS_DATABASES.add("ORAAUDITOR");
         SYS_DATABASES.add("information_schema");
+        SYS_DATABASES.add("mysql");
         SYS_DATABASES.add("SYS");
     }
 
