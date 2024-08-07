@@ -595,7 +595,7 @@ public class PaimonSinkCDCIT extends TestSuiteBase implements TestResource {
         return result;
     }
 
-    protected Table getTable(String dbName, String tbName) {
+    private Table getTable(String dbName, String tbName) {
         try {
             return getCatalog().getTable(getIdentifier(dbName, tbName));
         } catch (Catalog.TableNotExistException e) {
