@@ -88,7 +88,7 @@ public class TestDynamicCompileIT extends TestSuiteBase implements TestResource 
                                 "bash",
                                 "-c",
                                 "mkdir -p /tmp/seatunnel/plugins/Fake/lib && cd /tmp/seatunnel/plugins/Fake/lib && wget  "
-                                        + "https://repo1.maven.org/maven2/com/squareup/okhttp3/okhttp/3.0.0/okhttp-3.0.0.jar");
+                                        + "https://repo1.maven.org/maven2/cn/hutool/hutool-all/5.3.6/hutool-all-5.3.6.jar");
                 Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
             };
 
