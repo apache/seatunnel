@@ -15,34 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform.common;
+package org.apache.seatunnel.transform;
 
-import org.apache.seatunnel.api.table.type.RowKind;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.transform.llm.LLMTransformFactory;
 
-import lombok.AllArgsConstructor;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-@AllArgsConstructor
-public class SeaTunnelRowAccessor {
-    private final SeaTunnelRow row;
+public class LLMTransformFactoryTest {
 
-    public int getArity() {
-        return row.getArity();
-    }
-
-    public String getTableId() {
-        return row.getTableId();
-    }
-
-    public RowKind getRowKind() {
-        return row.getRowKind();
-    }
-
-    public Object getField(int pos) {
-        return row.getField(pos);
-    }
-
-    public Object[] getFields() {
-        return row.getFields();
+    @Test
+    public void testOptionRule() throws Exception {
+        LLMTransformFactory replaceTransformFactory = new LLMTransformFactory();
+        Assertions.assertNotNull(replaceTransformFactory.optionRule());
     }
 }

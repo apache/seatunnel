@@ -15,34 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform.common;
+package org.apache.seatunnel.transform.llm;
 
-import org.apache.seatunnel.api.table.type.RowKind;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-
-import lombok.AllArgsConstructor;
-
-@AllArgsConstructor
-public class SeaTunnelRowAccessor {
-    private final SeaTunnelRow row;
-
-    public int getArity() {
-        return row.getArity();
-    }
-
-    public String getTableId() {
-        return row.getTableId();
-    }
-
-    public RowKind getRowKind() {
-        return row.getRowKind();
-    }
-
-    public Object getField(int pos) {
-        return row.getField(pos);
-    }
-
-    public Object[] getFields() {
-        return row.getFields();
-    }
+public enum ModelProvider {
+    OPENAI
 }
