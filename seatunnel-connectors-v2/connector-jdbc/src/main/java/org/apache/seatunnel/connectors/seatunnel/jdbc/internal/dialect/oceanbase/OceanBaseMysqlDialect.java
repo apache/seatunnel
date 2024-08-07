@@ -248,15 +248,12 @@ public class OceanBaseMysqlDialect implements JdbcDialect {
     }
 
     @Override
-    public String decorateOceanBaseWithComment(
-            String basicSql,
-            BasicTypeDefine<OceanBaseMysqlType> oceanBaseMysqlTypeBasicTypeDefine) {
-        OceanBaseMysqlType nativeType = oceanBaseMysqlTypeBasicTypeDefine.getNativeType();
+    public String decorateWithComment(String basicSql, BasicTypeDefine typeBasicTypeDefine) {
+        OceanBaseMysqlType nativeType = (OceanBaseMysqlType) typeBasicTypeDefine.getNativeType();
         if (NOT_SUPPORTED_DEFAULT_VALUES.contains(nativeType)) {
             return basicSql;
         }
-        return JdbcDialect.super.decorateOceanBaseWithComment(
-                basicSql, oceanBaseMysqlTypeBasicTypeDefine);
+        return JdbcDialect.super.decorateWithComment(basicSql, typeBasicTypeDefine);
     }
 
     @Override

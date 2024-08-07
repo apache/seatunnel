@@ -33,7 +33,6 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcCo
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.SimpleJdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oceanbase.OceanBaseMysqlType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
 
 import org.apache.commons.lang3.StringUtils;
@@ -653,16 +652,6 @@ public interface JdbcDialect extends Serializable {
      * @return alter table sql with comment for sink table
      */
     default String decorateWithComment(String basicSql, BasicTypeDefine typeBasicTypeDefine) {
-        String comment = typeBasicTypeDefine.getComment();
-        StringBuilder sql = new StringBuilder(basicSql);
-        if (StringUtils.isNotBlank(comment)) {
-            sql.append("COMMENT '").append(comment).append("'");
-        }
-        return sql.toString();
-    }
-
-    default String decorateOceanBaseWithComment(
-            String basicSql, BasicTypeDefine<OceanBaseMysqlType> typeBasicTypeDefine) {
         String comment = typeBasicTypeDefine.getComment();
         StringBuilder sql = new StringBuilder(basicSql);
         if (StringUtils.isNotBlank(comment)) {
