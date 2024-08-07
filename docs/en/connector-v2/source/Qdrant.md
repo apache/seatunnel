@@ -53,7 +53,7 @@ schema = {
   fields {
     age = int
     address = string
-    default = float_vector
+    default_vector = float_vector
   }
 }
 ```

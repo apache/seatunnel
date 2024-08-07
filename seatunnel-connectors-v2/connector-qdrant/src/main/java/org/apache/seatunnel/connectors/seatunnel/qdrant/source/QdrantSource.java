@@ -57,7 +57,7 @@ public class QdrantSource extends AbstractSingleSplitSource<SeaTunnelRow> {
 
     @Override
     public AbstractSingleSplitReader<SeaTunnelRow> createReader(
-            SingleSplitReaderContext readerContext) throws Exception {
+            SingleSplitReaderContext readerContext) {
         return new QdrantSourceReader(qdrantParameters, readerContext, catalogTable);
     }
 }

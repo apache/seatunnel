@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.qdrant.source;
 
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.RowKind;
@@ -42,6 +43,7 @@ import java.util.Map;
 import java.util.Objects;
 
 import static io.qdrant.client.WithPayloadSelectorFactory.enable;
+import static org.apache.seatunnel.api.table.catalog.PrimaryKey.isPrimaryKeyField;
 
 public class QdrantSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     private final QdrantParameters qdrantParameters;
@@ -75,10 +77,11 @@ public class QdrantSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
 
     @Override
     public void internalPollNext(Collector<SeaTunnelRow> output) throws Exception {
+        int SCROLL_SIZE = 64;
         Points.ScrollPoints request =
                 Points.ScrollPoints.newBuilder()
                         .setCollectionName(qdrantParameters.getCollectionName())
-                        .setLimit(100)
+                        .setLimit(SCROLL_SIZE)
                         .setWithPayload(enable(true))
                         .setWithVectors(WithVectorsSelectorFactory.enable(true))
                         .build();
@@ -104,12 +107,14 @@ public class QdrantSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
 
     private SeaTunnelRow convertToSeaTunnelRow(Points.RetrievedPoint point) {
         SeaTunnelRowType typeInfo = tableSchema.toPhysicalRowDataType();
+        PrimaryKey primaryKey = tableSchema.getPrimaryKey();
         Map<String, JsonWithInt.Value> payloadMap = point.getPayloadMap();
         Points.Vectors vectors = point.getVectors();
         Map<String, Points.Vector> vectorsMap = new HashMap<>();
+        String DEFAULT_VECTOR_KEY = "default_vector";
 
         if (vectors.hasVector()) {
-            vectorsMap.put("default_vector", vectors.getVector());
+            vectorsMap.put(DEFAULT_VECTOR_KEY, vectors.getVector());
         } else if (vectors.hasVectors()) {
             vectorsMap = vectors.getVectors().getVectorsMap();
         }
@@ -117,11 +122,23 @@ public class QdrantSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
         String[] fieldNames = typeInfo.getFieldNames();
         for (int fieldIndex = 0; fieldIndex < typeInfo.getTotalFields(); fieldIndex++) {
             SeaTunnelDataType<?> seaTunnelDataType = typeInfo.getFieldType(fieldIndex);
-            JsonWithInt.Value value = payloadMap.get(fieldNames[fieldIndex]);
-            Points.Vector vector = vectorsMap.get(fieldNames[fieldIndex]);
+            String fieldName = fieldNames[fieldIndex];
+
+            if (isPrimaryKeyField(primaryKey, fieldName)) {
+                Points.PointId id = point.getId();
+                if (id.hasNum()) {
+                    fields[fieldIndex] = id.getNum();
+                } else if (id.hasUuid()) {
+                    fields[fieldIndex] = id.getUuid();
+                }
+                continue;
+            }
+            JsonWithInt.Value value = payloadMap.get(fieldName);
+            Points.Vector vector = vectorsMap.get(fieldName);
             switch (seaTunnelDataType.getSqlType()) {
                 case NULL:
                     fields[fieldIndex] = null;
+                    break;
                 case STRING:
                     fields[fieldIndex] = value.getStringValue();
                     break;

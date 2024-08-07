@@ -32,7 +32,8 @@ public class QdrantSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
     private final QdrantBatchWriter batchWriter;
 
     public QdrantSinkWriter(CatalogTable catalog, QdrantParameters qdrantParameters) {
-        this.batchWriter = new QdrantBatchWriter(catalog, 64, qdrantParameters);
+        int BATCH_SIZE = 64;
+        this.batchWriter = new QdrantBatchWriter(catalog, BATCH_SIZE, qdrantParameters);
     }
 
     @Override

@@ -1,6 +1,6 @@
 # Qdrant
 
-> Qdrant sink connector
+> Qdrant Sink Connector
 
 ## Description
 
