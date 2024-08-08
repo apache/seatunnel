@@ -252,6 +252,11 @@ Milvus:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-milvus/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(milvus)/**'
+activemq:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-activemq/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(activemq)/**'
 Zeta Rest API:
   - changed-files:
       - any-glob-to-any-file: seatunnel-engine/**/server/rest/**

@@ -170,7 +170,7 @@ public class JsonRowDataSerDeSchemaTest {
                                         new MapType(STRING_TYPE, new MapType(STRING_TYPE, INT_TYPE))
                                     })
                         });
-        CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "", schema);
+        CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "test", schema);
         JsonDeserializationSchema deserializationSchema =
                 new JsonDeserializationSchema(catalogTables, false, false);
 
@@ -230,7 +230,7 @@ public class JsonRowDataSerDeSchemaTest {
                                     new SeaTunnelDataType[] {STRING_TYPE, INT_TYPE})
                         });
 
-        CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "", schema);
+        CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "test", schema);
 
         JsonDeserializationSchema deserializationSchema =
                 new JsonDeserializationSchema(catalogTables, false, false);
@@ -308,7 +308,7 @@ public class JsonRowDataSerDeSchemaTest {
                             new MapType(STRING_TYPE, DOUBLE_TYPE)
                         });
 
-        CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "", rowType);
+        CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "test", rowType);
 
         JsonDeserializationSchema deserializationSchema =
                 new JsonDeserializationSchema(catalogTables, false, true);
@@ -327,7 +327,7 @@ public class JsonRowDataSerDeSchemaTest {
     public void testDeserializationNullRow() throws Exception {
         SeaTunnelRowType schema =
                 new SeaTunnelRowType(new String[] {"name"}, new SeaTunnelDataType[] {STRING_TYPE});
-        CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "", schema);
+        CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "test", schema);
 
         JsonDeserializationSchema deserializationSchema =
                 new JsonDeserializationSchema(catalogTables, true, false);
@@ -339,7 +339,7 @@ public class JsonRowDataSerDeSchemaTest {
     public void testDeserializationMissingNode() throws Exception {
         SeaTunnelRowType schema =
                 new SeaTunnelRowType(new String[] {"name"}, new SeaTunnelDataType[] {STRING_TYPE});
-        CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "", schema);
+        CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "test", schema);
 
         JsonDeserializationSchema deserializationSchema =
                 new JsonDeserializationSchema(catalogTables, true, false);
@@ -359,7 +359,7 @@ public class JsonRowDataSerDeSchemaTest {
         SeaTunnelRowType schema =
                 new SeaTunnelRowType(new String[] {"name"}, new SeaTunnelDataType[] {STRING_TYPE});
 
-        CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "", schema);
+        CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "test", schema);
 
         // pass on missing field
         final JsonDeserializationSchema deser =
@@ -382,7 +382,7 @@ public class JsonRowDataSerDeSchemaTest {
         SeaTunnelRowType schema =
                 new SeaTunnelRowType(new String[] {"name"}, new SeaTunnelDataType[] {STRING_TYPE});
 
-        CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "", schema);
+        CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "test", schema);
 
         // fail on missing field
         final JsonDeserializationSchema deser =
@@ -418,7 +418,7 @@ public class JsonRowDataSerDeSchemaTest {
         SeaTunnelRowType schema =
                 new SeaTunnelRowType(new String[] {"name"}, new SeaTunnelDataType[] {STRING_TYPE});
         SeaTunnelRow expected = new SeaTunnelRow(1);
-        CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "", schema);
+        CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "test", schema);
 
         // ignore on parse error
         final JsonDeserializationSchema deser =
@@ -446,7 +446,7 @@ public class JsonRowDataSerDeSchemaTest {
         SeaTunnelRowType schema =
                 new SeaTunnelRowType(new String[] {"name"}, new SeaTunnelDataType[] {STRING_TYPE});
 
-        CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "", schema);
+        CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "test", schema);
 
         String noJson = "{]";
         final JsonDeserializationSchema deser =
@@ -600,5 +600,82 @@ public class JsonRowDataSerDeSchemaTest {
         Assertions.assertEquals(
                 "ErrorCode:[COMMON-33], ErrorDescription:[The datetime format '2022-09-24-22:45:00' of field 'timestamp_field' is not supported. Please check the datetime format.]",
                 exception2.getCause().getCause().getMessage());
+    }
+
+    @Test
+    public void testSerializationWithNullValue() {
+        SeaTunnelRowType schema =
+                new SeaTunnelRowType(
+                        new String[] {
+                            "bool", "int", "longValue", "float", "name", "date", "time", "timestamp"
+                        },
+                        new SeaTunnelDataType[] {
+                            BOOLEAN_TYPE,
+                            INT_TYPE,
+                            LONG_TYPE,
+                            FLOAT_TYPE,
+                            STRING_TYPE,
+                            LocalTimeType.LOCAL_DATE_TYPE,
+                            LocalTimeType.LOCAL_TIME_TYPE,
+                            LocalTimeType.LOCAL_DATE_TIME_TYPE
+                        });
+
+        Object[] fields = new Object[] {null, null, null, null, null, null, null, null};
+        SeaTunnelRow expected = new SeaTunnelRow(fields);
+        assertEquals(
+                "{\"bool\":\"\\\\N\",\"int\":\"\\\\N\",\"longValue\":\"\\\\N\",\"float\":\"\\\\N\",\"name\":\"\\\\N\",\"date\":\"\\\\N\",\"time\":\"\\\\N\",\"timestamp\":\"\\\\N\"}",
+                new String(new JsonSerializationSchema(schema, "\\N").serialize(expected)));
+    }
+
+    @Test
+    public void testSerializationWithMapHasNonStringKey() {
+        SeaTunnelRowType schema =
+                new SeaTunnelRowType(
+                        new String[] {"mapii", "mapbb"},
+                        new SeaTunnelDataType[] {
+                            new MapType(INT_TYPE, INT_TYPE), new MapType(BOOLEAN_TYPE, INT_TYPE)
+                        });
+        Map<Integer, Integer> mapII = new HashMap<>();
+        mapII.put(1, 2);
+
+        Map<Boolean, Integer> mapBI = new HashMap<>();
+        mapBI.put(true, 3);
+
+        Object[] fields = new Object[] {mapII, mapBI};
+        SeaTunnelRow expected = new SeaTunnelRow(fields);
+        assertEquals(
+                "{\"mapii\":{\"1\":2},\"mapbb\":{\"true\":3}}",
+                new String(new JsonSerializationSchema(schema, "\\N").serialize(expected)));
+    }
+
+    @Test
+    public void testSerializationWithTimestamp() {
+        SeaTunnelRowType schema =
+                new SeaTunnelRowType(
+                        new String[] {"timestamp"},
+                        new SeaTunnelDataType[] {LocalTimeType.LOCAL_DATE_TIME_TYPE});
+        LocalDateTime timestamp = LocalDateTime.of(2022, 9, 24, 22, 45, 0, 123456000);
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {timestamp});
+        assertEquals(
+                "{\"timestamp\":\"2022-09-24T22:45:00.123456\"}",
+                new String(new JsonSerializationSchema(schema, "\\N").serialize(row)));
+
+        timestamp = LocalDateTime.of(2022, 9, 24, 22, 45, 0, 0);
+        row = new SeaTunnelRow(new Object[] {timestamp});
+        assertEquals(
+                "{\"timestamp\":\"2022-09-24T22:45:00\"}",
+                new String(new JsonSerializationSchema(schema, "\\N").serialize(row)));
+
+        timestamp = LocalDateTime.of(2022, 9, 24, 22, 45, 0, 1000);
+        row = new SeaTunnelRow(new Object[] {timestamp});
+        assertEquals(
+                "{\"timestamp\":\"2022-09-24T22:45:00.000001\"}",
+                new String(new JsonSerializationSchema(schema, "\\N").serialize(row)));
+
+        timestamp = LocalDateTime.of(2022, 9, 24, 22, 45, 0, 123456);
+        row = new SeaTunnelRow(new Object[] {timestamp});
+        assertEquals(
+                "{\"timestamp\":\"2022-09-24T22:45:00.000123456\"}",
+                new String(new JsonSerializationSchema(schema, "\\N").serialize(row)));
     }
 }

@@ -77,8 +77,7 @@ public class DorisSink
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, DorisCommitInfo, DorisSinkState> createWriter(
-            SinkWriter.Context context) throws IOException {
+    public DorisSinkWriter createWriter(SinkWriter.Context context) throws IOException {
         return new DorisSinkWriter(
                 context, Collections.emptyList(), catalogTable, dorisConfig, jobId);
     }

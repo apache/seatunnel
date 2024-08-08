@@ -30,6 +30,7 @@ import org.apache.kafka.clients.admin.OffsetSpec;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.TopicPartition;
 
+import com.google.common.annotations.VisibleForTesting;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -80,6 +81,20 @@ public class KafkaSourceSplitEnumerator
         this.pendingSplit = new HashMap<>();
         this.adminClient = initAdminClient(this.kafkaSourceConfig.getProperties());
         this.discoveryIntervalMillis = kafkaSourceConfig.getDiscoveryIntervalMillis();
+    }
+
+    @VisibleForTesting
+    protected KafkaSourceSplitEnumerator(
+            AdminClient adminClient,
+            Map<TopicPartition, KafkaSourceSplit> pendingSplit,
+            Map<TopicPartition, KafkaSourceSplit> assignedSplit) {
+        this.tablePathMetadataMap = new HashMap<>();
+        this.context = null;
+        this.discoveryIntervalMillis = -1;
+        this.adminClient = adminClient;
+        this.kafkaSourceConfig = null;
+        this.pendingSplit = pendingSplit;
+        this.assignedSplit = assignedSplit;
     }
 
     @Override
@@ -180,7 +195,10 @@ public class KafkaSourceSplitEnumerator
     @Override
     public void addSplitsBack(List<KafkaSourceSplit> splits, int subtaskId) {
         if (!splits.isEmpty()) {
-            pendingSplit.putAll(convertToNextSplit(splits));
+            Map<TopicPartition, ? extends KafkaSourceSplit> nextSplit = convertToNextSplit(splits);
+            // remove them from the assignedSplit, so we can reassign them
+            nextSplit.keySet().forEach(assignedSplit::remove);
+            pendingSplit.putAll(nextSplit);
         }
     }
 

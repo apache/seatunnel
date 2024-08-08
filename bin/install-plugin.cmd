@@ -22,8 +22,8 @@ REM Get seatunnel home
 set "SEATUNNEL_HOME=%~dp0..\"
 echo Set SEATUNNEL_HOME to [%SEATUNNEL_HOME%]
 
-REM Connector default version is 2.3.6, you can also choose a custom version. eg: 2.1.2:  install-plugin.bat 2.1.2
-set "version=2.3.6"
+REM Connector default version is 2.3.7, you can also choose a custom version. eg: 2.1.2:  install-plugin.bat 2.1.2
+set "version=2.3.7"
 if not "%~1"=="" set "version=%~1"
 
 REM Create the lib directory

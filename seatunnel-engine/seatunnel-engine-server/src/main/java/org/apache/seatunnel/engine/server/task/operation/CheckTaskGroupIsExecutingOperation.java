@@ -46,7 +46,8 @@ public class CheckTaskGroupIsExecutingOperation extends Operation
         SeaTunnelServer server = getService();
         try {
             response =
-                    server.getTaskExecutionService().getExecutionContext(taskGroupLocation) != null;
+                    server.getTaskExecutionService().getActiveExecutionContext(taskGroupLocation)
+                            != null;
         } catch (TaskGroupContextNotFoundException e) {
             response = false;
         }

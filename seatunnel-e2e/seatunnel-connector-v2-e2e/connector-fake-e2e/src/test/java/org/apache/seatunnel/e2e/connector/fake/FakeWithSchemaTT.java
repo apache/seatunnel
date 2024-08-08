@@ -18,9 +18,7 @@
 package org.apache.seatunnel.e2e.connector.fake;
 
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
-import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
-import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestTemplate;
@@ -28,10 +26,6 @@ import org.testcontainers.containers.Container;
 
 import java.io.IOException;
 
-@DisabledOnContainer(
-        value = {},
-        type = {EngineType.SPARK, EngineType.FLINK},
-        disabledReason = "Currently SPARK and FLINK do not support CatalogTable")
 public class FakeWithSchemaTT extends TestSuiteBase {
     @TestTemplate
     public void testFakeConnector(TestContainer container)
