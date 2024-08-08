@@ -32,8 +32,8 @@ import java.io.IOException;
 
 @DisabledOnContainer(
         value = {},
-        type = {EngineType.SPARK, EngineType.FLINK},
-        disabledReason = "Currently SPARK and FLINK do not support multi table")
+        type = {EngineType.FLINK},
+        disabledReason = "Currently FLINK do not support multi table")
 public class LocalFileWithMultipleTableIT extends TestSuiteBase {
 
     /** Copy data files to container */
