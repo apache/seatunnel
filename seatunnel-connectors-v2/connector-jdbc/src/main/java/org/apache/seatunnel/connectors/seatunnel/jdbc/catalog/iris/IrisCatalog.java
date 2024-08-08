@@ -57,7 +57,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class IrisCatalog extends AbstractJdbcCatalog {
 
     private static final String LIST_TABLES_SQL_TEMPLATE =
-            "SELECT TABLE_SCHEMA,TABLE_NAME FROM INFORMATION_SCHEMA.Tables WHERE TABLE_SCHEMA='%s' and TABLE_TYPE != 'SYSTEM TABLE' and TABLE_TYPE != 'SYSTEM VIEW';";
+            "SELECT TABLE_SCHEMA,TABLE_NAME FROM INFORMATION_SCHEMA.Tables WHERE TABLE_SCHEMA='%s' and TABLE_TYPE != 'SYSTEM TABLE' and TABLE_TYPE != 'SYSTEM VIEW'";
 
     public IrisCatalog(
             String catalogName, String username, String password, JdbcUrlUtil.UrlInfo urlInfo) {
@@ -101,13 +101,6 @@ public class IrisCatalog extends AbstractJdbcCatalog {
         return schemaName + "." + tableName;
     }
 
-    //    @Override
-    //    protected String getSelectColumnsSql(TablePath tablePath) {
-    //        return String.format(
-    //                SELECT_COLUMNS_SQL_TEMPLATE, tablePath.getSchemaName(),
-    // tablePath.getTableName());
-    //    }
-
     @Override
     protected Column buildColumn(ResultSet resultSet) throws SQLException {
         String columnName = resultSet.getString("COLUMN_NAME");
@@ -144,12 +137,24 @@ public class IrisCatalog extends AbstractJdbcCatalog {
 
     @Override
     public boolean tableExists(TablePath tablePath) throws CatalogException {
-        try {
-            return listTables(tablePath.getSchemaName())
-                    .contains(tablePath.getSchemaAndTableName());
-        } catch (DatabaseNotExistException e) {
+        if (EXCLUDED_SCHEMAS.contains(tablePath.getSchemaName())) {
             return false;
         }
+        return querySQLResultExists(
+                this.getUrlFromDatabaseName(tablePath.getDatabaseName()),
+                getTableWithConditionSql(tablePath));
+    }
+
+    @Override
+    protected String getTableWithConditionSql(TablePath tablePath) {
+        return String.format(
+                getListTableSql(tablePath.getSchemaName()) + " and TABLE_NAME = '%s'",
+                tablePath.getTableName());
+    }
+
+    @Override
+    protected String getUrlFromDatabaseName(String databaseName) {
+        return defaultUrl;
     }
 
     @Override

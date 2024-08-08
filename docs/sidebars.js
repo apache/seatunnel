@@ -90,6 +90,7 @@ const sidebars = {
                 "concept/connector-v2-features",
                 'concept/schema-feature',
                 'concept/JobEnvConfig',
+                'concept/sink-options-placeholders',
                 'concept/sql-config',
                 'concept/speed-limit',
                 'concept/event-listener'

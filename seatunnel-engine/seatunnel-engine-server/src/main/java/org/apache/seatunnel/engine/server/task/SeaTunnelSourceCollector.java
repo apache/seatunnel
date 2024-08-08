@@ -102,9 +102,11 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
             tablePaths.forEach(
                     tablePath ->
                             sourceReceivedCountPerTable.put(
-                                    getFullName(tablePath),
+                                    tablePath.getFullName(),
                                     metricsContext.counter(
-                                            SOURCE_RECEIVED_COUNT + "#" + getFullName(tablePath))));
+                                            SOURCE_RECEIVED_COUNT
+                                                    + "#"
+                                                    + tablePath.getFullName())));
         }
         sourceReceivedCount = metricsContext.counter(SOURCE_RECEIVED_COUNT);
         sourceReceivedQPS = metricsContext.meter(SOURCE_RECEIVED_QPS);
@@ -131,7 +133,7 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
                 sourceReceivedBytesPerSeconds.markEvent(size);
                 flowControlGate.audit((SeaTunnelRow) row);
                 if (StringUtils.isNotEmpty(tableId)) {
-                    String tableName = getFullName(TablePath.of(tableId));
+                    String tableName = TablePath.of(tableId).getFullName();
                     Counter sourceTableCounter = sourceReceivedCountPerTable.get(tableName);
                     if (Objects.nonNull(sourceTableCounter)) {
                         sourceTableCounter.inc();
@@ -231,13 +233,5 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
                 output.received(record);
             }
         }
-    }
-
-    private String getFullName(TablePath tablePath) {
-        if (StringUtils.isBlank(tablePath.getTableName())) {
-            tablePath =
-                    TablePath.of(tablePath.getDatabaseName(), tablePath.getSchemaName(), "default");
-        }
-        return tablePath.getFullName();
     }
 }

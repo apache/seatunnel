@@ -455,4 +455,10 @@ public class SeaTunnelContainer extends AbstractTestContainer {
     public String getServerLogs() {
         return server.getLogs();
     }
+
+    @Override
+    public void copyFileToContainer(String path, String targetPath) {
+        ContainerUtil.copyFileIntoContainers(
+                ContainerUtil.getResourcesFile(path).toPath(), targetPath, server);
+    }
 }

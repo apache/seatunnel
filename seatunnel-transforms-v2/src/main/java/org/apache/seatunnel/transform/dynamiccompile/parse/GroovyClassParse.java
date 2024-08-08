@@ -20,7 +20,7 @@ package org.apache.seatunnel.transform.dynamiccompile.parse;
 public class GroovyClassParse extends AbstractParse {
 
     @Override
-    public Class<?> parseClass(String sourceCode) {
-        return GroovyClassUtil.parseWithCache(sourceCode);
+    public Class<?> parseClassSourceCode(String sourceCode) {
+        return GroovyClassParser.parseSourceCodeWithCache(sourceCode);
     }
 }

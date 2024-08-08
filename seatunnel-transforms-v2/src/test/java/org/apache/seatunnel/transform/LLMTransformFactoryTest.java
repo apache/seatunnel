@@ -14,15 +14,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.seatunnel.transform.dynamiccompile.parse;
 
-import groovy.lang.GroovyClassLoader;
+package org.apache.seatunnel.transform;
 
-public class GroovyClassUtil extends ParseUtil {
-    private static final GroovyClassLoader groovyClassLoader = new GroovyClassLoader();
+import org.apache.seatunnel.transform.llm.LLMTransformFactory;
 
-    public static Class<?> parseWithCache(String sourceCode) {
-        return classCache.computeIfAbsent(
-                getClassKey(sourceCode), clazz -> groovyClassLoader.parseClass(sourceCode));
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+
+public class LLMTransformFactoryTest {
+
+    @Test
+    public void testOptionRule() throws Exception {
+        LLMTransformFactory replaceTransformFactory = new LLMTransformFactory();
+        Assertions.assertNotNull(replaceTransformFactory.optionRule());
     }
 }
