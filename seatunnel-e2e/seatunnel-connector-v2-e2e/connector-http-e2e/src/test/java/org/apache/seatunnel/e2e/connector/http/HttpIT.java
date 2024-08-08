@@ -169,8 +169,9 @@ public class HttpIT extends TestSuiteBase implements TestResource {
 
     @DisabledOnContainer(
             value = {},
-            type = {EngineType.FLINK},
-            disabledReason = "Currently FLINK do not support multiple table read")
+            type = {EngineType.FLINK, EngineType.SPARK},
+            disabledReason =
+                    "Currently FLINK do not support multiple table read,test case is not suitable for spark")
     @TestTemplate
     public void testMultiTableHttp(TestContainer container)
             throws IOException, InterruptedException {
