@@ -1,20 +1,20 @@
 # DynamicCompile
 
-> DynamicCompile transform plugin
+> 动态编译插件
 
-## Description
+## 描述
 
 :::tip
 
-important clause
-You need to ensure the security of your service and prevent attackers from uploading destructive code
+特别申明
+您需要确保服务的安全性，并防止攻击者上传破坏性代码
 
 :::
 
-Provide a programmable way to process rows, allowing users to customize any business behavior, even RPC requests based on existing row fields as parameters, or to expand fields by retrieving associated data from other data sources. To distinguish businesses, you can also define multiple transforms to combine,
-If the conversion is too complex, it may affect performance
+提供一种可编程的方式来处理行，允许用户自定义任何业务行为，甚至基于现有行字段作为参数的RPC请求，或者通过从其他数据源检索相关数据来扩展字段。为了区分业务，您还可以定义多个转换进行组合，
+如果转换过于复杂，可能会影响性能
 
-## Options
+## 属性
 
 |       name       |  type  | required | default value |
 |------------------|--------|----------|---------------|
@@ -25,31 +25,31 @@ If the conversion is too complex, it may affect performance
 
 ### source_code [string]
 
-The code must implement two methods: getInlineOutputColumns and getInlineOutputFieldValues. getInlineOutputColumns determines the columns you want to add or convert, and the original column structure can be obtained from CatalogTable
-GetInlineOutputFieldValues determines your column values. You can fulfill any of your requirements, and even complete RPC requests to obtain new values based on the original columns
-If there are third-party dependency packages, please place them in ${SEATUNNEL_HOME}/lib, if you use spark or flink, you need to put it under the libs of the corresponding service.
+代码必须实现两个方法：getInlineOutputColumns和getInlineOutputFieldValues。getInlineOutputColumns确定要添加或转换的列，原始列结构可以从CatalogTable中获得
+GetInlineOutputFieldValues决定您的列值。您可以满足任何要求，甚至可以完成RPC请求以基于原始列获取新值
+如果有第三方依赖包，请将它们放在${SEATUNNEL_HOME}/lib中，如果您使用spark或flink，则需要将其放在相应服务的libs下。
 
 ### common options [string]
 
-Transform plugin common parameters, please refer to [Transform Plugin](common-options.md) for details
+转换插件的常见参数, 请参考  [Transform Plugin](common-options.md) 了解详情。
 
 ### compile_language [Enum]
 
-Some syntax in Java may not be supported, please refer https://github.com/janino-compiler/janino
-GROOVY,JAVA
+Java中的某些语法可能不受支持，请参阅https://github.com/janino-compiler/janino
+GROOVY，JAVA
 
 ### compile_pattern [Enum]
 
 SOURCE_CODE,ABSOLUTE_PATH
-If it is a SOURCE-CODE enumeration; the SOURCE-CODE attribute is required, and the ABSOLUTE_PATH enumeration;ABSOLUTE_PATH attribute is required
+选择 SOURCE_CODE，SOURCE_CODE 属性必填;选择ABSOLUTE_PATH，ABSOLUTE_PATH属性必填。
 
 ### absolute_path [string]
 
-The absolute path of Java or Groovy files on the server
+服务器上Java或Groovy文件的绝对路径
 
 ## Example
 
-The data read from source is a table like this:
+源端数据读取的表格如下：
 
 |   name   | age | card |
 |----------|-----|------|
@@ -146,7 +146,7 @@ transform {
 }
 ```
 
-Then the data in result table `groovy_out` will like this
+那么结果表 `groovy_out` 中的数据将会更新为：
 
 |   name   | age | card | compile_language |
 |----------|-----|------|------------------|
@@ -155,7 +155,7 @@ Then the data in result table `groovy_out` will like this
 | Kin Dom  | 20  | 123  | GROOVY           |
 | Joy Dom  | 20  | 123  | GROOVY           |
 
-Then the data in result table `java_out` will like this
+那么结果表 `java_out` 中的数据将会更新为：
 
 |   name   | age | card | compile_language |
 |----------|-----|------|------------------|
@@ -164,7 +164,7 @@ Then the data in result table `java_out` will like this
 | Kin Dom  | 20  | 123  | JAVA             |
 | Joy Dom  | 20  | 123  | JAVA             |
 
-More complex examples can be referred to
+更多复杂例子可以参考
 https://github.com/apache/seatunnel/tree/dev/seatunnel-e2e/seatunnel-transforms-v2-e2e/seatunnel-transforms-v2-e2e-part-2/src/test/resources/dynamic_compile/conf
 
 ## Changelog
