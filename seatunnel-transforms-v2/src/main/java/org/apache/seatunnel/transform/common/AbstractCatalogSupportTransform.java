@@ -21,7 +21,6 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 
 import lombok.NonNull;
@@ -30,9 +29,6 @@ public abstract class AbstractCatalogSupportTransform implements SeaTunnelTransf
     protected CatalogTable inputCatalogTable;
 
     protected volatile CatalogTable outputCatalogTable;
-
-    protected String inputTableName;
-    protected SeaTunnelRowType inputRowType;
 
     public AbstractCatalogSupportTransform(@NonNull CatalogTable inputCatalogTable) {
         this.inputCatalogTable = inputCatalogTable;
