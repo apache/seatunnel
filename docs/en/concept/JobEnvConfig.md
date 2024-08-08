@@ -60,6 +60,16 @@ Here are some SeaTunnel parameter names corresponding to the names in Flink, not
 | execution.checkpointing.timeout | flink.execution.checkpointing.timeout |
 | ...                             | ...                                   |
 
+By default, Seatunnel will use the Flink Table Api to generate the DAG of the job, if you want to deprecate the Flink Table Api, you can set the `flink.table.disable` to `true`.
+
+```json
+{
+  "env": {
+    "flink.table.disable": true
+  }
+}
+```
+
 ## Spark Engine Parameter
 
 Because Spark configuration items have not been modified, they are not listed here, please refer to the official [Spark Documentation](https://spark.apache.org/).

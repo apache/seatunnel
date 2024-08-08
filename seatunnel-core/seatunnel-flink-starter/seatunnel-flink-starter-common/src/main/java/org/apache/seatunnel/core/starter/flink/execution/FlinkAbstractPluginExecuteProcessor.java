@@ -23,11 +23,8 @@ import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.core.starter.execution.PluginExecuteProcessor;
-import org.apache.seatunnel.core.starter.flink.utils.TableUtil;
 
 import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.table.api.Table;
-import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.types.Row;
 
 import java.net.URL;
@@ -64,6 +61,7 @@ public abstract class FlinkAbstractPluginExecuteProcessor<T>
     protected JobContext jobContext;
     protected final List<T> plugins;
     protected final Config envConfig;
+    protected FlinkTableHolder holder;
 
     protected FlinkAbstractPluginExecuteProcessor(
             List<URL> jarPaths,
@@ -79,15 +77,13 @@ public abstract class FlinkAbstractPluginExecuteProcessor<T>
     @Override
     public void setRuntimeEnvironment(FlinkRuntimeEnvironment flinkRuntimeEnvironment) {
         this.flinkRuntimeEnvironment = flinkRuntimeEnvironment;
+        this.holder = FlinkTableHolderFactory.getTableHolder(envConfig, flinkRuntimeEnvironment);
     }
 
     protected Optional<DataStreamTableInfo> fromSourceTable(
             Config pluginConfig, List<DataStreamTableInfo> upstreamDataStreams) {
         if (pluginConfig.hasPath(SOURCE_TABLE_NAME)) {
-            StreamTableEnvironment tableEnvironment =
-                    flinkRuntimeEnvironment.getStreamTableEnvironment();
             String tableName = pluginConfig.getString(SOURCE_TABLE_NAME);
-            Table table = tableEnvironment.from(tableName);
             DataStreamTableInfo dataStreamTableInfo =
                     upstreamDataStreams.stream()
                             .filter(info -> tableName.equals(info.getTableName()))
@@ -99,7 +95,7 @@ public abstract class FlinkAbstractPluginExecuteProcessor<T>
                                                             "table %s not found", tableName)));
             return Optional.of(
                     new DataStreamTableInfo(
-                            TableUtil.tableToDataStream(tableEnvironment, table),
+                            holder.getDataStreamByTableName(tableName),
                             dataStreamTableInfo.getCatalogTable(),
                             tableName));
         }
@@ -109,7 +105,7 @@ public abstract class FlinkAbstractPluginExecuteProcessor<T>
     protected void registerResultTable(Config pluginConfig, DataStream<Row> dataStream) {
         if (pluginConfig.hasPath(RESULT_TABLE_NAME.key())) {
             String resultTable = pluginConfig.getString(RESULT_TABLE_NAME.key());
-            flinkRuntimeEnvironment.registerResultTable(pluginConfig, dataStream, resultTable);
+            holder.registerResultTable(pluginConfig, dataStream, resultTable);
         }
     }
 
