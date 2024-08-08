@@ -18,10 +18,13 @@
 package org.apache.seatunnel.e2e.connector.doris;
 
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 
@@ -38,11 +41,40 @@ import static org.awaitility.Awaitility.given;
 
 @Slf4j
 public class DorisErrorIT extends AbstractDorisIT {
-    private static final String TABLE = "doris_e2e_table";
     private static final String DRIVER_JAR =
             "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
 
-    private static final String sinkDB = "e2e_sink";
+    private static final String SINK_DB = "e2e_sink";
+    private static final String CREATE_SINK_DB = "CREATE DATABASE IF NOT EXISTS " + SINK_DB;
+    private static final String SINK_TABLE = "doris_e2e_table";
+    private static final String CREATE_SINK_TABLE =
+            "CREATE TABLE IF NOT EXISTS `"
+                    + SINK_DB
+                    + "`.`"
+                    + SINK_TABLE
+                    + "`(\n"
+                    + "F_ID bigint null,\n"
+                    + "F_INT int null,\n"
+                    + "F_BIGINT bigint null,\n"
+                    + "F_TINYINT tinyint null,\n"
+                    + "F_SMALLINT smallint null,\n"
+                    + "F_DECIMAL decimal(18,6) null,\n"
+                    + "F_LARGEINT largeint null,\n"
+                    + "F_BOOLEAN boolean null,\n"
+                    + "F_DOUBLE double null,\n"
+                    + "F_FLOAT float null,\n"
+                    + "F_CHAR char null,\n"
+                    + "F_VARCHAR_11 varchar(11) null,\n"
+                    + "F_STRING string null,\n"
+                    + "F_DATETIME_P datetime(6),\n"
+                    + "F_DATETIME datetime,\n"
+                    + "F_DATE date\n"
+                    + ")\n"
+                    + "duplicate KEY(`F_ID`)\n"
+                    + "DISTRIBUTED BY HASH(`F_ID`) BUCKETS 1\n"
+                    + "properties(\n"
+                    + "\"replication_allocation\" = \"tag.location.default: 1\""
+                    + ")";
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
@@ -56,9 +88,17 @@ public class DorisErrorIT extends AbstractDorisIT {
                 Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
             };
 
+    @BeforeAll
+    public void init() {
+        initializeJdbcTable();
+    }
+
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK})
     @TestTemplate
     public void testDoris(TestContainer container) throws InterruptedException, ExecutionException {
-        initializeJdbcTable();
+        clearTable(SINK_DB, SINK_TABLE);
         CompletableFuture<Container.ExecResult> future =
                 CompletableFuture.supplyAsync(
                         () -> {
@@ -96,10 +136,10 @@ public class DorisErrorIT extends AbstractDorisIT {
         try {
             try (Statement statement = jdbcConnection.createStatement()) {
                 // create test databases
-                statement.execute(createDatabase(sinkDB));
+                statement.execute(CREATE_SINK_DB);
                 log.info("create sink database succeed");
                 // create sink table
-                statement.execute(createTableForTest(sinkDB));
+                statement.execute(CREATE_SINK_TABLE);
             } catch (SQLException e) {
                 throw new RuntimeException("Initializing table failed!", e);
             }
@@ -108,35 +148,15 @@ public class DorisErrorIT extends AbstractDorisIT {
         }
     }
 
-    private String createDatabase(String db) {
-        return String.format("CREATE DATABASE IF NOT EXISTS %s ;", db);
+    private void clearTable(String database, String tableName) {
+        executeDorisSql("truncate table " + database + "." + tableName);
     }
 
-    private String createTableForTest(String db) {
-        String createTableSql =
-                "create table if not exists `%s`.`%s`(\n"
-                        + "F_ID bigint null,\n"
-                        + "F_INT int null,\n"
-                        + "F_BIGINT bigint null,\n"
-                        + "F_TINYINT tinyint null,\n"
-                        + "F_SMALLINT smallint null,\n"
-                        + "F_DECIMAL decimal(18,6) null,\n"
-                        + "F_LARGEINT largeint null,\n"
-                        + "F_BOOLEAN boolean null,\n"
-                        + "F_DOUBLE double null,\n"
-                        + "F_FLOAT float null,\n"
-                        + "F_CHAR char null,\n"
-                        + "F_VARCHAR_11 varchar(11) null,\n"
-                        + "F_STRING string null,\n"
-                        + "F_DATETIME_P datetime(6),\n"
-                        + "F_DATETIME datetime,\n"
-                        + "F_DATE date\n"
-                        + ")\n"
-                        + "duplicate KEY(`F_ID`)\n"
-                        + "DISTRIBUTED BY HASH(`F_ID`) BUCKETS 1\n"
-                        + "properties(\n"
-                        + "\"replication_allocation\" = \"tag.location.default: 1\""
-                        + ");";
-        return String.format(createTableSql, db, TABLE);
+    private void executeDorisSql(String sql) {
+        try (Statement statement = jdbcConnection.createStatement()) {
+            statement.execute(sql);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
     }
 }
