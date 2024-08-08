@@ -27,7 +27,7 @@ This connector can be used to write data into a Qdrant collection.
 | BFLOAT16_VECTOR     | DENSE_VECTOR     |
 | SPARSE_FLOAT_VECTOR | SPARSE_VECTOR    |
 
-The value of the primary key column will be used as point ID in Qdrant. If not primary key is present, a random UUID will be used.
+The value of the primary key column will be used as point ID in Qdrant. If no primary key is present, a random UUID will be used.
 
 ## Options
 

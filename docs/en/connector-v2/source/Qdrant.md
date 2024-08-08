@@ -58,6 +58,8 @@ schema = {
 }
 ```
 
+The ID of the point in Qdrant will be written into the column which is marked as the primary key. It can be of type `int` or `string`.
+
 ### host [string]
 
 The host name of the Qdrant instance. Defaults to "localhost".
