@@ -2,24 +2,38 @@ package org.apache.seatunnel.connectors.seatunnel.sls.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
-import org.apache.seatunnel.api.table.catalog.*;
-
-import java.io.Serializable;
-import java.util.*;
-
-import static org.apache.seatunnel.connectors.seatunnel.sls.config.Config.*;
-import lombok.Getter;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.catalog.schema.ReadonlyConfigParser;
 import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.api.table.catalog.schema.ReadonlyConfigParser;
 import org.apache.seatunnel.connectors.seatunnel.sls.serialization.FastLogDeserialization;
 import org.apache.seatunnel.connectors.seatunnel.sls.serialization.FastLogDeserializationContent;
 import org.apache.seatunnel.connectors.seatunnel.sls.serialization.FastLogDeserializationSchema;
 import org.apache.seatunnel.format.text.TextDeserializationSchema;
 import org.apache.seatunnel.format.text.constant.TextFormatConstant;
+
+import lombok.Getter;
+
+import java.io.Serializable;
+import java.util.Collections;
+import java.util.Map;
+import java.util.Optional;
+
+import static org.apache.seatunnel.connectors.seatunnel.sls.config.Config.ACCESS_KEY_ID;
+import static org.apache.seatunnel.connectors.seatunnel.sls.config.Config.ACCESS_KEY_SECRET;
+import static org.apache.seatunnel.connectors.seatunnel.sls.config.Config.AUTO_CURSOR_RESET;
+import static org.apache.seatunnel.connectors.seatunnel.sls.config.Config.BATCH_SIZE;
+import static org.apache.seatunnel.connectors.seatunnel.sls.config.Config.CONSUMER_GROUP;
+import static org.apache.seatunnel.connectors.seatunnel.sls.config.Config.ENDPOINT;
+import static org.apache.seatunnel.connectors.seatunnel.sls.config.Config.LOGSTORE;
+import static org.apache.seatunnel.connectors.seatunnel.sls.config.Config.PROJECT;
+import static org.apache.seatunnel.connectors.seatunnel.sls.config.Config.START_MODE;
 
 public class SlsSourceConfig implements Serializable {
     private static final long serialVersionUID = 1L;
@@ -30,8 +44,7 @@ public class SlsSourceConfig implements Serializable {
     @Getter private final CatalogTable catalogTable;
     @Getter private final ConsumerMetaData consumerMetaData;
 
-
-    public SlsSourceConfig(ReadonlyConfig readonlyConfig){
+    public SlsSourceConfig(ReadonlyConfig readonlyConfig) {
         this.endpoint = readonlyConfig.get(ENDPOINT);
         this.accessKeyId = readonlyConfig.get(ACCESS_KEY_ID);
         this.accessKeySecret = readonlyConfig.get(ACCESS_KEY_SECRET);
@@ -40,8 +53,8 @@ public class SlsSourceConfig implements Serializable {
     }
 
     /** only single endpoint logstore */
-    public ConsumerMetaData createMetaData(ReadonlyConfig readonlyConfig){
-        ConsumerMetaData consumerMetaData =new ConsumerMetaData();
+    public ConsumerMetaData createMetaData(ReadonlyConfig readonlyConfig) {
+        ConsumerMetaData consumerMetaData = new ConsumerMetaData();
         consumerMetaData.setProject(readonlyConfig.get(PROJECT));
         consumerMetaData.setLogstore(readonlyConfig.get(LOGSTORE));
         consumerMetaData.setConsumerGroup(readonlyConfig.get(CONSUMER_GROUP));
@@ -53,9 +66,9 @@ public class SlsSourceConfig implements Serializable {
         return consumerMetaData;
     }
 
-
     private CatalogTable createCatalogTable(ReadonlyConfig readonlyConfig) {
-        Optional<Map<String, Object>> schemaOptions =readonlyConfig.getOptional(TableSchemaOptions.SCHEMA);
+        Optional<Map<String, Object>> schemaOptions =
+                readonlyConfig.getOptional(TableSchemaOptions.SCHEMA);
         TablePath tablePath = TablePath.of(readonlyConfig.get(LOGSTORE));
         TableSchema tableSchema;
         if (schemaOptions.isPresent()) {
@@ -66,12 +79,7 @@ public class SlsSourceConfig implements Serializable {
                     TableSchema.builder()
                             .column(
                                     PhysicalColumn.of(
-                                            "content",
-                                            BasicType.STRING_TYPE,
-                                            0,
-                                            false,
-                                            "{}",
-                                            null))
+                                            "content", BasicType.STRING_TYPE, 0, false, "{}", null))
                             .build();
         }
         return CatalogTable.of(
@@ -82,19 +90,22 @@ public class SlsSourceConfig implements Serializable {
                 null);
     }
 
-    private FastLogDeserialization<SeaTunnelRow> createDeserializationSchema(ReadonlyConfig readonlyConfig) {
-        Optional<Map<String, Object>> schemaOptions =readonlyConfig.getOptional(TableSchemaOptions.SCHEMA);
+    private FastLogDeserialization<SeaTunnelRow> createDeserializationSchema(
+            ReadonlyConfig readonlyConfig) {
+        Optional<Map<String, Object>> schemaOptions =
+                readonlyConfig.getOptional(TableSchemaOptions.SCHEMA);
         FastLogDeserialization fastLogDeserialization;
         if (schemaOptions.isPresent()) {
             fastLogDeserialization = new FastLogDeserializationSchema(catalogTable);
 
-        }else{
+        } else {
             fastLogDeserialization = new FastLogDeserializationContent(catalogTable);
         }
         return fastLogDeserialization;
-
     }
-    private DeserializationSchema<SeaTunnelRow> createDeserializationSchema(CatalogTable catalogTable) {
+
+    private DeserializationSchema<SeaTunnelRow> createDeserializationSchema(
+            CatalogTable catalogTable) {
         SeaTunnelRowType seaTunnelRowType = catalogTable.getSeaTunnelRowType();
         return TextDeserializationSchema.builder()
                 .seaTunnelRowType(seaTunnelRowType)

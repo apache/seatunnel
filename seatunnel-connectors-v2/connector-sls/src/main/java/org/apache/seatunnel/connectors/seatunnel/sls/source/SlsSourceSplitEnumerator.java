@@ -1,5 +1,10 @@
 package org.apache.seatunnel.connectors.seatunnel.sls.source;
 
+import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.common.config.Common;
+import org.apache.seatunnel.connectors.seatunnel.sls.config.StartMode;
+import org.apache.seatunnel.connectors.seatunnel.sls.state.SlsSourceState;
+
 import com.aliyun.openservices.log.Client;
 import com.aliyun.openservices.log.common.Consts;
 import com.aliyun.openservices.log.common.ConsumerGroup;
@@ -8,18 +13,22 @@ import com.aliyun.openservices.log.exception.LogException;
 import com.aliyun.openservices.log.response.ConsumerGroupCheckPointResponse;
 import com.aliyun.openservices.log.response.ListConsumerGroupResponse;
 import com.aliyun.openservices.log.response.ListShardResponse;
-import org.apache.seatunnel.api.source.SourceSplitEnumerator;
-import org.apache.seatunnel.common.config.Common;
-import org.apache.seatunnel.connectors.seatunnel.sls.config.StartMode;
-import org.apache.seatunnel.connectors.seatunnel.sls.state.SlsSourceState;
-
 import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
-public class SlsSourceSplitEnumerator implements SourceSplitEnumerator<SlsSourceSplit, SlsSourceState> {
+public class SlsSourceSplitEnumerator
+        implements SourceSplitEnumerator<SlsSourceSplit, SlsSourceState> {
 
     private final Client slsCleint;
     private final ConsumerMetaData consumerMetaData;
@@ -35,19 +44,18 @@ public class SlsSourceSplitEnumerator implements SourceSplitEnumerator<SlsSource
     private ScheduledExecutorService executor;
     private ScheduledFuture<?> scheduledFuture;
 
-    public SlsSourceSplitEnumerator(SlsSourceConfig slsSourceConfig,
-                             Context<SlsSourceSplit> context){
+    public SlsSourceSplitEnumerator(
+            SlsSourceConfig slsSourceConfig, Context<SlsSourceSplit> context) {
         this.context = context;
-        this.slsCleint = new Client(
-                slsSourceConfig.getEndpoint(),
-                slsSourceConfig.getAccessKeyId(),
-                slsSourceConfig.getAccessKeySecret()
-        );
+        this.slsCleint =
+                new Client(
+                        slsSourceConfig.getEndpoint(),
+                        slsSourceConfig.getAccessKeyId(),
+                        slsSourceConfig.getAccessKeySecret());
         this.assignedSplit = new HashMap<>();
         this.pendingSplit = new HashMap<>();
         this.consumerMetaData = slsSourceConfig.getConsumerMetaData();
         this.discoveryIntervalMillis = -1;
-
     }
 
     public SlsSourceSplitEnumerator(
@@ -55,11 +63,11 @@ public class SlsSourceSplitEnumerator implements SourceSplitEnumerator<SlsSource
             Context<SlsSourceSplit> context,
             SlsSourceState slsSourceState) {
         this.context = context;
-        this.slsCleint = new Client(
-                slsSourceConfig.getEndpoint(),
-                slsSourceConfig.getAccessKeyId(),
-                slsSourceConfig.getAccessKeySecret()
-        );
+        this.slsCleint =
+                new Client(
+                        slsSourceConfig.getEndpoint(),
+                        slsSourceConfig.getAccessKeyId(),
+                        slsSourceConfig.getAccessKeySecret());
         this.assignedSplit = new HashMap<>();
         this.pendingSplit = new HashMap<>();
         this.consumerMetaData = slsSourceConfig.getConsumerMetaData();
@@ -67,9 +75,7 @@ public class SlsSourceSplitEnumerator implements SourceSplitEnumerator<SlsSource
 
         /** now only from sls cursor for restore */
         this.slsSourceState = slsSourceState;
-        if (slsSourceState != null) {
-
-        }
+        if (slsSourceState != null) {}
     }
 
     @Override
@@ -103,20 +109,15 @@ public class SlsSourceSplitEnumerator implements SourceSplitEnumerator<SlsSource
     public void run() throws Exception {
         fetchPendingShardSplit();
         assignSplit();
-
     }
 
     @Override
-    public void close() throws IOException {
-
-    }
+    public void close() throws IOException {}
 
     @Override
     public void addSplitsBack(List<SlsSourceSplit> splits, int subtaskId) {
         if (!splits.isEmpty()) {
-            splits.forEach(
-                    split-> pendingSplit.put(split.getShardId(), split)
-            );
+            splits.forEach(split -> pendingSplit.put(split.getShardId(), split));
         }
     }
 
@@ -126,9 +127,7 @@ public class SlsSourceSplitEnumerator implements SourceSplitEnumerator<SlsSource
     }
 
     @Override
-    public void handleSplitRequest(int subtaskId) {
-
-    }
+    public void handleSplitRequest(int subtaskId) {}
 
     @Override
     public void registerReader(int subtaskId) {
@@ -137,17 +136,13 @@ public class SlsSourceSplitEnumerator implements SourceSplitEnumerator<SlsSource
         }
     }
 
-
     @Override
-    public void notifyCheckpointComplete(long checkpointId) throws Exception {
-
-    }
+    public void notifyCheckpointComplete(long checkpointId) throws Exception {}
 
     private void discoverySplits() throws LogException {
         fetchPendingShardSplit();
         assignSplit();
     }
-
 
     private void fetchPendingShardSplit() throws LogException {
         String project = this.consumerMetaData.getProject();
@@ -157,69 +152,98 @@ public class SlsSourceSplitEnumerator implements SourceSplitEnumerator<SlsSource
         int fetachSize = this.consumerMetaData.getFetchSize();
         Consts.CursorMode autoCursorReset = this.consumerMetaData.getAutoCursorReset();
         ListShardResponse shards = this.slsCleint.ListShard(project, logStore);
-        shards.GetShards().forEach(
-                shard -> {
-                        if (!assignedSplit.containsKey(shard.getShardId())) {
+        shards.GetShards()
+                .forEach(
+                        shard -> {
+                            if (!assignedSplit.containsKey(shard.getShardId())) {
                                 if (!pendingSplit.containsKey(shard.getShardId())) {
                                     String cursor = "";
                                     try {
-                                        cursor = initShardCursor(project, logStore, consumer, shard.getShardId(), startMode, autoCursorReset);
+                                        cursor =
+                                                initShardCursor(
+                                                        project,
+                                                        logStore,
+                                                        consumer,
+                                                        shard.getShardId(),
+                                                        startMode,
+                                                        autoCursorReset);
                                     } catch (Exception e) {
                                         throw new RuntimeException(e);
                                     }
-                                    if (cursor.equals("")){
+                                    if (cursor.equals("")) {
                                         throw new RuntimeException("shard cursor error");
                                     }
-                                    SlsSourceSplit split = new SlsSourceSplit(project, logStore, consumer, shard.getShardId(), cursor, fetachSize);
+                                    SlsSourceSplit split =
+                                            new SlsSourceSplit(
+                                                    project,
+                                                    logStore,
+                                                    consumer,
+                                                    shard.getShardId(),
+                                                    cursor,
+                                                    fetachSize);
                                     pendingSplit.put(shard.getShardId(), split);
                                 }
                             }
-
-                }
-        );
+                        });
     }
 
-    private String initShardCursor(String project, String logStore, String consumer, int shardIdKey, StartMode cursorMode, Consts.CursorMode autoCursorReset) throws Exception {
+    private String initShardCursor(
+            String project,
+            String logStore,
+            String consumer,
+            int shardIdKey,
+            StartMode cursorMode,
+            Consts.CursorMode autoCursorReset)
+            throws Exception {
         switch (cursorMode) {
             case EARLIEST:
                 try {
-                    return this.slsCleint.GetCursor(project, logStore, shardIdKey, Consts.CursorMode.BEGIN).GetCursor();
+                    return this.slsCleint
+                            .GetCursor(project, logStore, shardIdKey, Consts.CursorMode.BEGIN)
+                            .GetCursor();
                 } catch (LogException e) {
                     throw new RuntimeException(e);
                 }
             case LATEST:
                 try {
-                    return this.slsCleint.GetCursor(project, logStore, shardIdKey, Consts.CursorMode.END).GetCursor();
+                    return this.slsCleint
+                            .GetCursor(project, logStore, shardIdKey, Consts.CursorMode.END)
+                            .GetCursor();
                 } catch (LogException e) {
                     throw new RuntimeException(e);
                 }
             case GROUP_CURSOR:
                 try {
                     boolean groupExists = checkConsumerGroupExists(project, logStore, consumer);
-                    if (!groupExists){
+                    if (!groupExists) {
                         createConsumerGroup(project, logStore, consumer);
                     }
-                    ConsumerGroupCheckPointResponse response = this.slsCleint.GetCheckPoint(project, logStore, consumer, shardIdKey);
+                    ConsumerGroupCheckPointResponse response =
+                            this.slsCleint.GetCheckPoint(project, logStore, consumer, shardIdKey);
                     List<ConsumerGroupShardCheckPoint> checkpoints = response.getCheckPoints();
-                    if (checkpoints.size()==1){
+                    if (checkpoints.size() == 1) {
                         ConsumerGroupShardCheckPoint checkpoint = checkpoints.get(0);
                         if (!checkpoint.getCheckPoint().equals("")) {
                             return checkpoint.getCheckPoint();
                         }
                     }
-                    return this.slsCleint.GetCursor(project, logStore, shardIdKey, autoCursorReset).GetCursor();
+                    return this.slsCleint
+                            .GetCursor(project, logStore, shardIdKey, autoCursorReset)
+                            .GetCursor();
                 } catch (LogException e) {
                     if (e.GetErrorCode().equals("ConsumerGroupNotExist")) {
-                        return this.slsCleint.GetCursor(project, logStore, shardIdKey, autoCursorReset).GetCursor();
+                        return this.slsCleint
+                                .GetCursor(project, logStore, shardIdKey, autoCursorReset)
+                                .GetCursor();
                     }
                     throw new RuntimeException(e);
                 }
         }
-        throw new RuntimeException(project+":"+logStore+":"+consumer+":"+cursorMode+":"+"fail");
+        throw new RuntimeException(
+                project + ":" + logStore + ":" + consumer + ":" + cursorMode + ":" + "fail");
     }
 
-
-    private synchronized void assignSplit(){
+    private synchronized void assignSplit() {
         Map<Integer, List<SlsSourceSplit>> readySplit = new HashMap<>(Common.COLLECTION_SIZE);
         // init task from Parallelism
         for (int taskID = 0; taskID < context.currentParallelism(); taskID++) {
@@ -229,7 +253,11 @@ public class SlsSourceSplitEnumerator implements SourceSplitEnumerator<SlsSource
         pendingSplit.forEach(
                 (key, value) -> {
                     if (!assignedSplit.containsKey(key)) {
-                        readySplit.get(getSplitOwner(value.getShardId(), context.currentParallelism())).add(value);
+                        readySplit
+                                .get(
+                                        getSplitOwner(
+                                                value.getShardId(), context.currentParallelism()))
+                                .add(value);
                     }
                 });
         // assigned split
@@ -254,8 +282,8 @@ public class SlsSourceSplitEnumerator implements SourceSplitEnumerator<SlsSource
         return new SlsSourceState(new HashSet<>(assignedSplit.values()));
     }
 
-
-    public boolean checkConsumerGroupExists(String project, String logstore, String consumerGroup) throws Exception {
+    public boolean checkConsumerGroupExists(String project, String logstore, String consumerGroup)
+            throws Exception {
         ListConsumerGroupResponse response = this.slsCleint.ListConsumerGroup(project, logstore);
         if (response != null) {
             for (ConsumerGroup item : response.GetConsumerGroups()) {
@@ -267,16 +295,15 @@ public class SlsSourceSplitEnumerator implements SourceSplitEnumerator<SlsSource
         return false;
     }
 
-    public void createConsumerGroup(final String project,
-                                    final String logstore,
-                                    final String consumerGroupName) throws LogException {
+    public void createConsumerGroup(
+            final String project, final String logstore, final String consumerGroupName)
+            throws LogException {
         ConsumerGroup consumerGroup = new ConsumerGroup(consumerGroupName, 100, false);
         try {
             this.slsCleint.CreateConsumerGroup(project, logstore, consumerGroup);
         } catch (LogException ex) {
-            if ("ConsumerGroupAlreadyExist".equals(ex.GetErrorCode())) {
+            if ("ConsumerGroupAlreadyExist".equals(ex.GetErrorCode())) {}
 
-            }
             throw ex;
         }
     }

@@ -1,11 +1,11 @@
 package org.apache.seatunnel.connectors.seatunnel.sls.source;
 
 import com.aliyun.openservices.log.Client;
+import lombok.Getter;
+
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
-
-import lombok.Getter;
 
 public class SlsConsumerThread implements Runnable {
 
@@ -13,11 +13,9 @@ public class SlsConsumerThread implements Runnable {
 
     @Getter private final LinkedBlockingQueue<Consumer<Client>> tasks;
 
-
     public SlsConsumerThread(SlsSourceConfig slsSourceConfig) {
         this.client = this.initClient(slsSourceConfig);
         this.tasks = new LinkedBlockingQueue<>();
-
     }
 
     public LinkedBlockingQueue<Consumer<Client>> getTasks() {
@@ -41,19 +39,17 @@ public class SlsConsumerThread implements Runnable {
             try {
                 if (client != null) {
                     /** now do nothine, do not need close */
-
                 }
             } catch (Throwable t) {
                 throw new RuntimeException(t);
             }
         }
-
     }
-
 
     private Client initClient(SlsSourceConfig slsSourceConfig) {
-        return new Client(slsSourceConfig.getEndpoint(),slsSourceConfig.getAccessKeyId(),slsSourceConfig.getAccessKeySecret());
+        return new Client(
+                slsSourceConfig.getEndpoint(),
+                slsSourceConfig.getAccessKeyId(),
+                slsSourceConfig.getAccessKeySecret());
     }
 }
-
-

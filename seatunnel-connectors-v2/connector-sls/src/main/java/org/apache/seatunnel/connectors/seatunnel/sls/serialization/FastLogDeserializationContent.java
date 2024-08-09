@@ -1,33 +1,42 @@
 package org.apache.seatunnel.connectors.seatunnel.sls.serialization;
 
-import com.aliyun.openservices.log.common.FastLog;
-import com.aliyun.openservices.log.common.FastLogGroup;
-import com.aliyun.openservices.log.common.LogGroupData;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.type.*;
+import org.apache.seatunnel.api.table.type.RowKind;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+
+import com.aliyun.openservices.log.common.FastLog;
+import com.aliyun.openservices.log.common.FastLogGroup;
+import com.aliyun.openservices.log.common.LogGroupData;
 
 import java.io.IOException;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.temporal.ChronoField;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
 
-public class FastLogDeserializationContent implements DeserializationSchema<SeaTunnelRow>,FastLogDeserialization<SeaTunnelRow> {
-
+public class FastLogDeserializationContent
+        implements DeserializationSchema<SeaTunnelRow>, FastLogDeserialization<SeaTunnelRow> {
 
     public static final DateTimeFormatter TIME_FORMAT;
     private final CatalogTable catalogTable;
 
-
-
     static {
-        TIME_FORMAT = (new DateTimeFormatterBuilder()).appendPattern("HH:mm:ss").appendFraction(ChronoField.NANO_OF_SECOND, 0, 9, true).toFormatter();
+        TIME_FORMAT =
+                (new DateTimeFormatterBuilder())
+                        .appendPattern("HH:mm:ss")
+                        .appendFraction(ChronoField.NANO_OF_SECOND, 0, 9, true)
+                        .toFormatter();
     }
-    public FastLogDeserializationContent(CatalogTable catalogTable){
-        this.catalogTable=catalogTable;
+
+    public FastLogDeserializationContent(CatalogTable catalogTable) {
+        this.catalogTable = catalogTable;
     }
+
     @Override
     public SeaTunnelRow deserialize(byte[] bytes) throws IOException {
         return null;
@@ -38,11 +47,11 @@ public class FastLogDeserializationContent implements DeserializationSchema<SeaT
         return null;
     }
 
-
-    public void deserialize(List<LogGroupData> logGroupDatas, Collector<SeaTunnelRow> out) throws IOException {
-        for (LogGroupData logGroupData : logGroupDatas){
+    public void deserialize(List<LogGroupData> logGroupDatas, Collector<SeaTunnelRow> out)
+            throws IOException {
+        for (LogGroupData logGroupData : logGroupDatas) {
             FastLogGroup logs = logGroupData.GetFastLogGroup();
-            for (FastLog log : logs.getLogs()){
+            for (FastLog log : logs.getLogs()) {
                 SeaTunnelRow seaTunnelRow = convertFastLogContent(log);
                 out.collect(seaTunnelRow);
             }
@@ -55,7 +64,15 @@ public class FastLogDeserializationContent implements DeserializationSchema<SeaT
         // json format
         StringBuilder jsonStringBuilder = new StringBuilder();
         jsonStringBuilder.append("{");
-        log.getContents().forEach((content)-> jsonStringBuilder.append("\"").append(content.getKey()).append("\":\"").append( content.getValue()).append("\","));
+        log.getContents()
+                .forEach(
+                        (content) ->
+                                jsonStringBuilder
+                                        .append("\"")
+                                        .append(content.getKey())
+                                        .append("\":\"")
+                                        .append(content.getValue())
+                                        .append("\","));
         jsonStringBuilder.deleteCharAt(jsonStringBuilder.length() - 1); // 删除最后一个逗号
         jsonStringBuilder.append("}");
         // content field
@@ -65,5 +82,4 @@ public class FastLogDeserializationContent implements DeserializationSchema<SeaT
         seaTunnelRow.setTableId(catalogTable.getTableId().getTableName());
         return seaTunnelRow;
     }
-
 }

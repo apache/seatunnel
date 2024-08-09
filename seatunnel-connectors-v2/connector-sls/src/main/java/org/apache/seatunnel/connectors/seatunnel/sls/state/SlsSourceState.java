@@ -1,7 +1,8 @@
 package org.apache.seatunnel.connectors.seatunnel.sls.state;
 
-import lombok.Data;
 import org.apache.seatunnel.connectors.seatunnel.sls.source.SlsSourceSplit;
+
+import lombok.Data;
 
 import java.io.Serializable;
 import java.util.Set;

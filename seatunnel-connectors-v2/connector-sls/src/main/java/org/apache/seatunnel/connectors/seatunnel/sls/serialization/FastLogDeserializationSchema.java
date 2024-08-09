@@ -1,34 +1,48 @@
 package org.apache.seatunnel.connectors.seatunnel.sls.serialization;
 
+import org.apache.seatunnel.api.serialization.DeserializationSchema;
+import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.type.RowKind;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.format.text.exception.SeaTunnelTextFormatException;
+
 import com.aliyun.openservices.log.common.FastLog;
 import com.aliyun.openservices.log.common.FastLogContent;
 import com.aliyun.openservices.log.common.FastLogGroup;
 import com.aliyun.openservices.log.common.LogGroupData;
-import org.apache.seatunnel.api.serialization.DeserializationSchema;
-import org.apache.seatunnel.api.source.Collector;
-import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.type.*;
-import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.format.text.exception.SeaTunnelTextFormatException;
+
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.temporal.ChronoField;
-import java.util.*;
-public class FastLogDeserializationSchema implements DeserializationSchema<SeaTunnelRow>, FastLogDeserialization<SeaTunnelRow> {
+import java.util.ArrayList;
+import java.util.List;
 
+public class FastLogDeserializationSchema
+        implements DeserializationSchema<SeaTunnelRow>, FastLogDeserialization<SeaTunnelRow> {
 
     public static final DateTimeFormatter TIME_FORMAT;
     private final CatalogTable catalogTable;
 
     static {
-        TIME_FORMAT = (new DateTimeFormatterBuilder()).appendPattern("HH:mm:ss").appendFraction(ChronoField.NANO_OF_SECOND, 0, 9, true).toFormatter();
+        TIME_FORMAT =
+                (new DateTimeFormatterBuilder())
+                        .appendPattern("HH:mm:ss")
+                        .appendFraction(ChronoField.NANO_OF_SECOND, 0, 9, true)
+                        .toFormatter();
     }
-    public FastLogDeserializationSchema(CatalogTable catalogTable){
-        this.catalogTable=catalogTable;
+
+    public FastLogDeserializationSchema(CatalogTable catalogTable) {
+
+        this.catalogTable = catalogTable;
     }
+
     @Override
     public SeaTunnelRow deserialize(byte[] bytes) throws IOException {
         return null;
@@ -39,11 +53,11 @@ public class FastLogDeserializationSchema implements DeserializationSchema<SeaTu
         return null;
     }
 
-
-    public void deserialize(List<LogGroupData> logGroupDatas, Collector<SeaTunnelRow> out) throws IOException {
-        for (LogGroupData logGroupData : logGroupDatas){
+    public void deserialize(List<LogGroupData> logGroupDatas, Collector<SeaTunnelRow> out)
+            throws IOException {
+        for (LogGroupData logGroupData : logGroupDatas) {
             FastLogGroup logs = logGroupData.GetFastLogGroup();
-            for (FastLog log : logs.getLogs()){
+            for (FastLog log : logs.getLogs()) {
                 SeaTunnelRow seaTunnelRow = convertFastLogSchema(log);
                 out.collect(seaTunnelRow);
             }
@@ -54,9 +68,9 @@ public class FastLogDeserializationSchema implements DeserializationSchema<SeaTu
         SeaTunnelRowType rowType = catalogTable.getSeaTunnelRowType();
         List<Object> transformedRow = new ArrayList<>(rowType.getTotalFields());
         List<FastLogContent> logContents = log.getContents();
-        for(FastLogContent flc : logContents) {
+        for (FastLogContent flc : logContents) {
             int keyIndex = rowType.indexOf(flc.getKey(), false);
-            if (keyIndex>-1){
+            if (keyIndex > -1) {
                 Object field = convert(rowType.getFieldType(keyIndex), flc.getValue());
                 transformedRow.add(keyIndex, field);
             }
@@ -67,7 +81,8 @@ public class FastLogDeserializationSchema implements DeserializationSchema<SeaTu
         return seaTunnelRow;
     }
 
-    private Object convert( SeaTunnelDataType<?> fieldType, String field) throws SeaTunnelTextFormatException{
+    private Object convert(SeaTunnelDataType<?> fieldType, String field)
+            throws SeaTunnelTextFormatException {
         switch (fieldType.getSqlType()) {
             case STRING:
                 return field;
@@ -92,9 +107,11 @@ public class FastLogDeserializationSchema implements DeserializationSchema<SeaTu
             case BYTES:
                 return field.getBytes(StandardCharsets.UTF_8);
             default:
-                throw new SeaTunnelTextFormatException(CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE, String.format("SeaTunnel not support this data type [%s]", fieldType.getSqlType()));
+                throw new SeaTunnelTextFormatException(
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
+                        String.format(
+                                "SeaTunnel not support this data type [%s]",
+                                fieldType.getSqlType()));
         }
-
     }
-
 }

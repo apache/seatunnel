@@ -1,26 +1,33 @@
 package org.apache.seatunnel.connectors.seatunnel.sls.source;
 
-import com.google.common.collect.Lists;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.source.*;
+import org.apache.seatunnel.api.source.Boundedness;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SourceReader;
+import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.connectors.seatunnel.sls.state.SlsSourceState;
 
+import com.google.common.collect.Lists;
+
 import java.util.List;
 
-public class SlsSource implements SeaTunnelSource<SeaTunnelRow, SlsSourceSplit, SlsSourceState>,SupportParallelism {
+public class SlsSource
+        implements SeaTunnelSource<SeaTunnelRow, SlsSourceSplit, SlsSourceState>,
+                SupportParallelism {
 
     private JobContext jobContext;
 
     private final SlsSourceConfig slsSourceConfig;
 
-    public SlsSource(ReadonlyConfig readonlyConfig){
+    public SlsSource(ReadonlyConfig readonlyConfig) {
         this.slsSourceConfig = new SlsSourceConfig(readonlyConfig);
-
     }
+
     @Override
     public void setJobContext(JobContext jobContext) {
         this.jobContext = jobContext;
@@ -34,15 +41,16 @@ public class SlsSource implements SeaTunnelSource<SeaTunnelRow, SlsSourceSplit, 
     }
 
     @Override
-    public SourceReader<SeaTunnelRow, SlsSourceSplit> createReader(SourceReader.Context readContext) throws Exception {
+    public SourceReader<SeaTunnelRow, SlsSourceSplit> createReader(SourceReader.Context readContext)
+            throws Exception {
         return new SlsSourceReader(slsSourceConfig);
     }
 
     @Override
-    public SourceSplitEnumerator<SlsSourceSplit, SlsSourceState> createEnumerator(SourceSplitEnumerator.Context<SlsSourceSplit> enumeratorContext) throws Exception {
+    public SourceSplitEnumerator<SlsSourceSplit, SlsSourceState> createEnumerator(
+            SourceSplitEnumerator.Context<SlsSourceSplit> enumeratorContext) throws Exception {
         return new SlsSourceSplitEnumerator(slsSourceConfig, enumeratorContext);
     }
-
 
     @Override
     public SourceSplitEnumerator<SlsSourceSplit, SlsSourceState> restoreEnumerator(
@@ -56,7 +64,6 @@ public class SlsSource implements SeaTunnelSource<SeaTunnelRow, SlsSourceSplit, 
     public List<CatalogTable> getProducedCatalogTables() {
         return Lists.newArrayList(slsSourceConfig.getCatalogTable());
     }
-
 
     @Override
     public String getPluginName() {

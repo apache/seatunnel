@@ -1,18 +1,28 @@
 package org.apache.seatunnel.connectors.seatunnel.sls.source;
 
-import com.aliyun.openservices.log.common.LogGroupData;
-import com.aliyun.openservices.log.exception.LogException;
-import com.aliyun.openservices.log.request.PullLogsRequest;
-import com.aliyun.openservices.log.response.PullLogsResponse;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.sls.serialization.FastLogDeserialization;
 
+import com.aliyun.openservices.log.common.LogGroupData;
+import com.aliyun.openservices.log.exception.LogException;
+import com.aliyun.openservices.log.request.PullLogsRequest;
+import com.aliyun.openservices.log.response.PullLogsResponse;
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
-import java.util.*;
-import java.util.concurrent.*;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -27,19 +37,19 @@ public class SlsSourceReader implements SourceReader<SeaTunnelRow, SlsSourceSpli
     private final ExecutorService executorService;
 
     private final Map<Long, Map<String, SlsSourceSplit>> checkpointOffsetMap;
-    SlsSourceReader(SlsSourceConfig slsSourceConfig){
+
+    SlsSourceReader(SlsSourceConfig slsSourceConfig) {
         this.pendingShardsQueue = new LinkedBlockingQueue();
         this.sourceSplits = new HashSet<>();
-        this.consumerThreadMap= new ConcurrentHashMap<>();
+        this.consumerThreadMap = new ConcurrentHashMap<>();
         this.slsSourceConfig = slsSourceConfig;
-        this.executorService = Executors.newCachedThreadPool(r -> new Thread(r, "Sls Source Data Consumer"));
+        this.executorService =
+                Executors.newCachedThreadPool(r -> new Thread(r, "Sls Source Data Consumer"));
         this.checkpointOffsetMap = new ConcurrentHashMap<>();
     }
 
     @Override
-    public void open() throws Exception {
-
-    }
+    public void open() throws Exception {}
 
     @Override
     public void close() throws IOException {
@@ -64,37 +74,51 @@ public class SlsSourceReader implements SourceReader<SeaTunnelRow, SlsSourceSpli
                         consumerThreadMap.computeIfAbsent(
                                 sourceSplit.splitId(),
                                 s -> {
-                                    SlsConsumerThread thread =new SlsConsumerThread(slsSourceConfig);
+                                    SlsConsumerThread thread =
+                                            new SlsConsumerThread(slsSourceConfig);
                                     executorService.submit(thread);
                                     return thread;
                                 }));
         List<SlsSourceSplit> finishedSplits = new CopyOnWriteArrayList<>();
-        FastLogDeserialization fastLogDeserialization = slsSourceConfig.getConsumerMetaData().getDeserializationSchema();
+        FastLogDeserialization fastLogDeserialization =
+                slsSourceConfig.getConsumerMetaData().getDeserializationSchema();
         sourceSplits.forEach(
-                sourceSplit->{
+                sourceSplit -> {
                     CompletableFuture<Boolean> completableFuture = new CompletableFuture<>();
                     try {
-                        consumerThreadMap.get(sourceSplit.splitId())
+                        consumerThreadMap
+                                .get(sourceSplit.splitId())
                                 .getTasks()
-                                .put(consumer->{
-                                    try {
-                                        PullLogsRequest request = new PullLogsRequest(sourceSplit.getProject(), sourceSplit.getLogStore(), sourceSplit.getShardId(), sourceSplit.getFetchSize(), sourceSplit.getStartCursor());
-                                        PullLogsResponse response = consumer.pullLogs(request);
-                                        List<LogGroupData> logGroupDatas = response.getLogGroups();
-                                        fastLogDeserialization.deserialize(logGroupDatas, collector);
-                                        sourceSplit.setStartCursor(response.getNextCursor());
-                                        completableFuture.complete(true);
-                                    } catch (LogException e) {
-                                        e.printStackTrace();
-                                        completableFuture.completeExceptionally(e);
-                                        throw new RuntimeException(e);
-                                    } catch (IOException e) {
-                                        e.printStackTrace();
-                                        completableFuture.completeExceptionally(e);
-                                        throw new RuntimeException(e);
-                                    }
-                                    completableFuture.complete(false);
-                                });
+                                .put(
+                                        consumer -> {
+                                            try {
+                                                PullLogsRequest request =
+                                                        new PullLogsRequest(
+                                                                sourceSplit.getProject(),
+                                                                sourceSplit.getLogStore(),
+                                                                sourceSplit.getShardId(),
+                                                                sourceSplit.getFetchSize(),
+                                                                sourceSplit.getStartCursor());
+                                                PullLogsResponse response =
+                                                        consumer.pullLogs(request);
+                                                List<LogGroupData> logGroupDatas =
+                                                        response.getLogGroups();
+                                                fastLogDeserialization.deserialize(
+                                                        logGroupDatas, collector);
+                                                sourceSplit.setStartCursor(
+                                                        response.getNextCursor());
+                                                completableFuture.complete(true);
+                                            } catch (LogException e) {
+                                                e.printStackTrace();
+                                                completableFuture.completeExceptionally(e);
+                                                throw new RuntimeException(e);
+                                            } catch (IOException e) {
+                                                e.printStackTrace();
+                                                completableFuture.completeExceptionally(e);
+                                                throw new RuntimeException(e);
+                                            }
+                                            completableFuture.complete(false);
+                                        });
                         if (completableFuture.get()) {
                             finishedSplits.add(sourceSplit);
                         }
@@ -105,19 +129,17 @@ public class SlsSourceReader implements SourceReader<SeaTunnelRow, SlsSourceSpli
                         e.printStackTrace();
                         throw new RuntimeException(e);
                     }
-                }
-        );
+                });
     }
 
     @Override
     public List<SlsSourceSplit> snapshotState(long checkpointId) throws Exception {
         checkpointOffsetMap.put(
                 checkpointId,
-                sourceSplits.stream().collect(Collectors.toMap(SlsSourceSplit::splitId, SlsSourceSplit::copy)));
+                sourceSplits.stream()
+                        .collect(Collectors.toMap(SlsSourceSplit::splitId, SlsSourceSplit::copy)));
         return sourceSplits.stream().map(SlsSourceSplit::copy).collect(Collectors.toList());
-
     }
-
 
     // 接受
     @Override
@@ -155,15 +177,24 @@ public class SlsSourceReader implements SourceReader<SeaTunnelRow, SlsSourceSpli
                                                     client -> {
                                                         // 默认都是onCheckpointCommit
                                                         try {
-                                                            client.UpdateCheckPoint(slsSourceSplit.getProject(), slsSourceSplit.getLogStore(), slsSourceSplit.getConsumer(), 1, slsSourceSplit.getStartCursor());
+                                                            client.UpdateCheckPoint(
+                                                                    slsSourceSplit.getProject(),
+                                                                    slsSourceSplit.getLogStore(),
+                                                                    slsSourceSplit.getConsumer(),
+                                                                    1,
+                                                                    slsSourceSplit
+                                                                            .getStartCursor());
                                                         } catch (LogException e) {
                                                             e.printStackTrace();
-                                                            log.error("LogException: commit cursor to sls failed", e);
+                                                            log.error(
+                                                                    "LogException: commit cursor to sls failed",
+                                                                    e);
                                                             throw new RuntimeException(e);
                                                         }
                                                     });
                                 } catch (InterruptedException e) {
-                                    log.error("InterruptedException: commit cursor to sls failed", e);
+                                    log.error(
+                                            "InterruptedException: commit cursor to sls failed", e);
                                 }
                             });
         }

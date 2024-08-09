@@ -1,13 +1,14 @@
 package org.apache.seatunnel.connectors.seatunnel.sls.source;
 
-import java.io.Serializable;
-
-import com.aliyun.openservices.log.common.Consts;
-import lombok.Data;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.sls.config.StartMode;
 import org.apache.seatunnel.connectors.seatunnel.sls.serialization.FastLogDeserialization;
+
+import com.aliyun.openservices.log.common.Consts;
+import lombok.Data;
+
+import java.io.Serializable;
 
 @Data
 public class ConsumerMetaData implements Serializable {

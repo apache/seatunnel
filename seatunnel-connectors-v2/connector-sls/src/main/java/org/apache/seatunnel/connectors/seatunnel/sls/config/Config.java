@@ -1,8 +1,9 @@
 package org.apache.seatunnel.connectors.seatunnel.sls.config;
 
-import com.aliyun.openservices.log.common.Consts;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+
+import com.aliyun.openservices.log.common.Consts;
 
 public class Config {
     public static final String CONNECTOR_IDENTITY = "Sls";
@@ -59,6 +60,6 @@ public class Config {
             Options.key("partition-discovery.interval-millis")
                     .longType()
                     .defaultValue(-1L)
-                    .withDescription("The interval for dynamically discovering topics and partitions.");
+                    .withDescription(
+                            "The interval for dynamically discovering topics and partitions.");
 }
-
