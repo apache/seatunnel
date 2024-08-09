@@ -49,9 +49,9 @@ public class SlsIT extends TestSuiteBase implements TestResource {
             throws IOException, InterruptedException {
         Container.ExecResult execResult1 =
                 container.executeJob("/sls_source_with_schema_to_console.conf");
-        Assertions.assertEquals(0, execResult1.getExitCode());
+        Assertions.assertEquals(0, execResult1.getExitCode(), execResult1.getStderr());
         Container.ExecResult execResult2 =
                 container.executeJob("/sls_source_without_schema_to_console.conf");
-        Assertions.assertEquals(0, execResult2.getExitCode());
+        Assertions.assertEquals(0, execResult2.getExitCode(), execResult2.getStderr());
     }
 }
