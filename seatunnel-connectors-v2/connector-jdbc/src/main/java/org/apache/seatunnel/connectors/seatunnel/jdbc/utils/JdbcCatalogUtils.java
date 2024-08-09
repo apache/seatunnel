@@ -393,6 +393,8 @@ public class JdbcCatalogUtils {
                 .ifPresent(val -> catalogConfig.put(JdbcCatalogOptions.USERNAME.key(), val));
         config.getPassword()
                 .ifPresent(val -> catalogConfig.put(JdbcCatalogOptions.PASSWORD.key(), val));
+        Optional.ofNullable(config.getCompatibleMode())
+                .ifPresent(val -> catalogConfig.put(JdbcCatalogOptions.COMPATIBLE_MODE.key(), val));
         return ReadonlyConfig.fromMap(catalogConfig);
     }
 }
