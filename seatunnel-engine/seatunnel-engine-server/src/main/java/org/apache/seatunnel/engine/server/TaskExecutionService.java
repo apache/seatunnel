@@ -971,7 +971,11 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 } catch (Throwable e) {
                     throw new RuntimeException(e);
                 }
-                updateMetricsContextInImap();
+                try {
+                    updateMetricsContextInImap();
+                } catch (Throwable t) {
+                    logger.warning("update metrics context in imap failed", t);
+                }
                 if (ex == null) {
                     logger.info(
                             String.format(
