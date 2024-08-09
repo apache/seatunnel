@@ -153,8 +153,9 @@ public class SlsSourceSplitEnumerator implements SourceSplitEnumerator<SlsSource
         String project = this.consumerMetaData.getProject();
         String logStore = this.consumerMetaData.getLogstore();
         String consumer = this.consumerMetaData.getConsumerGroup();
-        StartMode positionMode = this.consumerMetaData.getPositionMode();
+        StartMode startMode = this.consumerMetaData.getStartMode();
         int fetachSize = this.consumerMetaData.getFetchSize();
+        Consts.CursorMode autoCursorReset = this.consumerMetaData.getAutoCursorReset();
         ListShardResponse shards = this.slsCleint.ListShard(project, logStore);
         shards.GetShards().forEach(
                 shard -> {
@@ -162,7 +163,7 @@ public class SlsSourceSplitEnumerator implements SourceSplitEnumerator<SlsSource
                                 if (!pendingSplit.containsKey(shard.getShardId())) {
                                     String cursor = "";
                                     try {
-                                        cursor = initShardCursor(project, logStore, consumer, shard.getShardId(), positionMode);
+                                        cursor = initShardCursor(project, logStore, consumer, shard.getShardId(), startMode, autoCursorReset);
                                     } catch (Exception e) {
                                         throw new RuntimeException(e);
                                     }
@@ -178,7 +179,7 @@ public class SlsSourceSplitEnumerator implements SourceSplitEnumerator<SlsSource
         );
     }
 
-    private String initShardCursor(String project, String logStore, String consumer, int shardIdKey, StartMode cursorMode) throws Exception {
+    private String initShardCursor(String project, String logStore, String consumer, int shardIdKey, StartMode cursorMode, Consts.CursorMode autoCursorReset) throws Exception {
         switch (cursorMode) {
             case EARLIEST:
                 try {
@@ -206,10 +207,10 @@ public class SlsSourceSplitEnumerator implements SourceSplitEnumerator<SlsSource
                             return checkpoint.getCheckPoint();
                         }
                     }
-                    return initShardCursor(project, logStore, consumer, shardIdKey, StartMode.LATEST);
+                    return this.slsCleint.GetCursor(project, logStore, shardIdKey, autoCursorReset).GetCursor();
                 } catch (LogException e) {
                     if (e.GetErrorCode().equals("ConsumerGroupNotExist")) {
-                        return initShardCursor(project, logStore, consumer, shardIdKey, StartMode.LATEST);
+                        return this.slsCleint.GetCursor(project, logStore, shardIdKey, autoCursorReset).GetCursor();
                     }
                     throw new RuntimeException(e);
                 }

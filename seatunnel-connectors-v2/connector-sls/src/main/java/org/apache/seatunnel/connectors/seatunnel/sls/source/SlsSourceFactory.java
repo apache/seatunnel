@@ -27,13 +27,15 @@ public class SlsSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(Config.ENDPOINT, Config.PROJECT, Config.LOGSTORE, Config.CONSUMER_GROUP,
+                .required(Config.ENDPOINT, Config.PROJECT, Config.LOGSTORE,
                         Config.ACCESS_KEY_ID, Config.ACCESS_KEY_SECRET)
                 .optional(
                         Config.BATCH_SIZE,
-                        Config.POSITION_MODE,
+                        Config.START_MODE,
                         Config.KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS,
-                        Config.CONSUMER_NUM)
+                        Config.AUTO_CURSOR_RESET,
+                        Config.CONSUMER_GROUP
+                )
                 .build();
     }
 

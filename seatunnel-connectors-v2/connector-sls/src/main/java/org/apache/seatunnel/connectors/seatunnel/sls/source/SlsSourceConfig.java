@@ -45,8 +45,9 @@ public class SlsSourceConfig implements Serializable {
         consumerMetaData.setProject(readonlyConfig.get(PROJECT));
         consumerMetaData.setLogstore(readonlyConfig.get(LOGSTORE));
         consumerMetaData.setConsumerGroup(readonlyConfig.get(CONSUMER_GROUP));
-        consumerMetaData.setPositionMode(readonlyConfig.get(POSITION_MODE));
+        consumerMetaData.setStartMode(readonlyConfig.get(START_MODE));
         consumerMetaData.setFetchSize(readonlyConfig.get(BATCH_SIZE));
+        consumerMetaData.setAutoCursorReset(readonlyConfig.get(AUTO_CURSOR_RESET));
         consumerMetaData.setDeserializationSchema(createDeserializationSchema(readonlyConfig));
         consumerMetaData.setCatalogTable(catalogTable);
         return consumerMetaData;
@@ -60,7 +61,7 @@ public class SlsSourceConfig implements Serializable {
         if (schemaOptions.isPresent()) {
             tableSchema = new ReadonlyConfigParser().parse(readonlyConfig);
         } else {
-            // 默认的输入表结构，只包含一个content字段
+            // no scheam, all value in content filed
             tableSchema =
                     TableSchema.builder()
                             .column(
