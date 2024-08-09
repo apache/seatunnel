@@ -412,7 +412,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         Long[] metricsSums =
                 Stream.generate(() -> 0L).limit(countMetricsNames.length).toArray(Long[]::new);
         Double[] metricsRates =
-                Stream.generate(() -> 0.0).limit(rateMetricsNames.length).toArray(Double[]::new);
+                Stream.generate(() -> 0D).limit(rateMetricsNames.length).toArray(Double[]::new);
 
         // Used to store various indicators at the table
         Map<String, JsonNode>[] tableMetricsMaps =
