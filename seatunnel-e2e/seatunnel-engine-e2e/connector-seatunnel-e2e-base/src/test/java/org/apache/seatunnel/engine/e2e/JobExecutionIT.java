@@ -78,17 +78,17 @@ public class JobExecutionIT {
 
     @Test
     public void testExecuteJob() throws Exception {
-        runFakeToFileJobWithEndStatus(
+        runJobFileWithAssertEndStatus(
                 "batch_fakesource_to_file.conf", "fake_to_file", JobStatus.FINISHED);
     }
 
-    private static void runFakeToFileJobWithEndStatus(
-            String confFile, String fake_to_file, JobStatus finished)
+    private static void runJobFileWithAssertEndStatus(
+            String confFile, String name, JobStatus finished)
             throws ExecutionException, InterruptedException {
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = TestUtils.getResource(confFile);
         JobConfig jobConfig = new JobConfig();
-        jobConfig.setName(fake_to_file);
+        jobConfig.setName(name);
         ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
         clientConfig.setClusterName(TestUtils.getClusterName("JobExecutionIT"));
         try (SeaTunnelClient engineClient = new SeaTunnelClient(clientConfig)) {
@@ -117,7 +117,7 @@ public class JobExecutionIT {
                 hazelcastInstance.getMap(Constant.IMAP_RUNNING_JOB_METRICS);
         metricsImap.lock(Constant.IMAP_RUNNING_JOB_METRICS_KEY);
         try {
-            runFakeToFileJobWithEndStatus(
+            runJobFileWithAssertEndStatus(
                     "batch_fakesource_to_file.conf", "fake_to_file", JobStatus.FINISHED);
         } finally {
             metricsImap.unlock(Constant.IMAP_RUNNING_JOB_METRICS_KEY);
@@ -254,7 +254,7 @@ public class JobExecutionIT {
 
     @Test
     public void testLastCheckpointErrorJob() throws Exception {
-        runFakeToFileJobWithEndStatus(
+        runJobFileWithAssertEndStatus(
                 "batch_last_checkpoint_error.conf",
                 "batch_last_checkpoint_error",
                 JobStatus.FAILED);
