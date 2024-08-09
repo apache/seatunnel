@@ -62,8 +62,6 @@ public class HttpIT extends TestSuiteBase implements TestResource {
 
     private static final String TMP_DIR = "/tmp";
 
-    private static final String successCount = "Total Write Count         :                   2";
-
     private static final String IMAGE = "mockserver/mockserver:5.14.0";
 
     private GenericContainer<?> mockserverContainer;
