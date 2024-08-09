@@ -27,6 +27,8 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
+import org.mockserver.client.MockServerClient;
+import org.mockserver.model.Format;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -36,11 +38,25 @@ import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 import org.testcontainers.utility.MountableFile;
 
+import com.google.common.collect.Lists;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
+import lombok.Builder;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.Setter;
+
 import java.io.File;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import static org.mockserver.model.HttpRequest.request;
 
 public class HttpIT extends TestSuiteBase implements TestResource {
 
@@ -51,6 +67,10 @@ public class HttpIT extends TestSuiteBase implements TestResource {
     private static final String IMAGE = "mockserver/mockserver:5.14.0";
 
     private GenericContainer<?> mockserverContainer;
+
+    private static final List<Record> records = new ArrayList<>();
+
+    private MockServerClient mockServerClient;
 
     @BeforeAll
     @Override
@@ -78,7 +98,53 @@ public class HttpIT extends TestSuiteBase implements TestResource {
                         .withEnv("MOCKSERVER_LOG_LEVEL", "WARN")
                         .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)))
                         .waitingFor(new HttpWaitStrategy().forPath("/").forStatusCode(404));
+        mockserverContainer.setPortBindings(Lists.newArrayList(String.format("%s:%s", 1080, 1080)));
         Startables.deepStart(Stream.of(mockserverContainer)).join();
+        mockServerClient = new MockServerClient("127.0.0.1", 1080);
+        fillMockRecords();
+    }
+
+    private static void fillMockRecords() {
+        records.add(
+                Record.builder()
+                        .body(
+                                RequestBody.builder()
+                                        .json(
+                                                JsonBody.builder()
+                                                        .id(1)
+                                                        .val_bool(true)
+                                                        .val_int8(new Byte("1"))
+                                                        .val_int16((short) 2)
+                                                        .val_int32(3)
+                                                        .val_int64(4)
+                                                        .val_float(4.3F)
+                                                        .val_double(5.3)
+                                                        .val_decimal(BigDecimal.valueOf(6.3))
+                                                        .val_string("NEW")
+                                                        .val_unixtime_micros("2020-02-02T02:02:02")
+                                                        .build())
+                                        .build())
+                        .build());
+        records.add(
+                Record.builder()
+                        .body(
+                                RequestBody.builder()
+                                        .json(
+                                                JsonBody.builder()
+                                                        .id(2)
+                                                        .val_bool(true)
+                                                        .val_int8(new Byte("1"))
+                                                        .val_int16((short) 2)
+                                                        .val_int32(3)
+                                                        .val_int64(4)
+                                                        .val_float(4.3F)
+                                                        .val_double(5.3)
+                                                        .val_decimal(BigDecimal.valueOf(6.3))
+                                                        .val_string("NEW")
+                                                        .val_unixtime_micros("2020-02-02T02:02:02")
+                                                        .build())
+                                        .build())
+                        .build());
     }
 
     @AfterAll
@@ -86,6 +152,9 @@ public class HttpIT extends TestSuiteBase implements TestResource {
     public void tearDown() {
         if (mockserverContainer != null) {
             mockserverContainer.stop();
+        }
+        if (mockServerClient != null) {
+            mockServerClient.close();
         }
     }
 
@@ -174,9 +243,60 @@ public class HttpIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testMultiTableHttp(TestContainer container)
             throws IOException, InterruptedException {
+
         Container.ExecResult execResult = container.executeJob("/fake_to_multitable.conf");
+
         Assertions.assertEquals(0, execResult.getExitCode());
-        Assertions.assertTrue(execResult.getStdout().contains(successCount));
+        Gson gson = new Gson();
+
+        String mockResponse =
+                mockServerClient.retrieveRecordedRequests(
+                        request().withPath("/example/httpMultiTableContentSink").withMethod("POST"),
+                        Format.JSON);
+        List<Record> recordResponse =
+                gson.fromJson(mockResponse, new TypeToken<List<Record>>() {}.getType());
+        recordResponse =
+                recordResponse.stream()
+                        .sorted(
+                                (r1, r2) ->
+                                        r1.getBody().getJson().getId()
+                                                - r2.getBody().getJson().getId())
+                        .collect(Collectors.toList());
+        Assertions.assertIterableEquals(records, recordResponse);
+    }
+
+    @Getter
+    @Setter
+    @Builder
+    @EqualsAndHashCode
+    static class Record {
+        private RequestBody body;
+    }
+
+    @Getter
+    @Setter
+    @Builder
+    @EqualsAndHashCode
+    static class RequestBody {
+        private JsonBody json;
+    }
+
+    @Getter
+    @Setter
+    @Builder
+    @EqualsAndHashCode
+    static class JsonBody {
+        private int id;
+        private boolean val_bool;
+        private byte val_int8;
+        private short val_int16;
+        private int val_int32;
+        private long val_int64;
+        private float val_float;
+        private double val_double;
+        private BigDecimal val_decimal;
+        private String val_string;
+        private String val_unixtime_micros;
     }
 
     public String getMockServerConfig() {
