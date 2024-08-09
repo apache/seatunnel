@@ -51,8 +51,6 @@ import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.FORM
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.KAFKA_CONFIG;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.PARTITION;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.PARTITION_KEY_FIELDS;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.PROTOBUF_MESSAGE_NAME;
-import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.PROTOBUF_SCHEMA;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.SEMANTICS;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.TOPIC;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.TRANSACTION_PREFIX;
@@ -195,11 +193,16 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
         }
         if (pluginConfig.get(PARTITION) != null) {
             return DefaultSeaTunnelRowSerializer.create(
-                    topic, pluginConfig.get(PARTITION), seaTunnelRowType, messageFormat, delimiter,pluginConfig);
+                    topic,
+                    pluginConfig.get(PARTITION),
+                    seaTunnelRowType,
+                    messageFormat,
+                    delimiter,
+                    pluginConfig);
         }
         // By default, all partitions are sent randomly
         return DefaultSeaTunnelRowSerializer.create(
-                topic, Arrays.asList(), seaTunnelRowType, messageFormat, delimiter,pluginConfig);
+                topic, Arrays.asList(), seaTunnelRowType, messageFormat, delimiter, pluginConfig);
     }
 
     private KafkaSemantics getKafkaSemantics(ReadonlyConfig pluginConfig) {

@@ -72,13 +72,17 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
     }
 
     public static DefaultSeaTunnelRowSerializer create(
-            String topic, SeaTunnelRowType rowType, MessageFormat format, String delimiter,ReadonlyConfig pluginConfig) {
+            String topic,
+            SeaTunnelRowType rowType,
+            MessageFormat format,
+            String delimiter,
+            ReadonlyConfig pluginConfig) {
         return new DefaultSeaTunnelRowSerializer(
                 topicExtractor(topic, rowType, format),
                 partitionExtractor(null),
                 timestampExtractor(),
-                keyExtractor(null, rowType, format, delimiter,pluginConfig),
-                valueExtractor(rowType, format, delimiter,pluginConfig),
+                keyExtractor(null, rowType, format, delimiter, pluginConfig),
+                valueExtractor(rowType, format, delimiter, pluginConfig),
                 headersExtractor());
     }
 
@@ -93,8 +97,8 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
                 topicExtractor(topic, rowType, format),
                 partitionExtractor(partition),
                 timestampExtractor(),
-                keyExtractor(null, rowType, format, delimiter,pluginConfig),
-                valueExtractor(rowType, format, delimiter,pluginConfig),
+                keyExtractor(null, rowType, format, delimiter, pluginConfig),
+                valueExtractor(rowType, format, delimiter, pluginConfig),
                 headersExtractor());
     }
 
@@ -109,8 +113,8 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
                 topicExtractor(topic, rowType, format),
                 partitionExtractor(null),
                 timestampExtractor(),
-                keyExtractor(keyFields, rowType, format, delimiter,pluginConfig),
-                valueExtractor(rowType, format, delimiter,pluginConfig),
+                keyExtractor(keyFields, rowType, format, delimiter, pluginConfig),
+                valueExtractor(rowType, format, delimiter, pluginConfig),
                 headersExtractor());
     }
 
@@ -180,14 +184,17 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
         Function<SeaTunnelRow, SeaTunnelRow> keyRowExtractor =
                 createKeyRowExtractor(keyType, rowType);
         SerializationSchema serializationSchema =
-                createSerializationSchema(keyType, format, delimiter, true,pluginConfig);
+                createSerializationSchema(keyType, format, delimiter, true, pluginConfig);
         return row -> serializationSchema.serialize(keyRowExtractor.apply(row));
     }
 
     private static Function<SeaTunnelRow, byte[]> valueExtractor(
-            SeaTunnelRowType rowType, MessageFormat format, String delimiter,ReadonlyConfig pluginConfig) {
+            SeaTunnelRowType rowType,
+            MessageFormat format,
+            String delimiter,
+            ReadonlyConfig pluginConfig) {
         SerializationSchema serializationSchema =
-                createSerializationSchema(rowType, format, delimiter, false,pluginConfig);
+                createSerializationSchema(rowType, format, delimiter, false, pluginConfig);
         return row -> serializationSchema.serialize(row);
     }
 
@@ -220,7 +227,11 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
     }
 
     private static SerializationSchema createSerializationSchema(
-            SeaTunnelRowType rowType, MessageFormat format, String delimiter, boolean isKey,ReadonlyConfig pluginConfig) {
+            SeaTunnelRowType rowType,
+            MessageFormat format,
+            String delimiter,
+            boolean isKey,
+            ReadonlyConfig pluginConfig) {
         switch (format) {
             case JSON:
                 return new JsonSerializationSchema(rowType);
@@ -244,7 +255,8 @@ public class DefaultSeaTunnelRowSerializer implements SeaTunnelRowSerializer {
             case PROTOBUF:
                 String protobufMessageName = pluginConfig.get(PROTOBUF_MESSAGE_NAME);
                 String protobufSchema = pluginConfig.get(PROTOBUF_SCHEMA);
-                return new ProtobufSerializationSchema(rowType,protobufMessageName,protobufSchema);
+                return new ProtobufSerializationSchema(
+                        rowType, protobufMessageName, protobufSchema);
             default:
                 throw new SeaTunnelJsonFormatException(
                         CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,

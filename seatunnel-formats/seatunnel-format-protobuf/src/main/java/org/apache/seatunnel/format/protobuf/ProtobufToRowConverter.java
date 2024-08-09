@@ -23,17 +23,10 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.utils.FileUtils;
-import org.apache.seatunnel.format.protobuf.exception.ProtobufFormatErrorCode;
-import org.apache.seatunnel.format.protobuf.exception.SeaTunnelProtobufFormatException;
 
-import com.github.os72.protocjar.Protoc;
-import com.google.protobuf.DescriptorProtos;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.Serializable;
 import java.lang.reflect.Array;
@@ -70,7 +63,7 @@ public class ProtobufToRowConverter implements Serializable {
     private Descriptors.Descriptor createDescriptor()
             throws IOException, InterruptedException, Descriptors.DescriptorValidationException {
 
-        return CompileDescriptor.compileDescriptorTempFile(protoContent,messageName);
+        return CompileDescriptor.compileDescriptorTempFile(protoContent, messageName);
     }
 
     public SeaTunnelRow converter(
@@ -89,7 +82,7 @@ public class ProtobufToRowConverter implements Serializable {
                                 descriptor,
                                 dynamicMessage,
                                 rowType.getFieldType(i),
-                                fieldByName == null?null:dynamicMessage.getField(fieldByName),
+                                fieldByName == null ? null : dynamicMessage.getField(fieldByName),
                                 fieldNames[i]);
             }
         }
