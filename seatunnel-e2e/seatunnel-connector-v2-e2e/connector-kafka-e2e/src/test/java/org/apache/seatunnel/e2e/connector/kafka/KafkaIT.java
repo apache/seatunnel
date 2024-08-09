@@ -443,8 +443,8 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                         "test_avro_topic",
                         SEATUNNEL_ROW_TYPE,
                         MessageFormat.AVRO,
-                        DEFAULT_FIELD_DELIMITER
-                        ,null);
+                        DEFAULT_FIELD_DELIMITER,
+                        null);
         int start = 0;
         int end = 100;
         generateTestData(row -> serializer.serializeRow(row), start, end);
