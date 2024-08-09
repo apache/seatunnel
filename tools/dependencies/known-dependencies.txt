@@ -8,6 +8,8 @@ config-1.3.3.jar
 disruptor-3.4.4.jar
 guava-27.0-jre.jar
 hazelcast-5.1.jar
+httpclient-4.5.13.jar
+httpcore-4.4.4.jar
 jackson-annotations-2.13.3.jar
 jackson-core-2.13.3.jar
 jackson-databind-2.13.3.jar
@@ -24,9 +26,9 @@ protostuff-collectionschema-1.8.0.jar
 protostuff-core-1.8.0.jar
 protostuff-runtime-1.8.0.jar
 scala-library-2.12.15.jar
-seatunnel-jackson-2.3.6-SNAPSHOT-optional.jar
-seatunnel-guava-2.3.6-SNAPSHOT-optional.jar
-seatunnel-hazelcast-shade-2.3.6-SNAPSHOT-optional.jar
+seatunnel-jackson-2.3.7-SNAPSHOT-optional.jar
+seatunnel-guava-2.3.7-SNAPSHOT-optional.jar
+seatunnel-hazelcast-shade-2.3.7-SNAPSHOT-optional.jar
 slf4j-api-1.7.25.jar
 jsqlparser-4.5.jar
 animal-sniffer-annotations-1.17.jar
@@ -44,4 +46,4 @@ accessors-smart-2.4.7.jar
 asm-9.1.jar
 avro-1.11.1.jar
 groovy-4.0.16.jar
-seatunnel-janino-2.3.6-SNAPSHOT-optional.jar
+seatunnel-janino-2.3.7-SNAPSHOT-optional.jar

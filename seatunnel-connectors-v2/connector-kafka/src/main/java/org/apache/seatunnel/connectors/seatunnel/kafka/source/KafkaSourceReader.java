@@ -218,8 +218,14 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
                     }
                 });
         if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
-            finishedSplits.forEach(sourceSplits::remove);
-            if (sourceSplits.isEmpty()) {
+            for (KafkaSourceSplit split : finishedSplits) {
+                split.setFinish(true);
+                if (split.getStartOffset() == -1) {
+                    // log next running read start offset
+                    split.setStartOffset(split.getEndOffset());
+                }
+            }
+            if (sourceSplits.stream().allMatch(KafkaSourceSplit::isFinish)) {
                 context.signalNoMoreElement();
             }
         }

@@ -14,15 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.seatunnel.transform.dynamiccompile.parse;
 
-import groovy.lang.GroovyClassLoader;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.hive;
 
-public class GroovyClassUtil extends ParseUtil {
-    private static final GroovyClassLoader groovyClassLoader = new GroovyClassLoader();
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.inceptor.InceptorDialect;
 
-    public static Class<?> parseWithCache(String sourceCode) {
-        return classCache.computeIfAbsent(
-                getClassKey(sourceCode), clazz -> groovyClassLoader.parseClass(sourceCode));
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+
+public class HiveDialectFactoryTest {
+
+    @Test
+    public void testWithCompatibleMode() {
+        HiveDialectFactory hiveDialectFactory = new HiveDialectFactory();
+        JdbcDialect inceptorDialect = hiveDialectFactory.create("inceptor", "");
+        Assertions.assertTrue(inceptorDialect instanceof InceptorDialect);
+        JdbcDialect hiveDialect = hiveDialectFactory.create("", "");
+        Assertions.assertTrue(hiveDialect instanceof HiveDialect);
     }
 }

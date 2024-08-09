@@ -17,9 +17,11 @@
 
 package org.apache.seatunnel.api.table.catalog;
 
+import org.apache.commons.lang3.StringUtils;
+
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
+import lombok.NonNull;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -27,12 +29,20 @@ import java.util.List;
 
 @Getter
 @EqualsAndHashCode
-@RequiredArgsConstructor
 public final class TablePath implements Serializable {
     private static final long serialVersionUID = 1L;
     private final String databaseName;
     private final String schemaName;
-    private final String tableName;
+    @NonNull private final String tableName;
+
+    public TablePath(String databaseName, String schemaName, @NonNull String tableName) {
+        this.databaseName = databaseName;
+        this.schemaName = schemaName;
+        this.tableName = tableName;
+        if (StringUtils.isEmpty(tableName)) {
+            throw new IllegalArgumentException("tableName cannot be empty");
+        }
+    }
 
     public static final TablePath DEFAULT = TablePath.of("default", "default", "default");
 

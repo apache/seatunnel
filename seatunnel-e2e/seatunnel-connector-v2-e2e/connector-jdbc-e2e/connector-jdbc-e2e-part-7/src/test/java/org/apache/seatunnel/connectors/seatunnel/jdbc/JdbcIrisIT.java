@@ -66,10 +66,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-@DisabledOnContainer(
-        value = {},
-        type = {EngineType.SPARK},
-        disabledReason = "Currently SPARK do not support cdc, temporarily disable")
 @Slf4j
 public class JdbcIrisIT extends AbstractJdbcIT {
     private static final String IRIS_IMAGE = "intersystems/iris-community:2023.1";
@@ -322,6 +318,10 @@ public class JdbcIrisIT extends AbstractJdbcIT {
         Assertions.assertFalse(catalog.tableExists(targetTablePath));
     }
 
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK},
+            disabledReason = "Currently SPARK do not support cdc")
     @TestTemplate
     public void testUpsert(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob("/jdbc_iris_upsert.conf");

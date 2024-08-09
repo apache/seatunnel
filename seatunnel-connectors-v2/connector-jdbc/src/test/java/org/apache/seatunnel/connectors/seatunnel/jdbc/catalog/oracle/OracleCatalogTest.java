@@ -20,6 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -27,22 +29,41 @@ import java.util.List;
 
 @Disabled("Please Test it in your local environment")
 class OracleCatalogTest {
-    @Test
-    void testCatalog() {
-        OracleCatalog catalog =
+
+    static OracleCatalog catalog;
+
+    @BeforeAll
+    static void before() {
+        catalog =
                 new OracleCatalog(
                         "oracle",
-                        "test",
-                        "oracle",
-                        OracleURLParser.parse("jdbc:oracle:thin:@127.0.0.1:1521:xe"),
+                        "c##gguser",
+                        "testdb",
+                        OracleURLParser.parse("jdbc:oracle:thin:@127.0.0.1:1521/CDC_PDB"),
                         null);
 
         catalog.open();
+    }
+
+    @Test
+    void testCatalog() {
 
         List<String> strings = catalog.listDatabases();
 
         CatalogTable table = catalog.getTable(TablePath.of("XE", "TEST", "PG_TYPES_TABLE_CP1"));
 
         catalog.createTable(new TablePath("XE", "TEST", "TEST003"), table, false);
+    }
+
+    @Test
+    void exist() {
+        Assertions.assertTrue(catalog.databaseExists("ORCLCDB"));
+        Assertions.assertTrue(catalog.tableExists(TablePath.of("ORCLCDB", "C##GGUSER", "myTable")));
+        Assertions.assertFalse(catalog.databaseExists("ORCL"));
+        Assertions.assertTrue(
+                catalog.tableExists(
+                        TablePath.of("ORCLCDB", "CDC_PDB", "ads_index_public_health_data")));
+        Assertions.assertTrue(
+                catalog.tableExists(TablePath.of("ORCLCDB", "CDC_PDB", "ADS_INDEX_DISEASE_DATA")));
     }
 }
