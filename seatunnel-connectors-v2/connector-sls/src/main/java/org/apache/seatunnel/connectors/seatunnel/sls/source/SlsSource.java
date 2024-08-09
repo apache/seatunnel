@@ -43,7 +43,7 @@ public class SlsSource
     @Override
     public SourceReader<SeaTunnelRow, SlsSourceSplit> createReader(SourceReader.Context readContext)
             throws Exception {
-        return new SlsSourceReader(slsSourceConfig);
+        return new SlsSourceReader(slsSourceConfig, readContext);
     }
 
     @Override

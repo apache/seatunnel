@@ -1,5 +1,6 @@
 package org.apache.seatunnel.connectors.seatunnel.sls.source;
 
+import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -28,7 +29,7 @@ import java.util.stream.Collectors;
 @Slf4j
 public class SlsSourceReader implements SourceReader<SeaTunnelRow, SlsSourceSplit> {
     private static final long THREAD_WAIT_TIME = 500L;
-
+    private final SourceReader.Context context;
     private volatile boolean running = false;
     private final LinkedBlockingQueue<SlsSourceSplit> pendingShardsQueue;
     private final Set<SlsSourceSplit> sourceSplits;
@@ -38,11 +39,12 @@ public class SlsSourceReader implements SourceReader<SeaTunnelRow, SlsSourceSpli
 
     private final Map<Long, Map<String, SlsSourceSplit>> checkpointOffsetMap;
 
-    SlsSourceReader(SlsSourceConfig slsSourceConfig) {
+    SlsSourceReader(SlsSourceConfig slsSourceConfig, Context context) {
         this.pendingShardsQueue = new LinkedBlockingQueue();
         this.sourceSplits = new HashSet<>();
         this.consumerThreadMap = new ConcurrentHashMap<>();
         this.slsSourceConfig = slsSourceConfig;
+        this.context = context;
         this.executorService =
                 Executors.newCachedThreadPool(r -> new Thread(r, "Sls Source Data Consumer"));
         this.checkpointOffsetMap = new ConcurrentHashMap<>();
@@ -130,6 +132,17 @@ public class SlsSourceReader implements SourceReader<SeaTunnelRow, SlsSourceSpli
                         throw new RuntimeException(e);
                     }
                 });
+
+        // batch mode only for explore data, so do not update cursor
+        if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
+            for (SlsSourceSplit split : finishedSplits) {
+                split.setFinish(true);
+            }
+            if (sourceSplits.stream().allMatch(SlsSourceSplit::isFinish)) {
+                log.info("sls batch mode finished");
+                context.signalNoMoreElement();
+            }
+        }
     }
 
     @Override

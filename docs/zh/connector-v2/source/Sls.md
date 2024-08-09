@@ -10,7 +10,7 @@
 
 ## 主要特性
 
-- [ ] [batch](../../concept/connector-v2-features.md)
+- [x] [batch](../../concept/connector-v2-features.md)
 - [x] [stream](../../concept/connector-v2-features.md)
 - [x] [exactly-once](../../concept/connector-v2-features.md)
 - [ ] [column projection](../../concept/connector-v2-features.md)

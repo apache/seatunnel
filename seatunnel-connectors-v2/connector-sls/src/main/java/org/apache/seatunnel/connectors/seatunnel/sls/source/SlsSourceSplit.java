@@ -3,6 +3,7 @@ package org.apache.seatunnel.connectors.seatunnel.sls.source;
 import org.apache.seatunnel.api.source.SourceSplit;
 
 import lombok.Getter;
+import lombok.Setter;
 
 public class SlsSourceSplit implements SourceSplit {
 
@@ -12,6 +13,7 @@ public class SlsSourceSplit implements SourceSplit {
     @Getter private Integer shardId;
     @Getter private String startCursor;
     @Getter private Integer fetchSize;
+    @Setter @Getter private transient volatile boolean finish = false;
 
     SlsSourceSplit(
             String project,
