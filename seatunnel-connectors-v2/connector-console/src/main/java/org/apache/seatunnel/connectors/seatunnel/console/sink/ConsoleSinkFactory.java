@@ -52,7 +52,7 @@ public class ConsoleSinkFactory implements TableSinkFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().build();
+        return OptionRule.builder().optional(LOG_PRINT_DATA, LOG_PRINT_DELAY).build();
     }
 
     @Override
