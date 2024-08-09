@@ -104,9 +104,6 @@ public class LocalFileSinkFactory extends BaseMultipleTableFileSinkFactory {
             createSink(TableSinkFactoryContext context) {
         ReadonlyConfig readonlyConfig = context.getOptions();
         CatalogTable catalogTable = context.getCatalogTable();
-
-        ReadonlyConfig finalReadonlyConfig =
-                generateCurrentReadonlyConfig(readonlyConfig, catalogTable);
-        return () -> new LocalFileSink(finalReadonlyConfig, catalogTable);
+        return () -> new LocalFileSink(readonlyConfig, catalogTable);
     }
 }

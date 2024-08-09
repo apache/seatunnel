@@ -12,6 +12,7 @@
 
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
 - [ ] [cdc](../../concept/connector-v2-features.md)
+- [x] [support multiple table write](../../concept/connector-v2-features.md)
 
 ## Description
 
@@ -53,6 +54,75 @@ Http {
     headers {
         token = "9e32e859ef044462a257e1fc76730066"
     }
+}
+```
+
+### Multiple table
+
+#### example1
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  Mysql-CDC {
+    base-url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    username = "root"
+    password = "******"
+    
+    table-names = ["seatunnel.role","seatunnel.user","galileo.Bucket"]
+  }
+}
+
+transform {
+}
+
+sink {
+  Http {
+    ...
+    url = "http://localhost/test/${database_name}_test/${table_name}_test"
+  }
+}
+```
+
+#### example2
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Jdbc {
+    driver = oracle.jdbc.driver.OracleDriver
+    url = "jdbc:oracle:thin:@localhost:1521/XE"
+    user = testUser
+    password = testPassword
+
+    table_list = [
+      {
+        table_path = "TESTSCHEMA.TABLE_1"
+      },
+      {
+        table_path = "TESTSCHEMA.TABLE_2"
+      }
+    ]
+  }
+}
+
+transform {
+}
+
+sink {
+  Http {
+    ...
+    url = "http://localhost/test/${schema_name}_test/${table_name}_test"
+  }
 }
 ```
 

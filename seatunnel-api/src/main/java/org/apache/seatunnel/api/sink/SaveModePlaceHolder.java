@@ -25,8 +25,11 @@ public enum SaveModePlaceHolder {
     ROWTYPE_UNIQUE_KEY("rowtype_unique_key", "unique keys"),
     ROWTYPE_DUPLICATE_KEY("rowtype_duplicate_key", "duplicate keys"),
     ROWTYPE_FIELDS("rowtype_fields", "fields"),
-    TABLE_NAME("table_name", "table name"),
-    DATABASE("database", "database");
+    TABLE("table", "table"),
+    DATABASE("database", "database"),
+    /** @deprecated instead by {@link #TABLE} todo remove this enum */
+    @Deprecated
+    TABLE_NAME("table_name", "table name");
 
     private String keyValue;
     private String display;

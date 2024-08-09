@@ -28,6 +28,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -151,7 +152,7 @@ public class HttpSource extends AbstractSingleSplitSource<SeaTunnelRow> {
             }
         } else {
             TableIdentifier tableIdentifier =
-                    TableIdentifier.of(HttpConfig.CONNECTOR_IDENTITY, null, null);
+                    TableIdentifier.of(HttpConfig.CONNECTOR_IDENTITY, TablePath.DEFAULT);
             TableSchema tableSchema =
                     TableSchema.builder()
                             .column(

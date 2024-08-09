@@ -51,6 +51,12 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
     private static final String SELECT_COLUMNS_SQL_TEMPLATE =
             "SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = '%s' AND TABLE_NAME ='%s' ORDER BY ORDINAL_POSITION ASC";
 
+    private static final String SELECT_DATABASE_EXISTS =
+            "SELECT SCHEMA_NAME FROM information_schema.schemata WHERE SCHEMA_NAME = '%s'";
+
+    private static final String SELECT_TABLE_EXISTS =
+            "SELECT TABLE_SCHEMA,TABLE_NAME FROM information_schema.tables WHERE table_schema = '%s' AND table_name = '%s'";
+
     static {
         SYS_DATABASES.add("information_schema");
         SYS_DATABASES.add("mysql");
@@ -66,6 +72,17 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
         super(catalogName, username, pwd, urlInfo, null);
         this.version = resolveVersion();
         this.typeConverter = new MySqlTypeConverter(version);
+    }
+
+    @Override
+    protected String getDatabaseWithConditionSql(String databaseName) {
+        return String.format(SELECT_DATABASE_EXISTS, databaseName);
+    }
+
+    @Override
+    protected String getTableWithConditionSql(TablePath tablePath) {
+        return String.format(
+                SELECT_TABLE_EXISTS, tablePath.getDatabaseName(), tablePath.getTableName());
     }
 
     @Override

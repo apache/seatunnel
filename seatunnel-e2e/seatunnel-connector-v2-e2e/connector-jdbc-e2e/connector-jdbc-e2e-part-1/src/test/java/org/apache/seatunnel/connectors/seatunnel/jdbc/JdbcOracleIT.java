@@ -28,6 +28,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
 
 import org.apache.commons.lang3.tuple.Pair;
 
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.OracleContainer;
@@ -40,6 +41,7 @@ import com.google.common.collect.Lists;
 
 import java.math.BigDecimal;
 import java.sql.Date;
+import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -63,7 +65,11 @@ public class JdbcOracleIT extends AbstractJdbcIT {
     private static final String SINK_TABLE = "E2E_TABLE_SINK";
     private static final String CATALOG_TABLE = "E2E_TABLE_CATALOG";
     private static final List<String> CONFIG_FILE =
-            Lists.newArrayList("/jdbc_oracle_source_to_sink.conf");
+            Lists.newArrayList(
+                    "/jdbc_oracle_source_to_sink.conf",
+                    "/jdbc_oracle_source_to_sink_use_select1.conf",
+                    "/jdbc_oracle_source_to_sink_use_select2.conf",
+                    "/jdbc_oracle_source_to_sink_use_select3.conf");
 
     private static final String CREATE_SQL =
             "create table %s\n"
@@ -163,7 +169,7 @@ public class JdbcOracleIT extends AbstractJdbcIT {
     @Override
     Pair<String[], List<SeaTunnelRow>> initTestData() {
         List<SeaTunnelRow> rows = new ArrayList<>();
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < 20000; i++) {
             SeaTunnelRow row =
                     new SeaTunnelRow(
                             new Object[] {
@@ -236,5 +242,23 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                         OracleURLParser.parse(jdbcUrl),
                         SCHEMA);
         catalog.open();
+    }
+
+    @BeforeAll
+    @Override
+    public void startUp() {
+        super.startUp();
+        // analyzeTable before execute job
+        String analyzeTable =
+                String.format(
+                        "analyze table "
+                                + quoteIdentifier(SOURCE_TABLE)
+                                + " compute statistics for table");
+        log.info("analyze table {}", analyzeTable);
+        try (Statement stmt = connection.createStatement()) {
+            stmt.execute(analyzeTable);
+        } catch (Exception e) {
+            log.error("Error when analyze table", e);
+        }
     }
 }

@@ -21,7 +21,7 @@ import TabItem from '@theme/TabItem';
 或者您也可以通过终端下载：
 
 ```shell
-export version="2.3.6"
+export version="2.3.7"
 wget "https://archive.apache.org/dist/seatunnel/${version}/apache-seatunnel-${version}-bin.tar.gz"
 tar -xzvf "apache-seatunnel-${version}-bin.tar.gz"
 ```
@@ -34,10 +34,10 @@ tar -xzvf "apache-seatunnel-${version}-bin.tar.gz"
 sh bin/install-plugin.sh
 ```
 
-如果您需要指定的连接器版本，以2.3.6为例，您需要执行如下命令：
+如果您需要指定的连接器版本，以2.3.7为例，您需要执行如下命令：
 
 ```bash
-sh bin/install-plugin.sh 2.3.6
+sh bin/install-plugin.sh 2.3.7
 ```
 
 通常您并不需要所有的连接器插件，可以通过配置`config/plugin_config`来指定您所需要的插件，例如，您只需要`connector-console`插件，那么您可以修改plugin.properties配置文件如下：

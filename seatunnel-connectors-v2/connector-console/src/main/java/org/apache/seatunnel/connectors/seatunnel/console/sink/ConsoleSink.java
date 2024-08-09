@@ -23,7 +23,6 @@ import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
-import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 
 import static org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkFactory.LOG_PRINT_DATA;
 import static org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkFactory.LOG_PRINT_DELAY;
@@ -41,7 +40,7 @@ public class ConsoleSink extends AbstractSimpleSink<SeaTunnelRow, Void>
     }
 
     @Override
-    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context) {
+    public ConsoleSinkWriter createWriter(SinkWriter.Context context) {
         return new ConsoleSinkWriter(seaTunnelRowType, context, isPrintData, delayMs);
     }
 

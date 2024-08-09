@@ -44,7 +44,6 @@ import com.google.common.collect.Lists;
 
 import java.util.List;
 
-import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.QUERY_COLUMNS;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.TABLE;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.ZOOKEEPER_QUORUM;
 
@@ -68,8 +67,7 @@ public class HbaseSource
     HbaseSource(Config pluginConfig) {
         this.pluginConfig = pluginConfig;
         CheckResult result =
-                CheckConfigUtil.checkAllExists(
-                        pluginConfig, ZOOKEEPER_QUORUM.key(), TABLE.key(), QUERY_COLUMNS.key());
+                CheckConfigUtil.checkAllExists(pluginConfig, ZOOKEEPER_QUORUM.key(), TABLE.key());
         if (!result.isSuccess()) {
             throw new HbaseConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
@@ -77,7 +75,7 @@ public class HbaseSource
                             "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SOURCE, result.getMsg()));
         }
-        this.hbaseParameters = HbaseParameters.buildWithSinkConfig(pluginConfig);
+        this.hbaseParameters = HbaseParameters.buildWithSourceConfig(pluginConfig);
         this.catalogTable = CatalogTableUtil.buildWithConfig(pluginConfig);
         this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
     }
