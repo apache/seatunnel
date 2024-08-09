@@ -46,7 +46,7 @@ public class Config {
     public static final Option<StartMode> START_MODE =
             Options.key("start_mode")
                     .objectType(StartMode.class)
-                    .defaultValue(StartMode.GROUP_OFFSETS)
+                    .defaultValue(StartMode.GROUP_CURSOR)
                     .withDescription("initial consumption pattern of consumers");
 
     public static final Option<Consts.CursorMode> AUTO_CURSOR_RESET =

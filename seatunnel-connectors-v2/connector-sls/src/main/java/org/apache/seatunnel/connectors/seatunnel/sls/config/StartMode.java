@@ -3,7 +3,7 @@ package org.apache.seatunnel.connectors.seatunnel.sls.config;
 public enum StartMode {
     EARLIEST("earliest"),
 
-    GROUP_OFFSETS("group_offsets"),
+    GROUP_CURSOR("group_cursor"),
 
     LATEST("latest");
 

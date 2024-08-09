@@ -193,7 +193,7 @@ public class SlsSourceSplitEnumerator implements SourceSplitEnumerator<SlsSource
                 } catch (LogException e) {
                     throw new RuntimeException(e);
                 }
-            case GROUP_OFFSETS:
+            case GROUP_CURSOR:
                 try {
                     boolean groupExists = checkConsumerGroupExists(project, logStore, consumer);
                     if (!groupExists){
