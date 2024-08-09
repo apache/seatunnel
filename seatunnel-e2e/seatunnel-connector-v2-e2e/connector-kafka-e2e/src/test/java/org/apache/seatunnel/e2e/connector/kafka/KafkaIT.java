@@ -125,7 +125,8 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                         "test_topic_source",
                         SEATUNNEL_ROW_TYPE,
                         DEFAULT_FORMAT,
-                        DEFAULT_FIELD_DELIMITER);
+                        DEFAULT_FIELD_DELIMITER,
+                        null);
         generateTestData(serializer::serializeRow, 0, 100);
     }
 
@@ -258,7 +259,8 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                         "test_topic_json",
                         SEATUNNEL_ROW_TYPE,
                         DEFAULT_FORMAT,
-                        DEFAULT_FIELD_DELIMITER);
+                        DEFAULT_FIELD_DELIMITER,
+                        null);
         generateTestData(row -> serializer.serializeRow(row), 0, 100);
         Container.ExecResult execResult =
                 container.executeJob("/jsonFormatIT/kafka_source_json_to_console.conf");
@@ -273,7 +275,8 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                         "test_topic_error_message",
                         SEATUNNEL_ROW_TYPE,
                         DEFAULT_FORMAT,
-                        DEFAULT_FIELD_DELIMITER);
+                        DEFAULT_FIELD_DELIMITER,
+                        null);
         generateTestData(row -> serializer.serializeRow(row), 0, 100);
         Container.ExecResult execResult =
                 container.executeJob(
@@ -289,7 +292,8 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                         "test_topic_error_message",
                         SEATUNNEL_ROW_TYPE,
                         DEFAULT_FORMAT,
-                        DEFAULT_FIELD_DELIMITER);
+                        DEFAULT_FIELD_DELIMITER,
+                        null);
         generateTestData(row -> serializer.serializeRow(row), 0, 100);
         Container.ExecResult execResult =
                 container.executeJob(
@@ -313,7 +317,8 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                         "test_topic_group",
                         SEATUNNEL_ROW_TYPE,
                         DEFAULT_FORMAT,
-                        DEFAULT_FIELD_DELIMITER);
+                        DEFAULT_FIELD_DELIMITER,
+                        null);
         generateTestData(row -> serializer.serializeRow(row), 100, 150);
         testKafkaGroupOffsetsToConsole(container);
     }
@@ -438,7 +443,8 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                         "test_avro_topic",
                         SEATUNNEL_ROW_TYPE,
                         MessageFormat.AVRO,
-                        DEFAULT_FIELD_DELIMITER);
+                        DEFAULT_FIELD_DELIMITER
+                        ,null);
         int start = 0;
         int end = 100;
         generateTestData(row -> serializer.serializeRow(row), start, end);
