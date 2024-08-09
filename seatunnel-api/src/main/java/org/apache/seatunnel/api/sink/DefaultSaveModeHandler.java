@@ -151,7 +151,7 @@ public class DefaultSaveModeHandler implements SaveModeHandler {
         catalog.dropTable(tablePath, true);
     }
 
-    protected void createTable() {
+    protected void createTablePreCheck() {
         if (!catalog.databaseExists(tablePath.getDatabaseName())) {
             try {
                 log.info(
@@ -175,6 +175,10 @@ public class DefaultSaveModeHandler implements SaveModeHandler {
         } catch (UnsupportedOperationException ignore) {
             log.info("Creating table {}", tablePath);
         }
+    }
+
+    protected void createTable() {
+        createTablePreCheck();
         catalog.createTable(tablePath, catalogTable, true);
     }
 

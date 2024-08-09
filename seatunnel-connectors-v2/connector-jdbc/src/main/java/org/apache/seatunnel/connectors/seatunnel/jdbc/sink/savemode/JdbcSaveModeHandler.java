@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.iris.savemode;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.sink.savemode;
 
 import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.DefaultSaveModeHandler;
@@ -26,22 +26,17 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 
 import lombok.extern.slf4j.Slf4j;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-
-import java.util.Optional;
-
 @Slf4j
-public class IrisSaveModeHandler extends DefaultSaveModeHandler {
+public class JdbcSaveModeHandler extends DefaultSaveModeHandler {
     public boolean createIndex;
 
-    public IrisSaveModeHandler(
-            @Nonnull SchemaSaveMode schemaSaveMode,
-            @Nonnull DataSaveMode dataSaveMode,
-            @Nonnull Catalog catalog,
-            @Nonnull TablePath tablePath,
-            @Nullable CatalogTable catalogTable,
-            @Nullable String customSql,
+    public JdbcSaveModeHandler(
+            SchemaSaveMode schemaSaveMode,
+            DataSaveMode dataSaveMode,
+            Catalog catalog,
+            TablePath tablePath,
+            CatalogTable catalogTable,
+            String customSql,
             boolean createIndex) {
         super(schemaSaveMode, dataSaveMode, catalog, tablePath, catalogTable, customSql);
         this.createIndex = createIndex;
@@ -49,17 +44,7 @@ public class IrisSaveModeHandler extends DefaultSaveModeHandler {
 
     @Override
     protected void createTable() {
-        try {
-            log.info(
-                    "Creating table {} with action {}",
-                    tablePath,
-                    catalog.previewAction(
-                            Catalog.ActionType.CREATE_TABLE,
-                            tablePath,
-                            Optional.ofNullable(catalogTable)));
-            catalog.createTable(tablePath, catalogTable, true, createIndex);
-        } catch (UnsupportedOperationException ignore) {
-            log.info("Creating table {}", tablePath);
-        }
+        super.createTablePreCheck();
+        catalog.createTable(tablePath, catalogTable, true, createIndex);
     }
 }
