@@ -66,15 +66,9 @@ public class JdbcOceanBaseMysqlIT extends JdbcOceanBaseITBase {
                                 "bash",
                                 "-c",
                                 "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && wget "
-                                        + driverUrl()
-                                        + " && wget "
-                                        + oceanbaseDriverUrl());
+                                        + driverUrl());
                 Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
             };
-
-    String oceanbaseDriverUrl() {
-        return "https://repo1.maven.org/maven2/com/oceanbase/oceanbase-client/2.4.3/oceanbase-client-2.4.3.jar";
-    }
 
     @Override
     List<String> configFile() {
