@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.timeplus;
 
 import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.TimeplusSinkFactory;
-import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.file.TimeplusFileSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.source.TimeplusSourceFactory;
 
 import org.junit.jupiter.api.Assertions;
@@ -30,6 +29,5 @@ public class TimeplusFactoryTest {
     public void testOptionRule() {
         Assertions.assertNotNull((new TimeplusSourceFactory()).optionRule());
         Assertions.assertNotNull((new TimeplusSinkFactory()).optionRule());
-        Assertions.assertNotNull((new TimeplusFileSinkFactory()).optionRule());
     }
 }
