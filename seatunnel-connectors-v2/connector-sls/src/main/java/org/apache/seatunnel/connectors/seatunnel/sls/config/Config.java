@@ -16,6 +16,7 @@
  */
 
 package org.apache.seatunnel.connectors.seatunnel.sls.config;
+
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
