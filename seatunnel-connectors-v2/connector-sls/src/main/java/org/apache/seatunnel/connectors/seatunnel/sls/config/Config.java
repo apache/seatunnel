@@ -1,4 +1,3 @@
-package org.apache.seatunnel.connectors.seatunnel.sls.config;
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
@@ -16,6 +15,7 @@ package org.apache.seatunnel.connectors.seatunnel.sls.config;
  * limitations under the License.
  */
 
+package org.apache.seatunnel.connectors.seatunnel.sls.config;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
