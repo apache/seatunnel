@@ -137,8 +137,9 @@ public class SapHanaCatalog extends AbstractJdbcCatalog {
     }
 
     @Override
-    protected String getCreateTableSql(TablePath tablePath, CatalogTable table) {
-        return new SapHanaCreateTableSqlBuilder(table).build(tablePath);
+    protected String getCreateTableSql(
+            TablePath tablePath, CatalogTable table, boolean createIndex) {
+        return new SapHanaCreateTableSqlBuilder(table, createIndex).build(tablePath);
     }
 
     @Override

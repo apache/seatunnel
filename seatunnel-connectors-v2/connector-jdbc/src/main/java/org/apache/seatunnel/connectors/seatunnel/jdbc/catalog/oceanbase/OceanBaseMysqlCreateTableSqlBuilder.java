@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.sqlserver;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oceanbase;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
@@ -23,9 +23,12 @@ import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
+import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sqlserver.SqlServerTypeConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oceanbase.OceanBaseMySqlTypeConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oceanbase.OceanBaseMysqlType;
 
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -39,7 +42,7 @@ import java.util.stream.Collectors;
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
-public class SqlServerCreateTableSqlBuilder {
+public class OceanBaseMysqlCreateTableSqlBuilder {
 
     private final String tableName;
     private List<Column> columns;
@@ -55,23 +58,31 @@ public class SqlServerCreateTableSqlBuilder {
     private List<ConstraintKey> constraintKeys;
 
     private String fieldIde;
+
+    private final OceanBaseMySqlTypeConverter typeConverter;
     private boolean createIndex;
 
-    private SqlServerCreateTableSqlBuilder(String tableName, boolean createIndex) {
+    private OceanBaseMysqlCreateTableSqlBuilder(
+            String tableName, OceanBaseMySqlTypeConverter typeConverter, boolean createIndex) {
         checkNotNull(tableName, "tableName must not be null");
         this.tableName = tableName;
+        this.typeConverter = typeConverter;
         this.createIndex = createIndex;
     }
 
-    public static SqlServerCreateTableSqlBuilder builder(
-            TablePath tablePath, CatalogTable catalogTable, boolean createIndex) {
+    public static OceanBaseMysqlCreateTableSqlBuilder builder(
+            TablePath tablePath,
+            CatalogTable catalogTable,
+            OceanBaseMySqlTypeConverter typeConverter,
+            boolean createIndex) {
         checkNotNull(tablePath, "tablePath must not be null");
         checkNotNull(catalogTable, "catalogTable must not be null");
 
         TableSchema tableSchema = catalogTable.getTableSchema();
         checkNotNull(tableSchema, "tableSchema must not be null");
 
-        return new SqlServerCreateTableSqlBuilder(tablePath.getTableName(), createIndex)
+        return new OceanBaseMysqlCreateTableSqlBuilder(
+                        tablePath.getTableName(), typeConverter, createIndex)
                 .comment(catalogTable.getComment())
                 // todo: set charset and collate
                 .engine(null)
@@ -82,59 +93,54 @@ public class SqlServerCreateTableSqlBuilder {
                 .fieldIde(catalogTable.getOptions().get("fieldIde"));
     }
 
-    public SqlServerCreateTableSqlBuilder addColumn(List<Column> columns) {
+    public OceanBaseMysqlCreateTableSqlBuilder addColumn(List<Column> columns) {
         checkArgument(CollectionUtils.isNotEmpty(columns), "columns must not be empty");
         this.columns = columns;
         return this;
     }
 
-    public SqlServerCreateTableSqlBuilder primaryKey(PrimaryKey primaryKey) {
+    public OceanBaseMysqlCreateTableSqlBuilder primaryKey(PrimaryKey primaryKey) {
         this.primaryKey = primaryKey;
         return this;
     }
 
-    public SqlServerCreateTableSqlBuilder fieldIde(String fieldIde) {
+    public OceanBaseMysqlCreateTableSqlBuilder fieldIde(String fieldIde) {
         this.fieldIde = fieldIde;
         return this;
     }
 
-    public SqlServerCreateTableSqlBuilder constraintKeys(List<ConstraintKey> constraintKeys) {
+    public OceanBaseMysqlCreateTableSqlBuilder constraintKeys(List<ConstraintKey> constraintKeys) {
         this.constraintKeys = constraintKeys;
         return this;
     }
 
-    public SqlServerCreateTableSqlBuilder engine(String engine) {
+    public OceanBaseMysqlCreateTableSqlBuilder engine(String engine) {
         this.engine = engine;
         return this;
     }
 
-    public SqlServerCreateTableSqlBuilder charset(String charset) {
+    public OceanBaseMysqlCreateTableSqlBuilder charset(String charset) {
         this.charset = charset;
         return this;
     }
 
-    public SqlServerCreateTableSqlBuilder collate(String collate) {
+    public OceanBaseMysqlCreateTableSqlBuilder collate(String collate) {
         this.collate = collate;
         return this;
     }
 
-    public SqlServerCreateTableSqlBuilder comment(String comment) {
+    public OceanBaseMysqlCreateTableSqlBuilder comment(String comment) {
         this.comment = comment;
         return this;
     }
 
-    public String build(TablePath tablePath, CatalogTable catalogTable) {
+    public String build(String catalogName) {
         List<String> sqls = new ArrayList<>();
-        String sqlTableName = tablePath.getFullNameWithQuoted("[", "]");
-        Map<String, String> columnComments = new HashMap<>();
         sqls.add(
                 String.format(
-                        "IF OBJECT_ID('%s', 'U') IS NULL \n"
-                                + "BEGIN \n"
-                                + "CREATE TABLE %s ( \n%s\n)",
-                        sqlTableName,
-                        sqlTableName,
-                        buildColumnsIdentifySql(catalogTable.getCatalogName(), columnComments)));
+                        "CREATE TABLE %s (\n%s\n)",
+                        CatalogUtils.quoteIdentifier(tableName, fieldIde, "`"),
+                        buildColumnsIdentifySql(catalogName)));
         if (engine != null) {
             sqls.add("ENGINE = " + engine);
         }
@@ -144,39 +150,17 @@ public class SqlServerCreateTableSqlBuilder {
         if (collate != null) {
             sqls.add("COLLATE = " + collate);
         }
-        String sqlTableSql = String.join(" ", sqls) + ";";
-        sqlTableSql = CatalogUtils.quoteIdentifier(sqlTableSql, fieldIde);
-        StringBuilder tableAndColumnComment = new StringBuilder();
         if (comment != null) {
             sqls.add("COMMENT = '" + comment + "'");
-            tableAndColumnComment.append(
-                    String.format(
-                            "EXEC %s.sys.sp_addextendedproperty 'MS_Description', N'%s', 'schema', N'%s', 'table', N'%s';\n",
-                            tablePath.getDatabaseName(),
-                            comment,
-                            tablePath.getSchemaName(),
-                            tablePath.getTableName()));
         }
-        String columnComment =
-                "EXEC %s.sys.sp_addextendedproperty 'MS_Description', N'%s', 'schema', N'%s', 'table', N'%s', 'column', N'%s';\n";
-        columnComments.forEach(
-                (fieldName, com) -> {
-                    tableAndColumnComment.append(
-                            String.format(
-                                    columnComment,
-                                    tablePath.getDatabaseName(),
-                                    com,
-                                    tablePath.getSchemaName(),
-                                    tablePath.getTableName(),
-                                    fieldName));
-                });
-        return String.join("\n", sqlTableSql, tableAndColumnComment.toString(), "END");
+        return String.join(" ", sqls) + ";";
     }
 
-    private String buildColumnsIdentifySql(String catalogName, Map<String, String> columnComments) {
+    private String buildColumnsIdentifySql(String catalogName) {
         List<String> columnSqls = new ArrayList<>();
+        Map<String, String> columnTypeMap = new HashMap<>();
         for (Column column : columns) {
-            columnSqls.add("\t" + buildColumnIdentifySql(column, catalogName, columnComments));
+            columnSqls.add("\t" + buildColumnIdentifySql(column, catalogName, columnTypeMap));
         }
         if (createIndex && primaryKey != null) {
             columnSqls.add("\t" + buildPrimaryKeySql());
@@ -186,20 +170,34 @@ public class SqlServerCreateTableSqlBuilder {
                 if (StringUtils.isBlank(constraintKey.getConstraintName())) {
                     continue;
                 }
+                String constraintKeyStr = buildConstraintKeySql(constraintKey, columnTypeMap);
+                if (StringUtils.isNotBlank(constraintKeyStr)) {
+                    columnSqls.add("\t" + constraintKeyStr);
+                }
             }
         }
         return String.join(", \n", columnSqls);
     }
 
     private String buildColumnIdentifySql(
-            Column column, String catalogName, Map<String, String> columnComments) {
+            Column column, String catalogName, Map<String, String> columnTypeMap) {
         final List<String> columnSqls = new ArrayList<>();
-        columnSqls.add("[" + column.getName() + "]");
-        if (StringUtils.equals(catalogName, DatabaseIdentifier.SQLSERVER)) {
-            columnSqls.add(column.getSourceType());
+        columnSqls.add(CatalogUtils.quoteIdentifier(column.getName(), fieldIde, "`"));
+        String type;
+        if ((SqlType.TIME.equals(column.getDataType().getSqlType())
+                        || SqlType.TIMESTAMP.equals(column.getDataType().getSqlType()))
+                && column.getScale() != null) {
+            BasicTypeDefine<OceanBaseMysqlType> typeDefine = typeConverter.reconvert(column);
+            type = typeDefine.getColumnType();
+        } else if (StringUtils.equals(catalogName, DatabaseIdentifier.MYSQL)
+                && StringUtils.isNotBlank(column.getSourceType())) {
+            type = column.getSourceType();
         } else {
-            columnSqls.add(SqlServerTypeConverter.INSTANCE.reconvert(column).getColumnType());
+            BasicTypeDefine<OceanBaseMysqlType> typeDefine = typeConverter.reconvert(column);
+            type = typeDefine.getColumnType();
         }
+        columnSqls.add(type);
+        columnTypeMap.put(column.getName(), type);
         // nullable
         if (column.isNullable()) {
             columnSqls.add("NULL");
@@ -207,37 +205,51 @@ public class SqlServerCreateTableSqlBuilder {
             columnSqls.add("NOT NULL");
         }
 
-        // comment
         if (column.getComment() != null) {
-            columnComments.put(column.getName(), column.getComment().replace("'", "''"));
+            columnSqls.add(
+                    "COMMENT '"
+                            + column.getComment().replace("'", "''").replace("\\", "\\\\")
+                            + "'");
         }
 
         return String.join(" ", columnSqls);
     }
 
     private String buildPrimaryKeySql() {
-        //                        .map(columnName -> "`" + columnName + "`")
         String key =
                 primaryKey.getColumnNames().stream()
-                        .map(columnName -> "[" + columnName + "]")
+                        .map(columnName -> "`" + columnName + "`")
                         .collect(Collectors.joining(", "));
         // add sort type
-        return String.format("PRIMARY KEY (%s)", key);
+        return String.format("PRIMARY KEY (%s)", CatalogUtils.quoteIdentifier(key, fieldIde));
     }
 
-    private String buildConstraintKeySql(ConstraintKey constraintKey) {
+    private String buildConstraintKeySql(
+            ConstraintKey constraintKey, Map<String, String> columnTypeMap) {
         ConstraintKey.ConstraintType constraintType = constraintKey.getConstraintType();
         String indexColumns =
                 constraintKey.getColumnNames().stream()
                         .map(
                                 constraintKeyColumn -> {
+                                    String columnName = constraintKeyColumn.getColumnName();
+                                    boolean withLength = false;
+                                    if (columnTypeMap.containsKey(columnName)) {
+                                        String columnType = columnTypeMap.get(columnName);
+                                        if (columnType.endsWith("BLOB")
+                                                || columnType.endsWith("TEXT")) {
+                                            withLength = true;
+                                        }
+                                    }
                                     if (constraintKeyColumn.getSortType() == null) {
                                         return String.format(
-                                                "`%s`", constraintKeyColumn.getColumnName());
+                                                "`%s`%s",
+                                                CatalogUtils.getFieldIde(columnName, fieldIde),
+                                                withLength ? "(255)" : "");
                                     }
                                     return String.format(
-                                            "`%s` %s",
-                                            constraintKeyColumn.getColumnName(),
+                                            "`%s`%s %s",
+                                            CatalogUtils.getFieldIde(columnName, fieldIde),
+                                            withLength ? "(255)" : "",
                                             constraintKeyColumn.getSortType().name());
                                 })
                         .collect(Collectors.joining(", "));
