@@ -160,7 +160,7 @@ class AvroSerializationSchemaTest {
     @Test
     public void testSerialization() throws IOException {
         SeaTunnelRowType rowType = buildSeaTunnelRowType();
-        CatalogTable catalogTable = CatalogTableUtil.getCatalogTable("", "", "", "", rowType);
+        CatalogTable catalogTable = CatalogTableUtil.getCatalogTable("", "", "", "test", rowType);
         SeaTunnelRow seaTunnelRow = buildSeaTunnelRow();
         AvroSerializationSchema serializationSchema = new AvroSerializationSchema(rowType);
         byte[] bytes = serializationSchema.serialize(seaTunnelRow);

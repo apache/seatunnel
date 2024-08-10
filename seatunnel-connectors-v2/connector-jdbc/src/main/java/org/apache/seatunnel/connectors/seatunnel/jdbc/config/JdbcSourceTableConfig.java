@@ -58,6 +58,12 @@ public class JdbcSourceTableConfig implements Serializable {
     @JsonProperty("partition_upper_bound")
     private BigDecimal partitionEnd;
 
+    @JsonProperty("use_select_count")
+    private Boolean useSelectCount;
+
+    @JsonProperty("skip_analyze")
+    private Boolean skipAnalyze;
+
     @Tolerate
     public JdbcSourceTableConfig() {}
 
@@ -79,6 +85,8 @@ public class JdbcSourceTableConfig implements Serializable {
                             .partitionNumber(connectorConfig.get(JdbcOptions.PARTITION_NUM))
                             .partitionStart(connectorConfig.get(JdbcOptions.PARTITION_LOWER_BOUND))
                             .partitionEnd(connectorConfig.get(JdbcOptions.PARTITION_UPPER_BOUND))
+                            .useSelectCount(connectorConfig.get(JdbcSourceOptions.USE_SELECT_COUNT))
+                            .skipAnalyze(connectorConfig.get(JdbcSourceOptions.SKIP_ANALYZE))
                             .build();
             tableList = Collections.singletonList(tableProperty);
         }

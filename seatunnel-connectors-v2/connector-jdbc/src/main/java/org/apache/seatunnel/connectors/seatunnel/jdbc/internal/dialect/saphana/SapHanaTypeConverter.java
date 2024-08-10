@@ -255,7 +255,7 @@ public class SapHanaTypeConverter implements TypeConverter<BasicTypeDefine> {
                     builder.dataType(new DecimalType((int) precision, MAX_SCALE));
                     builder.columnLength(precision);
                     builder.scale(MAX_SCALE);
-                } else if (scale <= 0) {
+                } else if (scale < 0) {
                     int newPrecision = (int) (precision - scale);
                     if (newPrecision == 1) {
                         builder.dataType(BasicType.SHORT_TYPE);

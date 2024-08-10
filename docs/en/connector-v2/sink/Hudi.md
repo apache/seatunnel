@@ -10,6 +10,7 @@ Used to write data to Hudi.
 
 - [x] [exactly-once](../../concept/connector-v2-features.md)
 - [x] [cdc](../../concept/connector-v2-features.md)
+- [x] [support multiple table write](../../concept/connector-v2-features.md)
 
 ## Options
 
@@ -76,17 +77,49 @@ Source plugin common parameters, please refer to [Source Common Options](common-
 ## Examples
 
 ```hocon
-source {
-
+sink {
   Hudi {
     table_dfs_path = "hdfs://nameserivce/data/hudi/hudi_table/"
+    table_name = "test_table"
     table_type = "copy_on_write"
     conf_files_path = "/home/test/hdfs-site.xml;/home/test/core-site.xml;/home/test/yarn-site.xml"
     use.kerberos = true
     kerberos.principal = "test_user@xxx"
     kerberos.principal.file = "/home/test/test_user.keytab"
   }
+}
+```
 
+### Multiple table
+
+#### example1
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  Mysql-CDC {
+    base-url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    username = "root"
+    password = "******"
+    
+    table-names = ["seatunnel.role","seatunnel.user","galileo.Bucket"]
+  }
+}
+
+transform {
+}
+
+sink {
+  Hudi {
+    ...
+    table_dfs_path = "hdfs://nameserivce/data/hudi/hudi_table/"
+    table_name = "${table_name}_test"
+  }
 }
 ```
 

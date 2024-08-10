@@ -86,4 +86,5 @@ connector-rocketmq
 connector-tdengine
 connector-web3j
 connector-milvus
+connector-activemq
 --end--

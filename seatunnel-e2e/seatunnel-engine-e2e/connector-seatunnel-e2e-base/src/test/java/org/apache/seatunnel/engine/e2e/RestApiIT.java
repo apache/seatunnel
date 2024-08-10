@@ -306,6 +306,8 @@ public class RestApiIT {
                                     .then()
                                     .assertThat()
                                     .time(lessThan(5000L))
+                                    .body("[0].host", equalTo("localhost"))
+                                    .body("[0].port", notNullValue())
                                     .statusCode(200);
                         });
     }
