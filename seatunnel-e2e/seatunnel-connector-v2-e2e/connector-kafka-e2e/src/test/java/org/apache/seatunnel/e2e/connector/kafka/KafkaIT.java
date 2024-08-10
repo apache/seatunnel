@@ -336,7 +336,8 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                         "test_topic_group_with_commit_offset",
                         SEATUNNEL_ROW_TYPE,
                         DEFAULT_FORMAT,
-                        DEFAULT_FIELD_DELIMITER);
+                        DEFAULT_FIELD_DELIMITER,
+                        null);
         generateTestData(row -> serializer.serializeRow(row), 0, 100);
         testKafkaGroupOffsetsToConsoleWithCommitOffset(container);
     }
