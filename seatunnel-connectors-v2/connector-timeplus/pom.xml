@@ -28,7 +28,7 @@
     <name>SeaTunnel : Connectors V2 : Timeplus</name>
 
     <properties>
-        <timeplus.java.version>0.6.0</timeplus.java.version>
+        <timeplus.http.jdbc.version>0.6.0</timeplus.http.jdbc.version>
         <sshd.scp.version>2.7.0</sshd.scp.version>
     </properties>
     <dependencies>
@@ -47,7 +47,7 @@
         <dependency>
             <groupId>com.timeplus</groupId>
             <artifactId>proton-http-client</artifactId>
-            <version>${timeplus.java.version}</version>
+            <version>${timeplus.http.jdbc.version}</version>
         </dependency>
 
         <dependency>
@@ -59,7 +59,7 @@
         <dependency>
             <groupId>com.timeplus</groupId>
             <artifactId>proton-jdbc</artifactId>
-            <version>${timeplus.java.version}</version>
+            <version>${timeplus.http.jdbc.version}</version>
         </dependency>
 
         <dependency>
