@@ -19,6 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.timeplus.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.sink.DataSaveMode;
+import org.apache.seatunnel.api.sink.SaveModePlaceHolder;
+import org.apache.seatunnel.api.sink.SchemaSaveMode;
 
 import java.time.ZoneId;
 import java.util.Collections;
@@ -26,7 +29,8 @@ import java.util.List;
 import java.util.Map;
 
 /** The Seatunnel connector configuration. A set of {@link Option}. */
-public class TimeplusConfig {
+@SuppressWarnings("MagicNumber")
+public interface TimeplusConfig {
 
     /** Bulk size of timeplus jdbc */
     public static final Option<Integer> BULK_SIZE =
@@ -42,45 +46,46 @@ public class TimeplusConfig {
                     .withDescription("Timeplus sql used to query data");
 
     /** Timeplus server host */
+    // TODO: rename to nodeUrls in listType
     public static final Option<String> HOST =
             Options.key("host")
                     .stringType()
-                    .noDefaultValue()
-                    .withDescription("Timeplus server host");
+                    .defaultValue("localhost:8123")
+                    .withDescription("Timeplus server host and port, default localhost:8123");
 
     /** Timeplus server port */
     public static final Option<Integer> PORT =
             Options.key("port")
                     .intType()
                     .defaultValue(8123)
-                    .withDescription("Timeplus server port");
+                    .withDescription("Timeplus server port. Deprecated. Set port in `host`");
 
     /** Timeplus table name */
     public static final Option<String> TABLE =
             Options.key("table")
                     .stringType()
-                    .noDefaultValue()
+                    .defaultValue("${table_name}")
                     .withDescription("Timeplus table name");
 
     /** Timeplus database name */
     public static final Option<String> DATABASE =
             Options.key("database")
                     .stringType()
-                    .noDefaultValue()
+                    .defaultValue("default")
                     .withDescription("Timeplus database name");
 
     /** Timeplus server username */
     public static final Option<String> USERNAME =
             Options.key("username")
                     .stringType()
-                    .noDefaultValue()
+                    .defaultValue("default")
                     .withDescription("Timeplus server username");
 
     /** Timeplus server password */
     public static final Option<String> PASSWORD =
             Options.key("password")
                     .stringType()
-                    .noDefaultValue()
+                    .defaultValue("")
                     .withDescription("Timeplus server password");
 
     /** Timeplus server timezone */
@@ -186,4 +191,35 @@ public class TimeplusConfig {
                     .defaultValue("/tmp/seatunnel/timeplus-local/file")
                     .withDescription(
                             "The directory where TimeplusFile stores temporary files locally.");
+
+    Option<String> SAVE_MODE_CREATE_TEMPLATE =
+            Options.key("save_mode_create_template")
+                    .stringType()
+                    .defaultValue(
+                            "CREATE STREAM IF NOT EXISTS `"
+                                    + SaveModePlaceHolder.DATABASE.getPlaceHolder()
+                                    + "`.`"
+                                    + SaveModePlaceHolder.TABLE_NAME.getPlaceHolder()
+                                    + "` (\n"
+                                    + SaveModePlaceHolder.ROWTYPE_PRIMARY_KEY.getPlaceHolder()
+                                    + ",\n"
+                                    + SaveModePlaceHolder.ROWTYPE_FIELDS.getPlaceHolder()
+                                    + "\n"
+                                    + ")")
+                    .withDescription(
+                            "Create table statement template, used to create Timeplus stream");
+
+    Option<SchemaSaveMode> SCHEMA_SAVE_MODE =
+            Options.key("schema_save_mode")
+                    .enumType(SchemaSaveMode.class)
+                    .defaultValue(SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST)
+                    .withDescription(
+                            "different treatment schemes are selected for the existing surface structure of the target side");
+
+    Option<DataSaveMode> DATA_SAVE_MODE =
+            Options.key("data_save_mode")
+                    .enumType(DataSaveMode.class)
+                    .defaultValue(DataSaveMode.APPEND_DATA)
+                    .withDescription(
+                            "different processing schemes are selected for data existing data on the target side");
 }

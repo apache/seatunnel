@@ -37,6 +37,7 @@ import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.Timeplus
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.USERNAME;
 
 @AutoService(Factory.class)
+// TODO: this factory is not really used yet
 public class TimeplusSinkFactory implements TableSinkFactory {
     @Override
     public String factoryIdentifier() {

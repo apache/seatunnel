@@ -90,10 +90,29 @@ public class TimeplusSink
         return "Timeplus";
     }
 
+    public TimeplusSink() {}
+
+    public TimeplusSink(ReaderOption option) {
+        this.option = option;
+    }
+
     @Override
     public void prepare(Config config) throws PrepareFailException {
-        CheckResult result =
-                CheckConfigUtil.checkAllExists(config, HOST.key(), DATABASE.key(), TABLE.key());
+        Map<String, Object> defaultConfig =
+                ImmutableMap.<String, Object>builder()
+                        .put(HOST.key(), HOST.defaultValue())
+                        .put(DATABASE.key(), DATABASE.defaultValue())
+                        .put(USERNAME.key(), USERNAME.defaultValue())
+                        .put(PASSWORD.key(), PASSWORD.defaultValue())
+                        .put(TABLE.key(), TABLE.defaultValue())
+                        .put(BULK_SIZE.key(), BULK_SIZE.defaultValue())
+                        .put(SPLIT_MODE.key(), SPLIT_MODE.defaultValue())
+                        .put(SERVER_TIME_ZONE.key(), SERVER_TIME_ZONE.defaultValue())
+                        .build();
+
+        config = config.withFallback(ConfigFactory.parseMap(defaultConfig));
+
+        CheckResult result = CheckConfigUtil.checkAllExists(config, HOST.key());
 
         boolean isCredential = config.hasPath(USERNAME.key()) || config.hasPath(PASSWORD.key());
 
@@ -108,14 +127,6 @@ public class TimeplusSink
                             "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SINK, result.getMsg()));
         }
-        Map<String, Object> defaultConfig =
-                ImmutableMap.<String, Object>builder()
-                        .put(BULK_SIZE.key(), BULK_SIZE.defaultValue())
-                        .put(SPLIT_MODE.key(), SPLIT_MODE.defaultValue())
-                        .put(SERVER_TIME_ZONE.key(), SERVER_TIME_ZONE.defaultValue())
-                        .build();
-
-        config = config.withFallback(ConfigFactory.parseMap(defaultConfig));
 
         List<ProtonNode> nodes;
         if (!isCredential) {
@@ -152,6 +163,7 @@ public class TimeplusSink
         }
 
         TimeplusProxy proxy = new TimeplusProxy(nodes.get(0));
+        // TODO: there could be no table setting to sync all tables
         Map<String, String> tableSchema =
                 proxy.getTimeplusTableSchema(config.getString(TABLE.key()));
         String shardKey = null;
