@@ -57,6 +57,21 @@ convenience method for setting the fields in an AMQP URI: host, port, username, 
 
 the queue to write the message to
 
+### durable [boolean]
+
+true: The queue will survive a server restart.
+false: The queue will be deleted on server restart.
+
+### exclusive [boolean]
+
+true: The queue is used only by the current connection and will be deleted when the connection closes.
+false: The queue can be used by multiple connections.
+
+### auto_delete [boolean]
+
+true: The queue will be deleted automatically when the last consumer unsubscribes.
+false: The queue will not be automatically deleted.
+
 ### schema [Config]
 
 #### fields [Config]
