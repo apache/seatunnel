@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.timeplus.sink.client;
 
-import org.apache.seatunnel.api.sink.SupportMultiTableSink;
-import org.apache.seatunnel.api.sink.SupportSaveMode;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
@@ -26,8 +24,12 @@ import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
+import org.apache.seatunnel.api.sink.DefaultSaveModeHandler;
+import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSink;
+import org.apache.seatunnel.api.sink.SupportSaveMode;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.factory.CatalogFactory;
@@ -75,9 +77,9 @@ import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.Timeplus
 
 @AutoService(SeaTunnelSink.class)
 public class TimeplusSink
-    implements SeaTunnelSink<SeaTunnelRow, TimeplusSinkState, TPCommitInfo, TPAggCommitInfo>,
-    SupportSaveMode,
-    SupportMultiTableSink {
+        implements SeaTunnelSink<SeaTunnelRow, TimeplusSinkState, TPCommitInfo, TPAggCommitInfo>,
+                SupportSaveMode,
+                SupportMultiTableSink {
 
     private ReaderOption option;
 
