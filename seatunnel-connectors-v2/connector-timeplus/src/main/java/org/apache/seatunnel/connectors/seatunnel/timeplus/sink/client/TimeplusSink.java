@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.timeplus.sink.client;
 
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.*;
@@ -39,6 +40,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.apache.seatunnel.api.table.factory.FactoryUtil.discoverFactory;
+import static org.icecream.IceCream.ic;
 
 @AutoService(SeaTunnelSink.class)
 public class TimeplusSink
@@ -47,6 +49,8 @@ public class TimeplusSink
                 SupportMultiTableSink {
 
     private ReaderOption option;
+
+    private ReadonlyConfig readonlyConfig;
 
     private CatalogTable catalogTable;
 
@@ -58,11 +62,13 @@ public class TimeplusSink
         return "Timeplus";
     }
 
-    public TimeplusSink(CatalogTable catalogTable, ReaderOption option) {
+    public TimeplusSink(CatalogTable catalogTable, ReaderOption option, ReadonlyConfig readonlyConfig) {
+        ic("new TimeplusSink with catalog table",catalogTable);
         this.catalogTable =  catalogTable;
         this.option = option;
         this.dataSaveMode = option.getDataSaveMode();
         this.schemaSaveMode = option.getSchemaSaveMode();
+        this.readonlyConfig = readonlyConfig;
     }
 
     @Override
@@ -84,6 +90,7 @@ public class TimeplusSink
 
     @Override
     public Optional<SaveModeHandler> getSaveModeHandler() {
+        ic();
         // Load the JDBC driver in to DriverManager
         try {
             Class.forName("com.timeplus.proton.jdbc.ProtonDriver");
@@ -106,7 +113,8 @@ public class TimeplusSink
                             "Cannot find Timeplus catalog factory"));
         }
 
-        Catalog catalog = catalogFactory.createCatalog(catalogFactory.factoryIdentifier(), null);
+        Catalog catalog = catalogFactory.createCatalog(catalogFactory.factoryIdentifier(), readonlyConfig);
+        ic("create catalog ",catalog);
         catalog.open();
         return Optional.of(new DefaultSaveModeHandler(schemaSaveMode, dataSaveMode, catalog, catalogTable, null));
     }

@@ -46,6 +46,8 @@ import java.util.Properties;
 import static org.apache.seatunnel.api.sink.SinkReplaceNameConstant.*;
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.*;
 
+import static org.icecream.IceCream.ic;
+
 @AutoService(Factory.class)
 public class TimeplusSinkFactory implements TableSinkFactory {
     @Override
@@ -230,9 +232,13 @@ public class TimeplusSinkFactory implements TableSinkFactory {
 
         String sinkTableName = config.get(TABLE);
 
-        if (!isBlank(sinkTableName)) {
+        ic("sinkTableName",sinkTableName);
+
+        if (isBlank(sinkTableName)) {
             sinkTableName = catalogTable.getTableId().getTableName();
         }
+
+        ic("sinkTableName",sinkTableName);
 
         // get source table relevant information
         TableIdentifier tableId = catalogTable.getTableId();
@@ -241,12 +247,15 @@ public class TimeplusSinkFactory implements TableSinkFactory {
         String sourceTableName = tableId.getTableName();
         // get sink table relevant information
         String sinkDatabaseName = config.get(DATABASE);
+
+        ic("sourceTableName",sourceTableName);
         // to replace
         sinkDatabaseName =
                 sinkDatabaseName.replace(
                         REPLACE_DATABASE_NAME_KEY,
                         sourceDatabaseName != null ? sourceDatabaseName : "");
         String finalTableName = this.replaceFullTableName(sinkTableName, tableId);
+        ic("finalTableName",finalTableName);
 
         // rebuild TableIdentifier and catalogTable
         TableIdentifier newTableId =
@@ -260,106 +269,18 @@ public class TimeplusSinkFactory implements TableSinkFactory {
                         catalogTable.getPartitionKeys(),
                         catalogTable.getCatalogName());
 
-        List<ProtonNode> nodes;
         Properties tpProperties = new Properties();
-        ShardMetadata metadata;
-
-        boolean isCredential = config.getOptional(USERNAME).isPresent();
-
         if (config.getOptional(TIMEPLUS_CONFIG).isPresent()) {
             tpProperties.putAll(config.get(TIMEPLUS_CONFIG));
         }
 
-        if (isCredential) {
-            nodes =
-                    TimeplusUtil.createNodes(
-                            config.get(HOST),
-                            sinkDatabaseName,
-                            config.get(SERVER_TIME_ZONE),
-                            config.get(USERNAME),
-                            config.get(PASSWORD),
-                            null);
-
-            tpProperties.put("user", config.get(USERNAME));
-            tpProperties.put("password", config.get(PASSWORD));
-        } else {
-            nodes =
-                    TimeplusUtil.createNodes(
-                            config.get(HOST),
-                            sinkDatabaseName,
-                            config.get(SERVER_TIME_ZONE),
-                            null,
-                            null,
-                            null);
-        }
-
-        TimeplusProxy proxy = new TimeplusProxy(nodes.get(0));
-        Map<String, String> tableSchema = proxy.getTimeplusTableSchema(finalTableName);
-        String shardKey = null;
-        String shardKeyType = null;
-        TimeplusTable table = proxy.getTimeplusTable(config.get(DATABASE), finalTableName);
-        if (config.get(SPLIT_MODE)) {
-            if (!"Distributed".equals(table.getEngine())) {
-                throw new TimeplusConnectorException(
-                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
-                        "split mode only support table which engine is "
-                                + "'Distributed' engine at now");
-            }
-            if (config.getOptional(SHARDING_KEY).isPresent()) {
-                shardKey = config.get(SHARDING_KEY);
-                shardKeyType = tableSchema.get(shardKey);
-            }
-        }
-
-        if (isCredential) {
-            metadata =
-                    new ShardMetadata(
-                            shardKey,
-                            shardKeyType,
-                            table.getSortingKey(),
-                            sinkDatabaseName,
-                            finalTableName,
-                            table.getEngine(),
-                            config.get(SPLIT_MODE),
-                            new Shard(1, 1, nodes.get(0)),
-                            config.get(USERNAME),
-                            config.get(PASSWORD));
-        } else {
-            metadata =
-                    new ShardMetadata(
-                            shardKey,
-                            shardKeyType,
-                            table.getSortingKey(),
-                            sinkDatabaseName,
-                            finalTableName,
-                            table.getEngine(),
-                            config.get(SPLIT_MODE),
-                            new Shard(1, 1, nodes.get(0)));
-        }
-
-        proxy.close();
-
-        String[] primaryKeys = null;
-        if (config.getOptional(PRIMARY_KEY).isPresent()) {
-            String primaryKey = config.get(PRIMARY_KEY);
-            if (shardKey != null && !Objects.equals(primaryKey, shardKey)) {
-                throw new TimeplusConnectorException(
-                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
-                        "sharding_key and primary_key must be consistent to ensure correct processing of cdc events");
-            }
-            primaryKeys = new String[] {primaryKey};
-        }
         boolean supportUpsert = config.get(SUPPORT_UPSERT);
         boolean allowExperimentalLightweightDelete =
                 config.get(ALLOW_EXPERIMENTAL_LIGHTWEIGHT_DELETE);
         ReaderOption readerOption =
                 ReaderOption.builder()
-                        .shardMetadata(metadata)
                         .properties(tpProperties)
-                        .tableEngine(table.getEngine())
-                        .tableSchema(tableSchema)
                         .bulkSize(config.get(BULK_SIZE))
-                        .primaryKeys(primaryKeys)
                         .supportUpsert(supportUpsert)
                         .schemaSaveMode(config.get(SCHEMA_SAVE_MODE))
                         .dataSaveMode(config.get(DATA_SAVE_MODE))
@@ -368,7 +289,7 @@ public class TimeplusSinkFactory implements TableSinkFactory {
                         .build();
 
         CatalogTable finalCatalogTable = catalogTable;
-        return () -> new TimeplusSink(finalCatalogTable, readerOption);
+        return () -> new TimeplusSink(finalCatalogTable, readerOption, config);
     }
 
     private String replaceFullTableName(String original, TableIdentifier tableId) {

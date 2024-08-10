@@ -74,6 +74,7 @@ public class TimeplusCatalog implements Catalog {
 
     private final String host;
 
+    //TODO REmove queryPort
     private final Integer queryPort;
 
     private final String username;
@@ -124,7 +125,7 @@ public class TimeplusCatalog implements Catalog {
 
     @Override
     public void open() throws CatalogException {
-        String jdbcUrl = TimeplusCatalogUtil.getJdbcUrl(host, queryPort, defaultDatabase);
+        String jdbcUrl = TimeplusCatalogUtil.getJdbcUrl(host, defaultDatabase);
         try {
             conn = DriverManager.getConnection(jdbcUrl, username, password);
             conn.getCatalog();
@@ -137,15 +138,15 @@ public class TimeplusCatalog implements Catalog {
     }
 
     private String getTimeplusVersion() throws SQLException {
-        String dorisVersion = null;
+        String tpVersion = null;
         try (PreparedStatement preparedStatement =
                 conn.prepareStatement(TimeplusCatalogUtil.QUERY_TIMEPLUS_VERSION_QUERY)) {
             ResultSet resultSet = preparedStatement.executeQuery();
             while (resultSet.next()) {
-                dorisVersion = resultSet.getString(2);
+                tpVersion = resultSet.getString(1);
             }
         }
-        return dorisVersion;
+        return tpVersion;
     }
 
     @Override
@@ -153,7 +154,7 @@ public class TimeplusCatalog implements Catalog {
         try {
             conn.close();
         } catch (SQLException e) {
-            throw new CatalogException("close doris catalog failed", e);
+            throw new CatalogException("close Timeplus catalog failed", e);
         }
     }
 

@@ -75,8 +75,8 @@ public class TimeplusCatalogUtil {
         return list.get(0).split(":")[0];
     }
 
-    public static String getJdbcUrl(String host, Integer port, String database) {
-        return String.format("jdbc:mysql://%s:%d/%s", host, port, database);
+    public static String getJdbcUrl(String host, String database) {
+        return String.format("jdbc:proton://%s/%s", host, database);
     }
 
     public static String getCreateDatabaseQuery(String database, boolean ignoreIfExists) {
@@ -88,11 +88,11 @@ public class TimeplusCatalogUtil {
     }
 
     public static String getDropTableQuery(TablePath tablePath, boolean ignoreIfNotExists) {
-        return "DROP TABLE " + (ignoreIfNotExists ? "IF EXISTS " : "") + tablePath.getFullName();
+        return "DROP STREAM " + (ignoreIfNotExists ? "IF EXISTS " : "") + tablePath.getFullName();
     }
 
     public static String getTruncateTableQuery(TablePath tablePath) {
-        return "TRUNCATE TABLE " + tablePath.getFullName();
+        return "TRUNCATE STREAM " + tablePath.getFullName();
     }
 
     /**
