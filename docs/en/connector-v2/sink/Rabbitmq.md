@@ -127,6 +127,30 @@ sink {
 }
 ```
 
+### Example 2
+
+queue with durable, exclusive, auto_delete:
+
+```hocon
+sink {
+      RabbitMQ {
+          host = "rabbitmq-e2e"
+          port = 5672
+          virtual_host = "/"
+          username = "guest"
+          password = "guest"
+          queue_name = "test1"
+          durable = "true"
+          exclusive = "false"
+          auto_delete = "false"
+          rabbitmq.config = {
+            requested-heartbeat = 10
+            connection-timeout = 10
+          }
+      }
+}
+```
+
 ## Changelog
 
 ### next version
