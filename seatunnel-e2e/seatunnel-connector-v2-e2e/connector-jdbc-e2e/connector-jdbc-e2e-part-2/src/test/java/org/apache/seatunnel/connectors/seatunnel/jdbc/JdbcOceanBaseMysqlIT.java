@@ -66,15 +66,9 @@ public class JdbcOceanBaseMysqlIT extends JdbcOceanBaseITBase {
                                 "bash",
                                 "-c",
                                 "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && wget "
-                                        + driverUrl()
-                                        + " && wget "
-                                        + mysqlDriverUrl());
+                                        + driverUrl());
                 Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
             };
-
-    String mysqlDriverUrl() {
-        return "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
-    }
 
     @Override
     List<String> configFile() {
