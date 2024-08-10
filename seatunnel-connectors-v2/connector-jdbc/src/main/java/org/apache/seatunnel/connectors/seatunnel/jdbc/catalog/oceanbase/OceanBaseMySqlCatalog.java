@@ -182,8 +182,10 @@ public class OceanBaseMySqlCatalog extends AbstractJdbcCatalog {
     }
 
     @Override
-    protected String getCreateTableSql(TablePath tablePath, CatalogTable table) {
-        return OceanBaseMysqlCreateTableSqlBuilder.builder(tablePath, table, typeConverter)
+    protected String getCreateTableSql(
+            TablePath tablePath, CatalogTable table, boolean createIndex) {
+        return OceanBaseMysqlCreateTableSqlBuilder.builder(
+                        tablePath, table, typeConverter, createIndex)
                 .build(table.getCatalogName());
     }
 

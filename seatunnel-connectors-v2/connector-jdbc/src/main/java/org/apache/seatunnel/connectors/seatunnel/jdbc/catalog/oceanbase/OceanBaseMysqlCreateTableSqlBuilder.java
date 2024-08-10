@@ -60,25 +60,29 @@ public class OceanBaseMysqlCreateTableSqlBuilder {
     private String fieldIde;
 
     private final OceanBaseMySqlTypeConverter typeConverter;
+    private boolean createIndex;
 
     private OceanBaseMysqlCreateTableSqlBuilder(
-            String tableName, OceanBaseMySqlTypeConverter typeConverter) {
+            String tableName, OceanBaseMySqlTypeConverter typeConverter, boolean createIndex) {
         checkNotNull(tableName, "tableName must not be null");
         this.tableName = tableName;
         this.typeConverter = typeConverter;
+        this.createIndex = createIndex;
     }
 
     public static OceanBaseMysqlCreateTableSqlBuilder builder(
             TablePath tablePath,
             CatalogTable catalogTable,
-            OceanBaseMySqlTypeConverter typeConverter) {
+            OceanBaseMySqlTypeConverter typeConverter,
+            boolean createIndex) {
         checkNotNull(tablePath, "tablePath must not be null");
         checkNotNull(catalogTable, "catalogTable must not be null");
 
         TableSchema tableSchema = catalogTable.getTableSchema();
         checkNotNull(tableSchema, "tableSchema must not be null");
 
-        return new OceanBaseMysqlCreateTableSqlBuilder(tablePath.getTableName(), typeConverter)
+        return new OceanBaseMysqlCreateTableSqlBuilder(
+                        tablePath.getTableName(), typeConverter, createIndex)
                 .comment(catalogTable.getComment())
                 // todo: set charset and collate
                 .engine(null)
@@ -158,10 +162,10 @@ public class OceanBaseMysqlCreateTableSqlBuilder {
         for (Column column : columns) {
             columnSqls.add("\t" + buildColumnIdentifySql(column, catalogName, columnTypeMap));
         }
-        if (primaryKey != null) {
+        if (createIndex && primaryKey != null) {
             columnSqls.add("\t" + buildPrimaryKeySql());
         }
-        if (CollectionUtils.isNotEmpty(constraintKeys)) {
+        if (createIndex && CollectionUtils.isNotEmpty(constraintKeys)) {
             for (ConstraintKey constraintKey : constraintKeys) {
                 if (StringUtils.isBlank(constraintKey.getConstraintName())) {
                     continue;
