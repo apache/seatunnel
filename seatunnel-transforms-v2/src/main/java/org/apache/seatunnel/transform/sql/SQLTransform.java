@@ -62,6 +62,8 @@ public class SQLTransform extends AbstractCatalogSupportTransform {
 
     private transient SQLEngine sqlEngine;
 
+    private final String inputTableName;
+
     public SQLTransform(@NonNull ReadonlyConfig config, @NonNull CatalogTable catalogTable) {
         super(catalogTable);
         this.query = config.get(KEY_QUERY);
@@ -77,15 +79,6 @@ public class SQLTransform extends AbstractCatalogSupportTransform {
         } else {
             this.inputTableName = catalogTable.getTableId().getTableName();
         }
-        List<Column> columns = catalogTable.getTableSchema().getColumns();
-        String[] fieldNames = new String[columns.size()];
-        SeaTunnelDataType<?>[] fieldTypes = new SeaTunnelDataType<?>[columns.size()];
-        for (int i = 0; i < columns.size(); i++) {
-            Column column = columns.get(i);
-            fieldNames[i] = column.getName();
-            fieldTypes[i] = column.getDataType();
-        }
-        this.inputRowType = new SeaTunnelRowType(fieldNames, fieldTypes);
     }
 
     @Override
@@ -98,8 +91,8 @@ public class SQLTransform extends AbstractCatalogSupportTransform {
         sqlEngine = SQLEngineFactory.getSQLEngine(engineType);
         sqlEngine.init(
                 inputTableName,
-                inputCatalogTable != null ? inputCatalogTable.getTableId().getTableName() : null,
-                inputRowType,
+                inputCatalogTable.getTableId().getTableName(),
+                inputCatalogTable.getSeaTunnelRowType(),
                 query);
     }
 
