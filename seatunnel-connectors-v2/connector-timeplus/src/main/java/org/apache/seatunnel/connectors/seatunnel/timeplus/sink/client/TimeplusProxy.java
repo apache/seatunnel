@@ -100,7 +100,7 @@ public class TimeplusProxy {
                     if (localTableRecords.isEmpty()) {
                         throw new TimeplusConnectorException(
                                 SeaTunnelAPIErrorCode.TABLE_NOT_EXISTED,
-                                "Cannot get table from clickhouse, resultSet is empty");
+                                "Cannot get table from Timeplus, resultSet is empty");
                     }
                     localTableEngine = localTableRecords.get(0).getValue(0).asString();
                     localTableDDL = localTableRecords.get(0).getValue(1).asString();
@@ -122,17 +122,17 @@ public class TimeplusProxy {
     }
 
     /**
-     * Get ClickHouse table schema, the key is fileName, value is value type.
+     * Get Timeplus table schema, the key is fileName, value is value type.
      *
      * @param table table name.
      * @return schema map.
      */
-    public Map<String, String> getClickhouseTableSchema(String table) {
+    public Map<String, String> getTimeplusTableSchema(String table) {
         ProtonRequest<?> request = getProtonConnection();
-        return getClickhouseTableSchema(request, table);
+        return getTimeplusTableSchema(request, table);
     }
 
-    public Map<String, String> getClickhouseTableSchema(ProtonRequest<?> request, String table) {
+    public Map<String, String> getTimeplusTableSchema(ProtonRequest<?> request, String table) {
         String sql = "desc " + table;
         Map<String, String> schema = new LinkedHashMap<>();
         try (ProtonResponse response = request.query(sql).executeAndWait()) {
@@ -155,7 +155,7 @@ public class TimeplusProxy {
     /**
      * Get the shard of the given cluster.
      *
-     * @param connection clickhouse connection.
+     * @param connection Timeplus connection.
      * @param clusterName cluster name.
      * @param database database of the shard.
      * @param port port of the shard.
@@ -200,13 +200,13 @@ public class TimeplusProxy {
     }
 
     /**
-     * Get ClickHouse table info.
+     * Get Timeplus table info.
      *
      * @param database database of the table.
      * @param table table name of the table.
-     * @return clickhouse table info.
+     * @return Timeplus table info.
      */
-    public TimeplusTable getClickhouseTable(String database, String table) {
+    public TimeplusTable getTimeplusTable(String database, String table) {
         String sql =
                 String.format(
                         "select engine,create_table_query,engine_full,data_paths,sorting_key from system.tables where database = '%s' and name = '%s'",
@@ -216,7 +216,7 @@ public class TimeplusProxy {
             if (records.isEmpty()) {
                 throw new TimeplusConnectorException(
                         SeaTunnelAPIErrorCode.TABLE_NOT_EXISTED,
-                        "Cannot get table from clickhouse, resultSet is empty");
+                        "Cannot get table from Timeplus, resultSet is empty");
             }
             ProtonRecord record = records.get(0);
             String engine = record.getValue(0).asString();
@@ -241,7 +241,7 @@ public class TimeplusProxy {
                     engineFull,
                     dataPaths,
                     sortingKey,
-                    getClickhouseTableSchema(ProtonRequest, table));
+                    getTimeplusTableSchema(ProtonRequest, table));
         } catch (ProtonException e) {
             throw new TimeplusConnectorException(
                     SeaTunnelAPIErrorCode.TABLE_NOT_EXISTED, "Cannot get Timeplus table", e);
@@ -249,12 +249,12 @@ public class TimeplusProxy {
     }
 
     /**
-     * Localization the engine in clickhouse local table's createTableDDL to support specific
+     * Localization the engine in Timeplus local table's createTableDDL to support specific
      * engine. For example: change ReplicatedMergeTree to MergeTree.
      *
-     * @param engine original engine of clickhouse local table
-     * @param ddl createTableDDL of clickhouse local table
-     * @return createTableDDL of clickhouse local table which can support specific engine TODO:
+     * @param engine original engine of Timeplus local table
+     * @param ddl createTableDDL of Timeplus local table
+     * @return createTableDDL of Timeplus local table which can support specific engine TODO:
      *     support more engine
      */
     public String localizationEngine(String engine, String ddl) {

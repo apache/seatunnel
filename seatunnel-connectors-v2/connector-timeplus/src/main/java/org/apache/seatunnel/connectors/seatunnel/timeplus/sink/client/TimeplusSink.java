@@ -142,11 +142,11 @@ public class TimeplusSink
 
         TimeplusProxy proxy = new TimeplusProxy(nodes.get(0));
         Map<String, String> tableSchema =
-                proxy.getClickhouseTableSchema(config.getString(TABLE.key()));
+                proxy.getTimeplusTableSchema(config.getString(TABLE.key()));
         String shardKey = null;
         String shardKeyType = null;
         TimeplusTable table =
-                proxy.getClickhouseTable(
+                proxy.getTimeplusTable(
                         config.getString(DATABASE.key()), config.getString(TABLE.key()));
         if (config.getBoolean(SPLIT_MODE.key())) {
             if (!"Distributed".equals(table.getEngine())) {
