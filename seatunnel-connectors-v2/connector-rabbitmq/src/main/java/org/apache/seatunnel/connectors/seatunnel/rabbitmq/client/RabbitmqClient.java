@@ -194,6 +194,6 @@ public class RabbitmqClient {
     }
 
     private void declareQueueDefaults(Channel channel, String queueName) throws IOException {
-        channel.queueDeclare(queueName, true, false, false, null);
+        channel.queueDeclare(queueName, config.getDurable(), config.getExclusive(), config.getAutoDelete(), null);
     }
 }
