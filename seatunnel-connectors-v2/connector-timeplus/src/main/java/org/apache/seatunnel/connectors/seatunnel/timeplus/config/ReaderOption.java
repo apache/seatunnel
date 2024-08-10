@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.timeplus.config;
 
+import org.apache.seatunnel.api.sink.DataSaveMode;
+import org.apache.seatunnel.api.sink.SchemaSaveMode;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.shard.ShardMetadata;
 
@@ -36,6 +38,8 @@ public class ReaderOption implements Serializable {
     private String[] primaryKeys;
     private boolean allowExperimentalLightweightDelete;
     private boolean supportUpsert;
+    private SchemaSaveMode schemaSaveMode;
+    private DataSaveMode dataSaveMode;
     private String tableEngine;
     private Map<String, String> tableSchema;
     @Setter private SeaTunnelRowType seaTunnelRowType;

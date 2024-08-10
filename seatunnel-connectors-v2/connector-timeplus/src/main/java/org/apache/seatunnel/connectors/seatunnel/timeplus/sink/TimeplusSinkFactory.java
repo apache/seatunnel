@@ -19,6 +19,8 @@ package org.apache.seatunnel.connectors.seatunnel.timeplus.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
@@ -41,19 +43,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
 
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.ALLOW_EXPERIMENTAL_LIGHTWEIGHT_DELETE;
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.BULK_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.DATABASE;
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.HOST;
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.PASSWORD;
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.PRIMARY_KEY;
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.SERVER_TIME_ZONE;
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.SHARDING_KEY;
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.SPLIT_MODE;
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.SUPPORT_UPSERT;
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.TABLE;
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.TIMEPLUS_CONFIG;
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.USERNAME;
+import static org.apache.seatunnel.api.sink.SinkReplaceNameConstant.*;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.*;
 
 @AutoService(Factory.class)
 public class TimeplusSinkFactory implements TableSinkFactory {
@@ -65,14 +56,18 @@ public class TimeplusSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(HOST, DATABASE, TABLE)
+                .required(TABLE)
                 .optional(
+                        HOST,
+                        DATABASE,
                         TIMEPLUS_CONFIG,
                         BULK_SIZE,
                         SPLIT_MODE,
                         SHARDING_KEY,
                         PRIMARY_KEY,
                         SUPPORT_UPSERT,
+                        SCHEMA_SAVE_MODE,
+                        DATA_SAVE_MODE,
                         ALLOW_EXPERIMENTAL_LIGHTWEIGHT_DELETE)
                 .bundled(USERNAME, PASSWORD)
                 .build();
@@ -231,6 +226,40 @@ public class TimeplusSinkFactory implements TableSinkFactory {
     @Override
     public TableSink createSink(TableSinkFactoryContext context) {
         ReadonlyConfig config = context.getOptions();
+        CatalogTable catalogTable = context.getCatalogTable();
+
+        String sinkTableName = config.get(TABLE);
+
+        if (!isBlank(sinkTableName)) {
+            sinkTableName = catalogTable.getTableId().getTableName();
+        }
+
+        // get source table relevant information
+        TableIdentifier tableId = catalogTable.getTableId();
+        String sourceDatabaseName = tableId.getDatabaseName();
+        String sourceSchemaName = tableId.getSchemaName();
+        String sourceTableName = tableId.getTableName();
+        // get sink table relevant information
+        String sinkDatabaseName = config.get(DATABASE);
+        // to replace
+        sinkDatabaseName =
+                sinkDatabaseName.replace(
+                        REPLACE_DATABASE_NAME_KEY,
+                        sourceDatabaseName != null ? sourceDatabaseName : "");
+        String finalTableName = this.replaceFullTableName(sinkTableName, tableId);
+
+        // rebuild TableIdentifier and catalogTable
+        TableIdentifier newTableId =
+                TableIdentifier.of(
+                        tableId.getCatalogName(), sinkDatabaseName, null, finalTableName);
+        catalogTable =
+                CatalogTable.of(
+                        newTableId,
+                        catalogTable.getTableSchema(),
+                        catalogTable.getOptions(),
+                        catalogTable.getPartitionKeys(),
+                        catalogTable.getCatalogName());
+
         List<ProtonNode> nodes;
         Properties tpProperties = new Properties();
         ShardMetadata metadata;
@@ -245,7 +274,7 @@ public class TimeplusSinkFactory implements TableSinkFactory {
             nodes =
                     TimeplusUtil.createNodes(
                             config.get(HOST),
-                            config.get(DATABASE),
+                            sinkDatabaseName,
                             config.get(SERVER_TIME_ZONE),
                             config.get(USERNAME),
                             config.get(PASSWORD),
@@ -257,7 +286,7 @@ public class TimeplusSinkFactory implements TableSinkFactory {
             nodes =
                     TimeplusUtil.createNodes(
                             config.get(HOST),
-                            config.get(DATABASE),
+                            sinkDatabaseName,
                             config.get(SERVER_TIME_ZONE),
                             null,
                             null,
@@ -265,10 +294,10 @@ public class TimeplusSinkFactory implements TableSinkFactory {
         }
 
         TimeplusProxy proxy = new TimeplusProxy(nodes.get(0));
-        Map<String, String> tableSchema = proxy.getTimeplusTableSchema(config.get(TABLE));
+        Map<String, String> tableSchema = proxy.getTimeplusTableSchema(finalTableName);
         String shardKey = null;
         String shardKeyType = null;
-        TimeplusTable table = proxy.getTimeplusTable(config.get(DATABASE), config.get(TABLE));
+        TimeplusTable table = proxy.getTimeplusTable(config.get(DATABASE), finalTableName);
         if (config.get(SPLIT_MODE)) {
             if (!"Distributed".equals(table.getEngine())) {
                 throw new TimeplusConnectorException(
@@ -288,8 +317,8 @@ public class TimeplusSinkFactory implements TableSinkFactory {
                             shardKey,
                             shardKeyType,
                             table.getSortingKey(),
-                            config.get(DATABASE),
-                            config.get(TABLE),
+                            sinkDatabaseName,
+                            finalTableName,
                             table.getEngine(),
                             config.get(SPLIT_MODE),
                             new Shard(1, 1, nodes.get(0)),
@@ -301,8 +330,8 @@ public class TimeplusSinkFactory implements TableSinkFactory {
                             shardKey,
                             shardKeyType,
                             table.getSortingKey(),
-                            config.get(DATABASE),
-                            config.get(TABLE),
+                            sinkDatabaseName,
+                            finalTableName,
                             table.getEngine(),
                             config.get(SPLIT_MODE),
                             new Shard(1, 1, nodes.get(0)));
@@ -332,10 +361,39 @@ public class TimeplusSinkFactory implements TableSinkFactory {
                         .bulkSize(config.get(BULK_SIZE))
                         .primaryKeys(primaryKeys)
                         .supportUpsert(supportUpsert)
+                        .schemaSaveMode(config.get(SCHEMA_SAVE_MODE))
+                        .dataSaveMode(config.get(DATA_SAVE_MODE))
                         .allowExperimentalLightweightDelete(allowExperimentalLightweightDelete)
-                        .seaTunnelRowType(context.getCatalogTable().getSeaTunnelRowType())
+                        .seaTunnelRowType(catalogTable.getSeaTunnelRowType())
                         .build();
 
-        return () -> new TimeplusSink(readerOption);
+        CatalogTable finalCatalogTable = catalogTable;
+        return () -> new TimeplusSink(finalCatalogTable, readerOption);
+    }
+
+    private String replaceFullTableName(String original, TableIdentifier tableId) {
+        if (!isBlank(tableId.getDatabaseName())) {
+            original = original.replace(REPLACE_DATABASE_NAME_KEY, tableId.getDatabaseName());
+        }
+        if (!isBlank(tableId.getSchemaName())) {
+            original = original.replace(REPLACE_SCHEMA_NAME_KEY, tableId.getSchemaName());
+        }
+        if (!isBlank(tableId.getTableName())) {
+            original = original.replace(REPLACE_TABLE_NAME_KEY, tableId.getTableName());
+        }
+        return original;
+    }
+
+    public static boolean isBlank(final CharSequence cs) {
+        int strLen;
+        if (cs == null || (strLen = cs.length()) == 0) {
+            return true;
+        }
+        for (int i = 0; i < strLen; i++) {
+            if (Character.isWhitespace(cs.charAt(i)) == false) {
+                return false;
+            }
+        }
+        return true;
     }
 }

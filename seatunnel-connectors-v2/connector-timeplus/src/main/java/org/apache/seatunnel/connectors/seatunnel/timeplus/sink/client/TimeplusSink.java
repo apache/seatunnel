@@ -20,12 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.timeplus.sink.client;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
-import org.apache.seatunnel.api.sink.DefaultSaveModeHandler;
-import org.apache.seatunnel.api.sink.SaveModeHandler;
-import org.apache.seatunnel.api.sink.SeaTunnelSink;
-import org.apache.seatunnel.api.sink.SinkWriter;
-import org.apache.seatunnel.api.sink.SupportMultiTableSink;
-import org.apache.seatunnel.api.sink.SupportSaveMode;
+import org.apache.seatunnel.api.sink.*;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.factory.CatalogFactory;
@@ -55,13 +50,19 @@ public class TimeplusSink
 
     private CatalogTable catalogTable;
 
+    private DataSaveMode dataSaveMode;
+    private SchemaSaveMode schemaSaveMode;
+
     @Override
     public String getPluginName() {
         return "Timeplus";
     }
 
-    public TimeplusSink(ReaderOption option) {
+    public TimeplusSink(CatalogTable catalogTable, ReaderOption option) {
+        this.catalogTable =  catalogTable;
         this.option = option;
+        this.dataSaveMode = option.getDataSaveMode();
+        this.schemaSaveMode = option.getSchemaSaveMode();
     }
 
     @Override
@@ -107,6 +108,6 @@ public class TimeplusSink
 
         Catalog catalog = catalogFactory.createCatalog(catalogFactory.factoryIdentifier(), null);
         catalog.open();
-        return Optional.of(new DefaultSaveModeHandler(null, null, catalog, catalogTable, null));
+        return Optional.of(new DefaultSaveModeHandler(schemaSaveMode, dataSaveMode, catalog, catalogTable, null));
     }
 }
