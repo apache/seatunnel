@@ -76,14 +76,14 @@ public class TimeplusSinkWriter
             shardKey = element.getField(i);
         }
         TimeplusBatchStatement statement = statementMap.get(shardRouter.getShard(shardKey));
-        JdbcBatchStatementExecutor clickHouseStatement = statement.getJdbcBatchStatementExecutor();
+        JdbcBatchStatementExecutor tpStatement = statement.getJdbcBatchStatementExecutor();
         IntHolder sizeHolder = statement.getIntHolder();
         // add into batch
-        addIntoBatch(element, clickHouseStatement);
+        addIntoBatch(element, tpStatement);
         sizeHolder.setValue(sizeHolder.getValue() + 1);
         // flush batch
         if (sizeHolder.getValue() >= option.getBulkSize()) {
-            flush(clickHouseStatement);
+            flush(tpStatement);
             sizeHolder.setValue(0);
         }
     }
@@ -110,9 +110,9 @@ public class TimeplusSinkWriter
         flush();
     }
 
-    private void addIntoBatch(SeaTunnelRow row, JdbcBatchStatementExecutor clickHouseStatement) {
+    private void addIntoBatch(SeaTunnelRow row, JdbcBatchStatementExecutor tpStatement) {
         try {
-            clickHouseStatement.addToBatch(row);
+            tpStatement.addToBatch(row);
         } catch (SQLException e) {
             throw new TimeplusConnectorException(
                     CommonErrorCodeDeprecated.SQL_OPERATION_FAILED,
@@ -121,9 +121,9 @@ public class TimeplusSinkWriter
         }
     }
 
-    private void flush(JdbcBatchStatementExecutor clickHouseStatement) {
+    private void flush(JdbcBatchStatementExecutor tpStatement) {
         try {
-            clickHouseStatement.executeBatch();
+            tpStatement.executeBatch();
         } catch (Exception e) {
             throw new TimeplusConnectorException(
                     CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
@@ -196,7 +196,7 @@ public class TimeplusSinkWriter
                             } catch (SQLException e) {
                                 throw new TimeplusConnectorException(
                                         CommonErrorCodeDeprecated.SQL_OPERATION_FAILED,
-                                        "Clickhouse prepare statement error: " + e.getMessage(),
+                                        "Timeplus prepare statement error: " + e.getMessage(),
                                         e);
                             }
                         });
@@ -219,7 +219,7 @@ public class TimeplusSinkWriter
             }
             return false;
         } catch (SQLException e) {
-            log.warn("Failed to get clickhouse server config: {}", configKey, e);
+            log.warn("Failed to get Timeplus server config: {}", configKey, e);
             return false;
         }
     }

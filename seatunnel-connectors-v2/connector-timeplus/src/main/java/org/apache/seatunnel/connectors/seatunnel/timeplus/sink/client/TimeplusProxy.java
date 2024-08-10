@@ -112,11 +112,11 @@ public class TimeplusProxy {
             }
             throw new TimeplusConnectorException(
                     SeaTunnelAPIErrorCode.TABLE_NOT_EXISTED,
-                    "Cannot get distributed table from clickhouse, resultSet is empty");
+                    "Cannot get distributed table from Timeplus, resultSet is empty");
         } catch (ProtonException e) {
             throw new TimeplusConnectorException(
                     SeaTunnelAPIErrorCode.TABLE_NOT_EXISTED,
-                    "Cannot get distributed table from clickhouse",
+                    "Cannot get distributed table from Timeplus",
                     e);
         }
     }
@@ -194,7 +194,7 @@ public class TimeplusProxy {
         } catch (ProtonException e) {
             throw new TimeplusConnectorException(
                     TimeplusConnectorErrorCode.CLUSTER_LIST_GET_FAILED,
-                    "Cannot get cluster shard list from clickhouse",
+                    "Cannot get cluster shard list from Timeplus",
                     e);
         }
     }
@@ -244,7 +244,7 @@ public class TimeplusProxy {
                     getClickhouseTableSchema(ProtonRequest, table));
         } catch (ProtonException e) {
             throw new TimeplusConnectorException(
-                    SeaTunnelAPIErrorCode.TABLE_NOT_EXISTED, "Cannot get clickhouse table", e);
+                    SeaTunnelAPIErrorCode.TABLE_NOT_EXISTED, "Cannot get Timeplus table", e);
         }
     }
 

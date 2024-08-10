@@ -126,18 +126,18 @@ public class TimeplusSink
                             null);
         }
 
-        Properties clickhouseProperties = new Properties();
+        Properties tpProperties = new Properties();
         if (CheckConfigUtil.isValidParam(config, TIMEPLUS_CONFIG.key())) {
             config.getObject(TIMEPLUS_CONFIG.key())
                     .forEach(
                             (key, value) ->
-                                    clickhouseProperties.put(
+                                    tpProperties.put(
                                             key, String.valueOf(value.unwrapped())));
         }
 
         if (isCredential) {
-            clickhouseProperties.put("user", config.getString(USERNAME.key()));
-            clickhouseProperties.put("password", config.getString(PASSWORD.key()));
+            tpProperties.put("user", config.getString(USERNAME.key()));
+            tpProperties.put("password", config.getString(PASSWORD.key()));
         }
 
         TimeplusProxy proxy = new TimeplusProxy(nodes.get(0));
@@ -213,7 +213,7 @@ public class TimeplusSink
         this.option =
                 ReaderOption.builder()
                         .shardMetadata(metadata)
-                        .properties(clickhouseProperties)
+                        .properties(tpProperties)
                         .tableEngine(table.getEngine())
                         .tableSchema(tableSchema)
                         .bulkSize(config.getInt(BULK_SIZE.key()))
