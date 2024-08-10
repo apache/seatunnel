@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.timeplus.sink.client;
 
+import org.apache.seatunnel.api.sink.SupportMultiTableSink;
+import org.apache.seatunnel.api.sink.SupportSaveMode;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
@@ -26,6 +28,9 @@ import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.catalog.Catalog;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
@@ -53,6 +58,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Properties;
 
+import static org.apache.seatunnel.api.table.factory.FactoryUtil.discoverFactory;
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.ALLOW_EXPERIMENTAL_LIGHTWEIGHT_DELETE;
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.BULK_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.DATABASE;
@@ -69,9 +75,13 @@ import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.Timeplus
 
 @AutoService(SeaTunnelSink.class)
 public class TimeplusSink
-        implements SeaTunnelSink<SeaTunnelRow, TimeplusSinkState, TPCommitInfo, TPAggCommitInfo> {
+    implements SeaTunnelSink<SeaTunnelRow, TimeplusSinkState, TPCommitInfo, TPAggCommitInfo>,
+    SupportSaveMode,
+    SupportMultiTableSink {
 
     private ReaderOption option;
+
+    private CatalogTable catalogTable;
 
     @Override
     public String getPluginName() {
@@ -131,8 +141,7 @@ public class TimeplusSink
             config.getObject(TIMEPLUS_CONFIG.key())
                     .forEach(
                             (key, value) ->
-                                    tpProperties.put(
-                                            key, String.valueOf(value.unwrapped())));
+                                    tpProperties.put(key, String.valueOf(value.unwrapped())));
         }
 
         if (isCredential) {
@@ -243,5 +252,34 @@ public class TimeplusSink
     @Override
     public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
         this.option.setSeaTunnelRowType(seaTunnelRowType);
+    }
+
+    @Override
+    public Optional<SaveModeHandler> getSaveModeHandler() {
+        // Load the JDBC driver in to DriverManager
+        try {
+            Class.forName("com.timeplus.proton.jdbc.ProtonDriver");
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+
+        CatalogFactory catalogFactory =
+                discoverFactory(
+                        Thread.currentThread().getContextClassLoader(),
+                        CatalogFactory.class,
+                        "Timeplus");
+        if (catalogFactory == null) {
+            throw new TimeplusConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "PluginName: %s, PluginType: %s, Message: %s",
+                            getPluginName(),
+                            PluginType.SINK,
+                            "Cannot find Timeplus catalog factory"));
+        }
+
+        Catalog catalog = catalogFactory.createCatalog(catalogFactory.factoryIdentifier(), null);
+        catalog.open();
+        return Optional.of(new DefaultSaveModeHandler(null, null, catalog, catalogTable, null));
     }
 }

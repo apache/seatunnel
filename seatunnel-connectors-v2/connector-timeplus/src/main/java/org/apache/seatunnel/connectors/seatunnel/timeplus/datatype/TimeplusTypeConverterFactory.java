@@ -15,18 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.timeplus.config;
+package org.apache.seatunnel.connectors.seatunnel.timeplus.datatype;
 
-import org.apache.seatunnel.api.configuration.util.OptionMark;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
+import org.apache.seatunnel.api.table.converter.TypeConverter;
 
-import lombok.Data;
+import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
 
-@Data
-public class NodePassConfig {
-
-    @OptionMark(description = "The address of Timeplus server node")
-    private String nodeAddress;
-
-    @OptionMark(description = "Timeplus server linux password")
-    private String password;
+@Slf4j
+public class TimeplusTypeConverterFactory {
+    public static TypeConverter<BasicTypeDefine> getTypeConverter(@NonNull String tpVersion) {
+        return TimeplusTypeConverterV1.INSTANCE;
+    }
 }

@@ -249,8 +249,8 @@ public class TimeplusProxy {
     }
 
     /**
-     * Localization the engine in Timeplus local table's createTableDDL to support specific
-     * engine. For example: change ReplicatedMergeTree to MergeTree.
+     * Localization the engine in Timeplus local table's createTableDDL to support specific engine.
+     * For example: change ReplicatedMergeTree to MergeTree.
      *
      * @param engine original engine of Timeplus local table
      * @param ddl createTableDDL of Timeplus local table

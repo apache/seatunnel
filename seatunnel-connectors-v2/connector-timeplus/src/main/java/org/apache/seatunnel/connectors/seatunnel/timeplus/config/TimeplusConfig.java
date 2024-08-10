@@ -25,6 +25,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
+/** The Seatunnel connector configuration. A set of {@link Option}. */
 public class TimeplusConfig {
 
     /** Bulk size of timeplus jdbc */
@@ -46,6 +47,13 @@ public class TimeplusConfig {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("Timeplus server host");
+
+    /** Timeplus server port */
+    public static final Option<Integer> PORT =
+            Options.key("port")
+                    .intType()
+                    .defaultValue(8123)
+                    .withDescription("Timeplus server port");
 
     /** Timeplus table name */
     public static final Option<String> TABLE =
