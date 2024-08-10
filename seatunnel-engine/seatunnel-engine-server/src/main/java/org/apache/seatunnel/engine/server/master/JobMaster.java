@@ -683,7 +683,7 @@ public class JobMaster {
                         metricsImap.tryLock(
                                 Constant.IMAP_RUNNING_JOB_METRICS_KEY, 5, TimeUnit.SECONDS);
                 if (!lockedIMap) {
-                    LOGGER.warning("lock imap failed in update metrics");
+                    LOGGER.severe("lock imap failed in update metrics");
                     return;
                 }
 
