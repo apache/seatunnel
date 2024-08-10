@@ -221,6 +221,7 @@ public class RabbitmqConfig implements Serializable {
                     .withDescription(
                             "true: The queue will be deleted automatically when the last consumer unsubscribes."
                                     + "false: The queue will not be automatically deleted.");
+
     private void parseSinkOptionProperties(Config pluginConfig) {
         if (CheckConfigUtil.isValidParam(pluginConfig, RABBITMQ_CONFIG.key())) {
             pluginConfig
