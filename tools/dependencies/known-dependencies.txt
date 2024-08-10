@@ -43,6 +43,8 @@ json-smart-2.4.7.jar
 accessors-smart-2.4.7.jar
 asm-9.1.jar
 avro-1.11.1.jar
+groovy-4.0.16.jar
+seatunnel-janino-2.3.7-SNAPSHOT-optional.jar
 protobuf-java-util-3.25.3.jar
 protobuf-java-3.25.3.jar
 protoc-jar-3.11.4.jar
