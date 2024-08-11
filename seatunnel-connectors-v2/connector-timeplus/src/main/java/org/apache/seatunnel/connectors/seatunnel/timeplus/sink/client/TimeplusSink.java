@@ -74,7 +74,8 @@ public class TimeplusSink
     @Override
     public SinkWriter<SeaTunnelRow, TPCommitInfo, TimeplusSinkState> createWriter(
             SinkWriter.Context context) throws IOException {
-        return new TimeplusSinkWriter(option, context);
+        ic();
+        return new TimeplusSinkWriter(option, context, readonlyConfig);
     }
 
     @Override

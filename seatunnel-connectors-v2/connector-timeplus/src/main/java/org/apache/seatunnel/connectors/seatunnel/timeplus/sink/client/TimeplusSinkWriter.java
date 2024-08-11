@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.timeplus.sink.client;
 
+import com.timeplus.proton.client.ProtonNode;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.config.Common;
@@ -35,6 +37,7 @@ import org.apache.commons.lang3.StringUtils;
 import com.google.common.base.Strings;
 import com.timeplus.proton.jdbc.internal.ProtonConnectionImpl;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.util.TimeplusUtil;
 
 import java.io.IOException;
 import java.sql.ResultSet;
@@ -45,22 +48,32 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
 
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.*;
+
 @Slf4j
 public class TimeplusSinkWriter
         implements SinkWriter<SeaTunnelRow, TPCommitInfo, TimeplusSinkState> {
 
     private final Context context;
     private final ReaderOption option;
-    private final ShardRouter shardRouter;
+    private ShardRouter shardRouter;
     private final transient TimeplusProxy proxy;
     private final Map<Shard, TimeplusBatchStatement> statementMap;
 
-    TimeplusSinkWriter(ReaderOption option, Context context) {
+    TimeplusSinkWriter(ReaderOption option, Context context, ReadonlyConfig config) {
         this.option = option;
         this.context = context;
 
-        this.proxy = new TimeplusProxy(option.getShardMetadata().getDefaultShard().getNode());
-        this.shardRouter = new ShardRouter(proxy, option.getShardMetadata());
+        ProtonNode node=TimeplusUtil.createNodes(
+                config.get(HOST),
+                config.get(DATABASE),
+                config.get(SERVER_TIME_ZONE),
+                config.get(USERNAME),
+                config.get(PASSWORD),
+                null).get(0);
+
+        this.proxy = new TimeplusProxy(node);
+//        this.shardRouter = new ShardRouter(proxy, option.getShardMetadata());
         this.statementMap = initStatementMap();
     }
 
