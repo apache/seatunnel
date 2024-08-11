@@ -25,9 +25,9 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.converter.TypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.common.sql.template.SqlTemplate;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig;
 
 import org.apache.commons.lang3.StringUtils;
-import org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -45,14 +45,10 @@ public class TimeplusCatalogUtil {
             "SELECT name FROM system.databases ORDER BY name";
 
     public static final String DATABASE_QUERY =
-            "SELECT name FROM system.databases "
-                    + "WHERE name = ? "
-                    + "ORDER BY name";
+            "SELECT name FROM system.databases " + "WHERE name = ? " + "ORDER BY name";
 
     public static final String TABLES_QUERY_WITH_DATABASE_QUERY =
-            "SELECT name FROM system.tables "
-                    + "WHERE database = ? "
-                    + "ORDER BY name";
+            "SELECT name FROM system.tables " + "WHERE database = ? " + "ORDER BY name";
 
     /*
     There is a bug in Proton 1.5.15 for the view def of information_schema.tables
@@ -157,8 +153,7 @@ public class TimeplusCatalogUtil {
                 SaveModePlaceHolder.ROWTYPE_PRIMARY_KEY.getPlaceHolder(),
                 primaryKey,
                 tablePath.getFullName(),
-                TimeplusConfig.SAVE_MODE_CREATE_TEMPLATE.key()
-                );
+                TimeplusConfig.SAVE_MODE_CREATE_TEMPLATE.key());
         template =
                 template.replaceAll(
                         SaveModePlaceHolder.ROWTYPE_PRIMARY_KEY.getReplacePlaceHolder(),
@@ -168,8 +163,7 @@ public class TimeplusCatalogUtil {
                 SaveModePlaceHolder.ROWTYPE_UNIQUE_KEY.getPlaceHolder(),
                 uniqueKey,
                 tablePath.getFullName(),
-                TimeplusConfig.SAVE_MODE_CREATE_TEMPLATE.key()
-                );
+                TimeplusConfig.SAVE_MODE_CREATE_TEMPLATE.key());
         template =
                 template.replaceAll(
                         SaveModePlaceHolder.ROWTYPE_UNIQUE_KEY.getReplacePlaceHolder(), uniqueKey);
@@ -178,8 +172,7 @@ public class TimeplusCatalogUtil {
                 SaveModePlaceHolder.ROWTYPE_DUPLICATE_KEY.getPlaceHolder(),
                 dupKey,
                 tablePath.getFullName(),
-                TimeplusConfig.SAVE_MODE_CREATE_TEMPLATE.key()
-                );
+                TimeplusConfig.SAVE_MODE_CREATE_TEMPLATE.key());
         template =
                 template.replaceAll(
                         SaveModePlaceHolder.ROWTYPE_DUPLICATE_KEY.getReplacePlaceHolder(), dupKey);
@@ -246,10 +239,13 @@ public class TimeplusCatalogUtil {
     private static String columnToTimeplusType(
             Column column, TypeConverter<BasicTypeDefine> typeConverter) {
         checkNotNull(column, "The column is required.");
-        if(column.isNullable()){
-            return String.format("`%s` nullable(%s)",column.getName(),typeConverter.reconvert(column).getColumnType());
-        }else{
-            return String.format("`%s` %s",column.getName(),typeConverter.reconvert(column).getColumnType());
+        if (column.isNullable()) {
+            return String.format(
+                    "`%s` nullable(%s)",
+                    column.getName(), typeConverter.reconvert(column).getColumnType());
+        } else {
+            return String.format(
+                    "`%s` %s", column.getName(), typeConverter.reconvert(column).getColumnType());
         }
     }
 }

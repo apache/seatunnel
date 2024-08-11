@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.timeplus.catalog;
 
-import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.sink.SaveModePlaceHolder;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -38,7 +37,6 @@ import org.apache.seatunnel.api.table.converter.TypeConverter;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
-import org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.datatype.TimeplusTypeConverterFactory;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.datatype.TimeplusTypeConverterV1;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.util.TimeplusCatalogUtil;
@@ -75,7 +73,7 @@ public class TimeplusCatalog implements Catalog {
 
     private final String host;
 
-    //TODO REmove queryPort
+    // TODO REmove queryPort
     private final Integer queryPort;
 
     private final String username;
@@ -416,7 +414,8 @@ public class TimeplusCatalog implements Catalog {
         }
 
         String stmt =
-                TimeplusCatalogUtil.getCreateTableStatement(template, tablePath, table, typeConverter);
+                TimeplusCatalogUtil.getCreateTableStatement(
+                        template, tablePath, table, typeConverter);
         try (Statement statement = conn.createStatement()) {
             statement.execute(stmt);
         } catch (SQLException e) {

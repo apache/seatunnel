@@ -63,8 +63,8 @@ public class TimeplusSink
     }
 
     public TimeplusSink(CatalogTable catalogTable, ReaderOption option, ReadonlyConfig readonlyConfig) {
-        ic("new TimeplusSink with catalog table",catalogTable);
-        this.catalogTable =  catalogTable;
+        ic("new TimeplusSink with catalog table",catalogTable,option,readonlyConfig);
+        this.catalogTable = catalogTable;
         this.option = option;
         this.dataSaveMode = option.getDataSaveMode();
         this.schemaSaveMode = option.getSchemaSaveMode();
@@ -74,7 +74,6 @@ public class TimeplusSink
     @Override
     public SinkWriter<SeaTunnelRow, TPCommitInfo, TimeplusSinkState> createWriter(
             SinkWriter.Context context) throws IOException {
-        ic();
         return new TimeplusSinkWriter(option, context, readonlyConfig);
     }
 
@@ -91,7 +90,6 @@ public class TimeplusSink
 
     @Override
     public Optional<SaveModeHandler> getSaveModeHandler() {
-        ic();
         // Load the JDBC driver in to DriverManager
         try {
             Class.forName("com.timeplus.proton.jdbc.ProtonDriver");
@@ -115,7 +113,6 @@ public class TimeplusSink
         }
 
         Catalog catalog = catalogFactory.createCatalog(catalogFactory.factoryIdentifier(), readonlyConfig);
-        ic("create catalog ",catalog);
         catalog.open();
         return Optional.of(new DefaultSaveModeHandler(schemaSaveMode, dataSaveMode, catalog, catalogTable, null));
     }

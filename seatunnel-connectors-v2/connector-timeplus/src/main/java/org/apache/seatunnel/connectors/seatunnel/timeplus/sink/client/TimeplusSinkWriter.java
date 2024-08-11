@@ -90,7 +90,6 @@ implements SinkWriter<SeaTunnelRow, TPCommitInfo, TimeplusSinkState>, SupportMul
                 "Stream",
                 false,
                 new Shard(1, 1, node));
-        ic("ShardMetadata",metadata);
         option.setShardMetadata(metadata);
         this.shardRouter = new ShardRouter(proxy, option.getShardMetadata());
         this.statementMap = initStatementMap();

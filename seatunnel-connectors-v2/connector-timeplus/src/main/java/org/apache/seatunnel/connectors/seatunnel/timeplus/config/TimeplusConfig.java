@@ -29,8 +29,7 @@ import java.util.List;
 import java.util.Map;
 
 /** The Seatunnel connector configuration. A set of {@link Option}. */
-@SuppressWarnings("MagicNumber")
-public interface TimeplusConfig {
+public class TimeplusConfig {
 
     /** Bulk size of timeplus jdbc */
     public static final Option<Integer> BULK_SIZE =
@@ -164,6 +163,7 @@ public interface TimeplusConfig {
                             "Because seatunnel need to use scp or rsync for file transfer, "
                                     + "seatunnel need timeplus server-side access. If each spark node and timeplus server are configured with password-free login, "
                                     + "you can configure this option to true, otherwise you need to configure the corresponding node password in the node_pass configuration");
+
     /** The password of Timeplus server node */
     public static final Option<List<NodePassConfig>> NODE_PASS =
             Options.key("node_pass")
@@ -192,7 +192,7 @@ public interface TimeplusConfig {
                     .withDescription(
                             "The directory where TimeplusFile stores temporary files locally.");
 
-    Option<String> SAVE_MODE_CREATE_TEMPLATE =
+    public static final Option<String> SAVE_MODE_CREATE_TEMPLATE =
             Options.key("save_mode_create_template")
                     .stringType()
                     .defaultValue(
@@ -209,14 +209,14 @@ public interface TimeplusConfig {
                     .withDescription(
                             "Create table statement template, used to create Timeplus stream");
 
-    Option<SchemaSaveMode> SCHEMA_SAVE_MODE =
+    public static final Option<SchemaSaveMode> SCHEMA_SAVE_MODE =
             Options.key("schema_save_mode")
                     .enumType(SchemaSaveMode.class)
                     .defaultValue(SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST)
                     .withDescription(
                             "different treatment schemes are selected for the existing surface structure of the target side");
 
-    Option<DataSaveMode> DATA_SAVE_MODE =
+    public static final Option<DataSaveMode> DATA_SAVE_MODE =
             Options.key("data_save_mode")
                     .enumType(DataSaveMode.class)
                     .defaultValue(DataSaveMode.APPEND_DATA)

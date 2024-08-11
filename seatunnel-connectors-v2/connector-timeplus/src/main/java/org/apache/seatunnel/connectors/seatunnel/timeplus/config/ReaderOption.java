@@ -40,7 +40,7 @@ public class ReaderOption implements Serializable {
     private boolean supportUpsert;
     private SchemaSaveMode schemaSaveMode;
     private DataSaveMode dataSaveMode;
-    private String tableName;//the name after replacing the placeholder
+    private String tableName; // the name after replacing the placeholder
     private String tableEngine;
     @Setter private Map<String, String> tableSchema;
     @Setter private SeaTunnelRowType seaTunnelRowType;
