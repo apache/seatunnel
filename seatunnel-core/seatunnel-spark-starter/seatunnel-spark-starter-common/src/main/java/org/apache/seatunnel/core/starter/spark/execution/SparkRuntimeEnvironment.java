@@ -112,7 +112,6 @@ public class SparkRuntimeEnvironment implements RuntimeEnvironment {
         }
         this.sparkSession = builder.getOrCreate();
         createStreamingContext();
-
         return this;
     }
 

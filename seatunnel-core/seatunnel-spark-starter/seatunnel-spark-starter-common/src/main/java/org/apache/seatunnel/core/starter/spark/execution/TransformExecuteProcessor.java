@@ -102,7 +102,7 @@ public class TransformExecuteProcessor
                 TableTransformFactory factory = plugins.get(i);
                 TableTransformFactoryContext context =
                         new TableTransformFactoryContext(
-                                Collections.singletonList(dataset.getCatalogTables().get(0)),
+                                dataset.getCatalogTables(),
                                 ReadonlyConfig.fromConfig(pluginConfig),
                                 classLoader);
                 ConfigValidator.of(context.getOptions()).validate(factory.optionRule());
