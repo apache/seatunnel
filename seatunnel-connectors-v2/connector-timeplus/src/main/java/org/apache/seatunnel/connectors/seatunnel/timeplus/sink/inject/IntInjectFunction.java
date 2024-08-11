@@ -37,10 +37,10 @@ public class IntInjectFunction implements ProtonFieldInjectFunction {
 
     @Override
     public boolean isCurrentFieldType(String fieldType) {
-        return "Int8".equals(fieldType)
-                || "UInt8".equals(fieldType)
-                || "Int16".equals(fieldType)
-                || "UInt16".equals(fieldType)
-                || "Int32".equals(fieldType);
+        return "int8".equals(fieldType)
+                || "uint8".equals(fieldType)
+                || "int16".equals(fieldType)
+                || "uint16".equals(fieldType)
+                || "int32".equals(fieldType);
     }
 }

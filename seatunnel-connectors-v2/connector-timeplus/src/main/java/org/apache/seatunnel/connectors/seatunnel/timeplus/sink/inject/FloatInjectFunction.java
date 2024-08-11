@@ -34,6 +34,6 @@ public class FloatInjectFunction implements ProtonFieldInjectFunction {
 
     @Override
     public boolean isCurrentFieldType(String fieldType) {
-        return "Float32".equals(fieldType);
+        return "float32".equals(fieldType);
     }
 }

@@ -27,7 +27,7 @@ import java.util.regex.Pattern;
 
 public class ArrayInjectFunction implements ProtonFieldInjectFunction {
 
-    private static final Pattern PATTERN = Pattern.compile("(Array.*)");
+    private static final Pattern PATTERN = Pattern.compile("(array.*)");
     private String fieldType;
 
     @Override
@@ -37,43 +37,43 @@ public class ArrayInjectFunction implements ProtonFieldInjectFunction {
         Object[] elements = (Object[]) value;
         String type = fieldType.substring(fieldType.indexOf("(") + 1, fieldType.indexOf(")"));
         switch (type) {
-            case "String":
-            case "Int128":
-            case "UInt128":
-            case "Int256":
-            case "UInt256":
+            case "string":
+            case "int128":
+            case "uint128":
+            case "int256":
+            case "uint256":
                 sqlType = "TEXT";
                 elements = Arrays.copyOf(elements, elements.length, String[].class);
                 break;
-            case "Int8":
+            case "int8":
                 sqlType = "TINYINT";
                 elements = Arrays.copyOf(elements, elements.length, Byte[].class);
                 break;
-            case "UInt8":
-            case "Int16":
+            case "uint8":
+            case "int16":
                 sqlType = "SMALLINT";
                 elements = Arrays.copyOf(elements, elements.length, Short[].class);
                 break;
-            case "UInt16":
-            case "Int32":
+            case "uint16":
+            case "int32":
                 sqlType = "INTEGER";
                 elements = Arrays.copyOf(elements, elements.length, Integer[].class);
                 break;
-            case "UInt32":
-            case "Int64":
-            case "UInt64":
+            case "uint32":
+            case "int64":
+            case "uint64":
                 sqlType = "BIGINT";
                 elements = Arrays.copyOf(elements, elements.length, Long[].class);
                 break;
-            case "Float32":
+            case "float32":
                 sqlType = "REAL";
                 elements = Arrays.copyOf(elements, elements.length, Float[].class);
                 break;
-            case "Float64":
+            case "float64":
                 sqlType = "DOUBLE";
                 elements = Arrays.copyOf(elements, elements.length, Double[].class);
                 break;
-            case "Bool":
+            case "bool":
                 sqlType = "BOOLEAN";
                 elements = Arrays.copyOf(elements, elements.length, Boolean[].class);
                 break;

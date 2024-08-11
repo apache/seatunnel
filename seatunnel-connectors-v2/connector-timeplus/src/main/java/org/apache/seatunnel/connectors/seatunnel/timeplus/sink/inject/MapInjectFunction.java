@@ -23,7 +23,7 @@ import java.util.regex.Pattern;
 
 public class MapInjectFunction implements ProtonFieldInjectFunction {
 
-    private static final Pattern PATTERN = Pattern.compile("(Map.*)");
+    private static final Pattern PATTERN = Pattern.compile("(map.*)");
 
     @Override
     public void injectFields(PreparedStatement statement, int index, Object value)

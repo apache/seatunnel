@@ -23,7 +23,7 @@ import java.util.regex.Pattern;
 
 public class BigDecimalInjectFunction implements ProtonFieldInjectFunction {
 
-    private static final Pattern PATTERN = Pattern.compile("(Decimal.*)");
+    private static final Pattern PATTERN = Pattern.compile("(decimal.*)");
 
     @Override
     public void injectFields(PreparedStatement statement, int index, Object value)

@@ -25,7 +25,7 @@ import java.util.regex.Pattern;
 
 public class DateTimeInjectFunction implements ProtonFieldInjectFunction {
 
-    private static final Pattern PATTERN = Pattern.compile("(DateTime.*)");
+    private static final Pattern PATTERN = Pattern.compile("(datetime.*)");
 
     @Override
     public void injectFields(PreparedStatement statement, int index, Object value)

@@ -30,16 +30,16 @@ public class LongInjectFunction implements ProtonFieldInjectFunction {
 
     @Override
     public boolean isCurrentFieldType(String fieldType) {
-        return "UInt32".equals(fieldType)
-                || "UInt64".equals(fieldType)
-                || "Int64".equals(fieldType)
-                || "IntervalYear".equals(fieldType)
-                || "IntervalQuarter".equals(fieldType)
-                || "IntervalMonth".equals(fieldType)
-                || "IntervalWeek".equals(fieldType)
-                || "IntervalDay".equals(fieldType)
-                || "IntervalHour".equals(fieldType)
-                || "IntervalMinute".equals(fieldType)
-                || "IntervalSecond".equals(fieldType);
+        return "uint32".equals(fieldType)
+                || "uint64".equals(fieldType)
+                || "int64".equals(fieldType)
+                || "interval_year".equals(fieldType)
+                || "interval_quarter".equals(fieldType)
+                || "interval_month".equals(fieldType)
+                || "interval_week".equals(fieldType)
+                || "interval_day".equals(fieldType)
+                || "interval_hour".equals(fieldType)
+                || "interval_minute".equals(fieldType)
+                || "interval_second".equals(fieldType);
     }
 }

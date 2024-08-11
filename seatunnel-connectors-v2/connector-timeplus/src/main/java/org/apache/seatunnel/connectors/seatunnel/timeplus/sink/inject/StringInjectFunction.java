@@ -34,16 +34,16 @@ public class StringInjectFunction implements ProtonFieldInjectFunction {
     public void injectFields(PreparedStatement statement, int index, Object value)
             throws SQLException {
         try {
-            if ("Point".equals(fieldType)) {
+            if ("point".equals(fieldType)) {
                 statement.setObject(
                         index, MAPPER.readValue(replace(value.toString()), double[].class));
-            } else if ("Ring".equals(fieldType)) {
+            } else if ("ring".equals(fieldType)) {
                 statement.setObject(
                         index, MAPPER.readValue(replace(value.toString()), double[][].class));
-            } else if ("Polygon".equals(fieldType)) {
+            } else if ("polygon".equals(fieldType)) {
                 statement.setObject(
                         index, MAPPER.readValue(replace(value.toString()), double[][][].class));
-            } else if ("MultiPolygon".equals(fieldType)) {
+            } else if ("multi_polygon".equals(fieldType)) {
                 statement.setObject(
                         index, MAPPER.readValue(replace(value.toString()), double[][][][].class));
             } else {
@@ -56,15 +56,15 @@ public class StringInjectFunction implements ProtonFieldInjectFunction {
 
     @Override
     public boolean isCurrentFieldType(String fieldType) {
-        if ("String".equals(fieldType)
-                || "Int128".equals(fieldType)
-                || "UInt128".equals(fieldType)
-                || "Int256".equals(fieldType)
-                || "UInt256".equals(fieldType)
-                || "Point".equals(fieldType)
-                || "Ring".equals(fieldType)
-                || "Polygon".equals(fieldType)
-                || "MultiPolygon".equals(fieldType)) {
+        if ("string".equals(fieldType)
+                || "int128".equals(fieldType)
+                || "uint128".equals(fieldType)
+                || "int256".equals(fieldType)
+                || "uint256".equals(fieldType)
+                || "point".equals(fieldType)
+                || "ring".equals(fieldType)
+                || "polygon".equals(fieldType)
+                || "multi_polygon".equals(fieldType)) {
             this.fieldType = fieldType;
             return true;
         }

@@ -34,6 +34,6 @@ public class DateInjectFunction implements ProtonFieldInjectFunction {
 
     @Override
     public boolean isCurrentFieldType(String fieldType) {
-        return "Date".equals(fieldType);
+        return "date".equals(fieldType);
     }
 }

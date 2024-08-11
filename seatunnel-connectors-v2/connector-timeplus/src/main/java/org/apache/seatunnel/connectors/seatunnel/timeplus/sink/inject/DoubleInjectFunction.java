@@ -34,6 +34,6 @@ public class DoubleInjectFunction implements ProtonFieldInjectFunction {
 
     @Override
     public boolean isCurrentFieldType(String fieldType) {
-        return "Float64".equals(fieldType);
+        return "float64".equals(fieldType);
     }
 }
