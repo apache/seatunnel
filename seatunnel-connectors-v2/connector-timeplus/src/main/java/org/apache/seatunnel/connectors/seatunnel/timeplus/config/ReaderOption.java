@@ -34,14 +34,15 @@ import java.util.Properties;
 @Getter
 public class ReaderOption implements Serializable {
 
-    private ShardMetadata shardMetadata;
+    @Setter private ShardMetadata shardMetadata;
     private String[] primaryKeys;
     private boolean allowExperimentalLightweightDelete;
     private boolean supportUpsert;
     private SchemaSaveMode schemaSaveMode;
     private DataSaveMode dataSaveMode;
+    private String tableName;//the name after replacing the placeholder
     private String tableEngine;
-    private Map<String, String> tableSchema;
+    @Setter private Map<String, String> tableSchema;
     @Setter private SeaTunnelRowType seaTunnelRowType;
     private Properties properties;
     private int bulkSize;

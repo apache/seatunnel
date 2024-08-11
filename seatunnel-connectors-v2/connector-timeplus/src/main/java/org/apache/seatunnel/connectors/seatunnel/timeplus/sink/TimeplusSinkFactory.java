@@ -233,8 +233,6 @@ public class TimeplusSinkFactory implements TableSinkFactory {
 
         String sinkTableName = config.get(TABLE);
 
-        ic("sinkTableName",sinkTableName);
-
         if (isBlank(sinkTableName)) {
             sinkTableName = catalogTable.getTableId().getTableName();
         }
@@ -244,7 +242,7 @@ public class TimeplusSinkFactory implements TableSinkFactory {
         // get source table relevant information
         TableIdentifier tableId = catalogTable.getTableId();
         String sourceDatabaseName = tableId.getDatabaseName();
-        String sourceSchemaName = tableId.getSchemaName();
+        //String sourceSchemaName = tableId.getSchemaName();
         String sourceTableName = tableId.getTableName();
         // get sink table relevant information
         String sinkDatabaseName = config.get(DATABASE);
@@ -280,6 +278,7 @@ public class TimeplusSinkFactory implements TableSinkFactory {
                 config.get(ALLOW_EXPERIMENTAL_LIGHTWEIGHT_DELETE);
         ReaderOption readerOption =
                 ReaderOption.builder()
+                        .tableName(finalTableName)
                         .properties(tpProperties)
                         .bulkSize(config.get(BULK_SIZE))
                         .supportUpsert(supportUpsert)

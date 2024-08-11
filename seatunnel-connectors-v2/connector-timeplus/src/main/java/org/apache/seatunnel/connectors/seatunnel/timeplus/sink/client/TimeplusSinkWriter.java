@@ -20,14 +20,17 @@ package org.apache.seatunnel.connectors.seatunnel.timeplus.sink.client;
 import com.timeplus.proton.client.ProtonNode;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.config.ReaderOption;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.exception.TimeplusConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.shard.Shard;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.shard.ShardMetadata;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.client.executor.JdbcBatchStatementExecutor;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.client.executor.JdbcBatchStatementExecutorBuilder;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.file.TimeplusTable;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.state.TPCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.state.TimeplusSinkState;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.tool.IntHolder;
@@ -49,12 +52,11 @@ import java.util.Optional;
 import java.util.stream.Stream;
 
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.*;
-
+import static org.icecream.IceCream.ic;
 @Slf4j
 public class TimeplusSinkWriter
-        implements SinkWriter<SeaTunnelRow, TPCommitInfo, TimeplusSinkState> {
+implements SinkWriter<SeaTunnelRow, TPCommitInfo, TimeplusSinkState>, SupportMultiTableSinkWriter<Void> {
 
-    private final Context context;
     private final ReaderOption option;
     private ShardRouter shardRouter;
     private final transient TimeplusProxy proxy;
@@ -62,7 +64,6 @@ public class TimeplusSinkWriter
 
     TimeplusSinkWriter(ReaderOption option, Context context, ReadonlyConfig config) {
         this.option = option;
-        this.context = context;
 
         ProtonNode node=TimeplusUtil.createNodes(
                 config.get(HOST),
@@ -73,7 +74,25 @@ public class TimeplusSinkWriter
                 null).get(0);
 
         this.proxy = new TimeplusProxy(node);
-//        this.shardRouter = new ShardRouter(proxy, option.getShardMetadata());
+        TimeplusTable table =
+                    proxy.getTimeplusTable(
+                            config.get(DATABASE), option.getTableName());
+        Map<String, String> tableSchema = proxy.getTimeplusTableSchema(option.getTableName());
+        option.setTableSchema(tableSchema);
+        String shardKey = config.get(SHARDING_KEY);
+        ic("shardKey",shardKey);
+        ShardMetadata metadata=new ShardMetadata(
+                shardKey,
+                tableSchema.get(shardKey),
+                table.getSortingKey(),
+                config.get(DATABASE),
+                option.getTableName(),
+                "Stream",
+                false,
+                new Shard(1, 1, node));
+        ic("ShardMetadata",metadata);
+        option.setShardMetadata(metadata);
+        this.shardRouter = new ShardRouter(proxy, option.getShardMetadata());
         this.statementMap = initStatementMap();
     }
 
@@ -189,12 +208,12 @@ public class TimeplusSinkWriter
                                                 .setRowType(option.getSeaTunnelRowType())
                                                 .setPrimaryKeys(option.getPrimaryKeys())
                                                 .setOrderByKeys(orderByKeys)
-                                                .setClickhouseTableSchema(option.getTableSchema())
+                                                .setTimeplusTableSchema(option.getTableSchema())
                                                 .setAllowExperimentalLightweightDelete(
                                                         option
                                                                 .isAllowExperimentalLightweightDelete())
-                                                .setClickhouseServerEnableExperimentalLightweightDelete(
-                                                        clickhouseServerEnableExperimentalLightweightDelete(
+                                                .setTimeplusServerEnableExperimentalLightweightDelete(
+                                                        tpServerEnableExperimentalLightweightDelete(
                                                                 ProtonConnection))
                                                 .setSupportUpsert(option.isSupportUpsert())
                                                 .build();
@@ -216,7 +235,7 @@ public class TimeplusSinkWriter
         return result;
     }
 
-    private boolean clickhouseServerEnableExperimentalLightweightDelete(
+    private boolean tpServerEnableExperimentalLightweightDelete(
             ProtonConnectionImpl ProtonConnection) {
         if (!option.isAllowExperimentalLightweightDelete()) {
             return false;

@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.IntFunction;
+import static org.icecream.IceCream.ic;
 
 @Setter
 @Accessors(chain = true)
@@ -40,10 +41,10 @@ public class JdbcBatchStatementExecutorBuilder {
     private String tableEngine;
     private SeaTunnelRowType rowType;
     private String[] primaryKeys;
-    private Map<String, String> clickhouseTableSchema;
+    private Map<String, String> timeplusTableSchema;
     private boolean supportUpsert;
     private boolean allowExperimentalLightweightDelete;
-    private boolean clickhouseServerEnableExperimentalLightweightDelete;
+    private boolean timeplusServerEnableExperimentalLightweightDelete;
     private String[] orderByKeys;
 
     private boolean supportMergeTreeEngineExperimentalLightweightDelete() {
@@ -58,18 +59,19 @@ public class JdbcBatchStatementExecutorBuilder {
     private String[] getDefaultProjectionFields() {
         List<String> fieldNames = Arrays.asList(rowType.getFieldNames());
         return fieldNames.stream()
-                .filter(clickhouseTableSchema::containsKey)
+                .filter(timeplusTableSchema::containsKey)
                 .toArray(String[]::new);
     }
 
     public JdbcBatchStatementExecutor build() {
+        ic("table",table,"tableEngine",tableEngine,"rowType",rowType,"tableSchema",timeplusTableSchema);
         Objects.requireNonNull(table);
         Objects.requireNonNull(tableEngine);
         Objects.requireNonNull(rowType);
-        Objects.requireNonNull(clickhouseTableSchema);
+        Objects.requireNonNull(timeplusTableSchema);//NULL
 
         JdbcRowConverter valueRowConverter =
-                new JdbcRowConverter(rowType, clickhouseTableSchema, getDefaultProjectionFields());
+                new JdbcRowConverter(rowType, timeplusTableSchema, getDefaultProjectionFields());
         if (primaryKeys == null || primaryKeys.length == 0) {
             // INSERT: writer all events when primary-keys is empty
             return createInsertBufferedExecutor(table, rowType, valueRowConverter);
@@ -83,7 +85,7 @@ public class JdbcBatchStatementExecutorBuilder {
         JdbcRowConverter pkRowConverter =
                 new JdbcRowConverter(
                         new SeaTunnelRowType(primaryKeys, pkTypes),
-                        clickhouseTableSchema,
+                    timeplusTableSchema,
                         primaryKeys);
         Function<SeaTunnelRow, SeaTunnelRow> pkExtractor = createKeyExtractor(pkFields);
 
@@ -95,7 +97,7 @@ public class JdbcBatchStatementExecutorBuilder {
                             table,
                             primaryKeys,
                             pkRowConverter,
-                            !clickhouseServerEnableExperimentalLightweightDelete);
+                            !timeplusServerEnableExperimentalLightweightDelete);
             JdbcBatchStatementExecutor updateExecutor;
             if (supportReplacingMergeTreeTableUpsert()) {
                 // ReplacingMergeTree Update Row: upsert row by order-by-keys(update_after event)
