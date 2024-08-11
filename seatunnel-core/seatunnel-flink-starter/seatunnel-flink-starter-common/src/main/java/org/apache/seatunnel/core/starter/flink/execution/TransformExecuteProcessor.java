@@ -25,19 +25,15 @@ import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactoryContext;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
 import org.apache.seatunnel.core.starter.execution.PluginUtil;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelFactoryDiscovery;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelTransformPluginDiscovery;
-import org.apache.seatunnel.translation.flink.serialization.FlinkRowConverter;
-import org.apache.seatunnel.translation.flink.utils.TypeConverterUtils;
 
-import org.apache.flink.api.common.functions.FlatMapFunction;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.streaming.api.datastream.DataStream;
-import org.apache.flink.types.Row;
+import org.apache.flink.streaming.api.operators.StreamMap;
 
 import java.net.URL;
 import java.util.Collections;
@@ -47,6 +43,7 @@ import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.api.common.CommonOptions.RESULT_TABLE_NAME;
 
+@SuppressWarnings("unchecked,rawtypes")
 public class TransformExecuteProcessor
         extends FlinkAbstractPluginExecuteProcessor<TableTransformFactory> {
 
@@ -97,21 +94,20 @@ public class TransformExecuteProcessor
                 TableTransformFactory factory = plugins.get(i);
                 TableTransformFactoryContext context =
                         new TableTransformFactoryContext(
-                                Collections.singletonList(stream.getCatalogTable()),
+                                stream.getCatalogTables(),
                                 ReadonlyConfig.fromConfig(pluginConfig),
                                 classLoader);
                 ConfigValidator.of(context.getOptions()).validate(factory.optionRule());
                 SeaTunnelTransform transform = factory.createTransform(context).createTransform();
 
-                SeaTunnelRowType sourceType = stream.getCatalogTable().getSeaTunnelRowType();
                 transform.setJobContext(jobContext);
-                DataStream<Row> inputStream =
-                        flinkTransform(sourceType, transform, stream.getDataStream());
-                registerResultTable(pluginConfig, inputStream);
+                DataStream<SeaTunnelRow> inputStream =
+                        flinkTransform(transform, stream.getDataStream());
+                // TODO transform support multi tables
                 upstreamDataStreams.add(
                         new DataStreamTableInfo(
                                 inputStream,
-                                transform.getProducedCatalogTable(),
+                                Collections.singletonList(transform.getProducedCatalogTable()),
                                 pluginConfig.hasPath(RESULT_TABLE_NAME.key())
                                         ? pluginConfig.getString(RESULT_TABLE_NAME.key())
                                         : null));
@@ -126,28 +122,17 @@ public class TransformExecuteProcessor
         return upstreamDataStreams;
     }
 
-    protected DataStream<Row> flinkTransform(
-            SeaTunnelRowType sourceType, SeaTunnelTransform transform, DataStream<Row> stream) {
-        TypeInformation rowTypeInfo =
-                TypeConverterUtils.convert(
-                        transform.getProducedCatalogTable().getSeaTunnelRowType());
-        FlinkRowConverter transformInputRowConverter = new FlinkRowConverter(sourceType);
-        FlinkRowConverter transformOutputRowConverter =
-                new FlinkRowConverter(transform.getProducedCatalogTable().getSeaTunnelRowType());
-        DataStream<Row> output =
-                stream.flatMap(
-                        (FlatMapFunction<Row, Row>)
-                                (value, out) -> {
-                                    SeaTunnelRow seaTunnelRow =
-                                            transformInputRowConverter.reconvert(value);
-                                    SeaTunnelRow dataRow =
-                                            (SeaTunnelRow) transform.map(seaTunnelRow);
-                                    if (dataRow != null) {
-                                        Row copy = transformOutputRowConverter.convert(dataRow);
-                                        out.collect(copy);
-                                    }
-                                },
-                        rowTypeInfo);
-        return output;
+    protected DataStream<SeaTunnelRow> flinkTransform(
+            SeaTunnelTransform transform, DataStream<SeaTunnelRow> stream) {
+        return stream.transform(
+                String.format("%s-Transform", transform.getPluginName()),
+                TypeInformation.of(SeaTunnelRow.class),
+                new StreamMap<>(
+                        flinkRuntimeEnvironment
+                                .getStreamExecutionEnvironment()
+                                .clean(
+                                        row ->
+                                                ((SeaTunnelTransform<SeaTunnelRow>) transform)
+                                                        .map(row))));
     }
 }
