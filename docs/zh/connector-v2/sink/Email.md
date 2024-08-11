@@ -23,7 +23,8 @@
 | email_host               | string | 是    | -   |
 | email_transport_protocol | string | 是    | -   |
 | email_smtp_auth          | string | 是    | -   |
-| email_authorization_code | string | 是    | -   |
+| email_smtp_port          | string | 否    | 465 |
+| email_authorization_code | string | 否    | -   |
 | email_message_headline   | string | 是    | -   |
 | email_message_content    | string | 是    | -   |
 | common-options           |        | 否    | -   |
@@ -34,7 +35,7 @@
 
 ### email_to_address [string]
 
-接收邮件的地址
+接收邮件的地址，支持多个邮箱地址，以逗号（,）分隔。
 
 ### email_host [string]
 
@@ -47,6 +48,10 @@
 ### email_smtp_auth [string]
 
 是否对客户进行认证
+
+### email_smtp_port [string]
+
+选择用于身份验证的端口。
 
 ### email_authorization_code [string]
 

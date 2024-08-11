@@ -17,26 +17,30 @@
 
 package org.apache.seatunnel.connectors.seatunnel.email.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSink;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
+import org.apache.seatunnel.connectors.seatunnel.email.config.EmailConfig;
+import org.apache.seatunnel.connectors.seatunnel.email.config.EmailSinkConfig;
 
-import com.google.auto.service.AutoService;
+public class EmailSink extends AbstractSimpleSink<SeaTunnelRow, Void>
+        implements SupportMultiTableSink {
 
-@AutoService(SeaTunnelSink.class)
-public class EmailSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
-
-    private Config pluginConfig;
     private SeaTunnelRowType seaTunnelRowType;
+    private ReadonlyConfig readonlyConfig;
+    private CatalogTable catalogTable;
+    private EmailSinkConfig pluginConfig;
 
-    @Override
-    public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
-        this.seaTunnelRowType = seaTunnelRowType;
+    public EmailSink(ReadonlyConfig config, CatalogTable table) {
+        this.readonlyConfig = config;
+        this.catalogTable = table;
+        this.pluginConfig = new EmailSinkConfig(config);
+        this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
     }
 
     @Override
@@ -46,11 +50,6 @@ public class EmailSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
 
     @Override
     public String getPluginName() {
-        return "EmailSink";
-    }
-
-    @Override
-    public void prepare(Config pluginConfig) {
-        this.pluginConfig = pluginConfig;
+        return EmailConfig.CONNECTOR_IDENTITY;
     }
 }

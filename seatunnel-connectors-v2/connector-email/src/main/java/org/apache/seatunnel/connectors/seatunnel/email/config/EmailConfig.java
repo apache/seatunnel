@@ -22,6 +22,8 @@ import org.apache.seatunnel.api.configuration.Options;
 
 public class EmailConfig {
 
+    public static final String CONNECTOR_IDENTITY = "EmailSink";
+
     public static final Option<String> EMAIL_FROM_ADDRESS =
             Options.key("email_from_address")
                     .stringType()
@@ -37,7 +39,7 @@ public class EmailConfig {
     public static final Option<String> EMAIL_AUTHORIZATION_CODE =
             Options.key("email_authorization_code")
                     .stringType()
-                    .noDefaultValue()
+                    .defaultValue(null)
                     .withDescription(
                             "Authorization code,You can obtain the authorization code from the mailbox Settings");
     public static final Option<String> EMAIL_MESSAGE_HEADLINE =
@@ -66,4 +68,10 @@ public class EmailConfig {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("Whether to use SMTP authentication");
+
+    public static final Option<String> EMAIL_SMTP_PORT =
+            Options.key("email_smtp_port")
+                    .stringType()
+                    .defaultValue("465")
+                    .withDescription("Select port for authentication.");
 }
