@@ -32,10 +32,10 @@ import lombok.extern.slf4j.Slf4j;
 @AutoService(TypeConverter.class)
 public class TimeplusTypeConverterV1 extends AbstractTimeplusTypeConverter {
 
-    public static final String DORIS_DATEV2 = "DATEV2";
-    public static final String DORIS_DATETIMEV2 = "DATETIMEV2";
-    public static final String DORIS_DATEV2_ARRAY = "ARRAY<DATEV2>";
-    public static final String DORIS_DATETIMEV2_ARRAY = "ARRAY<DATETIMEV2>";
+    public static final String TIMEPLUS_DATE = "date32";
+    public static final String TIMEPLUS_DATETIME = "datetime64";
+    public static final String TIMEPLUS_DATE_ARRAY = "array(date32)";
+    public static final String TIMEPLUS_DATETIME_ARRAY = "array(datetime32)";
 
     public static final TimeplusTypeConverterV1 INSTANCE = new TimeplusTypeConverterV1();
 
@@ -50,17 +50,14 @@ public class TimeplusTypeConverterV1 extends AbstractTimeplusTypeConverter {
         String dorisColumnType = getDorisColumnName(typeDefine);
 
         switch (dorisColumnType) {
-            case DORIS_DATE:
-            case DORIS_DATEV2:
+            case TIMEPLUS_DATE:
                 builder.dataType(LocalTimeType.LOCAL_DATE_TYPE);
                 break;
-            case DORIS_DATETIME:
-            case DORIS_DATETIMEV2:
+            case TIMEPLUS_DATETIME:
                 builder.dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE);
                 builder.scale(typeDefine.getScale() == null ? 0 : typeDefine.getScale());
                 break;
-            case DORIS_DECIMAL:
-            case DORIS_DECIMALV3:
+            case TIMEPLUS_DECIMAL:
                 Long p = MAX_PRECISION;
                 int scale = MAX_SCALE;
                 if (typeDefine.getPrecision() != null && typeDefine.getPrecision() > 0) {
@@ -92,27 +89,27 @@ public class TimeplusTypeConverterV1 extends AbstractTimeplusTypeConverter {
                 reconvertString(column, builder);
                 break;
             case DATE:
-                builder.columnType(DORIS_DATEV2);
-                builder.dataType(DORIS_DATEV2);
+                builder.columnType(TIMEPLUS_DATE);
+                builder.dataType(TIMEPLUS_DATE);
                 break;
             case TIMESTAMP:
                 if (column.getScale() != null
                         && column.getScale() > 0
                         && column.getScale() <= MAX_DATETIME_SCALE) {
                     builder.columnType(
-                            String.format("%s(%s)", DORIS_DATETIMEV2, column.getScale()));
+                            String.format("%s(%s)", TIMEPLUS_DATETIME, column.getScale()));
                     builder.scale(column.getScale());
                 } else {
                     builder.columnType(
-                            String.format("%s(%s)", DORIS_DATETIMEV2, MAX_DATETIME_SCALE));
+                            String.format("%s(%s)", TIMEPLUS_DATETIME, MAX_DATETIME_SCALE));
                     builder.scale(MAX_DATETIME_SCALE);
                 }
-                builder.dataType(DORIS_DATETIMEV2);
+                builder.dataType(TIMEPLUS_DATETIME);
                 break;
             case MAP:
                 // doris 1.x have no map type
-                builder.columnType(DORIS_JSON);
-                builder.dataType(DORIS_JSON);
+                builder.columnType(TIMEPLUS_JSON);
+                builder.dataType(TIMEPLUS_JSON);
                 break;
             default:
                 super.sampleReconvert(column, builder);
@@ -122,9 +119,9 @@ public class TimeplusTypeConverterV1 extends AbstractTimeplusTypeConverter {
 
     private void reconvertString(Column column, BasicTypeDefine.BasicTypeDefineBuilder builder) {
         // source is doris too.
-        if (column.getSourceType() != null && column.getSourceType().equalsIgnoreCase(DORIS_JSON)) {
-            builder.columnType(DORIS_JSONB);
-            builder.dataType(DORIS_JSON);
+        if (column.getSourceType() != null && column.getSourceType().equalsIgnoreCase(TIMEPLUS_JSON)) {
+            builder.columnType(TIMEPLUS_JSONB);
+            builder.dataType(TIMEPLUS_JSON);
             return;
         }
 

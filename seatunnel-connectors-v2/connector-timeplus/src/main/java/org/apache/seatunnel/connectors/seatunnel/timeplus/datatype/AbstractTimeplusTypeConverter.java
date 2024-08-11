@@ -33,46 +33,46 @@ import java.util.Locale;
 
 @Slf4j
 public abstract class AbstractTimeplusTypeConverter implements TypeConverter<BasicTypeDefine> {
-    public static final String DORIS_NULL = "NULL";
-    public static final String DORIS_BOOLEAN = "BOOLEAN";
-    public static final String DORIS_TINYINT = "TINYINT";
-    public static final String DORIS_SMALLINT = "SMALLINT";
-    public static final String DORIS_INT = "INT";
-    public static final String DORIS_BIGINT = "BIGINT";
-    public static final String DORIS_LARGEINT = "LARGEINT";
-    public static final String DORIS_FLOAT = "FLOAT";
-    public static final String DORIS_DOUBLE = "DOUBLE";
-    public static final String DORIS_DECIMAL = "DECIMAL";
-    public static final String DORIS_DECIMALV3 = "DECIMALV3";
-    public static final String DORIS_DATE = "DATE";
-    public static final String DORIS_DATETIME = "DATETIME";
-    public static final String DORIS_CHAR = "CHAR";
-    public static final String DORIS_VARCHAR = "VARCHAR";
-    public static final String DORIS_STRING = "STRING";
+    public static final String TIMEPLUS_NULL = "null";
+    public static final String TIMEPLUS_BOOLEAN = "bool";
+    public static final String TIMEPLUS_TINYINT = "tiny_int";
+    public static final String TIMEPLUS_SMALLINT = "small_int";
+    public static final String TIMEPLUS_INT = "int32";
+    public static final String TIMEPLUS_BIGINT = "int64";
+    public static final String TIMEPLUS_LARGEINT = "int128";
+    public static final String TIMEPLUS_FLOAT = "float32";
+    public static final String TIMEPLUS_DOUBLE = "float64";
+    public static final String TIMEPLUS_DECIMAL = "decimal";
+    public static final String TIMEPLUS_DECIMALV3 = "decimal";
+    public static final String TIMEPLUS_DATE = "date";
+    public static final String TIMEPLUS_DATETIME = "datetime";
+    public static final String TIMEPLUS_CHAR = "string";
+    public static final String TIMEPLUS_VARCHAR = "string";
+    public static final String TIMEPLUS_STRING = "string";
 
-    public static final String DORIS_BOOLEAN_ARRAY = "ARRAY<boolean>";
-    public static final String DORIS_TINYINT_ARRAY = "ARRAY<tinyint>";
-    public static final String DORIS_SMALLINT_ARRAY = "ARRAY<smallint>";
-    public static final String DORIS_INT_ARRAY = "ARRAY<int(11)>";
-    public static final String DORIS_BIGINT_ARRAY = "ARRAY<bigint>";
-    public static final String DORIS_FLOAT_ARRAY = "ARRAY<float>";
-    public static final String DORIS_DOUBLE_ARRAY = "ARRAY<double>";
-    public static final String DORIS_DECIMALV3_ARRAY = "ARRAY<DECIMALV3>";
-    public static final String DORIS_DECIMALV3_ARRAY_COLUMN_TYPE_TMP = "ARRAY<DECIMALV3(%s, %s)>";
-    public static final String DORIS_DATEV2_ARRAY = "ARRAY<DATEV2>";
-    public static final String DORIS_DATETIMEV2_ARRAY = "ARRAY<DATETIMEV2>";
-    public static final String DORIS_STRING_ARRAY = "ARRAY<STRING>";
+    public static final String TIMEPLUS_BOOLEAN_ARRAY = "array(bool)";
+    public static final String TIMEPLUS_TINYINT_ARRAY = "array<tiny_int>";
+    public static final String TIMEPLUS_SMALLINT_ARRAY = "array<small_int>";
+    public static final String TIMEPLUS_INT_ARRAY = "array<int32>";
+    public static final String TIMEPLUS_BIGINT_ARRAY = "array<int64>";
+    public static final String TIMEPLUS_FLOAT_ARRAY = "array<float>";
+    public static final String TIMEPLUS_DOUBLE_ARRAY = "array<double>";
+    public static final String TIMEPLUS_DECIMALV3_ARRAY = "array<decimal>";
+    public static final String TIMEPLUS_DECIMALV3_ARRAY_COLUMN_TYPE_TMP = "array<decimal(%s, %s)>";
+    public static final String TIMEPLUS_DATEV2_ARRAY = "array<date32>";
+    public static final String TIMEPLUS_DATETIMEV2_ARRAY = "array<datetime64>";
+    public static final String TIMEPLUS_STRING_ARRAY = "array<string>";
 
     // Because can not get the column length from array, So the following types of arrays cannot be
     // generated properly.
-    public static final String DORIS_LARGEINT_ARRAY = "ARRAY<largeint>";
-    public static final String DORIS_CHAR_ARRAY = "ARRAY<CHAR>";
-    public static final String DORIS_CHAR_ARRAY_COLUMN_TYPE_TMP = "ARRAY<CHAR(%s)>";
-    public static final String DORIS_VARCHAR_ARRAY = "ARRAY<VARCHAR>";
-    public static final String DORIS_VARCHAR_ARRAY_COLUMN_TYPE_TMP = "ARRAY<VARCHAR(%s)>";
+    public static final String TIMEPLUS_LARGEINT_ARRAY = "array<large_int>";
+    public static final String TIMEPLUS_CHAR_ARRAY = "array<string>";
+    public static final String TIMEPLUS_CHAR_ARRAY_COLUMN_TYPE_TMP = "array<CHAR(%s)>";
+    public static final String TIMEPLUS_VARCHAR_ARRAY = "array<string>";
+    public static final String TIMEPLUS_VARCHAR_ARRAY_COLUMN_TYPE_TMP = "array<VARCHAR(%s)>";
 
-    public static final String DORIS_JSON = "JSON";
-    public static final String DORIS_JSONB = "JSONB";
+    public static final String TIMEPLUS_JSON = "json";
+    public static final String TIMEPLUS_JSONB = "json";
 
     public static final Long DEFAULT_PRECISION = 9L;
     public static final Long MAX_PRECISION = 38L;
@@ -134,101 +134,99 @@ public abstract class AbstractTimeplusTypeConverter implements TypeConverter<Bas
     public void sampleTypeConverter(
             PhysicalColumn.PhysicalColumnBuilder builder,
             BasicTypeDefine typeDefine,
-            String dorisColumnType) {
-        switch (dorisColumnType) {
-            case DORIS_NULL:
+            String tpColumnType) {
+        switch (tpColumnType) {
+            case TIMEPLUS_NULL:
                 builder.dataType(BasicType.VOID_TYPE);
                 break;
-            case DORIS_BOOLEAN:
+            case TIMEPLUS_BOOLEAN:
                 builder.dataType(BasicType.BOOLEAN_TYPE);
                 break;
-            case DORIS_TINYINT:
+            case TIMEPLUS_TINYINT:
                 if (typeDefine.getColumnType().equalsIgnoreCase("tinyint(1)")) {
                     builder.dataType(BasicType.BOOLEAN_TYPE);
                 } else {
                     builder.dataType(BasicType.BYTE_TYPE);
                 }
                 break;
-            case DORIS_SMALLINT:
+            case TIMEPLUS_SMALLINT:
                 builder.dataType(BasicType.SHORT_TYPE);
                 break;
-            case DORIS_INT:
+            case TIMEPLUS_INT:
                 builder.dataType(BasicType.INT_TYPE);
                 break;
-            case DORIS_BIGINT:
+            case TIMEPLUS_BIGINT:
                 builder.dataType(BasicType.LONG_TYPE);
                 break;
-            case DORIS_FLOAT:
+            case TIMEPLUS_FLOAT:
                 builder.dataType(BasicType.FLOAT_TYPE);
                 break;
-            case DORIS_DOUBLE:
+            case TIMEPLUS_DOUBLE:
                 builder.dataType(BasicType.DOUBLE_TYPE);
                 break;
-            case DORIS_CHAR:
-            case DORIS_VARCHAR:
+            case TIMEPLUS_STRING:
                 if (typeDefine.getLength() != null && typeDefine.getLength() > 0) {
                     builder.columnLength(typeDefine.getLength());
                 }
                 builder.dataType(BasicType.STRING_TYPE);
                 break;
-            case DORIS_LARGEINT:
+            case TIMEPLUS_LARGEINT:
                 DecimalType decimalType;
                 decimalType = new DecimalType(20, 0);
                 builder.dataType(decimalType);
                 builder.columnLength(20L);
                 builder.scale(0);
                 break;
-            case DORIS_STRING:
-            case DORIS_JSON:
+            case TIMEPLUS_JSON:
                 builder.dataType(BasicType.STRING_TYPE);
                 builder.columnLength(MAX_STRING_LENGTH);
                 break;
             default:
                 throw CommonError.convertToSeaTunnelTypeError(
-                        "Timeplus", dorisColumnType, typeDefine.getName());
+                        "Timeplus", tpColumnType, typeDefine.getName());
         }
     }
 
     protected void sampleReconvertString(
             Column column, BasicTypeDefine.BasicTypeDefineBuilder builder) {
         if (column.getColumnLength() == null || column.getColumnLength() <= 0) {
-            builder.columnType(DORIS_STRING);
-            builder.dataType(DORIS_STRING);
+            builder.columnType(TIMEPLUS_STRING);
+            builder.dataType(TIMEPLUS_STRING);
             return;
         }
 
         if (column.getColumnLength() < POWER_2_8) {
             if (column.getSourceType() != null
-                    && column.getSourceType().toUpperCase(Locale.ROOT).startsWith(DORIS_VARCHAR)) {
+                    && column.getSourceType().toUpperCase(Locale.ROOT).startsWith(TIMEPLUS_VARCHAR)) {
                 builder.columnType(
-                        String.format("%s(%s)", DORIS_VARCHAR, column.getColumnLength()));
-                builder.dataType(DORIS_VARCHAR);
+                        String.format("%s(%s)", TIMEPLUS_VARCHAR, column.getColumnLength()));
+                builder.dataType(TIMEPLUS_VARCHAR);
             } else {
-                builder.columnType(String.format("%s(%s)", DORIS_CHAR, column.getColumnLength()));
-                builder.dataType(DORIS_CHAR);
+                builder.columnType(String.format("%s(%s)", TIMEPLUS_CHAR, column.getColumnLength()));
+                builder.dataType(TIMEPLUS_CHAR);
             }
             return;
         }
 
         if (column.getColumnLength() <= 65533) {
-            builder.columnType(String.format("%s(%s)", DORIS_VARCHAR, column.getColumnLength()));
-            builder.dataType(DORIS_VARCHAR);
+            builder.columnType(String.format("%s(%s)", TIMEPLUS_VARCHAR, column.getColumnLength()));
+            builder.dataType(TIMEPLUS_VARCHAR);
             return;
         }
 
         if (column.getColumnLength() <= MAX_STRING_LENGTH) {
-            builder.columnType(DORIS_STRING);
-            builder.dataType(DORIS_STRING);
+            builder.columnType(TIMEPLUS_STRING);
+            builder.dataType(TIMEPLUS_STRING);
             return;
         }
 
         if (column.getColumnLength() > MAX_STRING_LENGTH) {
             log.warn(
                     String.format(
-                            "The String type in Doris can only store up to 2GB bytes, and the current field [%s] length is [%s] bytes. If it is greater than the maximum length of the String in Doris, it may not be able to write data",
+                            "The String type in Timeplus can only store up to 2GB bytes, and the current field [%s] length is [%s] bytes. If it is greater than the maximum length of the String in Doris, it may not be able to write data",
                             column.getName(), column.getColumnLength()));
-            builder.columnType(DORIS_STRING);
-            builder.dataType(DORIS_STRING);
+            builder.columnType(TIMEPLUS_STRING);
+            builder.dataType(TIMEPLUS_STRING);
             return;
         }
 
@@ -241,48 +239,48 @@ public abstract class AbstractTimeplusTypeConverter implements TypeConverter<Bas
 
         switch (column.getDataType().getSqlType()) {
             case NULL:
-                builder.columnType(DORIS_NULL);
-                builder.dataType(DORIS_NULL);
+                builder.columnType(TIMEPLUS_NULL);
+                builder.dataType(TIMEPLUS_NULL);
                 break;
             case BYTES:
-                builder.columnType(DORIS_STRING);
-                builder.dataType(DORIS_STRING);
+                builder.columnType(TIMEPLUS_STRING);
+                builder.dataType(TIMEPLUS_STRING);
                 break;
             case BOOLEAN:
-                builder.columnType(DORIS_BOOLEAN);
-                builder.dataType(DORIS_BOOLEAN);
+                builder.columnType(TIMEPLUS_BOOLEAN);
+                builder.dataType(TIMEPLUS_BOOLEAN);
                 builder.length(1L);
                 break;
             case TINYINT:
-                builder.columnType(DORIS_TINYINT);
-                builder.dataType(DORIS_TINYINT);
+                builder.columnType(TIMEPLUS_TINYINT);
+                builder.dataType(TIMEPLUS_TINYINT);
                 break;
             case SMALLINT:
-                builder.columnType(DORIS_SMALLINT);
-                builder.dataType(DORIS_SMALLINT);
+                builder.columnType(TIMEPLUS_SMALLINT);
+                builder.dataType(TIMEPLUS_SMALLINT);
                 break;
             case INT:
-                builder.columnType(DORIS_INT);
-                builder.dataType(DORIS_INT);
+                builder.columnType(TIMEPLUS_INT);
+                builder.dataType(TIMEPLUS_INT);
                 break;
             case BIGINT:
-                builder.columnType(DORIS_BIGINT);
-                builder.dataType(DORIS_BIGINT);
+                builder.columnType(TIMEPLUS_BIGINT);
+                builder.dataType(TIMEPLUS_BIGINT);
                 break;
             case FLOAT:
-                builder.columnType(DORIS_FLOAT);
-                builder.dataType(DORIS_FLOAT);
+                builder.columnType(TIMEPLUS_FLOAT);
+                builder.dataType(TIMEPLUS_FLOAT);
                 break;
             case DOUBLE:
-                builder.columnType(DORIS_DOUBLE);
-                builder.dataType(DORIS_DOUBLE);
+                builder.columnType(TIMEPLUS_DOUBLE);
+                builder.dataType(TIMEPLUS_DOUBLE);
                 break;
             case DECIMAL:
                 // DORIS LARGEINT
                 if (column.getSourceType() != null
-                        && column.getSourceType().equalsIgnoreCase(DORIS_LARGEINT)) {
-                    builder.dataType(DORIS_LARGEINT);
-                    builder.columnType(DORIS_LARGEINT);
+                        && column.getSourceType().equalsIgnoreCase(TIMEPLUS_LARGEINT)) {
+                    builder.dataType(TIMEPLUS_LARGEINT);
+                    builder.columnType(TIMEPLUS_LARGEINT);
                     break;
                 }
                 DecimalType decimalType = (DecimalType) column.getDataType();
@@ -309,8 +307,8 @@ public abstract class AbstractTimeplusTypeConverter implements TypeConverter<Bas
                             decimalType.getPrecision(),
                             decimalType.getScale(),
                             MAX_PRECISION);
-                    builder.dataType(DORIS_VARCHAR);
-                    builder.columnType(String.format("%s(%s)", DORIS_VARCHAR, 200));
+                    builder.dataType(TIMEPLUS_VARCHAR);
+                    builder.columnType(String.format("%s(%s)", TIMEPLUS_VARCHAR, 200));
                     break;
                 }
 
@@ -339,15 +337,15 @@ public abstract class AbstractTimeplusTypeConverter implements TypeConverter<Bas
                             scale);
                 }
 
-                builder.columnType(String.format("%s(%s,%s)", DORIS_DECIMALV3, precision, scale));
-                builder.dataType(DORIS_DECIMALV3);
+                builder.columnType(String.format("%s(%s,%s)", TIMEPLUS_DECIMALV3, precision, scale));
+                builder.dataType(TIMEPLUS_DECIMALV3);
                 builder.precision((long) precision);
                 builder.scale(scale);
                 break;
             case TIME:
                 builder.length(8L);
-                builder.columnType(String.format("%s(%s)", DORIS_VARCHAR, 8));
-                builder.dataType(DORIS_VARCHAR);
+                builder.columnType(String.format("%s(%s)", TIMEPLUS_VARCHAR, 8));
+                builder.dataType(TIMEPLUS_VARCHAR);
                 break;
             case ARRAY:
                 SeaTunnelDataType<?> dataType = column.getDataType();
@@ -360,8 +358,8 @@ public abstract class AbstractTimeplusTypeConverter implements TypeConverter<Bas
                 reconvertBuildArrayInternal(elementType, builder, column.getName());
                 break;
             case ROW:
-                builder.columnType(DORIS_JSON);
-                builder.dataType(DORIS_JSON);
+                builder.columnType(TIMEPLUS_JSON);
+                builder.dataType(TIMEPLUS_JSON);
                 break;
             default:
                 throw CommonError.convertToConnectorTypeError(
@@ -376,54 +374,54 @@ public abstract class AbstractTimeplusTypeConverter implements TypeConverter<Bas
             String columnName) {
         switch (elementType.getSqlType()) {
             case BOOLEAN:
-                builder.columnType(DORIS_BOOLEAN_ARRAY);
-                builder.dataType(DORIS_BOOLEAN_ARRAY);
+                builder.columnType(TIMEPLUS_BOOLEAN_ARRAY);
+                builder.dataType(TIMEPLUS_BOOLEAN_ARRAY);
                 break;
             case TINYINT:
-                builder.columnType(DORIS_TINYINT_ARRAY);
-                builder.dataType(DORIS_TINYINT_ARRAY);
+                builder.columnType(TIMEPLUS_TINYINT_ARRAY);
+                builder.dataType(TIMEPLUS_TINYINT_ARRAY);
                 break;
             case SMALLINT:
-                builder.columnType(DORIS_SMALLINT_ARRAY);
-                builder.dataType(DORIS_SMALLINT_ARRAY);
+                builder.columnType(TIMEPLUS_SMALLINT_ARRAY);
+                builder.dataType(TIMEPLUS_SMALLINT_ARRAY);
                 break;
             case INT:
-                builder.columnType(DORIS_INT_ARRAY);
-                builder.dataType(DORIS_INT_ARRAY);
+                builder.columnType(TIMEPLUS_INT_ARRAY);
+                builder.dataType(TIMEPLUS_INT_ARRAY);
                 break;
             case BIGINT:
-                builder.columnType(DORIS_BIGINT_ARRAY);
-                builder.dataType(DORIS_BIGINT_ARRAY);
+                builder.columnType(TIMEPLUS_BIGINT_ARRAY);
+                builder.dataType(TIMEPLUS_BIGINT_ARRAY);
                 break;
             case FLOAT:
-                builder.columnType(DORIS_FLOAT_ARRAY);
-                builder.dataType(DORIS_FLOAT_ARRAY);
+                builder.columnType(TIMEPLUS_FLOAT_ARRAY);
+                builder.dataType(TIMEPLUS_FLOAT_ARRAY);
                 break;
             case DOUBLE:
-                builder.columnType(DORIS_DOUBLE_ARRAY);
-                builder.dataType(DORIS_DOUBLE_ARRAY);
+                builder.columnType(TIMEPLUS_DOUBLE_ARRAY);
+                builder.dataType(TIMEPLUS_DOUBLE_ARRAY);
                 break;
             case DECIMAL:
                 int[] precisionAndScale = getPrecisionAndScale(elementType.toString());
                 builder.columnType(
                         String.format(
-                                DORIS_DECIMALV3_ARRAY_COLUMN_TYPE_TMP,
+                            TIMEPLUS_DECIMALV3_ARRAY_COLUMN_TYPE_TMP,
                                 precisionAndScale[0],
                                 precisionAndScale[1]));
-                builder.dataType(DORIS_DECIMALV3_ARRAY);
+                builder.dataType(TIMEPLUS_DECIMALV3_ARRAY);
                 break;
             case STRING:
             case TIME:
-                builder.columnType(DORIS_STRING_ARRAY);
-                builder.dataType(DORIS_STRING_ARRAY);
+                builder.columnType(TIMEPLUS_STRING_ARRAY);
+                builder.dataType(TIMEPLUS_STRING_ARRAY);
                 break;
             case DATE:
-                builder.columnType(DORIS_DATEV2_ARRAY);
-                builder.dataType(DORIS_DATEV2_ARRAY);
+                builder.columnType(TIMEPLUS_DATEV2_ARRAY);
+                builder.dataType(TIMEPLUS_DATEV2_ARRAY);
                 break;
             case TIMESTAMP:
-                builder.columnType(DORIS_DATETIMEV2_ARRAY);
-                builder.dataType(DORIS_DATETIMEV2_ARRAY);
+                builder.columnType(TIMEPLUS_DATETIMEV2_ARRAY);
+                builder.dataType(TIMEPLUS_DATETIMEV2_ARRAY);
                 break;
             default:
                 throw CommonError.convertToConnectorTypeError(
@@ -434,8 +432,8 @@ public abstract class AbstractTimeplusTypeConverter implements TypeConverter<Bas
     protected static int[] getPrecisionAndScale(String decimalTypeDefinition) {
         // Remove the "DECIMALV3" part and the parentheses
         decimalTypeDefinition = decimalTypeDefinition.toUpperCase(Locale.ROOT);
-        String numericPart = decimalTypeDefinition.replace("DECIMALV3(", "").replace(")", "");
-        numericPart = numericPart.replace("DECIMAL(", "").replace(")", "");
+        String numericPart = decimalTypeDefinition.replace("decimal(", "").replace(")", "");
+        numericPart = numericPart.replace("decimal(", "").replace(")", "");
 
         // Split by comma to separate precision and scale
         String[] parts = numericPart.split(",");

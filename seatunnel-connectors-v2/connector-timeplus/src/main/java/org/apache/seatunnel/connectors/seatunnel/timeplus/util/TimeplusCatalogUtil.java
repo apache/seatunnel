@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.table.converter.TypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.common.sql.template.SqlTemplate;
 
 import org.apache.commons.lang3.StringUtils;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -41,27 +42,33 @@ import static com.google.common.base.Preconditions.checkNotNull;
 public class TimeplusCatalogUtil {
 
     public static final String ALL_DATABASES_QUERY =
-            "SELECT SCHEMA_NAME FROM information_schema.schemata WHERE CATALOG_NAME = 'internal' ORDER BY SCHEMA_NAME";
+            "SELECT name FROM system.databases ORDER BY name";
 
     public static final String DATABASE_QUERY =
-            "SELECT SCHEMA_NAME FROM information_schema.schemata "
-                    + "WHERE CATALOG_NAME = 'internal' AND SCHEMA_NAME = ? "
-                    + "ORDER BY SCHEMA_NAME";
+            "SELECT name FROM system.databases "
+                    + "WHERE name = ? "
+                    + "ORDER BY name";
 
     public static final String TABLES_QUERY_WITH_DATABASE_QUERY =
-            "SELECT TABLE_NAME FROM information_schema.tables "
-                    + "WHERE TABLE_CATALOG = 'internal' AND TABLE_SCHEMA = ? "
-                    + "ORDER BY TABLE_NAME";
+            "SELECT name FROM system.tables "
+                    + "WHERE database = ? "
+                    + "ORDER BY name";
 
+    /*
+    There is a bug in Proton 1.5.15 for the view def of information_schema.tables
+    SELECT database AS table_catalog, database AS table_schema, name AS table_name,
+    multi_if(is_temporary, 4, engine LIKE '%View', 2, engine LIKE 'System%', 5, has_own_data = 0, 3, 1) AS table_type
+    FROM system.tables
+     */
     public static final String TABLES_QUERY_WITH_IDENTIFIER_QUERY =
-            "SELECT TABLE_NAME FROM information_schema.tables "
-                    + "WHERE TABLE_CATALOG = 'internal' AND TABLE_SCHEMA = ? AND TABLE_NAME = ? "
-                    + "ORDER BY TABLE_NAME";
+            "SELECT name as TABLE_NAME FROM system.tables "
+                    + "WHERE database = ? AND name = ? "
+                    + "ORDER BY name";
 
     public static final String TABLE_SCHEMA_QUERY =
             "SELECT * "
                     + "FROM information_schema.columns "
-                    + "WHERE TABLE_CATALOG = 'internal' AND TABLE_SCHEMA = ? AND TABLE_NAME = ? "
+                    + "WHERE TABLE_CATALOG = 'default' AND TABLE_SCHEMA = ? AND TABLE_NAME = ? "
                     + "ORDER BY ORDINAL_POSITION";
 
     public static final String QUERY_TIMEPLUS_VERSION_QUERY = "SELECT version();";
@@ -150,8 +157,7 @@ public class TimeplusCatalogUtil {
                 SaveModePlaceHolder.ROWTYPE_PRIMARY_KEY.getPlaceHolder(),
                 primaryKey,
                 tablePath.getFullName(),
-                null
-                //                DorisOptions.SAVE_MODE_CREATE_TEMPLATE.key()
+                TimeplusConfig.SAVE_MODE_CREATE_TEMPLATE.key()
                 );
         template =
                 template.replaceAll(
@@ -162,8 +168,7 @@ public class TimeplusCatalogUtil {
                 SaveModePlaceHolder.ROWTYPE_UNIQUE_KEY.getPlaceHolder(),
                 uniqueKey,
                 tablePath.getFullName(),
-                null
-                //                DorisOptions.SAVE_MODE_CREATE_TEMPLATE.key()
+                TimeplusConfig.SAVE_MODE_CREATE_TEMPLATE.key()
                 );
         template =
                 template.replaceAll(
@@ -173,8 +178,7 @@ public class TimeplusCatalogUtil {
                 SaveModePlaceHolder.ROWTYPE_DUPLICATE_KEY.getPlaceHolder(),
                 dupKey,
                 tablePath.getFullName(),
-                null
-                //                DorisOptions.SAVE_MODE_CREATE_TEMPLATE.key()
+                TimeplusConfig.SAVE_MODE_CREATE_TEMPLATE.key()
                 );
         template =
                 template.replaceAll(
@@ -186,7 +190,7 @@ public class TimeplusCatalogUtil {
         String rowTypeFields =
                 tableSchema.getColumns().stream()
                         .filter(column -> !columnInTemplate.containsKey(column.getName()))
-                        .map(x -> TimeplusCatalogUtil.columnToDorisType(x, typeConverter))
+                        .map(x -> TimeplusCatalogUtil.columnToTimeplusType(x, typeConverter))
                         .collect(Collectors.joining(",\n"));
         return template.replaceAll(
                         SaveModePlaceHolder.DATABASE.getReplacePlaceHolder(),
@@ -218,7 +222,7 @@ public class TimeplusCatalogUtil {
             if (StringUtils.isEmpty(columnInfo.getInfo())) {
                 if (columnMap.containsKey(col)) {
                     Column column = columnMap.get(col);
-                    String newCol = columnToDorisType(column, typeConverter);
+                    String newCol = columnToTimeplusType(column, typeConverter);
                     String prefix = template.substring(0, columnInfo.getStartIndex() + offset);
                     String suffix = template.substring(offset + columnInfo.getEndIndex());
                     if (prefix.endsWith("`")) {
@@ -239,13 +243,13 @@ public class TimeplusCatalogUtil {
         return template;
     }
 
-    private static String columnToDorisType(
+    private static String columnToTimeplusType(
             Column column, TypeConverter<BasicTypeDefine> typeConverter) {
         checkNotNull(column, "The column is required.");
-        return String.format(
-                "`%s` %s %s ",
-                column.getName(),
-                typeConverter.reconvert(column).getColumnType(),
-                column.isNullable() ? "NULL" : "NOT NULL");
+        if(column.isNullable()){
+            return String.format("`%s` nullable(%s)",column.getName(),typeConverter.reconvert(column).getColumnType());
+        }else{
+            return String.format("`%s` %s",column.getName(),typeConverter.reconvert(column).getColumnType());
+        }
     }
 }

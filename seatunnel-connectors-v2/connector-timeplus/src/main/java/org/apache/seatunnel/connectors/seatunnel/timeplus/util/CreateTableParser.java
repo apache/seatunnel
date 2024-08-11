@@ -65,7 +65,7 @@ public class CreateTableParser {
             StringBuilder columnBuilder =
                     new StringBuilder(columnName).append(" ").append(otherInfo);
             if (columnBuilder.toString().toUpperCase().contains("PRIMARY KEY")
-                    || columnBuilder.toString().toUpperCase().contains("CREATE TABLE")) {
+                    || columnBuilder.toString().toUpperCase().contains("CREATE STREAM")) {
                 return;
             }
             int endIndex =
