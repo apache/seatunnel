@@ -34,10 +34,11 @@ public class TimeplusCatalogFactory implements CatalogFactory {
         return new TimeplusCatalog(
                 catalogName,
                 options.get(TimeplusConfig.HOST),
-                options.get(TimeplusConfig.PORT),
+                options.get(TimeplusConfig.PORT),//TODO remove
                 options.get(TimeplusConfig.USERNAME),
                 options.get(TimeplusConfig.PASSWORD),
-                null,
+                options.get(TimeplusConfig.SAVE_MODE_CREATE_TEMPLATE),
+                options.get(TimeplusConfig.TIMEPLUS_CONFIG),
                 options.get(TimeplusConfig.DATABASE));
     }
 

@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.timeplus.catalog;
 
+import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.sink.SaveModePlaceHolder;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -85,11 +86,13 @@ public class TimeplusCatalog implements Catalog {
 
     private Connection conn;
 
-    private TimeplusConfig timeplusConfig;
+    private Map<String, String> timeplusConfig;
 
     private String timeplusVersion;
 
     private TypeConverter<BasicTypeDefine> typeConverter;
+
+    private String template;
 
     public TimeplusCatalog(
             String catalogName, String host, Integer queryPort, String username, String password) {
@@ -106,7 +109,7 @@ public class TimeplusCatalog implements Catalog {
             Integer queryPort,
             String username,
             String password,
-            TimeplusConfig config) {
+            Map<String, String> config) {
         this(catalogName, host, queryPort, username, password);
         this.timeplusConfig = config;
     }
@@ -117,10 +120,23 @@ public class TimeplusCatalog implements Catalog {
             Integer queryPort,
             String username,
             String password,
-            TimeplusConfig config,
+            Map<String, String> config,
             String defaultDatabase) {
         this(catalogName, host, queryPort, username, password, config);
         this.defaultDatabase = defaultDatabase;
+    }
+
+    public TimeplusCatalog(
+            String catalogName,
+            String host,
+            Integer queryPort,
+            String username,
+            String password,
+            String templateSQL,
+            Map<String, String> config,
+            String defaultDatabase) {
+        this(catalogName, host, queryPort, username, password, config, defaultDatabase);
+        this.template = templateSQL;
     }
 
     @Override
@@ -400,7 +416,7 @@ public class TimeplusCatalog implements Catalog {
         }
 
         String stmt =
-                TimeplusCatalogUtil.getCreateTableStatement(null, tablePath, table, typeConverter);
+                TimeplusCatalogUtil.getCreateTableStatement(template, tablePath, table, typeConverter);
         try (Statement statement = conn.createStatement()) {
             statement.execute(stmt);
         } catch (SQLException e) {
@@ -488,7 +504,7 @@ public class TimeplusCatalog implements Catalog {
             checkArgument(catalogTable.isPresent(), "CatalogTable cannot be null");
             return new SQLPreviewResult(
                     TimeplusCatalogUtil.getCreateTableStatement(
-                            null,
+                            template,
                             tablePath,
                             catalogTable.get(),
                             // used for test when typeConverter is null

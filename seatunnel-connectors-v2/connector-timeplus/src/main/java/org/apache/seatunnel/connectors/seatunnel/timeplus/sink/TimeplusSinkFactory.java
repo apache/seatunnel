@@ -69,6 +69,7 @@ public class TimeplusSinkFactory implements TableSinkFactory {
                         PRIMARY_KEY,
                         SUPPORT_UPSERT,
                         SCHEMA_SAVE_MODE,
+                        SAVE_MODE_CREATE_TEMPLATE,
                         DATA_SAVE_MODE,
                         ALLOW_EXPERIMENTAL_LIGHTWEIGHT_DELETE)
                 .bundled(USERNAME, PASSWORD)
@@ -289,6 +290,7 @@ public class TimeplusSinkFactory implements TableSinkFactory {
                         .build();
 
         CatalogTable finalCatalogTable = catalogTable;
+        ic("SAVE_MODE_CREATE_TEMPLATE",config.get(SAVE_MODE_CREATE_TEMPLATE));
         return () -> new TimeplusSink(finalCatalogTable, readerOption, config);
     }
 
