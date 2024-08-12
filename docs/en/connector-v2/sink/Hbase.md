@@ -119,7 +119,6 @@ Hbase {
 
 ```
 
-
 ### Multiple Table
 
 ```hocon
@@ -210,3 +209,4 @@ Hbase {
 ### next version
 
 - Add hbase sink connector ([4049](https://github.com/apache/seatunnel/pull/4049))
+
