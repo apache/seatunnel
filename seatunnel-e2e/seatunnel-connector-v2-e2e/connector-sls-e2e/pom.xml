@@ -22,7 +22,7 @@
         <version>${revision}</version>
     </parent>
 
-    <artifactId>connector-Sls-e2e</artifactId>
+    <artifactId>connector-sls-e2e</artifactId>
     <name>SeaTunnel : E2E : Connector V2 : Sls</name>
 
     <dependencies>

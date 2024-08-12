@@ -205,7 +205,7 @@ public class SlsSourceReader implements SourceReader<SeaTunnelRow, SlsSourceSpli
                                             .getTasks()
                                             .put(
                                                     client -> {
-                                                        // 默认都是onCheckpointCommit
+                                                        // now only default onCheckpointCommit
                                                         try {
                                                             client.UpdateCheckPoint(
                                                                     slsSourceSplit.getProject(),
