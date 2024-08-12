@@ -375,8 +375,9 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
     }
 
     private List<List<Object>> querySql(String sql) {
-        try (Connection connection = getJdbcConnection()) {
-            ResultSet resultSet = connection.createStatement().executeQuery(sql);
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement();
+                ResultSet resultSet = statement.executeQuery(sql)) {
             List<List<Object>> result = new ArrayList<>();
             int columnCount = resultSet.getMetaData().getColumnCount();
             while (resultSet.next()) {
