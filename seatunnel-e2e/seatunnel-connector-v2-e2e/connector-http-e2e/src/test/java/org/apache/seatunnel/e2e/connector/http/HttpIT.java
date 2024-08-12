@@ -262,8 +262,6 @@ public class HttpIT extends TestSuiteBase implements TestResource {
     @EqualsAndHashCode
     static class Record {
         private RequestBody body;
-
-        public Record() {}
     }
 
     @Getter
@@ -271,8 +269,6 @@ public class HttpIT extends TestSuiteBase implements TestResource {
     @EqualsAndHashCode
     static class RequestBody {
         private JsonBody json;
-
-        public RequestBody() {}
     }
 
     @Getter
@@ -290,8 +286,6 @@ public class HttpIT extends TestSuiteBase implements TestResource {
         private BigDecimal val_decimal;
         private String val_string;
         private String val_unixtime_micros;
-
-        public JsonBody() {}
     }
 
     public String getMockServerConfig() {
