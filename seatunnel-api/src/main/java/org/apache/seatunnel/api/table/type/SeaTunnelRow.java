@@ -50,7 +50,16 @@ public final class SeaTunnelRow implements Serializable {
         this.tableId = tableId;
     }
 
+    /**
+     * The method will be removed in the future, please use {@link #setKind(RowKind)} instanced of
+     * it.
+     */
+    @Deprecated
     public void setRowKind(RowKind kind) {
+        setKind(kind);
+    }
+
+    public void setKind(RowKind kind) {
         this.kind = kind;
     }
 
@@ -62,7 +71,13 @@ public final class SeaTunnelRow implements Serializable {
         return tableId;
     }
 
+    /** The method will be removed in the future, please use {@link #getKind()} instanced of it. */
+    @Deprecated
     public RowKind getRowKind() {
+        return getKind();
+    }
+
+    public RowKind getKind() {
         return this.kind;
     }
 

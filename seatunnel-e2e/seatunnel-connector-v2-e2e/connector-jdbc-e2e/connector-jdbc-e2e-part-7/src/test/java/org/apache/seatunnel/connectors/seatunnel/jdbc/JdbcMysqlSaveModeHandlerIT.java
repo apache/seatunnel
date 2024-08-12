@@ -47,6 +47,7 @@ import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -74,6 +75,7 @@ public class JdbcMysqlSaveModeHandlerIT extends AbstractJdbcIT {
     private static final String CREATE_SQL =
             "CREATE TABLE IF NOT EXISTS %s\n"
                     + "(\n"
+                    + "    `id`                     bigint(20)            NOT NULL,\n"
                     + "    `c_bit_1`                bit(1)                DEFAULT NULL,\n"
                     + "    `c_bit_8`                bit(8)                DEFAULT NULL,\n"
                     + "    `c_bit_16`               bit(16)               DEFAULT NULL,\n"
@@ -117,7 +119,8 @@ public class JdbcMysqlSaveModeHandlerIT extends AbstractJdbcIT {
                     + "    `c_integer_unsigned`     int(10) unsigned      DEFAULT NULL,\n"
                     + "    `c_bigint_30`            BIGINT(40)  unsigned  DEFAULT NULL,\n"
                     + "    `c_decimal_unsigned_30`  DECIMAL(30) unsigned  DEFAULT NULL,\n"
-                    + "    `c_decimal_30`           DECIMAL(30)           DEFAULT NULL\n"
+                    + "    `c_decimal_30`           DECIMAL(30)           DEFAULT NULL,\n"
+                    + "    UNIQUE (c_int)\n"
                     + ");";
 
     @Override
@@ -164,6 +167,9 @@ public class JdbcMysqlSaveModeHandlerIT extends AbstractJdbcIT {
         final List<Column> columns = table.getTableSchema().getColumns();
 
         Assertions.assertEquals(columns.size(), columnsSource.size());
+        Assertions.assertIterableEquals(
+                Collections.singletonList("id"),
+                table.getTableSchema().getPrimaryKey().getColumnNames());
     }
 
     @Override
@@ -175,6 +181,7 @@ public class JdbcMysqlSaveModeHandlerIT extends AbstractJdbcIT {
     Pair<String[], List<SeaTunnelRow>> initTestData() {
         String[] fieldNames =
                 new String[] {
+                    "id",
                     "c_bit_1",
                     "c_bit_8",
                     "c_bit_16",
@@ -229,6 +236,7 @@ public class JdbcMysqlSaveModeHandlerIT extends AbstractJdbcIT {
             SeaTunnelRow row =
                     new SeaTunnelRow(
                             new Object[] {
+                                (long) i,
                                 i % 2 == 0 ? (byte) 1 : (byte) 0,
                                 new byte[] {byteArr},
                                 new byte[] {byteArr, byteArr},
