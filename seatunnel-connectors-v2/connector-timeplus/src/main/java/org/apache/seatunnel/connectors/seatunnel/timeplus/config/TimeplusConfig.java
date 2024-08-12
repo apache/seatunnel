@@ -201,8 +201,6 @@ public class TimeplusConfig {
                                     + "`.`"
                                     + SaveModePlaceHolder.TABLE_NAME.getPlaceHolder()
                                     + "` (\n"
-                                    + SaveModePlaceHolder.ROWTYPE_PRIMARY_KEY.getPlaceHolder()
-                                    + ",\n"
                                     + SaveModePlaceHolder.ROWTYPE_FIELDS.getPlaceHolder()
                                     + "\n"
                                     + ")")
