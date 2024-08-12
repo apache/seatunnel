@@ -25,11 +25,9 @@ import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SupportResourceShare;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.translation.flink.serialization.FlinkRowConverter;
 
 import org.apache.flink.api.connector.sink.Sink;
 import org.apache.flink.api.connector.sink.SinkWriter;
-import org.apache.flink.types.Row;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -54,7 +52,6 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
 
     private final org.apache.seatunnel.api.sink.SinkWriter<SeaTunnelRow, CommT, WriterStateT>
             sinkWriter;
-    private final FlinkRowConverter rowSerialization;
 
     private final Counter sinkWriteCount;
 
@@ -73,7 +70,6 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
             MetricsContext metricsContext) {
         this.sinkWriter = sinkWriter;
         this.checkpointId = checkpointId;
-        this.rowSerialization = new FlinkRowConverter(dataType);
         this.sinkWriteCount = metricsContext.counter(MetricNames.SINK_WRITE_COUNT);
         this.sinkWriteBytes = metricsContext.counter(MetricNames.SINK_WRITE_BYTES);
         this.sinkWriterQPS = metricsContext.meter(MetricNames.SINK_WRITE_QPS);
@@ -86,15 +82,17 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
 
     @Override
     public void write(InputT element, SinkWriter.Context context) throws IOException {
-        if (element instanceof Row) {
-            SeaTunnelRow seaTunnelRow = rowSerialization.reconvert((Row) element);
-            sinkWriter.write(seaTunnelRow);
+        if (element == null) {
+            return;
+        }
+        if (element instanceof SeaTunnelRow) {
+            sinkWriter.write((SeaTunnelRow) element);
             sinkWriteCount.inc();
-            sinkWriteBytes.inc(seaTunnelRow.getBytesSize());
+            sinkWriteBytes.inc(((SeaTunnelRow) element).getBytesSize());
             sinkWriterQPS.markEvent();
         } else {
             throw new InvalidClassException(
-                    "only support Flink Row at now, the element Class is " + element.getClass());
+                    "only support SeaTunnelRow at now, the element Class is " + element.getClass());
         }
     }
 
