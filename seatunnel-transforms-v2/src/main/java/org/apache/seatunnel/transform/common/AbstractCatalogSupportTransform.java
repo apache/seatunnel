@@ -20,10 +20,12 @@ package org.apache.seatunnel.transform.common;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 
 import lombok.NonNull;
 
-public abstract class AbstractCatalogSupportTransform extends AbstractSeaTunnelTransform {
+public abstract class AbstractCatalogSupportTransform implements SeaTunnelTransform<SeaTunnelRow> {
     protected CatalogTable inputCatalogTable;
 
     protected volatile CatalogTable outputCatalogTable;
@@ -31,6 +33,18 @@ public abstract class AbstractCatalogSupportTransform extends AbstractSeaTunnelT
     public AbstractCatalogSupportTransform(@NonNull CatalogTable inputCatalogTable) {
         this.inputCatalogTable = inputCatalogTable;
     }
+
+    @Override
+    public SeaTunnelRow map(SeaTunnelRow row) {
+        return transformRow(row);
+    }
+
+    /**
+     * Outputs transformed row data.
+     *
+     * @param inputRow upstream input row data
+     */
+    protected abstract SeaTunnelRow transformRow(SeaTunnelRow inputRow);
 
     @Override
     public CatalogTable getProducedCatalogTable() {
