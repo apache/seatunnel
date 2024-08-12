@@ -28,6 +28,7 @@ import org.apache.seatunnel.api.sink.multitablesink.MultiTableSink;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.Record;
+import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
@@ -117,7 +118,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
             sinkTables = ((MultiTableSink) sinkAction.getSink()).getSinkTables();
         }
         this.taskMetricsCalcContext =
-                new TaskMetricsCalcContext(metricsContext, "sink", isMulti, sinkTables);
+                new TaskMetricsCalcContext(metricsContext, PluginType.SINK, isMulti, sinkTables);
     }
 
     @Override

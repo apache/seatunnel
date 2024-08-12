@@ -28,6 +28,7 @@ import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.core.starter.flowcontrol.FlowControlGate;
 import org.apache.seatunnel.core.starter.flowcontrol.FlowControlStrategy;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
@@ -85,7 +86,7 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
         this.taskMetricsCalcContext =
                 new TaskMetricsCalcContext(
                         metricsContext,
-                        "source",
+                        PluginType.SOURCE,
                         CollectionUtils.isNotEmpty(tablePaths),
                         tablePaths);
         flowControlGate = FlowControlGate.create(flowControlStrategy);

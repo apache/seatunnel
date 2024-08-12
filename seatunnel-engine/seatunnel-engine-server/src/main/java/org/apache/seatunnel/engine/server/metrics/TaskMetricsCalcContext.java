@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.common.metrics.Meter;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.constants.PluginType;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -42,7 +43,7 @@ public class TaskMetricsCalcContext {
 
     private final MetricsContext metricsContext;
 
-    private final String type;
+    private final PluginType type;
 
     private Counter count;
 
@@ -61,14 +62,17 @@ public class TaskMetricsCalcContext {
     private Map<String, Meter> bytesPerSecondsPerTable = new ConcurrentHashMap<>();
 
     public TaskMetricsCalcContext(
-            MetricsContext metricsContext, String type, boolean isMulti, List<TablePath> tables) {
+            MetricsContext metricsContext,
+            PluginType type,
+            boolean isMulti,
+            List<TablePath> tables) {
         this.metricsContext = metricsContext;
         this.type = type;
         initializeMetrics(isMulti, tables);
     }
 
     private void initializeMetrics(boolean isMulti, List<TablePath> tables) {
-        if ("SINK".equalsIgnoreCase(type)) {
+        if (type.equals(PluginType.SINK)) {
             this.initializeMetrics(
                     isMulti,
                     tables,
@@ -76,7 +80,7 @@ public class TaskMetricsCalcContext {
                     SINK_WRITE_QPS,
                     SINK_WRITE_BYTES,
                     SINK_WRITE_BYTES_PER_SECONDS);
-        } else if ("SOURCE".equalsIgnoreCase(type)) {
+        } else if (type.equals(PluginType.SOURCE)) {
             this.initializeMetrics(
                     isMulti,
                     tables,
@@ -90,32 +94,32 @@ public class TaskMetricsCalcContext {
     private void initializeMetrics(
             boolean isMulti,
             List<TablePath> tables,
-            String sinkWriteCount,
-            String sinkWriteQps,
-            String sinkWriteBytes,
-            String sinkWriteBytesPerSeconds) {
-        count = metricsContext.counter(sinkWriteCount);
-        QPS = metricsContext.meter(sinkWriteQps);
-        bytes = metricsContext.counter(sinkWriteBytes);
-        bytesPerSeconds = metricsContext.meter(sinkWriteBytesPerSeconds);
+            String writeCountName,
+            String writeQpsName,
+            String writeBytesName,
+            String writeBytesPerSecondsName) {
+        count = metricsContext.counter(writeCountName);
+        QPS = metricsContext.meter(writeQpsName);
+        bytes = metricsContext.counter(writeBytesName);
+        bytesPerSeconds = metricsContext.meter(writeBytesPerSecondsName);
         if (isMulti) {
             tables.forEach(
                     tablePath -> {
                         countPerTable.put(
                                 tablePath.getFullName(),
                                 metricsContext.counter(
-                                        sinkWriteCount + "#" + tablePath.getFullName()));
+                                        writeCountName + "#" + tablePath.getFullName()));
                         QPSPerTable.put(
                                 tablePath.getFullName(),
-                                metricsContext.meter(sinkWriteQps + "#" + tablePath.getFullName()));
+                                metricsContext.meter(writeQpsName + "#" + tablePath.getFullName()));
                         bytesPerTable.put(
                                 tablePath.getFullName(),
                                 metricsContext.counter(
-                                        sinkWriteBytes + "#" + tablePath.getFullName()));
+                                        writeBytesName + "#" + tablePath.getFullName()));
                         bytesPerSecondsPerTable.put(
                                 tablePath.getFullName(),
                                 metricsContext.meter(
-                                        sinkWriteBytesPerSeconds + "#" + tablePath.getFullName()));
+                                        writeBytesPerSecondsName + "#" + tablePath.getFullName()));
                     });
         }
     }
@@ -183,7 +187,7 @@ public class TaskMetricsCalcContext {
             processor.process(metric);
         } else {
             String metricName =
-                    "sink".equalsIgnoreCase(type)
+                    PluginType.SINK.equals(type)
                             ? sinkMetric + "#" + tableName
                             : sourceMetric + "#" + tableName;
             T newMetric = createMetric(metricsContext, metricName, cls);
@@ -205,13 +209,5 @@ public class TaskMetricsCalcContext {
     @FunctionalInterface
     interface MetricProcessor<T> {
         void process(T t);
-    }
-
-    private String getFullName(TablePath tablePath) {
-        if (StringUtils.isBlank(tablePath.getTableName())) {
-            tablePath =
-                    TablePath.of(tablePath.getDatabaseName(), tablePath.getSchemaName(), "default");
-        }
-        return tablePath.getFullName();
     }
 }

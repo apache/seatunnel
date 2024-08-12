@@ -93,7 +93,7 @@ public class MultiTableMetricsIT {
                                                             + RestConstant.JOB_INFO_URL
                                                             + "/"
                                                             + batchJobProxy.getJobId());
-                            // 测试示例中单条 [3, "C", 100] 的数据待大小是13
+                            // In the test example, the data size of a single [3, "C", 100] is 13
                             int dataSize = 13;
                             response.prettyPrint();
                             response.then()
