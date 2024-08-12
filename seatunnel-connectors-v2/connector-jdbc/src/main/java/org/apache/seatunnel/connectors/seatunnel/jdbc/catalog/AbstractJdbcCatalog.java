@@ -290,6 +290,9 @@ public abstract class AbstractJdbcCatalog implements Catalog {
             return false;
         }
         if (SYS_DATABASES.contains(databaseName)) {
+            log.error(
+                    "The database: {} is not supported, because it is in the SYS_DATABASES",
+                    databaseName);
             return false;
         }
         try {
