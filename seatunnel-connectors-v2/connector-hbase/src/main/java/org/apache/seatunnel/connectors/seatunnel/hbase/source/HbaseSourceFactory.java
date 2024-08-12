@@ -45,7 +45,6 @@ public class HbaseSourceFactory implements TableSourceFactory {
         return OptionRule.builder()
                 .required(HbaseConfig.ZOOKEEPER_QUORUM)
                 .required(HbaseConfig.TABLE)
-                .required(HbaseConfig.QUERY_COLUMNS)
                 .build();
     }
 

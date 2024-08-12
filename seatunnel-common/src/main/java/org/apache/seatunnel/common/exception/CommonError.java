@@ -285,4 +285,12 @@ public class CommonError {
         params.put("field", field);
         return new SeaTunnelRuntimeException(CommonErrorCode.FORMAT_DATE_ERROR, params);
     }
+
+    public static SeaTunnelRuntimeException unsupportedMethod(
+            String identifier, String methodName) {
+        Map<String, String> params = new HashMap<>();
+        params.put("identifier", identifier);
+        params.put("methodName", methodName);
+        return new SeaTunnelRuntimeException(CommonErrorCode.UNSUPPORTED_METHOD, params);
+    }
 }

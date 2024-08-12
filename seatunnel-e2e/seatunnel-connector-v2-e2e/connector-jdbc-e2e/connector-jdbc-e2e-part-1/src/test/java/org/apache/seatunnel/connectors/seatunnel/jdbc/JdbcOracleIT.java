@@ -28,6 +28,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
 
 import org.apache.commons.lang3.tuple.Pair;
 
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.OracleContainer;
@@ -40,6 +41,7 @@ import com.google.common.collect.Lists;
 
 import java.math.BigDecimal;
 import java.sql.Date;
+import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -63,9 +65,33 @@ public class JdbcOracleIT extends AbstractJdbcIT {
     private static final String SINK_TABLE = "E2E_TABLE_SINK";
     private static final String CATALOG_TABLE = "E2E_TABLE_CATALOG";
     private static final List<String> CONFIG_FILE =
-            Lists.newArrayList("/jdbc_oracle_source_to_sink.conf");
+            Lists.newArrayList(
+                    "/jdbc_oracle_source_to_sink.conf",
+                    "/jdbc_oracle_source_to_sink_use_select1.conf",
+                    "/jdbc_oracle_source_to_sink_use_select2.conf",
+                    "/jdbc_oracle_source_to_sink_use_select3.conf");
 
     private static final String CREATE_SQL =
+            "create table %s\n"
+                    + "(\n"
+                    + "    VARCHAR_10_COL                varchar2(10),\n"
+                    + "    CHAR_10_COL                   char(10),\n"
+                    + "    CLOB_COL                      clob,\n"
+                    + "    NUMBER_3_SF_2_DP              number(3, 2),\n"
+                    + "    NUMBER_7_SF_N2_DP             number(7, -2),\n"
+                    + "    INTEGER_COL                   integer,\n"
+                    + "    FLOAT_COL                     float(10),\n"
+                    + "    REAL_COL                      real,\n"
+                    + "    BINARY_FLOAT_COL              binary_float,\n"
+                    + "    BINARY_DOUBLE_COL             binary_double,\n"
+                    + "    DATE_COL                      date,\n"
+                    + "    TIMESTAMP_WITH_3_FRAC_SEC_COL timestamp(3),\n"
+                    + "    TIMESTAMP_WITH_LOCAL_TZ       timestamp with local time zone,\n"
+                    + "    XML_TYPE_COL                  \"SYS\".\"XMLTYPE\",\n"
+                    + "    constraint PK_T_COL primary key (INTEGER_COL)"
+                    + ")";
+
+    private static final String SINK_CREATE_SQL =
             "create table %s\n"
                     + "(\n"
                     + "    VARCHAR_10_COL                varchar2(10),\n"
@@ -144,6 +170,7 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                 .catalogSchema(SCHEMA)
                 .catalogTable(CATALOG_TABLE)
                 .createSql(CREATE_SQL)
+                .sinkCreateSql(SINK_CREATE_SQL)
                 .configFile(CONFIG_FILE)
                 .insertSql(insertSql)
                 .testData(testDataSet)
@@ -163,7 +190,7 @@ public class JdbcOracleIT extends AbstractJdbcIT {
     @Override
     Pair<String[], List<SeaTunnelRow>> initTestData() {
         List<SeaTunnelRow> rows = new ArrayList<>();
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < 20000; i++) {
             SeaTunnelRow row =
                     new SeaTunnelRow(
                             new Object[] {
@@ -236,5 +263,23 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                         OracleURLParser.parse(jdbcUrl),
                         SCHEMA);
         catalog.open();
+    }
+
+    @BeforeAll
+    @Override
+    public void startUp() {
+        super.startUp();
+        // analyzeTable before execute job
+        String analyzeTable =
+                String.format(
+                        "analyze table "
+                                + quoteIdentifier(SOURCE_TABLE)
+                                + " compute statistics for table");
+        log.info("analyze table {}", analyzeTable);
+        try (Statement stmt = connection.createStatement()) {
+            stmt.execute(analyzeTable);
+        } catch (Exception e) {
+            log.error("Error when analyze table", e);
+        }
     }
 }

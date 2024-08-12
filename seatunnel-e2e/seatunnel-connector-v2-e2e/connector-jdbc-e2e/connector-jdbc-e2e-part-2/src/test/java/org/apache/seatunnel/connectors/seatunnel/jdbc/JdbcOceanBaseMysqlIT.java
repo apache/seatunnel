@@ -66,15 +66,9 @@ public class JdbcOceanBaseMysqlIT extends JdbcOceanBaseITBase {
                                 "bash",
                                 "-c",
                                 "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && wget "
-                                        + driverUrl()
-                                        + " && wget "
-                                        + mysqlDriverUrl());
+                                        + driverUrl());
                 Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
             };
-
-    String mysqlDriverUrl() {
-        return "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
-    }
 
     @Override
     List<String> configFile() {
@@ -173,7 +167,8 @@ public class JdbcOceanBaseMysqlIT extends JdbcOceanBaseITBase {
                 + "    `c_integer_unsigned`     int(10) unsigned      DEFAULT NULL,\n"
                 + "    `c_bigint_30`            BIGINT(40)  unsigned  DEFAULT NULL,\n"
                 + "    `c_decimal_unsigned_30`  DECIMAL(30) unsigned  DEFAULT NULL,\n"
-                + "    `c_decimal_30`           DECIMAL(30)           DEFAULT NULL\n"
+                + "    `c_decimal_30`           DECIMAL(30)           DEFAULT NULL,\n"
+                + "    UNIQUE KEY (c_int)\n"
                 + ");";
     }
 
