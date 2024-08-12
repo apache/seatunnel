@@ -52,13 +52,6 @@ public class TimeplusConfig {
                     .defaultValue("localhost:8123")
                     .withDescription("Timeplus server host and port, default localhost:8123");
 
-    /** Timeplus server port */
-    public static final Option<Integer> PORT =
-            Options.key("port")
-                    .intType()
-                    .defaultValue(8123)
-                    .withDescription("Timeplus server port. Deprecated. Set port in `host`");
-
     /** Timeplus table name */
     public static final Option<String> TABLE =
             Options.key("table")

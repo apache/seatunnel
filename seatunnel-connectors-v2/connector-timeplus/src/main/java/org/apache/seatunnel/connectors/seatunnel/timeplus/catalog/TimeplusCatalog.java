@@ -74,9 +74,6 @@ public class TimeplusCatalog implements Catalog {
 
     private final String host;
 
-    // TODO REmove queryPort
-    private final Integer queryPort;
-
     private final String username;
 
     private final String password;
@@ -94,10 +91,9 @@ public class TimeplusCatalog implements Catalog {
     private String template;
 
     public TimeplusCatalog(
-            String catalogName, String host, Integer queryPort, String username, String password) {
+            String catalogName, String host, String username, String password) {
         this.catalogName = catalogName;
         this.host = host;
-        this.queryPort = queryPort;
         this.username = username;
         this.password = password;
     }
@@ -105,36 +101,33 @@ public class TimeplusCatalog implements Catalog {
     public TimeplusCatalog(
             String catalogName,
             String host,
-            Integer queryPort,
             String username,
             String password,
             Map<String, String> config) {
-        this(catalogName, host, queryPort, username, password);
+        this(catalogName, host, username, password);
         this.timeplusConfig = config;
     }
 
     public TimeplusCatalog(
             String catalogName,
             String host,
-            Integer queryPort,
             String username,
             String password,
             Map<String, String> config,
             String defaultDatabase) {
-        this(catalogName, host, queryPort, username, password, config);
+        this(catalogName, host, username, password, config);
         this.defaultDatabase = defaultDatabase;
     }
 
     public TimeplusCatalog(
             String catalogName,
             String host,
-            Integer queryPort,
             String username,
             String password,
             String templateSQL,
             Map<String, String> config,
             String defaultDatabase) {
-        this(catalogName, host, queryPort, username, password, config, defaultDatabase);
+        this(catalogName, host, username, password, config, defaultDatabase);
         this.template = templateSQL;
     }
 
@@ -406,7 +399,7 @@ public class TimeplusCatalog implements Catalog {
 
         boolean tableExists = tableExists(tablePath);
         if (ignoreIfExists && tableExists) {
-            LOG.info("table {} is exists, skip create", tablePath.getFullName());
+            LOG.info("stream {} is exists, skip create", tablePath.getFullName());
             return;
         }
 
@@ -421,7 +414,7 @@ public class TimeplusCatalog implements Catalog {
         try (Statement statement = conn.createStatement()) {
             statement.execute(stmt);
         } catch (SQLException e) {
-            throw new CatalogException("create table statement execute failed", e);
+            throw new CatalogException("create stream statement execute failed", e);
         }
     }
 
@@ -485,7 +478,7 @@ public class TimeplusCatalog implements Catalog {
             }
         } catch (Exception e) {
             throw new CatalogException(
-                    String.format("Failed TRUNCATE TABLE in catalog %s", tablePath.getFullName()),
+                    String.format("Failed TRUNCATE STREAM in catalog %s", tablePath.getFullName()),
                     e);
         }
     }
