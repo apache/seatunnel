@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.druid.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.sink.SinkCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -40,7 +41,10 @@ public class DruidSinkFactory implements TableSinkFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().required(COORDINATOR_URL, DATASOURCE).build();
+        return OptionRule.builder()
+                .required(COORDINATOR_URL, DATASOURCE)
+                .optional(SinkCommonOptions.MULTI_TABLE_SINK_REPLICA)
+                .build();
     }
 
     @Override

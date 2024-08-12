@@ -21,5 +21,5 @@ import java.io.Serializable;
 
 public abstract class AbstractParse implements Serializable {
 
-    public abstract Class<?> parseClass(String sourceCode);
+    public abstract Class<?> parseClassSourceCode(String sourceCode);
 }
