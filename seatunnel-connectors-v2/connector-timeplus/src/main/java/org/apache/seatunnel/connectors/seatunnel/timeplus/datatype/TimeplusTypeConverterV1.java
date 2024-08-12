@@ -27,7 +27,7 @@ import org.apache.seatunnel.api.table.type.LocalTimeType;
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
-/** Doris type converter for version 1.2.x */
+/** Timeplus type converter for version 1.2.x */
 @Slf4j
 @AutoService(TypeConverter.class)
 public class TimeplusTypeConverterV1 extends AbstractTimeplusTypeConverter {
@@ -107,9 +107,8 @@ public class TimeplusTypeConverterV1 extends AbstractTimeplusTypeConverter {
                 builder.dataType(TIMEPLUS_DATETIME);
                 break;
             case MAP:
-                // doris 1.x have no map type
-                builder.columnType(TIMEPLUS_JSON);
-                builder.dataType(TIMEPLUS_JSON);
+                builder.columnType(TIMEPLUS_MAP);
+                builder.dataType(TIMEPLUS_MAP);
                 break;
             default:
                 super.sampleReconvert(column, builder);
@@ -118,7 +117,6 @@ public class TimeplusTypeConverterV1 extends AbstractTimeplusTypeConverter {
     }
 
     private void reconvertString(Column column, BasicTypeDefine.BasicTypeDefineBuilder builder) {
-        // source is doris too.
         if (column.getSourceType() != null && column.getSourceType().equalsIgnoreCase(TIMEPLUS_JSON)) {
             builder.columnType(TIMEPLUS_JSONB);
             builder.dataType(TIMEPLUS_JSON);

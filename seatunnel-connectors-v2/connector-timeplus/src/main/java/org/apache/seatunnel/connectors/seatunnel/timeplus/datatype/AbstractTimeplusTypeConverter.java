@@ -67,12 +67,14 @@ public abstract class AbstractTimeplusTypeConverter implements TypeConverter<Bas
     // generated properly.
     public static final String TIMEPLUS_LARGEINT_ARRAY = "array<large_int>";
     public static final String TIMEPLUS_CHAR_ARRAY = "array<string>";
-    public static final String TIMEPLUS_CHAR_ARRAY_COLUMN_TYPE_TMP = "array<CHAR(%s)>";
+    public static final String TIMEPLUS_CHAR_ARRAY_COLUMN_TYPE_TMP = "array<string(%s)>";
     public static final String TIMEPLUS_VARCHAR_ARRAY = "array<string>";
-    public static final String TIMEPLUS_VARCHAR_ARRAY_COLUMN_TYPE_TMP = "array<VARCHAR(%s)>";
+    public static final String TIMEPLUS_VARCHAR_ARRAY_COLUMN_TYPE_TMP = "array<string(%s)>";
 
     public static final String TIMEPLUS_JSON = "json";
     public static final String TIMEPLUS_JSONB = "json";
+
+    public static final String TIMEPLUS_MAP = "map";
 
     public static final Long DEFAULT_PRECISION = 9L;
     public static final Long MAX_PRECISION = 38L;

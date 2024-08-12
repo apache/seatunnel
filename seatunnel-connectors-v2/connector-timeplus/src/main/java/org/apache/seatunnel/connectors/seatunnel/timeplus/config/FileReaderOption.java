@@ -32,7 +32,7 @@ public class FileReaderOption implements Serializable {
     private ShardMetadata shardMetadata;
     private Map<String, String> tableSchema;
     private List<String> fields;
-    private String clickhouseLocalPath;
+    private String timeplusLocalPath;
     private TimeplusFileCopyMethod copyMethod;
     private boolean nodeFreePass;
     private Map<String, String> nodeUser;
@@ -46,7 +46,7 @@ public class FileReaderOption implements Serializable {
             ShardMetadata shardMetadata,
             Map<String, String> tableSchema,
             List<String> fields,
-            String clickhouseLocalPath,
+            String timeplusLocalPath,
             TimeplusFileCopyMethod copyMethod,
             Map<String, String> nodeUser,
             boolean nodeFreePass,
@@ -57,7 +57,7 @@ public class FileReaderOption implements Serializable {
         this.shardMetadata = shardMetadata;
         this.tableSchema = tableSchema;
         this.fields = fields;
-        this.clickhouseLocalPath = clickhouseLocalPath;
+        this.timeplusLocalPath = timeplusLocalPath;
         this.copyMethod = copyMethod;
         this.nodeUser = nodeUser;
         this.nodeFreePass = nodeFreePass;

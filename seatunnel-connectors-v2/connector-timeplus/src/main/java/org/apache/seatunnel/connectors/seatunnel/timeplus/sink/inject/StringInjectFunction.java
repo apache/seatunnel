@@ -50,7 +50,7 @@ public class StringInjectFunction implements ProtonFieldInjectFunction {
                 statement.setString(index, value.toString());
             }
         } catch (JsonProcessingException e) {
-            throw CommonError.jsonOperationError("Clickhouse", value.toString(), e);
+            throw CommonError.jsonOperationError("Timeplus", value.toString(), e);
         }
     }
 
