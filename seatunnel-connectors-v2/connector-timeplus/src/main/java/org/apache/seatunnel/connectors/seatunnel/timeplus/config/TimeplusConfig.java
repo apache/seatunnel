@@ -35,7 +35,7 @@ public class TimeplusConfig {
     public static final Option<Integer> BULK_SIZE =
             Options.key("bulk_size")
                     .intType()
-                    .defaultValue(20000)
+                    .defaultValue(10000)
                     .withDescription("Bulk size of timeplus jdbc");
 
     public static final Option<String> SQL =
