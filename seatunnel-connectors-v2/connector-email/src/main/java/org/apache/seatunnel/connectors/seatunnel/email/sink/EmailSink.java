@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.email.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SinkWriter;
-import org.apache.seatunnel.api.sink.SupportMultiTableSink;
+import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -29,7 +29,7 @@ import org.apache.seatunnel.connectors.seatunnel.email.config.EmailConfig;
 import org.apache.seatunnel.connectors.seatunnel.email.config.EmailSinkConfig;
 
 public class EmailSink extends AbstractSimpleSink<SeaTunnelRow, Void>
-        implements SupportMultiTableSink {
+        implements SupportMultiTableSinkWriter {
 
     private SeaTunnelRowType seaTunnelRowType;
     private ReadonlyConfig readonlyConfig;
