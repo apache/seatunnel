@@ -189,13 +189,13 @@ public class RabbitmqClient {
 
     protected void setupQueue() throws IOException {
         if (config.getQueueName() != null) {
-            declareQueueDefaults(channel, config.getQueueName());
+            declareQueueDefaults(channel, config);
         }
     }
 
-    private void declareQueueDefaults(Channel channel, String queueName) throws IOException {
+    private void declareQueueDefaults(Channel channel, RabbitmqConfig config) throws IOException {
         channel.queueDeclare(
-                queueName,
+                config.getQueueName(),
                 config.getDurable(),
                 config.getExclusive(),
                 config.getAutoDelete(),
