@@ -15,7 +15,7 @@
 |         名称         |   类型    | 是否必须 |       默认值       |
 |--------------------|---------|------|-----------------|
 | zookeeper_quorum   | string  | yes  | -               |
-| table              | string  | yes  | -               |
+| table              | string  | no   | -               |
 | rowkey_column      | list    | yes  | -               |
 | family_name        | config  | yes  | -               |
 | rowkey_delimiter   | string  | no   | ""              |
@@ -117,6 +117,78 @@ Hbase {
   }
 }
 
+```
+
+
+### 写入多表
+
+```hocon
+env {
+  # You can set engine configuration here
+  execution.parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    tables_configs = [
+       {
+        schema = {
+          table = "hbase_sink_1"
+         fields {
+                    name = STRING
+                    c_string = STRING
+                    c_double = DOUBLE
+                    c_bigint = BIGINT
+                    c_float = FLOAT
+                    c_int = INT
+                    c_smallint = SMALLINT
+                    c_boolean = BOOLEAN
+                    time = BIGINT
+           }
+        }
+            rows = [
+              {
+                kind = INSERT
+                fields = ["label_1", "sink_1", 4.3, 200, 2.5, 2, 5, true, 1627529632356]
+              }
+              ]
+       },
+       {
+       schema = {
+         table = "hbase_sink_2"
+              fields {
+                    name = STRING
+                    c_string = STRING
+                    c_double = DOUBLE
+                    c_bigint = BIGINT
+                    c_float = FLOAT
+                    c_int = INT
+                    c_smallint = SMALLINT
+                    c_boolean = BOOLEAN
+                    time = BIGINT
+              }
+       }
+           rows = [
+             {
+               kind = INSERT
+               fields = ["label_2", "sink_2", 4.3, 200, 2.5, 2, 5, true, 1627529632357]
+             }
+             ]
+      }
+    ]
+  }
+}
+
+sink {
+  Hbase {
+    zookeeper_quorum = "hbase:2181"
+    rowkey_column = ["name"]
+    family_name {
+      all_columns = info
+    }
+  }
+}
 ```
 
 ## 写入指定列族

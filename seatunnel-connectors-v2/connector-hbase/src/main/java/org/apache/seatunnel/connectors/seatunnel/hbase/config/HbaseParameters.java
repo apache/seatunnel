@@ -32,6 +32,7 @@ import java.util.Map;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.ENCODING;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.FAMILY_NAME;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.HBASE_EXTRA_CONFIG;
+import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.HBASE_TTL_CONFIG;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.NULL_MODE;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.QUERY_COLUMNS;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.ROWKEY_COLUMNS;
@@ -59,6 +60,8 @@ public class HbaseParameters implements Serializable {
     private String versionColumn;
 
     private Map<String, String> hbaseExtraConfig;
+
+    @Builder.Default private Long ttl = HBASE_TTL_CONFIG.defaultValue();
 
     @Builder.Default private String rowkeyDelimiter = ROWKEY_DELIMITER.defaultValue();
 
@@ -88,6 +91,7 @@ public class HbaseParameters implements Serializable {
         String encoding = String.valueOf(config.get(ENCODING));
         builder.enCoding(HbaseConfig.EnCoding.valueOf(encoding.toUpperCase()));
         builder.hbaseExtraConfig(config.get(HBASE_EXTRA_CONFIG));
+        builder.ttl(config.get(HBASE_TTL_CONFIG));
         return builder.build();
     }
 
