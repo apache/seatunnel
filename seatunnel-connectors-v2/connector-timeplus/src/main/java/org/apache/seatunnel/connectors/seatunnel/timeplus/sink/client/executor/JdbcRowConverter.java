@@ -42,7 +42,8 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-//import static org.icecream.IceCream.ic;
+
+// import static org.icecream.IceCream.ic;
 
 public class JdbcRowConverter implements Serializable {
     private static final Pattern NULLABLE = Pattern.compile("nullable\\((.*)\\)");
@@ -75,8 +76,8 @@ public class JdbcRowConverter implements Serializable {
                 statement.setObject(i + 1, null);
                 continue;
             }
-            ProtonFieldInjectFunction injector = fieldInjectFunctionMap
-                .getOrDefault(fieldName, DEFAULT_INJECT_FUNCTION);
+            ProtonFieldInjectFunction injector =
+                    fieldInjectFunctionMap.getOrDefault(fieldName, DEFAULT_INJECT_FUNCTION);
             // ic(fieldName,fieldValue,injector);
             injector.injectFields(statement, i + 1, fieldValue);
         }

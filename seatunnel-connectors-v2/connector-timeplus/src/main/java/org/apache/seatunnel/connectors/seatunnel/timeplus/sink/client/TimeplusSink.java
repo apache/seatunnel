@@ -21,7 +21,6 @@ import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
-import org.apache.seatunnel.api.sink.*;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.factory.CatalogFactory;
@@ -62,8 +61,9 @@ public class TimeplusSink
         return "Timeplus";
     }
 
-    public TimeplusSink(CatalogTable catalogTable, ReaderOption option, ReadonlyConfig readonlyConfig) {
-        ic("new TimeplusSink with catalog table",catalogTable,option,readonlyConfig);
+    public TimeplusSink(
+            CatalogTable catalogTable, ReaderOption option, ReadonlyConfig readonlyConfig) {
+        ic("new TimeplusSink with catalog table", catalogTable, option, readonlyConfig);
         this.catalogTable = catalogTable;
         this.option = option;
         this.dataSaveMode = option.getDataSaveMode();
@@ -112,8 +112,11 @@ public class TimeplusSink
                             "Cannot find Timeplus catalog factory"));
         }
 
-        Catalog catalog = catalogFactory.createCatalog(catalogFactory.factoryIdentifier(), readonlyConfig);
+        Catalog catalog =
+                catalogFactory.createCatalog(catalogFactory.factoryIdentifier(), readonlyConfig);
         catalog.open();
-        return Optional.of(new DefaultSaveModeHandler(schemaSaveMode, dataSaveMode, catalog, catalogTable, null));
+        return Optional.of(
+                new DefaultSaveModeHandler(
+                        schemaSaveMode, dataSaveMode, catalog, catalogTable, null));
     }
 }

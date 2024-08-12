@@ -199,12 +199,15 @@ public abstract class AbstractTimeplusTypeConverter implements TypeConverter<Bas
 
         if (column.getColumnLength() < POWER_2_8) {
             if (column.getSourceType() != null
-                    && column.getSourceType().toUpperCase(Locale.ROOT).startsWith(TIMEPLUS_VARCHAR)) {
+                    && column.getSourceType()
+                            .toUpperCase(Locale.ROOT)
+                            .startsWith(TIMEPLUS_VARCHAR)) {
                 builder.columnType(
                         String.format("%s(%s)", TIMEPLUS_VARCHAR, column.getColumnLength()));
                 builder.dataType(TIMEPLUS_VARCHAR);
             } else {
-                builder.columnType(String.format("%s(%s)", TIMEPLUS_CHAR, column.getColumnLength()));
+                builder.columnType(
+                        String.format("%s(%s)", TIMEPLUS_CHAR, column.getColumnLength()));
                 builder.dataType(TIMEPLUS_CHAR);
             }
             return;
@@ -338,7 +341,8 @@ public abstract class AbstractTimeplusTypeConverter implements TypeConverter<Bas
                             scale);
                 }
 
-                builder.columnType(String.format("%s(%s,%s)", TIMEPLUS_DECIMALV3, precision, scale));
+                builder.columnType(
+                        String.format("%s(%s,%s)", TIMEPLUS_DECIMALV3, precision, scale));
                 builder.dataType(TIMEPLUS_DECIMALV3);
                 builder.precision((long) precision);
                 builder.scale(scale);
@@ -406,7 +410,7 @@ public abstract class AbstractTimeplusTypeConverter implements TypeConverter<Bas
                 int[] precisionAndScale = getPrecisionAndScale(elementType.toString());
                 builder.columnType(
                         String.format(
-                            TIMEPLUS_DECIMALV3_ARRAY_COLUMN_TYPE_TMP,
+                                TIMEPLUS_DECIMALV3_ARRAY_COLUMN_TYPE_TMP,
                                 precisionAndScale[0],
                                 precisionAndScale[1]));
                 builder.dataType(TIMEPLUS_DECIMALV3_ARRAY);

@@ -117,7 +117,8 @@ public class TimeplusTypeConverterV1 extends AbstractTimeplusTypeConverter {
     }
 
     private void reconvertString(Column column, BasicTypeDefine.BasicTypeDefineBuilder builder) {
-        if (column.getSourceType() != null && column.getSourceType().equalsIgnoreCase(TIMEPLUS_JSON)) {
+        if (column.getSourceType() != null
+                && column.getSourceType().equalsIgnoreCase(TIMEPLUS_JSON)) {
             builder.columnType(TIMEPLUS_JSONB);
             builder.dataType(TIMEPLUS_JSON);
             return;

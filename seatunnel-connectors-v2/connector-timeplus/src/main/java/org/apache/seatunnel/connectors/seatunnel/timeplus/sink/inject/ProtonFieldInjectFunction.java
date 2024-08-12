@@ -22,8 +22,7 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
 /**
- * Injects a field into a Timeplus statement, used to transform a java type into a Timeplus
- * type.
+ * Injects a field into a Timeplus statement, used to transform a java type into a Timeplus type.
  */
 public interface ProtonFieldInjectFunction extends Serializable {
 

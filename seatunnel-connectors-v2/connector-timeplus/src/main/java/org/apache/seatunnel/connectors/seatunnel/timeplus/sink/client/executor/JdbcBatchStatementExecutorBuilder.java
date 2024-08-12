@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.IntFunction;
+
 import static org.icecream.IceCream.ic;
 
 @Setter
@@ -58,17 +59,23 @@ public class JdbcBatchStatementExecutorBuilder {
 
     private String[] getDefaultProjectionFields() {
         List<String> fieldNames = Arrays.asList(rowType.getFieldNames());
-        return fieldNames.stream()
-                .filter(timeplusTableSchema::containsKey)
-                .toArray(String[]::new);
+        return fieldNames.stream().filter(timeplusTableSchema::containsKey).toArray(String[]::new);
     }
 
     public JdbcBatchStatementExecutor build() {
-        ic("table",table,"tableEngine",tableEngine,"rowType",rowType,"tableSchema",timeplusTableSchema);
+        ic(
+                "table",
+                table,
+                "tableEngine",
+                tableEngine,
+                "rowType",
+                rowType,
+                "tableSchema",
+                timeplusTableSchema);
         Objects.requireNonNull(table);
         Objects.requireNonNull(tableEngine);
         Objects.requireNonNull(rowType);
-        Objects.requireNonNull(timeplusTableSchema);//NULL
+        Objects.requireNonNull(timeplusTableSchema); // NULL
 
         JdbcRowConverter valueRowConverter =
                 new JdbcRowConverter(rowType, timeplusTableSchema, getDefaultProjectionFields());
@@ -85,7 +92,7 @@ public class JdbcBatchStatementExecutorBuilder {
         JdbcRowConverter pkRowConverter =
                 new JdbcRowConverter(
                         new SeaTunnelRowType(primaryKeys, pkTypes),
-                    timeplusTableSchema,
+                        timeplusTableSchema,
                         primaryKeys);
         Function<SeaTunnelRow, SeaTunnelRow> pkExtractor = createKeyExtractor(pkFields);
 

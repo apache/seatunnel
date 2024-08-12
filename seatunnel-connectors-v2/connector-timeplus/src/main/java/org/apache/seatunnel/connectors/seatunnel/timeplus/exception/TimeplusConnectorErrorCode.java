@@ -21,19 +21,12 @@ import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
 public enum TimeplusConnectorErrorCode implements SeaTunnelErrorCode {
     FIELD_NOT_IN_TABLE("TIMEPLUS-01", "Field is not existed in target table"),
-    PASSWORD_NOT_FOUND_IN_SHARD_NODE(
-        "TIMEPLUS-02",
-        "Can’t find password of shard node"
-    ),
+    PASSWORD_NOT_FOUND_IN_SHARD_NODE("TIMEPLUS-02", "Can’t find password of shard node"),
     DELETE_DIRECTORY_FIELD("TIMEPLUS-03", "Can’t delete directory"),
     SSH_OPERATION_FAILED(
-        "TIMEPLUS-04",
-        "Ssh operation failed, such as (login,connect,authentication,close) etc..."
-    ),
-    CLUSTER_LIST_GET_FAILED(
-        "TIMEPLUS-05",
-        "Get cluster list from Timeplus failed"
-    ),
+            "TIMEPLUS-04",
+            "Ssh operation failed, such as (login,connect,authentication,close) etc..."),
+    CLUSTER_LIST_GET_FAILED("TIMEPLUS-05", "Get cluster list from Timeplus failed"),
     SHARD_KEY_NOT_FOUND("TIMEPLUS-06", "Shard key not found in table"),
     FILE_NOT_EXISTS("TIMEPLUS-07", "Timeplus local file not exists");
 
