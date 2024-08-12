@@ -70,6 +70,7 @@ import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.NonNull;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -115,7 +116,7 @@ public class CoordinatorService {
      * <p>This IMap is used to recovery runningJobStateIMap in JobMaster when a new master node
      * active
      */
-    IMap<Object, Object> runningJobStateIMap;
+    private IMap<Object, Object> runningJobStateIMap;
 
     /**
      * IMap key is one of jobId {@link
@@ -130,13 +131,13 @@ public class CoordinatorService {
      * <p>This IMap is used to recovery runningJobStateTimestampsIMap in JobMaster when a new master
      * node active
      */
-    IMap<Object, Long[]> runningJobStateTimestampsIMap;
+    private IMap<Object, Long[]> runningJobStateTimestampsIMap;
 
     /**
      * key: job id; <br>
      * value: job master;
      */
-    private Map<Long, JobMaster> runningJobMasterMap = new ConcurrentHashMap<>();
+    private final Map<Long, JobMaster> runningJobMasterMap = new ConcurrentHashMap<>();
 
     /**
      * IMap key is {@link PipelineLocation}
@@ -212,8 +213,7 @@ public class CoordinatorService {
             handlers.add(httpReportHandler);
         }
         logger.info("Loaded event handlers: " + handlers);
-        JobEventProcessor eventProcessor = new JobEventProcessor(handlers);
-        return eventProcessor;
+        return new JobEventProcessor(handlers);
     }
 
     public JobHistoryService getJobHistoryService() {
@@ -280,7 +280,7 @@ public class CoordinatorService {
             return;
         }
         // waiting have worker registered
-        while (getResourceManager().workerCount() == 0) {
+        while (getResourceManager().workerCount(Collections.emptyMap()) == 0) {
             try {
                 logger.info("Waiting for worker registered");
                 Thread.sleep(1000);
@@ -453,7 +453,8 @@ public class CoordinatorService {
     }
 
     /** call by client to submit job */
-    public PassiveCompletableFuture<Void> submitJob(long jobId, Data jobImmutableInformation) {
+    public PassiveCompletableFuture<Void> submitJob(
+            long jobId, Data jobImmutableInformation, boolean isStartWithSavePoint) {
         CompletableFuture<Void> jobSubmitFuture = new CompletableFuture<>();
 
         // Check if the current jobID is already running. If so, complete the submission
@@ -484,6 +485,13 @@ public class CoordinatorService {
         executorService.submit(
                 () -> {
                     try {
+                        if (!isStartWithSavePoint
+                                && getJobHistoryService().getJobMetrics(jobId) != null) {
+                            throw new JobException(
+                                    String.format(
+                                            "The job id %s has already been submitted and is not starting with a savepoint.",
+                                            jobId));
+                        }
                         runningJobInfoIMap.put(
                                 jobId,
                                 new JobInfo(System.currentTimeMillis(), jobImmutableInformation));

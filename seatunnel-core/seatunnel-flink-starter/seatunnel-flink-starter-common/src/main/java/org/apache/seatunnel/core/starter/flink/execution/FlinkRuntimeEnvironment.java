@@ -21,13 +21,6 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.core.starter.execution.RuntimeEnvironment;
-import org.apache.seatunnel.core.starter.flink.utils.ConfigKeyName;
-import org.apache.seatunnel.core.starter.flink.utils.EnvironmentUtil;
-
-import org.apache.flink.api.common.time.Time;
-import org.apache.flink.table.api.EnvironmentSettings;
-import org.apache.flink.table.api.TableConfig;
-import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -50,7 +43,6 @@ public class FlinkRuntimeEnvironment extends AbstractFlinkRuntimeEnvironment
     @Override
     public FlinkRuntimeEnvironment prepare() {
         createStreamEnvironment();
-        createStreamTableEnvironment();
         if (config.hasPath("job.name")) {
             jobName = config.getString("job.name");
         }
@@ -61,23 +53,6 @@ public class FlinkRuntimeEnvironment extends AbstractFlinkRuntimeEnvironment
     public FlinkRuntimeEnvironment setJobMode(JobMode jobMode) {
         this.jobMode = jobMode;
         return this;
-    }
-
-    private void createStreamTableEnvironment() {
-        EnvironmentSettings environmentSettings =
-                EnvironmentSettings.newInstance().inStreamingMode().build();
-        tableEnvironment =
-                StreamTableEnvironment.create(getStreamExecutionEnvironment(), environmentSettings);
-        TableConfig config = tableEnvironment.getConfig();
-        if (EnvironmentUtil.hasPathAndWaring(this.config, ConfigKeyName.MAX_STATE_RETENTION_TIME)
-                && EnvironmentUtil.hasPathAndWaring(
-                        this.config, ConfigKeyName.MIN_STATE_RETENTION_TIME)) {
-            long max = this.config.getLong(ConfigKeyName.MAX_STATE_RETENTION_TIME);
-            long min = this.config.getLong(ConfigKeyName.MIN_STATE_RETENTION_TIME);
-            config.setIdleStateRetentionTime(Time.seconds(min), Time.seconds(max));
-        }
-        // init flink table env config
-        EnvironmentUtil.initTableEnvironmentConfiguration(this.config, config.getConfiguration());
     }
 
     public static FlinkRuntimeEnvironment getInstance(Config config) {

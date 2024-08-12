@@ -25,6 +25,7 @@ Use `Xa transactions` to ensure `exactly-once`. So only support `exactly-once` f
 support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 
 - [x] [cdc](../../concept/connector-v2-features.md)
+- [x] [support multiple table write](../../concept/connector-v2-features.md)
 
 ## Options
 
@@ -57,6 +58,7 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 | custom_sql                                | String  | No       | -                            |
 | enable_upsert                             | Boolean | No       | true                         |
 | use_copy_statement                        | Boolean | No       | false                        |
+| create_index                              | Boolean | No       | true                         |
 
 ### driver [string]
 
@@ -204,6 +206,12 @@ Use `COPY ${table} FROM STDIN` statement to import data. Only drivers with `getC
 
 NOTICE: `MAP`, `ARRAY`, `ROW` types are not supported.
 
+### create_index [boolean]
+
+Create the index(contains primary key and any other indexes) or not when auto-create table. You can use this option to improve the performance of jdbc writes when migrating large tables.
+
+Notice: Note that this will sacrifice read performance, so you'll need to manually create indexes after the table migration to improve read performance
+
 ## tips
 
 In the case of is_exactly_once = "true", Xa transactions are used. This requires database support, and some databases require some setup :
@@ -334,6 +342,89 @@ sink {
     }
 }
 
+```
+
+### Multiple table
+
+#### example1
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  Mysql-CDC {
+    base-url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    username = "root"
+    password = "******"
+    
+    table-names = ["seatunnel.role","seatunnel.user","galileo.Bucket"]
+  }
+}
+
+transform {
+}
+
+sink {
+  jdbc {
+    url = "jdbc:mysql://localhost:3306"
+    driver = "com.mysql.cj.jdbc.Driver"
+    user = "root"
+    password = "123456"
+    generate_sink_sql = true
+    
+    database = "${database_name}_test"
+    table = "${table_name}_test"
+    primary_keys = ["${primary_key}"]
+  }
+}
+```
+
+#### example2
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Jdbc {
+    driver = oracle.jdbc.driver.OracleDriver
+    url = "jdbc:oracle:thin:@localhost:1521/XE"
+    user = testUser
+    password = testPassword
+
+    table_list = [
+      {
+        table_path = "TESTSCHEMA.TABLE_1"
+      },
+      {
+        table_path = "TESTSCHEMA.TABLE_2"
+      }
+    ]
+  }
+}
+
+transform {
+}
+
+sink {
+  jdbc {
+    url = "jdbc:mysql://localhost:3306"
+    driver = "com.mysql.cj.jdbc.Driver"
+    user = "root"
+    password = "123456"
+    generate_sink_sql = true
+
+    database = "${schema_name}_test"
+    table = "${table_name}_test"
+    primary_keys = ["${primary_key}"]
+  }
+}
 ```
 
 ## Changelog

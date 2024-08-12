@@ -151,21 +151,18 @@ public class DefaultSaveModeHandler implements SaveModeHandler {
         catalog.dropTable(tablePath, true);
     }
 
-    protected void createTable() {
+    protected void createTablePreCheck() {
         if (!catalog.databaseExists(tablePath.getDatabaseName())) {
-            TablePath databasePath = TablePath.of(tablePath.getDatabaseName(), "");
             try {
                 log.info(
                         "Creating database {} with action {}",
                         tablePath.getDatabaseName(),
                         catalog.previewAction(
-                                Catalog.ActionType.CREATE_DATABASE,
-                                databasePath,
-                                Optional.empty()));
+                                Catalog.ActionType.CREATE_DATABASE, tablePath, Optional.empty()));
             } catch (UnsupportedOperationException ignore) {
                 log.info("Creating database {}", tablePath.getDatabaseName());
             }
-            catalog.createDatabase(databasePath, true);
+            catalog.createDatabase(tablePath, true);
         }
         try {
             log.info(
@@ -178,6 +175,10 @@ public class DefaultSaveModeHandler implements SaveModeHandler {
         } catch (UnsupportedOperationException ignore) {
             log.info("Creating table {}", tablePath);
         }
+    }
+
+    protected void createTable() {
+        createTablePreCheck();
         catalog.createTable(tablePath, catalogTable, true);
     }
 

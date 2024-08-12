@@ -32,6 +32,7 @@ public class TableTransformFactoryContext extends TableFactoryContext {
     public TableTransformFactoryContext(
             List<CatalogTable> catalogTables, ReadonlyConfig options, ClassLoader classLoader) {
         super(options, classLoader);
+        checkCatalogTableIllegal(catalogTables);
         this.catalogTables = catalogTables;
     }
 }

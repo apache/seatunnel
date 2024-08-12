@@ -59,7 +59,6 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
     private static final String SQLSERVER_DATABASE = "master";
     private static final String SQLSERVER_SCHEMA = "dbo";
     private static final String SQLSERVER_CATALOG_DATABASE = "catalog_test";
-
     private static final int SQLSERVER_CONTAINER_PORT = 1433;
     private static final String SQLSERVER_URL =
             "jdbc:sqlserver://"
@@ -103,7 +102,8 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
                     + "\tVARBINARY_MAX_TEST varbinary(MAX) NULL,\n"
                     + "\tVARCHAR_TEST varchar(16) COLLATE Chinese_PRC_CS_AS NULL,\n"
                     + "\tVARCHAR_MAX_TEST varchar(MAX) COLLATE Chinese_PRC_CS_AS DEFAULT NULL NULL,\n"
-                    + "\tXML_TEST xml NULL\n"
+                    + "\tXML_TEST xml NULL,\n"
+                    + "\tCONSTRAINT PK_TEST_INDEX PRIMARY KEY (INT_IDENTITY_TEST)\n"
                     + ");";
 
     private static final String SINK_CREATE_SQL =

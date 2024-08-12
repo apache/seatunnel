@@ -151,6 +151,30 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(results.size(), 1);
     }
 
+    @TestTemplate
+    public void testHbaseSourceWithBatchQuery(TestContainer container)
+            throws IOException, InterruptedException {
+        fakeToHbase(container);
+        Container.ExecResult sourceExecResult =
+                container.executeJob("/hbase-source-to-assert-with-batch-query.conf");
+        Assertions.assertEquals(0, sourceExecResult.getExitCode());
+    }
+
+    private void fakeToHbase(TestContainer container) throws IOException, InterruptedException {
+        deleteData(table);
+        Container.ExecResult sinkExecResult = container.executeJob("/fake-to-hbase.conf");
+        Assertions.assertEquals(0, sinkExecResult.getExitCode());
+        Table hbaseTable = hbaseConnection.getTable(table);
+        Scan scan = new Scan();
+        ResultScanner scanner = hbaseTable.getScanner(scan);
+        ArrayList<Result> results = new ArrayList<>();
+        for (Result result : scanner) {
+            results.add(result);
+        }
+        Assertions.assertEquals(results.size(), 5);
+        scanner.close();
+    }
+
     private void deleteData(TableName table) throws IOException {
         Table hbaseTable = hbaseConnection.getTable(table);
         Scan scan = new Scan();
