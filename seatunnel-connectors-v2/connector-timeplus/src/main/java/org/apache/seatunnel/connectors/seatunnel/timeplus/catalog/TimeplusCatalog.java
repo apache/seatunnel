@@ -90,8 +90,7 @@ public class TimeplusCatalog implements Catalog {
 
     private String template;
 
-    public TimeplusCatalog(
-            String catalogName, String host, String username, String password) {
+    public TimeplusCatalog(String catalogName, String host, String username, String password) {
         this.catalogName = catalogName;
         this.host = host;
         this.username = username;
