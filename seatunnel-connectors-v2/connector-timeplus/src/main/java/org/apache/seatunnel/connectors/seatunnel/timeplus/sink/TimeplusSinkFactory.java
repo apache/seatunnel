@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.timeplus.sink;
 
-import com.google.auto.service.AutoService;
-import org.apache.logging.log4j.util.Strings;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -34,14 +32,36 @@ import org.apache.seatunnel.connectors.seatunnel.timeplus.state.TPAggCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.state.TPCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.state.TimeplusSinkState;
 
+import org.apache.logging.log4j.util.Strings;
+
+import com.google.auto.service.AutoService;
+
 import java.util.Properties;
 
-import static org.apache.seatunnel.api.sink.SinkReplaceNameConstant.*;
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.*;
+import static org.apache.seatunnel.api.sink.SinkReplaceNameConstant.REPLACE_DATABASE_NAME_KEY;
+import static org.apache.seatunnel.api.sink.SinkReplaceNameConstant.REPLACE_SCHEMA_NAME_KEY;
+import static org.apache.seatunnel.api.sink.SinkReplaceNameConstant.REPLACE_TABLE_NAME_KEY;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.ALLOW_EXPERIMENTAL_LIGHTWEIGHT_DELETE;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.BULK_SIZE;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.DATABASE;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.DATA_SAVE_MODE;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.HOST;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.PRIMARY_KEY;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.SAVE_MODE_CREATE_TEMPLATE;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.SCHEMA_SAVE_MODE;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.SHARDING_KEY;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.SPLIT_MODE;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.SUPPORT_UPSERT;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.TABLE;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.TIMEPLUS_CONFIG;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.USERNAME;
 import static org.icecream.IceCream.ic;
 
 @AutoService(Factory.class)
-public class TimeplusSinkFactory implements TableSinkFactory <SeaTunnelRow, TimeplusSinkState, TPCommitInfo, TPAggCommitInfo> {
+public class TimeplusSinkFactory
+        implements TableSinkFactory<
+                SeaTunnelRow, TimeplusSinkState, TPCommitInfo, TPAggCommitInfo> {
     @Override
     public String factoryIdentifier() {
         return "Timeplus";
@@ -50,26 +70,26 @@ public class TimeplusSinkFactory implements TableSinkFactory <SeaTunnelRow, Time
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-            .required(TABLE)
-            .optional(
-                HOST,
-                DATABASE,
-                TIMEPLUS_CONFIG,
-                BULK_SIZE,
-                SPLIT_MODE,
-                SHARDING_KEY,
-                PRIMARY_KEY,
-                SUPPORT_UPSERT,
-                SCHEMA_SAVE_MODE,
-                SAVE_MODE_CREATE_TEMPLATE,
-                DATA_SAVE_MODE,
-                ALLOW_EXPERIMENTAL_LIGHTWEIGHT_DELETE)
-            .bundled(USERNAME, PASSWORD)
-            .build();
+                .required(TABLE)
+                .optional(
+                        HOST,
+                        DATABASE,
+                        TIMEPLUS_CONFIG,
+                        BULK_SIZE,
+                        SPLIT_MODE,
+                        SHARDING_KEY,
+                        PRIMARY_KEY,
+                        SUPPORT_UPSERT,
+                        SCHEMA_SAVE_MODE,
+                        SAVE_MODE_CREATE_TEMPLATE,
+                        DATA_SAVE_MODE,
+                        ALLOW_EXPERIMENTAL_LIGHTWEIGHT_DELETE)
+                .bundled(USERNAME, PASSWORD)
+                .build();
     }
 
     @Override
-    public TableSink<SeaTunnelRow, TimeplusSinkState, TPCommitInfo, TPAggCommitInfo> createSink(TableSinkFactoryContext context) {
+    public TableSink createSink(TableSinkFactoryContext context) {
         ReadonlyConfig config = context.getOptions();
         CatalogTable catalogTable = context.getCatalogTable();
 
@@ -84,7 +104,7 @@ public class TimeplusSinkFactory implements TableSinkFactory <SeaTunnelRow, Time
         // get source table relevant information
         TableIdentifier tableId = catalogTable.getTableId();
         String sourceDatabaseName = tableId.getDatabaseName();
-        //String sourceSchemaName = tableId.getSchemaName();
+        // String sourceSchemaName = tableId.getSchemaName();
         String sourceTableName = tableId.getTableName();
         // get sink table relevant information
         String sinkDatabaseName = config.get(DATABASE);
@@ -92,23 +112,23 @@ public class TimeplusSinkFactory implements TableSinkFactory <SeaTunnelRow, Time
         ic("sourceTableName", sourceTableName);
         // to replace
         sinkDatabaseName =
-            sinkDatabaseName.replace(
-                REPLACE_DATABASE_NAME_KEY,
-                sourceDatabaseName != null ? sourceDatabaseName : "");
+                sinkDatabaseName.replace(
+                        REPLACE_DATABASE_NAME_KEY,
+                        sourceDatabaseName != null ? sourceDatabaseName : "");
         String finalTableName = this.replaceFullTableName(sinkTableName, tableId);
         ic("finalTableName", finalTableName);
 
         // rebuild TableIdentifier and catalogTable
         TableIdentifier newTableId =
-            TableIdentifier.of(
-                tableId.getCatalogName(), sinkDatabaseName, null, finalTableName);
+                TableIdentifier.of(
+                        tableId.getCatalogName(), sinkDatabaseName, null, finalTableName);
         catalogTable =
-            CatalogTable.of(
-                newTableId,
-                catalogTable.getTableSchema(),
-                catalogTable.getOptions(),
-                catalogTable.getPartitionKeys(),
-                catalogTable.getCatalogName());
+                CatalogTable.of(
+                        newTableId,
+                        catalogTable.getTableSchema(),
+                        catalogTable.getOptions(),
+                        catalogTable.getPartitionKeys(),
+                        catalogTable.getCatalogName());
 
         Properties tpProperties = new Properties();
         if (config.getOptional(TIMEPLUS_CONFIG).isPresent()) {
@@ -117,18 +137,18 @@ public class TimeplusSinkFactory implements TableSinkFactory <SeaTunnelRow, Time
 
         boolean supportUpsert = config.get(SUPPORT_UPSERT);
         boolean allowExperimentalLightweightDelete =
-            config.get(ALLOW_EXPERIMENTAL_LIGHTWEIGHT_DELETE);
+                config.get(ALLOW_EXPERIMENTAL_LIGHTWEIGHT_DELETE);
         ReaderOption readerOption =
-            ReaderOption.builder()
-                .tableName(finalTableName)
-                .properties(tpProperties)
-                .bulkSize(config.get(BULK_SIZE))
-                .supportUpsert(supportUpsert)
-                .schemaSaveMode(config.get(SCHEMA_SAVE_MODE))
-                .dataSaveMode(config.get(DATA_SAVE_MODE))
-                .allowExperimentalLightweightDelete(allowExperimentalLightweightDelete)
-                .seaTunnelRowType(catalogTable.getSeaTunnelRowType())
-                .build();
+                ReaderOption.builder()
+                        .tableName(finalTableName)
+                        .properties(tpProperties)
+                        .bulkSize(config.get(BULK_SIZE))
+                        .supportUpsert(supportUpsert)
+                        .schemaSaveMode(config.get(SCHEMA_SAVE_MODE))
+                        .dataSaveMode(config.get(DATA_SAVE_MODE))
+                        .allowExperimentalLightweightDelete(allowExperimentalLightweightDelete)
+                        .seaTunnelRowType(catalogTable.getSeaTunnelRowType())
+                        .build();
 
         CatalogTable finalCatalogTable = catalogTable;
         ic("SAVE_MODE_CREATE_TEMPLATE", config.get(SAVE_MODE_CREATE_TEMPLATE));
@@ -147,5 +167,4 @@ public class TimeplusSinkFactory implements TableSinkFactory <SeaTunnelRow, Time
         }
         return original;
     }
-
 }

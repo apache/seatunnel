@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.timeplus.sink.client;
 
-import com.timeplus.proton.client.ProtonNode;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
@@ -34,13 +33,14 @@ import org.apache.seatunnel.connectors.seatunnel.timeplus.sink.file.TimeplusTabl
 import org.apache.seatunnel.connectors.seatunnel.timeplus.state.TPCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.state.TimeplusSinkState;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.tool.IntHolder;
+import org.apache.seatunnel.connectors.seatunnel.timeplus.util.TimeplusUtil;
 
 import org.apache.commons.lang3.StringUtils;
 
 import com.google.common.base.Strings;
+import com.timeplus.proton.client.ProtonNode;
 import com.timeplus.proton.jdbc.internal.ProtonConnectionImpl;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.seatunnel.connectors.seatunnel.timeplus.util.TimeplusUtil;
 
 import java.io.IOException;
 import java.sql.ResultSet;
@@ -51,11 +51,18 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Stream;
 
-import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.*;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.DATABASE;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.HOST;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.PASSWORD;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.SERVER_TIME_ZONE;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.SHARDING_KEY;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.USERNAME;
 import static org.icecream.IceCream.ic;
+
 @Slf4j
 public class TimeplusSinkWriter
-implements SinkWriter<SeaTunnelRow, TPCommitInfo, TimeplusSinkState>, SupportMultiTableSinkWriter<Void> {
+        implements SinkWriter<SeaTunnelRow, TPCommitInfo, TimeplusSinkState>,
+                SupportMultiTableSinkWriter<Void> {
 
     private final ReaderOption option;
     private ShardRouter shardRouter;
@@ -65,31 +72,32 @@ implements SinkWriter<SeaTunnelRow, TPCommitInfo, TimeplusSinkState>, SupportMul
     TimeplusSinkWriter(ReaderOption option, Context context, ReadonlyConfig config) {
         this.option = option;
 
-        ProtonNode node=TimeplusUtil.createNodes(
-                config.get(HOST),
-                config.get(DATABASE),
-                config.get(SERVER_TIME_ZONE),
-                config.get(USERNAME),
-                config.get(PASSWORD),
-                null).get(0);
+        ProtonNode node =
+                TimeplusUtil.createNodes(
+                                config.get(HOST),
+                                config.get(DATABASE),
+                                config.get(SERVER_TIME_ZONE),
+                                config.get(USERNAME),
+                                config.get(PASSWORD),
+                                null)
+                        .get(0);
 
         this.proxy = new TimeplusProxy(node);
-        TimeplusTable table =
-                    proxy.getTimeplusTable(
-                            config.get(DATABASE), option.getTableName());
+        TimeplusTable table = proxy.getTimeplusTable(config.get(DATABASE), option.getTableName());
         Map<String, String> tableSchema = proxy.getTimeplusTableSchema(option.getTableName());
         option.setTableSchema(tableSchema);
         String shardKey = config.get(SHARDING_KEY);
-        ic("shardKey",shardKey);
-        ShardMetadata metadata=new ShardMetadata(
-                shardKey,
-                tableSchema.get(shardKey),
-                table.getSortingKey(),
-                config.get(DATABASE),
-                option.getTableName(),
-                "Stream",
-                false,
-                new Shard(1, 1, node));
+        ic("shardKey", shardKey);
+        ShardMetadata metadata =
+                new ShardMetadata(
+                        shardKey,
+                        tableSchema.get(shardKey),
+                        table.getSortingKey(),
+                        config.get(DATABASE),
+                        option.getTableName(),
+                        "Stream",
+                        false,
+                        new Shard(1, 1, node));
         option.setShardMetadata(metadata);
         this.shardRouter = new ShardRouter(proxy, option.getShardMetadata());
         this.statementMap = initStatementMap();
