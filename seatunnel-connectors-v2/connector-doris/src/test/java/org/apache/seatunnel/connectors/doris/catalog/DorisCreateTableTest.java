@@ -390,7 +390,7 @@ public class DorisCreateTableTest {
                         + "`comment` VARCHAR(500) NULL ,\n"
                         + "`description` STRING NULL \n"
                         + " )\n"
-                        + " partitioned by `id`,`age`,`name`;",
+                        + " partitioned by `id`,`name`,`age`;",
                 result);
     }
 
@@ -418,9 +418,8 @@ public class DorisCreateTableTest {
                         DorisTypeConverterV2.INSTANCE);
         Assertions.assertEquals(
                 "CREATE TABLE IF NOT EXISTS `test1`.`test2` (\n"
-                        + "`id` BIGINT NULL ,\n"
-                        + "`name` STRING NULL ,\n"
-                        + "`age` INT NULL \n"
+                        + "`id` BIGINT NULL ,`age` INT NULL ,\n"
+                        + "`name` STRING NULL \n"
                         + ") ENGINE=OLAP\n"
                         + " UNIQUE KEY (`id`,`age`)\n"
                         + "DISTRIBUTED BY HASH (`id`,`age`)\n"
