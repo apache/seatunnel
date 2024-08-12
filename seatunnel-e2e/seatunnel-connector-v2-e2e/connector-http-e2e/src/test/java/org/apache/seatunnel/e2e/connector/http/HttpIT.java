@@ -17,6 +17,10 @@
 
 package org.apache.seatunnel.e2e.connector.http;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.DeserializationFeature;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.EngineType;
@@ -39,9 +43,6 @@ import org.testcontainers.utility.DockerLoggerFactory;
 import org.testcontainers.utility.MountableFile;
 
 import com.google.common.collect.Lists;
-import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
-import lombok.Builder;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
@@ -103,46 +104,41 @@ public class HttpIT extends TestSuiteBase implements TestResource {
     }
 
     private static void fillMockRecords() {
-        records.add(
-                Record.builder()
-                        .body(
-                                RequestBody.builder()
-                                        .json(
-                                                JsonBody.builder()
-                                                        .id(1)
-                                                        .val_bool(true)
-                                                        .val_int8(new Byte("1"))
-                                                        .val_int16((short) 2)
-                                                        .val_int32(3)
-                                                        .val_int64(4)
-                                                        .val_float(4.3F)
-                                                        .val_double(5.3)
-                                                        .val_decimal(BigDecimal.valueOf(6.3))
-                                                        .val_string("NEW")
-                                                        .val_unixtime_micros("2020-02-02T02:02:02")
-                                                        .build())
-                                        .build())
-                        .build());
-        records.add(
-                Record.builder()
-                        .body(
-                                RequestBody.builder()
-                                        .json(
-                                                JsonBody.builder()
-                                                        .id(2)
-                                                        .val_bool(true)
-                                                        .val_int8(new Byte("1"))
-                                                        .val_int16((short) 2)
-                                                        .val_int32(3)
-                                                        .val_int64(4)
-                                                        .val_float(4.3F)
-                                                        .val_double(5.3)
-                                                        .val_decimal(BigDecimal.valueOf(6.3))
-                                                        .val_string("NEW")
-                                                        .val_unixtime_micros("2020-02-02T02:02:02")
-                                                        .build())
-                                        .build())
-                        .build());
+        Record recordFirst = new Record();
+        RequestBody requestBodyFirst = new RequestBody();
+        JsonBody jsonBodyFirst = new JsonBody();
+        jsonBodyFirst.setId(1);
+        jsonBodyFirst.setVal_bool(true);
+        jsonBodyFirst.setVal_int8(new Byte("1"));
+        jsonBodyFirst.setVal_int16((short) 2);
+        jsonBodyFirst.setVal_int32(3);
+        jsonBodyFirst.setVal_int64(4);
+        jsonBodyFirst.setVal_float(4.3F);
+        jsonBodyFirst.setVal_double(5.3);
+        jsonBodyFirst.setVal_decimal(BigDecimal.valueOf(6.3));
+        jsonBodyFirst.setVal_string("NEW");
+        jsonBodyFirst.setVal_unixtime_micros("2020-02-02T02:02:02");
+        requestBodyFirst.setJson(jsonBodyFirst);
+        recordFirst.setBody(requestBodyFirst);
+
+        Record recordSec = new Record();
+        RequestBody requestBodySec = new RequestBody();
+        JsonBody jsonBodySec = new JsonBody();
+        jsonBodySec.setId(2);
+        jsonBodySec.setVal_bool(true);
+        jsonBodySec.setVal_int8(new Byte("1"));
+        jsonBodySec.setVal_int16((short) 2);
+        jsonBodySec.setVal_int32(3);
+        jsonBodySec.setVal_int64(4);
+        jsonBodySec.setVal_float(4.3F);
+        jsonBodySec.setVal_double(5.3);
+        jsonBodySec.setVal_decimal(BigDecimal.valueOf(6.3));
+        jsonBodySec.setVal_string("NEW");
+        jsonBodySec.setVal_unixtime_micros("2020-02-02T02:02:02");
+        requestBodySec.setJson(jsonBodySec);
+        recordSec.setBody(requestBodySec);
+        records.add(recordFirst);
+        records.add(recordSec);
     }
 
     @AfterAll
@@ -241,18 +237,16 @@ public class HttpIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testMultiTableHttp(TestContainer container)
             throws IOException, InterruptedException {
-
         Container.ExecResult execResult = container.executeJob("/fake_to_multitable.conf");
-
         Assertions.assertEquals(0, execResult.getExitCode());
-        Gson gson = new Gson();
-
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         String mockResponse =
                 mockServerClient.retrieveRecordedRequests(
                         request().withPath("/example/httpMultiTableContentSink").withMethod("POST"),
                         Format.JSON);
         List<Record> recordResponse =
-                gson.fromJson(mockResponse, new TypeToken<List<Record>>() {}.getType());
+                objectMapper.readValue(mockResponse, new TypeReference<List<Record>>() {});
         recordResponse =
                 recordResponse.stream()
                         .sorted(
@@ -265,23 +259,24 @@ public class HttpIT extends TestSuiteBase implements TestResource {
 
     @Getter
     @Setter
-    @Builder
     @EqualsAndHashCode
     static class Record {
         private RequestBody body;
+
+        public Record() {}
     }
 
     @Getter
     @Setter
-    @Builder
     @EqualsAndHashCode
     static class RequestBody {
         private JsonBody json;
+
+        public RequestBody() {}
     }
 
     @Getter
     @Setter
-    @Builder
     @EqualsAndHashCode
     static class JsonBody {
         private int id;
@@ -295,6 +290,8 @@ public class HttpIT extends TestSuiteBase implements TestResource {
         private BigDecimal val_decimal;
         private String val_string;
         private String val_unixtime_micros;
+
+        public JsonBody() {}
     }
 
     public String getMockServerConfig() {
