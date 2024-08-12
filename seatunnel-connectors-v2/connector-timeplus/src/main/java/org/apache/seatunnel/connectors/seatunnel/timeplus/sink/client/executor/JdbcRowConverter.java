@@ -42,10 +42,11 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+//import static org.icecream.IceCream.ic;
 
 public class JdbcRowConverter implements Serializable {
-    private static final Pattern NULLABLE = Pattern.compile("Nullable\\((.*)\\)");
-    private static final Pattern LOW_CARDINALITY = Pattern.compile("LowCardinality\\((.*)\\)");
+    private static final Pattern NULLABLE = Pattern.compile("nullable\\((.*)\\)");
+    private static final Pattern LOW_CARDINALITY = Pattern.compile("low_cardinality\\((.*)\\)");
     private static final ProtonFieldInjectFunction DEFAULT_INJECT_FUNCTION =
             new StringInjectFunction();
 
@@ -55,11 +56,11 @@ public class JdbcRowConverter implements Serializable {
 
     public JdbcRowConverter(
             @NonNull SeaTunnelRowType rowType,
-            @NonNull Map<String, String> clickhouseTableSchema,
+            @NonNull Map<String, String> timeplusTableSchema,
             @NonNull String[] projectionFields) {
         this.projectionFields = projectionFields;
         this.fieldInjectFunctionMap =
-                createFieldInjectFunctionMap(projectionFields, clickhouseTableSchema);
+                createFieldInjectFunctionMap(projectionFields, timeplusTableSchema);
         this.fieldGetterMap = createFieldGetterMap(projectionFields, rowType);
     }
 
@@ -74,18 +75,19 @@ public class JdbcRowConverter implements Serializable {
                 statement.setObject(i + 1, null);
                 continue;
             }
-            fieldInjectFunctionMap
-                    .getOrDefault(fieldName, DEFAULT_INJECT_FUNCTION)
-                    .injectFields(statement, i + 1, fieldValue);
+            ProtonFieldInjectFunction injector = fieldInjectFunctionMap
+                .getOrDefault(fieldName, DEFAULT_INJECT_FUNCTION);
+            // ic(fieldName,fieldValue,injector);
+            injector.injectFields(statement, i + 1, fieldValue);
         }
         return statement;
     }
 
     private Map<String, ProtonFieldInjectFunction> createFieldInjectFunctionMap(
-            String[] fields, Map<String, String> clickhouseTableSchema) {
+            String[] fields, Map<String, String> timeplusTableSchema) {
         Map<String, ProtonFieldInjectFunction> fieldInjectFunctionMap = new HashMap<>();
         for (String field : fields) {
-            String fieldType = clickhouseTableSchema.get(field);
+            String fieldType = timeplusTableSchema.get(field);
             ProtonFieldInjectFunction injectFunction =
                     Arrays.asList(
                                     new ArrayInjectFunction(),
