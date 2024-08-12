@@ -50,6 +50,7 @@ import static org.apache.seatunnel.api.common.CommonOptions.PLUGIN_NAME;
 import static org.apache.seatunnel.api.table.factory.FactoryUtil.DEFAULT_ID;
 
 /** The util used for Spark/Flink to create to SeaTunnelSource etc. */
+@SuppressWarnings("rawtypes")
 public class PluginUtil {
 
     protected static final String ENGINE_TYPE = "seatunnel";
