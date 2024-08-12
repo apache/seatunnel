@@ -72,7 +72,7 @@ public class SlsSourceSplitEnumerator
         this.assignedSplit = new HashMap<>();
         this.pendingSplit = new HashMap<>();
         this.consumerMetaData = slsSourceConfig.getConsumerMetaData();
-        this.discoveryIntervalMillis = -1;
+        this.discoveryIntervalMillis = slsSourceConfig.getDiscoveryIntervalMillis();
     }
 
     public SlsSourceSplitEnumerator(
@@ -88,7 +88,7 @@ public class SlsSourceSplitEnumerator
         this.assignedSplit = new HashMap<>();
         this.pendingSplit = new HashMap<>();
         this.consumerMetaData = slsSourceConfig.getConsumerMetaData();
-        this.discoveryIntervalMillis = -1;
+        this.discoveryIntervalMillis = slsSourceConfig.getDiscoveryIntervalMillis();
 
         /** now only from sls cursor for restore */
         this.slsSourceState = slsSourceState;

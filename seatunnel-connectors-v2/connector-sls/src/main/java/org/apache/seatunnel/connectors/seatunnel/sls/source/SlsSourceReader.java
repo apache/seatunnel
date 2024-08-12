@@ -211,7 +211,7 @@ public class SlsSourceReader implements SourceReader<SeaTunnelRow, SlsSourceSpli
                                                                     slsSourceSplit.getProject(),
                                                                     slsSourceSplit.getLogStore(),
                                                                     slsSourceSplit.getConsumer(),
-                                                                    1,
+                                                                    slsSourceSplit.getShardId(),
                                                                     slsSourceSplit
                                                                             .getStartCursor());
                                                         } catch (LogException e) {

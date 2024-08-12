@@ -48,6 +48,7 @@ import static org.apache.seatunnel.connectors.seatunnel.sls.config.Config.AUTO_C
 import static org.apache.seatunnel.connectors.seatunnel.sls.config.Config.BATCH_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.sls.config.Config.CONSUMER_GROUP;
 import static org.apache.seatunnel.connectors.seatunnel.sls.config.Config.ENDPOINT;
+import static org.apache.seatunnel.connectors.seatunnel.sls.config.Config.KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS;
 import static org.apache.seatunnel.connectors.seatunnel.sls.config.Config.LOGSTORE;
 import static org.apache.seatunnel.connectors.seatunnel.sls.config.Config.PROJECT;
 import static org.apache.seatunnel.connectors.seatunnel.sls.config.Config.START_MODE;
@@ -58,6 +59,7 @@ public class SlsSourceConfig implements Serializable {
     @Getter private final String endpoint;
     @Getter private final String accessKeyId;
     @Getter private final String accessKeySecret;
+    @Getter private final Long discoveryIntervalMillis;
     @Getter private final CatalogTable catalogTable;
     @Getter private final ConsumerMetaData consumerMetaData;
 
@@ -65,6 +67,7 @@ public class SlsSourceConfig implements Serializable {
         this.endpoint = readonlyConfig.get(ENDPOINT);
         this.accessKeyId = readonlyConfig.get(ACCESS_KEY_ID);
         this.accessKeySecret = readonlyConfig.get(ACCESS_KEY_SECRET);
+        this.discoveryIntervalMillis = readonlyConfig.get(KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS);
         this.catalogTable = createCatalogTable(readonlyConfig);
         this.consumerMetaData = createMetaData(readonlyConfig);
     }
