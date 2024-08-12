@@ -42,7 +42,6 @@ import org.apache.hadoop.hbase.util.Bytes;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -65,7 +64,7 @@ public class HbaseSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
 
     private final int versionColumnIndex;
 
-    private String writeAllColumnFamily;
+    private String defaultFamilyName = "value";
 
     public HbaseSinkWriter(
             SeaTunnelRowType seaTunnelRowType,
@@ -79,7 +78,7 @@ public class HbaseSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         this.versionColumnIndex = versionColumnIndex;
 
         if (hbaseParameters.getFamilyNames().size() == 1) {
-            this.writeAllColumnFamily = hbaseParameters.getFamilyNames().get(ALL_COLUMNS);
+            defaultFamilyName = hbaseParameters.getFamilyNames().getOrDefault(ALL_COLUMNS, "value");
         }
 
         // initialize hbase configuration
@@ -120,9 +119,6 @@ public class HbaseSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
             timestamp = (Long) row.getField(versionColumnIndex);
         }
         Put put = new Put(rowkey, timestamp);
-        if (hbaseParameters.getTtl() != -1 && hbaseParameters.getTtl() > 0) {
-            put.setTTL(hbaseParameters.getTtl());
-        }
         if (!hbaseParameters.isWalWrite()) {
             put.setDurability(Durability.SKIP_WAL);
         }
@@ -134,14 +130,8 @@ public class HbaseSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
                         .collect(Collectors.toList());
         for (Integer writeColumnIndex : writeColumnIndexes) {
             String fieldName = seaTunnelRowType.getFieldName(writeColumnIndex);
-            // This is the family of columns that we define to be written through the.conf file
-            Map<String, String> configurationFamilyNames = hbaseParameters.getFamilyNames();
             String familyName =
-                    configurationFamilyNames.getOrDefault(fieldName, writeAllColumnFamily);
-            if (!configurationFamilyNames.containsKey(ALL_COLUMNS)
-                    && !configurationFamilyNames.containsKey(fieldName)) {
-                continue;
-            }
+                    hbaseParameters.getFamilyNames().getOrDefault(fieldName, defaultFamilyName);
             byte[] bytes = convertColumnToBytes(row, writeColumnIndex);
             if (bytes != null) {
                 put.addColumn(Bytes.toBytes(familyName), Bytes.toBytes(fieldName), bytes);

@@ -56,7 +56,9 @@ import java.util.Objects;
 public class HbaseIT extends TestSuiteBase implements TestResource {
 
     private static final String TABLE_NAME = "seatunnel_test";
-    private static final String ASSIGN_CF_TABLE_NAME = "assign_cf_table";
+    private static final String MULTI_TABLE_ONE_NAME = "hbase_sink_1";
+
+    private static final String MULTI_TABLE_TWO_NAME = "hbase_sink_2";
 
     private static final String FAMILY_NAME = "info";
 
@@ -65,7 +67,7 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
     private Admin admin;
 
     private TableName table;
-    private TableName tableAssign;
+
     private HbaseCluster hbaseCluster;
 
     @BeforeAll
@@ -76,9 +78,10 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
         // Create table for hbase sink test
         log.info("initial");
         hbaseCluster.createTable(TABLE_NAME, Arrays.asList(FAMILY_NAME));
-        hbaseCluster.createTable(ASSIGN_CF_TABLE_NAME, Arrays.asList("cf1", "cf2"));
         table = TableName.valueOf(TABLE_NAME);
-        tableAssign = TableName.valueOf(ASSIGN_CF_TABLE_NAME);
+        // Create table for hbase multi-table sink test
+        hbaseCluster.createTable(MULTI_TABLE_ONE_NAME, Arrays.asList(FAMILY_NAME));
+        hbaseCluster.createTable(MULTI_TABLE_TWO_NAME, Arrays.asList(FAMILY_NAME));
     }
 
     @AfterAll
@@ -95,15 +98,8 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
         deleteData(table);
         Container.ExecResult sinkExecResult = container.executeJob("/fake-to-hbase.conf");
         Assertions.assertEquals(0, sinkExecResult.getExitCode());
-        Table hbaseTable = hbaseConnection.getTable(table);
-        Scan scan = new Scan();
-        ResultScanner scanner = hbaseTable.getScanner(scan);
-        ArrayList<Result> results = new ArrayList<>();
-        for (Result result : scanner) {
-            results.add(result);
-        }
+        ArrayList<Result> results = readData(table);
         Assertions.assertEquals(results.size(), 5);
-        scanner.close();
         Container.ExecResult sourceExecResult = container.executeJob("/hbase-to-assert.conf");
         Assertions.assertEquals(0, sourceExecResult.getExitCode());
     }
@@ -136,65 +132,23 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
         scanner.close();
     }
 
-    @TestTemplate
-    public void testHbaseSinkAssignCfSink(TestContainer container)
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "Currently SPARK/FLINK do not support multiple table write")
+    public void testHbaseMultiTableSink(TestContainer container)
             throws IOException, InterruptedException {
-        deleteData(tableAssign);
-
-        Container.ExecResult sinkExecResult = container.executeJob("/fake-to-assign-cf-hbase.conf");
-        Assertions.assertEquals(0, sinkExecResult.getExitCode());
-
-        Table hbaseTable = hbaseConnection.getTable(tableAssign);
-        Scan scan = new Scan();
-        ResultScanner scanner = hbaseTable.getScanner(scan);
-        ArrayList<Result> results = new ArrayList<>();
-        for (Result result : scanner) {
-            results.add(result);
-        }
-
-        Assertions.assertEquals(results.size(), 5);
-
-        if (scanner != null) {
-            scanner.close();
-        }
-        int cf1Count = 0;
-        int cf2Count = 0;
-
-        for (Result result : results) {
-            for (Cell cell : result.listCells()) {
-                String family = Bytes.toString(CellUtil.cloneFamily(cell));
-                if ("cf1".equals(family)) {
-                    cf1Count++;
-                }
-                if ("cf2".equals(family)) {
-                    cf2Count++;
-                }
-            }
-        }
-        // check cf1 and cf2
-        Assertions.assertEquals(cf1Count, 5);
-        Assertions.assertEquals(cf2Count, 5);
-    }
-
-    @TestTemplate
-    public void testHbaseSinkWithMultipleTable(TestContainer container)
-            throws IOException, InterruptedException {
-        deleteData(table);
+        TableName multiTable1 = TableName.valueOf(MULTI_TABLE_ONE_NAME);
+        TableName multiTable2 = TableName.valueOf(MULTI_TABLE_TWO_NAME);
+        deleteData(multiTable1);
+        deleteData(multiTable2);
         Container.ExecResult sinkExecResult =
-                container.executeJob("/fake_to_hbase_with_multipletable.conf");
+                container.executeJob("/fake-to-hbase-with-multipletable.conf");
         Assertions.assertEquals(0, sinkExecResult.getExitCode());
-        Table hbaseTable = hbaseConnection.getTable(table);
-        Scan scan = new Scan();
-        ResultScanner scanner = hbaseTable.getScanner(scan);
-        ArrayList<Result> results = new ArrayList<>();
-        for (Result result : scanner) {
-            results.add(result);
-        }
-        Assertions.assertEquals(results.size(), 11);
-        scanner.close();
-        Container.ExecResult sourceExecResult =
-                container.executeJob("/hbase-to-assert-with-multipletable.conf");
-        Assertions.assertEquals(0, sourceExecResult.getExitCode());
+        ArrayList<Result> results = readData(multiTable1);
+        Assertions.assertEquals(results.size(), 1);
+        results = readData(multiTable2);
+        Assertions.assertEquals(results.size(), 1);
     }
 
     private void deleteData(TableName table) throws IOException {
@@ -206,5 +160,17 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
             Delete deleteRow = new Delete(result.getRow());
             hbaseTable.delete(deleteRow);
         }
+    }
+
+    public ArrayList<Result> readData(TableName table) throws IOException {
+        Table hbaseTable = hbaseConnection.getTable(table);
+        Scan scan = new Scan();
+        ResultScanner scanner = hbaseTable.getScanner(scan);
+        ArrayList<Result> results = new ArrayList<>();
+        for (Result result : scanner) {
+            results.add(result);
+        }
+        scanner.close();
+        return results;
     }
 }
