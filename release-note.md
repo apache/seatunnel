@@ -19,6 +19,7 @@
 - [Clickhouse] Fix clickhouse old version compatibility #5326
 - [Easysearch] Support INFINI Easysearch #5933
 - [Web3j] add Web3j source connector #6598
+- [Timeplus] add Timeplus sink connector #7384
 ### Formats
 - [Canal]Support read canal format message #3950
 - [Debezium]Support debezium canal format message #3981
