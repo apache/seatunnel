@@ -64,6 +64,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static org.icecream.IceCream.ic;
 
 public class TimeplusCatalog implements Catalog {
 
@@ -416,6 +417,7 @@ public class TimeplusCatalog implements Catalog {
         String stmt =
                 TimeplusCatalogUtil.getCreateTableStatement(
                         template, tablePath, table, typeConverter);
+        ic(stmt);
         try (Statement statement = conn.createStatement()) {
             statement.execute(stmt);
         } catch (SQLException e) {
@@ -427,6 +429,7 @@ public class TimeplusCatalog implements Catalog {
     public void dropTable(TablePath tablePath, boolean ignoreIfNotExists)
             throws TableNotExistException, CatalogException {
         String query = TimeplusCatalogUtil.getDropTableQuery(tablePath, ignoreIfNotExists);
+        ic(query);
         try (Statement stmt = conn.createStatement()) {
             stmt.execute(query);
         } catch (SQLException e) {
@@ -440,6 +443,7 @@ public class TimeplusCatalog implements Catalog {
         String query =
                 TimeplusCatalogUtil.getCreateDatabaseQuery(
                         tablePath.getDatabaseName(), ignoreIfExists);
+        ic(query);
         try (Statement stmt = conn.createStatement()) {
             stmt.execute(query);
         } catch (SQLException e) {
@@ -454,6 +458,7 @@ public class TimeplusCatalog implements Catalog {
         String query =
                 TimeplusCatalogUtil.getDropDatabaseQuery(
                         tablePath.getDatabaseName(), ignoreIfNotExists);
+        ic(query);
         try (Statement stmt = conn.createStatement()) {
             stmt.execute(query);
         } catch (SQLException e) {
@@ -488,6 +493,7 @@ public class TimeplusCatalog implements Catalog {
     public boolean isExistsData(TablePath tablePath) {
         String tableName = tablePath.getFullName();
         String sql = String.format("select * from %s limit 1;", tableName);
+        ic(sql);
         try (PreparedStatement ps = conn.prepareStatement(sql)) {
             ResultSet resultSet = ps.executeQuery();
             return resultSet.next();

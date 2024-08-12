@@ -47,9 +47,9 @@ public class TimeplusTypeConverterV1 extends AbstractTimeplusTypeConverter {
     @Override
     public Column convert(BasicTypeDefine typeDefine) {
         PhysicalColumn.PhysicalColumnBuilder builder = getPhysicalColumnBuilder(typeDefine);
-        String dorisColumnType = getDorisColumnName(typeDefine);
+        String timeplusColumnType = getTimeplusColumnName(typeDefine);
 
-        switch (dorisColumnType) {
+        switch (timeplusColumnType) {
             case TIMEPLUS_DATE:
                 builder.dataType(LocalTimeType.LOCAL_DATE_TYPE);
                 break;
@@ -74,7 +74,7 @@ public class TimeplusTypeConverterV1 extends AbstractTimeplusTypeConverter {
                 builder.scale(scale);
                 break;
             default:
-                super.sampleTypeConverter(builder, typeDefine, dorisColumnType);
+                super.sampleTypeConverter(builder, typeDefine, timeplusColumnType);
         }
 
         return builder.build();

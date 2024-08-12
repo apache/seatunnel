@@ -85,7 +85,7 @@ public abstract class AbstractTimeplusTypeConverter implements TypeConverter<Bas
     // Min value of LARGEINT is -170141183460469231731687303715884105728, it will use 39 bytes in
     // UTF-8.
     // Add a bit to prevent overflow
-    public static final long MAX_DORIS_LARGEINT_TO_VARCHAR_LENGTH = 39L;
+    public static final long MAX_TIMEPLUS_LARGEINT_TO_VARCHAR_LENGTH = 39L;
 
     public static final long POWER_2_8 = (long) Math.pow(2, 8);
     public static final long POWER_2_16 = (long) Math.pow(2, 16);
@@ -113,22 +113,22 @@ public abstract class AbstractTimeplusTypeConverter implements TypeConverter<Bas
         return builder;
     }
 
-    protected String getDorisColumnName(BasicTypeDefine typeDefine) {
-        String dorisColumnType = typeDefine.getColumnType();
-        return getDorisColumnName(dorisColumnType);
+    protected String getTimeplusColumnName(BasicTypeDefine typeDefine) {
+        String columnType = typeDefine.getColumnType();
+        return getTimeplusColumnName(columnType);
     }
 
-    protected String getDorisColumnName(String dorisColumnType) {
-        dorisColumnType = dorisColumnType.toUpperCase(Locale.ROOT);
-        int idx = dorisColumnType.indexOf("(");
-        int idx2 = dorisColumnType.indexOf("<");
+    protected String getTimeplusColumnName(String columnType) {
+        // columnType = columnType.toUpperCase(Locale.ROOT);
+        int idx = columnType.indexOf("(");
+        int idx2 = columnType.indexOf("<");
         if (idx != -1) {
-            dorisColumnType = dorisColumnType.substring(0, idx);
+            columnType = columnType.substring(0, idx);
         }
         if (idx2 != -1) {
-            dorisColumnType = dorisColumnType.substring(0, idx2);
+            columnType = columnType.substring(0, idx2);
         }
-        return dorisColumnType;
+        return columnType;
     }
 
     public void sampleTypeConverter(
@@ -223,7 +223,7 @@ public abstract class AbstractTimeplusTypeConverter implements TypeConverter<Bas
         if (column.getColumnLength() > MAX_STRING_LENGTH) {
             log.warn(
                     String.format(
-                            "The String type in Timeplus can only store up to 2GB bytes, and the current field [%s] length is [%s] bytes. If it is greater than the maximum length of the String in Doris, it may not be able to write data",
+                            "The String type in Timeplus can only store up to 2GB bytes, and the current field [%s] length is [%s] bytes. If it is greater than the maximum length of the String in Timeplus, it may not be able to write data",
                             column.getName(), column.getColumnLength()));
             builder.columnType(TIMEPLUS_STRING);
             builder.dataType(TIMEPLUS_STRING);
@@ -276,7 +276,6 @@ public abstract class AbstractTimeplusTypeConverter implements TypeConverter<Bas
                 builder.dataType(TIMEPLUS_DOUBLE);
                 break;
             case DECIMAL:
-                // DORIS LARGEINT
                 if (column.getSourceType() != null
                         && column.getSourceType().equalsIgnoreCase(TIMEPLUS_LARGEINT)) {
                     builder.dataType(TIMEPLUS_LARGEINT);
