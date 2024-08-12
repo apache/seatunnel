@@ -79,4 +79,5 @@ jobs:
           -D"docker.verify.skip"=false \
           -D"docker.push.skip"=false \
           -Dmaven.deploy.skip \
-          --no-snapshot-updates
+          --no-snapshot-updates \
+          -Pdocker,seatunnel
