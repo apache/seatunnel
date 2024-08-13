@@ -15,19 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.prometheus;
+package org.apache.seatunnel.connectors.seatunnel.prometheus.serialize;
 
-import org.apache.seatunnel.connectors.seatunnel.prometheus.source.PrometheusSourceFactory;
-import org.apache.seatunnel.connectors.seatunnel.prometheus.write.PrometheusSinkFactory;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.seatunnel.prometheus.write.Point;
 
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
-
-public class PrometheusFactoryTest {
-
-    @Test
-    void optionRule() {
-        Assertions.assertNotNull((new PrometheusSourceFactory()).optionRule());
-        Assertions.assertNotNull((new PrometheusSinkFactory()).optionRule());
-    }
+public interface Serializer {
+    Point serialize(SeaTunnelRow seaTunnelRow);
 }

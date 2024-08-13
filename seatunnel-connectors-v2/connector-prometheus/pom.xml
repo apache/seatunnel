@@ -31,8 +31,9 @@
 
     <properties>
         <prometheus-client.version>0.16.0</prometheus-client.version>
+        <protobuf.version>3.23.2</protobuf.version>
+        <snappy-java.version>1.1.10.1</snappy-java.version>
     </properties>
-
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
@@ -53,6 +54,24 @@
             <groupId>io.prometheus</groupId>
             <artifactId>simpleclient_httpserver</artifactId>
             <version>${prometheus-client.version}</version>
+        </dependency>
+        <!-- protobuf -->
+        <dependency>
+            <groupId>com.google.protobuf</groupId>
+            <artifactId>protobuf-java</artifactId>
+            <version>3.25.4</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.protobuf</groupId>
+            <artifactId>protobuf-java-util</artifactId>
+            <version>3.25.4</version>
+        </dependency>
+
+        <!-- snappy compression -->
+        <dependency>
+            <groupId>org.xerial.snappy</groupId>
+            <artifactId>snappy-java</artifactId>
+            <version>1.1.7.3</version>
         </dependency>
     </dependencies>
 </project>

@@ -33,6 +33,7 @@ import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpPut;
 import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.client.utils.URIBuilder;
+import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -259,6 +260,31 @@ public class HttpClientProvider implements AutoCloseable {
         addHeaders(httpPost, headers);
         // add body in request
         addBody(httpPost, body);
+        // return http response
+        return getResponse(httpPost);
+    }
+
+    /**
+     * Send a post request with request headers and request body
+     *
+     * @param url request address
+     * @param headers request header map
+     * @param byteArrayEntity request snappy body content
+     * @return http response result
+     * @throws Exception information
+     */
+    public HttpResponse doPost(
+            String url, Map<String, String> headers, ByteArrayEntity byteArrayEntity)
+            throws Exception {
+        // create a new http post
+        HttpPost httpPost = new HttpPost(url);
+        // set default request config
+        httpPost.setConfig(requestConfig);
+        // set request header
+        addHeaders(httpPost, headers);
+        // add body in request
+        httpPost.getRequestLine();
+        httpPost.setEntity(byteArrayEntity);
         // return http response
         return getResponse(httpPost);
     }
