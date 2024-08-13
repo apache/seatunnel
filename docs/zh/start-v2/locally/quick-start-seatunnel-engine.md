@@ -184,12 +184,12 @@ Total Failed Count        :                   0
 
 :::tip
 
-如果您先优化自己的作业，请查看[Source-MySQL](../../../en/connector-v2/source/Mysql.md) 和 [Sink-Doris](../../en/connector-v2/sink/Doris.md)
+如果您先优化自己的作业，请查看[Source-MySQL](../../../en/connector-v2/source/Mysql.md) 和 [Sink-Doris](../../../en/connector-v2/sink/Doris.md)
 
 :::
 
 
 ## 此外
 
-现在,您已经快速浏览了SeaTunnel，可以通过[连接器](../../en/connector-v2/connector-v2/)来找到SeaTunnel所支持的所有sources和sinks。
+现在,您已经快速浏览了SeaTunnel，可以通过[连接器](../../../en/connector-v2/)来找到SeaTunnel所支持的所有sources和sinks。
 如果您想要了解更多关于信息，请参阅[SeaTunnel引擎](../../seatunnel-engine/about.md). 在这里你将了解如何部署SeaTunnel Engine的集群模式以及如何在集群模式下使用。
