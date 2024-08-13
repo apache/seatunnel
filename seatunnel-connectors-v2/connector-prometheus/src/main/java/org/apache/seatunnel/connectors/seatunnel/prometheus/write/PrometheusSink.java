@@ -73,7 +73,7 @@ public class PrometheusSink extends AbstractSimpleSink<SeaTunnelRow, Void>
 
     @Override
     public String getPluginName() {
-        return HttpConfig.CONNECTOR_IDENTITY;
+        return "Prometheus";
     }
 
     @Override
