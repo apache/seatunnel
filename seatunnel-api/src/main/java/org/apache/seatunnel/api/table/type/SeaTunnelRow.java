@@ -28,7 +28,7 @@ public final class SeaTunnelRow implements Serializable {
     /** Table identifier. */
     private String tableId = "";
     /** The kind of change that a row describes in a changelog. */
-    private RowKind kind = RowKind.INSERT;
+    private RowKind rowKind = RowKind.INSERT;
     /** The array to store the actual internal format values. */
     private final Object[] fields;
 
@@ -50,17 +50,8 @@ public final class SeaTunnelRow implements Serializable {
         this.tableId = tableId;
     }
 
-    /**
-     * The method will be removed in the future, please use {@link #setKind(RowKind)} instanced of
-     * it.
-     */
-    @Deprecated
-    public void setRowKind(RowKind kind) {
-        setKind(kind);
-    }
-
-    public void setKind(RowKind kind) {
-        this.kind = kind;
+    public void setRowKind(RowKind rowKind) {
+        this.rowKind = rowKind;
     }
 
     public int getArity() {
@@ -71,14 +62,8 @@ public final class SeaTunnelRow implements Serializable {
         return tableId;
     }
 
-    /** The method will be removed in the future, please use {@link #getKind()} instanced of it. */
-    @Deprecated
     public RowKind getRowKind() {
-        return getKind();
-    }
-
-    public RowKind getKind() {
-        return this.kind;
+        return this.rowKind;
     }
 
     public Object[] getFields() {
@@ -335,13 +320,13 @@ public final class SeaTunnelRow implements Serializable {
         }
         SeaTunnelRow that = (SeaTunnelRow) o;
         return Objects.equals(tableId, that.tableId)
-                && kind == that.kind
+                && rowKind == that.rowKind
                 && Arrays.deepEquals(fields, that.fields);
     }
 
     @Override
     public int hashCode() {
-        int result = Objects.hash(tableId, kind);
+        int result = Objects.hash(tableId, rowKind);
         result = 31 * result + Arrays.deepHashCode(fields);
         return result;
     }
@@ -352,7 +337,7 @@ public final class SeaTunnelRow implements Serializable {
                 + "tableId="
                 + tableId
                 + ", kind="
-                + kind.shortString()
+                + rowKind.shortString()
                 + ", fields="
                 + Arrays.toString(fields)
                 + '}';
