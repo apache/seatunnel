@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.iceberg.config;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.kerberos.KerberosConfig;
 import org.apache.seatunnel.common.config.ConfigRuntimeException;
 
 import lombok.Getter;
@@ -33,7 +34,7 @@ import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.ch
 
 @Getter
 @ToString
-public class CommonConfig implements Serializable {
+public class CommonConfig extends KerberosConfig implements Serializable {
     private static final long serialVersionUID = 239821141534421580L;
 
     public static final Option<String> KEY_CATALOG_NAME =
@@ -80,25 +81,6 @@ public class CommonConfig implements Serializable {
                     .defaultValue(false)
                     .withDescription(" the iceberg case_sensitive");
 
-    // for kerberos
-    public static final Option<String> KERBEROS_PRINCIPAL =
-            Options.key("kerberos_principal")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("jdbc kerberos_principal");
-
-    public static final Option<String> KERBEROS_KEYTAB_PATH =
-            Options.key("kerberos_keytab_path")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("jdbc kerberos_keytab_path");
-
-    public static final Option<String> KERBEROS_KRB5_CONF_PATH =
-            Options.key("kerberos_krb5_conf_path")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("jdbc kerberos_keytab_path");
-
     private String catalogName;
     private String namespace;
     private String table;
@@ -107,7 +89,9 @@ public class CommonConfig implements Serializable {
     private Map<String, String> catalogProps;
     private Map<String, String> hadoopProps;
     private String hadoopConfPath;
+
     // kerberos
+
     private String kerberosPrincipal;
     private String kerberosKeytabPath;
     private String kerberosKrb5ConfPath;
@@ -125,11 +109,11 @@ public class CommonConfig implements Serializable {
         if (pluginConfig.getOptional(KERBEROS_PRINCIPAL).isPresent()) {
             this.kerberosPrincipal = pluginConfig.getOptional(KERBEROS_PRINCIPAL).get();
         }
+        if (pluginConfig.getOptional(KRB5_PATH).isPresent()) {
+            this.kerberosKrb5ConfPath = pluginConfig.getOptional(KRB5_PATH).get();
+        }
         if (pluginConfig.getOptional(KERBEROS_KEYTAB_PATH).isPresent()) {
             this.kerberosKeytabPath = pluginConfig.getOptional(KERBEROS_KEYTAB_PATH).get();
-        }
-        if (pluginConfig.getOptional(KERBEROS_KRB5_CONF_PATH).isPresent()) {
-            this.kerberosKrb5ConfPath = pluginConfig.getOptional(KERBEROS_KRB5_CONF_PATH).get();
         }
         validate();
     }
