@@ -96,8 +96,8 @@ SeaTunnel控制台将会打印一些如下日志信息:
 
 ## 扩展示例：从 MySQL 到 Doris 批处理模式
 
-## 步骤1：下载插件
-首先放入所需插件`connector-jdbc`、`connector-doris`到`${SEATUNNEL_HOME}/connectors/`目录下，您需要执行以下命令来安装连接器并且需要在`${SEATUNNEL_HOME}/config/plugin_config`目录下加入插件名称：(当然，您也可以从 [Apache Maven Repository](https://repo.maven.apache.org/maven2/org/apache/seatunnel/) 手动下载连接器，然后将其移动至`connectors/seatunnel`目录下)。
+## 步骤1：下载连接器
+首先放入所需连接器`connector-jdbc`、`connector-doris`到`${SEATUNNEL_HOME}/connectors/`目录下，您需要执行以下命令来安装连接器并且需要在`${SEATUNNEL_HOME}/config/plugin_config`目录下加入连接器名称：(当然，您也可以从 [Apache Maven Repository](https://repo.maven.apache.org/maven2/org/apache/seatunnel/) 手动下载连接器，然后将其移动至`connectors/seatunnel`目录下)。
 
 ```bash
 sh bin/install-plugin.sh
@@ -184,7 +184,7 @@ Total Failed Count        :                   0
 
 :::tip
 
-如果您想优化自己的作业，请参照[Source-MySQL](../../../en/connector-v2/source/Mysql.md) 和 [Sink-Doris](../../../en/connector-v2/sink/Doris.md)
+如果您想优化自己的作业，请参照连接器[Source-MySQL](../../../en/connector-v2/source/Mysql.md) 和 [Sink-Doris](../../../en/connector-v2/sink/Doris.md)
 
 :::
 
