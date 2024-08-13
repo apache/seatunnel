@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.core.starter.enums.PluginType;
 import org.apache.seatunnel.core.starter.execution.PluginUtil;
 import org.apache.seatunnel.core.starter.execution.SourceTableInfo;
@@ -71,21 +72,20 @@ public class SourceExecuteProcessor extends FlinkAbstractPluginExecuteProcessor<
             Config pluginConfig = pluginConfigs.get(i);
             FlinkSource flinkSource = new FlinkSource<>(internalSource, envConfig);
 
-            DataStreamSource sourceStream =
+            DataStreamSource<SeaTunnelRow> sourceStream =
                     executionEnvironment.fromSource(
                             flinkSource,
                             WatermarkStrategy.noWatermarks(),
-                            String.format("%s-source", internalSource.getPluginName()));
+                            String.format("%s-Source", internalSource.getPluginName()));
 
             if (pluginConfig.hasPath(CommonOptions.PARALLELISM.key())) {
                 int parallelism = pluginConfig.getInt(CommonOptions.PARALLELISM.key());
                 sourceStream.setParallelism(parallelism);
             }
-            registerResultTable(pluginConfig, sourceStream);
             sources.add(
                     new DataStreamTableInfo(
                             sourceStream,
-                            sourceTableInfo.getCatalogTables().get(0),
+                            sourceTableInfo.getCatalogTables(),
                             pluginConfig.hasPath(RESULT_TABLE_NAME.key())
                                     ? pluginConfig.getString(RESULT_TABLE_NAME.key())
                                     : null));
