@@ -17,11 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
-import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
-import org.apache.seatunnel.common.utils.JdbcUrlUtil;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oceanbase.OceanBaseMySqlCatalog;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
@@ -250,7 +247,8 @@ public class JdbcOceanbaseMilvusIT extends TestSuiteBase implements TestResource
     }
 
     @TestTemplate
-    public void testMilvusToOceanBase(TestContainer container) throws IOException, InterruptedException {
+    public void testMilvusToOceanBase(TestContainer container)
+            throws IOException, InterruptedException {
         Container.ExecResult execResult =
                 container.executeJob("/jdbc_milvus_source_and_oceanbase_sink.conf");
     }
