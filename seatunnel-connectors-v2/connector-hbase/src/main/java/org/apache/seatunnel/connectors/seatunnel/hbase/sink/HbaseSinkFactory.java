@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.hbase.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.sink.SinkCommonOptions;
 import org.apache.seatunnel.api.sink.SinkReplaceNameConstant;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
@@ -60,6 +61,7 @@ public class HbaseSinkFactory implements TableSinkFactory {
         return OptionRule.builder()
                 .required(ZOOKEEPER_QUORUM, TABLE, ROWKEY_COLUMNS, FAMILY_NAME)
                 .optional(
+                        SinkCommonOptions.MULTI_TABLE_SINK_REPLICA,
                         ROWKEY_DELIMITER,
                         VERSION_COLUMN,
                         NULL_MODE,
