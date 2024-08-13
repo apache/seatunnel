@@ -46,6 +46,7 @@ If you are adding E2E test cases, maybe refer to https://github.com/apache/seatu
 * [ ] If you are contributing the connector code, please check that the following files are updated:
   1. Update [plugin-mapping.properties](https://github.com/apache/seatunnel/blob/dev/plugin-mapping.properties) and add new connector information in it
   2. Update the pom file of [seatunnel-dist](https://github.com/apache/seatunnel/blob/dev/seatunnel-dist/pom.xml)
-  3. Add ci label in [conf](https://github.com/apache/seatunnel/blob/dev/.github/workflows/labeler/label-scope-conf.yml)
+  3. Add ci label in [label-scope-conf](https://github.com/apache/seatunnel/blob/dev/.github/workflows/labeler/label-scope-conf.yml)
   4. Add e2e testcase in [seatunnel-e2e](https://github.com/apache/seatunnel/tree/dev/seatunnel-e2e/seatunnel-connector-v2-e2e/)
+  5. Update connector [plugin_config](https://github.com/apache/seatunnel/blob/dev/config/plugin_config)
 * [ ] Update the [`release-note`](https://github.com/apache/seatunnel/blob/dev/release-note.md).
