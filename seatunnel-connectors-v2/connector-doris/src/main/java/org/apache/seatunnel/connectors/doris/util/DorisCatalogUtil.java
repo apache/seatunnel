@@ -117,10 +117,10 @@ public class DorisCatalogUtil {
 
         String primaryKey = "";
         if (tableSchema.getPrimaryKey() != null) {
-            primaryKey =
-                    tableSchema.getPrimaryKey().getColumnNames().stream()
-                            .map(r -> "`" + r + "`")
-                            .collect(Collectors.joining(","));
+            List<String> fields = Arrays.asList(catalogTable.getTableSchema().getFieldNames());
+            List<String> keys = tableSchema.getPrimaryKey().getColumnNames();
+            keys.sort(Comparator.comparingInt(fields::indexOf));
+            primaryKey = keys.stream().map(r -> "`" + r + "`").collect(Collectors.joining(","));
         }
         String uniqueKey = "";
         if (!tableSchema.getConstraintKeys().isEmpty()) {
