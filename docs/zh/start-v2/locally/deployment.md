@@ -28,7 +28,7 @@ tar -xzvf "apache-seatunnel-${version}-bin.tar.gz"
 
 ## 步骤 3: 下载连接器插件
 
-从2.2.0-beta版本开始，二进制包不再默认提供连接器依赖，因此在第一次使用时，您需要执行以下命令来安装连接器：(当然，您也可以从 [Apache Maven Repository](https://repo.maven.apache.org/maven2/org/apache/seatunnel/) 手动下载连接器，然后将其移动至`connectors/`目录下（如果是2.3.5之前则需要放入`connectors/seatunnel`目录下）)。
+从2.2.0-beta版本开始，二进制包不再默认提供连接器依赖，因此在第一次使用时，您需要执行以下命令来安装连接器：(当然，您也可以从 [Apache Maven Repository](https://repo.maven.apache.org/maven2/org/apache/seatunnel/) 手动下载连接器，然后将其移动至`connectors/`目录下，如果是2.3.5之前则需要放入`connectors/seatunnel`目录下)。
 
 ```bash
 sh bin/install-plugin.sh
