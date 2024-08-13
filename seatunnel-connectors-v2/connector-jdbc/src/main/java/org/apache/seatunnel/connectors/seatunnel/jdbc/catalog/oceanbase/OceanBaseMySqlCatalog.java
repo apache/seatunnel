@@ -56,16 +56,6 @@ public class OceanBaseMySqlCatalog extends AbstractJdbcCatalog {
     private static final String SELECT_TABLE_EXISTS =
             "SELECT TABLE_SCHEMA,TABLE_NAME FROM information_schema.tables WHERE table_schema = '%s' AND table_name = '%s'";
 
-    static {
-        SYS_DATABASES.clear();
-        SYS_DATABASES.add("information_schema");
-        SYS_DATABASES.add("mysql");
-        SYS_DATABASES.add("oceanbase");
-        SYS_DATABASES.add("LBACSYS");
-        SYS_DATABASES.add("ORAAUDITOR");
-        SYS_DATABASES.add("SYS");
-    }
-
     private OceanBaseMySqlTypeConverter typeConverter;
 
     public OceanBaseMySqlCatalog(
