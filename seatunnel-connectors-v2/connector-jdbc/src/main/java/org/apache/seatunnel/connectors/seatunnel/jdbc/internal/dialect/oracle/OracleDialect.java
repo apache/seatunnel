@@ -180,34 +180,47 @@ public class OracleDialect implements JdbcDialect {
     public Long approximateRowCntStatement(Connection connection, JdbcSourceTable table)
             throws SQLException {
 
-        // 1. If no query is configured, use TABLE STATUS.
-        // 2. If a query is configured but does not contain a WHERE clause and tablePath is
+        // 1. Use select count
+        // 2. If no query is configured, use TABLE STATUS.
+        // 3. If a query is configured but does not contain a WHERE clause and tablePath is
         // configured, use TABLE STATUS.
-        // 3. If a query is configured with a WHERE clause, or a query statement is configured but
+        // 4. If a query is configured with a WHERE clause, or a query statement is configured but
         // tablePath is TablePath.DEFAULT, use COUNT(*).
 
+        String query = table.getQuery();
+
         boolean useTableStats =
-                StringUtils.isBlank(table.getQuery())
-                        || (!table.getQuery().toLowerCase().contains("where")
+                StringUtils.isBlank(query)
+                        || (!query.toLowerCase().contains("where")
                                 && table.getTablePath() != null
                                 && !TablePath.DEFAULT
                                         .getFullName()
                                         .equals(table.getTablePath().getFullName()));
 
+        if (table.getUseSelectCount()) {
+            useTableStats = false;
+            if (StringUtils.isBlank(query)) {
+                query = "SELECT * FROM " + tableIdentifier(table.getTablePath());
+            }
+        }
+
         if (useTableStats) {
             TablePath tablePath = table.getTablePath();
-            String analyzeTable =
-                    String.format(
-                            "analyze table %s compute statistics for table",
-                            tableIdentifier(tablePath));
             String rowCountQuery =
                     String.format(
                             "select NUM_ROWS from all_tables where OWNER = '%s' AND TABLE_NAME = '%s' ",
                             tablePath.getSchemaName(), tablePath.getTableName());
-
             try (Statement stmt = connection.createStatement()) {
-                log.info("Split Chunk, approximateRowCntStatement: {}", analyzeTable);
-                stmt.execute(analyzeTable);
+                String analyzeTable =
+                        String.format(
+                                "analyze table %s compute statistics for table",
+                                tableIdentifier(tablePath));
+                if (!table.getSkipAnalyze()) {
+                    log.info("Split Chunk, approximateRowCntStatement: {}", analyzeTable);
+                    stmt.execute(analyzeTable);
+                } else {
+                    log.warn("Skip analyze, approximateRowCntStatement: {}", analyzeTable);
+                }
                 log.info("Split Chunk, approximateRowCntStatement: {}", rowCountQuery);
                 try (ResultSet rs = stmt.executeQuery(rowCountQuery)) {
                     if (!rs.next()) {
@@ -220,7 +233,7 @@ public class OracleDialect implements JdbcDialect {
                 }
             }
         }
-        return SQLUtils.countForSubquery(connection, table.getQuery());
+        return SQLUtils.countForSubquery(connection, query);
     }
 
     @Override

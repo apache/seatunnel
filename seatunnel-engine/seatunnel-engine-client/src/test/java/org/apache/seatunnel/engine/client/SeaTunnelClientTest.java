@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.client;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.apache.seatunnel.common.config.Common;
@@ -29,6 +31,7 @@ import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelNodeContext;
@@ -47,10 +50,17 @@ import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
 import lombok.extern.slf4j.Slf4j;
 
+import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.Spliterators;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_COUNT;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_QPS;
@@ -352,6 +362,58 @@ public class SeaTunnelClientTest {
     }
 
     @Test
+    public void testSetJobIdDuplicate() {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath = TestUtils.getResource("/streaming_fake_to_console.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setName("testSetJobId");
+        long jobId = System.currentTimeMillis();
+        SeaTunnelClient seaTunnelClient = createSeaTunnelClient();
+        JobClient jobClient = seaTunnelClient.getJobClient();
+        try {
+            ClientJobExecutionEnvironment jobExecutionEnv =
+                    seaTunnelClient.createExecutionContext(
+                            filePath, new ArrayList<>(), jobConfig, SEATUNNEL_CONFIG, jobId);
+
+            final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+
+            Assertions.assertEquals(jobId, clientJobProxy.getJobId());
+
+            await().atMost(30000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            "RUNNING", jobClient.getJobStatus(jobId)));
+            jobClient.cancelJob(jobId);
+            await().atMost(30000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            "CANCELED", jobClient.getJobStatus(jobId)));
+
+            ClientJobExecutionEnvironment jobExecutionEnvWithSameJobId =
+                    seaTunnelClient.createExecutionContext(
+                            filePath, new ArrayList<>(), jobConfig, SEATUNNEL_CONFIG, jobId);
+            Exception exception =
+                    Assertions.assertThrows(
+                            Exception.class,
+                            () -> jobExecutionEnvWithSameJobId.execute().waitForJobCompleteV2());
+            Assertions.assertTrue(
+                    exception
+                            .getCause()
+                            .getMessage()
+                            .contains(
+                                    String.format(
+                                            "The job id %s has already been submitted and is not starting with a savepoint.",
+                                            jobId)));
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        } finally {
+            seaTunnelClient.close();
+        }
+    }
+
+    @Test
     public void testGetJobInfo() {
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = TestUtils.getResource("/client_test.conf");
@@ -396,6 +458,26 @@ public class SeaTunnelClientTest {
             throw new RuntimeException(e);
         } finally {
             seaTunnelClient.close();
+        }
+    }
+
+    @Test
+    public void testJarsInEnvAddedToCommonJars() {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath = TestUtils.getResource("/client_test_with_jars.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setName("client_test_with_jars");
+        try (SeaTunnelClient seaTunnelClient = createSeaTunnelClient()) {
+            LogicalDag logicalDag =
+                    seaTunnelClient
+                            .createExecutionContext(filePath, jobConfig, SEATUNNEL_CONFIG)
+                            .getLogicalDag();
+            Assertions.assertIterableEquals(
+                    Arrays.asList("file:/tmp/test.jar", "file:/tmp/test2.jar"),
+                    logicalDag.getLogicalVertexMap().values().iterator().next().getAction()
+                            .getJarUrls().stream()
+                            .map(URL::toString)
+                            .collect(Collectors.toList()));
         }
     }
 
@@ -466,6 +548,114 @@ public class SeaTunnelClientTest {
                                     Assertions.assertEquals(
                                             "CANCELED", jobClient.getJobStatus(jobId)));
         } catch (Exception e) {
+            throw new RuntimeException(e);
+        } finally {
+            seaTunnelClient.close();
+        }
+    }
+
+    @Test
+    public void testGetMultiTableJobMetrics() {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath = TestUtils.getResource("/batch_fake_multi_table_to_console.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setName("testGetMultiTableJobMetrics");
+
+        SeaTunnelClient seaTunnelClient = createSeaTunnelClient();
+        JobClient jobClient = seaTunnelClient.getJobClient();
+
+        try {
+            ClientJobExecutionEnvironment jobExecutionEnv =
+                    seaTunnelClient.createExecutionContext(filePath, jobConfig, SEATUNNEL_CONFIG);
+
+            final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+            CompletableFuture<JobStatus> objectCompletableFuture =
+                    CompletableFuture.supplyAsync(
+                            () -> {
+                                return clientJobProxy.waitForJobComplete();
+                            });
+            long jobId = clientJobProxy.getJobId();
+
+            await().atMost(30000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertTrue(
+                                            jobClient.getJobDetailStatus(jobId).contains("FINISHED")
+                                                    && jobClient
+                                                            .listJobStatus(true)
+                                                            .contains("FINISHED")));
+
+            String jobMetrics = jobClient.getJobMetrics(jobId);
+
+            Assertions.assertTrue(jobMetrics.contains(SOURCE_RECEIVED_COUNT + "#fake.table1"));
+            Assertions.assertTrue(
+                    jobMetrics.contains(SOURCE_RECEIVED_COUNT + "#fake.public.table2"));
+            Assertions.assertTrue(jobMetrics.contains(SINK_WRITE_COUNT + "#fake.table1"));
+            Assertions.assertTrue(jobMetrics.contains(SINK_WRITE_COUNT + "#fake.public.table2"));
+
+            log.info("jobMetrics : {}", jobMetrics);
+            JsonNode jobMetricsStr = new ObjectMapper().readTree(jobMetrics);
+            List<String> metricNameList =
+                    StreamSupport.stream(
+                                    Spliterators.spliteratorUnknownSize(
+                                            jobMetricsStr.fieldNames(), 0),
+                                    false)
+                            .filter(
+                                    metricName ->
+                                            metricName.startsWith(SOURCE_RECEIVED_COUNT)
+                                                    || metricName.startsWith(SINK_WRITE_COUNT))
+                            .collect(Collectors.toList());
+
+            Map<String, Long> totalCount =
+                    metricNameList.stream()
+                            .filter(metrics -> !metrics.contains("#"))
+                            .collect(
+                                    Collectors.toMap(
+                                            metrics -> metrics,
+                                            metrics ->
+                                                    StreamSupport.stream(
+                                                                    jobMetricsStr
+                                                                            .get(metrics)
+                                                                            .spliterator(),
+                                                                    false)
+                                                            .mapToLong(
+                                                                    value ->
+                                                                            value.get("value")
+                                                                                    .asLong())
+                                                            .sum()));
+
+            Map<String, Long> tableCount =
+                    metricNameList.stream()
+                            .filter(metrics -> metrics.contains("#"))
+                            .collect(
+                                    Collectors.toMap(
+                                            metrics -> metrics,
+                                            metrics ->
+                                                    StreamSupport.stream(
+                                                                    jobMetricsStr
+                                                                            .get(metrics)
+                                                                            .spliterator(),
+                                                                    false)
+                                                            .mapToLong(
+                                                                    value ->
+                                                                            value.get("value")
+                                                                                    .asLong())
+                                                            .sum()));
+
+            Assertions.assertEquals(
+                    totalCount.get(SOURCE_RECEIVED_COUNT),
+                    tableCount.entrySet().stream()
+                            .filter(e -> e.getKey().startsWith(SOURCE_RECEIVED_COUNT))
+                            .mapToLong(Map.Entry::getValue)
+                            .sum());
+            Assertions.assertEquals(
+                    totalCount.get(SINK_WRITE_COUNT),
+                    tableCount.entrySet().stream()
+                            .filter(e -> e.getKey().startsWith(SINK_WRITE_COUNT))
+                            .mapToLong(Map.Entry::getValue)
+                            .sum());
+
+        } catch (ExecutionException | InterruptedException | JsonProcessingException e) {
             throw new RuntimeException(e);
         } finally {
             seaTunnelClient.close();

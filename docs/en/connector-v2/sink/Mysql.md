@@ -4,7 +4,7 @@
 
 ## Support Mysql Version
 
-- 5.5/5.6/5.7/8.0
+- 5.5/5.6/5.7/8.0/8.4
 
 ## Support Those Engines
 

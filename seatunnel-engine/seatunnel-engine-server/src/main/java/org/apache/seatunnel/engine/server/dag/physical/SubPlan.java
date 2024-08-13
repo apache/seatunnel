@@ -54,6 +54,8 @@ public class SubPlan {
     /** The max num pipeline can restore. */
     private final int pipelineMaxRestoreNum;
 
+    private final int pipelineRestoreIntervalSeconds;
+
     private final List<PhysicalVertex> physicalVertexList;
 
     private final List<PhysicalVertex> coordinatorVertexList;
@@ -132,6 +134,17 @@ public class SubPlan {
                                 .computeIfAbsent(
                                         EnvCommonOptions.JOB_RETRY_TIMES.key(),
                                         key -> EnvCommonOptions.JOB_RETRY_TIMES.defaultValue())
+                                .toString());
+        pipelineRestoreIntervalSeconds =
+                Integer.parseInt(
+                        jobImmutableInformation
+                                .getJobConfig()
+                                .getEnvOptions()
+                                .computeIfAbsent(
+                                        EnvCommonOptions.JOB_RETRY_INTERVAL_SECONDS.key(),
+                                        key ->
+                                                EnvCommonOptions.JOB_RETRY_INTERVAL_SECONDS
+                                                        .defaultValue())
                                 .toString());
         Long[] stateTimestamps = new Long[PipelineStatus.values().length];
         if (runningJobStateTimestampsIMap.get(pipelineLocation) == null) {
@@ -295,7 +308,14 @@ public class SubPlan {
             RetryUtils.retryWithException(
                     () -> {
                         jobMaster.savePipelineMetricsToHistory(getPipelineLocation());
-                        jobMaster.removeMetricsContext(getPipelineLocation(), pipelineStatus);
+                        try {
+                            jobMaster.removeMetricsContext(getPipelineLocation(), pipelineStatus);
+                        } catch (Throwable e) {
+                            log.error(
+                                    "Remove metrics context for pipeline {} failed, with exception: {}",
+                                    pipelineFullName,
+                                    ExceptionUtils.getMessage(e));
+                        }
                         notifyCheckpointManagerPipelineEnd(pipelineStatus);
                         jobMaster.releasePipelineResource(this);
                         return null;
@@ -450,6 +470,11 @@ public class SubPlan {
                 reset();
                 jobMaster.getCheckpointManager().reportedPipelineRunning(pipelineId, false);
                 jobMaster.getPhysicalPlan().addPipelineEndCallback(this);
+                log.info(
+                        "Wait {}s and then restore the pipeline {}",
+                        pipelineRestoreIntervalSeconds,
+                        getPipelineFullName());
+                Thread.sleep(pipelineRestoreIntervalSeconds * 1000);
                 return true;
             } catch (Throwable e) {
                 if (this.currPipelineStatus.isEndState()) {
