@@ -130,10 +130,12 @@ public class SinkExecuteProcessor
                 sink.setTypeInfo((SeaTunnelRowType) inputType);
             } else {
                 TableSinkFactoryContext context =
-                        new TableSinkFactoryContext(
+                        TableSinkFactoryContext.replacePlaceholderAndCreate(
                                 datasetTableInfo.getCatalogTable(),
                                 ReadonlyConfig.fromConfig(sinkConfig),
-                                classLoader);
+                                classLoader,
+                                ((TableSinkFactory) factory.get())
+                                        .excludeTablePlaceholderReplaceKeys());
                 ConfigValidator.of(context.getOptions()).validate(factory.get().optionRule());
                 sink = ((TableSinkFactory) factory.get()).createSink(context).createSink();
                 sink.setJobContext(jobContext);

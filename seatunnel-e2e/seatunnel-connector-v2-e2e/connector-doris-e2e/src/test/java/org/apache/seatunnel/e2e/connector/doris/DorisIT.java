@@ -224,7 +224,7 @@ public class DorisIT extends AbstractDorisIT {
         }
     }
 
-    private void checkSinkData() {
+    protected void checkSinkData() {
         try {
             assertHasData(sourceDB, UNIQUE_TABLE);
             assertHasData(sinkDB, UNIQUE_TABLE);
@@ -371,7 +371,7 @@ public class DorisIT extends AbstractDorisIT {
         }
     }
 
-    private void initializeJdbcTable() {
+    protected void initializeJdbcTable() {
         try {
             URLClassLoader urlClassLoader =
                     new URLClassLoader(
@@ -528,15 +528,21 @@ public class DorisIT extends AbstractDorisIT {
         return String.format(createDuplicateTableSql, db, DUPLICATE_TABLE);
     }
 
-    private void batchInsertUniqueTableData() {
+    protected void batchInsertUniqueTableData() {
         List<SeaTunnelRow> rows = genUniqueTableTestData(100L);
         try {
             conn.setAutoCommit(false);
             try (PreparedStatement preparedStatement =
                     conn.prepareStatement(INIT_UNIQUE_TABLE_DATA_SQL)) {
                 for (int i = 0; i < rows.size(); i++) {
-                    for (int index = 0; index < rows.get(i).getFields().length; index++) {
-                        preparedStatement.setObject(index + 1, rows.get(i).getFields()[index]);
+                    if (i % 10 == 0) {
+                        for (int index = 0; index < rows.get(i).getFields().length; index++) {
+                            preparedStatement.setObject(index + 1, null);
+                        }
+                    } else {
+                        for (int index = 0; index < rows.get(i).getFields().length; index++) {
+                            preparedStatement.setObject(index + 1, rows.get(i).getFields()[index]);
+                        }
                     }
                     preparedStatement.addBatch();
                 }

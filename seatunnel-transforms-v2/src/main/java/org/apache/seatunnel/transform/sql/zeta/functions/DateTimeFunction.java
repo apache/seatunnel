@@ -472,6 +472,15 @@ public class DateTimeFunction {
         return getMonthsAndWeeks(0)[dow - 1];
     }
 
+    public static boolean isDate(List<Object> args) {
+        try {
+            parsedatetime(args);
+            return true;
+        } catch (Throwable e) {
+            return false;
+        }
+    }
+
     public static Temporal parsedatetime(List<Object> args) {
         String str = (String) args.get(0);
         if (str == null) {

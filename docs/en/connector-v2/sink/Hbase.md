@@ -26,6 +26,7 @@ Output data to Hbase
 | encoding           | string  | no       | utf8            |
 | hbase_extra_config | string  | no       | -               |
 | common-options     |         | no       | -               |
+| ttl                | long    | no       | -               |
 
 ### zookeeper_quorum [string]
 
@@ -95,6 +96,10 @@ The encoding of string field, support [`utf8`, `gbk`], default `utf8`
 
 The extra configuration of hbase
 
+### ttl [long]
+
+Hbase writes data TTL time, the default is based on the TTL set in the table, unit: milliseconds
+
 ### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
@@ -111,7 +116,20 @@ Hbase {
     all_columns = seatunnel
   }
 }
+```
 
+## Writes To The Specified Column Family
+
+```hocon
+Hbase {
+  zookeeper_quorum = "hbase_e2e:2181"
+  table = "assign_cf_table"
+  rowkey_column = ["id"]
+  family_name {
+    c_double = "cf1"
+    c_bigint = "cf2"
+  }
+}
 ```
 
 ## Changelog

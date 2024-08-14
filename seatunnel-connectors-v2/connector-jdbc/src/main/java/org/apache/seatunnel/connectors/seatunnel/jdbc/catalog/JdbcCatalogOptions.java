@@ -74,4 +74,10 @@ public interface JdbcCatalogOptions {
                     .noDefaultValue()
                     .withDescription(
                             "The table suffix name added when the table is automatically created");
+
+    Option<Boolean> CREATE_INDEX =
+            Options.key("create_index")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDescription("Create index or not when auto create table");
 }

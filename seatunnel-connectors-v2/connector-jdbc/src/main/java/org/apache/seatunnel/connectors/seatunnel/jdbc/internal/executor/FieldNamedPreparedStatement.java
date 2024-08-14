@@ -42,6 +42,7 @@ import java.sql.SQLXML;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.List;
@@ -636,13 +637,29 @@ public class FieldNamedPreparedStatement implements PreparedStatement {
             HashMap<String, List<Integer>> parameterMap = new HashMap<>();
             parsedSQL = parseNamedStatement(sql, parameterMap);
             // currently, the statements must contain all the field parameters
-            checkArgument(parameterMap.size() == fieldNames.length);
+            parameterMap
+                    .keySet()
+                    .forEach(
+                            namedParameter -> {
+                                boolean namedParameterExist =
+                                        Arrays.asList(fieldNames).stream()
+                                                .anyMatch(field -> field.equals(namedParameter));
+                                checkArgument(
+                                        namedParameterExist,
+                                        String.format(
+                                                "Named parameters [%s] not in source columns, check SQL: %s",
+                                                namedParameter, sql));
+                            });
+
             for (int i = 0; i < fieldNames.length; i++) {
                 String fieldName = fieldNames[i];
-                checkArgument(
-                        parameterMap.containsKey(fieldName),
-                        fieldName + " doesn't exist in the parameters of SQL statement: " + sql);
-                indexMapping[i] = parameterMap.get(fieldName).stream().mapToInt(v -> v).toArray();
+                boolean parameterExist =
+                        parameterMap.keySet().stream()
+                                .anyMatch(parameter -> parameter.equals(fieldName));
+                indexMapping[i] =
+                        parameterExist
+                                ? parameterMap.get(fieldName).stream().mapToInt(v -> v).toArray()
+                                : new int[0];
             }
         }
         log.info("PrepareStatement sql is:\n{}\n", parsedSQL);
