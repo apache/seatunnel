@@ -73,6 +73,9 @@ import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.T
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.TINYINT_MAX;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.TINYINT_MIN;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.TINYINT_TEMPLATE;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.VECTOR_DIMENSION;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.VECTOR_FLOAT_MAX;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.VECTOR_FLOAT_MIN;
 
 @Builder
 @Getter
@@ -114,6 +117,12 @@ public class FakeConfig implements Serializable {
     @Builder.Default private double doubleMin = DOUBLE_MIN.defaultValue();
 
     @Builder.Default private double doubleMax = DOUBLE_MAX.defaultValue();
+
+    @Builder.Default private float vectorFloatMin = VECTOR_FLOAT_MIN.defaultValue();
+
+    @Builder.Default private float vectorFloatMax = VECTOR_FLOAT_MAX.defaultValue();
+
+    @Builder.Default private int vectorDimension = VECTOR_DIMENSION.defaultValue();
 
     @Builder.Default private FakeOption.FakeMode stringFakeMode = STRING_FAKE_MODE.defaultValue();
 
@@ -157,6 +166,7 @@ public class FakeConfig implements Serializable {
         builder.splitReadInterval(readonlyConfig.get(SPLIT_READ_INTERVAL));
         builder.mapSize(readonlyConfig.get(MAP_SIZE));
         builder.arraySize(readonlyConfig.get(ARRAY_SIZE));
+        builder.vectorDimension(readonlyConfig.get(VECTOR_DIMENSION));
         builder.bytesLength(readonlyConfig.get(BYTES_LENGTH));
         builder.stringLength(readonlyConfig.get(STRING_LENGTH));
 
@@ -387,6 +397,40 @@ public class FakeConfig implements Serializable {
                                                 + DOUBLE_MAX.defaultValue());
                             }
                             builder.doubleMax(doubleMax);
+                        });
+
+        readonlyConfig
+                .getOptional(VECTOR_FLOAT_MIN)
+                .ifPresent(
+                        vectorFloatMin -> {
+                            if (vectorFloatMin < VECTOR_FLOAT_MIN.defaultValue()
+                                    || vectorFloatMin > VECTOR_FLOAT_MAX.defaultValue()) {
+                                throw new FakeConnectorException(
+                                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                                        VECTOR_FLOAT_MIN.key()
+                                                + " should >= "
+                                                + VECTOR_FLOAT_MIN.defaultValue()
+                                                + " and <= "
+                                                + VECTOR_FLOAT_MAX.defaultValue());
+                            }
+                            builder.vectorFloatMin(vectorFloatMin);
+                        });
+
+        readonlyConfig
+                .getOptional(VECTOR_FLOAT_MAX)
+                .ifPresent(
+                        vectorFloatMax -> {
+                            if (vectorFloatMax < VECTOR_FLOAT_MIN.defaultValue()
+                                    || vectorFloatMax > VECTOR_FLOAT_MAX.defaultValue()) {
+                                throw new FakeConnectorException(
+                                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                                        VECTOR_FLOAT_MAX.key()
+                                                + " should >= "
+                                                + VECTOR_FLOAT_MIN.defaultValue()
+                                                + " and <= "
+                                                + VECTOR_FLOAT_MAX.defaultValue());
+                            }
+                            builder.vectorFloatMax(vectorFloatMax);
                         });
 
         readonlyConfig.getOptional(STRING_FAKE_MODE).ifPresent(builder::stringFakeMode);

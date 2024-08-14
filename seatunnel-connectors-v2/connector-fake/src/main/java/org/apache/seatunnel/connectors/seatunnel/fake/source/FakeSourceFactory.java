@@ -59,6 +59,7 @@ import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.T
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.TIME_SECOND_TEMPLATE;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.TINYINT_FAKE_MODE;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.TINYINT_TEMPLATE;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.VECTOR_DIMENSION;
 
 @AutoService(Factory.class)
 public class FakeSourceFactory implements TableSourceFactory {
@@ -94,6 +95,7 @@ public class FakeSourceFactory implements TableSourceFactory {
                         MAP_SIZE,
                         ARRAY_SIZE,
                         BYTES_LENGTH,
+                        VECTOR_DIMENSION,
                         DATE_YEAR_TEMPLATE,
                         DATE_MONTH_TEMPLATE,
                         DATE_DAY_TEMPLATE,

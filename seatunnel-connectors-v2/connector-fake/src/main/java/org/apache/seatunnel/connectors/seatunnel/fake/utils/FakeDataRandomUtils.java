@@ -27,7 +27,9 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class FakeDataRandomUtils {
     private final FakeConfig fakeConfig;
@@ -166,5 +168,68 @@ public class FakeDataRandomUtils {
             second = RandomUtils.nextInt(0, 60);
         }
         return LocalDateTime.of(year, month, day, hour, minute, second);
+    }
+
+    public Byte[] randomBinaryVector() {
+        Byte[] binaryVector = new Byte[fakeConfig.getVectorDimension()];
+        for (int i = 0; i < fakeConfig.getVectorDimension(); i++) {
+            binaryVector[i] = (byte) (RandomUtils.nextBoolean() ? 1 : 0);
+        }
+        return binaryVector;
+    }
+
+    public Float[] randomFloatVector() {
+        Float[] floatVector = new Float[fakeConfig.getVectorDimension()];
+        for (int i = 0; i < fakeConfig.getVectorDimension(); i++) {
+            floatVector[i] =
+                    RandomUtils.nextFloat(
+                            fakeConfig.getVectorFloatMin(), fakeConfig.getVectorFloatMax());
+        }
+        return floatVector;
+    }
+
+    public Short[] randomFloat16Vector() {
+        Short[] float16Vector = new Short[fakeConfig.getVectorDimension()];
+        for (int i = 0; i < fakeConfig.getVectorDimension(); i++) {
+            float value =
+                    RandomUtils.nextFloat(
+                            fakeConfig.getVectorFloatMin(), fakeConfig.getVectorFloatMax());
+            float16Vector[i] = floatToFloat16(value);
+        }
+        return float16Vector;
+    }
+
+    public Short[] randomBFloat16Vector() {
+        Short[] bfloat16Vector = new Short[fakeConfig.getVectorDimension()];
+        for (int i = 0; i < fakeConfig.getVectorDimension(); i++) {
+            float value =
+                    RandomUtils.nextFloat(
+                            fakeConfig.getVectorFloatMin(), fakeConfig.getVectorFloatMax());
+            bfloat16Vector[i] = floatToBFloat16(value);
+        }
+        return bfloat16Vector;
+    }
+
+    public Map<Integer, Float> randomSparseFloatVector() {
+        Map<Integer, Float> sparseFloatVector = new HashMap<>();
+        for (int i = 0; i < fakeConfig.getVectorDimension(); i++) {
+            float value =
+                    RandomUtils.nextFloat(
+                            fakeConfig.getVectorFloatMin(), fakeConfig.getVectorFloatMax());
+            if (value > 0.7) {
+                sparseFloatVector.put(i, value);
+            }
+        }
+        return sparseFloatVector;
+    }
+
+    private static short floatToFloat16(float value) {
+        int intBits = Float.floatToIntBits(value);
+        return (short) ((intBits >> 16) & 0xFFFF);
+    }
+
+    private static short floatToBFloat16(float value) {
+        int intBits = Float.floatToIntBits(value);
+        return (short) (intBits >> 16);
     }
 }

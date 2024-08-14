@@ -112,6 +112,17 @@ public class FakeDataGeneratorTest {
         Assertions.assertIterableEquals(expected, seaTunnelRows);
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"fake-vector.conf"})
+    public void testVectorParse(String conf) throws FileNotFoundException, URISyntaxException {
+        ReadonlyConfig testConfig = getTestConfigFile(conf);
+        FakeConfig fakeConfig = FakeConfig.buildWithConfig(testConfig);
+        FakeDataGenerator fakeDataGenerator = new FakeDataGenerator(fakeConfig);
+        List<SeaTunnelRow> seaTunnelRows =
+                fakeDataGenerator.generateFakedRows(fakeConfig.getRowNum());
+        Assertions.assertNotNull(seaTunnelRows);
+    }
+
     private ReadonlyConfig getTestConfigFile(String configFile)
             throws FileNotFoundException, URISyntaxException {
         if (!configFile.startsWith("/")) {

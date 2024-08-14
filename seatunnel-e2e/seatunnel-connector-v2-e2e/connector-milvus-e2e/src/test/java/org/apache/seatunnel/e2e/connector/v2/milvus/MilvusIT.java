@@ -215,4 +215,36 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
         Assertions.assertTrue(fileds.contains(VECTOR_FIELD));
         Assertions.assertTrue(fileds.contains(TITLE_FIELD));
     }
+
+    @TestTemplate
+    public void testFakeToMilvus(TestContainer container) throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeJob("/fake-to-milvus.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+
+        // assert table exist
+        R<Boolean> hasCollectionResponse =
+                this.milvusClient.hasCollection(
+                        HasCollectionParam.newBuilder()
+                                .withDatabaseName("test")
+                                .withCollectionName(COLLECTION_NAME)
+                                .build());
+        Assertions.assertTrue(hasCollectionResponse.getData());
+
+        // check table fields
+        R<DescribeCollectionResponse> describeCollectionResponseR =
+                this.milvusClient.describeCollection(
+                        DescribeCollectionParam.newBuilder()
+                                .withDatabaseName("test")
+                                .withCollectionName(COLLECTION_NAME)
+                                .build());
+
+        DescribeCollectionResponse data = describeCollectionResponseR.getData();
+        List<String> fileds =
+                data.getSchema().getFieldsList().stream()
+                        .map(FieldSchema::getName)
+                        .collect(Collectors.toList());
+        Assertions.assertTrue(fileds.contains(ID_FIELD));
+        Assertions.assertTrue(fileds.contains(VECTOR_FIELD));
+        Assertions.assertTrue(fileds.contains(TITLE_FIELD));
+    }
 }
