@@ -92,10 +92,6 @@ public class PrometheusIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    @DisabledOnContainer(
-            value = {},
-            type = {EngineType.SPARK, EngineType.FLINK},
-            disabledReason = "Currently SPARK/FLINK do not support multiple table read")
     public void testSourceToAssertSink(TestContainer container)
             throws IOException, InterruptedException {
 
