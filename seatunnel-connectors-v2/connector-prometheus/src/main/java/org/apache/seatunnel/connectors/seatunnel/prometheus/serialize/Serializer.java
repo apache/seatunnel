@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.prometheus.serialize;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.connectors.seatunnel.prometheus.write.Point;
+import org.apache.seatunnel.connectors.seatunnel.prometheus.sink.Point;
 
 public interface Serializer {
     Point serialize(SeaTunnelRow seaTunnelRow);

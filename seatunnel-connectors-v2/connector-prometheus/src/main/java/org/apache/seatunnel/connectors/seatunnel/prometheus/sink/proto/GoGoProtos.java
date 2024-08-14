@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.seatunnel.connectors.seatunnel.prometheus.write.proto;
+package org.apache.seatunnel.connectors.seatunnel.prometheus.sink.proto;
 
 public final class GoGoProtos {
     private GoGoProtos() {}

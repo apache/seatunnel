@@ -21,7 +21,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.prometheus.Exception.PrometheusConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.prometheus.write.Point;
+import org.apache.seatunnel.connectors.seatunnel.prometheus.sink.Point;
 
 import com.google.common.base.Strings;
 import lombok.NonNull;

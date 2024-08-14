@@ -14,9 +14,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.seatunnel.connectors.seatunnel.prometheus.write;
+package org.apache.seatunnel.connectors.seatunnel.prometheus.sink;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.sink.SinkCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -52,6 +53,7 @@ public class PrometheusSinkFactory extends HttpSinkFactory {
                 .optional(PrometheusSinkConfig.RETRY_BACKOFF_MULTIPLIER_MS)
                 .optional(PrometheusSinkConfig.RETRY_BACKOFF_MAX_MS)
                 .optional(PrometheusSinkConfig.BATCH_SIZE)
+                .optional(SinkCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .build();
     }
 }

@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.seatunnel.connectors.seatunnel.prometheus.write;
+package org.apache.seatunnel.connectors.seatunnel.prometheus.sink;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
@@ -29,8 +29,8 @@ import org.apache.seatunnel.connectors.seatunnel.prometheus.Exception.Prometheus
 import org.apache.seatunnel.connectors.seatunnel.prometheus.config.PrometheusSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.prometheus.serialize.PrometheusSerializer;
 import org.apache.seatunnel.connectors.seatunnel.prometheus.serialize.Serializer;
-import org.apache.seatunnel.connectors.seatunnel.prometheus.write.proto.Remote;
-import org.apache.seatunnel.connectors.seatunnel.prometheus.write.proto.Types;
+import org.apache.seatunnel.connectors.seatunnel.prometheus.sink.proto.Remote;
+import org.apache.seatunnel.connectors.seatunnel.prometheus.sink.proto.Types;
 
 import org.apache.http.HttpStatus;
 import org.apache.http.entity.ByteArrayEntity;

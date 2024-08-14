@@ -28,6 +28,12 @@
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-starter</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-assert</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
@@ -50,6 +56,17 @@
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
-
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>connector-fake</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>prometheus</artifactId>
+            <version>1.19.0</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 </project>

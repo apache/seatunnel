@@ -18,7 +18,9 @@ package org.apache.seatunnel.e2e.connector.prometheus;
 
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -27,66 +29,73 @@ import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
-import org.testcontainers.containers.wait.strategy.HttpWaitStrategy;
+import org.testcontainers.containers.wait.strategy.HostPortWaitStrategy;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
-import org.testcontainers.utility.MountableFile;
 
-import java.io.File;
+import com.google.common.collect.Lists;
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
-import java.net.URL;
-import java.util.Optional;
+import java.time.Duration;
 import java.util.stream.Stream;
 
+@Slf4j
 public class PrometheusIT extends TestSuiteBase implements TestResource {
 
-    private static final String TMP_DIR = "/tmp";
+    private static final String IMAGE = "bitnami/prometheus:2.53.0";
 
-    private static final String successCount = "Total Write Count         :                   2";
+    private GenericContainer<?> prometheusContainer;
 
-    private static final String IMAGE = "mockserver/mockserver:5.14.0";
-
-    private GenericContainer<?> mockserverContainer;
+    private static final String HOST = "prometheus-host";
 
     @BeforeAll
     @Override
     public void startUp() {
-        Optional<URL> resource =
-                Optional.ofNullable(PrometheusIT.class.getResource(getMockServerConfig()));
-        this.mockserverContainer =
+        this.prometheusContainer =
                 new GenericContainer<>(DockerImageName.parse(IMAGE))
                         .withNetwork(NETWORK)
-                        .withNetworkAliases("mockserver")
-                        .withExposedPorts(1080)
-                        .withCopyFileToContainer(
-                                MountableFile.forHostPath(
-                                        new File(
-                                                        resource.orElseThrow(
-                                                                        () ->
-                                                                                new IllegalArgumentException(
-                                                                                        "Can not get config file of mockServer"))
-                                                                .getPath())
-                                                .getAbsolutePath()),
-                                TMP_DIR + getMockServerConfig())
-                        .withEnv(
-                                "MOCKSERVER_INITIALIZATION_JSON_PATH",
-                                TMP_DIR + getMockServerConfig())
-                        .withEnv("MOCKSERVER_LOG_LEVEL", "WARN")
+                        .withNetworkAliases(HOST)
+                        .withExposedPorts(9090)
+                        .withCommand(
+                                "--config.file=/opt/bitnami/prometheus/conf/prometheus.yml",
+                                "--web.enable-remote-write-receiver")
                         .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)))
-                        .waitingFor(new HttpWaitStrategy().forPath("/").forStatusCode(404));
-        Startables.deepStart(Stream.of(mockserverContainer)).join();
+                        .waitingFor(
+                                new HostPortWaitStrategy()
+                                        .withStartupTimeout(Duration.ofMinutes(2)));
+        prometheusContainer.setPortBindings(Lists.newArrayList(String.format("%s:9090", "9090")));
+        Startables.deepStart(Stream.of(prometheusContainer)).join();
+        log.info("Mongodb container started");
     }
 
     @AfterAll
     @Override
     public void tearDown() {
-        if (mockserverContainer != null) {
-            mockserverContainer.stop();
+        if (prometheusContainer != null) {
+            prometheusContainer.stop();
         }
     }
 
     @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "Currently SPARK/FLINK do not support multiple table read")
+    public void testFakSourceToPrometheusSink(TestContainer container)
+            throws IOException, InterruptedException {
+        //
+        // http prometheus
+        Container.ExecResult execResult = container.executeJob("/prometheus_remote_write.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "Currently SPARK/FLINK do not support multiple table read")
     public void testSourceToAssertSink(TestContainer container)
             throws IOException, InterruptedException {
 
@@ -98,9 +107,5 @@ public class PrometheusIT extends TestSuiteBase implements TestResource {
         Container.ExecResult execResult2 =
                 container.executeJob("/prometheus_range_json_to_assert.conf");
         Assertions.assertEquals(0, execResult2.getExitCode());
-    }
-
-    public String getMockServerConfig() {
-        return "/mockserver-config.json";
     }
 }

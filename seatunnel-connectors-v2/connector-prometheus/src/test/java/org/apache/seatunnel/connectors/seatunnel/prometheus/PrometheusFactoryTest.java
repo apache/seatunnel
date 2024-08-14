@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.prometheus;
 
+import org.apache.seatunnel.connectors.seatunnel.prometheus.sink.PrometheusSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.prometheus.source.PrometheusSourceFactory;
-import org.apache.seatunnel.connectors.seatunnel.prometheus.write.PrometheusSinkFactory;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
