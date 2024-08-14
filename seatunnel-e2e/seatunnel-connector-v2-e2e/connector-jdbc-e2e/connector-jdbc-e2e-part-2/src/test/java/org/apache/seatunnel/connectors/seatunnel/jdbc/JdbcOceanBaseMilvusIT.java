@@ -247,7 +247,7 @@ public class JdbcOceanBaseMilvusIT extends TestSuiteBase implements TestResource
             connection.close();
         }
         if (milvusClient != null) {
-            this.milvusClient.close();
+            milvusClient.close();
         }
         if (dbServer != null) {
             dbServer.close();
@@ -286,7 +286,7 @@ public class JdbcOceanBaseMilvusIT extends TestSuiteBase implements TestResource
         }
     }
 
-    protected void clearTable(String database, String schema, String table) {
+    private void clearTable(String database, String schema, String table) {
         clearTable(database, table);
     }
 
