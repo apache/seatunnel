@@ -25,7 +25,6 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
-import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseParameters;
 
 import java.io.IOException;
@@ -62,8 +61,7 @@ public class HbaseSink extends AbstractSimpleSink<SeaTunnelRow, Void>
     }
 
     @Override
-    public HbaseSinkWriter createWriter(SinkWriter.Context context)
-            throws IOException {
+    public HbaseSinkWriter createWriter(SinkWriter.Context context) throws IOException {
         return new HbaseSinkWriter(
                 seaTunnelRowType, hbaseParameters, rowkeyColumnIndexes, versionColumnIndex);
     }
