@@ -78,7 +78,7 @@ public class HbaseSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         this.versionColumnIndex = versionColumnIndex;
 
         if (hbaseParameters.getFamilyNames().size() == 1) {
-            defaultFamilyName = hbaseParameters.getFamilyNames().getOrDefault(ALL_COLUMNS, "value");
+            defaultFamilyName = hbaseParameters.getFamilyNames().getOrDefault(ALL_COLUMNS, defaultFamilyName);
         }
 
         // initialize hbase configuration
