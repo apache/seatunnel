@@ -235,6 +235,7 @@ public class JdbcOceanBaseMilvusIT extends TestSuiteBase implements TestResource
         if (insertRet.getStatus() != R.Status.Success.getCode()) {
             throw new RuntimeException("Failed to insert! Error: " + insertRet.getMessage());
         }
+        log.info("Milvus test data created");
     }
 
     @AfterAll
@@ -250,6 +251,7 @@ public class JdbcOceanBaseMilvusIT extends TestSuiteBase implements TestResource
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
                 container.executeJob("/jdbc_milvus_source_and_oceanbase_sink.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
     }
 
     JdbcCase getJdbcCase() {
@@ -313,6 +315,7 @@ public class JdbcOceanBaseMilvusIT extends TestSuiteBase implements TestResource
             throw new SeaTunnelRuntimeException(
                     JdbcITErrorCode.CREATE_TABLE_FAILED, "Fail to execute sql " + sql, e);
         }
+        log.info("oceanbase schema created,sql is" + sql);
     }
 
     String createSqlTemplate() {
@@ -354,6 +357,7 @@ public class JdbcOceanBaseMilvusIT extends TestSuiteBase implements TestResource
                                         jdbcCase.getSchema(),
                                         jdbcCase.getSinkTable()));
                 statement.execute(createSink);
+                log.info("oceanbase table created,sql is" + createSink);
             }
 
             connection.commit();
@@ -361,6 +365,7 @@ public class JdbcOceanBaseMilvusIT extends TestSuiteBase implements TestResource
             log.error(ExceptionUtils.getMessage(exception));
             throw new SeaTunnelRuntimeException(JdbcITErrorCode.CREATE_TABLE_FAILED, exception);
         }
+        log.info("oceanbase table created success!");
     }
 
     private String buildTableInfoWithSchema(String database, String schema, String table) {
