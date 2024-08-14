@@ -34,10 +34,7 @@ public class QdrantConfig {
             Options.key("port").intType().defaultValue(6334).withDescription("Qdrant gRPC port");
 
     public static final Option<String> API_KEY =
-            Options.key("api_key")
-                    .stringType()
-                    .defaultValue("")
-                    .withDescription("Qdrant API key");
+            Options.key("api_key").stringType().defaultValue("").withDescription("Qdrant API key");
 
     public static final Option<String> COLLECTION_NAME =
             Options.key("collection_name")
