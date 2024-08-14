@@ -249,20 +249,20 @@ public class JdbcOceanBaseMilvusIT extends TestSuiteBase implements TestResource
         if (milvusClient != null) {
             milvusClient.close();
         }
-        if (dbServer != null) {
-            dbServer.close();
-        }
-        if (container != null) {
-            container.close();
-        }
         String images =
                 dockerClient.listImagesCmd().exec().stream()
                         .map(Image::getId)
                         .collect(Collectors.joining(","));
         log.info("before remove image {}, list images: {}", dbServer.getDockerImageName(), images);
         try {
-            dockerClient.removeImageCmd(dbServer.getDockerImageName()).exec();
-            dockerClient.removeImageCmd(container.getDockerImageName()).exec();
+            if (dbServer != null) {
+                dbServer.close();
+                dockerClient.removeImageCmd(dbServer.getDockerImageName()).exec();
+            }
+            if (container != null) {
+                container.close();
+                dockerClient.removeImageCmd(container.getDockerImageName()).exec();
+            }
         } catch (Exception ignored) {
             log.warn("Failed to delete the image. Another container may be in use", ignored);
         }
