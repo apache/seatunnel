@@ -8,15 +8,15 @@
 
 ## 选项
 
-|      名称          | 类型    | 必填    | 默认值         |
-|-----------------|--------|--------|---------------|
-| collection_name | string | 是      | -             |
-| schema          | config | 是      | -             |
-| host            | string | 否      | localhost     |
-| port            | int    | 否      | 6334          |
-| api_key         | string | 否      | -             |
-| use_tls         | bool   | 否      | false         |
-| common-options  |        | 否      | -             |
+|       名称        |   类型   | 必填 |    默认值    |
+|-----------------|--------|----|-----------|
+| collection_name | string | 是  | -         |
+| schema          | config | 是  | -         |
+| host            | string | 否  | localhost |
+| port            | int    | 否  | 6334      |
+| api_key         | string | 否  | -         |
+| use_tls         | bool   | 否  | false     |
+| common-options  |        | 否  | -         |
 
 ### collection_name [string]
 

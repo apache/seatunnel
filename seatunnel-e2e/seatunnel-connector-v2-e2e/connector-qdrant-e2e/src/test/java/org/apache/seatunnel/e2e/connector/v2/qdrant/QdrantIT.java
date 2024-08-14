@@ -55,7 +55,8 @@ import static io.qdrant.client.VectorsFactory.namedVectors;
 @Slf4j
 @DisabledOnContainer(
         value = {},
-        type = {EngineType.SPARK, EngineType.FLINK})
+        type = {EngineType.SPARK, EngineType.FLINK},
+        disabledReason = "SPARK and FLINK do not support vector types yet")
 public class QdrantIT extends TestSuiteBase implements TestResource {
 
     private static final String ALIAS = "qdrante2e";

@@ -8,36 +8,36 @@
 
 ## 数据类型映射
 
-| SeaTunnel 数据类型    | Qdrant 数据类型  |
-|---------------------|------------------|
-| TINYINT             | INTEGER          |
-| SMALLINT            | INTEGER          |
-| INT                 | INTEGER          |
-| BIGINT              | INTEGER          |
-| FLOAT               | DOUBLE           |
-| DOUBLE              | DOUBLE           |
-| BOOLEAN             | BOOL             |
-| STRING              | STRING           |
-| ARRAY               | LIST             |
-| FLOAT_VECTOR        | DENSE_VECTOR     |
-| BINARY_VECTOR       | DENSE_VECTOR     |
-| FLOAT16_VECTOR      | DENSE_VECTOR     |
-| BFLOAT16_VECTOR     | DENSE_VECTOR     |
-| SPARSE_FLOAT_VECTOR | SPARSE_VECTOR    |
+|   SeaTunnel 数据类型    |  Qdrant 数据类型  |
+|---------------------|---------------|
+| TINYINT             | INTEGER       |
+| SMALLINT            | INTEGER       |
+| INT                 | INTEGER       |
+| BIGINT              | INTEGER       |
+| FLOAT               | DOUBLE        |
+| DOUBLE              | DOUBLE        |
+| BOOLEAN             | BOOL          |
+| STRING              | STRING        |
+| ARRAY               | LIST          |
+| FLOAT_VECTOR        | DENSE_VECTOR  |
+| BINARY_VECTOR       | DENSE_VECTOR  |
+| FLOAT16_VECTOR      | DENSE_VECTOR  |
+| BFLOAT16_VECTOR     | DENSE_VECTOR  |
+| SPARSE_FLOAT_VECTOR | SPARSE_VECTOR |
 
 主键列的值将用作 Qdrant 中的点 ID。如果没有主键，则将使用随机 UUID。
 
 ## 选项
 
-|      名称          | 类型    | 必填    | 默认值         |
-|-----------------|--------|--------|---------------|
-| collection_name | string | 是      | -             |
-| batch_size      | int    | 否      | 64            |
-| host            | string | 否      | localhost     |
-| port            | int    | 否      | 6334          |
-| api_key         | string | 否      | -             |
-| use_tls         | bool   | 否      | false         |
-| common-options  |        | 否      | -             |
+|       名称        |   类型   | 必填 |    默认值    |
+|-----------------|--------|----|-----------|
+| collection_name | string | 是  | -         |
+| batch_size      | int    | 否  | 64        |
+| host            | string | 否  | localhost |
+| port            | int    | 否  | 6334      |
+| api_key         | string | 否  | -         |
+| use_tls         | bool   | 否  | false     |
+| common-options  |        | 否  | -         |
 
 ### collection_name [string]
 

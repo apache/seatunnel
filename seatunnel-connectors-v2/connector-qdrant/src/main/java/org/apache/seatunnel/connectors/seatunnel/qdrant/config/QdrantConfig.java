@@ -37,7 +37,7 @@ public class QdrantConfig {
             Options.key("api_key")
                     .stringType()
                     .defaultValue("")
-                    .withDescription("Qdrant gRPC api key");
+                    .withDescription("Qdrant API key");
 
     public static final Option<String> COLLECTION_NAME =
             Options.key("collection_name")
