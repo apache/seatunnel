@@ -94,32 +94,30 @@ public class TaskMetricsCalcContext {
     private void initializeMetrics(
             boolean isMulti,
             List<TablePath> tables,
-            String writeCountName,
-            String writeQpsName,
-            String writeBytesName,
-            String writeBytesPerSecondsName) {
-        count = metricsContext.counter(writeCountName);
-        QPS = metricsContext.meter(writeQpsName);
-        bytes = metricsContext.counter(writeBytesName);
-        bytesPerSeconds = metricsContext.meter(writeBytesPerSecondsName);
+            String countName,
+            String qpsName,
+            String bytesName,
+            String bytesPerSecondsName) {
+        count = metricsContext.counter(countName);
+        QPS = metricsContext.meter(qpsName);
+        bytes = metricsContext.counter(bytesName);
+        bytesPerSeconds = metricsContext.meter(bytesPerSecondsName);
         if (isMulti) {
             tables.forEach(
                     tablePath -> {
                         countPerTable.put(
                                 tablePath.getFullName(),
-                                metricsContext.counter(
-                                        writeCountName + "#" + tablePath.getFullName()));
+                                metricsContext.counter(countName + "#" + tablePath.getFullName()));
                         QPSPerTable.put(
                                 tablePath.getFullName(),
-                                metricsContext.meter(writeQpsName + "#" + tablePath.getFullName()));
+                                metricsContext.meter(qpsName + "#" + tablePath.getFullName()));
                         bytesPerTable.put(
                                 tablePath.getFullName(),
-                                metricsContext.counter(
-                                        writeBytesName + "#" + tablePath.getFullName()));
+                                metricsContext.counter(bytesName + "#" + tablePath.getFullName()));
                         bytesPerSecondsPerTable.put(
                                 tablePath.getFullName(),
                                 metricsContext.meter(
-                                        writeBytesPerSecondsName + "#" + tablePath.getFullName()));
+                                        bytesPerSecondsName + "#" + tablePath.getFullName()));
                     });
         }
     }
