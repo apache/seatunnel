@@ -62,7 +62,7 @@ public class HbaseSink extends AbstractSimpleSink<SeaTunnelRow, Void>
     }
 
     @Override
-    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context)
+    public HbaseSinkWriter createWriter(SinkWriter.Context context)
             throws IOException {
         return new HbaseSinkWriter(
                 seaTunnelRowType, hbaseParameters, rowkeyColumnIndexes, versionColumnIndex);
