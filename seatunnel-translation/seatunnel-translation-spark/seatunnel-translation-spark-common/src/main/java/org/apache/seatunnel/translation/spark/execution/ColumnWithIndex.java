@@ -14,24 +14,40 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-package org.apache.seatunnel.core.starter.spark.execution;
+package org.apache.seatunnel.translation.spark.execution;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 
-import org.apache.spark.sql.Dataset;
-import org.apache.spark.sql.Row;
+import java.io.Serializable;
+import java.util.Arrays;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+public class ColumnWithIndex implements Serializable {
 
-@Data
-@AllArgsConstructor
-public class DatasetTableInfo {
-
-    private Dataset<Row> dataset;
-
+    private int[] index;
     private CatalogTable catalogTable;
 
-    private String tableName;
+    public ColumnWithIndex(int[] index, CatalogTable catalogTable) {
+        this.index = index;
+        this.catalogTable = catalogTable;
+    }
+
+    public int[] getIndex() {
+        return index;
+    }
+
+    public CatalogTable getCatalogTable() {
+        return catalogTable;
+    }
+
+    @Override
+    public String toString() {
+        return "ColumnWithIndex{"
+                + "table="
+                + catalogTable.getTablePath()
+                + ", index="
+                + Arrays.toString(index)
+                + ", schema="
+                + catalogTable.getSeaTunnelRowType()
+                + '}';
+    }
 }
