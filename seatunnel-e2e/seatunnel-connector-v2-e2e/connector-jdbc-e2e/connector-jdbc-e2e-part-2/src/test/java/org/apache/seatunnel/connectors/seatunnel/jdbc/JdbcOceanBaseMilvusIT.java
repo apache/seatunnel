@@ -81,7 +81,7 @@ import static org.awaitility.Awaitility.given;
         value = {},
         type = {EngineType.SPARK, EngineType.FLINK},
         disabledReason = "Currently SPARK and FLINK not support adapt")
-public class JdbcOceanbaseMilvusIT extends TestSuiteBase implements TestResource {
+public class JdbcOceanBaseMilvusIT extends TestSuiteBase implements TestResource {
 
     private static final String IMAGE = "oceanbase/oceanbase-ce:vector";
 
@@ -93,7 +93,6 @@ public class JdbcOceanbaseMilvusIT extends TestSuiteBase implements TestResource
     private GenericContainer<?> dbServer;
     private Connection connection;
     private JdbcCase jdbcCase;
-    private static final String OCEANBASE_SOURCE = "source";
     private static final String OCEANBASE_SINK = "simple_example";
 
     private static final String HOST = "HOST";
@@ -271,7 +270,6 @@ public class JdbcOceanbaseMilvusIT extends TestSuiteBase implements TestResource
                 .userName(USERNAME)
                 .password(PASSWORD)
                 .database(OCEANBASE_DATABASE)
-                .sourceTable(OCEANBASE_SOURCE)
                 .sinkTable(OCEANBASE_SINK)
                 .createSql(createSqlTemplate())
                 .build();
@@ -343,15 +341,6 @@ public class JdbcOceanbaseMilvusIT extends TestSuiteBase implements TestResource
     private void createNeededTables() {
         try (Statement statement = connection.createStatement()) {
             String createTemplate = jdbcCase.getCreateSql();
-
-            String createSource =
-                    String.format(
-                            createTemplate,
-                            buildTableInfoWithSchema(
-                                    jdbcCase.getDatabase(),
-                                    jdbcCase.getSchema(),
-                                    jdbcCase.getSourceTable()));
-            statement.execute(createSource);
 
             if (!jdbcCase.isUseSaveModeCreateTable()) {
                 if (jdbcCase.getSinkCreateSql() != null) {
