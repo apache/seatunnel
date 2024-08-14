@@ -44,6 +44,8 @@ import org.testcontainers.milvus.MilvusContainer;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import com.alibaba.fastjson.JSONObject;
+import com.github.dockerjava.api.model.Image;
+import com.google.common.collect.Lists;
 import io.milvus.client.MilvusServiceClient;
 import io.milvus.grpc.DataType;
 import io.milvus.grpc.MutationResult;
@@ -59,7 +61,6 @@ import io.milvus.param.dml.InsertParam;
 import io.milvus.param.index.CreateIndexParam;
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.IOException;
 import java.sql.Connection;
 import java.sql.Driver;
 import java.sql.SQLException;
@@ -72,6 +73,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.awaitility.Awaitility.given;
@@ -241,18 +243,65 @@ public class JdbcOceanBaseMilvusIT extends TestSuiteBase implements TestResource
     @AfterAll
     @Override
     public void tearDown() throws Exception {
-        this.milvusClient.close();
-        this.container.close();
-        this.connection.close();
-        this.dbServer.close();
+        if (connection != null) {
+            connection.close();
+        }
+        if (milvusClient != null) {
+            this.milvusClient.close();
+        }
+        if (dbServer != null) {
+            dbServer.close();
+        }
+        if (container != null) {
+            container.close();
+        }
+        String images =
+                dockerClient.listImagesCmd().exec().stream()
+                        .map(Image::getId)
+                        .collect(Collectors.joining(","));
+        log.info("before remove image {}, list images: {}", dbServer.getDockerImageName(), images);
+        try {
+            dockerClient.removeImageCmd(dbServer.getDockerImageName()).exec();
+            dockerClient.removeImageCmd(container.getDockerImageName()).exec();
+        } catch (Exception ignored) {
+            log.warn("Failed to delete the image. Another container may be in use", ignored);
+        }
+        images =
+                dockerClient.listImagesCmd().exec().stream()
+                        .map(Image::getId)
+                        .collect(Collectors.joining(","));
+        log.info("after remove image {}, list images: {}", dbServer.getDockerImageName(), images);
     }
 
     @TestTemplate
-    public void testMilvusToOceanBase(TestContainer container)
-            throws IOException, InterruptedException {
-        Container.ExecResult execResult =
-                container.executeJob("/jdbc_milvus_source_and_oceanbase_sink.conf");
-        Assertions.assertEquals(0, execResult.getExitCode());
+    public void testMilvusToOceanBase(TestContainer container) throws Exception {
+        List<String> configFiles = jdbcCase.getConfigFile();
+        for (String configFile : configFiles) {
+            try {
+                Container.ExecResult execResult = container.executeJob(configFile);
+                Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+            } finally {
+                clearTable(jdbcCase.getDatabase(), jdbcCase.getSchema(), jdbcCase.getSinkTable());
+            }
+        }
+    }
+
+    protected void clearTable(String database, String schema, String table) {
+        clearTable(database, table);
+    }
+
+    public void clearTable(String schema, String table) {
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("TRUNCATE TABLE " + buildTableInfoWithSchema(schema, table));
+            connection.commit();
+        } catch (SQLException e) {
+            try {
+                connection.rollback();
+            } catch (SQLException exception) {
+                throw new SeaTunnelRuntimeException(JdbcITErrorCode.CLEAR_TABLE_FAILED, exception);
+            }
+            throw new SeaTunnelRuntimeException(JdbcITErrorCode.CLEAR_TABLE_FAILED, e);
+        }
     }
 
     JdbcCase getJdbcCase() {
@@ -272,10 +321,15 @@ public class JdbcOceanBaseMilvusIT extends TestSuiteBase implements TestResource
                 .jdbcUrl(jdbcUrl)
                 .userName(USERNAME)
                 .password(PASSWORD)
+                .configFile(configFile())
                 .database(OCEANBASE_DATABASE)
                 .sinkTable(OCEANBASE_SINK)
                 .createSql(createSqlTemplate())
                 .build();
+    }
+
+    List<String> configFile() {
+        return Lists.newArrayList("/jdbc_milvus_source_and_oceanbase_sink.conf");
     }
 
     private void initializeJdbcConnection(String jdbcUrl)
