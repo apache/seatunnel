@@ -87,7 +87,7 @@ public class JdbcOceanBaseMilvusIT extends TestSuiteBase implements TestResource
 
     private static final String HOSTNAME = "e2e_oceanbase_vector";
     private static final int PORT = 2881;
-    private static final String USERNAME = "root@test";
+    private static final String USERNAME = "root@sys";
     private static final String PASSWORD = "";
     private static final String OCEANBASE_DATABASE = "seatunnel";
     private GenericContainer<?> dbServer;
