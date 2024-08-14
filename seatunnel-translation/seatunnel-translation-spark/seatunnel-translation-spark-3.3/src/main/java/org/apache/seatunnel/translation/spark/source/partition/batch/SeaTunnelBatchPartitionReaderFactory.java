@@ -20,6 +20,7 @@ package org.apache.seatunnel.translation.spark.source.partition.batch;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SupportCoordinate;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.translation.spark.execution.MultiTableManager;
 
 import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.connector.read.InputPartition;
@@ -36,15 +37,19 @@ public class SeaTunnelBatchPartitionReaderFactory implements PartitionReaderFact
     private final String jobId;
     private final Map<String, String> envOptions;
 
+    private final MultiTableManager multiTableManager;
+
     public SeaTunnelBatchPartitionReaderFactory(
             SeaTunnelSource<SeaTunnelRow, ?, ?> source,
             int parallelism,
             String jobId,
-            Map<String, String> envOptions) {
+            Map<String, String> envOptions,
+            MultiTableManager multiTableManager) {
         this.source = source;
         this.parallelism = parallelism;
         this.jobId = jobId;
         this.envOptions = envOptions;
+        this.multiTableManager = multiTableManager;
     }
 
     @Override
@@ -55,11 +60,11 @@ public class SeaTunnelBatchPartitionReaderFactory implements PartitionReaderFact
         if (source instanceof SupportCoordinate) {
             partitionReader =
                     new CoordinatedBatchPartitionReader(
-                            source, parallelism, jobId, partitionId, envOptions);
+                            source, parallelism, jobId, partitionId, envOptions, multiTableManager);
         } else {
             partitionReader =
                     new ParallelBatchPartitionReader(
-                            source, parallelism, jobId, partitionId, envOptions);
+                            source, parallelism, jobId, partitionId, envOptions, multiTableManager);
         }
         return new SeaTunnelBatchPartitionReader(partitionReader);
     }

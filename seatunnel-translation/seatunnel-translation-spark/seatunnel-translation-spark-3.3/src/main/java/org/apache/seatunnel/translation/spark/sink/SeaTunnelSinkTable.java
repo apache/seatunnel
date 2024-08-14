@@ -22,8 +22,8 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.utils.SerializationUtils;
+import org.apache.seatunnel.translation.spark.execution.MultiTableManager;
 import org.apache.seatunnel.translation.spark.sink.write.SeaTunnelWriteBuilder;
-import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.spark.sql.connector.catalog.SupportsWrite;
@@ -46,7 +46,7 @@ public class SeaTunnelSinkTable implements Table, SupportsWrite {
 
     private final SeaTunnelSink<SeaTunnelRow, ?, ?, ?> sink;
 
-    private final CatalogTable catalogTable;
+    private final CatalogTable[] catalogTables;
     private final String jobId;
 
     public SeaTunnelSinkTable(Map<String, String> properties) {
@@ -62,13 +62,13 @@ public class SeaTunnelSinkTable implements Table, SupportsWrite {
             throw new IllegalArgumentException(
                     SparkSinkInjector.SINK_CATALOG_TABLE + " must be specified");
         }
-        this.catalogTable = SerializationUtils.stringToObject(sinkCatalogTableSerialization);
+        this.catalogTables = SerializationUtils.stringToObject(sinkCatalogTableSerialization);
         this.jobId = properties.getOrDefault(SparkSinkInjector.JOB_ID, null);
     }
 
     @Override
     public WriteBuilder newWriteBuilder(LogicalWriteInfo info) {
-        return new SeaTunnelWriteBuilder<>(sink, catalogTable, jobId);
+        return new SeaTunnelWriteBuilder<>(sink, catalogTables, jobId);
     }
 
     @Override
@@ -78,7 +78,7 @@ public class SeaTunnelSinkTable implements Table, SupportsWrite {
 
     @Override
     public StructType schema() {
-        return (StructType) TypeConverterUtils.convert(catalogTable.getSeaTunnelRowType());
+        return new MultiTableManager(catalogTables).getTableSchema();
     }
 
     @Override
