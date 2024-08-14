@@ -243,6 +243,7 @@ public class JdbcOceanBaseMilvusIT extends TestSuiteBase implements TestResource
     public void tearDown() throws Exception {
         this.milvusClient.close();
         this.container.close();
+        this.connection.close();
         this.dbServer.close();
     }
 
