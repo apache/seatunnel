@@ -80,6 +80,7 @@
         <module>connector-milvus</module>
         <module>connector-activemq</module>
         <module>connector-qdrant</module>
+        <module>connector-sls</module>
     </modules>
 
     <dependencyManagement>

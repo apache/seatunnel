@@ -31,7 +31,6 @@ import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.FactoryException;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
-import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
@@ -49,9 +48,9 @@ import java.util.Optional;
 
 import static org.apache.seatunnel.api.common.CommonOptions.PLUGIN_NAME;
 import static org.apache.seatunnel.api.table.factory.FactoryUtil.DEFAULT_ID;
-import static org.apache.seatunnel.api.table.factory.FactoryUtil.discoverFactory;
 
 /** The util used for Spark/Flink to create to SeaTunnelSource etc. */
+@SuppressWarnings("rawtypes")
 public class PluginUtil {
 
     protected static final String ENGINE_TYPE = "seatunnel";
@@ -130,21 +129,21 @@ public class PluginUtil {
         return source;
     }
 
-    public static TableTransformFactory createTransformFactory(
+    public static Optional<? extends Factory> createTransformFactory(
+            SeaTunnelFactoryDiscovery factoryDiscovery,
             SeaTunnelTransformPluginDiscovery transformPluginDiscovery,
             Config transformConfig,
             List<URL> pluginJars) {
         PluginIdentifier pluginIdentifier =
                 PluginIdentifier.of(
                         ENGINE_TYPE, "transform", transformConfig.getString(PLUGIN_NAME.key()));
-        final ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(transformConfig);
-        final String factoryId = readonlyConfig.get(PLUGIN_NAME);
-        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-        final TableTransformFactory factory =
-                discoverFactory(classLoader, TableTransformFactory.class, factoryId);
         pluginJars.addAll(
                 transformPluginDiscovery.getPluginJarPaths(Lists.newArrayList(pluginIdentifier)));
-        return factory;
+        try {
+            return factoryDiscovery.createOptionalPluginInstance(pluginIdentifier);
+        } catch (FactoryException e) {
+            return Optional.empty();
+        }
     }
 
     public static Optional<? extends Factory> createSinkFactory(

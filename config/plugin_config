@@ -87,5 +87,6 @@ connector-tdengine
 connector-web3j
 connector-milvus
 connector-activemq
+connector-sls
 connector-qdrant
 --end--

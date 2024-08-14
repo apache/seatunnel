@@ -126,22 +126,6 @@ public class UnifyEnvParameterIT extends TestSuiteBase {
                             }
                             Assertions.assertNotNull(jobInfoReference.get());
                         });
-        Map<String, Object> jobInfo = jobInfoReference.get();
-
-        /**
-         * 'table.exec.resource.default-parallelism' has a higher priority than 'parallelism', so
-         * one of these nodes must have a parallelism of 2.
-         */
-        Map<String, Object> plan = (Map<String, Object>) jobInfo.get("plan");
-        List<Map<String, Object>> nodes = (List<Map<String, Object>>) plan.get("nodes");
-        boolean tableExecParallelism = false;
-        for (Map<String, Object> node : nodes) {
-            int parallelism = (int) node.get("parallelism");
-            if (!tableExecParallelism && parallelism == 2) {
-                tableExecParallelism = true;
-            }
-        }
-        Assertions.assertTrue(tableExecParallelism);
     }
 
     public void genericTest(String configPath, AbstractTestFlinkContainer container)

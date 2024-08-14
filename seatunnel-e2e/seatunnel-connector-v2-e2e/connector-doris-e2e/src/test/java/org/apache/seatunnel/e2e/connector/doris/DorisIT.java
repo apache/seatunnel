@@ -535,8 +535,14 @@ public class DorisIT extends AbstractDorisIT {
             try (PreparedStatement preparedStatement =
                     conn.prepareStatement(INIT_UNIQUE_TABLE_DATA_SQL)) {
                 for (int i = 0; i < rows.size(); i++) {
-                    for (int index = 0; index < rows.get(i).getFields().length; index++) {
-                        preparedStatement.setObject(index + 1, rows.get(i).getFields()[index]);
+                    if (i % 10 == 0) {
+                        for (int index = 0; index < rows.get(i).getFields().length; index++) {
+                            preparedStatement.setObject(index + 1, null);
+                        }
+                    } else {
+                        for (int index = 0; index < rows.get(i).getFields().length; index++) {
+                            preparedStatement.setObject(index + 1, rows.get(i).getFields()[index]);
+                        }
                     }
                     preparedStatement.addBatch();
                 }

@@ -22,10 +22,15 @@ import org.apache.seatunnel.shade.com.google.common.io.CharStreams;
 
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.ConstraintKey;
+import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.iris.IrisCatalog;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleCatalog;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
@@ -349,11 +354,77 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
     protected void initCatalog() {}
 
     @Test
+    public void testCreateIndex() {
+        if (catalog == null) {
+            return;
+        }
+        TablePath sourceTablePath =
+                new TablePath(
+                        jdbcCase.getDatabase(), jdbcCase.getSchema(), jdbcCase.getSourceTable());
+        // add suffix for target table
+        TablePath targetTablePath =
+                new TablePath(
+                        jdbcCase.getDatabase(),
+                        jdbcCase.getSchema(),
+                        jdbcCase.getSinkTable()
+                                + ((catalog instanceof OracleCatalog) ? "_INDEX" : "_index"));
+        boolean createdDb = false;
+
+        if (!(catalog instanceof IrisCatalog)
+                && !catalog.databaseExists(targetTablePath.getDatabaseName())) {
+            catalog.createDatabase(targetTablePath, false);
+            Assertions.assertTrue(catalog.databaseExists(targetTablePath.getDatabaseName()));
+            createdDb = true;
+        }
+
+        CatalogTable catalogTable = catalog.getTable(sourceTablePath);
+
+        // not create index
+        createIndexOrNot(targetTablePath, catalogTable, false);
+        Assertions.assertFalse(hasIndex(catalog, targetTablePath));
+
+        dropTableWithAssert(targetTablePath);
+        // create index
+        createIndexOrNot(targetTablePath, catalogTable, true);
+        Assertions.assertTrue(hasIndex(catalog, targetTablePath));
+
+        dropTableWithAssert(targetTablePath);
+
+        if (createdDb) {
+            catalog.dropDatabase(targetTablePath, false);
+            Assertions.assertFalse(catalog.databaseExists(targetTablePath.getDatabaseName()));
+        }
+    }
+
+    private boolean hasIndex(Catalog catalog, TablePath targetTablePath) {
+        TableSchema tableSchema = catalog.getTable(targetTablePath).getTableSchema();
+        PrimaryKey primaryKey = tableSchema.getPrimaryKey();
+        List<ConstraintKey> constraintKeys = tableSchema.getConstraintKeys();
+        if (primaryKey != null && StringUtils.isNotBlank(primaryKey.getPrimaryKey())) {
+            return true;
+        }
+        if (!constraintKeys.isEmpty()) {
+            return true;
+        }
+        return false;
+    }
+
+    protected void dropTableWithAssert(TablePath targetTablePath) {
+        catalog.dropTable(targetTablePath, true);
+        Assertions.assertFalse(catalog.tableExists(targetTablePath));
+    }
+
+    protected void createIndexOrNot(
+            TablePath targetTablePath, CatalogTable catalogTable, boolean createIndex) {
+        catalog.createTable(targetTablePath, catalogTable, false, createIndex);
+        Assertions.assertTrue(catalog.tableExists(targetTablePath));
+    }
+
+    @Test
     public void testCatalog() {
         if (catalog == null) {
             return;
         }
-
         TablePath sourceTablePath =
                 new TablePath(
                         jdbcCase.getDatabase(), jdbcCase.getSchema(), jdbcCase.getSourceTable());

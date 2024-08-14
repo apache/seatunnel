@@ -25,26 +25,18 @@ import org.apache.seatunnel.api.common.metrics.MetricNames;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.core.starter.flowcontrol.FlowControlGate;
 import org.apache.seatunnel.core.starter.flowcontrol.FlowControlStrategy;
-import org.apache.seatunnel.translation.flink.serialization.FlinkRowConverter;
 
 import org.apache.flink.api.connector.source.ReaderOutput;
-import org.apache.flink.types.Row;
 
 import lombok.extern.slf4j.Slf4j;
 
-/**
- * The implementation of {@link Collector} for flink engine, as a container for {@link SeaTunnelRow}
- * and convert {@link SeaTunnelRow} to {@link Row}.
- */
+/** The implementation of {@link Collector} for flink engine. */
 @Slf4j
 public class FlinkRowCollector implements Collector<SeaTunnelRow> {
 
-    private ReaderOutput<Row> readerOutput;
-
-    private final FlinkRowConverter rowSerialization;
+    private ReaderOutput<SeaTunnelRow> readerOutput;
 
     private final FlowControlGate flowControlGate;
 
@@ -54,9 +46,7 @@ public class FlinkRowCollector implements Collector<SeaTunnelRow> {
 
     private final Meter sourceReadQPS;
 
-    public FlinkRowCollector(
-            SeaTunnelRowType seaTunnelRowType, Config envConfig, MetricsContext metricsContext) {
-        this.rowSerialization = new FlinkRowConverter(seaTunnelRowType);
+    public FlinkRowCollector(Config envConfig, MetricsContext metricsContext) {
         this.flowControlGate = FlowControlGate.create(FlowControlStrategy.fromConfig(envConfig));
         this.sourceReadCount = metricsContext.counter(MetricNames.SOURCE_RECEIVED_COUNT);
         this.sourceReadBytes = metricsContext.counter(MetricNames.SOURCE_RECEIVED_BYTES);
@@ -67,8 +57,7 @@ public class FlinkRowCollector implements Collector<SeaTunnelRow> {
     public void collect(SeaTunnelRow record) {
         flowControlGate.audit(record);
         try {
-            Row row = rowSerialization.convert(record);
-            readerOutput.collect(row);
+            readerOutput.collect(record);
             sourceReadCount.inc();
             sourceReadBytes.inc(record.getBytesSize());
             sourceReadQPS.markEvent();
@@ -82,7 +71,7 @@ public class FlinkRowCollector implements Collector<SeaTunnelRow> {
         return this;
     }
 
-    public FlinkRowCollector withReaderOutput(ReaderOutput<Row> readerOutput) {
+    public FlinkRowCollector withReaderOutput(ReaderOutput<SeaTunnelRow> readerOutput) {
         this.readerOutput = readerOutput;
         return this;
     }
