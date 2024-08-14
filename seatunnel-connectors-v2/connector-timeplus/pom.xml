@@ -45,12 +45,6 @@
 
         <!-- TODO add to dependency management after version unify -->
         <dependency>
-            <groupId>com.timeplus</groupId>
-            <artifactId>proton-http-client</artifactId>
-            <version>${timeplus.http.jdbc.version}</version>
-        </dependency>
-
-        <dependency>
             <groupId>commons-io</groupId>
             <artifactId>commons-io</artifactId>
             <version>2.11.0</version>
