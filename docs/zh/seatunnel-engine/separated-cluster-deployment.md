@@ -272,7 +272,6 @@ map:
         fs.oss.accessKeyId: OSS access key id
         fs.oss.accessKeySecret: OSS access key secret
         fs.oss.endpoint: OSS endpoint
-        fs.oss.credentials.provider: org.apache.hadoop.fs.aliyun.oss.AliyunCredentialsProvider
 ```
 
 注意：使用OSS 时，确保 lib目录下有这几个jar.

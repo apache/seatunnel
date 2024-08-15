@@ -111,6 +111,13 @@ public class ZetaSQLType {
             Column columnExp = (Column) expression;
             String columnName = columnExp.getColumnName();
             int index = inputRowType.indexOf(columnName, false);
+            if (index == -1
+                    && columnName.startsWith(ZetaSQLEngine.ESCAPE_IDENTIFIER)
+                    && columnName.endsWith(ZetaSQLEngine.ESCAPE_IDENTIFIER)) {
+                columnName = columnName.substring(1, columnName.length() - 1);
+                index = inputRowType.indexOf(columnName, false);
+            }
+
             if (index != -1) {
                 return inputRowType.getFieldType(index);
             } else {
@@ -121,7 +128,14 @@ public class ZetaSQLType {
                 SeaTunnelRowType parRowType = inputRowType;
                 SeaTunnelDataType<?> filedTypeRes = null;
                 for (int i = 0; i < deep; i++) {
-                    int idx = parRowType.indexOf(columnNames[i], false);
+                    String key = columnNames[i];
+                    int idx = parRowType.indexOf(key, false);
+                    if (idx == -1
+                            && key.startsWith(ZetaSQLEngine.ESCAPE_IDENTIFIER)
+                            && key.endsWith(ZetaSQLEngine.ESCAPE_IDENTIFIER)) {
+                        key = key.substring(1, key.length() - 1);
+                        idx = parRowType.indexOf(key, false);
+                    }
                     if (idx == -1) {
                         throw new IllegalArgumentException(
                                 String.format("can't find field [%s]", fullyQualifiedName));

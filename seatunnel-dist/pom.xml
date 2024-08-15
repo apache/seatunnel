@@ -583,6 +583,13 @@
                     <scope>provided</scope>
                 </dependency>
 
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-activemq</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+
                 <!-- jdbc driver -->
                 <dependency>
                     <groupId>com.aliyun.phoenix</groupId>
@@ -910,6 +917,13 @@
                     <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
                     <version>${project.version}</version>
                     <classifier>optional</classifier>
+                    <scope>provided</scope>
+                </dependency>
+
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-sls</artifactId>
+                    <version>${project.version}</version>
                     <scope>provided</scope>
                 </dependency>
             </dependencies>

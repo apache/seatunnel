@@ -170,7 +170,7 @@ public class JsonRowDataSerDeSchemaTest {
                                         new MapType(STRING_TYPE, new MapType(STRING_TYPE, INT_TYPE))
                                     })
                         });
-        CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "", schema);
+        CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "test", schema);
         JsonDeserializationSchema deserializationSchema =
                 new JsonDeserializationSchema(catalogTables, false, false);
 
@@ -230,7 +230,7 @@ public class JsonRowDataSerDeSchemaTest {
                                     new SeaTunnelDataType[] {STRING_TYPE, INT_TYPE})
                         });
 
-        CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "", schema);
+        CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "test", schema);
 
         JsonDeserializationSchema deserializationSchema =
                 new JsonDeserializationSchema(catalogTables, false, false);
@@ -308,7 +308,7 @@ public class JsonRowDataSerDeSchemaTest {
                             new MapType(STRING_TYPE, DOUBLE_TYPE)
                         });
 
-        CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "", rowType);
+        CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "test", rowType);
 
         JsonDeserializationSchema deserializationSchema =
                 new JsonDeserializationSchema(catalogTables, false, true);
@@ -327,7 +327,7 @@ public class JsonRowDataSerDeSchemaTest {
     public void testDeserializationNullRow() throws Exception {
         SeaTunnelRowType schema =
                 new SeaTunnelRowType(new String[] {"name"}, new SeaTunnelDataType[] {STRING_TYPE});
-        CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "", schema);
+        CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "test", schema);
 
         JsonDeserializationSchema deserializationSchema =
                 new JsonDeserializationSchema(catalogTables, true, false);
@@ -339,7 +339,7 @@ public class JsonRowDataSerDeSchemaTest {
     public void testDeserializationMissingNode() throws Exception {
         SeaTunnelRowType schema =
                 new SeaTunnelRowType(new String[] {"name"}, new SeaTunnelDataType[] {STRING_TYPE});
-        CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "", schema);
+        CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "test", schema);
 
         JsonDeserializationSchema deserializationSchema =
                 new JsonDeserializationSchema(catalogTables, true, false);
@@ -359,7 +359,7 @@ public class JsonRowDataSerDeSchemaTest {
         SeaTunnelRowType schema =
                 new SeaTunnelRowType(new String[] {"name"}, new SeaTunnelDataType[] {STRING_TYPE});
 
-        CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "", schema);
+        CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "test", schema);
 
         // pass on missing field
         final JsonDeserializationSchema deser =
@@ -382,7 +382,7 @@ public class JsonRowDataSerDeSchemaTest {
         SeaTunnelRowType schema =
                 new SeaTunnelRowType(new String[] {"name"}, new SeaTunnelDataType[] {STRING_TYPE});
 
-        CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "", schema);
+        CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "test", schema);
 
         // fail on missing field
         final JsonDeserializationSchema deser =
@@ -418,7 +418,7 @@ public class JsonRowDataSerDeSchemaTest {
         SeaTunnelRowType schema =
                 new SeaTunnelRowType(new String[] {"name"}, new SeaTunnelDataType[] {STRING_TYPE});
         SeaTunnelRow expected = new SeaTunnelRow(1);
-        CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "", schema);
+        CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "test", schema);
 
         // ignore on parse error
         final JsonDeserializationSchema deser =
@@ -446,7 +446,7 @@ public class JsonRowDataSerDeSchemaTest {
         SeaTunnelRowType schema =
                 new SeaTunnelRowType(new String[] {"name"}, new SeaTunnelDataType[] {STRING_TYPE});
 
-        CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "", schema);
+        CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "test", schema);
 
         String noJson = "{]";
         final JsonDeserializationSchema deser =
