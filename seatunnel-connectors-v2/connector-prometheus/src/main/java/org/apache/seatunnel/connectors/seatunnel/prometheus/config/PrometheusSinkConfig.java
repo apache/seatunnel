@@ -69,6 +69,9 @@ public class PrometheusSinkConfig extends HttpConfig {
         if (pluginConfig.hasPath(KEY_LABEL.key())) {
             sinkConfig.setKeyLabel(pluginConfig.getString(KEY_LABEL.key()));
         }
+        if (pluginConfig.hasPath(KEY_TIMESTAMP.key())) {
+            sinkConfig.setKeyTimestamp(pluginConfig.getString(KEY_TIMESTAMP.key()));
+        }
         if (pluginConfig.hasPath(BATCH_SIZE.key())) {
             int batchSize = checkIntArgument(pluginConfig.getInt(BATCH_SIZE.key()));
             sinkConfig.setBatchSize(batchSize);

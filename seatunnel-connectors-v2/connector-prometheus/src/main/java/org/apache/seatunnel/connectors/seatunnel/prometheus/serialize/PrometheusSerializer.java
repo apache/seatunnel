@@ -25,13 +25,15 @@ import org.apache.seatunnel.connectors.seatunnel.prometheus.sink.Point;
 
 import com.google.common.base.Strings;
 import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
 
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
+import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 
+@Slf4j
 public class PrometheusSerializer implements Serializer {
 
     private final Function<SeaTunnelRow, Long> timestampExtractor;
@@ -129,7 +131,7 @@ public class PrometheusSerializer implements Serializer {
                     return Long.parseLong((String) timestamp);
                 case TIMESTAMP:
                     return ((LocalDateTime) timestamp)
-                            .atZone(ZoneOffset.UTC)
+                            .atZone(ZoneId.systemDefault())
                             .toInstant()
                             .toEpochMilli();
                 case BIGINT:
