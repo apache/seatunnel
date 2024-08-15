@@ -193,5 +193,5 @@ If you want to optimize your job, refer to the connector documentation for [Sour
 
 ## What's More
 
-For now, you have taken a quick look about SeaTunnel, and you can see [connector](../../connector-v2/source/FakeSource.md) to find all
+For now, you have taken a quick look about SeaTunnel, and you can see [connector](../../../en/connector-v2/) to find all
 sources and sinks SeaTunnel supported. Or see [SeaTunnel Engine(Zeta)](../../seatunnel-engine/about.md) if you want to know more about SeaTunnel Engine. Here you will learn how to deploy SeaTunnel Engine and how to use it in cluster mode.
