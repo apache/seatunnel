@@ -29,4 +29,11 @@ public class SinkCommonOptions {
                     .intType()
                     .defaultValue(1)
                     .withDescription("The replica number of multi table sink writer");
+
+    @Experimental
+    public static Option<Integer> MULTI_TABLE_SINK_WRITER_TTL =
+            Options.key("multi_table_sink_writer_ttl")
+                    .intType()
+                    .defaultValue(30)
+                    .withDescription("The ttl of multi table sink writer in minutes");
 }

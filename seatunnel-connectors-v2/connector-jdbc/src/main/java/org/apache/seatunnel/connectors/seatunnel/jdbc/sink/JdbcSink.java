@@ -78,6 +78,8 @@ public class JdbcSink
 
     private final CatalogTable catalogTable;
 
+    private Integer primaryKeyIndex;
+
     public JdbcSink(
             ReadonlyConfig config,
             JdbcSinkConfig jdbcSinkConfig,
@@ -92,6 +94,16 @@ public class JdbcSink
         this.dataSaveMode = dataSaveMode;
         this.catalogTable = catalogTable;
         this.tableSchema = catalogTable.getTableSchema();
+
+        if (catalogTable.getTableSchema().getPrimaryKey() != null) {
+            String keyName = tableSchema.getPrimaryKey().getColumnNames().get(0);
+            int index = tableSchema.toPhysicalRowDataType().indexOf(keyName);
+            if (index > -1) {
+                primaryKeyIndex = index;
+            }
+        } else {
+            primaryKeyIndex = null;
+        }
     }
 
     @Override
@@ -114,16 +126,7 @@ public class JdbcSink
                             tableSchema,
                             new ArrayList<>());
         } else {
-            if (catalogTable != null && catalogTable.getTableSchema().getPrimaryKey() != null) {
-                String keyName = tableSchema.getPrimaryKey().getColumnNames().get(0);
-                int index = tableSchema.toPhysicalRowDataType().indexOf(keyName);
-                if (index > -1) {
-                    return new JdbcSinkWriter(
-                            sinkTablePath, dialect, jdbcSinkConfig, tableSchema, index);
-                }
-            }
-            sinkWriter =
-                    new JdbcSinkWriter(sinkTablePath, dialect, jdbcSinkConfig, tableSchema, null);
+            return new JdbcSinkWriter(sinkTablePath, dialect, jdbcSinkConfig, tableSchema);
         }
         return sinkWriter;
     }
@@ -143,6 +146,11 @@ public class JdbcSink
                     states);
         }
         return SeaTunnelSink.super.restoreWriter(context, states);
+    }
+
+    @Override
+    public Optional<Integer> primaryKey() {
+        return primaryKeyIndex != null ? Optional.of(primaryKeyIndex) : Optional.empty();
     }
 
     @Override

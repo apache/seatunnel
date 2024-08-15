@@ -332,6 +332,11 @@ public abstract class SeaTunnelTask extends AbstractTask {
                                 log.error("Close FlowLifeCycle error.", e);
                             }
                         });
+        // recycle memory ASAP, cut off the reference chain of the task
+        taskBelongGroup = null;
+        allCycles = null;
+        outputs = null;
+        startFlowLifeCycle = null;
     }
 
     public void ack(Barrier barrier) {
@@ -399,6 +404,9 @@ public abstract class SeaTunnelTask extends AbstractTask {
     }
 
     public void notifyAllAction(ConsumerWithException<InternalCheckpointListener> consumer) {
+        if (currState == SeaTunnelTaskState.CLOSED || currState == SeaTunnelTaskState.CANCELED) {
+            return;
+        }
         allCycles.stream()
                 .filter(cycle -> cycle instanceof InternalCheckpointListener)
                 .map(cycle -> (InternalCheckpointListener) cycle)
