@@ -25,6 +25,7 @@ import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestTemplate;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
@@ -82,5 +83,11 @@ public class EmailWithMultiIT extends TestSuiteBase implements TestResource {
             throws IOException, InterruptedException {
         Container.ExecResult textWriteResult = container.executeJob("/fake_to_multiemailsink.conf");
         Assertions.assertEquals(0, textWriteResult.getExitCode());
+    }
+
+    @Disabled("Email authentication address and authentication information need to be configured")
+    public void testOwnEmailSink(TestContainer container) throws IOException, InterruptedException {
+        Container.ExecResult textReadResult = container.executeJob("/fake_to_email_test.conf");
+        Assertions.assertEquals(0, textReadResult.getExitCode());
     }
 }

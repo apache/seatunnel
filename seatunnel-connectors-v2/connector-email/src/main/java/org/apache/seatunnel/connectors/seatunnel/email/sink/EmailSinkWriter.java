@@ -81,7 +81,7 @@ public class EmailSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         Properties properties = new Properties();
         properties.setProperty("mail.host", config.getEmailHost());
         properties.setProperty("mail.transport.protocol", config.getEmailTransportProtocol());
-        properties.setProperty("mail.smtp.auth", config.getEmailSmtpAuth());
+        properties.setProperty("mail.smtp.auth", config.getEmailSmtpAuth().toString());
         properties.setProperty("mail.smtp.port", config.getEmailSmtpPort().toString());
 
         try {
@@ -89,7 +89,7 @@ public class EmailSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
             sf.setTrustAllHosts(true);
             properties.put("mail.smtp.ssl.socketFactory", sf);
             Session session;
-            if ("true".equalsIgnoreCase(config.getEmailSmtpAuth())) {
+            if (config.getEmailSmtpAuth()) {
                 properties.put("mail.smtp.ssl.enable", "true");
                 session =
                         Session.getDefaultInstance(

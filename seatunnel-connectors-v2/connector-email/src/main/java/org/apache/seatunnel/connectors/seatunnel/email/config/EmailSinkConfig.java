@@ -43,8 +43,8 @@ public class EmailSinkConfig implements Serializable {
     private String emailMessageContent;
     private String emailHost;
     private String emailTransportProtocol;
-    private String emailSmtpAuth;
-    private String emailSmtpPort;
+    private Boolean emailSmtpAuth;
+    private Integer emailSmtpPort;
 
     public EmailSinkConfig(@NonNull ReadonlyConfig pluginConfig) {
         super();

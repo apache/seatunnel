@@ -39,7 +39,7 @@ public class EmailConfig {
     public static final Option<String> EMAIL_AUTHORIZATION_CODE =
             Options.key("email_authorization_code")
                     .stringType()
-                    .defaultValue(null)
+                    .noDefaultValue()
                     .withDescription(
                             "Authorization code,You can obtain the authorization code from the mailbox Settings");
     public static final Option<String> EMAIL_MESSAGE_HEADLINE =
@@ -63,15 +63,15 @@ public class EmailConfig {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("The protocol used to send the message");
-    public static final Option<String> EMAIL_SMTP_AUTH =
+    public static final Option<Boolean> EMAIL_SMTP_AUTH =
             Options.key("email_smtp_auth")
-                    .stringType()
+                    .booleanType()
                     .noDefaultValue()
                     .withDescription("Whether to use SMTP authentication");
 
-    public static final Option<String> EMAIL_SMTP_PORT =
+    public static final Option<Integer> EMAIL_SMTP_PORT =
             Options.key("email_smtp_port")
-                    .stringType()
-                    .defaultValue("465")
+                    .intType()
+                    .defaultValue(465)
                     .withDescription("Select port for authentication.");
 }

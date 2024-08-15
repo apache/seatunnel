@@ -14,18 +14,18 @@ The tested email version is 1.5.6.
 
 ## Options
 
-|           name           |  type  | required | default value |
-|--------------------------|--------|----------|---------------|
-| email_from_address       | string | yes      | -             |
-| email_to_address         | string | yes      | -             |
-| email_host               | string | yes      | -             |
-| email_transport_protocol | string | yes      | -             |
-| email_smtp_auth          | string | yes      | -             |
-| email_smtp_port          | string | no       | 465           |
-| email_authorization_code | string | no       | -             |
-| email_message_headline   | string | yes      | -             |
-| email_message_content    | string | yes      | -             |
-| common-options           |        | no       | -             |
+|           name           |  type   | required | default value |
+|--------------------------|---------|----------|---------------|
+| email_from_address       | string  | yes      | -             |
+| email_to_address         | string  | yes      | -             |
+| email_host               | string  | yes      | -             |
+| email_transport_protocol | string  | yes      | -             |
+| email_smtp_auth          | boolean | yes      | -             |
+| email_smtp_port          | int     | no       | 465           |
+| email_authorization_code | string  | no       | -             |
+| email_message_headline   | string  | yes      | -             |
+| email_message_content    | string  | yes      | -             |
+| common-options           |         | no       | -             |
 
 ### email_from_address [string]
 
@@ -43,11 +43,11 @@ SMTP server to connect to.
 
 The protocol to load the session .
 
-### email_smtp_auth [string]
+### email_smtp_auth [boolean]
 
 Whether to authenticate the customer.
 
-### email_smtp_port [string]
+### email_smtp_port [int]
 
 Select port for authentication.
 
