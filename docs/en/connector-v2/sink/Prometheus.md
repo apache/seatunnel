@@ -18,12 +18,9 @@
 
 Used to launch web hooks using data.
 
-> For example, if the data from upstream is [`label: {"__name__": "test1"}, value: 1.2.3,time:2024-08-15T17:00:00`], the body content
-> is the
-> following: `{"label":{"__name__": "test1"}, "value":"1.23","time":"2024-08-15T17:00:00"}`
+> For example, if the data from upstream is [`label: {"__name__": "test1"}, value: 1.2.3,time:2024-08-15T17:00:00`], the body content is the following: `{"label":{"__name__": "test1"}, "value":"1.23","time":"2024-08-15T17:00:00"}`
 
-**Tips: Prometheus sink only support `post json` webhook and the data from source will be treated as body content in
-web hook.And does not support passing past data**
+**Tips: Prometheus sink only support `post json` webhook and the data from source will be treated as body content in web hook.And does not support passing past data**
 
 ## Supported DataSource Info
 
