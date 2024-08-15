@@ -47,18 +47,18 @@ public class SparkDataSourceWriter<StateT, CommitInfoT, AggregatedCommitInfoT>
     @Nullable protected final SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT>
             sinkAggregatedCommitter;
 
-    protected final CatalogTable catalogTable;
+    protected final CatalogTable[] catalogTables;
     protected final String jobId;
 
     private MultiTableResourceManager resourceManager;
 
     public SparkDataSourceWriter(
             SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
-            CatalogTable catalogTable,
+            CatalogTable[] catalogTables,
             String jobId)
             throws IOException {
         this.sink = sink;
-        this.catalogTable = catalogTable;
+        this.catalogTables = catalogTables;
         this.jobId = jobId;
         this.sinkAggregatedCommitter = sink.createAggregatedCommitter().orElse(null);
         if (sinkAggregatedCommitter != null) {
@@ -78,7 +78,7 @@ public class SparkDataSourceWriter<StateT, CommitInfoT, AggregatedCommitInfoT>
 
     @Override
     public DataWriterFactory<InternalRow> createWriterFactory() {
-        return new SparkDataWriterFactory<>(sink, catalogTable, jobId);
+        return new SparkDataWriterFactory<>(sink, catalogTables, jobId);
     }
 
     @Override

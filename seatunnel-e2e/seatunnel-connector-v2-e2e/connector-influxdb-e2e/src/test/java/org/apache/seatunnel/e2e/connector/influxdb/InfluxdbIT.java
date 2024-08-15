@@ -249,8 +249,8 @@ public class InfluxdbIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     @DisabledOnContainer(
             value = {},
-            type = {EngineType.SPARK, EngineType.FLINK},
-            disabledReason = "Currently SPARK/FLINK do not support multiple table read")
+            type = {EngineType.FLINK},
+            disabledReason = "Currently FLINK do not support multiple table read")
     public void testInfluxdbMultipleWrite(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
