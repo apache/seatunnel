@@ -195,8 +195,8 @@ public class TimeplusConfig {
                                     + SaveModePlaceHolder.TABLE_NAME.getPlaceHolder()
                                     + "` (\n"
                                     + SaveModePlaceHolder.ROWTYPE_FIELDS.getPlaceHolder()
-                                    + "\n"
-                                    + ")")
+                                    + "\n)\n"
+                                    + "SETTINGS logstore_retention_bytes=1073741824, logstore_retention_ms=3600000") // default 1GB or 1hour
                     .withDescription(
                             "Create table statement template, used to create Timeplus stream");
 
