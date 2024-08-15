@@ -95,6 +95,102 @@ The SeaTunnel console will print some logs as below:
 2022-12-19 11:01:46,491 INFO  org.apache.seatunnel.connectors.seatunnel.console.sink.ConsoleSinkWriter - subtaskIndex=0 rowIndex=16: SeaTunnelRow#tableId=-1 SeaTunnelRow#kind=INSERT: mIJDt, 995616438
 ```
 
+## Extended Example: Batch Mode from MySQL to Doris
+
+## Step 1: Download the Connector
+
+First, place the required connectors `connector-jdbc` and `connector-doris` into the `${SEATUNNEL_HOME}/connectors/` directory. You need to run the following command to install the connectors and add the connector names in the `${SEATUNNEL_HOME}/config/plugin_config` directory. (Alternatively, you can manually download the connectors from the [Apache Maven Repository](https://repo.maven.apache.org/maven2/org/apache/seatunnel/) and then move them to the `connectors/` directory.)
+
+```bash
+sh bin/install-plugin.sh
+```
+
+## Step 2: Place the MySQL Driver
+
+You need to download the [JDBC driver JAR package](https://mvnrepository.com/artifact/mysql/mysql-connector-java) and place it in the `${SEATUNNEL_HOME}/lib/` directory.
+
+## Step 3: Add Job Configuration File to Define the Job
+
+```bash
+cd seatunnel/job/
+
+vim st.conf
+
+env {
+  parallelism = 2
+  job.mode = "BATCH"
+}
+source {
+    Jdbc {
+        url = "jdbc:mysql://localhost:3306/test"
+        driver = "com.mysql.cj.jdbc.Driver"
+        connection_check_timeout_sec = 100
+        user = "user"
+        password = "pwd"
+        table_path = "test.table_name"
+        query = "select  * from test.table_name"
+    }
+}
+
+sink {
+   Doris {
+          fenodes = "doris_ip:8030"
+          username = "user"
+          password = "pwd"
+          database = "test_db"
+          table = "table_name"
+          sink.enable-2pc = "true"
+          sink.label-prefix = "test-cdc"
+          doris.config = {
+            format = "json"
+            read_json_by_line="true"
+          }
+      }
+}
+```
+
+For more information about the configuration, please refer to [Basic Concepts of Configuration](../../concept/config.md).
+
+## Step 4: Run the SeaTunnel Application
+
+You can start the application using the following command:
+
+:::tip
+
+Starting from version 2.3.1, the `-e` parameter in `seatunnel.sh` has been deprecated. Please use the `-m` parameter instead.
+
+:::
+
+```shell
+cd seatunnel/
+./bin/seatunnel.sh --config ./job/st.conf -m local
+
+```
+
+**Check the Output**: When you run the command, you can see its output in the console. You can consider this as an indicator of whether the command has succeeded or failed.
+
+The SeaTunnel console will print some log information like the following:
+
+```shell
+***********************************************
+           Job Statistic Information
+***********************************************
+Start Time                : 2024-08-13 10:21:49
+End Time                  : 2024-08-13 10:21:53
+Total Time(s)             :                   4
+Total Read Count          :                1000
+Total Write Count         :                1000
+Total Failed Count        :                   0
+***********************************************
+```
+
+:::tip
+
+If you want to optimize your job, refer to the connector documentation for [Source-MySQL](../../../en/connector-v2/source/Mysql.md) and [Sink-Doris](../../../en/connector-v2/sink/Doris.md).
+
+:::
+
+
 ## What's More
 
 For now, you have taken a quick look about SeaTunnel, and you can see [connector](../../connector-v2/source/FakeSource.md) to find all
