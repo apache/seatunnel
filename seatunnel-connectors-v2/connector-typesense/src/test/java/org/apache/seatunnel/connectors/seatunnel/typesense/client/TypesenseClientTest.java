@@ -12,7 +12,7 @@ import java.util.List;
 public class TypesenseClientTest {
 
     @Test
-    public void test() throws Exception {
+    public void search() throws Exception {
         List<Node> nodes = new ArrayList<>();
 
         nodes.add(new Node("http", "localhost", "8108"));
@@ -20,7 +20,9 @@ public class TypesenseClientTest {
         Configuration configuration = new Configuration(nodes, Duration.ofSeconds(5), "xyz");
         Client client = new Client(configuration);
         TypesenseClient typesenseClient = new TypesenseClient(client);
-        System.out.println(typesenseClient.search("companies", null, 0));
-        System.out.println(typesenseClient.search("companies", null, 10));
+        String query = "q=*&filter_by=num_employees:>9000";
+//        System.out.println(typesenseClient.search("companies", null, 0));
+        typesenseClient.search("companies", query, 0);
+//        System.out.println(typesenseClient.search("companies", query, 0));
     }
 }

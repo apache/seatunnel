@@ -10,8 +10,7 @@ import java.util.Map;
 @AllArgsConstructor
 public class SourceCollectionInfo implements Serializable {
     private String collection;
-    // TODO 暂时未使用 , 查询条件过滤
-    private Map<String, Object> query;
+    private String query;
     private long found;
-    private int offset = 0;
+    private int offset;
 }

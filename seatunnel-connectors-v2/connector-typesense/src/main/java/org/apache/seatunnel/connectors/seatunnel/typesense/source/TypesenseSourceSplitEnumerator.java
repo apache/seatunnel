@@ -116,10 +116,10 @@ public class TypesenseSourceSplitEnumerator
         List<TypesenseSourceSplit> splits = new ArrayList<>();
 
         String collection = config.get(SourceConfig.COLLECTION);
-        // TODO 条件搜索需要实现
+        String query = config.get(SourceConfig.QUERY);
         splits.add(
                 new TypesenseSourceSplit(
-                        collection, new SourceCollectionInfo(collection, null, 0, 0)));
+                        collection, new SourceCollectionInfo(collection, query, 0, 0)));
         // TODO 需要支持 * 多索引匹配
         return splits;
     }

@@ -28,6 +28,12 @@ public class SourceConfig {
             Options.key("collection")
                     .stringType()
                     .noDefaultValue()
-                    .withDescription("Elasticsearch index name, support * fuzzy matching");
+                    .withDescription("Typesense collection name");
+
+    public static final Option<String> QUERY =
+            Options.key("query")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Typesense query param");
 
 }

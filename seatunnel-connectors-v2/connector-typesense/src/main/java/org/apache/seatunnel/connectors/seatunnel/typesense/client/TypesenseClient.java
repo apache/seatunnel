@@ -1,9 +1,17 @@
 package org.apache.seatunnel.connectors.seatunnel.typesense.client;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.typesense.config.TypesenseConnectionConfig;
 
 import org.apache.commons.lang3.StringUtils;
+
+import org.apache.seatunnel.connectors.seatunnel.typesense.exception.TypesenseConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.typesense.exception.TypesenseConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.typesense.util.URLParamsConverter;
 
 import org.typesense.api.Client;
 import org.typesense.api.Configuration;
@@ -15,6 +23,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
+@Slf4j
 public class TypesenseClient {
     private final Client tsClient;
 
@@ -47,9 +56,18 @@ public class TypesenseClient {
 
     public static void main(String[] args) throws Exception {}
 
-    // TODO query实现
-    public SearchResult search(String collection, Object query, int offset) throws Exception {
-        SearchParameters searchParameters = new SearchParameters().q("*").offset(offset);
+    public SearchResult search(String collection, String query, int offset) throws Exception {
+        SearchParameters searchParameters;
+        if(StringUtils.isNotBlank(query)){
+            String jsonQuery = URLParamsConverter.convertParamsToJson(query);
+            ObjectMapper objectMapper = new ObjectMapper();
+            searchParameters = objectMapper.readValue(jsonQuery, SearchParameters.class);
+        }else{
+            searchParameters = new SearchParameters().q("*");
+        }
+        log.debug("Typesense query param:{}",searchParameters);
+        System.out.println("query: "+JsonUtils.toJsonString(searchParameters));
+        searchParameters.offset(offset);
         SearchResult searchResult =
                 tsClient.collections(collection).documents().search(searchParameters);
         return searchResult;
