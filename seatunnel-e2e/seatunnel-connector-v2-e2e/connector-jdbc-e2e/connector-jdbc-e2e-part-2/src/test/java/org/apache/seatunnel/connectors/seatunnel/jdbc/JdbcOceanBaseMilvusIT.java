@@ -156,7 +156,7 @@ public class JdbcOceanBaseMilvusIT extends TestSuiteBase implements TestResource
 
     private void initMilvus()
             throws SQLException, ClassNotFoundException, InstantiationException,
-            IllegalAccessException {
+                    IllegalAccessException {
         milvusClient =
                 new MilvusServiceClient(
                         ConnectParam.newBuilder()
