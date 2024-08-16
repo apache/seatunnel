@@ -208,10 +208,12 @@ public class OceanBaseMySqlCatalog extends AbstractJdbcCatalog {
     @Override
     public CatalogTable getTable(String sqlQuery) throws SQLException {
         Connection defaultConnection = getConnection(defaultUrl);
-        Statement statement = defaultConnection.createStatement();
-        ResultSetMetaData metaData = statement.executeQuery(sqlQuery).getMetaData();
-        return CatalogUtils.getCatalogTable(
-                metaData, new OceanBaseMySqlTypeMapper(typeConverter), sqlQuery);
+        try (Statement statement = defaultConnection.createStatement();
+                ResultSet resultSet = statement.executeQuery(sqlQuery)) {
+            ResultSetMetaData metaData = resultSet.getMetaData();
+            return CatalogUtils.getCatalogTable(
+                    metaData, new OceanBaseMySqlTypeMapper(typeConverter), sqlQuery);
+        }
     }
 
     @Override

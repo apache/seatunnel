@@ -189,10 +189,10 @@ public class ClickhouseSinkCDCChangelogIT extends TestSuiteBase implements TestR
 
     private void checkSinkTableRows() throws SQLException {
         Set<List<Object>> actual = new HashSet<>();
-        try (Statement statement = connection.createStatement()) {
-            ResultSet resultSet =
-                    statement.executeQuery(
-                            String.format("select * from %s.%s", DATABASE, SINK_TABLE));
+        try (Statement statement = connection.createStatement();
+                ResultSet resultSet =
+                        statement.executeQuery(
+                                String.format("select * from %s.%s", DATABASE, SINK_TABLE))) {
             while (resultSet.next()) {
                 List<Object> row =
                         Arrays.asList(

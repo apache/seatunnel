@@ -570,9 +570,9 @@ public abstract class AbstractJdbcCatalog implements Catalog {
 
     protected List<String> queryString(String url, String sql, ResultSetConsumer<String> consumer)
             throws SQLException {
-        try (PreparedStatement ps = getConnection(url).prepareStatement(sql)) {
+        try (PreparedStatement ps = getConnection(url).prepareStatement(sql);
+                ResultSet rs = ps.executeQuery()) {
             List<String> result = new ArrayList<>();
-            ResultSet rs = ps.executeQuery();
             while (rs.next()) {
                 String value = consumer.apply(rs);
                 if (value != null) {
@@ -643,8 +643,9 @@ public abstract class AbstractJdbcCatalog implements Catalog {
         String dbUrl = getUrlFromDatabaseName(tablePath.getDatabaseName());
         Connection connection = getConnection(dbUrl);
         String sql = getExistDataSql(tablePath);
-        try (PreparedStatement ps = connection.prepareStatement(sql)) {
-            ResultSet resultSet = ps.executeQuery();
+        try (PreparedStatement ps = connection.prepareStatement(sql);
+                ResultSet resultSet = ps.executeQuery()) {
+
             return resultSet.next();
         } catch (SQLException e) {
             throw new CatalogException(String.format("Failed executeSql error %s", sql), e);

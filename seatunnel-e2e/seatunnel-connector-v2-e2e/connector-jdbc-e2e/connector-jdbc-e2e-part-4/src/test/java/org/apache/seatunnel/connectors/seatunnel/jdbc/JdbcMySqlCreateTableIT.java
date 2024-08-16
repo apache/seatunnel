@@ -356,8 +356,9 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
     }
 
     private boolean checkMysql(String sql) {
-        try (Connection connection = getJdbcMySqlConnection()) {
-            ResultSet resultSet = connection.createStatement().executeQuery(sql);
+        try (Connection connection = getJdbcMySqlConnection();
+                Statement statement = connection.createStatement();
+                ResultSet resultSet = statement.executeQuery(sql)) {
             boolean tableExists = false;
             if (resultSet.next()) {
                 tableExists = resultSet.getBoolean(1);
@@ -369,8 +370,9 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
     }
 
     private boolean checkPG(String sql) {
-        try (Connection connection = getJdbcPgConnection()) {
-            ResultSet resultSet = connection.createStatement().executeQuery(sql);
+        try (Connection connection = getJdbcPgConnection();
+                Statement statement = connection.createStatement();
+                ResultSet resultSet = statement.executeQuery(sql)) {
             boolean tableExists = false;
             if (resultSet.next()) {
                 tableExists = resultSet.getBoolean(1);
@@ -382,8 +384,9 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
     }
 
     private boolean checkSqlServer(String sql) {
-        try (Connection connection = getJdbcSqlServerConnection()) {
-            ResultSet resultSet = connection.createStatement().executeQuery(sql);
+        try (Connection connection = getJdbcSqlServerConnection();
+                Statement statement = connection.createStatement();
+                ResultSet resultSet = statement.executeQuery(sql)) {
             boolean tableExists = false;
             if (resultSet.next()) {
                 tableExists = resultSet.getInt(1) == 1;
