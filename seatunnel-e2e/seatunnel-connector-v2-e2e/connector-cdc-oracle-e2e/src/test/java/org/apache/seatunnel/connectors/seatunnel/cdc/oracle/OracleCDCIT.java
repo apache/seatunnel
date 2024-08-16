@@ -174,7 +174,7 @@ public class OracleCDCIT extends TestSuiteBase implements TestResource {
     public void testOracleCdcCheckDataWithLowercaseTable(TestContainer container) throws Exception {
         checkDataForTheJob(
                 container,
-                "/oraclecdc_to_oracle_skip_analysis.conf",
+                "/oraclecdc_to_oracle_lowercase.conf",
                 true,
                 "debezium_lowercase",
                 "full_types_lowercase",
