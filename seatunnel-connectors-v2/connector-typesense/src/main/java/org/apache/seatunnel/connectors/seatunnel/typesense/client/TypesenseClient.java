@@ -15,6 +15,7 @@ import org.apache.seatunnel.connectors.seatunnel.typesense.util.URLParamsConvert
 
 import org.typesense.api.Client;
 import org.typesense.api.Configuration;
+import org.typesense.model.ImportDocumentsParameters;
 import org.typesense.model.SearchParameters;
 import org.typesense.model.SearchResult;
 import org.typesense.resources.Node;
@@ -55,6 +56,23 @@ public class TypesenseClient {
     }
 
     public static void main(String[] args) throws Exception {}
+
+    public void insert(String collection,List<String> documentList) {
+        ImportDocumentsParameters queryParameters = new ImportDocumentsParameters();
+        queryParameters.action("upsert");
+        String text = "";
+        for (String s : documentList) {
+            text = text + s + "\n";
+        }
+//        String documentList = "{\"countryName\": \"India\", \"capital\": \"Washington\", \"gdp\": 5215}\n" +
+//                "{\"countryName\": \"Iran\", \"capital\": \"London\", \"gdp\": 5215}";
+// Import your document as JSONL string from a file.
+        try {
+            tsClient.collections(collection).documents().import_(text, queryParameters);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     public SearchResult search(String collection, String query, int offset) throws Exception {
         SearchParameters searchParameters;

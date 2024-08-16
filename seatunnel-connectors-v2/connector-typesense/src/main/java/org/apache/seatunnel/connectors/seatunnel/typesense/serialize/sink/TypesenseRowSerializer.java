@@ -38,4 +38,6 @@ public class TypesenseRowSerializer implements SeaTunnelRowSerializer {
         return null;
     }
 
+
+
 }

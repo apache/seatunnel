@@ -33,6 +33,8 @@ public class TypesenseSinkWriter implements SinkWriter<SeaTunnelRow,
 
     // 存储的是请求ES的JSON参数
     private final List<String> requestEsList;
+
+    private final String collection;
     private TypesenseClient typesenseClient;
     private RetryMaterial retryMaterial;
     private static final long DEFAULT_SLEEP_TIME_MS = 200L;
@@ -46,7 +48,7 @@ public class TypesenseSinkWriter implements SinkWriter<SeaTunnelRow,
         this.context = context;
         this.maxBatchSize = maxBatchSize;
 
-
+        collection = catalogTable.getTableId().getTableName();
         CollectionInfo collectionInfo = new CollectionInfo(catalogTable.getTableId().getTableName(), config);
         typesenseClient = TypesenseClient.createInstance(config);
         this.seaTunnelRowSerializer =
@@ -69,13 +71,16 @@ public class TypesenseSinkWriter implements SinkWriter<SeaTunnelRow,
         String indexRequestRow = seaTunnelRowSerializer.serializeRow(element);
         requestEsList.add(indexRequestRow);
         if (requestEsList.size() >= maxBatchSize) {
-            //TODO 实际批量写入
+            // 实际批量写入
+            typesenseClient.insert(collection,requestEsList);
+            requestEsList.clear();
         }
     }
 
     @Override
     public Optional<TypesenseCommitInfo> prepareCommit() {
-        //TODO 实际批量写入
+        typesenseClient.insert(collection,requestEsList);
+        requestEsList.clear();
         return Optional.empty();
     }
 
@@ -84,7 +89,8 @@ public class TypesenseSinkWriter implements SinkWriter<SeaTunnelRow,
 
     @Override
     public void close() throws IOException {
-        //TODO 实际批量写入
+        typesenseClient.insert(collection,requestEsList);
+        requestEsList.clear();
     }
 
 }
