@@ -33,6 +33,7 @@ import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
@@ -44,7 +45,6 @@ import org.testcontainers.milvus.MilvusContainer;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import com.alibaba.fastjson.JSONObject;
-import com.github.dockerjava.api.model.Image;
 import com.google.common.collect.Lists;
 import io.milvus.client.MilvusServiceClient;
 import io.milvus.grpc.DataType;
@@ -73,7 +73,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.awaitility.Awaitility.given;
@@ -83,13 +82,14 @@ import static org.awaitility.Awaitility.given;
         value = {},
         type = {EngineType.SPARK, EngineType.FLINK},
         disabledReason = "Currently SPARK and FLINK not support adapt")
+@Disabled("oceanbase vector and milvus takes up too much memory")
 public class JdbcOceanBaseMilvusIT extends TestSuiteBase implements TestResource {
 
     private static final String IMAGE = "oceanbase/oceanbase-ce:vector";
 
     private static final String HOSTNAME = "e2e_oceanbase_vector";
     private static final int PORT = 2881;
-    private static final String USERNAME = "root@sys";
+    private static final String USERNAME = "root@test";
     private static final String PASSWORD = "";
     private static final String OCEANBASE_DATABASE = "seatunnel";
     private GenericContainer<?> dbServer;
@@ -131,7 +131,7 @@ public class JdbcOceanBaseMilvusIT extends TestSuiteBase implements TestResource
     @BeforeAll
     @Override
     public void startUp() throws Exception {
-        dbServer = initOceanbaseContainer().withImagePullPolicy(PullPolicy.alwaysPull());
+        dbServer = initOceanbaseContainer();
 
         Startables.deepStart(Stream.of(dbServer)).join();
         jdbcCase = getJdbcCase();
@@ -156,7 +156,7 @@ public class JdbcOceanBaseMilvusIT extends TestSuiteBase implements TestResource
 
     private void initMilvus()
             throws SQLException, ClassNotFoundException, InstantiationException,
-                    IllegalAccessException {
+            IllegalAccessException {
         milvusClient =
                 new MilvusServiceClient(
                         ConnectParam.newBuilder()
@@ -249,28 +249,14 @@ public class JdbcOceanBaseMilvusIT extends TestSuiteBase implements TestResource
         if (milvusClient != null) {
             milvusClient.close();
         }
-        String images =
-                dockerClient.listImagesCmd().exec().stream()
-                        .map(Image::getId)
-                        .collect(Collectors.joining(","));
-        log.info("before remove image {}, list images: {}", dbServer.getDockerImageName(), images);
-        try {
-            if (dbServer != null) {
-                dbServer.close();
-                dockerClient.removeImageCmd(dbServer.getDockerImageName()).exec();
-            }
-            if (container != null) {
-                container.close();
-                dockerClient.removeImageCmd(container.getDockerImageName()).exec();
-            }
-        } catch (Exception ignored) {
-            log.warn("Failed to delete the image. Another container may be in use", ignored);
+        if (dbServer != null) {
+            dbServer.close();
+            dockerClient.removeImageCmd(dbServer.getDockerImageName()).exec();
         }
-        images =
-                dockerClient.listImagesCmd().exec().stream()
-                        .map(Image::getId)
-                        .collect(Collectors.joining(","));
-        log.info("after remove image {}, list images: {}", dbServer.getDockerImageName(), images);
+        if (container != null) {
+            container.close();
+            dockerClient.removeImageCmd(container.getDockerImageName()).exec();
+        }
     }
 
     @TestTemplate
