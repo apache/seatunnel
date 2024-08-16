@@ -79,7 +79,7 @@ public class EmailWithMultiIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testEmailSink(TestContainer container) throws Exception {
         Container.ExecResult textWriteResult = container.executeJob("/fake_to_email.conf");
-        testEMailSuccess(1, "receiver-1@example.com");
+        testEMailSuccess(1, "receiver-1@example.com", "receiver-2@example.com");
         Assertions.assertEquals(0, textWriteResult.getExitCode());
     }
 
@@ -90,7 +90,7 @@ public class EmailWithMultiIT extends TestSuiteBase implements TestResource {
             disabledReason = "Currently FLINK do not support multi-table")
     public void testMultipleTableEmailSink(TestContainer container) throws Exception {
         Container.ExecResult textWriteResult = container.executeJob("/fake_to_multiemailsink.conf");
-        testEMailSuccess(2, "receiver-1@example.com", "receiver-2@example.com");
+        testEMailSuccess(2, "receiver-3@example.com", "receiver-4@example.com");
         Assertions.assertEquals(0, textWriteResult.getExitCode());
     }
 
