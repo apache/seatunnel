@@ -77,8 +77,8 @@ public class EmailWithMultiIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     @DisabledOnContainer(
             value = {},
-            type = {EngineType.SPARK, EngineType.FLINK},
-            disabledReason = "Currently SPARK and FLINK do not support multi-table")
+            type = {EngineType.FLINK},
+            disabledReason = "Currently FLINK do not support multi-table")
     public void testMultipleTableEmailSink(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult textWriteResult = container.executeJob("/fake_to_multiemailsink.conf");
