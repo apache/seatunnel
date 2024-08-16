@@ -24,7 +24,6 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
-import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.email.config.EmailConfig;
 import org.apache.seatunnel.connectors.seatunnel.email.config.EmailSinkConfig;
 
@@ -44,7 +43,7 @@ public class EmailSink extends AbstractSimpleSink<SeaTunnelRow, Void>
     }
 
     @Override
-    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context) {
+    public EmailSinkWriter createWriter(SinkWriter.Context context) {
         return new EmailSinkWriter(seaTunnelRowType, pluginConfig);
     }
 
