@@ -62,7 +62,7 @@ just for some test cases such as type conversion or connector new feature testin
 | double.min          | double   | no       | 0                       | The min value of double data that connector generated                                                                                                                                 |
 | double.max          | double   | no       | 0x1.fffffffffffffP+1023 | The max value of double data that connector generated                                                                                                                                 |
 | double.template     | list     | no       | -                       | The template list of double type that connector generated, if user configured it, connector will randomly select an item from the template list                                       |
-| common-options      |          | no       | -                       | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details                                                                               |
+| common-options      |          | no       | -                       | Source plugin common parameters, please refer to [Source Common Options](../source-common-options) for details                                                                        |
 
 ## Task Example
 

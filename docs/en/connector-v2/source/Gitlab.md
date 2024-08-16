@@ -269,7 +269,7 @@ source {
 
 ### common options
 
-Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details
+Source plugin common parameters, please refer to [Source Common Options](../source-common-options) for details
 
 ## Example
 

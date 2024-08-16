@@ -65,7 +65,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | enable_multi_lines          | Boolean | No       | false   |                                                                                                                                      |
 | connect_timeout_ms          | Int     | No       | 12000   | Connection timeout setting, default 12s.                                                                                             |
 | socket_timeout_ms           | Int     | No       | 60000   | Socket timeout setting, default 60s.                                                                                                 |
-| common-options              |         | No       | -       | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details                              |
+| common-options              |         | No       | -       | Source plugin common parameters, please refer to [Source Common Options](../source-common-options) for details                       |
 
 ## How to Create a Http Data Synchronization Jobs
 

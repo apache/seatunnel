@@ -62,7 +62,7 @@
 
 ### common options
 
-Sink插件常用参数，请参考 [Sink常用选项](common-options.md) 了解详情.
+Sink插件常用参数，请参考 [Sink常用选项](../sink-common-options) 了解详情.
 
 ## 示例
 

@@ -42,7 +42,7 @@
 | transaction_prefix   | String | 否    | -    | 如果语义指定为EXACTLY_ONCE，生产者将把所有消息写入一个 Kafka 事务中，kafka 通过不同的 transactionId 来区分不同的事务。该参数是kafka transactionId的前缀，确保不同的作业使用不同的前缀                                                                                                                       |
 | format               | String | 否    | json | 数据格式。默认格式是json。可选文本格式，canal-json、debezium-json 和 avro。如果使用 json 或文本格式。默认字段分隔符是`,`。如果自定义分隔符，请添加`field_delimiter`选项。如果使用canal格式，请参考[canal-json](../formats/canal-json.md)。如果使用debezium格式，请参阅 [debezium-json](../formats/debezium-json.md) 了解详细信息 |
 | field_delimiter      | String | 否    | ,    | 自定义数据格式的字段分隔符                                                                                                                                                                                                                                  |
-| common-options       |        | 否    | -    | Sink插件常用参数，请参考 [Sink常用选项 ](common-options.md) 了解详情                                                                                                                                                                                             |
+| common-options       |        | 否    | -    | Sink插件常用参数，请参考 [Sink常用选项 ](../sink-common-options) 了解详情                                                                                                                                                                                        |
 
 ## 参数解释
 

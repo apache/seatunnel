@@ -97,5 +97,6 @@ The SeaTunnel console will print some logs as below:
 
 ## What's More
 
-For now, you have taken a quick look about SeaTunnel, and you can see [connector](../../connector-v2/source/FakeSource.md) to find all
-sources and sinks SeaTunnel supported. Or see [SeaTunnel Engine(Zeta)](../../seatunnel-engine/about.md) if you want to know more about SeaTunnel Engine. Here you will learn how to deploy SeaTunnel Engine and how to use it in cluster mode.
+- Start write your own config file now, choose the [connector](../../connector-v2/source) you want to use, and configure the parameters according to the connector's documentation.
+- See [SeaTunnel Engine(Zeta)](../../seatunnel-engine/about.md) if you want to know more about SeaTunnel Engine. Here you will learn how to deploy SeaTunnel Engine and how to use it in cluster mode.
+
