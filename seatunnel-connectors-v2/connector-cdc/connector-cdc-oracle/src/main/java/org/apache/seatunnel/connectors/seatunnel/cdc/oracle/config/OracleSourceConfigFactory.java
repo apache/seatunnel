@@ -162,34 +162,4 @@ public class OracleSourceConfigFactory extends JdbcSourceConfigFactory {
                 connectionPoolSize,
                 exactlyOnce);
     }
-
-    private void validateConfig() throws IllegalArgumentException {
-        if (databaseList.size() != 1) {
-            throw new IllegalArgumentException(
-                    "Oracle only supports single database, databaseList: " + databaseList);
-        }
-        for (String database : databaseList) {
-            for (int i = 0; i < database.length(); i++) {
-                if (Character.isLetter(database.charAt(i))
-                        && !Character.isUpperCase(database.charAt(i))) {
-                    throw new IllegalArgumentException(
-                            "Oracle database name must be in all uppercase, database: " + database);
-                }
-            }
-        }
-        for (String table : tableList) {
-            if (table.split("\\.").length != 3 && table.split("\\.").length != 2) {
-                throw new IllegalArgumentException(
-                        "Oracle table name format must be is: ${database}.${schema}.${table} or ${schema}.${table}, table: "
-                                + table);
-            }
-            for (int i = 0; i < table.length(); i++) {
-                if (Character.isLetter(table.charAt(i))
-                        && !Character.isUpperCase(table.charAt(i))) {
-                    throw new IllegalArgumentException(
-                            "Oracle table name must be in all uppercase, table: " + table);
-                }
-            }
-        }
-    }
 }
