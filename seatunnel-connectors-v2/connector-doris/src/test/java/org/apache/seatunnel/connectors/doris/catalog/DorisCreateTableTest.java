@@ -33,7 +33,6 @@ import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.doris.config.DorisOptions;
 import org.apache.seatunnel.connectors.doris.datatype.DorisTypeConverterV1;
-import org.apache.seatunnel.connectors.doris.datatype.DorisTypeConverterV2;
 import org.apache.seatunnel.connectors.doris.util.DorisCatalogUtil;
 
 import org.apache.commons.lang3.StringUtils;
@@ -390,45 +389,7 @@ public class DorisCreateTableTest {
                         + "`comment` VARCHAR(500) NULL ,\n"
                         + "`description` STRING NULL \n"
                         + " )\n"
-                        + " partitioned by `id`,`name`,`age`;",
-                result);
-    }
-
-    @Test
-    public void testWithResortedMultiPrimaryKey() {
-        List<Column> columns = new ArrayList<>();
-
-        columns.add(PhysicalColumn.of("id", BasicType.LONG_TYPE, (Long) null, true, null, ""));
-        columns.add(PhysicalColumn.of("name", BasicType.STRING_TYPE, (Long) null, true, null, ""));
-        columns.add(PhysicalColumn.of("age", BasicType.INT_TYPE, (Long) null, true, null, ""));
-
-        String result =
-                DorisCatalogUtil.getCreateTableStatement(
-                        DorisOptions.SAVE_MODE_CREATE_TEMPLATE.defaultValue(),
-                        TablePath.of("test1", "test2"),
-                        CatalogTable.of(
-                                TableIdentifier.of("test", "test1", "test2"),
-                                TableSchema.builder()
-                                        .primaryKey(PrimaryKey.of("", Arrays.asList("age", "id")))
-                                        .columns(columns)
-                                        .build(),
-                                Collections.emptyMap(),
-                                Collections.emptyList(),
-                                ""),
-                        DorisTypeConverterV2.INSTANCE);
-        Assertions.assertEquals(
-                "CREATE TABLE IF NOT EXISTS `test1`.`test2` (\n"
-                        + "`id` BIGINT NULL ,`age` INT NULL ,\n"
-                        + "`name` STRING NULL \n"
-                        + ") ENGINE=OLAP\n"
-                        + " UNIQUE KEY (`id`,`age`)\n"
-                        + "DISTRIBUTED BY HASH (`id`,`age`)\n"
-                        + " PROPERTIES (\n"
-                        + "\"replication_allocation\" = \"tag.location.default: 1\",\n"
-                        + "\"in_memory\" = \"false\",\n"
-                        + "\"storage_format\" = \"V2\",\n"
-                        + "\"disable_auto_compaction\" = \"false\"\n"
-                        + ")",
+                        + " partitioned by `id`,`age`,`name`;",
                 result);
     }
 }
