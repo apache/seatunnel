@@ -36,7 +36,9 @@ import org.testcontainers.utility.DockerImageName;
 
 import lombok.extern.slf4j.Slf4j;
 
+import javax.mail.Flags;
 import javax.mail.Folder;
+import javax.mail.Message;
 import javax.mail.Session;
 import javax.mail.Store;
 
@@ -112,9 +114,23 @@ public class EmailWithMultiIT extends TestSuiteBase implements TestResource {
                 log.info("IMAP is connected");
                 Folder folder = store.getFolder("INBOX");
                 if (folder != null) {
-                    folder.open(Folder.READ_ONLY);
-                    log.info("mail messages.length: {}", folder.getMessageCount());
-                    Assertions.assertEquals(receivedNum, folder.getMessageCount());
+                    // Open the folder in read/write mode
+                    folder.open(Folder.READ_WRITE);
+
+                    Message[] messages = folder.getMessages();
+                    int unreadCount = 0;
+
+                    for (Message message : messages) {
+                        // Process only unread mail
+                        if (!message.isSet(Flags.Flag.SEEN)) {
+                            unreadCount++;
+                            // Mark as read
+                            message.setFlag(Flags.Flag.SEEN, true);
+                        }
+                    }
+
+                    log.info("mail messages.length: {}", unreadCount);
+                    Assertions.assertEquals(receivedNum, unreadCount);
                 }
             } else {
                 log.info("IMAP is not connected");
