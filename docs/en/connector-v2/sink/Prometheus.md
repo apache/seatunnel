@@ -4,7 +4,6 @@
 
 ## Support Those Engines
 
-> Spark<br/>
 > Flink<br/>
 > SeaTunnel Zeta<br/>
 
