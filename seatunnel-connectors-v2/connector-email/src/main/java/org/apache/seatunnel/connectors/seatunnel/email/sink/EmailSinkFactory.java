@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.email.sink;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.sink.SinkCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -60,6 +61,7 @@ public class EmailSinkFactory implements TableSinkFactory {
                         EMAIL_AUTHORIZATION_CODE,
                         EMAIL_MESSAGE_HEADLINE,
                         EMAIL_MESSAGE_CONTENT)
+                .optional(SinkCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .build();
     }
 }
