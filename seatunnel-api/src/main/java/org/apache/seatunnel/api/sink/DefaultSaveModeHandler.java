@@ -60,6 +60,11 @@ public class DefaultSaveModeHandler implements SaveModeHandler {
     }
 
     @Override
+    public void open() {
+        catalog.open();
+    }
+
+    @Override
     public void handleSchemaSaveMode() {
         switch (schemaSaveMode) {
             case RECREATE_SCHEMA:

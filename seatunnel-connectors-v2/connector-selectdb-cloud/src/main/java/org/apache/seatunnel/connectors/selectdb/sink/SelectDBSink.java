@@ -140,4 +140,28 @@ public class SelectDBSink
     public Optional<Serializer<SelectDBCommitInfo>> getAggregatedCommitInfoSerializer() {
         return Optional.empty();
     }
+
+    @Override
+    public Optional<SaveModeHandler> getSaveModeHandler() {
+
+        CatalogFactory catalogFactory =
+                discoverFactory(
+                        Thread.currentThread().getContextClassLoader(),
+                        CatalogFactory.class,
+                        "SelectDBCloud");
+        if (catalogFactory == null) {
+            throw new SelectDBConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "PluginName: %s, PluginType: %s, Message: %s",
+                            getPluginName(),
+                            PluginType.SINK,
+                            "Cannot find SelectDBCloud catalog factory"));
+        }
+
+        Catalog catalog =
+                catalogFactory.createCatalog(catalogFactory.factoryIdentifier(), readonlyConfig);
+
+        return Optional.of(new SelectDBSaveModeHandler(selectDBConfig, catalog, catalogTable));
+    }
 }
