@@ -146,7 +146,6 @@ public final class SeaTunnelRow implements Serializable {
                 return getArrayNotNullSize((Object[]) v) * 4;
             case FLOAT16_VECTOR:
             case BFLOAT16_VECTOR:
-                return ((ByteBuffer) v).capacity() * 2;
             case BINARY_VECTOR:
                 return ((ByteBuffer) v).capacity();
             case SPARSE_FLOAT_VECTOR:
