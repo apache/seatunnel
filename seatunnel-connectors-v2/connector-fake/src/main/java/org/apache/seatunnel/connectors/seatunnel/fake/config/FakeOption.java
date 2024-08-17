@@ -254,8 +254,14 @@ public class FakeOption {
     public static final Option<Integer> VECTOR_DIMENSION =
             Options.key("vector.dimension")
                     .intType()
-                    .defaultValue(3)
+                    .defaultValue(4)
                     .withDescription("The vector dimension");
+
+    public static final Option<Integer> BINARY_VECTOR_DIMENSION =
+            Options.key("binary.vector.dimension")
+                    .intType()
+                    .defaultValue(8)
+                    .withDescription("The binary vector dimension , must be multiple of 8");
 
     public static final Option<FakeMode> STRING_FAKE_MODE =
             Options.key("string.fake.mode")

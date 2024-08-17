@@ -34,6 +34,7 @@ import java.io.Serializable;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.ARRAY_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.BIGINT_FAKE_MODE;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.BIGINT_TEMPLATE;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.BINARY_VECTOR_DIMENSION;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.BYTES_LENGTH;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.DATE_DAY_TEMPLATE;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.DATE_MONTH_TEMPLATE;
@@ -96,6 +97,7 @@ public class FakeSourceFactory implements TableSourceFactory {
                         ARRAY_SIZE,
                         BYTES_LENGTH,
                         VECTOR_DIMENSION,
+                        BINARY_VECTOR_DIMENSION,
                         DATE_YEAR_TEMPLATE,
                         DATE_MONTH_TEMPLATE,
                         DATE_DAY_TEMPLATE,

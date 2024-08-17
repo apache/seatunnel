@@ -24,6 +24,7 @@ import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.RandomUtils;
 
 import java.math.BigDecimal;
+import java.nio.ByteBuffer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -170,12 +171,10 @@ public class FakeDataRandomUtils {
         return LocalDateTime.of(year, month, day, hour, minute, second);
     }
 
-    public Byte[] randomBinaryVector() {
-        Byte[] binaryVector = new Byte[fakeConfig.getVectorDimension()];
-        for (int i = 0; i < fakeConfig.getVectorDimension(); i++) {
-            binaryVector[i] = (byte) (RandomUtils.nextBoolean() ? 1 : 0);
-        }
-        return binaryVector;
+    public ByteBuffer randomBinaryVector() {
+        int byteCount = fakeConfig.getBinaryVectorDimension() / 8;
+        // binary vector doesn't care endian since each byte is independent
+        return ByteBuffer.wrap(RandomUtils.nextBytes(byteCount));
     }
 
     public Float[] randomFloatVector() {
@@ -188,7 +187,7 @@ public class FakeDataRandomUtils {
         return floatVector;
     }
 
-    public Short[] randomFloat16Vector() {
+    public ByteBuffer randomFloat16Vector() {
         Short[] float16Vector = new Short[fakeConfig.getVectorDimension()];
         for (int i = 0; i < fakeConfig.getVectorDimension(); i++) {
             float value =
@@ -196,10 +195,10 @@ public class FakeDataRandomUtils {
                             fakeConfig.getVectorFloatMin(), fakeConfig.getVectorFloatMax());
             float16Vector[i] = floatToFloat16(value);
         }
-        return float16Vector;
+        return shortArrayToByteBuffer(float16Vector);
     }
 
-    public Short[] randomBFloat16Vector() {
+    public ByteBuffer randomBFloat16Vector() {
         Short[] bfloat16Vector = new Short[fakeConfig.getVectorDimension()];
         for (int i = 0; i < fakeConfig.getVectorDimension(); i++) {
             float value =
@@ -207,25 +206,49 @@ public class FakeDataRandomUtils {
                             fakeConfig.getVectorFloatMin(), fakeConfig.getVectorFloatMax());
             bfloat16Vector[i] = floatToBFloat16(value);
         }
-        return bfloat16Vector;
+        return shortArrayToByteBuffer(bfloat16Vector);
     }
 
     public Map<Integer, Float> randomSparseFloatVector() {
-        Map<Integer, Float> sparseFloatVector = new HashMap<>();
-        for (int i = 0; i < fakeConfig.getVectorDimension(); i++) {
-            float value =
+        Map<Integer, Float> sparseVector = new HashMap<>();
+
+        Integer nonZeroElements = fakeConfig.getVectorDimension();
+        while (nonZeroElements > 0) {
+            Integer index = RandomUtils.nextInt();
+            Float value =
                     RandomUtils.nextFloat(
                             fakeConfig.getVectorFloatMin(), fakeConfig.getVectorFloatMax());
-            if (value > 0.7) {
-                sparseFloatVector.put(i, value);
+            if (!sparseVector.containsKey(index)) {
+                sparseVector.put(index, value);
+                nonZeroElements--;
             }
         }
-        return sparseFloatVector;
+
+        return sparseVector;
     }
 
     private static short floatToFloat16(float value) {
         int intBits = Float.floatToIntBits(value);
-        return (short) ((intBits >> 16) & 0xFFFF);
+        int sign = (intBits >>> 16) & 0x8000;
+        int exponent = ((intBits >>> 23) & 0xff) - 112;
+        int mantissa = intBits & 0x007fffff;
+
+        if (exponent <= 0) {
+            return (short) sign;
+        } else if (exponent > 0x1f) {
+            return (short) (sign | 0x7c00);
+        }
+        return (short) (sign | (exponent << 10) | (mantissa >> 13));
+    }
+
+    private static ByteBuffer shortArrayToByteBuffer(Short[] shortArray) {
+        ByteBuffer byteBuffer = ByteBuffer.allocate(shortArray.length * 2);
+
+        for (Short value : shortArray) {
+            byteBuffer.putShort(value);
+        }
+        byteBuffer.flip(); // Flip the buffer to prepare for reading
+        return byteBuffer;
     }
 
     private static short floatToBFloat16(float value) {

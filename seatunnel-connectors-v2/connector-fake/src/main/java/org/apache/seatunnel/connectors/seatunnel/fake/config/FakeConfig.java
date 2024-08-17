@@ -38,6 +38,7 @@ import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.B
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.BIGINT_MAX;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.BIGINT_MIN;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.BIGINT_TEMPLATE;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.BINARY_VECTOR_DIMENSION;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.BYTES_LENGTH;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.DATE_DAY_TEMPLATE;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeOption.DATE_MONTH_TEMPLATE;
@@ -124,6 +125,8 @@ public class FakeConfig implements Serializable {
 
     @Builder.Default private int vectorDimension = VECTOR_DIMENSION.defaultValue();
 
+    @Builder.Default private int binaryVectorDimension = BINARY_VECTOR_DIMENSION.defaultValue();
+
     @Builder.Default private FakeOption.FakeMode stringFakeMode = STRING_FAKE_MODE.defaultValue();
 
     @Builder.Default private FakeOption.FakeMode tinyintFakeMode = TINYINT_FAKE_MODE.defaultValue();
@@ -167,6 +170,7 @@ public class FakeConfig implements Serializable {
         builder.mapSize(readonlyConfig.get(MAP_SIZE));
         builder.arraySize(readonlyConfig.get(ARRAY_SIZE));
         builder.vectorDimension(readonlyConfig.get(VECTOR_DIMENSION));
+        builder.binaryVectorDimension(readonlyConfig.get(BINARY_VECTOR_DIMENSION));
         builder.bytesLength(readonlyConfig.get(BYTES_LENGTH));
         builder.stringLength(readonlyConfig.get(STRING_LENGTH));
 
