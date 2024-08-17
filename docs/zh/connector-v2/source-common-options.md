@@ -1,7 +1,6 @@
 ---
-
 sidebar_position: 3
--------------------
+---
 
 # Source Common Options
 
