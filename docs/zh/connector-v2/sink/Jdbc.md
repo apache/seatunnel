@@ -169,7 +169,7 @@ Tip: 如果目标数据库有 SCHEMA 的概念，则表参数必须写成 `xxx.x
 
 ### common options
 
-Sink插件常用参数，请参考 [Sink常用选项](../sink-common-options) 了解详情
+Sink插件常用参数，请参考 [Sink常用选项](../sink-common-options.md) 了解详情
 
 ### schema_save_mode [Enum]
 

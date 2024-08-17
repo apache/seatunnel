@@ -271,7 +271,7 @@ source {
 
 ### common options
 
-Source plugin common parameters, please refer to [Source Common Options](../source-common-options) for details
+Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details
 
 ## Example
 
