@@ -24,6 +24,7 @@ import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.RandomUtils;
 
 import java.math.BigDecimal;
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -247,7 +248,11 @@ public class FakeDataRandomUtils {
         for (Short value : shortArray) {
             byteBuffer.putShort(value);
         }
-        byteBuffer.flip(); // Flip the buffer to prepare for reading
+
+        // Compatible compilation and running versions are not consistent
+        // Flip the buffer to prepare for reading
+        ((Buffer) byteBuffer).flip();
+
         return byteBuffer;
     }
 

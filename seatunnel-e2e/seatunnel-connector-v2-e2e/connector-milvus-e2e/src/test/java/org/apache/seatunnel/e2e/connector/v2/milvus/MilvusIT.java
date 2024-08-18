@@ -54,6 +54,7 @@ import io.milvus.param.index.CreateIndexParam;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -369,7 +370,9 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
             byteBuffer.putShort(value);
         }
 
-        byteBuffer.flip(); // Flip the buffer to prepare for reading
+        // Compatible compilation and running versions are not consistent
+        // Flip the buffer to prepare for reading
+        ((Buffer) byteBuffer).flip();
 
         return byteBuffer;
     }
