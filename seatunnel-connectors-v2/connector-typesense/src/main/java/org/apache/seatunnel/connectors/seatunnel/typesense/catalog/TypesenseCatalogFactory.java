@@ -1,6 +1,5 @@
 package org.apache.seatunnel.connectors.seatunnel.typesense.catalog;
 
-
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.catalog.Catalog;

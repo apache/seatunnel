@@ -1,18 +1,13 @@
 package org.apache.seatunnel.connectors.seatunnel.typesense.client;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.typesense.config.TypesenseConnectionConfig;
-
-import org.apache.commons.lang3.StringUtils;
-
-import org.apache.seatunnel.connectors.seatunnel.typesense.exception.TypesenseConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.typesense.exception.TypesenseConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.typesense.util.URLParamsConverter;
+
+import org.apache.commons.lang3.StringUtils;
 
 import org.typesense.api.Client;
 import org.typesense.api.Collections;
@@ -27,12 +22,23 @@ import org.typesense.model.SearchParameters;
 import org.typesense.model.SearchResult;
 import org.typesense.resources.Node;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.extern.slf4j.Slf4j;
+
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import static org.apache.seatunnel.connectors.seatunnel.typesense.exception.TypesenseConnectorErrorCode.CREATE_COLLECTION_ERROR;
+import static org.apache.seatunnel.connectors.seatunnel.typesense.exception.TypesenseConnectorErrorCode.DROP_COLLECTION_ERROR;
+import static org.apache.seatunnel.connectors.seatunnel.typesense.exception.TypesenseConnectorErrorCode.FIELD_TYPE_MAPPING_ERROR;
+import static org.apache.seatunnel.connectors.seatunnel.typesense.exception.TypesenseConnectorErrorCode.INSERT_DOC_ERROR;
+import static org.apache.seatunnel.connectors.seatunnel.typesense.exception.TypesenseConnectorErrorCode.QUERY_COLLECTION_EXISTS_ERROR;
+import static org.apache.seatunnel.connectors.seatunnel.typesense.exception.TypesenseConnectorErrorCode.QUERY_COLLECTION_LIST_ERROR;
+import static org.apache.seatunnel.connectors.seatunnel.typesense.exception.TypesenseConnectorErrorCode.QUERY_COLLECTION_NUM_ERROR;
+import static org.apache.seatunnel.connectors.seatunnel.typesense.exception.TypesenseConnectorErrorCode.TRUNCATE_COLLECTION_ERROR;
 
 @Slf4j
 public class TypesenseClient {
@@ -46,6 +52,11 @@ public class TypesenseClient {
         List<String> hosts = config.get(TypesenseConnectionConfig.HOSTS);
         String protocol = config.get(TypesenseConnectionConfig.protocol);
         String apiKey = config.get(TypesenseConnectionConfig.APIKEY);
+        return createInstance(hosts, apiKey, protocol);
+    }
+
+    public static TypesenseClient createInstance(
+            List<String> hosts, String apiKey, String protocol) {
         List<Node> nodes = new ArrayList<>();
 
         hosts.stream()
@@ -65,52 +76,58 @@ public class TypesenseClient {
         return new TypesenseClient(client);
     }
 
-    public void insert(String collection,List<String> documentList) {
+    public void insert(String collection, List<String> documentList) {
         ImportDocumentsParameters queryParameters = new ImportDocumentsParameters();
         queryParameters.action("upsert");
         String text = "";
         for (String s : documentList) {
             text = text + s + "\n";
         }
-//        String documentList = "{\"countryName\": \"India\", \"capital\": \"Washington\", \"gdp\": 5215}\n" +
-//                "{\"countryName\": \"Iran\", \"capital\": \"London\", \"gdp\": 5215}";
-// Import your document as JSONL string from a file.
         try {
             tsClient.collections(collection).documents().import_(text, queryParameters);
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            log.error(INSERT_DOC_ERROR.getDescription());
+            throw new TypesenseConnectorException(
+                    INSERT_DOC_ERROR, INSERT_DOC_ERROR.getDescription());
         }
     }
 
     public SearchResult search(String collection, String query, int offset) throws Exception {
         SearchParameters searchParameters;
-        if(StringUtils.isNotBlank(query)){
+        if (StringUtils.isNotBlank(query)) {
             String jsonQuery = URLParamsConverter.convertParamsToJson(query);
             ObjectMapper objectMapper = new ObjectMapper();
             searchParameters = objectMapper.readValue(jsonQuery, SearchParameters.class);
-        }else{
+        } else {
             searchParameters = new SearchParameters().q("*");
         }
-        log.debug("Typesense query param:{}",searchParameters);
-        System.out.println("query: "+JsonUtils.toJsonString(searchParameters));
+        log.debug("Typesense query param:{}", searchParameters);
+        System.out.println("query: " + JsonUtils.toJsonString(searchParameters));
         searchParameters.offset(offset);
         SearchResult searchResult =
                 tsClient.collections(collection).documents().search(searchParameters);
         return searchResult;
     }
 
-    public boolean collectionExists(String collection){
+    public boolean collectionExists(String collection) {
         try {
-            tsClient.collections(collection).retrieve();
-            return true;
+            Collections collections = tsClient.collections();
+            CollectionResponse[] collectionResponses = collections.retrieve();
+            for (CollectionResponse collectionRespons : collectionResponses) {
+                String collectionName = collectionRespons.getName();
+                if (collection.equals(collectionName)) {
+                    return true;
+                }
+            }
         } catch (Exception e) {
-            e.printStackTrace();
-            return false;
+            log.error(QUERY_COLLECTION_EXISTS_ERROR.getDescription());
+            throw new TypesenseConnectorException(
+                    QUERY_COLLECTION_EXISTS_ERROR, QUERY_COLLECTION_EXISTS_ERROR.getDescription());
         }
+        return false;
     }
 
-
-    public List<String> collectionList(){
+    public List<String> collectionList() {
         try {
             Collections collections = tsClient.collections();
             CollectionResponse[] collectionResponses = collections.retrieve();
@@ -121,15 +138,15 @@ public class TypesenseClient {
             }
             return list;
         } catch (Exception e) {
-            e.printStackTrace();
+            log.error(QUERY_COLLECTION_LIST_ERROR.getDescription());
+            throw new TypesenseConnectorException(
+                    QUERY_COLLECTION_LIST_ERROR, QUERY_COLLECTION_LIST_ERROR.getDescription());
         }
-        return null;
     }
 
-    public Map<String, BasicTypeDefine<TypesenseType>> getFieldTypeMapping(
-            String collection) {
-        Map<String, BasicTypeDefine<TypesenseType>> allElasticSearchFieldTypeInfoMap = new HashMap<>();
-
+    public Map<String, BasicTypeDefine<TypesenseType>> getFieldTypeMapping(String collection) {
+        Map<String, BasicTypeDefine<TypesenseType>> allElasticSearchFieldTypeInfoMap =
+                new HashMap<>();
         try {
             CollectionResponse collectionResponse = tsClient.collections(collection).retrieve();
             List<Field> fields = collectionResponse.getFields();
@@ -145,44 +162,55 @@ public class TypesenseClient {
                 allElasticSearchFieldTypeInfoMap.put(fieldName, typeDefine.build());
             }
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            log.error(FIELD_TYPE_MAPPING_ERROR.getDescription());
+            throw new TypesenseConnectorException(
+                    FIELD_TYPE_MAPPING_ERROR, FIELD_TYPE_MAPPING_ERROR.getDescription());
         }
-        return null;
+        return allElasticSearchFieldTypeInfoMap;
     }
 
-    public boolean createCollection(String collection){
-        CollectionSchema collectionSchema = new CollectionSchema();
+    public boolean createCollection(String collection) {
+        if (collectionExists(collection)) {
+            return true;
+        }
         List<Field> fields = new ArrayList<>();
-        fields.add(new Field().name("_update_time").type(FieldTypes.STRING));
+        fields.add(new Field().name(".*").type(FieldTypes.AUTO));
+        return createCollection(collection, fields);
+    }
+
+    public boolean createCollection(String collection, List<Field> fields) {
+        CollectionSchema collectionSchema = new CollectionSchema();
         collectionSchema.name(collection).fields(fields);
         try {
-            System.out.println(tsClient.collections().create(collectionSchema));
+            tsClient.collections().create(collectionSchema);
             return true;
         } catch (Exception e) {
-            e.printStackTrace();
-            return false;
+            log.error(CREATE_COLLECTION_ERROR.getDescription());
+            throw new TypesenseConnectorException(
+                    CREATE_COLLECTION_ERROR, CREATE_COLLECTION_ERROR.getDescription());
         }
     }
 
-    public boolean dropCollection(String collection){
+    public boolean dropCollection(String collection) {
         try {
             tsClient.collections(collection).delete();
             return true;
         } catch (Exception e) {
-            e.printStackTrace();
-            return false;
+            log.error(DROP_COLLECTION_ERROR.getDescription());
+            throw new TypesenseConnectorException(
+                    DROP_COLLECTION_ERROR, DROP_COLLECTION_ERROR.getDescription());
         }
-
     }
 
-    public boolean clearIndexData(String collection){
+    public boolean truncateCollectionData(String collection) {
         DeleteDocumentsParameters deleteDocumentsParameters = new DeleteDocumentsParameters();
         deleteDocumentsParameters.filterBy("id:!=1||id:=1");
         try {
             tsClient.collections(collection).documents().delete(deleteDocumentsParameters);
         } catch (Exception e) {
-            e.printStackTrace();
-            return false;
+            log.error(TRUNCATE_COLLECTION_ERROR.getDescription());
+            throw new TypesenseConnectorException(
+                    TRUNCATE_COLLECTION_ERROR, TRUNCATE_COLLECTION_ERROR.getDescription());
         }
         return true;
     }
@@ -193,8 +221,9 @@ public class TypesenseClient {
             SearchResult searchResult = tsClient.collections(collection).documents().search(q);
             return searchResult.getFound();
         } catch (Exception e) {
-            e.printStackTrace();
-            return -1;
+            log.error(QUERY_COLLECTION_NUM_ERROR.getDescription());
+            throw new TypesenseConnectorException(
+                    QUERY_COLLECTION_NUM_ERROR, QUERY_COLLECTION_NUM_ERROR.getDescription());
         }
     }
 }

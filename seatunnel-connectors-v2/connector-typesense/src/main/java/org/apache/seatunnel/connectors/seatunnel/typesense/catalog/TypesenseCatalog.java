@@ -1,6 +1,5 @@
 package org.apache.seatunnel.connectors.seatunnel.typesense.catalog;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigUtil;
 import org.apache.seatunnel.api.table.catalog.Catalog;
@@ -19,7 +18,8 @@ import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.connectors.seatunnel.typesense.client.TypesenseClient;
 import org.apache.seatunnel.connectors.seatunnel.typesense.client.TypesenseType;
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -38,6 +38,7 @@ public class TypesenseCatalog implements Catalog {
 
     private final ReadonlyConfig config;
     private TypesenseClient typesenseClient;
+
     public TypesenseCatalog(String catalogName, String defaultDatabase, ReadonlyConfig config) {
         this.catalogName = checkNotNull(catalogName, "catalogName cannot be null");
         this.defaultDatabase = defaultDatabase;
@@ -45,15 +46,14 @@ public class TypesenseCatalog implements Catalog {
     }
 
     @Override
-    public void open() throws CatalogException
-    {
-            typesenseClient = TypesenseClient.createInstance(config);
+    public void open() throws CatalogException {
+        typesenseClient = TypesenseClient.createInstance(config);
     }
 
     @Override
     public void close() throws CatalogException {
-//Nothing
-}
+        // Nothing
+    }
 
     @Override
     public String name() {
@@ -64,7 +64,6 @@ public class TypesenseCatalog implements Catalog {
     public String getDefaultDatabase() throws CatalogException {
         return defaultDatabase;
     }
-
 
     @Override
     public boolean databaseExists(String databaseName) throws CatalogException {
@@ -135,14 +134,16 @@ public class TypesenseCatalog implements Catalog {
     }
 
     @Override
-    public void createTable(TablePath tablePath, CatalogTable table, boolean ignoreIfExists) throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
+    public void createTable(TablePath tablePath, CatalogTable table, boolean ignoreIfExists)
+            throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
         // Create the index
         checkNotNull(tablePath, "tablePath cannot be null");
         typesenseClient.createCollection(tablePath.getTableName());
     }
 
     @Override
-    public void dropTable(TablePath tablePath, boolean ignoreIfNotExists) throws TableNotExistException, CatalogException {
+    public void dropTable(TablePath tablePath, boolean ignoreIfNotExists)
+            throws TableNotExistException, CatalogException {
         checkNotNull(tablePath);
         if (!tableExists(tablePath) && !ignoreIfNotExists) {
             throw new TableNotExistException(catalogName, tablePath);
@@ -159,18 +160,20 @@ public class TypesenseCatalog implements Catalog {
     }
 
     @Override
-    public void createDatabase(TablePath tablePath, boolean ignoreIfExists) throws DatabaseAlreadyExistException, CatalogException {
+    public void createDatabase(TablePath tablePath, boolean ignoreIfExists)
+            throws DatabaseAlreadyExistException, CatalogException {
         createTable(tablePath, null, ignoreIfExists);
     }
 
     @Override
-    public void dropDatabase(TablePath tablePath, boolean ignoreIfNotExists) throws DatabaseNotExistException, CatalogException {
+    public void dropDatabase(TablePath tablePath, boolean ignoreIfNotExists)
+            throws DatabaseNotExistException, CatalogException {
         dropTable(tablePath, ignoreIfNotExists);
     }
 
     @Override
     public void truncateTable(TablePath tablePath, boolean ignoreIfNotExists) {
-        typesenseClient.clearIndexData(tablePath.getTableName());
+        typesenseClient.truncateCollectionData(tablePath.getTableName());
     }
 
     @Override
@@ -195,5 +198,4 @@ public class TypesenseCatalog implements Catalog {
             throw new UnsupportedOperationException("Unsupported action type: " + actionType);
         }
     }
-
 }

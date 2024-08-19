@@ -2,7 +2,7 @@ package org.apache.seatunnel.connectors.seatunnel.typesense.serialize.sink.colle
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
-public class FixedValueCollectionSerializer implements CollectionSerializer{
+public class FixedValueCollectionSerializer implements CollectionSerializer {
 
     private final String index;
 
@@ -14,5 +14,4 @@ public class FixedValueCollectionSerializer implements CollectionSerializer{
     public String serialize(SeaTunnelRow row) {
         return index;
     }
-
 }

@@ -92,9 +92,10 @@ public class TypesenseSourceReader implements SourceReader<SeaTunnelRow, Typesen
                                 deserializer.deserialize(new TypesenseRecord(document));
                         output.collect(seaTunnelRow);
                     }
-                    if ((double)found / pageSize - 1 > sourceCollectionInfo.getOffset()/pageSize) {
+                    if ((double) found / pageSize - 1
+                            > sourceCollectionInfo.getOffset() / pageSize) {
                         sourceCollectionInfo.setOffset(sourceCollectionInfo.getOffset() + pageSize);
-                    }else{
+                    } else {
                         break;
                     }
                 }

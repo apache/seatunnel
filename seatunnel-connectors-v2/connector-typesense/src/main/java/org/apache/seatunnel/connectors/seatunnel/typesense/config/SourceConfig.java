@@ -20,8 +20,6 @@ package org.apache.seatunnel.connectors.seatunnel.typesense.config;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
-import java.util.List;
-
 public class SourceConfig {
 
     public static final Option<String> COLLECTION =
@@ -35,5 +33,4 @@ public class SourceConfig {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("Typesense query param");
-
 }

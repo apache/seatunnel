@@ -25,13 +25,14 @@ import java.util.Optional;
 import static org.apache.seatunnel.connectors.seatunnel.typesense.config.SinkConfig.MAX_BATCH_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.typesense.config.SinkConfig.MAX_RETRY_COUNT;
 
-public class TypesenseSink implements SeaTunnelSink<
-        SeaTunnelRow,
-        TypesenseSinkState,
-        TypesenseCommitInfo,
-        TypesenseAggregatedCommitInfo>,
-        SupportMultiTableSink,
-        SupportSaveMode {
+public class TypesenseSink
+        implements SeaTunnelSink<
+                        SeaTunnelRow,
+                        TypesenseSinkState,
+                        TypesenseCommitInfo,
+                        TypesenseAggregatedCommitInfo>,
+                SupportMultiTableSink,
+                SupportSaveMode {
 
     private ReadonlyConfig config;
     private CatalogTable catalogTable;
@@ -52,10 +53,8 @@ public class TypesenseSink implements SeaTunnelSink<
 
     @Override
     public TypesenseSinkWriter createWriter(SinkWriter.Context context) {
-        return new TypesenseSinkWriter(
-                context, catalogTable, config, maxBatchSize, maxRetryCount);
+        return new TypesenseSinkWriter(context, catalogTable, config, maxBatchSize, maxRetryCount);
     }
-
 
     @Override
     public Optional<SaveModeHandler> getSaveModeHandler() {

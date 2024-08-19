@@ -1,13 +1,12 @@
 package org.apache.seatunnel.connectors.seatunnel.typesense.serialize;
 
-
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.connectors.seatunnel.typesense.exception.TypesenseConnectorException;
 
 import lombok.AllArgsConstructor;
-import org.apache.seatunnel.connectors.seatunnel.typesense.exception.TypesenseConnectorException;
 
 import java.io.Serializable;
 import java.time.LocalDate;

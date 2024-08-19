@@ -1,8 +1,9 @@
 package org.apache.seatunnel.connectors.seatunnel.typesense.dto;
 
-import lombok.Data;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.typesense.config.SinkConfig;
+
+import lombok.Data;
 
 @Data
 public class CollectionInfo {

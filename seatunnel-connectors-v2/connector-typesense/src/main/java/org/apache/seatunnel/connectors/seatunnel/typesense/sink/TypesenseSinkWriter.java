@@ -1,13 +1,11 @@
 package org.apache.seatunnel.connectors.seatunnel.typesense.sink;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.common.utils.RetryUtils.RetryMaterial;
 import org.apache.seatunnel.connectors.seatunnel.typesense.client.TypesenseClient;
 import org.apache.seatunnel.connectors.seatunnel.typesense.dto.CollectionInfo;
@@ -16,16 +14,17 @@ import org.apache.seatunnel.connectors.seatunnel.typesense.serialize.sink.Typese
 import org.apache.seatunnel.connectors.seatunnel.typesense.state.TypesenseCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.typesense.state.TypesenseSinkState;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
 @Slf4j
-public class TypesenseSinkWriter implements SinkWriter<SeaTunnelRow,
-        TypesenseCommitInfo,
-        TypesenseSinkState>,
-        SupportMultiTableSinkWriter<Void> {
+public class TypesenseSinkWriter
+        implements SinkWriter<SeaTunnelRow, TypesenseCommitInfo, TypesenseSinkState>,
+                SupportMultiTableSinkWriter<Void> {
 
     private final Context context;
     private final int maxBatchSize;
@@ -49,18 +48,16 @@ public class TypesenseSinkWriter implements SinkWriter<SeaTunnelRow,
         this.maxBatchSize = maxBatchSize;
 
         collection = catalogTable.getTableId().getTableName();
-        CollectionInfo collectionInfo = new CollectionInfo(catalogTable.getTableId().getTableName(), config);
+        CollectionInfo collectionInfo =
+                new CollectionInfo(catalogTable.getTableId().getTableName(), config);
         typesenseClient = TypesenseClient.createInstance(config);
         this.seaTunnelRowSerializer =
-                new TypesenseRowSerializer(
-                        collectionInfo,
-                        catalogTable.getSeaTunnelRowType());
+                new TypesenseRowSerializer(collectionInfo, catalogTable.getSeaTunnelRowType());
 
         this.requestEsList = new ArrayList<>(maxBatchSize);
         this.retryMaterial =
                 new RetryMaterial(maxRetryCount, true, exception -> true, DEFAULT_SLEEP_TIME_MS);
     }
-
 
     @Override
     public void write(SeaTunnelRow element) {
@@ -72,14 +69,14 @@ public class TypesenseSinkWriter implements SinkWriter<SeaTunnelRow,
         requestEsList.add(indexRequestRow);
         if (requestEsList.size() >= maxBatchSize) {
             // 实际批量写入
-            typesenseClient.insert(collection,requestEsList);
+            typesenseClient.insert(collection, requestEsList);
             requestEsList.clear();
         }
     }
 
     @Override
     public Optional<TypesenseCommitInfo> prepareCommit() {
-        typesenseClient.insert(collection,requestEsList);
+        typesenseClient.insert(collection, requestEsList);
         requestEsList.clear();
         return Optional.empty();
     }
@@ -89,8 +86,7 @@ public class TypesenseSinkWriter implements SinkWriter<SeaTunnelRow,
 
     @Override
     public void close() throws IOException {
-        typesenseClient.insert(collection,requestEsList);
+        typesenseClient.insert(collection, requestEsList);
         requestEsList.clear();
     }
-
 }

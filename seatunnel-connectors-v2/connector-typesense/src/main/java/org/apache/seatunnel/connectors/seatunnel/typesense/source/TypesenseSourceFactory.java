@@ -1,14 +1,14 @@
 package org.apache.seatunnel.connectors.seatunnel.typesense.source;
 
-import com.google.auto.service.AutoService;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
-import org.apache.seatunnel.api.table.catalog.schema.TableSchemaOptions;
 import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
+
+import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
 
@@ -27,18 +27,13 @@ public class TypesenseSourceFactory implements TableSourceFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder()
-                .required(HOSTS, APIKEY)
-                .optional(
-                        COLLECTION)
-                .build();
+        return OptionRule.builder().required(HOSTS, APIKEY).optional(COLLECTION).build();
     }
 
     @Override
     public <T, SplitT extends SourceSplit, StateT extends Serializable>
-    TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
-        return () ->
-                (SeaTunnelSource<T, SplitT, StateT>) new TypesenseSource(context.getOptions());
+            TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
+        return () -> (SeaTunnelSource<T, SplitT, StateT>) new TypesenseSource(context.getOptions());
     }
 
     @Override

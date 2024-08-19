@@ -17,24 +17,16 @@
 
 package org.apache.seatunnel.connectors.seatunnel.typesense.catalog;
 
-import com.google.auto.service.AutoService;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.converter.BasicTypeConverter;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.converter.TypeConverter;
-import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.DecimalType;
-import org.apache.seatunnel.api.table.type.LocalTimeType;
-import org.apache.seatunnel.api.table.type.MapType;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.typesense.client.TypesenseType;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import com.google.auto.service.AutoService;
+
 import static org.apache.seatunnel.connectors.seatunnel.typesense.client.TypesenseType.INT32;
 import static org.apache.seatunnel.connectors.seatunnel.typesense.client.TypesenseType.INT64;
 
@@ -58,7 +50,6 @@ public class TypesenseTypeConverter implements BasicTypeConverter<BasicTypeDefin
                         .comment(typeDefine.getComment());
         String type = typeDefine.getDataType().toLowerCase();
         switch (type) {
-
             case INT32:
                 builder.dataType(BasicType.INT_TYPE);
                 break;
@@ -84,6 +75,4 @@ public class TypesenseTypeConverter implements BasicTypeConverter<BasicTypeDefin
     public BasicTypeDefine<TypesenseType> reconvert(Column column) {
         return null;
     }
-
-
 }

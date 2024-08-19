@@ -1,9 +1,7 @@
 package org.apache.seatunnel.connectors.seatunnel.typesense.sink;
 
-import com.google.auto.service.AutoService;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.sink.SinkCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.connector.TableSink;
@@ -11,6 +9,8 @@ import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.typesense.config.SinkConfig;
+
+import com.google.auto.service.AutoService;
 
 import static org.apache.seatunnel.connectors.seatunnel.typesense.config.SinkConfig.COLLECTION;
 import static org.apache.seatunnel.connectors.seatunnel.typesense.config.SinkConfig.KEY_DELIMITER;
@@ -29,10 +29,13 @@ public class TypesenseSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(HOSTS, COLLECTION, APIKEY, SinkConfig.SCHEMA_SAVE_MODE, SinkConfig.DATA_SAVE_MODE)
-                .optional(
-                        PRIMARY_KEYS,
-                        KEY_DELIMITER)
+                .required(
+                        HOSTS,
+                        COLLECTION,
+                        APIKEY,
+                        SinkConfig.SCHEMA_SAVE_MODE,
+                        SinkConfig.DATA_SAVE_MODE)
+                .optional(PRIMARY_KEYS, KEY_DELIMITER)
                 .build();
     }
 
@@ -49,5 +52,4 @@ public class TypesenseSinkFactory implements TableSinkFactory {
                         context.getCatalogTable());
         return () -> new TypesenseSink(readonlyConfig, newTable);
     }
-
 }
