@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormatErrorHandleWay;
 import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorErrorCode;
@@ -44,6 +45,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -56,12 +58,13 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
     private static final long POLL_TIMEOUT = 10000L;
 
     private final SourceReader.Context context;
-    private final ConsumerMetadata metadata;
+    private final KafkaSourceConfig kafkaSourceConfig;
+
+    private final Map<TablePath, ConsumerMetadata> tablePathMetadataMap;
     private final Set<KafkaSourceSplit> sourceSplits;
     private final Map<Long, Map<TopicPartition, Long>> checkpointOffsetMap;
     private final Map<TopicPartition, KafkaConsumerThread> consumerThreadMap;
     private final ExecutorService executorService;
-    private final DeserializationSchema<SeaTunnelRow> deserializationSchema;
     private final MessageFormatErrorHandleWay messageFormatErrorHandleWay;
 
     private final LinkedBlockingQueue<KafkaSourceSplit> pendingPartitionsQueue;
@@ -69,15 +72,14 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
     private volatile boolean running = false;
 
     KafkaSourceReader(
-            ConsumerMetadata metadata,
-            DeserializationSchema<SeaTunnelRow> deserializationSchema,
+            KafkaSourceConfig kafkaSourceConfig,
             Context context,
             MessageFormatErrorHandleWay messageFormatErrorHandleWay) {
-        this.metadata = metadata;
+        this.kafkaSourceConfig = kafkaSourceConfig;
+        this.tablePathMetadataMap = kafkaSourceConfig.getMapMetadata();
         this.context = context;
         this.messageFormatErrorHandleWay = messageFormatErrorHandleWay;
         this.sourceSplits = new HashSet<>();
-        this.deserializationSchema = deserializationSchema;
         this.consumerThreadMap = new ConcurrentHashMap<>();
         this.checkpointOffsetMap = new ConcurrentHashMap<>();
         this.executorService =
@@ -102,7 +104,7 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
             return;
         }
 
-        while (pendingPartitionsQueue.size() != 0) {
+        while (!pendingPartitionsQueue.isEmpty()) {
             sourceSplits.add(pendingPartitionsQueue.poll());
         }
         sourceSplits.forEach(
@@ -110,13 +112,22 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
                         consumerThreadMap.computeIfAbsent(
                                 sourceSplit.getTopicPartition(),
                                 s -> {
-                                    KafkaConsumerThread thread = new KafkaConsumerThread(metadata);
+                                    ConsumerMetadata currentSplitConsumerMetaData =
+                                            tablePathMetadataMap.get(sourceSplit.getTablePath());
+                                    KafkaConsumerThread thread =
+                                            new KafkaConsumerThread(
+                                                    kafkaSourceConfig,
+                                                    currentSplitConsumerMetaData);
                                     executorService.submit(thread);
                                     return thread;
                                 }));
+        List<KafkaSourceSplit> finishedSplits = new CopyOnWriteArrayList<>();
         sourceSplits.forEach(
                 sourceSplit -> {
-                    CompletableFuture<Void> completableFuture = new CompletableFuture<>();
+                    CompletableFuture<Boolean> completableFuture = new CompletableFuture<>();
+                    TablePath tablePath = sourceSplit.getTablePath();
+                    DeserializationSchema<SeaTunnelRow> deserializationSchema =
+                            tablePathMetadataMap.get(tablePath).getDeserializationSchema();
                     try {
                         consumerThreadMap
                                 .get(sourceSplit.getTopicPartition())
@@ -139,9 +150,14 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
                                                 for (TopicPartition partition : partitions) {
                                                     List<ConsumerRecord<byte[], byte[]>>
                                                             recordList = records.records(partition);
+                                                    if (Boundedness.BOUNDED.equals(
+                                                                    context.getBoundedness())
+                                                            && recordList.isEmpty()) {
+                                                        completableFuture.complete(true);
+                                                        return;
+                                                    }
                                                     for (ConsumerRecord<byte[], byte[]> record :
                                                             recordList) {
-
                                                         try {
                                                             if (deserializationSchema
                                                                     instanceof
@@ -171,7 +187,8 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
                                                                 && record.offset()
                                                                         >= sourceSplit
                                                                                 .getEndOffset()) {
-                                                            break;
+                                                            completableFuture.complete(true);
+                                                            return;
                                                         }
                                                     }
                                                     long lastOffset = -1;
@@ -190,18 +207,27 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
                                             } catch (Exception e) {
                                                 completableFuture.completeExceptionally(e);
                                             }
-                                            completableFuture.complete(null);
+                                            completableFuture.complete(false);
                                         });
-                    } catch (InterruptedException e) {
+                        if (completableFuture.get()) {
+                            finishedSplits.add(sourceSplit);
+                        }
+                    } catch (Exception e) {
                         throw new KafkaConnectorException(
                                 KafkaConnectorErrorCode.CONSUME_DATA_FAILED, e);
                     }
-                    completableFuture.join();
                 });
-
         if (Boundedness.BOUNDED.equals(context.getBoundedness())) {
-            // signal to the source that we have reached the end of the data.
-            context.signalNoMoreElement();
+            for (KafkaSourceSplit split : finishedSplits) {
+                split.setFinish(true);
+                if (split.getStartOffset() == -1) {
+                    // log next running read start offset
+                    split.setStartOffset(split.getEndOffset());
+                }
+            }
+            if (sourceSplits.stream().allMatch(KafkaSourceSplit::isFinish)) {
+                context.signalNoMoreElement();
+            }
         }
     }
 
@@ -251,7 +277,8 @@ public class KafkaSourceReader implements SourceReader<SeaTunnelRow, KafkaSource
                                             .getTasks()
                                             .put(
                                                     consumer -> {
-                                                        if (this.metadata.isCommitOnCheckpoint()) {
+                                                        if (kafkaSourceConfig
+                                                                .isCommitOnCheckpoint()) {
                                                             Map<TopicPartition, OffsetAndMetadata>
                                                                     offsets = new HashMap<>();
                                                             if (offset >= 0) {

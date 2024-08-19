@@ -293,6 +293,9 @@ public class CheckpointCoordinator {
     private void restoreTaskState(TaskLocation taskLocation) {
         List<ActionSubtaskState> states = new ArrayList<>();
         if (latestCompletedCheckpoint != null) {
+            if (!latestCompletedCheckpoint.isRestored()) {
+                latestCompletedCheckpoint.setRestored(true);
+            }
             final Integer currentParallelism = pipelineTasks.get(taskLocation.getTaskVertexId());
             plan.getSubtaskActions()
                     .get(taskLocation)
@@ -440,10 +443,6 @@ public class CheckpointCoordinator {
                             subTask.getPipelineId(),
                             subTask.getJobId());
                 }
-            }
-            if (subTaskList.size() != 2) {
-                throw new UnsupportedOperationException(
-                        "Unsupported close not reader/writer task group: " + subTaskList);
             }
             readyToCloseIdleTask.addAll(subTaskList);
             tryTriggerPendingCheckpoint(CheckpointType.CHECKPOINT_TYPE);

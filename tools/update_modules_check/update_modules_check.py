@@ -169,6 +169,10 @@ def get_sub_update_it_modules(modules, total_num, current_num):
         module_list.remove("connector-kudu-e2e")
     if "connector-amazonsqs-e2e" in module_list:
         module_list.remove("connector-amazonsqs-e2e")
+    if "connector-kafka-e2e" in module_list:
+        module_list.remove("connector-kafka-e2e")
+    if "connector-rocketmq-e2e" in module_list:
+        module_list.remove("connector-rocketmq-e2e")
     if "seatunnel-engine-k8s-e2e" in module_list:
         module_list.remove("seatunnel-engine-k8s-e2e")
     if "connector-doris-e2e" in module_list:

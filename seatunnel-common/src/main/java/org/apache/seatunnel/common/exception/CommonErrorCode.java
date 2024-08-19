@@ -49,14 +49,35 @@ public enum CommonErrorCode implements SeaTunnelErrorCode {
     WRITE_SEATUNNEL_ROW_ERROR(
             "COMMON-23",
             "<connector> write SeaTunnelRow failed, the SeaTunnelRow value is '<seaTunnelRow>'."),
-
     SQL_TEMPLATE_HANDLED_ERROR(
             "COMMON-24",
             "The table of <tableName> has no <keyName>, but the template \n <template> \n which has the place holder named <placeholder>. Please use the option named <optionName> to specify sql template"),
-
     VERSION_NOT_SUPPORTED("COMMON-25", "<identifier> <version> is unsupported."),
+    OPERATION_NOT_SUPPORTED("COMMON-26", "<identifier> <operation> is unsupported."),
+    CONVERT_TO_SEATUNNEL_PROPS_BLANK_ERROR(
+            "COMMON-27", "The props named '<props>' of '<connector>' is blank."),
+    UNSUPPORTED_ARRAY_GENERIC_TYPE(
+            "COMMON-28",
+            "'<identifier>' array type not support genericType '<genericType>' of '<fieldName>'"),
+    UNSUPPORTED_ROW_KIND(
+            "COMMON-29", "'<identifier>' table '<tableId>' not support rowKind  '<rowKind>'"),
 
-    OPERATION_NOT_SUPPORTED("COMMON-26", "<identifier> <operation> is unsupported.");
+    WRITE_SEATUNNEL_ROW_ERROR_WITH_SCHEMA_INCOMPATIBLE_SCHEMA(
+            "COMMON-30",
+            "<connector>: The source filed with schema '<sourceFieldSqlSchema>', except filed schema of sink is '<exceptFieldSqlSchema>'; but the filed in sink table which actual schema is '<sinkFieldSqlSchema>'. Please check schema of sink table."),
+
+    WRITE_SEATUNNEL_ROW_ERROR_WITH_FILEDS_NOT_MATCH(
+            "COMMON-31",
+            "<connector>: The source has '<sourceFieldsNum>' fields, but the table of sink has '<sinkFieldsNum>' fields. Please check schema of sink table."),
+    FORMAT_DATE_ERROR(
+            "COMMON-32",
+            "The date format '<date>' of field '<field>' is not supported. Please check the date format."),
+    FORMAT_DATETIME_ERROR(
+            "COMMON-33",
+            "The datetime format '<datetime>' of field '<field>' is not supported. Please check the datetime format."),
+    UNSUPPORTED_METHOD("COMMON-34", "'<identifier>' unsupported the method '<methodName>'"),
+    KERBEROS_AUTHORIZED_FAILED("COMMON-35", "Kerberos authorized failed"),
+    ;
 
     private final String code;
     private final String description;

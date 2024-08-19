@@ -20,9 +20,9 @@ Seatunnel also supports to encode the INSERT/UPDATE/DELETE messages in Seatunnel
 | ogg_json.database.include    | (none)  | no       | An optional regular expression to only read the specific databases changelog rows by regular matching the "database" meta field in the Canal record. The pattern string is compatible with Java's Pattern. |
 | ogg_json.table.include       | (none)  | no       | An optional regular expression to only read the specific tables changelog rows by regular matching the "table" meta field in the Canal record. The pattern string is compatible with Java's Pattern.       |
 
-# How to use Ogg format
+# How to Use Ogg format
 
-## Kafka uses example
+## Kafka Uses Example
 
 Ogg provides a unified format for changelog, here is a simple example for an update operation captured from a Oracle products table:
 
@@ -51,7 +51,7 @@ Ogg provides a unified format for changelog, here is a simple example for an upd
 }
 ```
 
-Note: please refer to [Debezium documentation](https://debezium.io/documentation/reference/2.5/connectors/oracle.html#oracle-events) about the meaning of each fields.
+Note: please refer to [Debezium documentation](https://github.com/debezium/debezium/blob/v1.9.8.Final/documentation/modules/ROOT/pages/connectors/oracle.adoc#data-change-events) about the meaning of each fields.
 
 The Oracle products table has 4 columns (id, name, description and weight).
 The above JSON message is an update change event on the products table where the weight value of the row with id = 111 is changed from 5.18 to 5.15.

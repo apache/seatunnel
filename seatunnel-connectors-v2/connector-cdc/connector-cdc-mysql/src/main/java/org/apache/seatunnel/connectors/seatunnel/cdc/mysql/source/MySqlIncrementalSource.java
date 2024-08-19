@@ -27,7 +27,6 @@ import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
-import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
@@ -103,6 +102,8 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
                         .setPhysicalRowType(physicalRowType)
                         .setResultTypeInfo(physicalRowType)
                         .setServerTimeZone(ZoneId.of(zoneId))
+                        .setSchemaChangeResolver(
+                                new MySqlSchemaChangeResolver(createSourceConfigFactory(config)))
                         .build();
     }
 
@@ -114,7 +115,6 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
     @Override
     public OffsetFactory createOffsetFactory(ReadonlyConfig config) {
         return new BinlogOffsetFactory(
-                (MySqlSourceConfigFactory) configFactory,
-                (JdbcDataSourceDialect) dataSourceDialect);
+                (MySqlSourceConfigFactory) configFactory, (MySqlDialect) dataSourceDialect);
     }
 }

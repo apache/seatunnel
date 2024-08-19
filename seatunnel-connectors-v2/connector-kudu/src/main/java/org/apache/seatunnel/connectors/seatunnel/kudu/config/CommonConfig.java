@@ -109,6 +109,6 @@ public class CommonConfig implements Serializable {
         this.enableKerberos = config.get(ENABLE_KERBEROS);
         this.principal = config.get(KERBEROS_PRINCIPAL);
         this.keytab = config.get(KERBEROS_KEYTAB);
-        this.krb5conf = config.get(KERBEROS_KEYTAB);
+        this.krb5conf = config.get(KERBEROS_KRB5_CONF);
     }
 }

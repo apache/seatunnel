@@ -21,7 +21,7 @@ import io.debezium.config.Configuration;
 import io.debezium.connector.sqlserver.SqlServerConnection;
 import io.debezium.connector.sqlserver.SqlServerConnectorConfig;
 import io.debezium.connector.sqlserver.SqlServerValueConverters;
-import io.debezium.util.Clock;
+import io.debezium.jdbc.JdbcConfiguration;
 
 /** Utils for SqlServer connection. */
 public class SqlServerConnectionUtils {
@@ -35,11 +35,11 @@ public class SqlServerConnectionUtils {
                         connectorConfig.getTemporalPrecisionMode(),
                         connectorConfig.binaryHandlingMode());
         return new SqlServerConnection(
-                connectorConfig.jdbcConfig(),
-                Clock.system(),
+                JdbcConfiguration.adapt(connectorConfig.getJdbcConfig()),
                 connectorConfig.getSourceTimestampMode(),
                 valueConverters,
                 SqlServerConnectionUtils.class::getClassLoader,
-                connectorConfig.getSkippedOperations());
+                connectorConfig.getSkippedOperations(),
+                false);
     }
 }

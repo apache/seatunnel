@@ -102,7 +102,7 @@ public class IrisDialect implements JdbcDialect {
 
     @Override
     public String tableIdentifier(TablePath tablePath) {
-        return tablePath.getSchemaAndTableName();
+        return quoteIdentifier(tablePath.getSchemaAndTableName());
     }
 
     @Override
@@ -172,7 +172,7 @@ public class IrisDialect implements JdbcDialect {
                             quotedColumn,
                             chunkSize,
                             quotedColumn,
-                            table.getTablePath().getSchemaAndTableName(),
+                            tableIdentifier(table.getTablePath()),
                             quotedColumn,
                             quotedColumn);
         }
@@ -193,7 +193,9 @@ public class IrisDialect implements JdbcDialect {
     @Override
     public ResultSetMetaData getResultSetMetaData(Connection conn, String query)
             throws SQLException {
-        PreparedStatement ps = conn.prepareStatement(query);
-        return ps.executeQuery().getMetaData();
+        try (PreparedStatement ps = conn.prepareStatement(query);
+                ResultSet resultSet = ps.executeQuery()) {
+            return resultSet.getMetaData();
+        }
     }
 }

@@ -27,6 +27,7 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
   - [x] json
   - [x] excel
   - [x] xml
+  - [x] binary
 
 ## Description
 
@@ -43,9 +44,9 @@ Read data from hdfs file system.
 |           Name            |  Type   | Required |       Default       |                                                                                                                                                                  Description                                                                                                                                                                  |
 |---------------------------|---------|----------|---------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | path                      | string  | yes      | -                   | The source file path.                                                                                                                                                                                                                                                                                                                         |
-| file_format_type          | string  | yes      | -                   | We supported as the following file types:`text` `json` `csv` `orc` `parquet` `excel` `xml`.Please note that, The final file name will end with the file_format's suffix, the suffix of the text file is `txt`.                                                                                                                                |
+| file_format_type          | string  | yes      | -                   | We supported as the following file types:`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary`.Please note that, The final file name will end with the file_format's suffix, the suffix of the text file is `txt`.                                                                                                                       |
 | fs.defaultFS              | string  | yes      | -                   | The hadoop cluster address that start with `hdfs://`, for example: `hdfs://hadoopcluster`                                                                                                                                                                                                                                                     |
-| read_columns              | list    | yes      | -                   | The read column list of the data source, user can use it to implement field projection.The file type supported column projection as the following shown:[text,json,csv,orc,parquet,excel,xml].Tips: If the user wants to use this feature when reading `text` `json` `csv` files, the schema option must be configured.                       |
+| read_columns              | list    | no       | -                   | The read column list of the data source, user can use it to implement field projection.The file type supported column projection as the following shown:[text,json,csv,orc,parquet,excel,xml].Tips: If the user wants to use this feature when reading `text` `json` `csv` files, the schema option must be configured.                       |
 | hdfs_site_path            | string  | no       | -                   | The path of `hdfs-site.xml`, used to load ha configuration of namenodes                                                                                                                                                                                                                                                                       |
 | delimiter/field_delimiter | string  | no       | \001                | Field delimiter, used to tell connector how to slice and dice fields when reading text files. default `\001`, the same as hive's default delimiter                                                                                                                                                                                            |
 | parse_partition_from_path | boolean | no       | true                | Control whether parse the partition keys and values from file path. For example if you read a file from path `hdfs://hadoop-cluster/tmp/seatunnel/parquet/name=tyrantlucifer/age=26`. Every record data from file will be added these two fields:[name:tyrantlucifer,age:26].Tips:Do not define partition fields in schema option.            |
@@ -110,7 +111,7 @@ source {
     }
   }
   path = "/apps/hive/demo/student"
-  type = "json"
+  file_format_type = "json"
   fs.defaultFS = "hdfs://namenode001"
   }
   # If you would like to get more information about how to configure seatunnel and see full list of source plugins,

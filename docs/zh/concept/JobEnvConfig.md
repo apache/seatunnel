@@ -29,15 +29,30 @@
 
 该参数配置source和sink的并行度。
 
+### job.retry.times
+
+用于控制作业失败时的默认重试次数。默认值为3，并且仅适用于Zeta引擎。
+
+### job.retry.interval.seconds
+
+用于控制作业失败时的默认重试间隔。默认值为3秒，并且仅适用于Zeta引擎。
+
+### savemode.execute.location
+
+此参数用于指定在Zeta引擎中执行作业时SaveMode执行的时机。
+默认值为`CLUSTER`，这意味着SaveMode在作业提交到集群上之后在集群上执行。
+当值为`CLIENT`时，SaveMode操作在作业提交的过程中执行，使用shell脚本提交作业时，该过程在提交作业的shell进程中执行。使用rest api提交作业时，该过程在http请求的处理线程中执行。
+请尽量使用`CLUSTER`模式，因为当`CLUSTER`模式没有问题时，我们将删除`CLIENT`模式。
+
 ### shade.identifier
 
 指定加密方式，如果您没有加密或解密配置文件的需求，此选项可以忽略。
 
-更多详细信息，您可以参考文档 [config-encryption-decryption](../../en/connector-v2/Config-Encryption-Decryption.md)
+更多详细信息，您可以参考文档 [Config Encryption Decryption](../../en/connector-v2/Config-Encryption-Decryption.md)
 
 ## Flink 引擎参数
 
-这里列出了一些与 Flink 中名称相对应的 SeaTunnel 参数名称，并非全部，更多内容请参考官方 [flink documentation](https://flink.apache.org/) for more.
+这里列出了一些与 Flink 中名称相对应的 SeaTunnel 参数名称，并非全部，更多内容请参考官方 [Flink Documentation](https://flink.apache.org/) for more.
 
 |           Flink 配置名称            |            SeaTunnel 配置名称             |
 |---------------------------------|---------------------------------------|
@@ -48,5 +63,5 @@
 
 ## Spark 引擎参数
 
-由于spark配置项并无调整，这里就不列出来了，请参考官方 [spark documentation](https://spark.apache.org/).
+由于Spark配置项并无调整，这里就不列出来了，请参考官方 [Spark Documentation](https://spark.apache.org/).
 

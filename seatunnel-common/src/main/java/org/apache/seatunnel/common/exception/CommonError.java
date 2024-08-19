@@ -29,6 +29,7 @@ import java.util.Map;
 
 import static org.apache.seatunnel.common.exception.CommonErrorCode.CONVERT_TO_CONNECTOR_TYPE_ERROR;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.CONVERT_TO_CONNECTOR_TYPE_ERROR_SIMPLE;
+import static org.apache.seatunnel.common.exception.CommonErrorCode.CONVERT_TO_SEATUNNEL_PROPS_BLANK_ERROR;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.CONVERT_TO_SEATUNNEL_TYPE_ERROR;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.CONVERT_TO_SEATUNNEL_TYPE_ERROR_SIMPLE;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.FILE_NOT_EXISTED;
@@ -38,10 +39,14 @@ import static org.apache.seatunnel.common.exception.CommonErrorCode.GET_CATALOG_
 import static org.apache.seatunnel.common.exception.CommonErrorCode.JSON_OPERATION_FAILED;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.OPERATION_NOT_SUPPORTED;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.SQL_TEMPLATE_HANDLED_ERROR;
+import static org.apache.seatunnel.common.exception.CommonErrorCode.UNSUPPORTED_ARRAY_GENERIC_TYPE;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.UNSUPPORTED_DATA_TYPE;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.UNSUPPORTED_ENCODING;
+import static org.apache.seatunnel.common.exception.CommonErrorCode.UNSUPPORTED_ROW_KIND;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.VERSION_NOT_SUPPORTED;
 import static org.apache.seatunnel.common.exception.CommonErrorCode.WRITE_SEATUNNEL_ROW_ERROR;
+import static org.apache.seatunnel.common.exception.CommonErrorCode.WRITE_SEATUNNEL_ROW_ERROR_WITH_FILEDS_NOT_MATCH;
+import static org.apache.seatunnel.common.exception.CommonErrorCode.WRITE_SEATUNNEL_ROW_ERROR_WITH_SCHEMA_INCOMPATIBLE_SCHEMA;
 
 /**
  * The common error of SeaTunnel. This is an alternative to {@link CommonErrorCodeDeprecated} and is
@@ -139,6 +144,14 @@ public class CommonError {
         return new SeaTunnelRuntimeException(CONVERT_TO_CONNECTOR_TYPE_ERROR, params);
     }
 
+    public static SeaTunnelRuntimeException convertToConnectorPropsBlankError(
+            String connector, String props) {
+        Map<String, String> params = new HashMap<>();
+        params.put("connector", connector);
+        params.put("props", props);
+        return new SeaTunnelRuntimeException(CONVERT_TO_SEATUNNEL_PROPS_BLANK_ERROR, params);
+    }
+
     public static SeaTunnelRuntimeException convertToConnectorTypeError(
             String identifier, String dataType, String field) {
         Map<String, String> params = new HashMap<>();
@@ -215,5 +228,69 @@ public class CommonError {
         params.put("placeholder", placeholder);
         params.put("optionName", optionName);
         return new SeaTunnelRuntimeException(SQL_TEMPLATE_HANDLED_ERROR, params);
+    }
+
+    public static SeaTunnelRuntimeException unsupportedArrayGenericType(
+            String identifier, String dataType, String fieldName) {
+        Map<String, String> params = new HashMap<>();
+        params.put("identifier", identifier);
+        params.put("dataType", dataType);
+        params.put("fieldName", fieldName);
+        return new SeaTunnelRuntimeException(UNSUPPORTED_ARRAY_GENERIC_TYPE, params);
+    }
+
+    public static SeaTunnelRuntimeException unsupportedRowKind(
+            String identifier, String tableId, String rowKind) {
+        Map<String, String> params = new HashMap<>();
+        params.put("identifier", identifier);
+        params.put("tableId", tableId);
+        params.put("rowKind", rowKind);
+        return new SeaTunnelRuntimeException(UNSUPPORTED_ROW_KIND, params);
+    }
+
+    public static SeaTunnelRuntimeException writeRowErrorWithSchemaIncompatibleSchema(
+            String connector,
+            String sourceFieldSqlSchema,
+            String exceptFieldSqlSchema,
+            String sinkFieldSqlSchema) {
+        Map<String, String> params = new HashMap<>();
+        params.put("connector", connector);
+        params.put("sourceFieldSqlSchema", sourceFieldSqlSchema);
+        params.put("exceptFieldSqlSchema", exceptFieldSqlSchema);
+        params.put("sinkFieldSqlSchema", sinkFieldSqlSchema);
+        return new SeaTunnelRuntimeException(
+                WRITE_SEATUNNEL_ROW_ERROR_WITH_SCHEMA_INCOMPATIBLE_SCHEMA, params);
+    }
+
+    public static SeaTunnelRuntimeException writeRowErrorWithFiledsCountNotMatch(
+            String connector, int sourceFieldsNum, int sinkFieldsNum) {
+        Map<String, String> params = new HashMap<>();
+        params.put("connector", connector);
+        params.put("sourceFiledName", String.valueOf(sourceFieldsNum));
+        params.put("sourceFiledType", String.valueOf(sinkFieldsNum));
+        return new SeaTunnelRuntimeException(
+                WRITE_SEATUNNEL_ROW_ERROR_WITH_FILEDS_NOT_MATCH, params);
+    }
+
+    public static SeaTunnelRuntimeException formatDateTimeError(String datetime, String field) {
+        Map<String, String> params = new HashMap<>();
+        params.put("datetime", datetime);
+        params.put("field", field);
+        return new SeaTunnelRuntimeException(CommonErrorCode.FORMAT_DATETIME_ERROR, params);
+    }
+
+    public static SeaTunnelRuntimeException formatDateError(String date, String field) {
+        Map<String, String> params = new HashMap<>();
+        params.put("date", date);
+        params.put("field", field);
+        return new SeaTunnelRuntimeException(CommonErrorCode.FORMAT_DATE_ERROR, params);
+    }
+
+    public static SeaTunnelRuntimeException unsupportedMethod(
+            String identifier, String methodName) {
+        Map<String, String> params = new HashMap<>();
+        params.put("identifier", identifier);
+        params.put("methodName", methodName);
+        return new SeaTunnelRuntimeException(CommonErrorCode.UNSUPPORTED_METHOD, params);
     }
 }

@@ -44,6 +44,8 @@ public class RestConstant {
     public static final String ERROR_MSG = "errorMsg";
 
     public static final String METRICS = "metrics";
+
+    public static final String OVERVIEW = "/hazelcast/rest/maps/overview";
     public static final String RUNNING_JOBS_URL = "/hazelcast/rest/maps/running-jobs";
     @Deprecated public static final String RUNNING_JOB_URL = "/hazelcast/rest/maps/running-job";
     public static final String JOB_INFO_URL = "/hazelcast/rest/maps/job-info";

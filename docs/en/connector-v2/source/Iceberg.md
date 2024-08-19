@@ -41,7 +41,7 @@ Source connector for Apache Iceberg. It can support batch and stream mode.
 
 ## Database Dependency
 
-> In order to be compatible with different versions of Hadoop and Hive, the scope of hive-exec in the project pom file are provided, so if you use the Flink engine, first you may need to add the following Jar packages to <FLINK_HOME>/lib directory, if you are using the Spark engine and integrated with Hadoop, then you do not need to add the following Jar packages.
+> In order to be compatible with different versions of Hadoop and Hive, the scope of hive-exec in the project pom file are provided, so if you use the Flink engine, first you may need to add the following Jar packages to <FLINK_HOME>/lib directory, if you are using the Spark engine and integrated with Hadoop, then you do not need to add the following Jar packages. If you are using the hadoop s3 catalog, you need to add the hadoop-aws,aws-java-sdk jars for your Flink and Spark engine versions. (Additional locations: <FLINK_HOME>/lib, <SPARK_HOME>/jars)
 
 ```
 hive-exec-xxx.jar
@@ -137,6 +137,30 @@ transform {
 sink {
   Console {
     source_table_name = "iceberg"
+  }
+}
+```
+
+### Hadoop S3 Catalog:
+
+```hocon
+source {
+  iceberg {
+    catalog_name = "seatunnel"
+    iceberg.catalog.config={
+      "type"="hadoop"
+      "warehouse"="s3a://your_bucket/spark/warehouse/"
+    }
+    hadoop.config={
+      "fs.s3a.aws.credentials.provider" = "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
+      "fs.s3a.endpoint" = "s3.cn-north-1.amazonaws.com.cn"
+      "fs.s3a.access.key" = "xxxxxxxxxxxxxxxxx"
+      "fs.s3a.secret.key" = "xxxxxxxxxxxxxxxxx"
+      "fs.defaultFS" = "s3a://your_bucket"
+    }
+    namespace = "your_iceberg_database"
+    table = "your_iceberg_table"
+    result_table_name = "iceberg_test"
   }
 }
 ```

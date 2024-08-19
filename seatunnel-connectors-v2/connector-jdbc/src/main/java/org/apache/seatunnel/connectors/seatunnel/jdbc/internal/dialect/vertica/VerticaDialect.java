@@ -97,8 +97,8 @@ public class VerticaDialect implements JdbcDialect {
                                 + " UPDATE SET %s"
                                 + " WHEN NOT MATCHED THEN"
                                 + " INSERT (%s) VALUES (%s)",
-                        database,
-                        tableName,
+                        quoteDatabaseIdentifier(database),
+                        quoteIdentifier(tableName),
                         usingClause,
                         onConditions,
                         updateSetClause,

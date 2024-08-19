@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils;
+import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.config.OracleSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.offset.RedoLogOffset;
 
 import org.apache.kafka.connect.source.SourceRecord;
@@ -28,6 +29,7 @@ import org.apache.kafka.connect.source.SourceRecord;
 import io.debezium.connector.oracle.OracleConnection;
 import io.debezium.connector.oracle.OracleConnectorConfig;
 import io.debezium.connector.oracle.OracleDatabaseSchema;
+import io.debezium.connector.oracle.OracleDefaultValueConverter;
 import io.debezium.connector.oracle.OracleTopicSelector;
 import io.debezium.connector.oracle.OracleValueConverters;
 import io.debezium.connector.oracle.StreamingAdapter;
@@ -80,27 +82,41 @@ public class OracleUtils {
                 });
     }
 
-    public static long queryApproximateRowCnt(JdbcConnection jdbc, TableId tableId)
+    public static long queryApproximateRowCnt(
+            OracleSourceConfig oracleSourceConfig, JdbcConnection jdbc, TableId tableId)
             throws SQLException {
-        final String analyzeTable =
-                String.format(
-                        "analyze table %s compute statistics for table",
-                        quoteSchemaAndTable(tableId));
-        final String rowCountQuery =
-                String.format(
-                        "select NUM_ROWS from all_tables where TABLE_NAME = '%s'", tableId.table());
-        return jdbc.execute(analyzeTable)
-                .queryAndMap(
-                        rowCountQuery,
-                        rs -> {
-                            if (!rs.next()) {
-                                throw new SQLException(
-                                        String.format(
-                                                "No result returned after running query [%s]",
-                                                rowCountQuery));
-                            }
-                            return rs.getLong(1);
-                        });
+        Boolean useSelectCount = oracleSourceConfig.getUseSelectCount();
+        String rowCountQuery;
+        if (useSelectCount) {
+            rowCountQuery = String.format("select count(*) from %s", quoteSchemaAndTable(tableId));
+        } else {
+            rowCountQuery =
+                    String.format(
+                            "select NUM_ROWS from all_tables where TABLE_NAME = '%s'",
+                            tableId.table());
+            Boolean skipAnalyze = oracleSourceConfig.getSkipAnalyze();
+            if (!skipAnalyze) {
+                final String analyzeTable =
+                        String.format(
+                                "analyze table %s compute statistics for table",
+                                quoteSchemaAndTable(tableId));
+                // not skip analyze
+                log.info("analyze table sql: {}", analyzeTable);
+                jdbc.execute(analyzeTable);
+            }
+        }
+        log.info("row count query: {}", rowCountQuery);
+        return jdbc.queryAndMap(
+                rowCountQuery,
+                rs -> {
+                    if (!rs.next()) {
+                        throw new SQLException(
+                                String.format(
+                                        "No result returned after running query [%s]",
+                                        rowCountQuery));
+                    }
+                    return rs.getLong(1);
+                });
     }
 
     public static Object queryMin(
@@ -349,12 +365,15 @@ public class OracleUtils {
         SchemaNameAdjuster schemaNameAdjuster = SchemaNameAdjuster.create();
         OracleValueConverters oracleValueConverters =
                 new OracleValueConverters(dbzOracleConfig, connection);
+        OracleDefaultValueConverter defaultValueConverter =
+                new OracleDefaultValueConverter(oracleValueConverters, connection);
         StreamingAdapter.TableNameCaseSensitivity tableNameCaseSensitivity =
                 dbzOracleConfig.getAdapter().getTableNameCaseSensitivity(connection);
 
         return new OracleDatabaseSchema(
                 dbzOracleConfig,
                 oracleValueConverters,
+                defaultValueConverter,
                 schemaNameAdjuster,
                 topicSelector,
                 tableNameCaseSensitivity);
@@ -369,6 +388,8 @@ public class OracleUtils {
         SchemaNameAdjuster schemaNameAdjuster = SchemaNameAdjuster.create();
         OracleValueConverters oracleValueConverters =
                 new OracleValueConverters(dbzOracleConfig, connection);
+        OracleDefaultValueConverter defaultValueConverter =
+                new OracleDefaultValueConverter(oracleValueConverters, connection);
         StreamingAdapter.TableNameCaseSensitivity tableNameCaseSensitivity =
                 tableIdCaseInsensitive
                         ? StreamingAdapter.TableNameCaseSensitivity.SENSITIVE
@@ -376,6 +397,7 @@ public class OracleUtils {
         return new OracleDatabaseSchema(
                 dbzOracleConfig,
                 oracleValueConverters,
+                defaultValueConverter,
                 schemaNameAdjuster,
                 topicSelector,
                 tableNameCaseSensitivity);

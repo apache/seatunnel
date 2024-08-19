@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.paimon.utils;
 
+import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -44,7 +47,12 @@ public class RowTypeConverterTest {
 
     private SeaTunnelRowType seaTunnelRowType;
 
+    private SeaTunnelRowType seaTunnelProjectionRowType;
     private RowType rowType;
+
+    private BasicTypeDefine<DataType> typeDefine;
+
+    private Column column;
 
     private TableSchema tableSchema;
 
@@ -121,6 +129,12 @@ public class RowTypeConverterTest {
                             new MapType<>(BasicType.STRING_TYPE, BasicType.STRING_TYPE),
                             ArrayType.STRING_ARRAY_TYPE
                         });
+
+        seaTunnelProjectionRowType =
+                new SeaTunnelRowType(
+                        new String[] {"c_string", "c_int"},
+                        new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE, BasicType.INT_TYPE});
+
         rowType =
                 DataTypes.ROW(
                         new DataField(0, "c_tinyint", DataTypes.TINYINT()),
@@ -148,17 +162,76 @@ public class RowTypeConverterTest {
                         KEY_NAME_LIST,
                         Collections.EMPTY_MAP,
                         "");
+
+        typeDefine =
+                BasicTypeDefine.<DataType>builder()
+                        .name("c_decimal")
+                        .comment("c_decimal_type_define")
+                        .columnType("DECIMAL(30, 8)")
+                        .nativeType(DataTypes.DECIMAL(30, 8))
+                        .dataType(DataTypes.DECIMAL(30, 8).toString())
+                        .length(30L)
+                        .precision(30L)
+                        .scale(8)
+                        .defaultValue(3.0)
+                        .nullable(false)
+                        .build();
+
+        org.apache.seatunnel.api.table.type.DecimalType dataType =
+                new org.apache.seatunnel.api.table.type.DecimalType(30, 8);
+
+        column =
+                PhysicalColumn.builder()
+                        .name("c_decimal")
+                        .sourceType(DataTypes.DECIMAL(30, 8).toString())
+                        .nullable(false)
+                        .dataType(dataType)
+                        .columnLength(30L)
+                        .defaultValue(3.0)
+                        .scale(8)
+                        .comment("c_decimal_type_define")
+                        .build();
     }
 
     @Test
-    public void paimonToSeaTunnel() {
-        SeaTunnelRowType convert = RowTypeConverter.convert(rowType);
+    public void paimonRowTypeToSeaTunnel() {
+        SeaTunnelRowType convert = RowTypeConverter.convert(rowType, null);
         Assertions.assertEquals(convert, seaTunnelRowType);
+    }
+
+    @Test
+    public void paimonToSeaTunnelWithProjection() {
+        int[] projection = {7, 2};
+        SeaTunnelRowType convert = RowTypeConverter.convert(rowType, projection);
+        Assertions.assertEquals(convert, seaTunnelProjectionRowType);
     }
 
     @Test
     public void seaTunnelToPaimon() {
         RowType convert = RowTypeConverter.reconvert(seaTunnelRowType, tableSchema);
         Assertions.assertEquals(convert, rowType);
+    }
+
+    @Test
+    public void paimonDataTypeToSeaTunnelColumn() {
+        Column column = RowTypeConverter.convert(typeDefine);
+        isEquals(column, typeDefine);
+    }
+
+    @Test
+    public void seaTunnelColumnToPaimonDataType() {
+        BasicTypeDefine<DataType> dataTypeDefine = RowTypeConverter.reconvert(column);
+        isEquals(column, dataTypeDefine);
+    }
+
+    private void isEquals(Column column, BasicTypeDefine<DataType> dataTypeDefine) {
+        Assertions.assertEquals(column.getComment(), dataTypeDefine.getComment());
+        Assertions.assertEquals(column.getColumnLength(), dataTypeDefine.getLength());
+        Assertions.assertEquals(column.getName(), dataTypeDefine.getName());
+        Assertions.assertEquals(column.isNullable(), dataTypeDefine.isNullable());
+        Assertions.assertEquals(column.getDefaultValue(), dataTypeDefine.getDefaultValue());
+        Assertions.assertEquals(column.getScale(), dataTypeDefine.getScale());
+        Assertions.assertTrue(
+                column.getDataType().toString().equalsIgnoreCase(dataTypeDefine.getColumnType()));
     }
 }

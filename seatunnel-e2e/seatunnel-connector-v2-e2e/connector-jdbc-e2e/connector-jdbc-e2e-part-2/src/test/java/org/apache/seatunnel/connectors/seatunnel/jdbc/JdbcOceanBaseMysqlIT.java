@@ -21,9 +21,13 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oceanbase.OceanBaseMySqlCatalog;
+import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
+import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
 import org.apache.commons.lang3.tuple.Pair;
 
+import org.junit.jupiter.api.Assertions;
+import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -53,6 +57,18 @@ public class JdbcOceanBaseMysqlIT extends JdbcOceanBaseITBase {
     private static final String PASSWORD = "";
     private static final String OCEANBASE_DATABASE = "seatunnel";
     private static final String OCEANBASE_CATALOG_DATABASE = "seatunnel_catalog";
+
+    @TestContainerExtension
+    protected final ContainerExtendedFactory extendedFactory =
+            container -> {
+                Container.ExecResult extraCommands =
+                        container.execInContainer(
+                                "bash",
+                                "-c",
+                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && wget "
+                                        + driverUrl());
+                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
+            };
 
     @Override
     List<String> configFile() {
@@ -151,7 +167,8 @@ public class JdbcOceanBaseMysqlIT extends JdbcOceanBaseITBase {
                 + "    `c_integer_unsigned`     int(10) unsigned      DEFAULT NULL,\n"
                 + "    `c_bigint_30`            BIGINT(40)  unsigned  DEFAULT NULL,\n"
                 + "    `c_decimal_unsigned_30`  DECIMAL(30) unsigned  DEFAULT NULL,\n"
-                + "    `c_decimal_30`           DECIMAL(30)           DEFAULT NULL\n"
+                + "    `c_decimal_30`           DECIMAL(30)           DEFAULT NULL,\n"
+                + "    UNIQUE KEY (c_int)\n"
                 + ");";
     }
 

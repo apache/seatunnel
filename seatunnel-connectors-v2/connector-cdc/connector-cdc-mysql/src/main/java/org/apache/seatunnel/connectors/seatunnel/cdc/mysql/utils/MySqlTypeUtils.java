@@ -21,20 +21,62 @@ import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.connectors.seatunnel.common.source.TypeDefineUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.MysqlDefaultValueUtils;
 
+import io.debezium.connector.mysql.MySqlConnectorConfig;
+import io.debezium.connector.mysql.MySqlDefaultValueConverter;
+import io.debezium.connector.mysql.MySqlValueConverters;
 import io.debezium.relational.Column;
+import io.debezium.relational.RelationalDatabaseConnectorConfig;
 import lombok.extern.slf4j.Slf4j;
+
+import java.util.Objects;
+import java.util.Optional;
 
 /** Utilities for converting from MySQL types to SeaTunnel types. */
 @Slf4j
 public class MySqlTypeUtils {
 
-    public static SeaTunnelDataType<?> convertFromColumn(Column column) {
-        return convertToSeaTunnelColumn(column).getDataType();
+    public static SeaTunnelDataType<?> convertFromColumn(
+            Column column, RelationalDatabaseConnectorConfig dbzConnectorConfig) {
+        return convertToSeaTunnelColumn(column, dbzConnectorConfig).getDataType();
     }
 
     public static org.apache.seatunnel.api.table.catalog.Column convertToSeaTunnelColumn(
-            io.debezium.relational.Column column) {
+            io.debezium.relational.Column column,
+            RelationalDatabaseConnectorConfig dbzConnectorConfig) {
+        String bigIntUnsignedHandlingModeStr =
+                dbzConnectorConfig
+                        .getConfig()
+                        .getString(MySqlConnectorConfig.BIGINT_UNSIGNED_HANDLING_MODE);
+        final boolean timeAdjusterEnabled =
+                dbzConnectorConfig
+                        .getConfig()
+                        .getBoolean(MySqlConnectorConfig.ENABLE_TIME_ADJUSTER);
+        MySqlConnectorConfig.BigIntUnsignedHandlingMode bigIntUnsignedHandlingMode =
+                MySqlConnectorConfig.BigIntUnsignedHandlingMode.parse(
+                        bigIntUnsignedHandlingModeStr);
+        MySqlValueConverters mySqlValueConverters =
+                new MySqlValueConverters(
+                        dbzConnectorConfig.getDecimalMode(),
+                        dbzConnectorConfig.getTemporalPrecisionMode(),
+                        bigIntUnsignedHandlingMode.asBigIntUnsignedMode(),
+                        dbzConnectorConfig.binaryHandlingMode(),
+                        timeAdjusterEnabled ? MySqlValueConverters::adjustTemporal : (x) -> x,
+                        MySqlValueConverters::defaultParsingErrorHandler);
+        MySqlDefaultValueConverter mySqlDefaultValueConverter =
+                new MySqlDefaultValueConverter(mySqlValueConverters);
+
+        Optional<String> defaultValueExpression = column.defaultValueExpression();
+        Object defaultValue = defaultValueExpression.orElse(null);
+        if (defaultValueExpression.isPresent()
+                && Objects.nonNull(defaultValue)
+                && !MysqlDefaultValueUtils.isSpecialDefaultValue(defaultValue)) {
+            defaultValue =
+                    mySqlDefaultValueConverter
+                            .parseDefaultValue(column, defaultValueExpression.get())
+                            .orElse(null);
+        }
         BasicTypeDefine.BasicTypeDefineBuilder builder =
                 BasicTypeDefine.builder()
                         .name(column.name())
@@ -43,7 +85,8 @@ public class MySqlTypeUtils {
                         .length((long) column.length())
                         .precision((long) column.length())
                         .scale(column.scale().orElse(0))
-                        .defaultValue(column.defaultValue());
+                        .nullable(column.isOptional())
+                        .defaultValue(defaultValue);
         switch (column.typeName().toUpperCase()) {
             case MySqlTypeConverter.MYSQL_CHAR:
             case MySqlTypeConverter.MYSQL_VARCHAR:

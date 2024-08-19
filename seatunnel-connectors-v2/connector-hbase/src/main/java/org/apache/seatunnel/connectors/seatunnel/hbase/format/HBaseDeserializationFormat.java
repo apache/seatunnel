@@ -58,7 +58,9 @@ public class HBaseDeserializationFormat {
 
         switch (typeInfo.getSqlType()) {
             case TINYINT:
+                return cell[0];
             case SMALLINT:
+                return (short) ((cell[0] & 0xFF) << 8 | (cell[1] & 0xFF));
             case INT:
                 return Bytes.toInt(cell);
             case BOOLEAN:

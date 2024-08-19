@@ -30,6 +30,8 @@ import org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParser;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
 
+import com.google.common.annotations.VisibleForTesting;
+
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -67,8 +69,13 @@ public class ClientJobExecutionEnvironment extends AbstractJobEnvironment {
         this.seaTunnelHazelcastClient = seaTunnelHazelcastClient;
         this.jobClient = new JobClient(seaTunnelHazelcastClient);
         this.seaTunnelConfig = seaTunnelConfig;
-        this.jobConfig.setJobContext(
-                new JobContext(isStartWithSavePoint ? jobId : jobClient.getNewJobId()));
+        Long finalJobId;
+        if (isStartWithSavePoint || jobId != null) {
+            finalJobId = jobId;
+        } else {
+            finalJobId = jobClient.getNewJobId();
+        }
+        this.jobConfig.setJobContext(new JobContext(finalJobId));
         this.connectorPackageClient = new ConnectorPackageClient(seaTunnelHazelcastClient);
     }
 
@@ -77,7 +84,8 @@ public class ClientJobExecutionEnvironment extends AbstractJobEnvironment {
             String jobFilePath,
             List<String> variables,
             SeaTunnelHazelcastClient seaTunnelHazelcastClient,
-            SeaTunnelConfig seaTunnelConfig) {
+            SeaTunnelConfig seaTunnelConfig,
+            Long jobId) {
         this(
                 jobConfig,
                 jobFilePath,
@@ -85,7 +93,7 @@ public class ClientJobExecutionEnvironment extends AbstractJobEnvironment {
                 seaTunnelHazelcastClient,
                 seaTunnelConfig,
                 false,
-                null);
+                jobId);
     }
 
     /** Search all jars in SEATUNNEL_HOME/plugins */
@@ -100,8 +108,9 @@ public class ClientJobExecutionEnvironment extends AbstractJobEnvironment {
                 isStartWithSavePoint);
     }
 
+    @VisibleForTesting
     @Override
-    protected LogicalDag getLogicalDag() {
+    public LogicalDag getLogicalDag() {
         ImmutablePair<List<Action>, Set<URL>> immutablePair = getJobConfigParser().parse(null);
         actions.addAll(immutablePair.getLeft());
         // Enable upload connector jar package to engine server, automatically upload connector Jar
