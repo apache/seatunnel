@@ -203,13 +203,14 @@ public class DorisIT extends AbstractDorisIT {
                     conn.prepareStatement(DorisCatalogUtil.TABLE_SCHEMA_QUERY)) {
                 ps.setString(1, sinkDB);
                 ps.setString(2, DUPLICATE_TABLE);
-                ResultSet resultSet = ps.executeQuery();
-                while (resultSet.next()) {
-                    String columnName = resultSet.getString("COLUMN_NAME");
-                    String columnType = resultSet.getString("COLUMN_TYPE");
-                    Assertions.assertEquals(
-                            checkColumnTypeMap.get(columnName).toUpperCase(Locale.ROOT),
-                            columnType.toUpperCase(Locale.ROOT));
+                try (ResultSet resultSet = ps.executeQuery()) {
+                    while (resultSet.next()) {
+                        String columnName = resultSet.getString("COLUMN_NAME");
+                        String columnType = resultSet.getString("COLUMN_TYPE");
+                        Assertions.assertEquals(
+                                checkColumnTypeMap.get(columnName).toUpperCase(Locale.ROOT),
+                                columnType.toUpperCase(Locale.ROOT));
+                    }
                 }
             }
 

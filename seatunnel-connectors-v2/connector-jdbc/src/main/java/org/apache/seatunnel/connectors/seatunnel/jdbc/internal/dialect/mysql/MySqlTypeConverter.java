@@ -129,6 +129,10 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
                         .comment(typeDefine.getComment());
 
         String mysqlDataType = typeDefine.getDataType().toUpperCase();
+        if (mysqlDataType.endsWith("ZEROFILL")) {
+            mysqlDataType =
+                    mysqlDataType.substring(0, mysqlDataType.length() - "ZEROFILL".length()).trim();
+        }
         if (typeDefine.isUnsigned() && !(mysqlDataType.endsWith(" UNSIGNED"))) {
             mysqlDataType = mysqlDataType + " UNSIGNED";
         }
