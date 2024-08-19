@@ -82,7 +82,9 @@ Use this sql write upstream input datas to database. e.g `INSERT ...`
 
 ### compatible_mode [string]
 
-The compatible mode of database, required when the database supports multiple compatible modes. For example, when using OceanBase database, you need to set it to 'mysql' or 'oracle'.
+The compatible mode of database, required when the database supports multiple compatible modes.
+
+For example, when using OceanBase database, you need to set it to 'mysql' or 'oracle'. when using StarRocks, you need set it to `starrocks`.
 
 Postgres 9.5 version or below,please set it to `postgresLow` to support cdc
 

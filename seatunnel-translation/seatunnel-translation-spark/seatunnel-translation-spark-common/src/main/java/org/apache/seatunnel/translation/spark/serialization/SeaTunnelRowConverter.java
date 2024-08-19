@@ -20,6 +20,7 @@ package org.apache.seatunnel.translation.spark.serialization;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.MapType;
+import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -56,9 +57,23 @@ public class SeaTunnelRowConverter extends RowConverter<SeaTunnelRow> {
         validate(seaTunnelRow);
         GenericRowWithSchema rowWithSchema = (GenericRowWithSchema) convert(seaTunnelRow, dataType);
         SeaTunnelRow newRow = new SeaTunnelRow(rowWithSchema.values());
-        newRow.setRowKind(seaTunnelRow.getRowKind());
-        newRow.setTableId(seaTunnelRow.getTableId());
         return newRow;
+    }
+
+    public GenericRowWithSchema parcel(SeaTunnelRow seaTunnelRow) {
+        SeaTunnelRowType rowType = (SeaTunnelRowType) dataType;
+        int arity = rowType.getTotalFields();
+        Object[] fields = new Object[arity + 2];
+        fields[0] = seaTunnelRow.getRowKind().toByteValue();
+        fields[1] = seaTunnelRow.getTableId();
+        StructType schema = (StructType) TypeConverterUtils.parcel(rowType);
+        for (int i = 0; i < arity; i++) {
+            Object fieldValue = convert(seaTunnelRow.getField(i), rowType.getFieldType(i));
+            if (fieldValue != null) {
+                fields[i + 2] = fieldValue;
+            }
+        }
+        return new GenericRowWithSchema(fields, schema);
     }
 
     private Object convert(Object field, SeaTunnelDataType<?> dataType) {
@@ -154,6 +169,20 @@ public class SeaTunnelRowConverter extends RowConverter<SeaTunnelRow> {
     @Override
     public SeaTunnelRow reconvert(SeaTunnelRow engineRow) throws IOException {
         return (SeaTunnelRow) reconvert(engineRow, dataType);
+    }
+
+    public SeaTunnelRow unpack(GenericRowWithSchema engineRow) throws IOException {
+        SeaTunnelRowType rowType = (SeaTunnelRowType) dataType;
+        RowKind rowKind = RowKind.fromByteValue(engineRow.getByte(0));
+        String tableId = engineRow.getString(1);
+        Object[] fields = new Object[rowType.getTotalFields()];
+        for (int i = 0; i < fields.length; i++) {
+            fields[i] = reconvert(engineRow.get(i + 2), rowType.getFieldType(i));
+        }
+        SeaTunnelRow seaTunnelRow = new SeaTunnelRow(fields);
+        seaTunnelRow.setRowKind(rowKind);
+        seaTunnelRow.setTableId(tableId);
+        return seaTunnelRow;
     }
 
     private Object reconvert(Object field, SeaTunnelDataType<?> dataType) {

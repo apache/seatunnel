@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *    https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,23 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.core.starter.spark.execution;
+package org.apache.seatunnel.connectors.seatunnel.sls.serialization;
 
-import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.source.Collector;
 
-import org.apache.spark.sql.Dataset;
-import org.apache.spark.sql.Row;
+import com.aliyun.openservices.log.common.LogGroupData;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import java.io.IOException;
+import java.io.Serializable;
+import java.util.List;
 
-@Data
-@AllArgsConstructor
-public class DatasetTableInfo {
+public interface FastLogDeserialization<T> extends Serializable {
 
-    private Dataset<Row> dataset;
-
-    private CatalogTable catalogTable;
-
-    private String tableName;
+    default void deserialize(List<LogGroupData> logGroupDatas, Collector<T> out)
+            throws IOException {}
 }
