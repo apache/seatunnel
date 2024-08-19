@@ -40,7 +40,7 @@ If you need a specific connector version, taking 2.3.7 as an example, you need t
 sh bin/install-plugin.sh 2.3.7
 ```
 
-Typically, you do not need all the connector plugins. You can specify the required plugins by configuring `config/plugin_config`. For example, if you want the sample application to work properly, you will need the `connector-console` and `connector-fake` plugins. You can modify the `plugin.properties` configuration file as follows:
+Typically, you do not need all the connector plugins. You can specify the required plugins by configuring `config/plugin_config`. For example, if you want the sample application to work properly, you will need the `connector-console` and `connector-fake` plugins. You can modify the `plugin_config` configuration file as follows:
 
 ```plugin_config
 --seatunnel-connectors--
