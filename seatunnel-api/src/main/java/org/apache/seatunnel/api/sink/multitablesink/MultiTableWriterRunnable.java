@@ -49,22 +49,23 @@ public class MultiTableWriterRunnable implements Runnable {
     public void run() {
         while (true) {
             try {
-                SeaTunnelRow row = queue.poll(100, TimeUnit.MILLISECONDS);
-                if (row == null) {
-                    continue;
-                }
-                SinkWriter<SeaTunnelRow, ?, ?> writer =
-                        sinkWriter.getWriter(row.getTableId(), queueIndex);
-                if (writer == null) {
-                    if (tableCount == 1) {
-                        writer = sinkWriter.getWriter(null, queueIndex);
-                    } else {
-                        throw new RuntimeException(
-                                "MultiTableWriterRunnable can't find writer for tableId: "
-                                        + row.getTableId());
-                    }
-                }
                 synchronized (this) {
+                    SeaTunnelRow row = queue.poll(100, TimeUnit.MILLISECONDS);
+                    if (row == null) {
+                        Thread.yield();
+                        continue;
+                    }
+                    SinkWriter<SeaTunnelRow, ?, ?> writer =
+                            sinkWriter.getWriter(row.getTableId(), queueIndex);
+                    if (writer == null) {
+                        if (tableCount == 1) {
+                            writer = sinkWriter.getWriter(null, queueIndex);
+                        } else {
+                            throw new RuntimeException(
+                                    "MultiTableWriterRunnable can't find writer for tableId: "
+                                            + row.getTableId());
+                        }
+                    }
                     writer.write(row);
                 }
             } catch (InterruptedException e) {
