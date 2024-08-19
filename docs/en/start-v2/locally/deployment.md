@@ -34,6 +34,12 @@ Starting from version 2.2.0-beta, the binary package no longer provides connecto
 sh bin/install-plugin.sh
 ```
 
+If you need a specific connector version, taking 2.3.7 as an example, you need to execute the following command:
+
+```bash
+sh bin/install-plugin.sh 2.3.7
+```
+
 Typically, you do not need all the connector plugins. You can specify the required plugins by configuring `config/plugin_config`. For example, if you want the sample application to work properly, you will need the `connector-console` and `connector-fake` plugins. You can modify the `plugin.properties` configuration file as follows:
 
 ```plugin_config
