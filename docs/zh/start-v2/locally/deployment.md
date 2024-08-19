@@ -40,7 +40,7 @@ sh bin/install-plugin.sh
 sh bin/install-plugin.sh 2.3.7
 ```
 
-通常您并不需要所有的连接器插件，可以通过配置`config/plugin_config`来指定您所需要的插件，例如，您希望示例应用程序能正常工作那么需要`connector-console`、`connector-fake`插件，那么您可以修改plugin.properties配置文件如下：
+通常情况下，你不需要所有的连接器插件。你可以通过配置`config/plugin_config`来指定所需的插件。例如，如果你想让示例应用程序正常工作，你将需要`connector-console`和`connector-fake`插件。你可以修改`plugin_config`配置文件，如下所示：
 
 ```plugin_config
 --seatunnel-connectors--
