@@ -28,6 +28,7 @@ import java.util.List;
 import static org.apache.seatunnel.api.sink.DataSaveMode.APPEND_DATA;
 import static org.apache.seatunnel.api.sink.DataSaveMode.DROP_DATA;
 import static org.apache.seatunnel.api.sink.DataSaveMode.ERROR_WHEN_DATA_EXISTS;
+import static org.apache.seatunnel.api.sink.DataSaveMode.IGNORE;
 
 public class SinkConfig {
 
@@ -80,7 +81,7 @@ public class SinkConfig {
             Options.key("data_save_mode")
                     .singleChoice(
                             DataSaveMode.class,
-                            Arrays.asList(DROP_DATA, APPEND_DATA, ERROR_WHEN_DATA_EXISTS))
+                            Arrays.asList(DROP_DATA, APPEND_DATA, ERROR_WHEN_DATA_EXISTS, IGNORE))
                     .defaultValue(APPEND_DATA)
                     .withDescription("data_save_mode");
 }
