@@ -75,19 +75,10 @@ public class TypesenseIT extends TestSuiteBase implements TestResource {
 
     private static final String sourceCollection = "typesense_test_collection_for_source";
 
-    public String createTempDataDirectory() throws IOException {
-        File tmpDir = File.createTempFile("typesense_tmp_", "");
-        tmpDir.delete();
-        tmpDir.mkdirs();
-        tmpDir.deleteOnExit();
-        return tmpDir.getPath();
-    }
 
     @BeforeEach
     @Override
     public void startUp() throws Exception {
-        String tempDataDirectory = createTempDataDirectory();
-        System.out.println(tempDataDirectory);
         typesenseServer =
                 new GenericContainer<>(TYPESENSE_DOCKER_IMAGE)
                         .withNetwork(NETWORK)
