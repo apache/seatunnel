@@ -51,11 +51,10 @@ public abstract class JdbcOceanBaseITBase extends AbstractJdbcIT {
                 String.format("select * from %s order by 1", getFullTableName(OCEANBASE_SOURCE));
         String sinkSql =
                 String.format("select * from %s order by 1", getFullTableName(OCEANBASE_SINK));
-        try {
-            Statement sourceStatement = connection.createStatement();
-            Statement sinkStatement = connection.createStatement();
-            ResultSet sourceResultSet = sourceStatement.executeQuery(sourceSql);
-            ResultSet sinkResultSet = sinkStatement.executeQuery(sinkSql);
+        try (Statement sourceStatement = connection.createStatement();
+                Statement sinkStatement = connection.createStatement();
+                ResultSet sourceResultSet = sourceStatement.executeQuery(sourceSql);
+                ResultSet sinkResultSet = sinkStatement.executeQuery(sinkSql)) {
             Assertions.assertEquals(
                     sourceResultSet.getMetaData().getColumnCount(),
                     sinkResultSet.getMetaData().getColumnCount());

@@ -144,8 +144,8 @@ public class StarRocksCDCSinkIT extends TestSuiteBase implements TestResource {
 
         String sinkSql = String.format("select * from %s.%s", DATABASE, SINK_TABLE);
         Set<List<Object>> actual = new HashSet<>();
-        try (Statement sinkStatement = jdbcConnection.createStatement()) {
-            ResultSet sinkResultSet = sinkStatement.executeQuery(sinkSql);
+        try (Statement sinkStatement = jdbcConnection.createStatement();
+                ResultSet sinkResultSet = sinkStatement.executeQuery(sinkSql); ) {
             while (sinkResultSet.next()) {
                 List<Object> row =
                         Arrays.asList(

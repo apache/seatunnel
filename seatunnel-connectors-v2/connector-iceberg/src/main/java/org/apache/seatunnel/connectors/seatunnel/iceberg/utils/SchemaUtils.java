@@ -274,7 +274,7 @@ public class SchemaUtils {
         log.info("Schema for table {} updated with new columns", table.name());
     }
 
-    private static boolean columnExists(org.apache.iceberg.Schema schema, SchemaAddColumn update) {
+    private static boolean columnExists(Schema schema, SchemaAddColumn update) {
         Types.StructType struct =
                 update.parentName() == null
                         ? schema.asStruct()
@@ -282,13 +282,11 @@ public class SchemaUtils {
         return struct.field(update.name()) != null;
     }
 
-    private static boolean typeMatches(
-            org.apache.iceberg.Schema schema, SchemaModifyColumn update) {
+    private static boolean typeMatches(Schema schema, SchemaModifyColumn update) {
         return schema.findType(update.name()).typeId() == update.type().typeId();
     }
 
-    private static boolean findColumns(
-            org.apache.iceberg.Schema schema, SchemaDeleteColumn deleteColumn) {
+    private static boolean findColumns(Schema schema, SchemaDeleteColumn deleteColumn) {
         return schema.findField(deleteColumn.name()) != null;
     }
 
@@ -300,8 +298,7 @@ public class SchemaUtils {
         return IcebergTypeMapper.toIcebergType(rowType);
     }
 
-    public static PartitionSpec createPartitionSpec(
-            org.apache.iceberg.Schema schema, List<String> partitionBy) {
+    public static PartitionSpec createPartitionSpec(Schema schema, List<String> partitionBy) {
         if (partitionBy.isEmpty()) {
             return PartitionSpec.unpartitioned();
         }

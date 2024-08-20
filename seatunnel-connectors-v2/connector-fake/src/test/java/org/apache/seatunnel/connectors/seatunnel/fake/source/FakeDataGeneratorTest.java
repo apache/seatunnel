@@ -24,8 +24,10 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.RowKind;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.table.type.VectorType;
 import org.apache.seatunnel.connectors.seatunnel.fake.config.FakeConfig;
 
 import org.junit.jupiter.api.Assertions;
@@ -110,6 +112,33 @@ public class FakeDataGeneratorTest {
         List<SeaTunnelRow> seaTunnelRows =
                 fakeDataGenerator.generateFakedRows(fakeConfig.getRowNum());
         Assertions.assertIterableEquals(expected, seaTunnelRows);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"fake-vector.conf"})
+    public void testVectorParse(String conf) throws FileNotFoundException, URISyntaxException {
+        ReadonlyConfig testConfig = getTestConfigFile(conf);
+        FakeConfig fakeConfig = FakeConfig.buildWithConfig(testConfig);
+        FakeDataGenerator fakeDataGenerator = new FakeDataGenerator(fakeConfig);
+        List<SeaTunnelRow> seaTunnelRows =
+                fakeDataGenerator.generateFakedRows(fakeConfig.getRowNum());
+        seaTunnelRows.forEach(
+                seaTunnelRow ->
+                        Assertions.assertEquals(
+                                65,
+                                seaTunnelRow.getBytesSize(
+                                        new SeaTunnelRowType(
+                                                new String[] {
+                                                    "field1", "field2", "field3", "field4", "field5"
+                                                },
+                                                new SeaTunnelDataType<?>[] {
+                                                    VectorType.VECTOR_FLOAT_TYPE,
+                                                    VectorType.VECTOR_BINARY_TYPE,
+                                                    VectorType.VECTOR_FLOAT16_TYPE,
+                                                    VectorType.VECTOR_BFLOAT16_TYPE,
+                                                    VectorType.VECTOR_SPARSE_FLOAT_TYPE
+                                                }))));
+        Assertions.assertNotNull(seaTunnelRows);
     }
 
     private ReadonlyConfig getTestConfigFile(String configFile)

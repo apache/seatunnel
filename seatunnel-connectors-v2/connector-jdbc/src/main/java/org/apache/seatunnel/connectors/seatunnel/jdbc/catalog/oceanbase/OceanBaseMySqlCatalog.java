@@ -56,16 +56,6 @@ public class OceanBaseMySqlCatalog extends AbstractJdbcCatalog {
     private static final String SELECT_TABLE_EXISTS =
             "SELECT TABLE_SCHEMA,TABLE_NAME FROM information_schema.tables WHERE table_schema = '%s' AND table_name = '%s'";
 
-    static {
-        SYS_DATABASES.clear();
-        SYS_DATABASES.add("information_schema");
-        SYS_DATABASES.add("mysql");
-        SYS_DATABASES.add("oceanbase");
-        SYS_DATABASES.add("LBACSYS");
-        SYS_DATABASES.add("ORAAUDITOR");
-        SYS_DATABASES.add("SYS");
-    }
-
     private OceanBaseMySqlTypeConverter typeConverter;
 
     public OceanBaseMySqlCatalog(
@@ -208,10 +198,12 @@ public class OceanBaseMySqlCatalog extends AbstractJdbcCatalog {
     @Override
     public CatalogTable getTable(String sqlQuery) throws SQLException {
         Connection defaultConnection = getConnection(defaultUrl);
-        Statement statement = defaultConnection.createStatement();
-        ResultSetMetaData metaData = statement.executeQuery(sqlQuery).getMetaData();
-        return CatalogUtils.getCatalogTable(
-                metaData, new OceanBaseMySqlTypeMapper(typeConverter), sqlQuery);
+        try (Statement statement = defaultConnection.createStatement();
+                ResultSet resultSet = statement.executeQuery(sqlQuery)) {
+            ResultSetMetaData metaData = resultSet.getMetaData();
+            return CatalogUtils.getCatalogTable(
+                    metaData, new OceanBaseMySqlTypeMapper(typeConverter), sqlQuery);
+        }
     }
 
     @Override

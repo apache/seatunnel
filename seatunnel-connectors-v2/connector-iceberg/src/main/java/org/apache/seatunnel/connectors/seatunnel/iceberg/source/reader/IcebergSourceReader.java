@@ -46,7 +46,7 @@ public class IcebergSourceReader implements SourceReader<SeaTunnelRow, IcebergFi
 
     private static final long POLL_WAIT_MS = 1000;
 
-    private final SourceReader.Context context;
+    private final Context context;
     private final Queue<IcebergFileScanTaskSplit> pendingSplits;
     private final Deserializer deserializer;
     private final Schema tableSchema;
