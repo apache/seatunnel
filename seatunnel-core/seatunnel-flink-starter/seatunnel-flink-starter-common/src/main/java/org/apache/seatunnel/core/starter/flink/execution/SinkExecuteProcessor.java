@@ -52,6 +52,7 @@ import java.util.stream.Collectors;
 import static org.apache.seatunnel.api.common.CommonOptions.PLUGIN_NAME;
 import static org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode.HANDLE_SAVE_MODE_FAILED;
 
+@SuppressWarnings("unchecked,rawtypes")
 public class SinkExecuteProcessor
         extends FlinkAbstractPluginExecuteProcessor<Optional<? extends Factory>> {
 
@@ -108,12 +109,15 @@ public class SinkExecuteProcessor
                                         sinkConfig.getString(PLUGIN_NAME.key())),
                                 sinkConfig);
                 sink.setJobContext(jobContext);
-                SeaTunnelRowType sourceType = stream.getCatalogTable().getSeaTunnelRowType();
+                // TODO sink support multi table
+                SeaTunnelRowType sourceType =
+                        stream.getCatalogTables().get(0).getSeaTunnelRowType();
                 sink.setTypeInfo(sourceType);
             } else {
+                // TODO sink support multi table
                 TableSinkFactoryContext context =
                         TableSinkFactoryContext.replacePlaceholderAndCreate(
-                                stream.getCatalogTable(),
+                                stream.getCatalogTables().get(0),
                                 ReadonlyConfig.fromConfig(sinkConfig),
                                 classLoader,
                                 ((TableSinkFactory) factory.get())
@@ -137,8 +141,9 @@ public class SinkExecuteProcessor
                     stream.getDataStream()
                             .sinkTo(
                                     SinkV1Adapter.wrap(
-                                            new FlinkSink<>(sink, stream.getCatalogTable())))
-                            .name(sink.getPluginName());
+                                            new FlinkSink<>(
+                                                    sink, stream.getCatalogTables().get(0))))
+                            .name(String.format("%s-Sink", sink.getPluginName()));
             if (sinkConfig.hasPath(CommonOptions.PARALLELISM.key())) {
                 int parallelism = sinkConfig.getInt(CommonOptions.PARALLELISM.key());
                 dataStreamSink.setParallelism(parallelism);

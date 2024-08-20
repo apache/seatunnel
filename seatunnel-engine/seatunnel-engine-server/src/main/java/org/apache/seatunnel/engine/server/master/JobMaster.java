@@ -95,6 +95,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static com.hazelcast.jet.impl.util.ExceptionUtil.withTryCatch;
@@ -678,8 +679,13 @@ public class JobMaster {
 
             boolean lockedIMap = false;
             try {
-                metricsImap.lock(Constant.IMAP_RUNNING_JOB_METRICS_KEY);
-                lockedIMap = true;
+                lockedIMap =
+                        metricsImap.tryLock(
+                                Constant.IMAP_RUNNING_JOB_METRICS_KEY, 5, TimeUnit.SECONDS);
+                if (!lockedIMap) {
+                    LOGGER.severe("lock imap failed in update metrics");
+                    return;
+                }
 
                 HashMap<TaskLocation, SeaTunnelMetricsContext> centralMap =
                         metricsImap.get(Constant.IMAP_RUNNING_JOB_METRICS_KEY);
@@ -697,6 +703,8 @@ public class JobMaster {
                     collect.forEach(centralMap::remove);
                     metricsImap.put(Constant.IMAP_RUNNING_JOB_METRICS_KEY, centralMap);
                 }
+            } catch (Exception e) {
+                LOGGER.warning("failed to remove metrics context", e);
             } finally {
                 if (lockedIMap) {
                     boolean unLockedIMap = false;

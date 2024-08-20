@@ -130,8 +130,10 @@ public class SqlServerCatalog extends AbstractJdbcCatalog {
     }
 
     @Override
-    protected String getCreateTableSql(TablePath tablePath, CatalogTable table) {
-        return SqlServerCreateTableSqlBuilder.builder(tablePath, table).build(tablePath, table);
+    protected String getCreateTableSql(
+            TablePath tablePath, CatalogTable table, boolean createIndex) {
+        return SqlServerCreateTableSqlBuilder.builder(tablePath, table, createIndex)
+                .build(tablePath, table);
     }
 
     @Override

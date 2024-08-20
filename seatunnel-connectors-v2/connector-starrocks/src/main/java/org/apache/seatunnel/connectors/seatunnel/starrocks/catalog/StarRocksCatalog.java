@@ -56,6 +56,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -108,10 +109,9 @@ public class StarRocksCatalog implements Catalog {
 
     @Override
     public List<String> listDatabases() throws CatalogException {
-        try {
-            PreparedStatement ps = conn.prepareStatement("SHOW DATABASES;");
+        try (PreparedStatement ps = conn.prepareStatement("SHOW DATABASES;");
+                ResultSet rs = ps.executeQuery()) {
             List<String> databases = new ArrayList<>();
-            ResultSet rs = ps.executeQuery();
 
             while (rs.next()) {
                 String databaseName = rs.getString(1);
@@ -133,9 +133,13 @@ public class StarRocksCatalog implements Catalog {
         if (!databaseExists(databaseName)) {
             throw new DatabaseNotExistException(this.catalogName, databaseName);
         }
-        try {
-            PreparedStatement ps = conn.prepareStatement("SHOW TABLES;");
-            ResultSet rs = ps.executeQuery();
+
+        try (Connection conn =
+                        DriverManager.getConnection(
+                                urlInfo.getUrlWithDatabase(databaseName), username, pwd);
+                PreparedStatement ps = conn.prepareStatement("SHOW TABLES;");
+                ResultSet rs = ps.executeQuery()) {
+
             List<String> tables = new ArrayList<>();
             while (rs.next()) {
                 tables.add(rs.getString(1));
@@ -251,9 +255,9 @@ public class StarRocksCatalog implements Catalog {
     }
 
     public boolean isExistsData(TablePath tablePath) {
-        try {
-            String sql = String.format("select * from %s limit 1", tablePath.getFullName());
-            ResultSet resultSet = conn.createStatement().executeQuery(sql);
+        String sql = String.format("select * from %s limit 1", tablePath.getFullName());
+        try (Statement statement = connection.createStatement();
+                ResultSet resultSet = statement.executeQuery(sql)) {
             if (resultSet == null) {
                 return false;
             }
@@ -453,15 +457,16 @@ public class StarRocksCatalog implements Catalog {
     protected Optional<PrimaryKey> getPrimaryKey(String schema, String table) throws SQLException {
 
         List<String> pkFields = new ArrayList<>();
-        ResultSet rs =
-                conn.createStatement()
-                        .executeQuery(
-                                String.format(
-                                        "SELECT COLUMN_NAME FROM information_schema.columns where TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s' AND COLUMN_KEY = 'PRI' ORDER BY ORDINAL_POSITION",
-                                        schema, table));
-        while (rs.next()) {
-            String columnName = rs.getString("COLUMN_NAME");
-            pkFields.add(columnName);
+        try (ResultSet rs =
+                        conn.createStatement()
+                                .executeQuery(
+                                        String.format(
+                                                "SELECT COLUMN_NAME FROM information_schema.columns where TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s' AND COLUMN_KEY = 'PRI' ORDER BY ORDINAL_POSITION",
+                                                schema, table))) {
+            while (rs.next()) {
+                String columnName = rs.getString("COLUMN_NAME");
+                pkFields.add(columnName);
+            }
         }
         if (!pkFields.isEmpty()) {
             // PK_NAME maybe null according to the javadoc, generate a unique name in that case

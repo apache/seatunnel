@@ -79,7 +79,9 @@ JDBC 连接的 URL。参考案例：`jdbc:postgresql://localhost/test`
 
 ### compatible_mode [string]
 
-数据库的兼容模式，当数据库支持多种兼容模式时需要。例如，使用 OceanBase 数据库时，需要将其设置为 'mysql' 或 'oracle' 。
+数据库的兼容模式，当数据库支持多种兼容模式时需要。
+
+例如，使用 OceanBase 数据库时，需要将其设置为 'mysql' 或 'oracle' 。使用StarRocks时，需要将其设置为`starrocks`。
 
 Postgres 9.5及以下版本，请设置为 `postgresLow` 来支持 CDC
 

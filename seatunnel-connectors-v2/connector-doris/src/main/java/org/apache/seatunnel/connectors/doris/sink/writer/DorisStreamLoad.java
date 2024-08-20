@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.doris.sink.writer;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.doris.config.DorisConfig;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorErrorCode;
@@ -196,7 +197,7 @@ public class DorisStreamLoad implements Serializable {
             try {
                 errorMessage = handlePreCommitResponse(pendingLoadFuture.get()).getMessage();
             } catch (Exception e) {
-                errorMessage = e.getMessage();
+                errorMessage = ExceptionUtils.getMessage(e);
             }
             recordStream.setErrorMessageByStreamLoad(errorMessage);
             return errorMessage;
