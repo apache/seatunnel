@@ -138,7 +138,14 @@ public class MultiTableSinkWriter
     SinkWriter<SeaTunnelRow, ?, ?> getWriter(String tableIdentifier, int queueIndex)
             throws IOException {
         int index = context.getIndexOfSubtask() * queueSize + queueIndex;
-        SinkIdentifier identifier = SinkIdentifier.of(tableIdentifier, index);
+        String tableId;
+        if (sinks.size() == 1) {
+            tableId = sinks.keySet().iterator().next();
+        } else {
+            tableId = tableIdentifier;
+        }
+
+        SinkIdentifier identifier = SinkIdentifier.of(tableId, index);
         SinkWriter<SeaTunnelRow, ?, ?> writer =
                 sinkWritersWithIndex.get(queueIndex).getIfPresent(identifier);
         if (writer != null) {
@@ -208,13 +215,22 @@ public class MultiTableSinkWriter
             runnable.forEach(executorService::submit);
         }
         subSinkErrorCheck();
-        SeaTunnelSink sink = sinks.get(element.getTableId());
+        SeaTunnelSink sink;
+        String tableId;
+        if (sinks.size() == 1) {
+            sink = sinks.values().iterator().next();
+            tableId = sinks.keySet().iterator().next();
+        } else {
+            sink = sinks.get(element.getTableId());
+            tableId = element.getTableId();
+        }
         Optional<Integer> primaryKey =
                 sink != null ? ((SupportMultiTableSink) sink).primaryKey() : Optional.empty();
         try {
             if ((sink == null && sinks.size() == 1) || (sink != null && !primaryKey.isPresent())) {
                 int index = random.nextInt(blockingQueues.size());
                 BlockingQueue<SeaTunnelRow> queue = blockingQueues.get(index);
+                getWriter(tableId, index);
                 while (!queue.offer(element, 500, TimeUnit.MILLISECONDS)) {
                     subSinkErrorCheck();
                 }
@@ -228,6 +244,7 @@ public class MultiTableSinkWriter
                     index = Math.abs(object.hashCode()) % blockingQueues.size();
                 }
                 BlockingQueue<SeaTunnelRow> queue = blockingQueues.get(index);
+                getWriter(tableId, index);
                 while (!queue.offer(element, 500, TimeUnit.MILLISECONDS)) {
                     subSinkErrorCheck();
                 }

@@ -49,12 +49,11 @@ public class MultiTableWriterRunnable implements Runnable {
     public void run() {
         while (true) {
             try {
+                SeaTunnelRow row = queue.poll(100, TimeUnit.MILLISECONDS);
+                if (row == null) {
+                    continue;
+                }
                 synchronized (this) {
-                    SeaTunnelRow row = queue.poll(100, TimeUnit.MILLISECONDS);
-                    if (row == null) {
-                        Thread.yield();
-                        continue;
-                    }
                     SinkWriter<SeaTunnelRow, ?, ?> writer =
                             sinkWriter.getWriter(row.getTableId(), queueIndex);
                     if (writer == null) {
