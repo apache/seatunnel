@@ -129,6 +129,9 @@ public class MilvusBufferBatchWriter implements MilvusBatchWriter {
 
     private void writeData2Collection() {
         // default to use upsertReq, but upsert only works when autoID is disabled
+        System.out.println("enableUpsert: " + enableUpsert + ", autoId: " + autoId);
+        System.out.println("milvusDataCache: " + milvusDataCache);
+        System.out.println("collectionName: " + collectionName);
         if (enableUpsert && !autoId) {
             UpsertReq upsertReq =
                     UpsertReq.builder()
