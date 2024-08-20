@@ -44,8 +44,9 @@ import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.milvus.MilvusContainer;
 import org.testcontainers.utility.DockerLoggerFactory;
 
-import com.alibaba.fastjson.JSONObject;
 import com.google.common.collect.Lists;
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
 import io.milvus.client.MilvusServiceClient;
 import io.milvus.grpc.DataType;
 import io.milvus.grpc.MutationResult;
@@ -61,6 +62,7 @@ import io.milvus.param.dml.InsertParam;
 import io.milvus.param.index.CreateIndexParam;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.Driver;
 import java.sql.SQLException;
@@ -111,6 +113,7 @@ public class JdbcOceanBaseMilvusIT extends TestSuiteBase implements TestResource
     private static final String VECTOR_FIELD = "book_intro";
     private static final String TITLE_FIELD = "book_title";
     private static final Integer VECTOR_DIM = 4;
+    private static final Gson gson = new Gson();
 
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
@@ -218,13 +221,14 @@ public class JdbcOceanBaseMilvusIT extends TestSuiteBase implements TestResource
         log.info("Collection created");
 
         // Insert 10 records into the collection
-        List<JSONObject> rows = new ArrayList<>();
+        List<JsonObject> rows = new ArrayList<>();
         for (long i = 1L; i <= 10; ++i) {
-            JSONObject row = new JSONObject();
-            row.put(ID_FIELD, i);
+
+            JsonObject row = new JsonObject();
+            row.add(ID_FIELD, gson.toJsonTree(i));
             List<Float> vector = Arrays.asList((float) i, (float) i, (float) i, (float) i);
-            row.put(VECTOR_FIELD, vector);
-            row.put(TITLE_FIELD, "Tom and Jerry " + i);
+            row.add(VECTOR_FIELD, gson.toJsonTree(vector));
+            row.addProperty(TITLE_FIELD, "Tom and Jerry " + i);
             rows.add(row);
         }
 
@@ -251,24 +255,30 @@ public class JdbcOceanBaseMilvusIT extends TestSuiteBase implements TestResource
         }
         if (dbServer != null) {
             dbServer.close();
-            dockerClient.removeImageCmd(dbServer.getDockerImageName()).exec();
         }
         if (container != null) {
             container.close();
-            dockerClient.removeImageCmd(container.getDockerImageName()).exec();
         }
     }
 
     @TestTemplate
     public void testMilvusToOceanBase(TestContainer container) throws Exception {
-        List<String> configFiles = jdbcCase.getConfigFile();
-        for (String configFile : configFiles) {
-            try {
-                Container.ExecResult execResult = container.executeJob(configFile);
-                Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
-            } finally {
-                clearTable(jdbcCase.getDatabase(), jdbcCase.getSchema(), jdbcCase.getSinkTable());
-            }
+        try {
+            Container.ExecResult execResult = container.executeJob(configFile().get(0));
+            Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+        } finally {
+            clearTable(jdbcCase.getDatabase(), jdbcCase.getSchema(), jdbcCase.getSinkTable());
+        }
+    }
+
+    @TestTemplate
+    public void testFakeToOceanBase(TestContainer container)
+            throws IOException, InterruptedException {
+        try {
+            Container.ExecResult execResult = container.executeJob(configFile().get(1));
+            Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+        } finally {
+            clearTable(jdbcCase.getDatabase(), jdbcCase.getSchema(), jdbcCase.getSinkTable());
         }
     }
 
@@ -307,7 +317,6 @@ public class JdbcOceanBaseMilvusIT extends TestSuiteBase implements TestResource
                 .jdbcUrl(jdbcUrl)
                 .userName(USERNAME)
                 .password(PASSWORD)
-                .configFile(configFile())
                 .database(OCEANBASE_DATABASE)
                 .sinkTable(OCEANBASE_SINK)
                 .createSql(createSqlTemplate())
@@ -315,7 +324,8 @@ public class JdbcOceanBaseMilvusIT extends TestSuiteBase implements TestResource
     }
 
     List<String> configFile() {
-        return Lists.newArrayList("/jdbc_milvus_source_and_oceanbase_sink.conf");
+        return Lists.newArrayList(
+                "/jdbc_milvus_source_and_oceanbase_sink.conf", "/jdbc_fake_to_oceanbase_sink.conf");
     }
 
     private void initializeJdbcConnection(String jdbcUrl)
@@ -362,7 +372,7 @@ public class JdbcOceanBaseMilvusIT extends TestSuiteBase implements TestResource
     String createSqlTemplate() {
         return "CREATE TABLE IF NOT EXISTS %s\n"
                 + "(\n"
-                + "book_id int NOT NULL,\n"
+                + "book_id varchar(20) NOT NULL,\n"
                 + "book_intro vector(4) DEFAULT NULL,\n"
                 + "book_title varchar(64) DEFAULT NULL,\n"
                 + "primary key (book_id)\n"
