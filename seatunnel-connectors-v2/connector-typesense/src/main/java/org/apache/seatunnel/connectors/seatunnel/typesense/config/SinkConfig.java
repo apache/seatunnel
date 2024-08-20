@@ -37,11 +37,6 @@ public class SinkConfig {
                     .noDefaultValue()
                     .withDescription("Typesense collection name");
 
-    public static final Option<String> QUERY =
-            Options.key("query")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Typesense query param");
 
     public static final Option<List<String>> PRIMARY_KEYS =
             Options.key("primary_keys")

@@ -1,3 +1,20 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.seatunnel.connectors.seatunnel.typesense.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
@@ -6,9 +23,11 @@ import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.common.utils.RetryUtils.RetryMaterial;
 import org.apache.seatunnel.connectors.seatunnel.typesense.client.TypesenseClient;
 import org.apache.seatunnel.connectors.seatunnel.typesense.dto.CollectionInfo;
+import org.apache.seatunnel.connectors.seatunnel.typesense.exception.TypesenseConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.typesense.serialize.sink.SeaTunnelRowSerializer;
 import org.apache.seatunnel.connectors.seatunnel.typesense.serialize.sink.TypesenseRowSerializer;
 import org.apache.seatunnel.connectors.seatunnel.typesense.state.TypesenseCommitInfo;
@@ -21,6 +40,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import static org.apache.seatunnel.connectors.seatunnel.typesense.exception.TypesenseConnectorErrorCode.INSERT_DOC_ERROR;
+
 @Slf4j
 public class TypesenseSinkWriter
         implements SinkWriter<SeaTunnelRow, TypesenseCommitInfo, TypesenseSinkState>,
@@ -30,7 +51,6 @@ public class TypesenseSinkWriter
     private final int maxBatchSize;
     private final SeaTunnelRowSerializer seaTunnelRowSerializer;
 
-    // 存储的是请求ES的JSON参数
     private final List<String> requestEsList;
 
     private final String collection;
@@ -69,24 +89,39 @@ public class TypesenseSinkWriter
         requestEsList.add(indexRequestRow);
         if (requestEsList.size() >= maxBatchSize) {
             // 实际批量写入
-            typesenseClient.insert(collection, requestEsList);
+            insert(collection, requestEsList);
             requestEsList.clear();
         }
     }
 
     @Override
     public Optional<TypesenseCommitInfo> prepareCommit() {
-        typesenseClient.insert(collection, requestEsList);
+        insert(collection, requestEsList);
         requestEsList.clear();
         return Optional.empty();
+    }
+
+    private void insert(String collection, List<String> documentList){
+        try {
+            RetryUtils.retryWithException(
+                    () -> {
+                        typesenseClient.insert(collection, requestEsList);
+                        return null;
+                    },
+                    retryMaterial);
+        } catch (Exception e) {
+            log.error(INSERT_DOC_ERROR.getDescription());
+            throw new TypesenseConnectorException(
+                    INSERT_DOC_ERROR, INSERT_DOC_ERROR.getDescription());
+        }
     }
 
     @Override
     public void abortPrepare() {}
 
     @Override
-    public void close() throws IOException {
-        typesenseClient.insert(collection, requestEsList);
+    public void close() {
+        insert(collection, requestEsList);
         requestEsList.clear();
     }
 }

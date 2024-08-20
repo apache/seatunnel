@@ -1,8 +1,26 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.seatunnel.connectors.seatunnel.typesense.client;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.connectors.seatunnel.typesense.config.TypesenseConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.typesense.exception.TypesenseConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.typesense.util.URLParamsConverter;
@@ -77,6 +95,7 @@ public class TypesenseClient {
     }
 
     public void insert(String collection, List<String> documentList) {
+
         ImportDocumentsParameters queryParameters = new ImportDocumentsParameters();
         queryParameters.action("upsert");
         String text = "";
@@ -102,7 +121,6 @@ public class TypesenseClient {
             searchParameters = new SearchParameters().q("*");
         }
         log.debug("Typesense query param:{}", searchParameters);
-        System.out.println("query: " + JsonUtils.toJsonString(searchParameters));
         searchParameters.offset(offset);
         SearchResult searchResult =
                 tsClient.collections(collection).documents().search(searchParameters);
@@ -141,6 +159,28 @@ public class TypesenseClient {
             log.error(QUERY_COLLECTION_LIST_ERROR.getDescription());
             throw new TypesenseConnectorException(
                     QUERY_COLLECTION_LIST_ERROR, QUERY_COLLECTION_LIST_ERROR.getDescription());
+        }
+    }
+
+    public Map<String, String> getField(String collection) {
+        if(collectionExists(collection)) {
+            Map<String, String> fieldMap = new HashMap<>();
+            try {
+                CollectionResponse collectionResponse = tsClient.collections(collection).retrieve();
+                List<Field> fields = collectionResponse.getFields();
+                for (Field field : fields) {
+                    String fieldName = field.getName();
+                    String type = field.getType();
+                    fieldMap.put(fieldName, type);
+                }
+            } catch (Exception e) {
+                log.error(FIELD_TYPE_MAPPING_ERROR.getDescription());
+                throw new TypesenseConnectorException(
+                        FIELD_TYPE_MAPPING_ERROR, FIELD_TYPE_MAPPING_ERROR.getDescription());
+            }
+            return fieldMap;
+        }else{
+            return null;
         }
     }
 

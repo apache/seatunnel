@@ -1,8 +1,29 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.seatunnel.connectors.seatunnel.typesense.client;
 
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.typesense.api.Client;
 import org.typesense.api.Configuration;
+import org.typesense.api.FieldTypes;
+import org.typesense.model.Field;
 import org.typesense.resources.Node;
 
 import java.time.Duration;
@@ -10,13 +31,22 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class TypesenseClientTest {
+    private TypesenseClient typesenseClient;
+
+    private List<String> testDataset;
+
+
+    private static final String collection = "typesense_test_collection";
+
+    @BeforeEach
+    public void before(){
+
+    }
 
     @Test
     public void search() throws Exception {
         List<Node> nodes = new ArrayList<>();
-
         nodes.add(new Node("http", "localhost", "8108"));
-
         Configuration configuration = new Configuration(nodes, Duration.ofSeconds(5), "xyz");
         Client client = new Client(configuration);
         TypesenseClient typesenseClient = new TypesenseClient(client);
@@ -53,5 +83,25 @@ public class TypesenseClientTest {
         //        typesenseClient.collectionExists("compa1nies");
 
         System.out.println(typesenseClient.collectionList());
+    }
+
+
+    public void testCreateCollection() {
+        Assertions.assertEquals(typesenseClient.createCollection(collection), Boolean.TRUE);
+        Assertions.assertEquals(
+                typesenseClient.collectionList().contains(collection), Boolean.TRUE);
+        Assertions.assertEquals(typesenseClient.dropCollection(collection), Boolean.TRUE);
+        Assertions.assertEquals(
+                typesenseClient.collectionList().contains(collection), Boolean.FALSE);
+    }
+
+    // TODO
+    public void testInsert() {
+        List<Field> fields = new ArrayList<>();
+        fields.add(new Field().name("*").type(FieldTypes.AUTO));
+        Assertions.assertEquals(typesenseClient.createCollection(collection, fields), Boolean.TRUE);
+        Assertions.assertEquals(
+                typesenseClient.collectionList().contains(collection), Boolean.TRUE);
+        typesenseClient.insert(collection, testDataset);
     }
 }
