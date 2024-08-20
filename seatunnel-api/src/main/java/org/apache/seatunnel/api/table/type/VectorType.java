@@ -30,8 +30,8 @@ public class VectorType<T> implements SeaTunnelDataType<T> {
     public static final VectorType<Map> VECTOR_SPARSE_FLOAT_TYPE =
             new VectorType<>(Map.class, SqlType.SPARSE_FLOAT_VECTOR);
 
-    public static final VectorType<Byte> VECTOR_BINARY_TYPE =
-            new VectorType<>(Byte.class, SqlType.BINARY_VECTOR);
+    public static final VectorType<ByteBuffer> VECTOR_BINARY_TYPE =
+            new VectorType<>(ByteBuffer.class, SqlType.BINARY_VECTOR);
 
     public static final VectorType<ByteBuffer> VECTOR_FLOAT16_TYPE =
             new VectorType<>(ByteBuffer.class, SqlType.FLOAT16_VECTOR);
