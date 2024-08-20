@@ -134,19 +134,19 @@ public class StarRocksCatalog implements Catalog {
             throw new DatabaseNotExistException(this.catalogName, databaseName);
         }
 
-        try (Connection conn =
-                        DriverManager.getConnection(
-                                urlInfo.getUrlWithDatabase(databaseName), username, pwd);
-                PreparedStatement ps = conn.prepareStatement("SHOW TABLES;");
-                ResultSet rs = ps.executeQuery()) {
-
-            List<String> tables = new ArrayList<>();
-            while (rs.next()) {
-                tables.add(rs.getString(1));
+        try (PreparedStatement ps =
+                conn.prepareStatement(
+                        "SELECT TABLE_NAME FROM information_schema.tables "
+                                + "WHERE TABLE_SCHEMA = ? ORDER BY TABLE_NAME")) {
+            ps.setString(1, databaseName);
+            try (ResultSet rs = ps.executeQuery()) {
+                List<String> tables = new ArrayList<>();
+                while (rs.next()) {
+                    tables.add(rs.getString(1));
+                }
+                return tables;
             }
-
-            return tables;
-        } catch (Exception e) {
+        } catch (SQLException e) {
             throw new CatalogException(
                     String.format("Failed listing database in catalog %s", catalogName), e);
         }
@@ -256,7 +256,7 @@ public class StarRocksCatalog implements Catalog {
 
     public boolean isExistsData(TablePath tablePath) {
         String sql = String.format("select * from %s limit 1", tablePath.getFullName());
-        try (Statement statement = connection.createStatement();
+        try (Statement statement = conn.createStatement();
                 ResultSet resultSet = statement.executeQuery(sql)) {
             if (resultSet == null) {
                 return false;
@@ -458,11 +458,11 @@ public class StarRocksCatalog implements Catalog {
 
         List<String> pkFields = new ArrayList<>();
         try (ResultSet rs =
-                        conn.createStatement()
-                                .executeQuery(
-                                        String.format(
-                                                "SELECT COLUMN_NAME FROM information_schema.columns where TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s' AND COLUMN_KEY = 'PRI' ORDER BY ORDINAL_POSITION",
-                                                schema, table))) {
+                conn.createStatement()
+                        .executeQuery(
+                                String.format(
+                                        "SELECT COLUMN_NAME FROM information_schema.columns where TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s' AND COLUMN_KEY = 'PRI' ORDER BY ORDINAL_POSITION",
+                                        schema, table))) {
             while (rs.next()) {
                 String columnName = rs.getString("COLUMN_NAME");
                 pkFields.add(columnName);
@@ -492,8 +492,9 @@ public class StarRocksCatalog implements Catalog {
                                 + "ORDER BY TABLE_NAME")) {
             ps.setString(1, tablePath.getDatabaseName());
             ps.setString(2, tablePath.getTableName());
-            ResultSet rs = ps.executeQuery();
-            return rs.next();
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next();
+            }
         } catch (SQLException e) {
             throw new CatalogException(
                     String.format("check table [%s] exists failed", tablePath.getFullName()), e);
