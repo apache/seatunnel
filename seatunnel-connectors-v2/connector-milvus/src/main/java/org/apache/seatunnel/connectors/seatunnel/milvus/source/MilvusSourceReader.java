@@ -47,6 +47,7 @@ import io.milvus.response.QueryResultsWrapper;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
@@ -220,6 +221,26 @@ public class MilvusSourceReader implements SourceReader<SeaTunnelRow, MilvusSour
                             arrays[i] = Float.parseFloat(list.get(i).toString());
                         }
                         fields[fieldIndex] = arrays;
+                        break;
+                    } else {
+                        throw new MilvusConnectorException(
+                                CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                                "Unexpected vector value: " + filedValues);
+                    }
+                case BINARY_VECTOR:
+                case FLOAT16_VECTOR:
+                case BFLOAT16_VECTOR:
+                    if (filedValues instanceof ByteBuffer) {
+                        fields[fieldIndex] = filedValues;
+                        break;
+                    } else {
+                        throw new MilvusConnectorException(
+                                CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                                "Unexpected vector value: " + filedValues);
+                    }
+                case SPARSE_FLOAT_VECTOR:
+                    if (filedValues instanceof Map) {
+                        fields[fieldIndex] = filedValues;
                         break;
                     } else {
                         throw new MilvusConnectorException(

@@ -77,6 +77,7 @@
         <module>connector-milvus-e2e</module>
         <module>connector-activemq-e2e</module>
         <module>connector-sls-e2e</module>
+        <module>connector-email-e2e</module>
     </modules>
 
     <dependencies>
