@@ -62,7 +62,6 @@ public class IrisCatalog extends AbstractJdbcCatalog {
     public IrisCatalog(
             String catalogName, String username, String password, JdbcUrlUtil.UrlInfo urlInfo) {
         super(catalogName, username, password, urlInfo, null);
-        SYS_DATABASES.add("%SYS");
     }
 
     @Override
@@ -138,9 +137,6 @@ public class IrisCatalog extends AbstractJdbcCatalog {
 
     @Override
     public boolean tableExists(TablePath tablePath) throws CatalogException {
-        if (EXCLUDED_SCHEMAS.contains(tablePath.getSchemaName())) {
-            return false;
-        }
         return querySQLResultExists(
                 this.getUrlFromDatabaseName(tablePath.getDatabaseName()),
                 getTableWithConditionSql(tablePath));

@@ -106,22 +106,23 @@ public class CatalogUtils {
         // According to the Javadoc of java.sql.DatabaseMetaData#getPrimaryKeys,
         // the returned primary key columns are ordered by COLUMN_NAME, not by KEY_SEQ.
         // We need to sort them based on the KEY_SEQ value.
-        ResultSet rs =
-                metaData.getPrimaryKeys(
-                        tablePath.getDatabaseName(),
-                        tablePath.getSchemaName(),
-                        tablePath.getTableName());
-
         // seq -> column name
         List<Pair<Integer, String>> primaryKeyColumns = new ArrayList<>();
         String pkName = null;
-        while (rs.next()) {
-            String columnName = rs.getString("COLUMN_NAME");
-            // all the PK_NAME should be the same
-            pkName = cleanKeyName(rs.getString("PK_NAME"));
-            int keySeq = rs.getInt("KEY_SEQ");
-            // KEY_SEQ is 1-based index
-            primaryKeyColumns.add(Pair.of(keySeq, columnName));
+        try (ResultSet rs =
+                metaData.getPrimaryKeys(
+                        tablePath.getDatabaseName(),
+                        tablePath.getSchemaName(),
+                        tablePath.getTableName())) {
+
+            while (rs.next()) {
+                String columnName = rs.getString("COLUMN_NAME");
+                // all the PK_NAME should be the same
+                pkName = cleanKeyName(rs.getString("PK_NAME"));
+                int keySeq = rs.getInt("KEY_SEQ");
+                // KEY_SEQ is 1-based index
+                primaryKeyColumns.add(Pair.of(keySeq, columnName));
+            }
         }
         // initialize size
         List<String> pkFields =
@@ -139,45 +140,46 @@ public class CatalogUtils {
     public static List<ConstraintKey> getConstraintKeys(
             DatabaseMetaData metadata, TablePath tablePath) throws SQLException {
         // We set approximate to true to avoid querying the statistics table, which is slow.
-        ResultSet resultSet =
+        try (ResultSet resultSet =
                 metadata.getIndexInfo(
                         tablePath.getDatabaseName(),
                         tablePath.getSchemaName(),
                         tablePath.getTableName(),
                         false,
-                        true);
-        // index name -> index
-        Map<String, ConstraintKey> constraintKeyMap = new HashMap<>();
-        while (resultSet.next()) {
-            String columnName = resultSet.getString("COLUMN_NAME");
-            if (columnName == null) {
-                continue;
+                        true)) {
+            // index name -> index
+            Map<String, ConstraintKey> constraintKeyMap = new HashMap<>();
+            while (resultSet.next()) {
+                String columnName = resultSet.getString("COLUMN_NAME");
+                if (columnName == null) {
+                    continue;
+                }
+                String indexName = cleanKeyName(resultSet.getString("INDEX_NAME"));
+                boolean noUnique = resultSet.getBoolean("NON_UNIQUE");
+
+                ConstraintKey constraintKey =
+                        constraintKeyMap.computeIfAbsent(
+                                indexName,
+                                s -> {
+                                    ConstraintKey.ConstraintType constraintType =
+                                            ConstraintKey.ConstraintType.INDEX_KEY;
+                                    if (!noUnique) {
+                                        constraintType = ConstraintKey.ConstraintType.UNIQUE_KEY;
+                                    }
+                                    return ConstraintKey.of(
+                                            constraintType, indexName, new ArrayList<>());
+                                });
+
+                ConstraintKey.ColumnSortType sortType =
+                        "A".equals(resultSet.getString("ASC_OR_DESC"))
+                                ? ConstraintKey.ColumnSortType.ASC
+                                : ConstraintKey.ColumnSortType.DESC;
+                ConstraintKey.ConstraintKeyColumn constraintKeyColumn =
+                        new ConstraintKey.ConstraintKeyColumn(columnName, sortType);
+                constraintKey.getColumnNames().add(constraintKeyColumn);
             }
-            String indexName = cleanKeyName(resultSet.getString("INDEX_NAME"));
-            boolean noUnique = resultSet.getBoolean("NON_UNIQUE");
-
-            ConstraintKey constraintKey =
-                    constraintKeyMap.computeIfAbsent(
-                            indexName,
-                            s -> {
-                                ConstraintKey.ConstraintType constraintType =
-                                        ConstraintKey.ConstraintType.INDEX_KEY;
-                                if (!noUnique) {
-                                    constraintType = ConstraintKey.ConstraintType.UNIQUE_KEY;
-                                }
-                                return ConstraintKey.of(
-                                        constraintType, indexName, new ArrayList<>());
-                            });
-
-            ConstraintKey.ColumnSortType sortType =
-                    "A".equals(resultSet.getString("ASC_OR_DESC"))
-                            ? ConstraintKey.ColumnSortType.ASC
-                            : ConstraintKey.ColumnSortType.DESC;
-            ConstraintKey.ConstraintKeyColumn constraintKeyColumn =
-                    new ConstraintKey.ConstraintKeyColumn(columnName, sortType);
-            constraintKey.getColumnNames().add(constraintKeyColumn);
+            return new ArrayList<>(constraintKeyMap.values());
         }
-        return new ArrayList<>(constraintKeyMap.values());
     }
 
     private static String cleanKeyName(String keyName) {

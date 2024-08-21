@@ -44,23 +44,6 @@ public class RedshiftCatalog extends AbstractJdbcCatalog {
     private final String SELECT_COLUMNS =
             "SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = '%s' AND TABLE_NAME ='%s' ORDER BY ordinal_position ASC";
 
-    static {
-        EXCLUDED_SCHEMAS.add("information_schema");
-        EXCLUDED_SCHEMAS.add("catalog_history");
-        EXCLUDED_SCHEMAS.add("pg_auto_copy");
-        EXCLUDED_SCHEMAS.add("pg_automv");
-        EXCLUDED_SCHEMAS.add("pg_catalog");
-        EXCLUDED_SCHEMAS.add("pg_internal");
-        EXCLUDED_SCHEMAS.add("pg_s3");
-    }
-
-    static {
-        SYS_DATABASES.add("template0");
-        SYS_DATABASES.add("template1");
-        SYS_DATABASES.add("awsdatacatalog");
-        SYS_DATABASES.add("padb_harvest");
-    }
-
     protected final Map<String, Connection> connectionMap;
 
     public RedshiftCatalog(

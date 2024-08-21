@@ -233,8 +233,9 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
     }
 
     private List<List<Object>> querySql() {
-        try (Connection connection = getJdbcConnection()) {
-            ResultSet resultSet = connection.createStatement().executeQuery(MongodbCDCIT.SINK_SQL);
+        try (Connection connection = getJdbcConnection();
+                ResultSet resultSet =
+                        connection.createStatement().executeQuery(MongodbCDCIT.SINK_SQL)) {
             List<List<Object>> result = new ArrayList<>();
             int columnCount = resultSet.getMetaData().getColumnCount();
             while (resultSet.next()) {

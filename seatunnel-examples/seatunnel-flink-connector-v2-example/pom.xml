@@ -44,6 +44,24 @@
 
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
+            <artifactId>connector-typesense</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>connector-hbase</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>connector-kafka</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-flink-15-starter</artifactId>
             <version>${project.version}</version>
         </dependency>
@@ -122,6 +140,12 @@
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>mockwebserver</artifactId>
             <version>${mock-webserver.version}</version>
+            <exclusions>
+                <exclusion>
+                    <artifactId>okhttp</artifactId>
+                    <groupId>com.squareup.okhttp3</groupId>
+                </exclusion>
+            </exclusions>
         </dependency>
     </dependencies>
 
