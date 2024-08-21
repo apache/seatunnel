@@ -15,10 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.typesense;
+package org.apache.seatunnel.connectors.seatunnel.typesense.util;
 
 import org.apache.seatunnel.connectors.seatunnel.typesense.exception.TypesenseConnectorException;
-import org.apache.seatunnel.connectors.seatunnel.typesense.util.URLParamsConverter;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
