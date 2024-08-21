@@ -45,7 +45,7 @@ while read line; do
     if [ "$first_char" != "-" ] && [ "$first_char" != "#" ] && [ ! -z $first_char ]
       	then
       		echo "install connector : " $line
-      		${SEATUNNEL_HOME}/mvnw dependency:get -DgroupId=org.apache.seatunnel -DartifactId=${line} -Dversion=${version} -Ddest=${SEATUNNEL_HOME}/connectors
+      		${SEATUNNEL_HOME}/mvnw dependency:get -Dtransitive=false -DgroupId=org.apache.seatunnel -DartifactId=${line} -Dversion=${version} -Ddest=${SEATUNNEL_HOME}/connectors
     fi
 
 done < ${SEATUNNEL_HOME}/config/plugin_config
