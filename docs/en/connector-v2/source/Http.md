@@ -52,6 +52,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | pageing.page_field          | String  | No       | -       | This parameter is used to specify the page field name in the request parameter                                                       |
 | pageing.total_page_size     | Int     | No       | -       | This parameter is used to control the total number of pages                                                                          |
 | pageing.batch_size          | Int     | No       | -       | The batch size returned per request is used to determine whether to continue when the total number of pages is unknown               |
+| pageing.start_page_number   | Int     | No       | 1       | Specify the page number from which synchronization starts                                                                            |
 | content_json                | String  | No       | -       | This parameter can get some json data.If you only need the data in the 'book' section, configure `content_field = "$.store.book.*"`. |
 | format                      | String  | No       | text    | The format of upstream data, now only support `json` `text`, default `text`.                                                         |
 | method                      | String  | No       | get     | Http request method, only supports GET, POST method.                                                                                 |
