@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.Handover;
 import org.apache.seatunnel.translation.source.BaseSourceFunction;
 import org.apache.seatunnel.translation.source.ParallelSource;
+import org.apache.seatunnel.translation.spark.execution.MultiTableManager;
 import org.apache.seatunnel.translation.spark.serialization.InternalRowCollector;
 import org.apache.seatunnel.translation.util.ThreadPoolExecutorFactory;
 
@@ -58,12 +59,15 @@ public class ParallelBatchPartitionReader {
     protected volatile InternalRowCollector internalRowCollector;
     private Map<String, String> envOptions;
 
+    protected final MultiTableManager multiTableManager;
+
     public ParallelBatchPartitionReader(
             SeaTunnelSource<SeaTunnelRow, ?, ?> source,
             Integer parallelism,
             String jobId,
             Integer subtaskId,
-            Map<String, String> envOptions) {
+            Map<String, String> envOptions,
+            MultiTableManager multiTableManager) {
         this.source = source;
         this.parallelism = parallelism;
         this.jobId = jobId;
@@ -73,6 +77,7 @@ public class ParallelBatchPartitionReader {
                         1, getEnumeratorThreadName());
         this.handover = new Handover<>();
         this.envOptions = envOptions;
+        this.multiTableManager = multiTableManager;
     }
 
     protected String getEnumeratorThreadName() {
@@ -105,8 +110,8 @@ public class ParallelBatchPartitionReader {
         }
 
         this.internalRowCollector =
-                new InternalRowCollector(
-                        handover, checkpointLock, source.getProducedType(), envOptions);
+                multiTableManager.getInternalRowCollector(handover, checkpointLock, envOptions);
+
         executorService.execute(
                 () -> {
                     try {

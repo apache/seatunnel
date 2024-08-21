@@ -136,8 +136,8 @@ public class TDengineIT extends TestSuiteBase implements TestResource {
     @SneakyThrows
     private long readSinkDataset() {
         long rowCount;
-        try (Statement stmt = connection2.createStatement()) {
-            ResultSet resultSet = stmt.executeQuery("select count(1) from power2.meters2;");
+        try (Statement stmt = connection2.createStatement();
+                ResultSet resultSet = stmt.executeQuery("select count(1) from power2.meters2;"); ) {
             resultSet.next();
             rowCount = resultSet.getLong(1);
         }

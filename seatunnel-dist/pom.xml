@@ -919,6 +919,13 @@
                     <classifier>optional</classifier>
                     <scope>provided</scope>
                 </dependency>
+
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-sls</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
             </dependencies>
             <build>
                 <finalName>apache-seatunnel-${project.version}</finalName>
