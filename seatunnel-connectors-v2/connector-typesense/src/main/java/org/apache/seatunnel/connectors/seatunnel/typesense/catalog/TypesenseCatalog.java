@@ -110,7 +110,6 @@ public class TypesenseCatalog implements Catalog {
     @Override
     public CatalogTable getTable(TablePath tablePath)
             throws CatalogException, TableNotExistException {
-        // Get the index mapping?
         checkNotNull(tablePath, "tablePath cannot be null");
         TableSchema.Builder builder = TableSchema.builder();
         Map<String, BasicTypeDefine<TypesenseType>> fieldTypeMapping =
@@ -120,7 +119,6 @@ public class TypesenseCatalog implements Catalog {
                 builder,
                 fieldTypeMapping.entrySet().iterator(),
                 nameAndType -> {
-                    // todo: we need to add a new type TEXT or add length in STRING type
                     return PhysicalColumn.of(
                             nameAndType.getKey(),
                             TypesenseTypeConverter.INSTANCE
@@ -144,8 +142,6 @@ public class TypesenseCatalog implements Catalog {
     private Map<String, String> buildTableOptions(TablePath tablePath) {
         Map<String, String> options = new HashMap<>();
         options.put("connector", "typesense");
-        // todo: Right now, we don't use the config in the plugin config, do we need to add
-        // bootstrapt servers here?
         options.put("config", ConfigUtil.convertToJsonString(tablePath));
         return options;
     }
@@ -153,7 +149,6 @@ public class TypesenseCatalog implements Catalog {
     @Override
     public void createTable(TablePath tablePath, CatalogTable table, boolean ignoreIfExists)
             throws TableAlreadyExistException, DatabaseNotExistException, CatalogException {
-        // Create the index
         checkNotNull(tablePath, "tablePath cannot be null");
         typesenseClient.createCollection(tablePath.getTableName());
     }
@@ -202,15 +197,15 @@ public class TypesenseCatalog implements Catalog {
     public PreviewResult previewAction(
             ActionType actionType, TablePath tablePath, Optional<CatalogTable> catalogTable) {
         if (actionType == ActionType.CREATE_TABLE) {
-            return new InfoPreviewResult("create index " + tablePath.getTableName());
+            return new InfoPreviewResult("create collection " + tablePath.getTableName());
         } else if (actionType == ActionType.DROP_TABLE) {
-            return new InfoPreviewResult("delete index " + tablePath.getTableName());
+            return new InfoPreviewResult("delete collection " + tablePath.getTableName());
         } else if (actionType == ActionType.TRUNCATE_TABLE) {
-            return new InfoPreviewResult("delete and create index " + tablePath.getTableName());
+            return new InfoPreviewResult("delete and create collection " + tablePath.getTableName());
         } else if (actionType == ActionType.CREATE_DATABASE) {
-            return new InfoPreviewResult("create index " + tablePath.getTableName());
+            return new InfoPreviewResult("create collection " + tablePath.getTableName());
         } else if (actionType == ActionType.DROP_DATABASE) {
-            return new InfoPreviewResult("delete index " + tablePath.getTableName());
+            return new InfoPreviewResult("delete collection " + tablePath.getTableName());
         } else {
             throw new UnsupportedOperationException("Unsupported action type: " + actionType);
         }

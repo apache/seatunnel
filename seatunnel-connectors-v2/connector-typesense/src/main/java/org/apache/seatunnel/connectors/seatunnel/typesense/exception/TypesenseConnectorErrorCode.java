@@ -28,7 +28,8 @@ public enum TypesenseConnectorErrorCode implements SeaTunnelErrorCode {
     DROP_COLLECTION_ERROR("TYPESENSE-06", "Drop collection failed"),
     TRUNCATE_COLLECTION_ERROR("TYPESENSE-07", "Truncate collection failed"),
     QUERY_COLLECTION_NUM_ERROR("TYPESENSE-08", "Query collection doc number failed"),
-    INSERT_DOC_ERROR("TYPESENSE-09", "Insert documents failed");
+    INSERT_DOC_ERROR("TYPESENSE-09", "Insert documents failed"),
+    DELETE_COLLECTION_ERROR("TYPESENSE-10", "Truncate collection failed");
     private final String code;
     private final String description;
 

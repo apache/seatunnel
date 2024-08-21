@@ -115,10 +115,11 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
         try {
             for (int i = 0; i < rowTypeInfo.getTotalFields(); i++) {
                 fieldName = rowTypeInfo.getFieldName(i);
-                value = doc.get(fieldName);
+                value = doc.get(fieldName); // 字段值
                 if (value != null) {
-                    seaTunnelDataType = rowTypeInfo.getFieldType(i);
-                    seaTunnelFields[i] = convertValue(seaTunnelDataType, value.toString());
+                    seaTunnelDataType =
+                            rowTypeInfo.getFieldType(i); // seaTunnelDataType 为SeaTunnel类型
+                    seaTunnelFields[i] = convertValue(seaTunnelDataType, value);
                 }
             }
         } catch (Exception ex) {
@@ -132,42 +133,42 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
         return new SeaTunnelRow(seaTunnelFields);
     }
 
-    Object convertValue(SeaTunnelDataType<?> fieldType, String fieldValue)
+    Object convertValue(SeaTunnelDataType<?> fieldType, Object fieldValue)
             throws JsonProcessingException {
         if (STRING_TYPE.equals(fieldType)) {
-            return fieldValue;
+            return fieldValue.toString();
         } else {
-            if (nullDefault.equals(fieldValue)) {
+            if (nullDefault.equals(fieldValue.toString())) {
                 return null;
             }
             if (BOOLEAN_TYPE.equals(fieldType)) {
-                return Boolean.parseBoolean(fieldValue);
+                return Boolean.parseBoolean(fieldValue.toString());
             } else if (BYTE_TYPE.equals(fieldType)) {
-                return Byte.valueOf(fieldValue);
+                return Byte.valueOf(fieldValue.toString());
             } else if (SHORT_TYPE.equals(fieldType)) {
-                return Short.parseShort(fieldValue);
+                return Short.parseShort(fieldValue.toString());
             } else if (INT_TYPE.equals(fieldType)) {
-                return Integer.parseInt(fieldValue);
+                return Integer.parseInt(fieldValue.toString());
             } else if (LONG_TYPE.equals(fieldType)) {
-                return Long.parseLong(fieldValue);
+                return Long.parseLong(fieldValue.toString());
             } else if (FLOAT_TYPE.equals(fieldType)) {
-                return Float.parseFloat(fieldValue);
+                return Float.parseFloat(fieldValue.toString());
             } else if (DOUBLE_TYPE.equals(fieldType)) {
-                return Double.parseDouble(fieldValue);
+                return Double.parseDouble(fieldValue.toString());
             } else if (LocalTimeType.LOCAL_DATE_TYPE.equals(fieldType)) {
-                LocalDateTime localDateTime = parseDate(fieldValue);
+                LocalDateTime localDateTime = parseDate(fieldValue.toString());
                 return localDateTime.toLocalDate();
             } else if (LocalTimeType.LOCAL_TIME_TYPE.equals(fieldType)) {
-                LocalDateTime localDateTime = parseDate(fieldValue);
+                LocalDateTime localDateTime = parseDate(fieldValue.toString());
                 return localDateTime.toLocalTime();
             } else if (LocalTimeType.LOCAL_DATE_TIME_TYPE.equals(fieldType)) {
-                return parseDate(fieldValue);
+                return parseDate(fieldValue.toString());
             } else if (fieldType instanceof DecimalType) {
-                return new BigDecimal(fieldValue);
+                return new BigDecimal(fieldValue.toString());
             } else if (fieldType instanceof ArrayType) {
                 ArrayType<?, ?> arrayType = (ArrayType<?, ?>) fieldType;
                 SeaTunnelDataType<?> elementType = arrayType.getElementType();
-                List<String> stringList = JsonUtils.toList(fieldValue, String.class);
+                List<String> stringList = (List<String>) fieldValue;
                 Object arr = Array.newInstance(elementType.getTypeClass(), stringList.size());
                 for (int i = 0; i < stringList.size(); i++) {
                     Object convertValue = convertValue(elementType, stringList.get(i));
@@ -181,7 +182,8 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
                 SeaTunnelDataType<?> valueType = mapType.getValueType();
                 Map<String, String> stringMap =
                         mapper.readValue(
-                                fieldValue, new TypeReference<HashMap<String, String>>() {});
+                                fieldValue.toString(),
+                                new TypeReference<HashMap<String, String>>() {});
                 Map<Object, Object> convertMap = new HashMap<Object, Object>();
                 for (Map.Entry<String, String> entry : stringMap.entrySet()) {
                     Object convertKey = convertValue(keyType, entry.getKey());
@@ -191,25 +193,19 @@ public class DefaultSeaTunnelRowDeserializer implements SeaTunnelRowDeserializer
                 return convertMap;
             } else if (fieldType instanceof SeaTunnelRowType) {
                 SeaTunnelRowType rowType = (SeaTunnelRowType) fieldType;
-                Map<String, Object> collect =
-                        mapper.readValue(fieldValue, new TypeReference<Map<String, Object>>() {});
+                Map<String, Object> collect = (Map<String, Object>) fieldValue;
                 Object[] seaTunnelFields = new Object[rowType.getTotalFields()];
                 for (int i = 0; i < rowType.getTotalFields(); i++) {
                     String fieldName = rowType.getFieldName(i);
                     SeaTunnelDataType<?> fieldDataType = rowType.getFieldType(i);
                     Object value = collect.get(fieldName);
                     if (value != null) {
-                        seaTunnelFields[i] =
-                                convertValue(
-                                        fieldDataType,
-                                        (value instanceof List || value instanceof Map)
-                                                ? mapper.writeValueAsString(value)
-                                                : value.toString());
+                        seaTunnelFields[i] = convertValue(fieldDataType, value);
                     }
                 }
                 return new SeaTunnelRow(seaTunnelFields);
             } else if (fieldType instanceof PrimitiveByteArrayType) {
-                return Base64.getDecoder().decode(fieldValue);
+                return Base64.getDecoder().decode(fieldValue.toString());
             } else if (VOID_TYPE.equals(fieldType) || fieldType == null) {
                 return null;
             } else {

@@ -19,8 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.typesense.client;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
-import org.apache.seatunnel.common.utils.JsonUtils;
-import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.connectors.seatunnel.typesense.config.TypesenseConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.typesense.exception.TypesenseConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.typesense.util.URLParamsConverter;
@@ -49,7 +47,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static org.apache.seatunnel.connectors.seatunnel.typesense.config.SourceConfig.QUERY_BATCH_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.typesense.exception.TypesenseConnectorErrorCode.CREATE_COLLECTION_ERROR;
+import static org.apache.seatunnel.connectors.seatunnel.typesense.exception.TypesenseConnectorErrorCode.DELETE_COLLECTION_ERROR;
 import static org.apache.seatunnel.connectors.seatunnel.typesense.exception.TypesenseConnectorErrorCode.DROP_COLLECTION_ERROR;
 import static org.apache.seatunnel.connectors.seatunnel.typesense.exception.TypesenseConnectorErrorCode.FIELD_TYPE_MAPPING_ERROR;
 import static org.apache.seatunnel.connectors.seatunnel.typesense.exception.TypesenseConnectorErrorCode.INSERT_DOC_ERROR;
@@ -110,8 +110,11 @@ public class TypesenseClient {
                     INSERT_DOC_ERROR, INSERT_DOC_ERROR.getDescription());
         }
     }
-
     public SearchResult search(String collection, String query, int offset) throws Exception {
+       return search(collection,query,offset,QUERY_BATCH_SIZE.defaultValue());
+    }
+
+    public SearchResult search(String collection, String query, int offset, int pageSize) throws Exception {
         SearchParameters searchParameters;
         if (StringUtils.isNotBlank(query)) {
             String jsonQuery = URLParamsConverter.convertParamsToJson(query);
@@ -122,6 +125,7 @@ public class TypesenseClient {
         }
         log.debug("Typesense query param:{}", searchParameters);
         searchParameters.offset(offset);
+        searchParameters.perPage(pageSize);
         SearchResult searchResult =
                 tsClient.collections(collection).documents().search(searchParameters);
         return searchResult;
@@ -163,7 +167,7 @@ public class TypesenseClient {
     }
 
     public Map<String, String> getField(String collection) {
-        if(collectionExists(collection)) {
+        if (collectionExists(collection)) {
             Map<String, String> fieldMap = new HashMap<>();
             try {
                 CollectionResponse collectionResponse = tsClient.collections(collection).retrieve();
@@ -179,7 +183,7 @@ public class TypesenseClient {
                         FIELD_TYPE_MAPPING_ERROR, FIELD_TYPE_MAPPING_ERROR.getDescription());
             }
             return fieldMap;
-        }else{
+        } else {
             return null;
         }
     }
@@ -220,7 +224,7 @@ public class TypesenseClient {
 
     public boolean createCollection(String collection, List<Field> fields) {
         CollectionSchema collectionSchema = new CollectionSchema();
-        collectionSchema.name(collection).fields(fields);
+        collectionSchema.name(collection).fields(fields).enableNestedFields(true);
         try {
             tsClient.collections().create(collectionSchema);
             return true;
@@ -251,6 +255,17 @@ public class TypesenseClient {
             log.error(TRUNCATE_COLLECTION_ERROR.getDescription());
             throw new TypesenseConnectorException(
                     TRUNCATE_COLLECTION_ERROR, TRUNCATE_COLLECTION_ERROR.getDescription());
+        }
+        return true;
+    }
+
+    public boolean deleteCollectionData(String collection,String id) {
+        try {
+            tsClient.collections(collection).documents(id).delete();
+        } catch (Exception e) {
+            log.error(DELETE_COLLECTION_ERROR.getDescription());
+            throw new TypesenseConnectorException(
+                    DELETE_COLLECTION_ERROR, DELETE_COLLECTION_ERROR.getDescription());
         }
         return true;
     }

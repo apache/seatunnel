@@ -32,6 +32,7 @@ public class TypesenseType {
     public static final String FLOAT = "float";
     public static final String BOOL = "bool";
     public static final String IMAGE = "image";
+    public static final String OBJET = "object";
     private String type;
     private Map<String, Object> options;
 }

@@ -29,4 +29,5 @@ public class SourceCollectionInfo implements Serializable {
     private String query;
     private long found;
     private int offset;
+    private int queryBatchSize;
 }

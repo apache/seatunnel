@@ -33,4 +33,10 @@ public class SourceConfig {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("Typesense query param");
+
+    public static final Option<Integer> QUERY_BATCH_SIZE =
+            Options.key("batch_size")
+                    .intType()
+                    .defaultValue(100)
+                    .withDescription("Typesense query batch size");
 }

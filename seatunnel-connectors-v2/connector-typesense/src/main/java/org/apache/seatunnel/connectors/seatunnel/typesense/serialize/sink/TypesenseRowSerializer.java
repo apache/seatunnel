@@ -60,25 +60,8 @@ public class TypesenseRowSerializer implements SeaTunnelRowSerializer {
                         collectionInfo.getKeyDelimiter());
     }
 
-    // TODO 拼接写入Typesense 语句
     @Override
     public String serializeRow(SeaTunnelRow row) {
-        switch (row.getRowKind()) {
-            case INSERT:
-            case UPDATE_AFTER:
-                return serializeUpsert(row);
-            case UPDATE_BEFORE:
-            case DELETE:
-                //                return returnserializeDelete(row);
-            default:
-                throw new TypesenseConnectorException(
-                        CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                        "Unsupported write row kind: " + row.getRowKind());
-        }
-        //        return null;
-    }
-
-    private String serializeUpsert(SeaTunnelRow row) {
         String key = keyExtractor.apply(row);
         Map<String, Object> document = toDocumentMap(row, seaTunnelRowType);
         if (StringUtils.isNotBlank(key)) {
@@ -92,6 +75,18 @@ public class TypesenseRowSerializer implements SeaTunnelRowSerializer {
         }
         return documentStr;
     }
+
+    @Override
+    public String serializeRowForDelete(SeaTunnelRow row) {
+        String key = keyExtractor.apply(row);
+        Map<String, Object> document = toDocumentMap(row, seaTunnelRowType);
+        String id = document.get("id").toString();
+        if (StringUtils.isNotBlank(key)) {
+            id = key;
+        }
+        return id;
+    }
+
 
     private Map<String, Object> toDocumentMap(SeaTunnelRow row, SeaTunnelRowType rowType) {
         String[] fieldNames = rowType.getFieldNames();

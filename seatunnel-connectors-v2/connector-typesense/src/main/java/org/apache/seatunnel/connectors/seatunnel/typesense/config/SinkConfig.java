@@ -37,7 +37,6 @@ public class SinkConfig {
                     .noDefaultValue()
                     .withDescription("Typesense collection name");
 
-
     public static final Option<List<String>> PRIMARY_KEYS =
             Options.key("primary_keys")
                     .listType(String.class)

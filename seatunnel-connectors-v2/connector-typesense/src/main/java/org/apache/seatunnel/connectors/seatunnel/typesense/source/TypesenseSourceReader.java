@@ -94,13 +94,14 @@ public class TypesenseSourceReader implements SourceReader<SeaTunnelRow, Typesen
             TypesenseSourceSplit split = splits.poll();
             if (split != null) {
                 SourceCollectionInfo sourceCollectionInfo = split.getSourceCollectionInfo();
+                int pageSize = sourceCollectionInfo.getQueryBatchSize();
                 while (true) {
-                    int pageSize = 10;
                     SearchResult searchResult =
                             typesenseClient.search(
                                     sourceCollectionInfo.getCollection(),
                                     sourceCollectionInfo.getQuery(),
-                                    sourceCollectionInfo.getOffset());
+                                    sourceCollectionInfo.getOffset(),
+                                    sourceCollectionInfo.getQueryBatchSize());
                     Integer found = searchResult.getFound();
                     List<SearchResultHit> hits = searchResult.getHits();
                     for (SearchResultHit hit : hits) {
@@ -112,6 +113,7 @@ public class TypesenseSourceReader implements SourceReader<SeaTunnelRow, Typesen
                     if ((double) found / pageSize - 1
                             > sourceCollectionInfo.getOffset() / pageSize) {
                         sourceCollectionInfo.setOffset(sourceCollectionInfo.getOffset() + pageSize);
+                        System.out.println("co:"+sourceCollectionInfo.getOffset());
                     } else {
                         break;
                     }

@@ -35,13 +35,10 @@ public class TypesenseClientTest {
 
     private List<String> testDataset;
 
-
     private static final String collection = "typesense_test_collection";
 
     @BeforeEach
-    public void before(){
-
-    }
+    public void before() {}
 
     @Test
     public void search() throws Exception {
@@ -84,7 +81,6 @@ public class TypesenseClientTest {
 
         System.out.println(typesenseClient.collectionList());
     }
-
 
     public void testCreateCollection() {
         Assertions.assertEquals(typesenseClient.createCollection(collection), Boolean.TRUE);

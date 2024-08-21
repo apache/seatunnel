@@ -134,10 +134,10 @@ public class TypesenseSourceSplitEnumerator
 
         String collection = config.get(SourceConfig.COLLECTION);
         String query = config.get(SourceConfig.QUERY);
+        int queryBatchSize = config.get(SourceConfig.QUERY_BATCH_SIZE);
         splits.add(
                 new TypesenseSourceSplit(
-                        collection, new SourceCollectionInfo(collection, query, 0, 0)));
-        // TODO 需要支持 * 多索引匹配
+                        collection, new SourceCollectionInfo(collection, query, 0, 0,queryBatchSize)));
         return splits;
     }
 

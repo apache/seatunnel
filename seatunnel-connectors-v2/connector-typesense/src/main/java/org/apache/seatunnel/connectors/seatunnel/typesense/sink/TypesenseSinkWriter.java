@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.common.utils.RetryUtils.RetryMaterial;
 import org.apache.seatunnel.connectors.seatunnel.typesense.client.TypesenseClient;
@@ -35,11 +36,11 @@ import org.apache.seatunnel.connectors.seatunnel.typesense.state.TypesenseSinkSt
 
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import static org.apache.seatunnel.api.table.type.RowKind.INSERT;
 import static org.apache.seatunnel.connectors.seatunnel.typesense.exception.TypesenseConnectorErrorCode.INSERT_DOC_ERROR;
 
 @Slf4j
@@ -85,23 +86,35 @@ public class TypesenseSinkWriter
             return;
         }
 
-        String indexRequestRow = seaTunnelRowSerializer.serializeRow(element);
-        requestEsList.add(indexRequestRow);
-        if (requestEsList.size() >= maxBatchSize) {
-            // 实际批量写入
-            insert(collection, requestEsList);
-            requestEsList.clear();
+        switch (element.getRowKind()){
+                case INSERT:
+                case UPDATE_AFTER:
+                    String indexRequestRow = seaTunnelRowSerializer.serializeRow(element);
+                    requestEsList.add(indexRequestRow);
+                    if (requestEsList.size() >= maxBatchSize) {
+                        insert(collection, requestEsList);
+                    }
+                    break;
+                case UPDATE_BEFORE:
+                case DELETE:
+                    String id = seaTunnelRowSerializer.serializeRowForDelete(element);
+                    typesenseClient.deleteCollectionData(collection,id);
+                    break;
+            default:
+                    throw new TypesenseConnectorException(
+                            CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                            "Unsupported write row kind: " + element.getRowKind());
         }
+
     }
 
     @Override
     public Optional<TypesenseCommitInfo> prepareCommit() {
-        insert(collection, requestEsList);
-        requestEsList.clear();
+        insert(this.collection, this.requestEsList);
         return Optional.empty();
     }
 
-    private void insert(String collection, List<String> documentList){
+    private void insert(String collection, List<String> requestEsList) {
         try {
             RetryUtils.retryWithException(
                     () -> {
@@ -109,6 +122,7 @@ public class TypesenseSinkWriter
                         return null;
                     },
                     retryMaterial);
+            requestEsList.clear();
         } catch (Exception e) {
             log.error(INSERT_DOC_ERROR.getDescription());
             throw new TypesenseConnectorException(
@@ -122,6 +136,5 @@ public class TypesenseSinkWriter
     @Override
     public void close() {
         insert(collection, requestEsList);
-        requestEsList.clear();
     }
 }

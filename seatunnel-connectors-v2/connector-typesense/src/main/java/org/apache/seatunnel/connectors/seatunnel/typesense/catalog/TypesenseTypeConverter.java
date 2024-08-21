@@ -23,9 +23,13 @@ import org.apache.seatunnel.api.table.converter.BasicTypeConverter;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.converter.TypeConverter;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.typesense.client.TypesenseType;
 
 import com.google.auto.service.AutoService;
+
+import java.util.Map;
 
 import static org.apache.seatunnel.connectors.seatunnel.typesense.client.TypesenseType.INT32;
 import static org.apache.seatunnel.connectors.seatunnel.typesense.client.TypesenseType.INT64;
@@ -61,6 +65,18 @@ public class TypesenseTypeConverter implements BasicTypeConverter<BasicTypeDefin
                 break;
             case TypesenseType.BOOL:
                 builder.dataType(BasicType.BOOLEAN_TYPE);
+                break;
+            case TypesenseType.OBJET:
+                Map<String, BasicTypeDefine<TypesenseType>> typeInfo =
+                        (Map) typeDefine.getNativeType().getOptions();
+                SeaTunnelRowType object =
+                        new SeaTunnelRowType(
+                                typeInfo.keySet().toArray(new String[0]),
+                                typeInfo.values().stream()
+                                        .map(this::convert)
+                                        .map(Column::getDataType)
+                                        .toArray(SeaTunnelDataType<?>[]::new));
+                builder.dataType(object);
                 break;
             case TypesenseType.STRING:
             case TypesenseType.IMAGE:
