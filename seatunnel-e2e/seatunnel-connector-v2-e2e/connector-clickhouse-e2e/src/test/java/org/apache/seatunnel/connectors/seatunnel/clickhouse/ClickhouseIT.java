@@ -357,39 +357,40 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
         List<String> columnList =
                 Arrays.stream(generateTestDataSet().getKey().getFieldNames())
                         .collect(Collectors.toList());
-        Statement sourceStatement = connection.createStatement();
-        Statement sinkStatement = connection.createStatement();
-        ResultSet sourceResultSet = sourceStatement.executeQuery(sourceSql);
-        ResultSet sinkResultSet = sinkStatement.executeQuery(sinkSql);
-        Assertions.assertEquals(
-                sourceResultSet.getMetaData().getColumnCount(),
-                sinkResultSet.getMetaData().getColumnCount());
-        while (sourceResultSet.next()) {
-            if (sinkResultSet.next()) {
-                for (String column : columnList) {
-                    Object source = sourceResultSet.getObject(column);
-                    Object sink = sinkResultSet.getObject(column);
-                    if (!Objects.deepEquals(source, sink)) {
-                        InputStream sourceAsciiStream = sourceResultSet.getBinaryStream(column);
-                        InputStream sinkAsciiStream = sinkResultSet.getBinaryStream(column);
-                        String sourceValue =
-                                IOUtils.toString(sourceAsciiStream, StandardCharsets.UTF_8);
-                        String sinkValue =
-                                IOUtils.toString(sinkAsciiStream, StandardCharsets.UTF_8);
-                        Assertions.assertEquals(sourceValue, sinkValue);
+        try (Statement sourceStatement = connection.createStatement();
+                Statement sinkStatement = connection.createStatement();
+                ResultSet sourceResultSet = sourceStatement.executeQuery(sourceSql);
+                ResultSet sinkResultSet = sinkStatement.executeQuery(sinkSql)) {
+            Assertions.assertEquals(
+                    sourceResultSet.getMetaData().getColumnCount(),
+                    sinkResultSet.getMetaData().getColumnCount());
+            while (sourceResultSet.next()) {
+                if (sinkResultSet.next()) {
+                    for (String column : columnList) {
+                        Object source = sourceResultSet.getObject(column);
+                        Object sink = sinkResultSet.getObject(column);
+                        if (!Objects.deepEquals(source, sink)) {
+                            InputStream sourceAsciiStream = sourceResultSet.getBinaryStream(column);
+                            InputStream sinkAsciiStream = sinkResultSet.getBinaryStream(column);
+                            String sourceValue =
+                                    IOUtils.toString(sourceAsciiStream, StandardCharsets.UTF_8);
+                            String sinkValue =
+                                    IOUtils.toString(sinkAsciiStream, StandardCharsets.UTF_8);
+                            Assertions.assertEquals(sourceValue, sinkValue);
+                        }
+                        Assertions.assertTrue(true);
                     }
-                    Assertions.assertTrue(true);
                 }
             }
+            String columns = String.join(",", generateTestDataSet().getKey().getFieldNames());
+            Assertions.assertTrue(
+                    compare(String.format(CONFIG.getString(COMPARE_SQL), columns, columns)));
         }
-        String columns = String.join(",", generateTestDataSet().getKey().getFieldNames());
-        Assertions.assertTrue(
-                compare(String.format(CONFIG.getString(COMPARE_SQL), columns, columns)));
     }
 
     private Boolean compare(String sql) {
-        try (Statement statement = connection.createStatement()) {
-            ResultSet resultSet = statement.executeQuery(sql);
+        try (Statement statement = connection.createStatement();
+                ResultSet resultSet = statement.executeQuery(sql)) {
             return !resultSet.next();
         } catch (SQLException e) {
             throw new RuntimeException("result compare error", e);
@@ -397,9 +398,9 @@ public class ClickhouseIT extends TestSuiteBase implements TestResource {
     }
 
     private void assertHasData(String table) {
-        try (Statement statement = connection.createStatement()) {
-            String sql = String.format("select * from %s.%s limit 1", DATABASE, table);
-            ResultSet source = statement.executeQuery(sql);
+        String sql = String.format("select * from %s.%s limit 1", DATABASE, table);
+        try (Statement statement = connection.createStatement();
+                ResultSet source = statement.executeQuery(sql); ) {
             Assertions.assertTrue(source.next());
         } catch (SQLException e) {
             throw new RuntimeException("test clickhouse server image error", e);

@@ -57,13 +57,6 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
     private static final String SELECT_TABLE_EXISTS =
             "SELECT TABLE_SCHEMA,TABLE_NAME FROM information_schema.tables WHERE table_schema = '%s' AND table_name = '%s'";
 
-    static {
-        SYS_DATABASES.add("information_schema");
-        SYS_DATABASES.add("mysql");
-        SYS_DATABASES.add("performance_schema");
-        SYS_DATABASES.add("sys");
-    }
-
     private MySqlVersion version;
     private MySqlTypeConverter typeConverter;
 
@@ -181,8 +174,9 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
     }
 
     @Override
-    protected String getCreateTableSql(TablePath tablePath, CatalogTable table) {
-        return MysqlCreateTableSqlBuilder.builder(tablePath, table, typeConverter)
+    protected String getCreateTableSql(
+            TablePath tablePath, CatalogTable table, boolean createIndex) {
+        return MysqlCreateTableSqlBuilder.builder(tablePath, table, typeConverter, createIndex)
                 .build(table.getCatalogName());
     }
 

@@ -30,7 +30,7 @@
     <name>SeaTunnel : Connectors V2 : Activemq</name>
 
     <properties>
-        <activemq.version>5.14.5</activemq.version>
+        <activemq.version>5.15.16</activemq.version>
     </properties>
     <dependencies>
         <dependency>

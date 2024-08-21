@@ -58,6 +58,7 @@ support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 | custom_sql                                | String  | No       | -                            |
 | enable_upsert                             | Boolean | No       | true                         |
 | use_copy_statement                        | Boolean | No       | false                        |
+| create_index                              | Boolean | No       | true                         |
 
 ### driver [string]
 
@@ -81,7 +82,9 @@ Use this sql write upstream input datas to database. e.g `INSERT ...`
 
 ### compatible_mode [string]
 
-The compatible mode of database, required when the database supports multiple compatible modes. For example, when using OceanBase database, you need to set it to 'mysql' or 'oracle'.
+The compatible mode of database, required when the database supports multiple compatible modes.
+
+For example, when using OceanBase database, you need to set it to 'mysql' or 'oracle'. when using StarRocks, you need set it to `starrocks`.
 
 Postgres 9.5 version or below,please set it to `postgresLow` to support cdc
 
@@ -204,6 +207,12 @@ Enable upsert by primary_keys exist, If the task has no key duplicate data, sett
 Use `COPY ${table} FROM STDIN` statement to import data. Only drivers with `getCopyAPI()` method connections are supported.  e.g.: Postgresql driver `org.postgresql.Driver`.
 
 NOTICE: `MAP`, `ARRAY`, `ROW` types are not supported.
+
+### create_index [boolean]
+
+Create the index(contains primary key and any other indexes) or not when auto-create table. You can use this option to improve the performance of jdbc writes when migrating large tables.
+
+Notice: Note that this will sacrifice read performance, so you'll need to manually create indexes after the table migration to improve read performance
 
 ## tips
 
