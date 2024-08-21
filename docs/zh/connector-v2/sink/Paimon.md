@@ -42,7 +42,7 @@ libfb303-xxx.jar
 | data_save_mode              | 枚举  | 否    | APPEND_DATA                  | 数据保存模式                                                                                            |
 | paimon.table.primary-keys   | 字符串 | 否    | -                            | 主键字段列表，联合主键使用逗号分隔(注意：分区字段需要包含在主键字段中)                                                              |
 | paimon.table.partition-keys | 字符串 | 否    | -                            | 分区字段列表，多字段使用逗号分隔                                                                                  |
-| paimon.table.write-props    | Map | 否    | -                            | Paimon表初始化指定的属性, [参考](https://paimon.apache.org/docs/0.6/maintenance/configurations/#coreoptions) |
+| paimon.table.write-props    | Map | 否    | -                            | Paimon表初始化指定的属性, [参考](https://paimon.apache.org/docs/0.8/maintenance/configurations/#coreoptions) |
 | paimon.hadoop.conf          | Map | 否    | -                            | Hadoop配置文件属性信息                                                                                    |
 | paimon.hadoop.conf-path     | 字符串 | 否    | -                            | Hadoop配置文件目录，用于加载'core-site.xml', 'hdfs-site.xml', 'hive-site.xml'文件配置                            |
 
