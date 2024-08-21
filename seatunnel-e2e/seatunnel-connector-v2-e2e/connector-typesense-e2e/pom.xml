@@ -25,6 +25,7 @@
     </parent>
 
     <artifactId>connector-typesense-e2e</artifactId>
+    <name>SeaTunnel : E2E : Connector V2 : Typesense</name>
 
     <properties>
         <maven.compiler.source>8</maven.compiler.source>

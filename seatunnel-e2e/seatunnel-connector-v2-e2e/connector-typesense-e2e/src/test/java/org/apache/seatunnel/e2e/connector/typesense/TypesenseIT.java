@@ -23,10 +23,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.connectors.seatunnel.typesense.client.TypesenseClient;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
-import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
-import org.apache.seatunnel.e2e.common.container.TestContainerId;
-import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.apache.commons.lang3.RandomUtils;
 
@@ -54,14 +51,6 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
-@DisabledOnContainer(
-        value = {
-            TestContainerId.FLINK_1_13,
-            TestContainerId.FLINK_1_14,
-            TestContainerId.FLINK_1_15
-        },
-        type = {EngineType.SEATUNNEL, EngineType.SPARK},
-        disabledReason = "Test only one engine for first change")
 @Slf4j
 public class TypesenseIT extends TestSuiteBase implements TestResource {
 
