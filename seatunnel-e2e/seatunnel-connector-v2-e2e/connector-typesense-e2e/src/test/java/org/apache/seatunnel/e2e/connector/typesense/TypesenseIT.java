@@ -54,8 +54,7 @@ import java.util.stream.Stream;
 @Slf4j
 public class TypesenseIT extends TestSuiteBase implements TestResource {
 
-    private static final String TYPESENSE_DOCKER_IMAGE =
-            "registry.cn-hangzhou.aliyuncs.com/jast-docker/typesense:26.0";
+    private static final String TYPESENSE_DOCKER_IMAGE = "typesense/typesense:26.0";
 
     private static final String HOST = "e2e_typesense";
 
