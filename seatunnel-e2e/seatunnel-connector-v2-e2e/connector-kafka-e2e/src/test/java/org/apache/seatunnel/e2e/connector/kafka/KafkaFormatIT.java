@@ -996,11 +996,10 @@ public class KafkaFormatIT extends TestSuiteBase implements TestResource {
                         POSTGRESQL_CONTAINER.getJdbcUrl(),
                         POSTGRESQL_CONTAINER.getUsername(),
                         POSTGRESQL_CONTAINER.getPassword())) {
-            try (Statement statement = connection.createStatement()) {
+            try (Statement statement = connection.createStatement();
+                    ResultSet resultSet =
+                            statement.executeQuery("select * from " + tableName + " order by id")) {
                 PostgresJdbcRowConverter postgresJdbcRowConverter = new PostgresJdbcRowConverter();
-                ResultSet resultSet =
-                        statement.executeQuery("select * from " + tableName + " order by id");
-
                 while (resultSet.next()) {
                     SeaTunnelRow row =
                             postgresJdbcRowConverter.toInternal(

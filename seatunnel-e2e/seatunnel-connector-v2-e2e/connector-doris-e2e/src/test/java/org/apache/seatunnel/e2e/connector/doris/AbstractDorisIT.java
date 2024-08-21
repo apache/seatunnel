@@ -94,8 +94,11 @@ public abstract class AbstractDorisIT extends TestSuiteBase implements TestResou
                 DriverManager.getConnection(String.format(URL, container.getHost()), props);
         try (Statement statement = jdbcConnection.createStatement()) {
             statement.execute(SET_SQL);
-            ResultSet resultSet;
+            ResultSet resultSet = null;
             do {
+                if (resultSet != null) {
+                    resultSet.close();
+                }
                 resultSet = statement.executeQuery(SHOW_BE);
             } while (!isBeReady(resultSet, Duration.ofSeconds(1L)));
         }

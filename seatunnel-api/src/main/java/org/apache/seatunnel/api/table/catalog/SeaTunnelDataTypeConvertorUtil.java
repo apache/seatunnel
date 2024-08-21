@@ -81,10 +81,10 @@ public class SeaTunnelDataTypeConvertorUtil {
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
             case MAP:
                 return parseMapType(field, columnType);
-            case FLOAT_VECTOR:
-                return VectorType.VECTOR_FLOAT_TYPE;
             case BINARY_VECTOR:
                 return VectorType.VECTOR_BINARY_TYPE;
+            case FLOAT_VECTOR:
+                return VectorType.VECTOR_FLOAT_TYPE;
             case FLOAT16_VECTOR:
                 return VectorType.VECTOR_FLOAT16_TYPE;
             case BFLOAT16_VECTOR:
