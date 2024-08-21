@@ -33,7 +33,6 @@ import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
@@ -84,7 +83,6 @@ import static org.awaitility.Awaitility.given;
         value = {},
         type = {EngineType.SPARK, EngineType.FLINK},
         disabledReason = "Currently SPARK and FLINK not support adapt")
-@Disabled("oceanbase vector and milvus takes up too much memory")
 public class JdbcOceanBaseMilvusIT extends TestSuiteBase implements TestResource {
 
     private static final String IMAGE = "oceanbase/oceanbase-ce:vector";
