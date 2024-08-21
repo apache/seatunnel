@@ -85,9 +85,6 @@ public class TypesenseIT extends TestSuiteBase implements TestResource {
         typesenseServer.setPortBindings(Lists.newArrayList(String.format("%s:%s", PORT, PORT)));
         Startables.deepStart(Stream.of(typesenseServer)).join();
         log.info("Typesense container started");
-        // prepare test dataset
-        //        testDataset = generateTestDataSet();
-        // wait for easysearch fully start
         Awaitility.given()
                 .ignoreExceptions()
                 .atLeast(1L, TimeUnit.SECONDS)
