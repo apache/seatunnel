@@ -241,6 +241,47 @@ sink {
 }
 ```
 
+### 动态分桶paimon单表，只有在主键表并指定bucket = -1时才会生效
+
+#### 核心参数：[参考官网](https://paimon.apache.org/docs/0.8/primary-key-table/data-distribution/#dynamic-bucket)
+
+|               名称               |  类型  | 是否必须 |   默认值    |        描述        |
+|--------------------------------|------|------|----------|------------------|
+| dynamic-bucket.target-row-num  | long | 是    | 2000000L | 控制一个bucket的写入的行数 |
+| dynamic-bucket.initial-buckets | int  | 否    |          | 控制初始化桶的数量        |
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  Mysql-CDC {
+    base-url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    username = "root"
+    password = "******"
+    table-names = ["seatunnel.role"]
+  }
+}
+
+sink {
+  Paimon {
+    catalog_name="seatunnel_test"
+    warehouse="file:///tmp/seatunnel/paimon/hadoop-sink/"
+    database="seatunnel"
+    table="role"
+    paimon.table.write-props = {
+        bucket = -1
+        dynamic-bucket.target-row-num = 50000
+    }
+    paimon.table.partition-keys = "dt"
+    paimon.table.primary-keys = "pk_id,dt"
+  }
+}
+```
+
 ### 多表
 
 ```hocon

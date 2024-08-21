@@ -241,6 +241,47 @@ sink {
 }
 ```
 
+### Single dynamic bucket table with write props of paimon，operates on the primary key table and bucket is -1
+
+#### core options：[reference](https://paimon.apache.org/docs/0.8/primary-key-table/data-distribution/#dynamic-bucket)
+
+|              name              | type | required | default values |                  Description                   |
+|--------------------------------|------|----------|----------------|------------------------------------------------|
+| dynamic-bucket.target-row-num  | long | 是        | 2000000L       | controls the target row number for one bucket. |
+| dynamic-bucket.initial-buckets | int  | 否        |                | controls the number of initialized bucket.     |
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  Mysql-CDC {
+    base-url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    username = "root"
+    password = "******"
+    table-names = ["seatunnel.role"]
+  }
+}
+
+sink {
+  Paimon {
+    catalog_name="seatunnel_test"
+    warehouse="file:///tmp/seatunnel/paimon/hadoop-sink/"
+    database="seatunnel"
+    table="role"
+    paimon.table.write-props = {
+        bucket = -1
+        dynamic-bucket.target-row-num = 50000
+    }
+    paimon.table.partition-keys = "dt"
+    paimon.table.primary-keys = "pk_id,dt"
+  }
+}
+```
+
 ### Multiple table
 
 #### example1
