@@ -44,10 +44,10 @@ public class HttpConfig {
                     .defaultValue(100)
                     .withDescription(
                             "the batch size returned per request is used to determine whether to continue when the total number of pages is unknown");
-    public static final Option<Long> START_SIZE =
-            Options.key("start_size")
+    public static final Option<Long> START_PAGE_NUMBER =
+            Options.key("start_page_number")
                     .longType()
-                    .defaultValue(0L)
+                    .defaultValue(1L)
                     .withDescription("which page to start synchronizing from");
     public static final Option<String> PAGE_FIELD =
             Options.key("page_field")
