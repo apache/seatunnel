@@ -33,7 +33,6 @@ import static org.apache.seatunnel.connectors.seatunnel.typesense.config.SourceC
 import static org.apache.seatunnel.connectors.seatunnel.typesense.config.TypesenseConnectionConfig.APIKEY;
 import static org.apache.seatunnel.connectors.seatunnel.typesense.config.TypesenseConnectionConfig.HOSTS;
 
-// 不配置该类，无法成功加载，会提示找不到插件
 @AutoService(Factory.class)
 public class TypesenseSourceFactory implements TableSourceFactory {
 

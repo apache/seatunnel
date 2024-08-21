@@ -110,11 +110,13 @@ public class TypesenseClient {
                     INSERT_DOC_ERROR, INSERT_DOC_ERROR.getDescription());
         }
     }
+
     public SearchResult search(String collection, String query, int offset) throws Exception {
-       return search(collection,query,offset,QUERY_BATCH_SIZE.defaultValue());
+        return search(collection, query, offset, QUERY_BATCH_SIZE.defaultValue());
     }
 
-    public SearchResult search(String collection, String query, int offset, int pageSize) throws Exception {
+    public SearchResult search(String collection, String query, int offset, int pageSize)
+            throws Exception {
         SearchParameters searchParameters;
         if (StringUtils.isNotBlank(query)) {
             String jsonQuery = URLParamsConverter.convertParamsToJson(query);
@@ -259,7 +261,7 @@ public class TypesenseClient {
         return true;
     }
 
-    public boolean deleteCollectionData(String collection,String id) {
+    public boolean deleteCollectionData(String collection, String id) {
         try {
             tsClient.collections(collection).documents(id).delete();
         } catch (Exception e) {

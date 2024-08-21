@@ -137,7 +137,8 @@ public class TypesenseSourceSplitEnumerator
         int queryBatchSize = config.get(SourceConfig.QUERY_BATCH_SIZE);
         splits.add(
                 new TypesenseSourceSplit(
-                        collection, new SourceCollectionInfo(collection, query, 0, 0,queryBatchSize)));
+                        collection,
+                        new SourceCollectionInfo(collection, query, 0, 0, queryBatchSize)));
         return splits;
     }
 

@@ -201,7 +201,8 @@ public class TypesenseCatalog implements Catalog {
         } else if (actionType == ActionType.DROP_TABLE) {
             return new InfoPreviewResult("delete collection " + tablePath.getTableName());
         } else if (actionType == ActionType.TRUNCATE_TABLE) {
-            return new InfoPreviewResult("delete and create collection " + tablePath.getTableName());
+            return new InfoPreviewResult(
+                    "delete and create collection " + tablePath.getTableName());
         } else if (actionType == ActionType.CREATE_DATABASE) {
             return new InfoPreviewResult("create collection " + tablePath.getTableName());
         } else if (actionType == ActionType.DROP_DATABASE) {

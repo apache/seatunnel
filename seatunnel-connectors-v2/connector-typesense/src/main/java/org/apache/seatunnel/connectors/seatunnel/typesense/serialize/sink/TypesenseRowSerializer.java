@@ -23,12 +23,8 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonError;
-import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.typesense.dto.CollectionInfo;
-import org.apache.seatunnel.connectors.seatunnel.typesense.exception.TypesenseConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.typesense.serialize.KeyExtractor;
-import org.apache.seatunnel.connectors.seatunnel.typesense.serialize.sink.collection.CollectionSerializer;
-import org.apache.seatunnel.connectors.seatunnel.typesense.serialize.sink.collection.CollectionSerializerFactory;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -40,8 +36,6 @@ import java.util.function.Function;
 
 public class TypesenseRowSerializer implements SeaTunnelRowSerializer {
 
-    private final CollectionSerializer collectionSerializer;
-
     private final SeaTunnelRowType seaTunnelRowType;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -50,8 +44,6 @@ public class TypesenseRowSerializer implements SeaTunnelRowSerializer {
 
     public TypesenseRowSerializer(
             CollectionInfo collectionInfo, SeaTunnelRowType seaTunnelRowType) {
-        this.collectionSerializer =
-                CollectionSerializerFactory.getIndexSerializer(collectionInfo.getCollection());
         this.seaTunnelRowType = seaTunnelRowType;
         this.keyExtractor =
                 KeyExtractor.createKeyExtractor(
@@ -86,7 +78,6 @@ public class TypesenseRowSerializer implements SeaTunnelRowSerializer {
         }
         return id;
     }
-
 
     private Map<String, Object> toDocumentMap(SeaTunnelRow row, SeaTunnelRowType rowType) {
         String[] fieldNames = rowType.getFieldNames();

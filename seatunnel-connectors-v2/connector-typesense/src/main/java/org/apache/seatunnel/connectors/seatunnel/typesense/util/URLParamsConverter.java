@@ -29,14 +29,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 public class URLParamsConverter {
-    /**
-     * Convert URL query parameters string to JSON object using Jackson ObjectMapper.
-     *
-     * @param paramsString URL query parameters string, e.g., "q=*&filter_by=num_employees:10"
-     * @return JSON string representing the converted key-value pairs
-     * @throws IllegalArgumentException if input paramsString is null or empty
-     * @throws IOException if there is an error parsing the JSON
-     */
+
     public static String convertParamsToJson(String paramsString) {
         return Optional.ofNullable(paramsString)
                 .filter(s -> !s.isEmpty())
@@ -55,13 +48,6 @@ public class URLParamsConverter {
                                         "Parameter string must not be null or empty."));
     }
 
-    /**
-     * Parse URL query parameters into a Map.
-     *
-     * @param paramsString URL query parameters string
-     * @return Map representing the parsed key-value pairs
-     * @throws IllegalArgumentException if input paramsString is null or empty
-     */
     private static Map<String, String> parseParams(String paramsString) {
         return Arrays.stream(
                         Optional.ofNullable(paramsString)

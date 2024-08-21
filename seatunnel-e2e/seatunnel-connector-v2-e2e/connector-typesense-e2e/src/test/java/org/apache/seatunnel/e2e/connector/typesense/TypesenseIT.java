@@ -70,8 +70,6 @@ public class TypesenseIT extends TestSuiteBase implements TestResource {
 
     private static final int PORT = 8108;
 
-    private List<String> testDataset;
-
     private GenericContainer<?> typesenseServer;
 
     private TypesenseClient typesenseClient;

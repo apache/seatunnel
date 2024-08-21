@@ -29,8 +29,4 @@ public class TypesenseConnectorException extends SeaTunnelRuntimeException {
             SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage, Throwable cause) {
         super(seaTunnelErrorCode, errorMessage, cause);
     }
-
-    public TypesenseConnectorException(SeaTunnelErrorCode seaTunnelErrorCode, Throwable cause) {
-        super(seaTunnelErrorCode, cause);
-    }
 }

@@ -21,5 +21,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 public interface SeaTunnelRowSerializer {
     String serializeRow(SeaTunnelRow row);
+
     String serializeRowForDelete(SeaTunnelRow row);
 }

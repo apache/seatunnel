@@ -86,26 +86,25 @@ public class TypesenseSinkWriter
             return;
         }
 
-        switch (element.getRowKind()){
-                case INSERT:
-                case UPDATE_AFTER:
-                    String indexRequestRow = seaTunnelRowSerializer.serializeRow(element);
-                    requestEsList.add(indexRequestRow);
-                    if (requestEsList.size() >= maxBatchSize) {
-                        insert(collection, requestEsList);
-                    }
-                    break;
-                case UPDATE_BEFORE:
-                case DELETE:
-                    String id = seaTunnelRowSerializer.serializeRowForDelete(element);
-                    typesenseClient.deleteCollectionData(collection,id);
-                    break;
+        switch (element.getRowKind()) {
+            case INSERT:
+            case UPDATE_AFTER:
+                String indexRequestRow = seaTunnelRowSerializer.serializeRow(element);
+                requestEsList.add(indexRequestRow);
+                if (requestEsList.size() >= maxBatchSize) {
+                    insert(collection, requestEsList);
+                }
+                break;
+            case UPDATE_BEFORE:
+            case DELETE:
+                String id = seaTunnelRowSerializer.serializeRowForDelete(element);
+                typesenseClient.deleteCollectionData(collection, id);
+                break;
             default:
-                    throw new TypesenseConnectorException(
-                            CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                            "Unsupported write row kind: " + element.getRowKind());
+                throw new TypesenseConnectorException(
+                        CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                        "Unsupported write row kind: " + element.getRowKind());
         }
-
     }
 
     @Override
