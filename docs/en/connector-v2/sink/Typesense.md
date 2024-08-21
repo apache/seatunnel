@@ -11,18 +11,18 @@ Outputs data to `Typesense`.
 
 ## Options
 
-| Name                   |   Type   | Required |       Default Value       |
-|------------------------|----------|----------|---------------------------|
-| hosts                  | array    | Yes      | -                         |
-| collection             | string   | Yes      | -                         |
-| schema_save_mode       | string   | Yes      | CREATE_SCHEMA_WHEN_NOT_EXIST |
-| data_save_mode         | string   | Yes      | APPEND_DATA               |
-| primary_keys           | array     | No       |                           |
-| key_delimiter          | string   | No       | `_`                       |
-| api_key                | string   | No       |                           |
-| max_retry_count        | int      | No       | 3                         |
-| max_batch_size         | int      | No       | 10                        |
-| common-options         |          | No       | -                         |
+|       Name       |  Type  | Required |        Default Value         |
+|------------------|--------|----------|------------------------------|
+| hosts            | array  | Yes      | -                            |
+| collection       | string | Yes      | -                            |
+| schema_save_mode | string | Yes      | CREATE_SCHEMA_WHEN_NOT_EXIST |
+| data_save_mode   | string | Yes      | APPEND_DATA                  |
+| primary_keys     | array  | No       |                              |
+| key_delimiter    | string | No       | `_`                          |
+| api_key          | string | No       |                              |
+| max_retry_count  | int    | No       | 3                            |
+| max_batch_size   | int    | No       | 10                           |
+| common-options   |        | No       | -                            |
 
 ### hosts [array]
 
@@ -90,3 +90,4 @@ sink {
     }
 }
 ```
+

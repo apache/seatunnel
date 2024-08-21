@@ -17,14 +17,14 @@ Reads data from Typesense.
 
 ## Options
 
-| Name           | Type    | Required | Default |
-|----------------|---------|----------|---------|
-| hosts          | array   | yes      | -       |
-| collection     | string  | yes      | -       |
-| schema         | config  | yes      | -       |
-| api_key        | string  | no       | -       |
-| query          | string  | no       | -       |
-| batch_size     | int     | no       | 100     |
+|    Name    |  Type  | Required | Default |
+|------------|--------|----------|---------|
+| hosts      | array  | yes      | -       |
+| collection | string | yes      | -       |
+| schema     | config | yes      | -       |
+| api_key    | string | no       | -       |
+| query      | string | no       | -       |
+| batch_size | int    | no       | 100     |
 
 ### hosts [array]
 
@@ -76,3 +76,4 @@ source {
     }
 }
 ```
+

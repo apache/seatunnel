@@ -11,18 +11,18 @@
 
 ## 选项
 
-| 名称                      |   类型    | 是否必须 |             默认值              |
-|-------------------------|---------|------|------------------------------|
-| hosts                   | array   | 是    | -                            |
-| collection              | string  | 是    | -                            |
-| schema_save_mode        | string  | 是    | CREATE_SCHEMA_WHEN_NOT_EXIST |
-| data_save_mode          | string  | 是    | APPEND_DATA                  |
-| primary_keys            | array    | 否    |                              |
-| key_delimiter           | string  | 否    | `_`                          |
-| api_key                 | string  | 否    |                              |
-| max_retry_count         | int     | 否    | 3                            |
-| max_batch_size          | int     | 否    | 10                           |
-| common-options          |         | 否    | -                            |
+|        名称        |   类型   | 是否必须 |             默认值              |
+|------------------|--------|------|------------------------------|
+| hosts            | array  | 是    | -                            |
+| collection       | string | 是    | -                            |
+| schema_save_mode | string | 是    | CREATE_SCHEMA_WHEN_NOT_EXIST |
+| data_save_mode   | string | 是    | APPEND_DATA                  |
+| primary_keys     | array  | 否    |                              |
+| key_delimiter    | string | 否    | `_`                          |
+| api_key          | string | 否    |                              |
+| max_retry_count  | int    | 否    | 3                            |
+| max_batch_size   | int    | 否    | 10                           |
+| common-options   |        | 否    | -                            |
 
 ### hosts [array]
 
@@ -92,3 +92,4 @@ sink {
       }
 }
 ```
+

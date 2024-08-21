@@ -17,7 +17,9 @@
 
 package org.apache.seatunnel.e2e.connector.typesense;
 
-import org.apache.commons.lang3.RandomUtils;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+
 import org.apache.seatunnel.connectors.seatunnel.typesense.client.TypesenseClient;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
@@ -26,8 +28,8 @@ import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
-import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.commons.lang3.RandomUtils;
+
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -43,21 +45,21 @@ import org.typesense.model.Field;
 
 import com.google.common.collect.Lists;
 import lombok.extern.slf4j.Slf4j;
-import org.typesense.model.SearchResult;
 
-import java.io.File;
-import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 @DisabledOnContainer(
-        value = {TestContainerId.FLINK_1_13,TestContainerId.FLINK_1_14,TestContainerId.FLINK_1_15},
+        value = {
+            TestContainerId.FLINK_1_13,
+            TestContainerId.FLINK_1_14,
+            TestContainerId.FLINK_1_15
+        },
         type = {EngineType.SEATUNNEL, EngineType.SPARK},
         disabledReason = "Test only one engine for first change")
 @Slf4j
@@ -77,7 +79,6 @@ public class TypesenseIT extends TestSuiteBase implements TestResource {
     private static final String sinkCollection = "typesense_test_collection";
 
     private static final String sourceCollection = "typesense_test_collection_for_source";
-
 
     @BeforeEach
     @Override
@@ -113,11 +114,7 @@ public class TypesenseIT extends TestSuiteBase implements TestResource {
                 TypesenseClient.createInstance(Lists.newArrayList(host + ":8108"), "xyz", "http");
     }
 
-
-    /**
-     * Test setting primary_keys parameter write Typesense
-     */
-
+    /** Test setting primary_keys parameter write Typesense */
     @TestTemplate
     public void testFakeToTypesenseWithPrimaryKeys(TestContainer container) throws Exception {
         Container.ExecResult execResult =
@@ -126,37 +123,35 @@ public class TypesenseIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(typesenseClient.search(sinkCollection, null, 0).getFound(), 5);
     }
 
-
     @TestTemplate
     public void testFakeToTypesenseWithRecreateSchema(TestContainer container) throws Exception {
         List<Field> fields = new ArrayList<>();
         fields.add(new Field().name("T").type(FieldTypes.BOOL));
-        Assertions.assertTrue(typesenseClient.createCollection(sinkCollection,fields));
+        Assertions.assertTrue(typesenseClient.createCollection(sinkCollection, fields));
         Map<String, String> field = typesenseClient.getField(sinkCollection);
         Container.ExecResult execResult =
                 container.executeJob("/fake_to_typesense_with_recreate_schema.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
         Assertions.assertEquals(typesenseClient.search(sinkCollection, null, 0).getFound(), 5);
-        Assertions.assertNotEquals(field,typesenseClient.getField(sinkCollection));
+        Assertions.assertNotEquals(field, typesenseClient.getField(sinkCollection));
     }
 
-
     @TestTemplate
-    public void testFakeToTypesenseWithErrorWhenNotExists(TestContainer container) throws Exception {
+    public void testFakeToTypesenseWithErrorWhenNotExists(TestContainer container)
+            throws Exception {
         Container.ExecResult execResult =
                 container.executeJob("/fake_to_typesense_with_error_when_not_exists.conf");
         Assertions.assertEquals(1, execResult.getExitCode());
     }
 
-
     @TestTemplate
-    public void testFakeToTypesenseWithCreateWhenNotExists(TestContainer container) throws Exception {
+    public void testFakeToTypesenseWithCreateWhenNotExists(TestContainer container)
+            throws Exception {
         Container.ExecResult execResult =
                 container.executeJob("/fake_to_typesense_with_create_when_not_exists.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
         Assertions.assertEquals(typesenseClient.search(sinkCollection, null, 0).getFound(), 5);
     }
-
 
     @TestTemplate
     public void testFakeToTypesenseWithDropData(TestContainer container) throws Exception {
@@ -170,8 +165,6 @@ public class TypesenseIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(typesenseClient.search(sinkCollection, null, 0).getFound(), 5);
     }
 
-
-
     @TestTemplate
     public void testFakeToTypesenseWithAppendData(TestContainer container) throws Exception {
         String initData = "{\"name\":\"Han\",\"age\":12}";
@@ -184,9 +177,9 @@ public class TypesenseIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(typesenseClient.search(sinkCollection, null, 0).getFound(), 6);
     }
 
-
     @TestTemplate
-    public void testFakeToTypesenseWithErrorWhenDataExists(TestContainer container) throws Exception {
+    public void testFakeToTypesenseWithErrorWhenDataExists(TestContainer container)
+            throws Exception {
         String initData = "{\"name\":\"Han\",\"age\":12}";
         typesenseClient.createCollection(sinkCollection);
         typesenseClient.insert(sinkCollection, Lists.newArrayList(initData));
@@ -196,24 +189,23 @@ public class TypesenseIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(1, execResult.getExitCode());
     }
 
-    public List<String> genTestData(int recordNum){
+    public List<String> genTestData(int recordNum) {
         ArrayList<String> testDataList = new ArrayList<>();
         ObjectMapper objectMapper = new ObjectMapper();
         HashMap<String, Object> doc = new HashMap<>();
         for (int i = 0; i < recordNum; i++) {
-        try {
-            doc.put("num_employees",RandomUtils.nextInt());
-            doc.put("flag",RandomUtils.nextBoolean());
-            doc.put("num", RandomUtils.nextLong());
-            doc.put("company_name","A"+RandomUtils.nextInt(1,100));
-            testDataList.add(objectMapper.writeValueAsString(doc));
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException(e);
-        }
+            try {
+                doc.put("num_employees", RandomUtils.nextInt());
+                doc.put("flag", RandomUtils.nextBoolean());
+                doc.put("num", RandomUtils.nextLong());
+                doc.put("company_name", "A" + RandomUtils.nextInt(1, 100));
+                testDataList.add(objectMapper.writeValueAsString(doc));
+            } catch (JsonProcessingException e) {
+                throw new RuntimeException(e);
+            }
         }
         return testDataList;
     }
-
 
     @TestTemplate
     public void testTypesenseSourceAndSink(TestContainer container) throws Exception {
@@ -221,56 +213,63 @@ public class TypesenseIT extends TestSuiteBase implements TestResource {
         List<String> testData = genTestData(recordNum);
         typesenseClient.createCollection(sourceCollection);
         typesenseClient.insert(sourceCollection, testData);
-        Assertions.assertEquals(typesenseClient.search(sourceCollection, null, 0).getFound(), recordNum);
-        Container.ExecResult execResult =
-                container.executeJob("/typesense_source_and_sink.conf");
+        Assertions.assertEquals(
+                typesenseClient.search(sourceCollection, null, 0).getFound(), recordNum);
+        Container.ExecResult execResult = container.executeJob("/typesense_source_and_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-        Assertions.assertEquals(typesenseClient.search(sinkCollection, null, 0).getFound(), recordNum);
+        Assertions.assertEquals(
+                typesenseClient.search(sinkCollection, null, 0).getFound(), recordNum);
     }
-
 
     @TestTemplate
     public void testTypesenseToTypesense(TestContainer container) throws Exception {
         String typesenseToTypesenseSource = "typesense_to_typesense_source";
         String typesenseToTypesenseSink = "typesense_to_typesense_sink";
         List<String> testData = new ArrayList<>();
-        testData.add("{\"c_row\":{\"c_array_int\":[12,45,96,8],\"c_int\":91,\"c_string\":\"String_412\"},\"company_name\":\"Company_9986\",\"company_name_list\":[\"Company_9986_Alias_1\",\"Company_9986_Alias_2\"],\"country\":\"Country_181\",\"id\":\"9986\",\"num_employees\":1914}");
-        testData.add("{\"c_row\":{\"c_array_int\":[60],\"c_int\":9,\"c_string\":\"String_371\"},\"company_name\":\"Company_9988\",\"company_name_list\":[\"Company_9988_Alias_1\",\"Company_9988_Alias_2\",\"Company_9988_Alias_3\"],\"country\":\"Country_86\",\"id\":\"9988\",\"num_employees\":7366}");
+        testData.add(
+                "{\"c_row\":{\"c_array_int\":[12,45,96,8],\"c_int\":91,\"c_string\":\"String_412\"},\"company_name\":\"Company_9986\",\"company_name_list\":[\"Company_9986_Alias_1\",\"Company_9986_Alias_2\"],\"country\":\"Country_181\",\"id\":\"9986\",\"num_employees\":1914}");
+        testData.add(
+                "{\"c_row\":{\"c_array_int\":[60],\"c_int\":9,\"c_string\":\"String_371\"},\"company_name\":\"Company_9988\",\"company_name_list\":[\"Company_9988_Alias_1\",\"Company_9988_Alias_2\",\"Company_9988_Alias_3\"],\"country\":\"Country_86\",\"id\":\"9988\",\"num_employees\":7366}");
         typesenseClient.createCollection(typesenseToTypesenseSource);
         typesenseClient.insert(typesenseToTypesenseSource, testData);
-        Assertions.assertEquals(typesenseClient.search(typesenseToTypesenseSource, null, 0).getFound(), 2);
-        Container.ExecResult execResult =
-                container.executeJob("/typesense_to_typesense.conf");
+        Assertions.assertEquals(
+                typesenseClient.search(typesenseToTypesenseSource, null, 0).getFound(), 2);
+        Container.ExecResult execResult = container.executeJob("/typesense_to_typesense.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-        Assertions.assertEquals(typesenseClient.search(typesenseToTypesenseSink, null, 0).getFound(), 2);
+        Assertions.assertEquals(
+                typesenseClient.search(typesenseToTypesenseSink, null, 0).getFound(), 2);
         ObjectMapper objectMapper = new ObjectMapper();
         Map<String, Object> sourceData = objectMapper.readValue(testData.get(0), Map.class);
-        Map<String, Object> sinkData = typesenseClient.search(typesenseToTypesenseSink, null, 0)
-                .getHits()
-                .get(0)
-                .getDocument();
+        Map<String, Object> sinkData =
+                typesenseClient
+                        .search(typesenseToTypesenseSink, null, 0)
+                        .getHits()
+                        .get(0)
+                        .getDocument();
         Assertions.assertNotEquals(sourceData.remove("id"), sinkData.remove("id"));
         Assertions.assertEquals(sourceData, sinkData);
     }
-
-
-
 
     @TestTemplate
     public void testTypesenseToTypesenseWithQuery(TestContainer container) throws Exception {
         String typesenseToTypesenseSource = "typesense_to_typesense_source_with_query";
         String typesenseToTypesenseSink = "typesense_to_typesense_sink_with_query";
         List<String> testData = new ArrayList<>();
-        testData.add("{\"c_row\":{\"c_array_int\":[12,45,96,8],\"c_int\":91,\"c_string\":\"String_412\"},\"company_name\":\"Company_9986\",\"company_name_list\":[\"Company_9986_Alias_1\",\"Company_9986_Alias_2\"],\"country\":\"Country_181\",\"id\":\"9986\",\"num_employees\":1914}");
-        testData.add("{\"c_row\":{\"c_array_int\":[60],\"c_int\":9,\"c_string\":\"String_371\"},\"company_name\":\"Company_9988\",\"company_name_list\":[\"Company_9988_Alias_1\",\"Company_9988_Alias_2\",\"Company_9988_Alias_3\"],\"country\":\"Country_86\",\"id\":\"9988\",\"num_employees\":7366}");
-        testData.add("{\"c_row\":{\"c_array_int\":[18,97],\"c_int\":32,\"c_string\":\"String_48\"},\"company_name\":\"Company_9880\",\"company_name_list\":[\"Company_9880_Alias_1\",\"Company_9880_Alias_2\",\"Company_9880_Alias_3\",\"Company_9880_Alias_4\"],\"country\":\"Country_159\",\"id\":\"9880\",\"num_employees\":141}");
+        testData.add(
+                "{\"c_row\":{\"c_array_int\":[12,45,96,8],\"c_int\":91,\"c_string\":\"String_412\"},\"company_name\":\"Company_9986\",\"company_name_list\":[\"Company_9986_Alias_1\",\"Company_9986_Alias_2\"],\"country\":\"Country_181\",\"id\":\"9986\",\"num_employees\":1914}");
+        testData.add(
+                "{\"c_row\":{\"c_array_int\":[60],\"c_int\":9,\"c_string\":\"String_371\"},\"company_name\":\"Company_9988\",\"company_name_list\":[\"Company_9988_Alias_1\",\"Company_9988_Alias_2\",\"Company_9988_Alias_3\"],\"country\":\"Country_86\",\"id\":\"9988\",\"num_employees\":7366}");
+        testData.add(
+                "{\"c_row\":{\"c_array_int\":[18,97],\"c_int\":32,\"c_string\":\"String_48\"},\"company_name\":\"Company_9880\",\"company_name_list\":[\"Company_9880_Alias_1\",\"Company_9880_Alias_2\",\"Company_9880_Alias_3\",\"Company_9880_Alias_4\"],\"country\":\"Country_159\",\"id\":\"9880\",\"num_employees\":141}");
         typesenseClient.createCollection(typesenseToTypesenseSource);
         typesenseClient.insert(typesenseToTypesenseSource, testData);
-        Assertions.assertEquals(typesenseClient.search(typesenseToTypesenseSource, null, 0).getFound(), 3);
+        Assertions.assertEquals(
+                typesenseClient.search(typesenseToTypesenseSource, null, 0).getFound(), 3);
         Container.ExecResult execResult =
                 container.executeJob("/typesense_to_typesense_with_query.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-        Assertions.assertEquals(typesenseClient.search(typesenseToTypesenseSink, null, 0).getFound(), 2);
+        Assertions.assertEquals(
+                typesenseClient.search(typesenseToTypesenseSink, null, 0).getFound(), 2);
     }
 
     @AfterEach

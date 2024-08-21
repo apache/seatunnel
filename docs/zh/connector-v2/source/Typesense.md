@@ -17,14 +17,14 @@
 
 ## 选项
 
-| 名称             | 类型      | 必填 | 默认值   |
-|----------------|---------|----|-------|
-| hosts          | array   | 是  | -     |
-| collection     | string  | 是  | -     |
-| schema         | config  | 是  | -     |
-| api_key        | string  | 否  | -     |
-| query          | string     | 否  | -     |
-| batch_size     | int     | 否  | 100   |
+|     名称     |   类型   | 必填 | 默认值 |
+|------------|--------|----|-----|
+| hosts      | array  | 是  | -   |
+| collection | string | 是  | -   |
+| schema     | config | 是  | -   |
+| api_key    | string | 否  | -   |
+| query      | string | 否  | -   |
+| batch_size | int    | 否  | 100 |
 
 ### hosts [array]
 
