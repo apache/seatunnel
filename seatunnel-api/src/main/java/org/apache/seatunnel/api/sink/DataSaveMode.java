@@ -32,8 +32,5 @@ public enum DataSaveMode {
     CUSTOM_PROCESSING,
 
     // When there exist data, an error will be reported
-    ERROR_WHEN_DATA_EXISTS,
-
-    // Ignore
-    IGNORE
+    ERROR_WHEN_DATA_EXISTS
 }
