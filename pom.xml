@@ -859,15 +859,16 @@
                             <replacement>project</replacement>
                         </replace>
                     </pom>
-                    <markdown>
-                        <includes>
-                            <include>docs/**/*.md</include>
-                        </includes>
-                        <excludes>
-                            <exclude>**/.github/**/*.md</exclude>
-                        </excludes>
-                        <flexmark />
-                    </markdown>
+                    <!-- disable markdown for now, it will change sidebar config in file-->
+                    <!--                    <markdown>-->
+                    <!--                        <includes>-->
+                    <!--                            <include>docs/**/*.md</include>-->
+                    <!--                        </includes>-->
+                    <!--                        <excludes>-->
+                    <!--                            <exclude>**/.github/**/*.md</exclude>-->
+                    <!--                        </excludes>-->
+                    <!--                        <flexmark />-->
+                    <!--                    </markdown>-->
                     <upToDateChecking>
                         <enabled>true</enabled>
                     </upToDateChecking>

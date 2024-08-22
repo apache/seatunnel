@@ -66,7 +66,7 @@ just for some test cases such as type conversion or connector new feature testin
 | binary.vector.dimension | int      | no       | 8                       | Dimension of the generated binary vector                                                                                                                                              |
 | vector.float.min        | float    | no       | 0                       | The min value of float data in vector that connector generated                                                                                                                        |
 | vector.float.max        | float    | no       | 0x1.fffffeP+127         | The max value of float data in vector that connector generated                                                                                                                        |
-| common-options          |          | no       | -                       | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details                                                                               |
+| common-options          |          | no       | -                       | Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details                                                                     |
 
 ## Task Example
 

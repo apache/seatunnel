@@ -51,7 +51,7 @@
 | buffer_flush_interval                     | Int    | No       | 10000                                          | The flush interval mills, over this time, asynchronous threads will flush data.                                                             |
 | ignore_not_found                          | Bool   | No       | false                                          | If true, ignore all not found rows.                                                                                                         |
 | ignore_not_duplicate                      | Bool   | No       | false                                          | If true, ignore all dulicate rows.                                                                                                          |
-| common-options                            |        | No       | -                                              | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.                                    |
+| common-options                            |        | No       | -                                              | Source plugin common parameters, please refer to [Source Common Options](../sink-common-options.md) for details.                            |
 
 ## Task Example
 
