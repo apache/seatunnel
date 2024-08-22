@@ -113,7 +113,6 @@ public class TypesenseSourceReader implements SourceReader<SeaTunnelRow, Typesen
                     if ((double) found / pageSize - 1
                             > sourceCollectionInfo.getOffset() / pageSize) {
                         sourceCollectionInfo.setOffset(sourceCollectionInfo.getOffset() + pageSize);
-                        System.out.println("co:" + sourceCollectionInfo.getOffset());
                     } else {
                         break;
                     }
