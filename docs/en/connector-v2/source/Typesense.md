@@ -48,7 +48,7 @@ The number of records to query per batch when reading data.
 
 ### Common Options
 
-For common parameters of Source plugins, please refer to [Source Common Options](./common-options.md).
+For common parameters of Source plugins, please refer to [Source Common Options](../source-common-options.md).
 
 ## Example
 

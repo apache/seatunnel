@@ -54,7 +54,7 @@ The maximum size of document batches.
 
 ### common options
 
-Common parameters for Sink plugins. Refer to [Common Sink Options](common-options.md) for more details.
+Common parameters for Sink plugins. Refer to [Common Sink Options](../source-common-options.md) for more details.
 
 ### schema_save_mode
 
