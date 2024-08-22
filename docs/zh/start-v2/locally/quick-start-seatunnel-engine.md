@@ -109,7 +109,7 @@ connector-jdbc
 ```
 
 ```bash
-# 按照连接器
+# 安装连接器
 sh bin/install-plugin.sh
 ```
 
