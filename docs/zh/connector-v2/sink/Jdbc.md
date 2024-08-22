@@ -215,7 +215,7 @@ Sink插件常用参数，请参考 [Sink常用选项](common-options.md) 了解�
 
 附录参数仅提供参考
 
-|    数据源     |                    driver                    |                                url                                 |             xa_data_source_class_name              | maven                                                                                                       |
+|    数据源     |                    driver                    |                                url                                 |             xa_data_source_class_name              |                                                    maven                                                    |
 |------------|----------------------------------------------|--------------------------------------------------------------------|----------------------------------------------------|-------------------------------------------------------------------------------------------------------------|
 | MySQL      | com.mysql.cj.jdbc.Driver                     | jdbc:mysql://localhost:3306/test                                   | com.mysql.cj.jdbc.MysqlXADataSource                | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                               |
 | PostgreSQL | org.postgresql.Driver                        | jdbc:postgresql://localhost:5432/postgres                          | org.postgresql.xa.PGXADataSource                   | https://mvnrepository.com/artifact/org.postgresql/postgresql                                                |
