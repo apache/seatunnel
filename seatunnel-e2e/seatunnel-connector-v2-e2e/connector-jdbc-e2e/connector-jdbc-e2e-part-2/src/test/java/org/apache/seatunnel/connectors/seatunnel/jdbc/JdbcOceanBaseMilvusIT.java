@@ -41,6 +41,7 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.images.PullPolicy;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.milvus.MilvusContainer;
+import org.testcontainers.oceanbase.OceanBaseCEContainer;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import com.google.common.collect.Lists;
@@ -126,7 +127,7 @@ public class JdbcOceanBaseMilvusIT extends TestSuiteBase implements TestResource
             };
 
     String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/oceanbase/oceanbase-client/2.4.3/oceanbase-client-2.4.3.jar";
+        return "https://repo1.maven.org/maven2/com/oceanbase/oceanbase-client/2.4.3/oceanbase-client-2.4.11.jar";
     }
 
     @BeforeAll
@@ -377,8 +378,8 @@ public class JdbcOceanBaseMilvusIT extends TestSuiteBase implements TestResource
                 + ");";
     }
 
-    GenericContainer<?> initOceanbaseContainer() {
-        return new GenericContainer<>(IMAGE)
+    OceanBaseCEContainer initOceanbaseContainer() {
+        return new OceanBaseCEContainer(IMAGE)
                 .withEnv("MODE", "slim")
                 .withEnv("OB_DATAFILE_SIZE", "2G")
                 .withNetwork(NETWORK)

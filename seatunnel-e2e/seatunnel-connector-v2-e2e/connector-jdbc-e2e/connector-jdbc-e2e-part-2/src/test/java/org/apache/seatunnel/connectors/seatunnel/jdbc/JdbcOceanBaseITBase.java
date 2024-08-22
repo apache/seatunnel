@@ -84,6 +84,6 @@ public abstract class JdbcOceanBaseITBase extends AbstractJdbcIT {
 
     @Override
     String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/oceanbase/oceanbase-client/2.4.3/oceanbase-client-2.4.3.jar";
+        return "https://repo1.maven.org/maven2/com/oceanbase/oceanbase-client/2.4.11/oceanbase-client-2.4.11.jar";
     }
 }
