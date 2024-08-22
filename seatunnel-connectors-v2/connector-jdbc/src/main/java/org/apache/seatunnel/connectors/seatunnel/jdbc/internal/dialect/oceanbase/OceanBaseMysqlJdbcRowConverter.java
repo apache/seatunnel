@@ -177,7 +177,7 @@ public class OceanBaseMysqlJdbcRowConverter extends AbstractJdbcRowConverter {
                         if (row.getField(fieldIndex) instanceof ByteBuffer) {
                             ByteBuffer byteBuffer = (ByteBuffer) row.getField(fieldIndex);
                             // Convert ByteBuffer to Float[]
-                            float[] floatArray = byteBuffer.asFloatBuffer().array();
+                            Float[] floatArray = BufferUtil.byteBufferToFloatArray(byteBuffer);
                             StringBuilder vector = new StringBuilder();
                             vector.append("[");
                             for (Float aFloat : floatArray) {
