@@ -44,7 +44,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | key_timestamp               | Int    | NO       | -       | prometheus timestamp  key .                                                                         |
 | key_label                   | String | yes      | -       | prometheus label key                                                                                |
 | key_value                   | Double | yes      | -       | prometheus value                                                                                    |
-| common-options              |        | No       | -       | Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details |
+| common-options              |        | No       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details |
 
 ## Example
 
