@@ -94,8 +94,8 @@ public class InfluxDBSource
             throw new InfluxdbConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                     String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SOURCE, e));
+                            "PluginName: %s, PluginType: %s, Message: %s %s",
+                            getPluginName(), PluginType.SOURCE, e, e.getCause().getMessage()));
         }
     }
 
@@ -149,9 +149,6 @@ public class InfluxDBSource
             return Arrays.stream(typeInfo.getFieldNames())
                     .map(fieldNames::indexOf)
                     .collect(Collectors.toList());
-        } catch (UnsupportedOperationException e) {
-            throw new InfluxdbConnectorException(
-                    InfluxdbConnectorErrorCode.GET_COLUMN_INDEX_FAILED, e.getMessage(), e);
         } catch (Exception e) {
             throw new InfluxdbConnectorException(
                     InfluxdbConnectorErrorCode.GET_COLUMN_INDEX_FAILED,
