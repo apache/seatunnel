@@ -1,3 +1,7 @@
+---
+sidebar_position: 3
+---
+
 # Source Common Options
 
 > Common parameters of source connectors

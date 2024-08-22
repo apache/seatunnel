@@ -71,7 +71,7 @@
 
 ### 通用选项
 
-数据源插件的通用参数，请参考 [Source Common Options](common-options.md) 了解详细信息。
+数据源插件的通用参数，请参考 [Source Common Options](../sink-common-options.md) 了解详细信息。
 
 ## 示例
 
