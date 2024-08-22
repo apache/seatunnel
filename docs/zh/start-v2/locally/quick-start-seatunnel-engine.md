@@ -101,7 +101,6 @@ SeaTunnel控制台将会打印一些如下日志信息:
 
 ```plugin_config
 # 配置连接器名称
-
 --seatunnel-connectors--
 connector-doris
 connector-jdbc
