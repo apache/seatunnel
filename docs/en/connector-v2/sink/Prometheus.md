@@ -51,19 +51,6 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 simple:
 
 ```hocon
-Http {
-    url = "http://localhost/test/webhook"
-    headers {
-        token = "9e32e859ef044462a257e1fc76730066"
-    }
-}
-```
-
-### Multiple table
-
-#### example1
-
-```hocon
 env {
   parallelism = 1
   job.mode = "BATCH"
@@ -107,7 +94,7 @@ sink {
 
 ## Changelog
 
-### 2.2.0-beta 2022-09-26
+### 2.3.8-beta 2024-08-22
 
 - Add Http Sink Connector
 
