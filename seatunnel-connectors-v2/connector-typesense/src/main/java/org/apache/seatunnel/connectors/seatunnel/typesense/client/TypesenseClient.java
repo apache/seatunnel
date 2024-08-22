@@ -191,7 +191,7 @@ public class TypesenseClient {
     }
 
     public Map<String, BasicTypeDefine<TypesenseType>> getFieldTypeMapping(String collection) {
-        Map<String, BasicTypeDefine<TypesenseType>> allElasticSearchFieldTypeInfoMap =
+        Map<String, BasicTypeDefine<TypesenseType>> allTypesenseSearchFieldTypeInfoMap =
                 new HashMap<>();
         try {
             CollectionResponse collectionResponse = tsClient.collections(collection).retrieve();
@@ -205,14 +205,14 @@ public class TypesenseClient {
                                 .columnType(type)
                                 .dataType(type)
                                 .nativeType(new TypesenseType(type, new HashMap<>()));
-                allElasticSearchFieldTypeInfoMap.put(fieldName, typeDefine.build());
+                allTypesenseSearchFieldTypeInfoMap.put(fieldName, typeDefine.build());
             }
         } catch (Exception e) {
             log.error(FIELD_TYPE_MAPPING_ERROR.getDescription());
             throw new TypesenseConnectorException(
                     FIELD_TYPE_MAPPING_ERROR, FIELD_TYPE_MAPPING_ERROR.getDescription());
         }
-        return allElasticSearchFieldTypeInfoMap;
+        return allTypesenseSearchFieldTypeInfoMap;
     }
 
     public boolean createCollection(String collection) {

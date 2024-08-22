@@ -119,7 +119,7 @@ public class TypesenseSourceReader implements SourceReader<SeaTunnelRow, Typesen
                 }
 
             } else if (noMoreSplit) {
-                log.info("Closed the bounded ELasticsearch source");
+                log.info("Closed the bounded Typesense source");
                 context.signalNoMoreElement();
             } else {
                 Thread.sleep(pollNextWaitTime);
