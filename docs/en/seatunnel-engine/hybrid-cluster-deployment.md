@@ -1,7 +1,6 @@
 ---
-
 sidebar_position: 5
--------------------
+---
 
 # Deploy SeaTunnel Engine Hybrid Mode Cluster
 

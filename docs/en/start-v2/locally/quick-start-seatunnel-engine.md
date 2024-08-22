@@ -1,7 +1,6 @@
 ---
-
 sidebar_position: 2
--------------------
+---
 
 # Quick Start With SeaTunnel Engine
 
@@ -164,12 +163,6 @@ For more information about the configuration, please refer to [Basic Concepts of
 
 You can start the application using the following command:
 
-:::tip
-
-Starting from version 2.3.1, the `-e` parameter in `seatunnel.sh` has been deprecated. Please use the `-m` parameter instead.
-
-:::
-
 ```shell
 cd seatunnel/
 ./bin/seatunnel.sh --config ./job/st.conf -m local
@@ -202,5 +195,6 @@ If you want to optimize your job, refer to the connector documentation for [Sour
 
 ## What's More
 
-For now, you have taken a quick look about SeaTunnel, and you can see [connector](../../../en/connector-v2/) to find all
-sources and sinks SeaTunnel supported. Or see [SeaTunnel Engine(Zeta)](../../seatunnel-engine/about.md) if you want to know more about SeaTunnel Engine. Here you will learn how to deploy SeaTunnel Engine and how to use it in cluster mode.
+- Start write your own config file now, choose the [connector](../../connector-v2/source) you want to use, and configure the parameters according to the connector's documentation.
+- See [SeaTunnel Engine(Zeta)](../../seatunnel-engine/about.md) if you want to know more about SeaTunnel Engine. Here you will learn how to deploy SeaTunnel Engine and how to use it in cluster mode.
+

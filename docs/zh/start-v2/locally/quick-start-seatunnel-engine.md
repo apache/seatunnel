@@ -1,7 +1,6 @@
 ---
-
 sidebar_position: 2
--------------------
+---
 
 # SeaTunnel Engine快速开始
 
@@ -162,12 +161,6 @@ sink {
 
 您可以通过以下命令启动应用程序：
 
-:::tip
-
-从2.3.1版本开始，seatunnel.sh中的-e参数被废弃，请改用-m参数。
-
-:::
-
 ```shell
 cd seatunnel/
 ./bin/seatunnel.sh --config ./job/st.conf -m local
@@ -200,5 +193,6 @@ Total Failed Count        :                   0
 
 ## 此外
 
-现在,您已经快速浏览了SeaTunnel，可以通过[连接器](../../../en/connector-v2/)来找到SeaTunnel所支持的所有sources和sinks。
-如果您想要了解更多关于信息，请参阅[SeaTunnel引擎](../../seatunnel-engine/about.md). 在这里你将了解如何部署SeaTunnel Engine的集群模式以及如何在集群模式下使用。
+- 开始编写您自己的配置文件，选择您想要使用的[连接器](../../connector-v2/source)，并根据连接器的文档配置参数。
+- 如果您想要了解更多关于信息，请参阅[SeaTunnel引擎](../../seatunnel-engine/about.md). 在这里你将了解如何部署SeaTunnel Engine的集群模式以及如何在集群模式下使用。
+

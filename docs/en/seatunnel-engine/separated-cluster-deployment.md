@@ -1,7 +1,6 @@
 ---
-
 sidebar_position: 6
--------------------
+---
 
 # Deploy SeaTunnel Engine In Separated Cluster Mode
 
