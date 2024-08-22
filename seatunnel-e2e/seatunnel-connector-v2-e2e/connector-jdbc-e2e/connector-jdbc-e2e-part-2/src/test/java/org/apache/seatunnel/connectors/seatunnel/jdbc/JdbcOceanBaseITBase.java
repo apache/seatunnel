@@ -51,11 +51,10 @@ public abstract class JdbcOceanBaseITBase extends AbstractJdbcIT {
                 String.format("select * from %s order by 1", getFullTableName(OCEANBASE_SOURCE));
         String sinkSql =
                 String.format("select * from %s order by 1", getFullTableName(OCEANBASE_SINK));
-        try {
-            Statement sourceStatement = connection.createStatement();
-            Statement sinkStatement = connection.createStatement();
-            ResultSet sourceResultSet = sourceStatement.executeQuery(sourceSql);
-            ResultSet sinkResultSet = sinkStatement.executeQuery(sinkSql);
+        try (Statement sourceStatement = connection.createStatement();
+                Statement sinkStatement = connection.createStatement();
+                ResultSet sourceResultSet = sourceStatement.executeQuery(sourceSql);
+                ResultSet sinkResultSet = sinkStatement.executeQuery(sinkSql)) {
             Assertions.assertEquals(
                     sourceResultSet.getMetaData().getColumnCount(),
                     sinkResultSet.getMetaData().getColumnCount());
@@ -85,6 +84,6 @@ public abstract class JdbcOceanBaseITBase extends AbstractJdbcIT {
 
     @Override
     String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/oceanbase/oceanbase-client/2.4.3/oceanbase-client-2.4.3.jar";
+        return "https://repo1.maven.org/maven2/com/oceanbase/oceanbase-client/2.4.11/oceanbase-client-2.4.11.jar";
     }
 }

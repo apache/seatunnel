@@ -26,6 +26,7 @@ import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
 import org.apache.seatunnel.core.starter.execution.PluginExecuteProcessor;
 import org.apache.seatunnel.core.starter.execution.RuntimeEnvironment;
 import org.apache.seatunnel.core.starter.execution.TaskExecution;
+import org.apache.seatunnel.translation.spark.execution.DatasetTableInfo;
 
 import lombok.extern.slf4j.Slf4j;
 

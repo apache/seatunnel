@@ -171,7 +171,7 @@ public class JdbcMysqlMultipleTablesIT extends TestSuiteBase implements TestReso
 
     @DisabledOnContainer(
             value = {},
-            type = {EngineType.SPARK, EngineType.FLINK},
+            type = {EngineType.FLINK},
             disabledReason = "Currently SPARK and FLINK do not support multiple tables")
     @TestTemplate
     public void testMysqlJdbcMultipleTableE2e(TestContainer container)

@@ -1,9 +1,4 @@
----
-
-sidebar_position: 2
--------------------
-
-# Intro to config file
+# Intro To Config File
 
 In SeaTunnel, the most important thing is the config file, through which users can customize their own data
 synchronization requirements to maximize the potential of SeaTunnel. So next, I will introduce you how to
@@ -17,7 +12,7 @@ We also support the `SQL` format, please refer to [SQL configuration](sql-config
 ## Example
 
 Before you read on, you can find config file
-examples [Here](https://github.com/apache/seatunnel/tree/dev/config) from the binary package's
+examples [Here](https://github.com/apache/seatunnel/tree/dev/seatunnel-e2e/seatunnel-connector-v2-e2e/connector-jdbc-e2e/connector-jdbc-e2e-part-1/src/test/resources) from the binary package's
 config directory.
 
 ## Config File Structure
@@ -64,65 +59,6 @@ sink {
     source_table_name = "fake1"
   }
 }
-```
-
-#### multi-line support
-
-In `hocon`, multiline strings are supported, which allows you to include extended passages of text without worrying about newline characters or special formatting. This is achieved by enclosing the text within triple quotes **`"""`** . For example:
-
-```
-var = """
-Apache SeaTunnel is a
-next-generation high-performance,
-distributed, massive data integration tool.
-"""
-sql = """ select * from "table" """
-```
-
-### json
-
-```json
-
-{
-  "env": {
-    "job.mode": "batch"
-  },
-  "source": [
-    {
-      "plugin_name": "FakeSource",
-      "result_table_name": "fake",
-      "row.num": 100,
-      "schema": {
-        "fields": {
-          "name": "string",
-          "age": "int",
-          "card": "int"
-        }
-      }
-    }
-  ],
-  "transform": [
-    {
-      "plugin_name": "Filter",
-      "source_table_name": "fake",
-      "result_table_name": "fake1",
-      "fields": ["name", "card"]
-    }
-  ],
-  "sink": [
-    {
-      "plugin_name": "Clickhouse",
-      "host": "clickhouse:8123",
-      "database": "default",
-      "table": "seatunnel_console",
-      "fields": ["name", "card"],
-      "username": "default",
-      "password": "",
-      "source_table_name": "fake1"
-    }
-  ]
-}
-
 ```
 
 As you can see, the config file contains several sections: env, source, transform, sink. Different modules
@@ -195,7 +131,7 @@ and where data is written. With the sink module provided by SeaTunnel, you can c
 and efficiently. Sink and source are very similar, but the difference is reading and writing. So please check out
 [Supported Sinks](../connector-v2/sink).
 
-### Other
+### Other Information
 
 You will find that when multiple sources and multiple sinks are defined, which data is read by each sink, and
 which is the data read by each transform? We introduce two key configurations called `result_table_name` and
@@ -207,6 +143,65 @@ configurations at the same time. But you will find that in the above example con
 configured with these two parameters, because in SeaTunnel, there is a default convention, if these two
 parameters are not configured, then the generated data from the last module of the previous node will be used.
 This is much more convenient when there is only one source.
+
+## Multi-line Support
+
+In `hocon`, multiline strings are supported, which allows you to include extended passages of text without worrying about newline characters or special formatting. This is achieved by enclosing the text within triple quotes **`"""`** . For example:
+
+```
+var = """
+Apache SeaTunnel is a
+next-generation high-performance,
+distributed, massive data integration tool.
+"""
+sql = """ select * from "table" """
+```
+
+## Json Format Support
+
+```json
+
+{
+  "env": {
+    "job.mode": "batch"
+  },
+  "source": [
+    {
+      "plugin_name": "FakeSource",
+      "result_table_name": "fake",
+      "row.num": 100,
+      "schema": {
+        "fields": {
+          "name": "string",
+          "age": "int",
+          "card": "int"
+        }
+      }
+    }
+  ],
+  "transform": [
+    {
+      "plugin_name": "Filter",
+      "source_table_name": "fake",
+      "result_table_name": "fake1",
+      "fields": ["name", "card"]
+    }
+  ],
+  "sink": [
+    {
+      "plugin_name": "Clickhouse",
+      "host": "clickhouse:8123",
+      "database": "default",
+      "table": "seatunnel_console",
+      "fields": ["name", "card"],
+      "username": "default",
+      "password": "",
+      "source_table_name": "fake1"
+    }
+  ]
+}
+
+```
 
 ## Config Variable Substitution
 
@@ -319,5 +314,6 @@ Some Notes:
 
 ## What's More
 
-If you want to know the details of the format configuration, please
-see [HOCON](https://github.com/lightbend/config/blob/main/HOCON.md).
+- Start write your own config file now, choose the [connector](../connector-v2/source) you want to use, and configure the parameters according to the connector's documentation.
+- If you want to know the details of the format configuration, please see [HOCON](https://github.com/lightbend/config/blob/main/HOCON.md).
+

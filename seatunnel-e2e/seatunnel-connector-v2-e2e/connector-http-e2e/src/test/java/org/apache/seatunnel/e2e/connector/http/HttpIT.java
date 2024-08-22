@@ -32,6 +32,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
 import org.mockserver.client.MockServerClient;
+import org.mockserver.model.ClearType;
 import org.mockserver.model.Format;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
@@ -228,12 +229,16 @@ public class HttpIT extends TestSuiteBase implements TestResource {
 
         Container.ExecResult execResult18 = container.executeJob("/httpnoschema_to_http.conf");
         Assertions.assertEquals(0, execResult18.getExitCode());
+
+        Container.ExecResult execResult19 =
+                container.executeJob("/http_page_increase_start_num.conf");
+        Assertions.assertEquals(0, execResult19.getExitCode());
     }
 
     @DisabledOnContainer(
             value = {},
-            type = {EngineType.SPARK, EngineType.FLINK},
-            disabledReason = "Currently SPARK/FLINK do not support multiple table read")
+            type = {EngineType.FLINK},
+            disabledReason = "Currently FLINK do not support multiple table read")
     @TestTemplate
     public void testMultiTableHttp(TestContainer container)
             throws IOException, InterruptedException {
@@ -245,6 +250,9 @@ public class HttpIT extends TestSuiteBase implements TestResource {
                 mockServerClient.retrieveRecordedRequests(
                         request().withPath("/example/httpMultiTableContentSink").withMethod("POST"),
                         Format.JSON);
+        mockServerClient.clear(
+                request().withPath("/example/httpMultiTableContentSink").withMethod("POST"),
+                ClearType.LOG);
         List<Record> recordResponse =
                 objectMapper.readValue(mockResponse, new TypeReference<List<Record>>() {});
         recordResponse =

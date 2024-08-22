@@ -31,13 +31,6 @@ import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.ch
 
 public class OceanBaseOracleCatalog extends OracleCatalog {
 
-    static {
-        EXCLUDED_SCHEMAS.add("oceanbase");
-        EXCLUDED_SCHEMAS.add("LBACSYS");
-        EXCLUDED_SCHEMAS.add("ORAAUDITOR");
-        EXCLUDED_SCHEMAS.add("SYS");
-    }
-
     public OceanBaseOracleCatalog(
             String catalogName,
             String username,
@@ -59,9 +52,6 @@ public class OceanBaseOracleCatalog extends OracleCatalog {
 
     @Override
     public boolean tableExists(TablePath tablePath) throws CatalogException {
-        if (EXCLUDED_SCHEMAS.contains(tablePath.getSchemaName())) {
-            return false;
-        }
         return querySQLResultExists(
                 this.getUrlFromDatabaseName(tablePath.getDatabaseName()),
                 getTableWithConditionSql(tablePath));

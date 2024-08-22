@@ -64,7 +64,7 @@ Read data from hdfs file system.
 | xml_use_attr_format       | boolean | no       | -                   | Specifies whether to process data using the tag attribute format, only used when file_format is xml.                                                                                                                                                                                                                                          |
 | compress_codec            | string  | no       | none                | The compress codec of files                                                                                                                                                                                                                                                                                                                   |
 | encoding                  | string  | no       | UTF-8               |
-| common-options            |         | no       | -                   | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.                                                                                                                                                                                                                                      |
+| common-options            |         | no       | -                   | Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details.                                                                                                                                                                                                                            |
 
 ### delimiter/field_delimiter [string]
 
@@ -115,7 +115,7 @@ source {
   fs.defaultFS = "hdfs://namenode001"
   }
   # If you would like to get more information about how to configure seatunnel and see full list of source plugins,
-  # please go to https://seatunnel.apache.org/docs/category/source-v2
+  # please go to https://seatunnel.apache.org/docs/connector-v2/source
 }
 
 transform {
@@ -130,7 +130,7 @@ sink {
       file_format = "orc"
     }
   # If you would like to get more information about how to configure seatunnel and see full list of sink plugins,
-  # please go to https://seatunnel.apache.org/docs/category/sink-v2
+  # please go to https://seatunnel.apache.org/docs/connector-v2/sink
 }
 ```
 

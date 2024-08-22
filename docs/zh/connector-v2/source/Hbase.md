@@ -58,7 +58,7 @@ cache_blocks 参数用于设置在扫描过程中是否缓存数据块。默认�
 
 ### 常用选项
 
-Source 插件常用参数，具体请参考 [Source 常用选项](common-options.md)
+Source 插件常用参数，具体请参考 [Source 常用选项](../source-common-options.md)
 
 ## 示例
 
