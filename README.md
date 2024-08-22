@@ -67,8 +67,8 @@ Configure jobs, select execution engines, and parallelize data using Source Conn
 
 ## Supported Connectors
 
-- [Source Connectors](https://seatunnel.apache.org/docs/category/source-v2)
-- [Sink Connectors](https://seatunnel.apache.org/docs/category/sink-v2)
+- [Source Connectors](https://seatunnel.apache.org/docs/connector-v2/source-v2)
+- [Sink Connectors](https://seatunnel.apache.org/docs/connector-v2/sink-v2)
 - [Transform Connectors](docs/en/transform-v2)
 
 ## Getting Started
