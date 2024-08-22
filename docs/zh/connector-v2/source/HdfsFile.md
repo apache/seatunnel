@@ -106,7 +106,7 @@ source {
   fs.defaultFS = "hdfs://namenode001"
   }
   # 如果您想获取有关如何配置 seatunnel 和查看源插件完整列表的更多信息，
-  # 请访问 https://seatunnel.apache.org/docs/category/source-v2
+  # 请访问 https://seatunnel.apache.org/docs/connector-v2/source
 }
 
 transform {
@@ -121,7 +121,7 @@ sink {
       file_format = "orc"
     }
   # 如果您想获取有关如何配置 seatunnel 和查看接收器插件完整列表的更多信息，
-  # 请访问 https://seatunnel.apache.org/docs/category/sink-v2
+  # 请访问 https://seatunnel.apache.org/docs/connector-v2/sink
 }
 ```
 
