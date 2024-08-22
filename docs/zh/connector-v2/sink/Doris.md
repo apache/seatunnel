@@ -53,18 +53,19 @@ Doris Sink连接器的内部实现是通过stream load批量缓存和导入的�
 ### schema_save_mode[Enum]
 
 在开启同步任务之前，针对现有的表结构选择不同的处理方案。
-选项介绍：
+选项介绍：  
 `RECREATE_SCHEMA` ：表不存在时创建，表保存时删除并重建。
-`CREATE_SCHEMA_WHEN_NOT_EXIST` ：表不存在时会创建，表存在时跳过。
-`ERROR_WHEN_SCHEMA_NOT_EXIST` ：表不存在时会报错。
+`CREATE_SCHEMA_WHEN_NOT_EXIST` ：表不存在时会创建，表存在时跳过。  
+`ERROR_WHEN_SCHEMA_NOT_EXIST` ：表不存在时会报错。  
+`IGNORE` ：忽略对表的处理。
 
 ### data_save_mode[Enum]
 
 在开启同步任务之前，针对目标端已有的数据选择不同的处理方案。
-选项介绍：
-`DROP_DATA`： 保留数据库结构并删除数据。
-`APPEND_DATA`：保留数据库结构，保留数据。
-`CUSTOM_PROCESSING`：用户自定义处理。
+选项介绍：  
+`DROP_DATA`： 保留数据库结构并删除数据。  
+`APPEND_DATA`：保留数据库结构，保留数据。  
+`CUSTOM_PROCESSING`：用户自定义处理。  
 `ERROR_WHEN_DATA_EXISTS`：有数据时报错。
 
 ### save_mode_create_template

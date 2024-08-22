@@ -76,6 +76,8 @@ public class DefaultSaveModeHandler implements SaveModeHandler {
             case ERROR_WHEN_SCHEMA_NOT_EXIST:
                 errorWhenSchemaNotExist();
                 break;
+            case IGNORE:
+                break;
             default:
                 throw new UnsupportedOperationException("Unsupported save mode: " + schemaSaveMode);
         }
