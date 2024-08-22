@@ -17,7 +17,9 @@
 
 package org.apache.seatunnel.e2e.connector.v2.mongodb;
 
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.bson.Document;
 import org.junit.jupiter.api.Assertions;
@@ -41,6 +43,24 @@ public class MongodbIT extends AbstractMongodbIT {
         Container.ExecResult assertResult = container.executeJob("/mongodb_source_to_assert.conf");
         Assertions.assertEquals(0, assertResult.getExitCode(), assertResult.getStderr());
         clearDate(MONGODB_SINK_TABLE);
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK, EngineType.SPARK},
+            disabledReason = "Currently SPARK and FLINK do not support mongodb null value write")
+    public void testMongodbNullValue(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult nullResult = container.executeJob("/mongodb_null_value.conf");
+        Assertions.assertEquals(0, nullResult.getExitCode(), nullResult.getStderr());
+        Assertions.assertIterableEquals(
+                TEST_NULL_DATASET.stream().peek(e -> e.remove("_id")).collect(Collectors.toList()),
+                readMongodbData(MONGODB_NULL_TABLE_RESULT).stream()
+                        .peek(e -> e.remove("_id"))
+                        .collect(Collectors.toList()));
+        clearDate(MONGODB_NULL_TABLE);
+        clearDate(MONGODB_NULL_TABLE_RESULT);
     }
 
     @TestTemplate
@@ -200,5 +220,21 @@ public class MongodbIT extends AbstractMongodbIT {
 
         clearDate(MONGODB_TRANSACTION_SINK_TABLE);
         clearDate(MONGODB_TRANSACTION_UPSERT_TABLE);
+    }
+
+    @TestTemplate
+    public void testMongodbDoubleValue(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult assertSinkResult = container.executeJob("/mongodb_double_value.conf");
+        Assertions.assertEquals(0, assertSinkResult.getExitCode(), assertSinkResult.getStderr());
+
+        Assertions.assertIterableEquals(
+                TEST_DOUBLE_DATASET.stream()
+                        .peek(e -> e.remove("_id"))
+                        .collect(Collectors.toList()),
+                readMongodbData(MONGODB_DOUBLE_TABLE_RESULT).stream()
+                        .peek(e -> e.remove("_id"))
+                        .collect(Collectors.toList()));
+        clearDate(MONGODB_DOUBLE_TABLE_RESULT);
     }
 }

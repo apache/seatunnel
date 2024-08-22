@@ -90,12 +90,12 @@ const sidebars = {
                 "concept/connector-v2-features",
                 'concept/schema-feature',
                 'concept/JobEnvConfig',
+                'concept/sink-options-placeholders',
                 'concept/sql-config',
                 'concept/speed-limit',
                 'concept/event-listener'
             ]
         },
-        "Connector-v2-release-state",
         {
             "type": "category",
             "label": "Connector-V2",
@@ -107,7 +107,7 @@ const sidebars = {
                         "type": "generated-index",
                         "title": "Source(V2) of SeaTunnel",
                         "description": "List all source(v2) supported Apache SeaTunnel for now.",
-                        "slug": "/category/source-v2",
+                        "slug": "/connector-v2/source",
                         "keywords": ["source"],
                         "image": "/img/favicon.ico"
                     },
@@ -125,7 +125,7 @@ const sidebars = {
                         "type": "generated-index",
                         "title": "Sink(V2) of SeaTunnel",
                         "description": "List all sink(v2) supported Apache SeaTunnel for now.",
-                        "slug": "/category/sink-v2",
+                        "slug": "/connector-v2/sink",
                         "keywords": ["sink"],
                         "image": "/img/favicon.ico"
                     },
@@ -136,6 +136,8 @@ const sidebars = {
                         }
                     ]
                 },
+                "connector-v2/source-common-options",
+                "connector-v2/sink-common-options",
                 "connector-v2/Error-Quick-Reference-Manual",
                 "connector-v2/Config-Encryption-Decryption"
             ]
@@ -147,7 +149,7 @@ const sidebars = {
                 "type": "generated-index",
                 "title": "Transform V2 of SeaTunnel",
                 "description": "List all transform v2 supported Apache SeaTunnel for now.",
-                "slug": "/category/transform-v2",
+                "slug": "/transform-v2",
                 "keywords": ["transform-v2"],
                 "image": "/img/favicon.ico"
             },
@@ -171,14 +173,18 @@ const sidebars = {
             "label": "SeaTunnel Engine",
             "items": [
                 "seatunnel-engine/about",
+                "seatunnel-engine/download-seatunnel",
                 "seatunnel-engine/deployment",
-                "seatunnel-engine/local-mode",
-                "seatunnel-engine/cluster-mode",
+                "seatunnel-engine/local-mode-deployment",
+                "seatunnel-engine/hybrid-cluster-deployment",
+                "seatunnel-engine/separated-cluster-deployment",
                 "seatunnel-engine/savepoint",
                 "seatunnel-engine/checkpoint-storage",
-                "seatunnel-engine/rest-api",
+                "seatunnel-engine/engine-jar-storage-mode",
                 "seatunnel-engine/tcp",
-                "seatunnel-engine/engine-jar-storage-mode"
+                "seatunnel-engine/resource-isolation",
+                "seatunnel-engine/rest-api",
+                "seatunnel-engine/user-command"
             ]
         },
         {

@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.config;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.CommonConfigurationKeys;
 import org.apache.hadoop.fs.Path;
@@ -29,7 +30,6 @@ import java.util.Map;
 
 import static org.apache.parquet.avro.AvroReadSupport.READ_INT96_AS_FIXED;
 import static org.apache.parquet.avro.AvroSchemaConverter.ADD_LIST_ELEMENT_RECORDS;
-import static org.apache.parquet.avro.AvroWriteSupport.WRITE_FIXED_AS_INT96;
 import static org.apache.parquet.avro.AvroWriteSupport.WRITE_OLD_LIST_STRUCTURE;
 
 @Data
@@ -63,7 +63,7 @@ public class HadoopConf implements Serializable {
             removeUnwantedOverwritingProps(extraOptions);
             extraOptions.forEach(configuration::set);
         }
-        if (hdfsSitePath != null) {
+        if (StringUtils.isNotBlank(hdfsSitePath)) {
             Configuration hdfsSiteConfiguration = new Configuration();
             hdfsSiteConfiguration.addResource(new Path(hdfsSitePath));
             unsetUnwantedOverwritingProps(hdfsSiteConfiguration);
@@ -86,7 +86,6 @@ public class HadoopConf implements Serializable {
     public Configuration toConfiguration() {
         Configuration configuration = new Configuration();
         configuration.setBoolean(READ_INT96_AS_FIXED, true);
-        configuration.setBoolean(WRITE_FIXED_AS_INT96, true);
         configuration.setBoolean(ADD_LIST_ELEMENT_RECORDS, false);
         configuration.setBoolean(WRITE_OLD_LIST_STRUCTURE, true);
         configuration.setBoolean(getHdfsImplDisableCacheKey(), true);

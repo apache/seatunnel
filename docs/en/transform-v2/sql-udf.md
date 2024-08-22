@@ -4,7 +4,7 @@
 
 ## Description
 
-Use UDF SPI to extends the SQL transform functions lib.
+Use UDF SPI to extend the SQL transform functions lib.
 
 ## UDF API
 

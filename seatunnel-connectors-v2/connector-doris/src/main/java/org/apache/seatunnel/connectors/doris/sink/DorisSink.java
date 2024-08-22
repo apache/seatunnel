@@ -77,8 +77,7 @@ public class DorisSink
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, DorisCommitInfo, DorisSinkState> createWriter(
-            SinkWriter.Context context) throws IOException {
+    public DorisSinkWriter createWriter(SinkWriter.Context context) throws IOException {
         return new DorisSinkWriter(
                 context, Collections.emptyList(), catalogTable, dorisConfig, jobId);
     }
@@ -106,6 +105,12 @@ public class DorisSink
 
     @Override
     public Optional<SaveModeHandler> getSaveModeHandler() {
+        // Load the JDBC driver in to DriverManager
+        try {
+            Class.forName("com.mysql.cj.jdbc.Driver");
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
         CatalogFactory catalogFactory =
                 discoverFactory(
                         Thread.currentThread().getContextClassLoader(),

@@ -21,13 +21,17 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oceanbase.OceanBaseMySqlCatalog;
+import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
+import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
 import org.apache.commons.lang3.tuple.Pair;
 
-import org.testcontainers.containers.GenericContainer;
+import org.junit.jupiter.api.Assertions;
+import org.testcontainers.containers.Container;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.images.PullPolicy;
+import org.testcontainers.oceanbase.OceanBaseCEContainer;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import com.google.common.collect.Lists;
@@ -45,7 +49,7 @@ import java.util.Map;
 
 public class JdbcOceanBaseMysqlIT extends JdbcOceanBaseITBase {
 
-    private static final String IMAGE = "oceanbase/oceanbase-ce:4.2.0.0";
+    private static final String IMAGE = "oceanbase/oceanbase-ce:latest";
 
     private static final String HOSTNAME = "e2e_oceanbase_mysql";
     private static final int PORT = 2881;
@@ -53,6 +57,18 @@ public class JdbcOceanBaseMysqlIT extends JdbcOceanBaseITBase {
     private static final String PASSWORD = "";
     private static final String OCEANBASE_DATABASE = "seatunnel";
     private static final String OCEANBASE_CATALOG_DATABASE = "seatunnel_catalog";
+
+    @TestContainerExtension
+    protected final ContainerExtendedFactory extendedFactory =
+            container -> {
+                Container.ExecResult extraCommands =
+                        container.execInContainer(
+                                "bash",
+                                "-c",
+                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && wget "
+                                        + driverUrl());
+                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
+            };
 
     @Override
     List<String> configFile() {
@@ -151,7 +167,8 @@ public class JdbcOceanBaseMysqlIT extends JdbcOceanBaseITBase {
                 + "    `c_integer_unsigned`     int(10) unsigned      DEFAULT NULL,\n"
                 + "    `c_bigint_30`            BIGINT(40)  unsigned  DEFAULT NULL,\n"
                 + "    `c_decimal_unsigned_30`  DECIMAL(30) unsigned  DEFAULT NULL,\n"
-                + "    `c_decimal_30`           DECIMAL(30)           DEFAULT NULL\n"
+                + "    `c_decimal_30`           DECIMAL(30)           DEFAULT NULL,\n"
+                + "    UNIQUE KEY (c_int)\n"
                 + ");";
     }
 
@@ -277,8 +294,8 @@ public class JdbcOceanBaseMysqlIT extends JdbcOceanBaseITBase {
     }
 
     @Override
-    GenericContainer<?> initContainer() {
-        return new GenericContainer<>(IMAGE)
+    OceanBaseCEContainer initContainer() {
+        return new OceanBaseCEContainer(IMAGE)
                 .withEnv("MODE", "slim")
                 .withEnv("OB_DATAFILE_SIZE", "2G")
                 .withNetwork(NETWORK)
