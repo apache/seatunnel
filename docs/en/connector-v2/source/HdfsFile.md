@@ -115,7 +115,7 @@ source {
   fs.defaultFS = "hdfs://namenode001"
   }
   # If you would like to get more information about how to configure seatunnel and see full list of source plugins,
-  # please go to https://seatunnel.apache.org/docs/category/source-v2
+  # please go to https://seatunnel.apache.org/docs/connector-v2/source
 }
 
 transform {
@@ -130,7 +130,7 @@ sink {
       file_format = "orc"
     }
   # If you would like to get more information about how to configure seatunnel and see full list of sink plugins,
-  # please go to https://seatunnel.apache.org/docs/category/sink-v2
+  # please go to https://seatunnel.apache.org/docs/connector-v2/sink
 }
 ```
 
