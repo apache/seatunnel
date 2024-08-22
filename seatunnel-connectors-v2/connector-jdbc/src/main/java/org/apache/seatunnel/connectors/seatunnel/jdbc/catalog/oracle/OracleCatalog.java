@@ -35,36 +35,10 @@ import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
 @Slf4j
 public class OracleCatalog extends AbstractJdbcCatalog {
-
-    protected static List<String> EXCLUDED_SCHEMAS_ALL =
-            Collections.unmodifiableList(
-                    Arrays.asList(
-                            "APPQOSSYS",
-                            "AUDSYS",
-                            "CTXSYS",
-                            "DVSYS",
-                            "DBSFWUSER",
-                            "DBSNMP",
-                            "GSMADMIN_INTERNAL",
-                            "LBACSYS",
-                            "MDSYS",
-                            "OJVMSYS",
-                            "OLAPSYS",
-                            "ORDDATA",
-                            "ORDSYS",
-                            "OUTLN",
-                            "SYS",
-                            "SYSTEM",
-                            "WMSYS",
-                            "XDB",
-                            "EXFSYS",
-                            "SYSMAN"));
 
     private static final String SELECT_COLUMNS_SQL_TEMPLATE =
             "SELECT\n"
@@ -96,10 +70,6 @@ public class OracleCatalog extends AbstractJdbcCatalog {
                     + "    AND cols.table_name = '%s'\n"
                     + "ORDER BY \n"
                     + "    cols.column_id \n";
-
-    static {
-        EXCLUDED_SCHEMAS.addAll(EXCLUDED_SCHEMAS_ALL);
-    }
 
     public OracleCatalog(
             String catalogName,
@@ -157,9 +127,6 @@ public class OracleCatalog extends AbstractJdbcCatalog {
 
     @Override
     protected String getTableName(ResultSet rs) throws SQLException {
-        if (EXCLUDED_SCHEMAS.contains(rs.getString(1))) {
-            return null;
-        }
         return rs.getString(1) + "." + rs.getString(2);
     }
 

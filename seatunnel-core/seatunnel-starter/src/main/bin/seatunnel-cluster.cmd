@@ -78,7 +78,7 @@ if "%NODE_ROLE%" == "master" (
     REM SeaTunnel Engine Config
     set "HAZELCAST_CONFIG=%CONF_DIR%\hazelcast-master.yaml"
 
-) elseif "%NODE_ROLE%" == "worker" (
+) else if "%NODE_ROLE%" == "worker" (
     set "OUT=%WORKER_OUT%"
     set "JAVA_OPTS=%JAVA_OPTS% -Dseatunnel.logs.file_name=seatunnel-engine-worker"
     for /f "usebackq delims=" %%I in ("%APP_DIR%\config\jvm_worker_options") do (
@@ -89,7 +89,7 @@ if "%NODE_ROLE%" == "master" (
     )
     REM SeaTunnel Engine Config
     set "HAZELCAST_CONFIG=%CONF_DIR%\hazelcast-worker.yaml"
-) elseif "%NODE_ROLE%" == "master_and_worker" (
+) else if "%NODE_ROLE%" == "master_and_worker" (
     set "JAVA_OPTS=%JAVA_OPTS% -Dseatunnel.logs.file_name=seatunnel-engine-server"
     for /f "usebackq delims=" %%I in ("%APP_DIR%\config\jvm_options") do (
         set "line=%%I"
