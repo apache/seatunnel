@@ -1,7 +1,6 @@
 ---
-
 sidebar_position: 6
--------------------
+---
 
 # 部署 SeaTunnel Engine 分离模式集群
 

@@ -239,7 +239,7 @@ Tips: excel type does not support any compression format
 
 ### common options
 
-Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details.
+Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details.
 
 ### max_rows_in_memory [int]
 
