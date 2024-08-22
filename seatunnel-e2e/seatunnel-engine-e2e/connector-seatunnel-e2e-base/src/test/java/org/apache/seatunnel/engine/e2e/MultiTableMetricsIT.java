@@ -35,6 +35,7 @@ import org.junit.jupiter.api.Test;
 
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
+import io.restassured.response.Response;
 
 import java.util.Collections;
 import java.util.concurrent.TimeUnit;
@@ -82,33 +83,101 @@ public class MultiTableMetricsIT {
         Collections.singletonList(node1)
                 .forEach(
                         instance -> {
-                            given().get(
-                                            HOST
-                                                    + instance.getCluster()
-                                                            .getLocalMember()
-                                                            .getAddress()
-                                                            .getPort()
-                                                    + RestConstant.JOB_INFO_URL
-                                                    + "/"
-                                                    + batchJobProxy.getJobId())
-                                    .then()
+                            Response response =
+                                    given().get(
+                                                    HOST
+                                                            + instance.getCluster()
+                                                                    .getLocalMember()
+                                                                    .getAddress()
+                                                                    .getPort()
+                                                            + RestConstant.JOB_INFO_URL
+                                                            + "/"
+                                                            + batchJobProxy.getJobId());
+                            // In the test example, the data size of a single [3, "C", 100] is 13
+                            int dataSize = 13;
+                            response.prettyPrint();
+                            response.then()
                                     .statusCode(200)
                                     .body("jobName", equalTo("batch_fake_multi_table_to_console"))
                                     .body("jobStatus", equalTo("FINISHED"))
-                                    .body("metrics.SourceReceivedCount", equalTo("50"))
-                                    .body("metrics.SinkWriteCount", equalTo("50"))
+                                    .body("metrics.SourceReceivedCount", equalTo("15"))
+                                    .body("metrics.SinkWriteCount", equalTo("15"))
                                     .body(
                                             "metrics.TableSourceReceivedCount.'fake.table1'",
-                                            equalTo("20"))
+                                            equalTo("10"))
                                     .body(
                                             "metrics.TableSourceReceivedCount.'fake.public.table2'",
-                                            equalTo("30"))
+                                            equalTo("5"))
                                     .body(
                                             "metrics.TableSinkWriteCount.'fake.table1'",
-                                            equalTo("20"))
+                                            equalTo("10"))
                                     .body(
                                             "metrics.TableSinkWriteCount.'fake.public.table2'",
-                                            equalTo("30"));
+                                            equalTo("5"))
+                                    .body(
+                                            "metrics.SourceReceivedBytes",
+                                            equalTo(String.valueOf(dataSize * 15)))
+                                    .body(
+                                            "metrics.SinkWriteBytes",
+                                            equalTo(String.valueOf(dataSize * 15)))
+                                    .body(
+                                            "metrics.TableSourceReceivedBytes.'fake.table1'",
+                                            equalTo(String.valueOf(dataSize * 10)))
+                                    .body(
+                                            "metrics.TableSourceReceivedBytes.'fake.public.table2'",
+                                            equalTo(String.valueOf(dataSize * 5)))
+                                    .body(
+                                            "metrics.TableSinkWriteBytes.'fake.table1'",
+                                            equalTo(String.valueOf(dataSize * 10)))
+                                    .body(
+                                            "metrics.TableSinkWriteBytes.'fake.public.table2'",
+                                            equalTo(String.valueOf(dataSize * 5)));
+                            Assertions.assertTrue(
+                                    Double.parseDouble(response.path("metrics.SourceReceivedQPS"))
+                                                    > 0
+                                            && Double.parseDouble(
+                                                            response.path(
+                                                                    "metrics.TableSourceReceivedQPS.'fake.table1'"))
+                                                    > 0
+                                            && Double.parseDouble(
+                                                            response.path(
+                                                                    "metrics.TableSourceReceivedQPS.'fake.public.table2'"))
+                                                    > 0
+                                            && Double.parseDouble(
+                                                            response.path("metrics.SinkWriteQPS"))
+                                                    > 0
+                                            && Double.parseDouble(
+                                                            response.path(
+                                                                    "metrics.TableSinkWriteQPS.'fake.table1'"))
+                                                    > 0
+                                            && Double.parseDouble(
+                                                            response.path(
+                                                                    "metrics.TableSinkWriteQPS.'fake.public.table2'"))
+                                                    > 0
+                                            && Double.parseDouble(
+                                                            response.path(
+                                                                    "metrics.SourceReceivedBytesPerSeconds"))
+                                                    > 0
+                                            && Double.parseDouble(
+                                                            response.path(
+                                                                    "metrics.TableSourceReceivedBytesPerSeconds.'fake.table1'"))
+                                                    > 0
+                                            && Double.parseDouble(
+                                                            response.path(
+                                                                    "metrics.TableSourceReceivedBytesPerSeconds.'fake.public.table2'"))
+                                                    > 0
+                                            && Double.parseDouble(
+                                                            response.path(
+                                                                    "metrics.SinkWriteBytesPerSeconds"))
+                                                    > 0
+                                            && Double.parseDouble(
+                                                            response.path(
+                                                                    "metrics.TableSinkWriteBytesPerSeconds.'fake.table1'"))
+                                                    > 0
+                                            && Double.parseDouble(
+                                                            response.path(
+                                                                    "metrics.TableSinkWriteBytesPerSeconds.'fake.public.table2'"))
+                                                    > 0);
                         });
     }
 

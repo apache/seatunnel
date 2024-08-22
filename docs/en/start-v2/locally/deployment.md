@@ -1,7 +1,6 @@
 ---
-
 sidebar_position: 2
--------------------
+---
 
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
@@ -21,34 +20,26 @@ Visit the [SeaTunnel Download Page](https://seatunnel.apache.org/download) to do
 Or you can also download it through the terminal:
 
 ```shell
-export version="2.3.7"
+export version="2.3.8"
 wget "https://archive.apache.org/dist/seatunnel/${version}/apache-seatunnel-${version}-bin.tar.gz"
 tar -xzvf "apache-seatunnel-${version}-bin.tar.gz"
 ```
 
 ## Step 3: Download The Connector Plugins
 
-Starting from the 2.2.0-beta version, the binary package no longer provides the connector dependencies by default. Therefore, when using it for the first time, you need to execute the following command to install the connectors (Of course, you can also manually download the connector from the [Apache Maven Repository](https://repo.maven.apache.org/maven2/org/apache/seatunnel/), and then move it to the `connectors/seatunnel` directory) :
+Starting from version 2.2.0-beta, the binary package no longer provides connector dependencies by default. Therefore, the first time you use it, you need to run the following command to install the connectors (Alternatively, you can manually download the connectors from the [Apache Maven Repository](https://repo.maven.apache.org/maven2/org/apache/seatunnel/) and move them to the `connectors/` directory. For versions before 2.3.5, place them in the `connectors/seatunnel` directory)：
 
 ```bash
 sh bin/install-plugin.sh
 ```
 
-If you need a specific connector version, taking 2.3.7 as an example, you need to execute the following command:
+If you need a specific connector version, taking 2.3.8 as an example, you need to execute the following command:
 
 ```bash
-sh bin/install-plugin.sh 2.3.7
+sh bin/install-plugin.sh 2.3.8
 ```
 
-Usually you don't need all connector plugins, so you can specify the plugins you need through configuring `config/plugin_config`. For example, if you only need the `connector-console` plugin, you can modify the plugin.properties configuration file as follows:
-
-```plugin_config
---seatunnel-connectors--
-connector-console
---end--
-```
-
-If you want the example application to work properly, you need to add the following plugins.
+Typically, you do not need all the connector plugins. You can specify the required plugins by configuring `config/plugin_config`. For example, if you want the sample application to work properly, you will need the `connector-console` and `connector-fake` plugins. You can modify the `plugin_config` configuration file as follows:
 
 ```plugin_config
 --seatunnel-connectors--
