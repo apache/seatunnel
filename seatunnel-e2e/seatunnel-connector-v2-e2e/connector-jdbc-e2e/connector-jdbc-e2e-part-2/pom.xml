@@ -26,6 +26,7 @@
     <name>SeaTunnel : E2E : Connector V2 : Jdbc : Part 2</name>
     <properties>
         <testcontainer.milvus.version>1.19.8</testcontainer.milvus.version>
+        <testcontainer.oceanbase.version>1.20.1</testcontainer.oceanbase.version>
     </properties>
     <dependencies>
         <dependency>
@@ -51,6 +52,12 @@
             <groupId>org.testcontainers</groupId>
             <artifactId>milvus</artifactId>
             <version>${testcontainer.milvus.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>oceanbase</artifactId>
+            <version>${testcontainer.oceanbase.version}</version>
+            <scope>test</scope>
         </dependency>
         <!-- drivers -->
         <dependency>

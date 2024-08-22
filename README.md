@@ -71,8 +71,6 @@ Configure jobs, select execution engines, and parallelize data using Source Conn
 - [Sink Connectors](https://seatunnel.apache.org/docs/category/sink-v2)
 - [Transform Connectors](docs/en/transform-v2)
 
-For a list of connectors and their health status, visit the [Connector Status](docs/en/Connector-v2-release-state.md).
-
 ## Getting Started
 
 Download SeaTunnel from the [Official Website](https://seatunnel.apache.org/download).

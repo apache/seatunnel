@@ -1,7 +1,6 @@
 ---
-
 sidebar_position: 1
--------------------
+---
 
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
@@ -28,7 +27,7 @@ tar -xzvf "apache-seatunnel-${version}-bin.tar.gz"
 
 ## 步骤 3: 下载连接器插件
 
-从2.2.0-beta版本开始，二进制包不再默认提供连接器依赖，因此在第一次使用时，您需要执行以下命令来安装连接器：(当然，您也可以从 [Apache Maven Repository](https://repo.maven.apache.org/maven2/org/apache/seatunnel/) 手动下载连接器，然后将其移动至`connectors/seatunnel`目录下)。
+从2.2.0-beta版本开始，二进制包不再默认提供连接器依赖，因此在第一次使用时，您需要执行以下命令来安装连接器：(当然，您也可以从 [Apache Maven Repository](https://repo.maven.apache.org/maven2/org/apache/seatunnel/) 手动下载连接器，然后将其移动至`connectors/`目录下，如果是2.3.5之前则需要放入`connectors/seatunnel`目录下)。
 
 ```bash
 sh bin/install-plugin.sh
@@ -40,15 +39,7 @@ sh bin/install-plugin.sh
 sh bin/install-plugin.sh 2.3.8
 ```
 
-通常您并不需要所有的连接器插件，可以通过配置`config/plugin_config`来指定您所需要的插件，例如，您只需要`connector-console`插件，那么您可以修改plugin.properties配置文件如下：
-
-```plugin_config
---seatunnel-connectors--
-connector-console
---end--
-```
-
-如果您希望示例应用程序能正常工作，那么您需要添加以下插件：
+通常情况下，你不需要所有的连接器插件。你可以通过配置`config/plugin_config`来指定所需的插件。例如，如果你想让示例应用程序正常工作，你将需要`connector-console`和`connector-fake`插件。你可以修改`plugin_config`配置文件，如下所示：
 
 ```plugin_config
 --seatunnel-connectors--

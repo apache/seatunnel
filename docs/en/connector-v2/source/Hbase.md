@@ -58,7 +58,7 @@ The cache_blocks parameter determines whether to cache data blocks during scans.
 
 ### common-options
 
-Common parameters for Source plugins, refer to [Common Source Options](common-options.md).
+Common parameters for Source plugins, refer to [Common Source Options](../source-common-options.md).
 
 ## Example
 

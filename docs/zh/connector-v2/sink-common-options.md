@@ -1,3 +1,7 @@
+---
+sidebar_position: 4
+---
+
 # Sink 常用选项
 
 > Sink 连接器常用参数
