@@ -88,8 +88,7 @@ public class IcebergSink
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, IcebergCommitInfo, IcebergSinkState> createWriter(
-            SinkWriter.Context context) throws IOException {
+    public IcebergSinkWriter createWriter(SinkWriter.Context context) throws IOException {
         return IcebergSinkWriter.of(config, catalogTable);
     }
 

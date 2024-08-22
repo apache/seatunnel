@@ -24,9 +24,7 @@ import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.translation.flink.serialization.FlinkSimpleVersionedSerializer;
-import org.apache.seatunnel.translation.flink.utils.TypeConverterUtils;
 
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.connector.source.Boundedness;
@@ -37,7 +35,6 @@ import org.apache.flink.api.connector.source.SplitEnumerator;
 import org.apache.flink.api.connector.source.SplitEnumeratorContext;
 import org.apache.flink.api.java.typeutils.ResultTypeQueryable;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
-import org.apache.flink.types.Row;
 
 import java.io.Serializable;
 
@@ -48,7 +45,8 @@ import java.io.Serializable;
  * @param <EnumStateT> The generic type of enumerator state
  */
 public class FlinkSource<SplitT extends SourceSplit, EnumStateT extends Serializable>
-        implements Source<Row, SplitWrapper<SplitT>, EnumStateT>, ResultTypeQueryable<Row> {
+        implements Source<SeaTunnelRow, SplitWrapper<SplitT>, EnumStateT>,
+                ResultTypeQueryable<SeaTunnelRow> {
 
     private final SeaTunnelSource<SeaTunnelRow, SplitT, EnumStateT> source;
 
@@ -68,14 +66,13 @@ public class FlinkSource<SplitT extends SourceSplit, EnumStateT extends Serializ
     }
 
     @Override
-    public SourceReader<Row, SplitWrapper<SplitT>> createReader(SourceReaderContext readerContext)
-            throws Exception {
+    public SourceReader<SeaTunnelRow, SplitWrapper<SplitT>> createReader(
+            SourceReaderContext readerContext) throws Exception {
         org.apache.seatunnel.api.source.SourceReader.Context context =
                 new FlinkSourceReaderContext(readerContext, source);
         org.apache.seatunnel.api.source.SourceReader<SeaTunnelRow, SplitT> reader =
                 source.createReader(context);
-        return new FlinkSourceReader<>(
-                reader, context, envConfig, (SeaTunnelRowType) source.getProducedType());
+        return new FlinkSourceReader<>(reader, context, envConfig);
     }
 
     @Override
@@ -110,7 +107,7 @@ public class FlinkSource<SplitT extends SourceSplit, EnumStateT extends Serializ
     }
 
     @Override
-    public TypeInformation<Row> getProducedType() {
-        return (TypeInformation<Row>) TypeConverterUtils.convert(source.getProducedType());
+    public TypeInformation<SeaTunnelRow> getProducedType() {
+        return TypeInformation.of(SeaTunnelRow.class);
     }
 }

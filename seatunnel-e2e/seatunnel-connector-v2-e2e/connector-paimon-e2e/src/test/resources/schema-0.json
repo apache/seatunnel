@@ -58,7 +58,7 @@
   }, {
     "id" : 12,
     "name" : "c_date",
-    "type" : "TIMESTAMP(3)"
+    "type" : "DATE"
   }, {
     "id" : 13,
     "name" : "c_timestamp",

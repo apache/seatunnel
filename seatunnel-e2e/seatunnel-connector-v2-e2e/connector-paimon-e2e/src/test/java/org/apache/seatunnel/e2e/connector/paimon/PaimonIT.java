@@ -55,5 +55,8 @@ public class PaimonIT extends TestSuiteBase {
         Assertions.assertEquals(0, textWriteResult.getExitCode());
         Container.ExecResult readResult = container.executeJob("/paimon_to_assert.conf");
         Assertions.assertEquals(0, readResult.getExitCode());
+        Container.ExecResult readProjectionResult =
+                container.executeJob("/paimon_projection_to_assert.conf");
+        Assertions.assertEquals(0, readProjectionResult.getExitCode());
     }
 }

@@ -214,7 +214,7 @@ public class PhysicalVertex {
             }
         } else if (ExecutionState.DEPLOYING.equals(currExecutionState)) {
             if (!checkTaskGroupIsExecuting(taskGroupLocation)) {
-                updateTaskState(ExecutionState.RUNNING);
+                updateTaskState(ExecutionState.FAILING);
             }
         }
         return new PassiveCompletableFuture<>(this.taskFuture);
@@ -485,6 +485,8 @@ public class PhysicalVertex {
                         () -> {
                             updateStateTimestamps(ExecutionState.CREATED);
                             runningJobStateIMap.set(taskGroupLocation, ExecutionState.CREATED);
+                            // reset the errorByPhysicalVertex
+                            errorByPhysicalVertex = new AtomicReference<>();
                             return null;
                         },
                         new RetryUtils.RetryMaterial(

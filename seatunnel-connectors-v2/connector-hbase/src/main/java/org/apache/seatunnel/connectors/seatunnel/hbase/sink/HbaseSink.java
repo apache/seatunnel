@@ -79,7 +79,12 @@ public class HbaseSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
                             "PluginName: %s, PluginType: %s, Message: %s",
                             getPluginName(), PluginType.SINK, result.getMsg()));
         }
-        this.hbaseParameters = HbaseParameters.buildWithConfig(pluginConfig);
+        this.hbaseParameters = HbaseParameters.buildWithSinkConfig(pluginConfig);
+        if (hbaseParameters.getFamilyNames().size() == 0) {
+            throw new HbaseConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    "The corresponding field options should be configured and should not be empty Refer to the hbase sink document");
+        }
     }
 
     @Override

@@ -39,6 +39,6 @@ sink {
 }
 ```
 
-We have placed `read_limit.bytes_per_second` and `read_limit.rows_per_second` in the `env` parameters, completing the speed control configuration.
+We have placed `read_limit.bytes_per_second` and `read_limit.rows_per_second` in the `env` parameters to finish the speed control configuration.
 You can configure both of these parameters simultaneously or choose to configure only one of them. The value of each `value` represents the maximum rate at which each thread is restricted.
 Therefore, when configuring the respective values, please take into account the parallelism of your tasks.

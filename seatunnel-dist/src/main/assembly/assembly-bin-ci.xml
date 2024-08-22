@@ -140,7 +140,7 @@
             <scope>provided</scope>
         </dependencySet>
 
-        <!-- ============ Connectors Jars ============  -->
+        <!-- ============ Connectors Jars And Transforms V2 Jar ============  -->
         <!-- SeaTunnel connectors -->
         <dependencySet>
             <useProjectArtifact>false</useProjectArtifact>
@@ -148,6 +148,7 @@
             <unpack>false</unpack>
             <includes>
                 <include>org.apache.seatunnel:connector-*:jar</include>
+                <include>org.apache.seatunnel:seatunnel-transforms-v2:jar</include>
             </includes>
             <excludes>
                 <exclude>org.apache.seatunnel:connector-common</exclude>
@@ -160,36 +161,7 @@
             <scope>provided</scope>
         </dependencySet>
 
-        <!-- ============ SeaTunnel Transforms V2 Jars And SeaTunnel Hadoop3 Uber Jar ============  -->
-        <dependencySet>
-            <useProjectArtifact>false</useProjectArtifact>
-            <useTransitiveDependencies>true</useTransitiveDependencies>
-            <unpack>false</unpack>
-            <includes>
-                <include>org.apache.seatunnel:seatunnel-transforms-v2:jar</include>
-                <include>org.apache.hadoop:hadoop-aws:jar</include>
-                <include>com.amazonaws:aws-java-sdk-bundle:jar</include>
-                <include>org.apache.seatunnel:seatunnel-hadoop3-3.1.4-uber:jar:*:optional</include>
-                <!--Add hadoop aliyun jar -->
-                <include>org.apache.hadoop:hadoop-aliyun:jar</include>
-                <include>com.aliyun.oss:aliyun-sdk-oss:jar</include>
-                <include>org.jdom:jdom:jar</include>
-
-                <!--Add netty buffer jar -->
-                <include>io.netty:netty-buffer:jar</include>
-                <include>io.netty:netty-common:jar</include>
-
-                <!--Add hive exec jar -->
-                <include>org.apache.hive:hive-exec:jar</include>
-                <include>org.apache.hive:hive-service:jar</include>
-                <include>org.apache.thrift:libfb303:jar</include>
-            </includes>
-            <outputFileNameMapping>${artifact.file.name}</outputFileNameMapping>
-            <outputDirectory>/lib</outputDirectory>
-            <scope>provided</scope>
-        </dependencySet>
-
-        <!-- =================== JDBC Connector Drivers ===================  -->
+        <!-- =================== JDBC Connector Drivers  And SeaTunnel Hadoop3 Uber Jar ===================  -->
         <dependencySet>
             <useProjectArtifact>false</useProjectArtifact>
             <useTransitiveDependencies>true</useTransitiveDependencies>
@@ -204,10 +176,25 @@
                 <include>org.xerial:sqlite-jdbc:jar</include>
                 <include>com.ibm.db2.jcc:db2jcc:jar</include>
                 <include>com.aliyun.openservices:tablestore-jdbc:jar</include>
+                <include>com.sap.cloud.db.jdbc:ngdbc:jar</include>
                 <include>com.teradata.jdbc:terajdbc4:jar</include>
                 <include>com.amazon.redshift:redshift-jdbc42:jar</include>
                 <include>net.snowflake.snowflake-jdbc:jar</include>
                 <include>com.xugudb:xugu-jdbc:jar</include>
+                <include>org.apache.hadoop:hadoop-aws:jar</include>
+                <include>com.amazonaws:aws-java-sdk-bundle:jar</include>
+                <include>org.apache.seatunnel:seatunnel-hadoop3-3.1.4-uber:jar:*:optional</include>
+                <!--Add hadoop aliyun jar -->
+                <include>org.apache.hadoop:hadoop-aliyun:jar</include>
+                <include>com.aliyun.oss:aliyun-sdk-oss:jar</include>
+                <include>org.jdom:jdom:jar</include>
+                <!--Add netty buffer jar -->
+                <include>io.netty:netty-buffer:jar</include>
+                <include>io.netty:netty-common:jar</include>
+                <!--Add hive exec jar -->
+                <include>org.apache.hive:hive-exec:jar</include>
+                <include>org.apache.hive:hive-service:jar</include>
+                <include>org.apache.thrift:libfb303:jar</include>
             </includes>
             <outputFileNameMapping>${artifact.file.name}</outputFileNameMapping>
             <outputDirectory>/lib</outputDirectory>
