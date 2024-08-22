@@ -149,6 +149,9 @@ public class InfluxDBSource
             return Arrays.stream(typeInfo.getFieldNames())
                     .map(fieldNames::indexOf)
                     .collect(Collectors.toList());
+        } catch (UnsupportedOperationException e) {
+            throw new InfluxdbConnectorException(
+                    InfluxdbConnectorErrorCode.GET_COLUMN_INDEX_FAILED, e.getMessage(), e);
         } catch (Exception e) {
             throw new InfluxdbConnectorException(
                     InfluxdbConnectorErrorCode.GET_COLUMN_INDEX_FAILED,
