@@ -28,7 +28,7 @@
 | retry_backoff_multiplier_ms | int     | No       | http请求失败，重试回退次数（毫秒）乘数                                  |
 | retry_backoff_max_ms        | int     | No       | http请求失败，最大重试回退时间(毫秒)                                  |
 | enable_multi_lines          | boolean | No       | false                                                  |
-| common-options              | config  | No       | Source插件常用参数，请参考 [Source常用选项 ](common-options.md) 了解详情 |
+| common-options              | config  | No       | Source插件常用参数，请参考 [Source常用选项 ](../source-common-options.md) 了解详情 |
 
 ### url [String]
 
@@ -91,7 +91,7 @@ http请求失败，最大重试回退时间(毫秒)
 
 ### common options
 
-源插件常用参数，请参考[Source Common Options](common-options.md) 了解详细信息
+源插件常用参数，请参考[Source Common Options](../source-common-options.md) 了解详细信息
 
 ## 示例
 
