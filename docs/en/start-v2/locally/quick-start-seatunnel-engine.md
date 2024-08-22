@@ -99,9 +99,18 @@ The SeaTunnel console will print some logs as below:
 
 ## Step 1: Download the Connector
 
-First, place the required connectors `connector-jdbc` and `connector-doris` into the `${SEATUNNEL_HOME}/connectors/` directory. You need to run the following command to install the connectors and add the connector names in the `${SEATUNNEL_HOME}/config/plugin_config` directory. (Alternatively, you can manually download the connectors from the [Apache Maven Repository](https://repo.maven.apache.org/maven2/org/apache/seatunnel/) and then move them to the `connectors/` directory.)
+First, you need to add the connector name to the `${SEATUNNEL_HOME}/config/plugin_config` file. Then, execute the following command to install the connector (of course, you can also manually download the connector from the Apache Maven Repository and move it to the `connectors/` directory). Finally, make sure that the `connector-jdbc` and `connector-doris` connectors are in the `${SEATUNNEL_HOME}/connectors/` directory.
 
 ```bash
+# Configure the connector name.
+--seatunnel-connectors--
+connector-jdbc
+connector-doris
+--end--
+```
+
+```bash
+# Install the connector.
 sh bin/install-plugin.sh
 ```
 
