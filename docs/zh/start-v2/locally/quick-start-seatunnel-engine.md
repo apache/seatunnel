@@ -186,7 +186,7 @@ Total Failed Count        :                   0
 
 :::tip
 
-如果您想优化自己的作业，请参照连接器[Source-MySQL](../../../en/connector-v2/source/Mysql.md) 和 [Sink-Doris](../../../en/connector-v2/sink/Doris.md)
+如果您想优化自己的作业，请参照连接器使用文档
 
 :::
 

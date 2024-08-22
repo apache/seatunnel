@@ -188,7 +188,7 @@ Total Failed Count        :                   0
 
 :::tip
 
-If you want to optimize your job, refer to the connector documentation for [Source-MySQL](../../../en/connector-v2/source/Mysql.md) and [Sink-Doris](../../../en/connector-v2/sink/Doris.md).
+If you want to optimize your job, refer to the connector documentation for [Source-MySQL](../../connector-v2/source/Mysql.md) and [Sink-Doris](../../connector-v2/sink/Doris.md).
 
 :::
 

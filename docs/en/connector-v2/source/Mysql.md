@@ -44,11 +44,6 @@ Read external data source data through JDBC.
 |------------|----------------------------------------------------------|--------------------------|---------------------------------------|---------------------------------------------------------------------------|
 | Mysql      | Different dependency version has different driver class. | com.mysql.cj.jdbc.Driver | jdbc:mysql://localhost:3306:3306/test | [Download](https://mvnrepository.com/artifact/mysql/mysql-connector-java) |
 
-## Database Dependency
-
-> Please download the support list corresponding to 'Maven' and copy it to the '$SEATNUNNEL_HOME/plugins/jdbc/lib/' working directory<br/>
-> For example Mysql datasource: cp mysql-connector-java-xxx.jar $SEATNUNNEL_HOME/plugins/jdbc/lib/
-
 ## Data Type Mapping
 
 |                                        Mysql Data Type                                        |                                                                 SeaTunnel Data Type                                                                 |
