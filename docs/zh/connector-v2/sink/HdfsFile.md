@@ -109,7 +109,7 @@ source {
     }
   }
   # 如果您想获取有关如何配置 seatunnel 的更多信息和查看完整的源端插件列表，
-  # 请访问 https://seatunnel.apache.org/docs/category/source-v2
+  # 请访问 https://seatunnel.apache.org/docs/connector-v2/source
 }
 
 transform {
@@ -124,7 +124,7 @@ sink {
       file_format_type = "orc"
     }
   # 如果您想获取有关如何配置 seatunnel 的更多信息和查看完整的接收器插件列表，
-  # 请访问 https://seatunnel.apache.org/docs/category/sink-v2
+  # 请访问 https://seatunnel.apache.org/docs/connector-v2/sink
 }
 ```
 
