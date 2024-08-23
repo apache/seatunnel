@@ -68,6 +68,7 @@ public class KafkaRecordEmitter
             } else {
                 deserializationSchema.deserialize(consumerRecord.value(), outputCollector);
             }
+            splitState.setCurrentOffset(consumerRecord.offset() + 1);
         } catch (IOException e) {
             if (this.messageFormatErrorHandleWay == MessageFormatErrorHandleWay.SKIP) {
                 logger.warn(
