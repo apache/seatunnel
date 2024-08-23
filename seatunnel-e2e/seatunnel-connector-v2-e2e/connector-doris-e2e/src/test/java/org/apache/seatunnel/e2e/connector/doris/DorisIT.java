@@ -22,10 +22,7 @@ import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.doris.util.DorisCatalogUtil;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
-import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
-import org.apache.seatunnel.e2e.common.container.TestContainerId;
-import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
 import org.junit.jupiter.api.AfterAll;
@@ -176,22 +173,13 @@ public class DorisIT extends AbstractDorisIT {
                 Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
             };
 
-    /** Test setting primary_keys parameter write Typesense */
-    @DisabledOnContainer(
-            value = {
-                TestContainerId.FLINK_1_13,
-                TestContainerId.FLINK_1_14,
-                TestContainerId.FLINK_1_15
-            },
-            type = {EngineType.SEATUNNEL, EngineType.SPARK},
-            disabledReason = "Test only one engine for first change")
     @TestTemplate
     public void testCustomSql(TestContainer container) throws IOException, InterruptedException {
         initializeJdbcTable();
         Container.ExecResult execResult =
                 container.executeJob("/doris_source_and_sink_with_custom_sql.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-        Assertions.assertEquals(101,tableCount(sinkDB, UNIQUE_TABLE));
+        Assertions.assertEquals(101, tableCount(sinkDB, UNIQUE_TABLE));
         checkAllTypeSinkData();
     }
 
