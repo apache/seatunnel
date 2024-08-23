@@ -22,7 +22,10 @@ import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.doris.util.DorisCatalogUtil;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.container.TestContainerId;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
 import org.junit.jupiter.api.AfterAll;
@@ -172,6 +175,25 @@ public class DorisIT extends AbstractDorisIT {
                                         + DRIVER_JAR);
                 Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
             };
+
+    /** Test setting primary_keys parameter write Typesense */
+    @DisabledOnContainer(
+            value = {
+                TestContainerId.FLINK_1_13,
+                TestContainerId.FLINK_1_14,
+                TestContainerId.FLINK_1_15
+            },
+            type = {EngineType.SEATUNNEL, EngineType.SPARK},
+            disabledReason = "Test only one engine for first change")
+    @TestTemplate
+    public void testCustomSql(TestContainer container) throws IOException, InterruptedException {
+        initializeJdbcTable();
+        Container.ExecResult execResult =
+                container.executeJob("/doris_source_and_sink_with_custom_sql.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(101,tableCount(sinkDB, UNIQUE_TABLE));
+        checkAllTypeSinkData();
+    }
 
     @TestTemplate
     public void testDoris(TestContainer container) throws IOException, InterruptedException {
@@ -342,6 +364,20 @@ public class DorisIT extends AbstractDorisIT {
         sourceResultSet.last();
         sinkResultSet.last();
         Assertions.assertEquals(sourceResultSet.getRow(), sinkResultSet.getRow());
+    }
+
+    private Integer tableCount(String db, String table) {
+        try (Statement statement = conn.createStatement()) {
+            String sql = String.format("select count(*) from %s.%s", db, table);
+            ResultSet source = statement.executeQuery(sql);
+            if (source.next()) {
+                int rowCount = source.getInt(1);
+                return rowCount;
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to check data in Doris server", e);
+        }
+        return -1;
     }
 
     private void assertHasData(String db, String table) {
