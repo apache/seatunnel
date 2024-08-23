@@ -40,8 +40,6 @@ import org.apache.seatunnel.connectors.seatunnel.timeplus.state.TPAggCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.state.TPCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.timeplus.state.TimeplusSinkState;
 
-import com.google.auto.service.AutoService;
-
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
@@ -49,7 +47,6 @@ import java.util.Optional;
 import static org.apache.seatunnel.api.table.factory.FactoryUtil.discoverFactory;
 import static org.icecream.IceCream.ic;
 
-@AutoService(SeaTunnelSink.class)
 public class TimeplusSink
         implements SeaTunnelSink<SeaTunnelRow, TimeplusSinkState, TPCommitInfo, TPAggCommitInfo>,
                 SupportSaveMode,
