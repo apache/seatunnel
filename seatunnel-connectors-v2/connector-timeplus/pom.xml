@@ -28,7 +28,7 @@
     <name>SeaTunnel : Connectors V2 : Timeplus</name>
 
     <properties>
-        <timeplus.http.jdbc.version>0.6.0</timeplus.http.jdbc.version>
+        <timeplus.http.jdbc.version>0.7.1</timeplus.http.jdbc.version>
         <sshd.scp.version>2.7.0</sshd.scp.version>
     </properties>
     <dependencies>
