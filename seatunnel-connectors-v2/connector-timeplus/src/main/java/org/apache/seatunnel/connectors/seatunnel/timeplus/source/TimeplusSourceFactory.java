@@ -28,6 +28,7 @@ import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.Timeplus
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.HOST;
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.PASSWORD;
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.SQL;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.TABLE;
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.TIMEPLUS_CONFIG;
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.USERNAME;
 
@@ -41,8 +42,9 @@ public class TimeplusSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(HOST, DATABASE, SQL, USERNAME, PASSWORD)
-                .optional(TIMEPLUS_CONFIG)
+                .required(TABLE, SQL)
+                .optional(HOST, DATABASE, TIMEPLUS_CONFIG)
+                .bundled(USERNAME, PASSWORD)
                 .build();
     }
 
@@ -50,4 +52,16 @@ public class TimeplusSourceFactory implements TableSourceFactory {
     public Class<? extends SeaTunnelSource> getSourceClass() {
         return TimeplusSource.class;
     }
+    /*
+    @Override
+    public <T, SplitT extends SourceSplit, StateT extends Serializable>
+            TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
+        ReadonlyConfig config = context.getOptions();
+        SourceConfig sourceConfig = new SourceConfig(config);
+        CatalogTable catalogTable = CatalogTableUtil.buildWithConfig(config);
+        return () ->
+                (SeaTunnelSource<T, SplitT, StateT>)
+                        new TimeplusSource(sourceConfig, catalogTable);
+    }
+    */
 }

@@ -57,6 +57,7 @@ import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.Timeplus
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.PASSWORD;
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.SERVER_TIME_ZONE;
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.SQL;
+import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.TABLE;
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.TIMEPLUS_CONFIG;
 import static org.apache.seatunnel.connectors.seatunnel.timeplus.config.TimeplusConfig.USERNAME;
 
@@ -77,14 +78,7 @@ public class TimeplusSource
 
     @Override
     public void prepare(Config config) throws PrepareFailException {
-        CheckResult result =
-                CheckConfigUtil.checkAllExists(
-                        config,
-                        HOST.key(),
-                        DATABASE.key(),
-                        SQL.key(),
-                        USERNAME.key(),
-                        PASSWORD.key());
+        CheckResult result = CheckConfigUtil.checkAllExists(config, SQL.key(), TABLE.key());
         if (!result.isSuccess()) {
             throw new TimeplusConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
@@ -94,7 +88,11 @@ public class TimeplusSource
         }
         Map<String, Object> defaultConfig =
                 ImmutableMap.<String, Object>builder()
+                        .put(HOST.key(), HOST.defaultValue())
+                        .put(DATABASE.key(), DATABASE.defaultValue())
                         .put(SERVER_TIME_ZONE.key(), SERVER_TIME_ZONE.defaultValue())
+                        .put(USERNAME.key(), USERNAME.defaultValue())
+                        .put(PASSWORD.key(), PASSWORD.defaultValue())
                         .build();
 
         config = config.withFallback(ConfigFactory.parseMap(defaultConfig));
@@ -150,7 +148,7 @@ public class TimeplusSource
     }
 
     private String modifySQLToLimit1(String sql) {
-        return String.format("SELECT * FROM (%s) s LIMIT 1", sql);
+        return String.format("SELECT * FROM (%s) LIMIT 1", sql);
     }
 
     @Override
