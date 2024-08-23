@@ -6,6 +6,7 @@
 
 Read data from Alicloud Tablestore，support full and CDC.
 
+
 ## Key features
 
 - [ ] [batch](../../concept/connector-v2-features.md)
