@@ -15,29 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.sink;
+package org.apache.seatunnel.connectors.seatunnel.file.oss.catalog;
 
-import org.apache.seatunnel.api.table.catalog.Catalog;
-import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.connectors.seatunnel.file.catalog.AbstractFileCatalog;
+import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
 
-public interface SaveModeHandler extends AutoCloseable {
-
-    void open();
-
-    void handleSchemaSaveMode();
-
-    void handleDataSaveMode();
-
-    SchemaSaveMode getSchemaSaveMode();
-
-    DataSaveMode getDataSaveMode();
-
-    TablePath getHandleTablePath();
-
-    Catalog getHandleCatalog();
-
-    default void handleSaveMode() {
-        handleSchemaSaveMode();
-        handleDataSaveMode();
+public class OssFileCatalog extends AbstractFileCatalog {
+    public OssFileCatalog(
+            HadoopFileSystemProxy hadoopFileSystemProxy, String filePath, String catalogName) {
+        super(hadoopFileSystemProxy, filePath, catalogName);
     }
 }
