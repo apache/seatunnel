@@ -662,13 +662,13 @@ public class SeaTunnelClientTest {
             Assertions.assertEquals(
                     totalCount.get(SOURCE_RECEIVED_COUNT),
                     tableCount.entrySet().stream()
-                            .filter(e -> e.getKey().startsWith(SOURCE_RECEIVED_COUNT))
+                            .filter(e -> e.getKey().startsWith(SOURCE_RECEIVED_COUNT + "#"))
                             .mapToLong(Map.Entry::getValue)
                             .sum());
             Assertions.assertEquals(
                     totalCount.get(SINK_WRITE_COUNT),
                     tableCount.entrySet().stream()
-                            .filter(e -> e.getKey().startsWith(SINK_WRITE_COUNT))
+                            .filter(e -> e.getKey().startsWith(SINK_WRITE_COUNT + "#"))
                             .mapToLong(Map.Entry::getValue)
                             .sum());
             Assertions.assertEquals(
@@ -693,7 +693,8 @@ public class SeaTunnelClientTest {
                                                             e ->
                                                                     e.getKey()
                                                                             .startsWith(
-                                                                                    SOURCE_RECEIVED_QPS))
+                                                                                    SOURCE_RECEIVED_QPS
+                                                                                            + "#"))
                                                     .mapToLong(Map.Entry::getValue)
                                                     .sum())
                             < totalCount.get(SOURCE_RECEIVED_QPS) * 0.02);
@@ -705,7 +706,8 @@ public class SeaTunnelClientTest {
                                                             e ->
                                                                     e.getKey()
                                                                             .startsWith(
-                                                                                    SINK_WRITE_QPS))
+                                                                                    SINK_WRITE_QPS
+                                                                                            + "#"))
                                                     .mapToLong(Map.Entry::getValue)
                                                     .sum())
                             < totalCount.get(SINK_WRITE_QPS) * 0.02);
@@ -717,7 +719,8 @@ public class SeaTunnelClientTest {
                                                             e ->
                                                                     e.getKey()
                                                                             .startsWith(
-                                                                                    SOURCE_RECEIVED_BYTES_PER_SECONDS))
+                                                                                    SOURCE_RECEIVED_BYTES_PER_SECONDS
+                                                                                            + "#"))
                                                     .mapToLong(Map.Entry::getValue)
                                                     .sum())
                             < totalCount.get(SOURCE_RECEIVED_BYTES_PER_SECONDS) * 0.02);
@@ -729,7 +732,8 @@ public class SeaTunnelClientTest {
                                                             e ->
                                                                     e.getKey()
                                                                             .startsWith(
-                                                                                    SINK_WRITE_BYTES_PER_SECONDS))
+                                                                                    SINK_WRITE_BYTES_PER_SECONDS
+                                                                                            + "#"))
                                                     .mapToLong(Map.Entry::getValue)
                                                     .sum())
                             < totalCount.get(SINK_WRITE_BYTES_PER_SECONDS) * 0.02);
