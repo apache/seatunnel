@@ -180,7 +180,7 @@ public class DorisIT extends AbstractDorisIT {
                 container.executeJob("/doris_source_and_sink_with_custom_sql.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
         Assertions.assertEquals(101, tableCount(sinkDB, UNIQUE_TABLE));
-        clearDuplicateTable();
+        clearUniqueTable();
     }
 
     @TestTemplate
