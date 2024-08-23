@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.e2e.connector.v2.milvus;
 
-import org.apache.seatunnel.common.utils.BufferUtil;
+import org.apache.seatunnel.common.utils.BufferUtils;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.EngineType;
@@ -227,7 +227,7 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
             List<Float> vector = Arrays.asList((float) i, (float) i, (float) i, (float) i);
             row.add(VECTOR_FIELD, gson.toJsonTree(vector));
             Short[] shorts = {(short) i, (short) i, (short) i, (short) i};
-            ByteBuffer shortByteBuffer = BufferUtil.shortArrayToByteBuffer(shorts);
+            ByteBuffer shortByteBuffer = BufferUtils.toByteBuffer(shorts);
             row.add(VECTOR_FIELD2, gson.toJsonTree(shortByteBuffer.array()));
             ByteBuffer binaryByteBuffer = ByteBuffer.wrap(new byte[] {16});
             row.add(VECTOR_FIELD3, gson.toJsonTree(binaryByteBuffer.array()));

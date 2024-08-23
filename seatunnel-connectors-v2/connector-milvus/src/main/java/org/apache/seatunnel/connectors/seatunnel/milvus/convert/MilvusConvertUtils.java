@@ -34,7 +34,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.api.table.type.VectorType;
-import org.apache.seatunnel.common.utils.BufferUtil;
+import org.apache.seatunnel.common.utils.BufferUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.milvus.catalog.MilvusOptions;
 import org.apache.seatunnel.connectors.seatunnel.milvus.config.MilvusSourceConfig;
@@ -322,7 +322,7 @@ public class MilvusConvertUtils {
                 return value.toString();
             case FLOAT_VECTOR:
                 ByteBuffer floatVectorBuffer = (ByteBuffer) value;
-                Float[] floats = BufferUtil.byteBufferToFloatArray(floatVectorBuffer);
+                Float[] floats = BufferUtils.toFloatArray(floatVectorBuffer);
                 return Arrays.stream(floats).collect(Collectors.toList());
             case BINARY_VECTOR:
             case BFLOAT16_VECTOR:

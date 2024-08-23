@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.fake.utils;
 
-import org.apache.seatunnel.common.utils.BufferUtil;
+import org.apache.seatunnel.common.utils.BufferUtils;
 import org.apache.seatunnel.connectors.seatunnel.fake.config.FakeConfig;
 
 import org.apache.commons.collections4.CollectionUtils;
@@ -185,7 +185,7 @@ public class FakeDataRandomUtils {
                     RandomUtils.nextFloat(
                             fakeConfig.getVectorFloatMin(), fakeConfig.getVectorFloatMax());
         }
-        return BufferUtil.floatArrayToByteBuffer(floatVector);
+        return BufferUtils.toByteBuffer(floatVector);
     }
 
     public ByteBuffer randomFloat16Vector() {
@@ -196,7 +196,7 @@ public class FakeDataRandomUtils {
                             fakeConfig.getVectorFloatMin(), fakeConfig.getVectorFloatMax());
             float16Vector[i] = floatToFloat16(value);
         }
-        return BufferUtil.shortArrayToByteBuffer(float16Vector);
+        return BufferUtils.toByteBuffer(float16Vector);
     }
 
     public ByteBuffer randomBFloat16Vector() {
@@ -207,7 +207,7 @@ public class FakeDataRandomUtils {
                             fakeConfig.getVectorFloatMin(), fakeConfig.getVectorFloatMax());
             bfloat16Vector[i] = floatToBFloat16(value);
         }
-        return BufferUtil.shortArrayToByteBuffer(bfloat16Vector);
+        return BufferUtils.toByteBuffer(bfloat16Vector);
     }
 
     public Map<Integer, Float> randomSparseFloatVector() {

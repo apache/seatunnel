@@ -36,9 +36,9 @@ package org.apache.seatunnel.common.utils;
 import java.nio.Buffer;
 import java.nio.ByteBuffer;
 
-public class BufferUtil {
+public class BufferUtils {
 
-    public static ByteBuffer shortArrayToByteBuffer(Short[] shortArray) {
+    public static ByteBuffer toByteBuffer(Short[] shortArray) {
         ByteBuffer byteBuffer = ByteBuffer.allocate(shortArray.length * 2);
 
         for (Short value : shortArray) {
@@ -52,7 +52,7 @@ public class BufferUtil {
         return byteBuffer;
     }
 
-    public static Short[] byteBufferToShortArray(ByteBuffer byteBuffer) {
+    public static Short[] toShortArray(ByteBuffer byteBuffer) {
         Short[] shortArray = new Short[byteBuffer.capacity() / 2];
 
         for (int i = 0; i < shortArray.length; i++) {
@@ -62,7 +62,7 @@ public class BufferUtil {
         return shortArray;
     }
 
-    public static ByteBuffer floatArrayToByteBuffer(Float[] floatArray) {
+    public static ByteBuffer toByteBuffer(Float[] floatArray) {
         ByteBuffer byteBuffer = ByteBuffer.allocate(floatArray.length * 4);
 
         for (float value : floatArray) {
@@ -74,7 +74,7 @@ public class BufferUtil {
         return byteBuffer;
     }
 
-    public static Float[] byteBufferToFloatArray(ByteBuffer byteBuffer) {
+    public static Float[] toFloatArray(ByteBuffer byteBuffer) {
         Float[] floatArray = new Float[byteBuffer.capacity() / 4];
 
         for (int i = 0; i < floatArray.length; i++) {
@@ -84,7 +84,7 @@ public class BufferUtil {
         return floatArray;
     }
 
-    public static ByteBuffer doubleArrayToByteBuffer(Double[] doubleArray) {
+    public static ByteBuffer toByteBuffer(Double[] doubleArray) {
         ByteBuffer byteBuffer = ByteBuffer.allocate(doubleArray.length * 8);
 
         for (double value : doubleArray) {
@@ -96,7 +96,7 @@ public class BufferUtil {
         return byteBuffer;
     }
 
-    public static Double[] byteBufferToDoubleArray(ByteBuffer byteBuffer) {
+    public static Double[] toDoubleArray(ByteBuffer byteBuffer) {
         Double[] doubleArray = new Double[byteBuffer.capacity() / 8];
 
         for (int i = 0; i < doubleArray.length; i++) {
@@ -106,7 +106,7 @@ public class BufferUtil {
         return doubleArray;
     }
 
-    public static ByteBuffer intArrayToByteBuffer(Integer[] intArray) {
+    public static ByteBuffer toByteBuffer(Integer[] intArray) {
         ByteBuffer byteBuffer = ByteBuffer.allocate(intArray.length * 4);
 
         for (int value : intArray) {
@@ -118,7 +118,7 @@ public class BufferUtil {
         return byteBuffer;
     }
 
-    public static Integer[] byteBufferToIntArray(ByteBuffer byteBuffer) {
+    public static Integer[] toIntArray(ByteBuffer byteBuffer) {
         Integer[] intArray = new Integer[byteBuffer.capacity() / 4];
 
         for (int i = 0; i < intArray.length; i++) {
