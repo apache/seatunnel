@@ -4,7 +4,7 @@
 
 ## Description
 
-Read data from Alicloud Tablestore
+Read data from Alicloud Tablestore，support full and CDC.
 
 ## Key features
 
@@ -30,19 +30,19 @@ Read data from Alicloud Tablestore
 
 ### end_point [string]
 
-The endpoint of Tablestore
+The endpoint of Tablestore.
 
 ### instance_name [string]
 
-The intance name of Tablestore
+The intance name of Tablestore.
 
 ### access_key_id [string]
 
-The access id of Tablestore
+The access id of Tablestore.
 
 ### access_key_secret [string]
 
-The access secret of Tablestore
+The access secret of Tablestore.
 
 ### table [string]
 
