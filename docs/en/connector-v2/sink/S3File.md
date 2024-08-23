@@ -245,7 +245,7 @@ Tips: excel type does not support any compression format
 
 ### common options
 
-Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details.
+Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details.
 
 ### max_rows_in_memory [int]
 
@@ -281,7 +281,8 @@ Before turning on the synchronous task, do different treatment of the target pat
 Option introduction：  
 `RECREATE_SCHEMA` ：Will be created when the path does not exist. If the path already exists, delete the path and recreate it.         
 `CREATE_SCHEMA_WHEN_NOT_EXIST` ：Will Created when the path does not exist, use the path when the path is existed.        
-`ERROR_WHEN_SCHEMA_NOT_EXIST` ：Error will be reported when the path does not exist
+`ERROR_WHEN_SCHEMA_NOT_EXIST` ：Error will be reported when the path does not exist  
+`IGNORE` ：Ignore the treatment of the table
 
 ### data_save_mode[Enum]
 
@@ -337,7 +338,7 @@ source {
     }
   }
   # If you would like to get more information about how to configure seatunnel and see full list of source plugins,
-  # please go to https://seatunnel.apache.org/docs/category/source-v2
+  # please go to https://seatunnel.apache.org/docs/connector-v2/source
 }
 
 transform {
@@ -370,7 +371,7 @@ sink {
       }
   }
   # If you would like to get more information about how to configure seatunnel and see full list of sink plugins,
-  # please go to https://seatunnel.apache.org/docs/category/sink-v2
+  # please go to https://seatunnel.apache.org/docs/connector-v2/sink
 }
 ```
 

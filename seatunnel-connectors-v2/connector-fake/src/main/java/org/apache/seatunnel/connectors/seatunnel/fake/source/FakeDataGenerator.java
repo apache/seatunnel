@@ -165,6 +165,16 @@ public class FakeDataGenerator {
                     objects[i] = object;
                 }
                 return new SeaTunnelRow(objects);
+            case BINARY_VECTOR:
+                return fakeDataRandomUtils.randomBinaryVector();
+            case FLOAT_VECTOR:
+                return fakeDataRandomUtils.randomFloatVector();
+            case FLOAT16_VECTOR:
+                return fakeDataRandomUtils.randomFloat16Vector();
+            case BFLOAT16_VECTOR:
+                return fakeDataRandomUtils.randomBFloat16Vector();
+            case SPARSE_FLOAT_VECTOR:
+                return fakeDataRandomUtils.randomSparseFloatVector();
             default:
                 // never got in there
                 throw new FakeConnectorException(

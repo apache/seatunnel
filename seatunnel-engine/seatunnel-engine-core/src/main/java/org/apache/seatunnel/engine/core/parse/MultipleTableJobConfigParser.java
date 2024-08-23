@@ -182,7 +182,7 @@ public class MultipleTableJobConfigParser {
                 TypesafeConfigUtils.getConfigList(
                         seaTunnelJobConfig, "sink", Collections.emptyList());
 
-        List<URL> connectorJars = getConnectorJarList(sourceConfigs, sinkConfigs);
+        List<URL> connectorJars = getConnectorJarList(sourceConfigs, transformConfigs, sinkConfigs);
         if (!commonPluginJars.isEmpty()) {
             connectorJars.addAll(commonPluginJars);
         }
@@ -238,18 +238,32 @@ public class MultipleTableJobConfigParser {
     }
 
     private List<URL> getConnectorJarList(
-            List<? extends Config> sourceConfigs, List<? extends Config> sinkConfigs) {
+            List<? extends Config> sourceConfigs,
+            List<? extends Config> transformConfigs,
+            List<? extends Config> sinkConfigs) {
         List<PluginIdentifier> factoryIds =
                 Stream.concat(
-                                sourceConfigs.stream()
-                                        .map(ConfigParserUtil::getFactoryId)
-                                        .map(
-                                                factory ->
-                                                        PluginIdentifier.of(
-                                                                CollectionConstants
-                                                                        .SEATUNNEL_PLUGIN,
-                                                                CollectionConstants.SOURCE_PLUGIN,
-                                                                factory)),
+                                Stream.concat(
+                                        sourceConfigs.stream()
+                                                .map(ConfigParserUtil::getFactoryId)
+                                                .map(
+                                                        factory ->
+                                                                PluginIdentifier.of(
+                                                                        CollectionConstants
+                                                                                .SEATUNNEL_PLUGIN,
+                                                                        CollectionConstants
+                                                                                .SOURCE_PLUGIN,
+                                                                        factory)),
+                                        transformConfigs.stream()
+                                                .map(ConfigParserUtil::getFactoryId)
+                                                .map(
+                                                        factory ->
+                                                                PluginIdentifier.of(
+                                                                        CollectionConstants
+                                                                                .SEATUNNEL_PLUGIN,
+                                                                        CollectionConstants
+                                                                                .TRANSFORM_PLUGIN,
+                                                                        factory))),
                                 sinkConfigs.stream()
                                         .map(ConfigParserUtil::getFactoryId)
                                         .map(
@@ -684,6 +698,7 @@ public class MultipleTableJobConfigParser {
                 Optional<SaveModeHandler> saveModeHandler = saveModeSink.getSaveModeHandler();
                 if (saveModeHandler.isPresent()) {
                     try (SaveModeHandler handler = saveModeHandler.get()) {
+                        handler.open();
                         new SaveModeExecuteWrapper(handler).execute();
                     } catch (Exception e) {
                         throw new SeaTunnelRuntimeException(HANDLE_SAVE_MODE_FAILED, e);

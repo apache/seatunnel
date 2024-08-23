@@ -75,6 +75,13 @@ class IcebergCatalogTest {
         configs.put(CommonConfig.KEY_CATALOG_NAME.key(), CATALOG_NAME);
         configs.put(CommonConfig.CATALOG_PROPS.key(), catalogProps);
         configs.put(SinkConfig.TABLE_DEFAULT_PARTITION_KEYS.key(), "dt_col");
+        // hadoop config directory
+        configs.put(CommonConfig.HADOOP_CONF_PATH_PROP.key(), "/tmp/hadoop/conf");
+        // hadoop kerberos config
+        configs.put(CommonConfig.KERBEROS_PRINCIPAL.key(), "hive/xxxx@xxxx.COM");
+        configs.put(
+                CommonConfig.KERBEROS_KEYTAB_PATH.key(), "/tmp/hadoop/conf/hive.service.keytab");
+        configs.put(CommonConfig.KRB5_PATH.key(), "/tmp/hadoop/conf/krb5.conf");
         icebergCatalog = new IcebergCatalog(CATALOG_NAME, ReadonlyConfig.fromMap(configs));
         icebergCatalog.open();
     }

@@ -33,6 +33,8 @@ github:
     squash: true
     merge: false
     rebase: false
+  collaborators:
+    - arshadmohammad
   protected_branches:
     dev:
       required_status_checks:

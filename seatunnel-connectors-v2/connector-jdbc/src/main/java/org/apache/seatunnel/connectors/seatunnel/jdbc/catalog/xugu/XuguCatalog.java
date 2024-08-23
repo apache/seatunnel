@@ -35,15 +35,10 @@ import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 
 @Slf4j
 public class XuguCatalog extends AbstractJdbcCatalog {
-
-    protected static List<String> EXCLUDED_SCHEMAS =
-            Collections.unmodifiableList(Arrays.asList("GUEST", "SYSAUDITOR", "SYSSSO"));
 
     private static final String SELECT_COLUMNS_SQL_TEMPLATE =
             "SELECT\n"
@@ -144,8 +139,9 @@ public class XuguCatalog extends AbstractJdbcCatalog {
     }
 
     @Override
-    protected String getCreateTableSql(TablePath tablePath, CatalogTable table) {
-        return new XuguCreateTableSqlBuilder(table).build(tablePath);
+    protected String getCreateTableSql(
+            TablePath tablePath, CatalogTable table, boolean createIndex) {
+        return new XuguCreateTableSqlBuilder(table, createIndex).build(tablePath);
     }
 
     @Override
@@ -171,9 +167,6 @@ public class XuguCatalog extends AbstractJdbcCatalog {
 
     @Override
     protected String getTableName(ResultSet rs) throws SQLException {
-        if (EXCLUDED_SCHEMAS.contains(rs.getString(1))) {
-            return null;
-        }
         return rs.getString(1) + "." + rs.getString(2);
     }
 

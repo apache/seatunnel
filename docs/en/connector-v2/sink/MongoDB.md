@@ -73,7 +73,7 @@ The following table lists the field data type mapping from MongoDB BSON type to 
 | upsert-enable         | Boolean  | No       | false   | Whether to write documents via upsert mode.                                                                                  |
 | primary-key           | List     | No       | -       | The primary keys for upsert/update. Keys are in `["id","name",...]` format for properties.                                   |
 | transaction           | Boolean  | No       | false   | Whether to use transactions in MongoSink (requires MongoDB 4.2+).                                                            |
-| common-options        |          | No       | -       | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details                      |
+| common-options        |          | No       | -       | Source plugin common parameters, please refer to [Source Common Options](../sink-common-options.md) for details              |
 
 ### Tips
 

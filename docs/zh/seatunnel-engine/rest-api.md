@@ -1,7 +1,6 @@
 ---
-
 sidebar_position: 11
---------------------
+---
 
 # RESTful API
 
@@ -134,8 +133,22 @@ network:
     ]
   },
   "metrics": {
-    "sourceReceivedCount": "",
-    "sinkWriteCount": ""
+    "SourceReceivedCount": "",
+    "SourceReceivedQPS": "",
+    "SourceReceivedBytes": "",
+    "SourceReceivedBytesPerSeconds": "",
+    "SinkWriteCount": "",
+    "SinkWriteQPS": "",
+    "SinkWriteBytes": "",
+    "SinkWriteBytesPerSeconds": "",
+    "TableSourceReceivedCount": {},
+    "TableSourceReceivedBytes": {},
+    "TableSourceReceivedBytesPerSeconds": {},
+    "TableSourceReceivedQPS": {},
+    "TableSinkWriteCount": {},
+    "TableSinkWriteQPS": {},
+    "TableSinkWriteBytes": {},
+    "TableSinkWriteBytesPerSeconds": {}
   },
   "finishedTime": "",
   "errorMsg": null,
