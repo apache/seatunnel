@@ -104,6 +104,6 @@ public class WorkerProfile implements IdentifiedDataSerializable {
             unassignedSlots[i] = in.readObject();
         }
         dynamicSlot = in.readBoolean();
-        attributes = in.readObject();
+        attributes  = in.readObject();
     }
 }
