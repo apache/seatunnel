@@ -107,11 +107,8 @@ public class CassandraSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
             throw new CassandraConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                     String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s %s",
-                            getPluginName(),
-                            PluginType.SINK,
-                            checkResult.getMsg(),
-                            ExceptionUtils.getMessage(e)));
+                            "PluginName: %s, PluginType: %s, Message: %s",
+                            getPluginName(), PluginType.SINK, ExceptionUtils.getMessage(e)));
         }
     }
 
