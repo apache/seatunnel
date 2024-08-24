@@ -35,6 +35,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -85,7 +86,7 @@ public class ConfigBuilder {
         boolean isJson = filePath.getFileName().toString().endsWith(".json");
         log.info(
                 "Parsed config file: \n{}",
-                mapToString(configDesensitization(config.root().unwrapped()), isJson));
+                mapToString(configDesensitization(config.root().unwrapped())));
         return config;
     }
 
@@ -107,45 +108,45 @@ public class ConfigBuilder {
         }
         log.info(
                 "Parsed config file: \n{}",
-                mapToString(configDesensitization(config.root().unwrapped()), isJson));
+                mapToString(configDesensitization(config.root().unwrapped())));
         return config;
     }
 
     public static Map<String, Object> configDesensitization(Map<String, Object> configMap) {
         return configMap.entrySet().stream()
                 .collect(
-                        Collectors.toMap(
-                                Map.Entry::getKey,
-                                entry -> {
-                                    String key = entry.getKey();
-                                    if (Arrays.asList(DEFAULT_SENSITIVE_KEYWORDS)
-                                            .contains(key.toLowerCase())) {
-                                        return "******";
-                                    }
-                                    Object value = entry.getValue();
-                                    if (value instanceof Map) {
-                                        if ("schema".equals(key)) {
-                                            return value;
-                                        }
-                                        return configDesensitization((Map<String, Object>) value);
-                                    } else if (value instanceof List) {
-                                        return ((List<?>) value)
-                                                .stream()
-                                                        .map(
-                                                                v -> {
-                                                                    if (v instanceof Map) {
-                                                                        return configDesensitization(
-                                                                                (Map<
-                                                                                                String,
-                                                                                                Object>)
-                                                                                        v);
-                                                                    }
+                        HashMap::new,
+                        (m, p) -> {
+                            String key = p.getKey();
+                            Object value = p.getValue();
+                            if (Arrays.asList(DEFAULT_SENSITIVE_KEYWORDS)
+                                    .contains(key.toLowerCase())) {
+                                m.put(key, "******");
+                            } else {
+                                if (value instanceof Map<?, ?>) {
+                                    m.put(key, configDesensitization((Map<String, Object>) value));
+                                } else if (value instanceof List<?>) {
+                                    List<?> listValue = (List<?>) value;
+                                    List<Object> newList =
+                                            listValue.stream()
+                                                    .map(
+                                                            v -> {
+                                                                if (v instanceof Map<?, ?>) {
+                                                                    return configDesensitization(
+                                                                            (Map<String, Object>)
+                                                                                    v);
+                                                                } else {
                                                                     return v;
-                                                                })
-                                                        .collect(Collectors.toList());
-                                    }
-                                    return value;
-                                }));
+                                                                }
+                                                            })
+                                                    .collect(Collectors.toList());
+                                    m.put(key, newList);
+                                } else {
+                                    m.put(key, value);
+                                }
+                            }
+                        },
+                        HashMap::putAll);
     }
 
     public static Config of(
@@ -185,9 +186,7 @@ public class ConfigBuilder {
         return config;
     }
 
-    public static String mapToString(Map<String, Object> configMap, boolean isJson) {
-        ConfigRenderOptions configRenderOptions =
-                ConfigRenderOptions.concise().setFormatted(true).setJson(isJson);
+    public static String mapToString(Map<String, Object> configMap) {
         ConfigParseOptions configParseOptions =
                 ConfigParseOptions.defaults().setSyntax(ConfigSyntax.JSON);
         Config config =
@@ -196,6 +195,6 @@ public class ConfigBuilder {
                         .resolveWith(
                                 ConfigFactory.systemProperties(),
                                 ConfigResolveOptions.defaults().setAllowUnresolved(true));
-        return config.root().render(configRenderOptions);
+        return config.root().render(CONFIG_RENDER_OPTIONS);
     }
 }
