@@ -30,7 +30,6 @@ import com.google.protobuf.DynamicMessage;
 import java.io.IOException;
 import java.io.Serializable;
 import java.lang.reflect.Array;
-import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -107,9 +106,8 @@ public class ProtobufToRowConverter implements Serializable {
             case DATE:
             case DECIMAL:
             case TIMESTAMP:
-                return val;
             case BYTES:
-                return ((ByteBuffer) val).array();
+                return val;
             case SMALLINT:
                 return ((Integer) val).shortValue();
             case TINYINT:

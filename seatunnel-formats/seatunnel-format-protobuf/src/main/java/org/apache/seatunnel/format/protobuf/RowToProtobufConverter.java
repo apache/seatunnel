@@ -28,7 +28,6 @@ import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 
 import java.io.Serializable;
-import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Map;
 
@@ -81,14 +80,13 @@ public class RowToProtobufConverter implements Serializable {
             case DECIMAL:
             case DATE:
             case TIMESTAMP:
+            case BYTES:
                 return data;
             case TINYINT:
                 if (data instanceof Byte) {
                     return Byte.toUnsignedInt((Byte) data);
                 }
                 return data;
-            case BYTES:
-                return ByteBuffer.wrap((byte[]) data);
             case MAP:
                 return handleMapType(fieldName, data, seaTunnelDataType, builder);
             case ARRAY:
