@@ -113,11 +113,6 @@ public class InMemorySinkWriter
     public void close() throws IOException {}
 
     @Override
-    public Optional<Integer> primaryKey() {
-        return Optional.of(0);
-    }
-
-    @Override
     public MultiTableResourceManager<InMemoryConnection> initMultiTableResourceManager(
             int tableSize, int queueSize) {
         events.add("initMultiTableResourceManager" + queueSize);

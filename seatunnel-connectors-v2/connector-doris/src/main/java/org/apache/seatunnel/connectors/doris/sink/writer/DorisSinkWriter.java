@@ -107,7 +107,7 @@ public class DorisSinkWriter
                             labelGenerator,
                             new HttpUtil().getHttpClient());
             if (dorisConfig.getEnable2PC()) {
-                dorisStreamLoad.abortPreCommit(labelPrefix, lastCheckpointId + 1);
+                dorisStreamLoad.abortPreCommit(labelPrefix, lastCheckpointId);
             }
         } catch (Exception e) {
             throw new DorisConnectorException(DorisConnectorErrorCode.STREAM_LOAD_FAILED, e);

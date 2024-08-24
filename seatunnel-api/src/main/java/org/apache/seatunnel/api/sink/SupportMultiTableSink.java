@@ -17,5 +17,16 @@
 
 package org.apache.seatunnel.api.sink;
 
+import java.util.Optional;
+
 /** The Sink Connectors which support multi table should implement this interface */
-public interface SupportMultiTableSink {}
+public interface SupportMultiTableSink {
+
+    /**
+     * The primary key index of the table in SeaTunnelRow, use it to make sure the same key value
+     * will be written to the same sink writer
+     */
+    default Optional<Integer> primaryKey() {
+        return Optional.empty();
+    }
+}

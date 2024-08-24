@@ -18,12 +18,12 @@
 package org.apache.seatunnel.api.sink.multitablesink;
 
 import org.apache.seatunnel.api.common.JobContext;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkCommitter;
-import org.apache.seatunnel.api.sink.SinkCommonOptions;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.factory.MultiTableFactoryContext;
@@ -32,11 +32,10 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import lombok.Getter;
 
 import java.io.IOException;
-import java.util.Collection;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -48,11 +47,11 @@ public class MultiTableSink
                 MultiTableAggregatedCommitInfo> {
 
     @Getter private final Map<String, SeaTunnelSink> sinks;
-    private final int replicaNum;
+    private final ReadonlyConfig config;
 
     public MultiTableSink(MultiTableFactoryContext context) {
         this.sinks = context.getSinks();
-        this.replicaNum = context.getOptions().get(SinkCommonOptions.MULTI_TABLE_SINK_REPLICA);
+        this.config = context.getOptions();
     }
 
     @Override
@@ -63,48 +62,13 @@ public class MultiTableSink
     @Override
     public SinkWriter<SeaTunnelRow, MultiTableCommitInfo, MultiTableState> createWriter(
             SinkWriter.Context context) throws IOException {
-        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> writers = new HashMap<>();
-        for (int i = 0; i < replicaNum; i++) {
-            for (String tableIdentifier : sinks.keySet()) {
-                SeaTunnelSink sink = sinks.get(tableIdentifier);
-                int index = context.getIndexOfSubtask() * replicaNum + i;
-                writers.put(
-                        SinkIdentifier.of(tableIdentifier, index),
-                        sink.createWriter(new SinkContextProxy(index, context)));
-            }
-        }
-        return new MultiTableSinkWriter(writers, replicaNum);
+        return new MultiTableSinkWriter(sinks, context, config, new ArrayList<>());
     }
 
     @Override
     public SinkWriter<SeaTunnelRow, MultiTableCommitInfo, MultiTableState> restoreWriter(
             SinkWriter.Context context, List<MultiTableState> states) throws IOException {
-        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> writers = new HashMap<>();
-        for (int i = 0; i < replicaNum; i++) {
-            for (String tableIdentifier : sinks.keySet()) {
-                SeaTunnelSink sink = sinks.get(tableIdentifier);
-                int index = context.getIndexOfSubtask() * replicaNum + i;
-                SinkIdentifier sinkIdentifier = SinkIdentifier.of(tableIdentifier, index);
-                List<?> state =
-                        states.stream()
-                                .map(
-                                        multiTableState ->
-                                                multiTableState.getStates().get(sinkIdentifier))
-                                .filter(Objects::nonNull)
-                                .flatMap(Collection::stream)
-                                .collect(Collectors.toList());
-                if (state.isEmpty()) {
-                    writers.put(
-                            sinkIdentifier,
-                            sink.createWriter(new SinkContextProxy(index, context)));
-                } else {
-                    writers.put(
-                            sinkIdentifier,
-                            sink.restoreWriter(new SinkContextProxy(index, context), state));
-                }
-            }
-        }
-        return new MultiTableSinkWriter(writers, replicaNum);
+        return new MultiTableSinkWriter(sinks, context, config, states);
     }
 
     @Override

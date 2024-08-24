@@ -25,7 +25,10 @@ public interface SupportMultiTableSinkWriter<T> extends SupportResourceShare<T> 
     /**
      * The primary key index of the table in SeaTunnelRow, use it to make sure the same key value
      * will be written to the same sink writer
+     *
+     * @deprecated use {@link SupportMultiTableSink#primaryKey()} instead
      */
+    @Deprecated
     default Optional<Integer> primaryKey() {
         return Optional.empty();
     }

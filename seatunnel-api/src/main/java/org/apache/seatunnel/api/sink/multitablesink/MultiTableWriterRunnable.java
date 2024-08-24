@@ -22,22 +22,27 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public class MultiTableWriterRunnable implements Runnable {
 
-    private final Map<String, SinkWriter<SeaTunnelRow, ?, ?>> tableIdWriterMap;
+    private final int queueIndex;
+    private final int tableCount;
     private final BlockingQueue<SeaTunnelRow> queue;
+    private final MultiTableSinkWriter sinkWriter;
     private volatile Throwable throwable;
 
     public MultiTableWriterRunnable(
-            Map<String, SinkWriter<SeaTunnelRow, ?, ?>> tableIdWriterMap,
-            BlockingQueue<SeaTunnelRow> queue) {
-        this.tableIdWriterMap = tableIdWriterMap;
+            int queueIndex,
+            BlockingQueue<SeaTunnelRow> queue,
+            MultiTableSinkWriter sinkWriter,
+            int tableCount) {
+        this.queueIndex = queueIndex;
+        this.tableCount = tableCount;
         this.queue = queue;
+        this.sinkWriter = sinkWriter;
     }
 
     @Override
@@ -48,17 +53,18 @@ public class MultiTableWriterRunnable implements Runnable {
                 if (row == null) {
                     continue;
                 }
-                SinkWriter<SeaTunnelRow, ?, ?> writer = tableIdWriterMap.get(row.getTableId());
-                if (writer == null) {
-                    if (tableIdWriterMap.size() == 1) {
-                        writer = tableIdWriterMap.values().stream().findFirst().get();
-                    } else {
-                        throw new RuntimeException(
-                                "MultiTableWriterRunnable can't find writer for tableId: "
-                                        + row.getTableId());
-                    }
-                }
                 synchronized (this) {
+                    SinkWriter<SeaTunnelRow, ?, ?> writer =
+                            sinkWriter.getWriter(row.getTableId(), queueIndex);
+                    if (writer == null) {
+                        if (tableCount == 1) {
+                            writer = sinkWriter.getWriter(null, queueIndex);
+                        } else {
+                            throw new RuntimeException(
+                                    "MultiTableWriterRunnable can't find writer for tableId: "
+                                            + row.getTableId());
+                        }
+                    }
                     writer.write(row);
                 }
             } catch (InterruptedException e) {

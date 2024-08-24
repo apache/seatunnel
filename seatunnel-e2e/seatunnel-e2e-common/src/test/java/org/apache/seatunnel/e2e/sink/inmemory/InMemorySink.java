@@ -61,6 +61,11 @@ public class InMemorySink
     }
 
     @Override
+    public Optional<Integer> primaryKey() {
+        return Optional.of(0);
+    }
+
+    @Override
     public Optional<Serializer<InMemoryCommitInfo>> getCommitInfoSerializer() {
         return Optional.of(new DefaultSerializer<>());
     }

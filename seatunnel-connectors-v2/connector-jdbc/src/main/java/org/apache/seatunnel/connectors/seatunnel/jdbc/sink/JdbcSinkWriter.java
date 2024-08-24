@@ -42,19 +42,16 @@ import java.util.Optional;
 
 @Slf4j
 public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager> {
-    private final Integer primaryKeyIndex;
 
     public JdbcSinkWriter(
             TablePath sinkTablePath,
             JdbcDialect dialect,
             JdbcSinkConfig jdbcSinkConfig,
-            TableSchema tableSchema,
-            Integer primaryKeyIndex) {
+            TableSchema tableSchema) {
         this.sinkTablePath = sinkTablePath;
         this.dialect = dialect;
         this.tableSchema = tableSchema;
         this.jdbcSinkConfig = jdbcSinkConfig;
-        this.primaryKeyIndex = primaryKeyIndex;
         this.connectionProvider =
                 dialect.getJdbcConnectionProvider(jdbcSinkConfig.getJdbcConnectionConfig());
         this.outputFormat =
@@ -99,11 +96,6 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
                 new JdbcOutputFormatBuilder(
                                 dialect, connectionProvider, jdbcSinkConfig, tableSchema)
                         .build();
-    }
-
-    @Override
-    public Optional<Integer> primaryKey() {
-        return primaryKeyIndex != null ? Optional.of(primaryKeyIndex) : Optional.empty();
     }
 
     private void tryOpen() throws IOException {
