@@ -272,10 +272,16 @@ public class CatalogUtils {
             throws SQLException {
         TableSchema.Builder schemaBuilder = TableSchema.builder();
         Map<String, String> unsupported = new LinkedHashMap<>();
-        String tableName = metadata.getTableName(metadata.getColumnCount());
-        String databaseName = metadata.getCatalogName(metadata.getColumnCount());
-        String schemaName = metadata.getSchemaName(metadata.getColumnCount());
-
+        String tableName = null;
+        String databaseName = null;
+        String schemaName = null;
+        try {
+            int columnCount = metadata.getColumnCount();
+            tableName = metadata.getTableName(columnCount);
+            databaseName = metadata.getCatalogName(columnCount);
+            schemaName = metadata.getSchemaName(columnCount);
+        } catch (SQLException ignored) {
+        }
         for (int index = 1; index <= metadata.getColumnCount(); index++) {
             try {
                 Column column = columnConverter.apply(metadata, index);
@@ -296,7 +302,7 @@ public class CatalogUtils {
         return CatalogTable.of(
                 TableIdentifier.of(
                         catalogName,
-                        StringUtils.isBlank(databaseName) ? "default" : databaseName,
+                        StringUtils.isBlank(databaseName) ? null : databaseName,
                         StringUtils.isBlank(schemaName) ? null : schemaName,
                         StringUtils.isBlank(tableName) ? "default" : tableName),
                 schemaBuilder.build(),
@@ -315,11 +321,11 @@ public class CatalogUtils {
     }
 
     /**
-     * @deprecated instead by {@link #getCatalogTable(Connection, String, JdbcDialectTypeMapper)}
      * @param connection
      * @param sqlQuery
      * @return
      * @throws SQLException
+     * @deprecated instead by {@link #getCatalogTable(Connection, String, JdbcDialectTypeMapper)}
      */
     @Deprecated
     public static CatalogTable getCatalogTable(Connection connection, String sqlQuery)
