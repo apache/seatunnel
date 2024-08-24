@@ -2,7 +2,7 @@
 sidebar_position: 3
 ---
 
-# Set Up with Docker in local mode
+# Set Up With Docker In Local Mode
 
 ## Zeta Engine
 
@@ -15,16 +15,36 @@ docker pull apache/seatunnel:<version_tag>
 How to submit job in local mode
 
 ```shell
-docker run --rm -it apache/seatunnel bash ./bin/seatunnel.sh -e local -c <CONFIG_FILE>
+# Run fake source to console sink
+docker run --rm -it apache/seatunnel:<version_tag> ./bin/seatunnel.sh -e local -c config/v2.batch.config.template
 
+# Run job with custom config file
+docker run --rm -it -v /<The-Config-Directory-To-Mount>/:/config apache/seatunnel:<version_tag> ./bin/seatunnel.sh -e local -c /config/fake_to_console.conf
 
-# eg: a fake source to console sink
-docker run --rm -it apache/seatunnel bash ./bin/seatunnel.sh -e local -c config/v2.batch.config.template
-
+# Example
+# If you config file is in /tmp/job/fake_to_console.conf
+docker run --rm -it -v /tmp/job/:/config apache/seatunnel:<version_tag> ./bin/seatunnel.sh -e local -c /config/fake_to_console.conf
 ```
 
 ### Build Image By Yourself
 
+Build from source code. The way of downloading the source code is the same as the way of downloading the binary package.
+You can download the source code from the [download page](https://seatunnel.apache.org/download/) or clone the source code from the [GitHub repository](https://github.com/apache/seatunnel/releases)
+
+```shell
+cd seatunnel
+# Build binary package from source code
+mvn clean package -DskipTests -Dskip.spotless=true
+
+# Build docker image
+cd seatunnel-dist
+docker build -f src/main/docker/Dockerfile --build-arg VERSION=2.3.8 -t apache/seatunnel:2.3.8 .
+
+# If you build from dev branch, you should add SNAPSHOT suffix to the version
+docker build -f src/main/docker/Dockerfile --build-arg VERSION=2.3.8-SNAPSHOT -t apache/seatunnel:2.3.8-SNAPSHOT .
+```
+
+The Dockerfile is like this:
 ```Dockerfile
 FROM openjdk:8
 
