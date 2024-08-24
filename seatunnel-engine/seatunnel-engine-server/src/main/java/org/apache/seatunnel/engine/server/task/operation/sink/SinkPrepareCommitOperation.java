@@ -69,7 +69,7 @@ public class SinkPrepareCommitOperation<CommitInfoT> extends BarrierFlowOperatio
     }
 
     @Override
-    public void run() throws Exception {
+    public void runInternal() throws Exception {
         TaskExecutionService taskExecutionService =
                 ((SeaTunnelServer) getService()).getTaskExecutionService();
         SinkAggregatedCommitterTask<CommitInfoT, ?> committerTask =
