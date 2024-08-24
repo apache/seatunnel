@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
+import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 
@@ -106,8 +107,9 @@ public class ProtobufToRowConverter implements Serializable {
             case DATE:
             case DECIMAL:
             case TIMESTAMP:
-            case BYTES:
                 return val;
+            case BYTES:
+                return ((ByteString) val).toByteArray();
             case SMALLINT:
                 return ((Integer) val).shortValue();
             case TINYINT:

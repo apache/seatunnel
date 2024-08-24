@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.format.protobuf.exception.ProtobufFormatErrorCode;
 import org.apache.seatunnel.format.protobuf.exception.SeaTunnelProtobufFormatException;
 
+import com.google.protobuf.ByteString;
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.DynamicMessage;
 
@@ -52,6 +53,9 @@ public class RowToProtobufConverter implements Serializable {
             Object resolvedValue =
                     resolveObject(fieldName, value, rowType.getFieldType(i), builder);
             if (resolvedValue != null) {
+                if (resolvedValue instanceof byte[]) {
+                    resolvedValue = ByteString.copyFrom((byte[]) resolvedValue);
+                }
                 builder.setField(
                         descriptor.findFieldByName(fieldName.toLowerCase()), resolvedValue);
             }

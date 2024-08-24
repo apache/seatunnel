@@ -48,6 +48,10 @@ public class CompileDescriptor {
                     DescriptorProtos.FileDescriptorSet.parseFrom(fis);
             Descriptors.FileDescriptor[] descriptorsArray = buildFileDescriptors(descriptorSet);
             return descriptorsArray[0].findMessageTypeByName(messageName);
+        } finally {
+            tmpDir.delete();
+            protoFile.delete();
+            new File(targetDescPath).delete();
         }
     }
 
