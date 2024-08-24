@@ -87,8 +87,8 @@ public class ConfigShadeTest {
                 config.getConfigList("source").get(0).getString("username"), "******");
         Assertions.assertEquals(
                 config.getConfigList("source").get(0).getString("password"), "******");
-        String conf = ConfigBuilder.mapToString(config.root().unwrapped(), false);
-        Assertions.assertTrue(conf.contains("username=\"******\""));
+        String conf = ConfigBuilder.mapToString(config.root().unwrapped());
+        Assertions.assertTrue(conf.contains("\"password\" : \"******\""));
     }
 
     @Test
@@ -107,8 +107,29 @@ public class ConfigShadeTest {
                 config.getConfigList("source").get(0).getString("username"), "******");
         Assertions.assertEquals(
                 config.getConfigList("source").get(0).getString("password"), "******");
-        String json = ConfigBuilder.mapToString(config.root().unwrapped(), true);
+        String json = ConfigBuilder.mapToString(config.root().unwrapped());
         Assertions.assertTrue(json.contains("\"password\" : \"******\""));
+    }
+
+    @Test
+    public void testConfNull() throws URISyntaxException {
+        URL resource = ConfigShadeTest.class.getResource("/config.shade_caseNull.conf");
+        Assertions.assertNotNull(resource);
+        Config config = ConfigBuilder.of(Paths.get(resource.toURI()), Lists.newArrayList());
+        config =
+                ConfigFactory.parseMap(
+                                ConfigBuilder.configDesensitization(config.root().unwrapped()))
+                        .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
+                        .resolveWith(
+                                ConfigFactory.systemProperties(),
+                                ConfigResolveOptions.defaults().setAllowUnresolved(true));
+        Assertions.assertEquals(
+                config.getConfigList("source").get(0).getString("username"), "******");
+        Assertions.assertEquals(
+                config.getConfigList("source").get(0).getString("password"), "******");
+        String conf = ConfigBuilder.mapToString(config.root().unwrapped());
+        Assertions.assertTrue(conf.contains("\"password\" : \"******\""));
+        Assertions.assertTrue(conf.contains("\"test\" : null"));
     }
 
     @Test
