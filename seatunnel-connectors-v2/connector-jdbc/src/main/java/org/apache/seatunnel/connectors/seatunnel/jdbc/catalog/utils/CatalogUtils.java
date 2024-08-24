@@ -276,10 +276,9 @@ public class CatalogUtils {
         String databaseName = null;
         String schemaName = null;
         try {
-            int columnCount = metadata.getColumnCount();
-            tableName = metadata.getTableName(columnCount);
-            databaseName = metadata.getCatalogName(columnCount);
-            schemaName = metadata.getSchemaName(columnCount);
+            tableName = metadata.getTableName(1);
+            databaseName = metadata.getCatalogName(1);
+            schemaName = metadata.getSchemaName(1);
         } catch (SQLException ignored) {
         }
         for (int index = 1; index <= metadata.getColumnCount(); index++) {
@@ -299,12 +298,14 @@ public class CatalogUtils {
             throw CommonError.getCatalogTableWithUnsupportedType("UNKNOWN", sqlQuery, unsupported);
         }
         String catalogName = "jdbc_catalog";
+        databaseName = StringUtils.isBlank(databaseName) ? null : databaseName;
+        schemaName = StringUtils.isBlank(schemaName) ? null : schemaName;
+        TablePath tablePath =
+                StringUtils.isBlank(tableName)
+                        ? TablePath.DEFAULT
+                        : TablePath.of(databaseName, schemaName, tableName);
         return CatalogTable.of(
-                TableIdentifier.of(
-                        catalogName,
-                        StringUtils.isBlank(databaseName) ? null : databaseName,
-                        StringUtils.isBlank(schemaName) ? null : schemaName,
-                        StringUtils.isBlank(tableName) ? "default" : tableName),
+                TableIdentifier.of(catalogName, tablePath),
                 schemaBuilder.build(),
                 new HashMap<>(),
                 new ArrayList<>(),
