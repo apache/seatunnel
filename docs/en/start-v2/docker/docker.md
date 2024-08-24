@@ -45,7 +45,7 @@ docker build -f src/main/docker/Dockerfile --build-arg VERSION=2.3.8-SNAPSHOT -t
 ```
 
 The Dockerfile is like this:
-```Dockerfile
+```dockerfile
 FROM openjdk:8
 
 ARG VERSION
@@ -84,7 +84,7 @@ docker run \
 
 Or you can change the `SPARK_HOME`, `FLINK_HOME` environment variable in Dockerfile and re-build your  and mount the spark/flink to related path.
 
-```Dockerfile
+```dockerfile
 FROM apache/seatunnel
 
 ENV SPARK_HOME=<YOUR_CUSTOMIZATION_PATH>
