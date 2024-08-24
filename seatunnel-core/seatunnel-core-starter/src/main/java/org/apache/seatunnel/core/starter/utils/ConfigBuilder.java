@@ -35,7 +35,6 @@ import lombok.extern.slf4j.Slf4j;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -191,10 +190,6 @@ public class ConfigBuilder {
                 ConfigRenderOptions.concise().setFormatted(true).setJson(isJson);
         ConfigParseOptions configParseOptions =
                 ConfigParseOptions.defaults().setSyntax(ConfigSyntax.JSON);
-        if (!isJson) {
-            convertHoconMap(configMap);
-            configParseOptions.setSyntax(ConfigSyntax.CONF);
-        }
         Config config =
                 ConfigFactory.parseString(JsonUtils.toJsonString(configMap), configParseOptions)
                         .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
@@ -202,34 +197,5 @@ public class ConfigBuilder {
                                 ConfigFactory.systemProperties(),
                                 ConfigResolveOptions.defaults().setAllowUnresolved(true));
         return config.root().render(configRenderOptions);
-    }
-
-    private static void convertHoconMap(Map<String, Object> configMap) {
-        convertField(configMap, "source");
-        convertField(configMap, "sink");
-    }
-
-    private static void convertField(Map<String, Object> configMap, String fieldName) {
-        if (configMap.containsKey(fieldName)) {
-            Object fieldValue = configMap.get(fieldName);
-            if (fieldValue instanceof List) {
-                @SuppressWarnings("unchecked")
-                List<Map<String, Object>> list = (List<Map<String, Object>>) fieldValue;
-                Map<String, Object> newMap =
-                        list.stream()
-                                .collect(
-                                        HashMap::new,
-                                        (m, entry) -> {
-                                            String pluginName =
-                                                    entry.getOrDefault("plugin_name", "")
-                                                            .toString();
-                                            Map<String, Object> pluginConfig = new HashMap<>(entry);
-                                            pluginConfig.remove("plugin_name");
-                                            m.put(pluginName, pluginConfig);
-                                        },
-                                        HashMap::putAll);
-                configMap.put(fieldName, newMap);
-            }
-        }
     }
 }
