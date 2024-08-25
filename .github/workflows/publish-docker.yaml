@@ -20,8 +20,6 @@ on:
   push:
     tags:
       - '*'
-    branches:
-      - dev
     paths-ignore:
       - 'docs/**'
       - '**/*.md'

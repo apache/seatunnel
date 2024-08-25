@@ -16,14 +16,14 @@ How to submit job in local mode
 
 ```shell
 # Run fake source to console sink
-docker run --rm -it apache/seatunnel:<version_tag> ./bin/seatunnel.sh -e local -c config/v2.batch.config.template
+docker run --rm -it apache/seatunnel:<version_tag> ./bin/seatunnel.sh -m local -c config/v2.batch.config.template
 
 # Run job with custom config file
-docker run --rm -it -v /<The-Config-Directory-To-Mount>/:/config apache/seatunnel:<version_tag> ./bin/seatunnel.sh -e local -c /config/fake_to_console.conf
+docker run --rm -it -v /<The-Config-Directory-To-Mount>/:/config apache/seatunnel:<version_tag> ./bin/seatunnel.sh -m local -c /config/fake_to_console.conf
 
 # Example
 # If you config file is in /tmp/job/fake_to_console.conf
-docker run --rm -it -v /tmp/job/:/config apache/seatunnel:<version_tag> ./bin/seatunnel.sh -e local -c /config/fake_to_console.conf
+docker run --rm -it -v /tmp/job/:/config apache/seatunnel:<version_tag> ./bin/seatunnel.sh -m local -c /config/fake_to_console.conf
 ```
 
 ### Build Image By Yourself
