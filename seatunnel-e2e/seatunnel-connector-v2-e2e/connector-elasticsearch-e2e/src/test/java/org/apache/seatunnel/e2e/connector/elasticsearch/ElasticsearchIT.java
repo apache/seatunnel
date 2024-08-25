@@ -268,7 +268,8 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                     "c_bytes",
                     "c_int",
                     "c_date",
-                    "c_timestamp"
+                    "c_timestamp",
+                    "c_null"
                 };
 
         List<String> documents = new ArrayList<>();
@@ -283,14 +284,16 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                         Boolean.FALSE,
                         Byte.parseByte("1"),
                         Short.parseShort("1"),
-                        i,
                         Long.parseLong("1"),
                         Float.parseFloat("1.1"),
                         Double.parseDouble("1.1"),
                         BigDecimal.valueOf(11, 1),
                         "test".getBytes(),
+                        i,
                         LocalDate.now().toString(),
-                        System.currentTimeMillis()
+                        System.currentTimeMillis(),
+                        // Null values are also a basic use case for testing
+                        null
                     };
             for (int j = 0; j < fields.length; j++) {
                 doc.put(fields[j], values[j]);
@@ -326,7 +329,8 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                         "c_bytes",
                         "c_int",
                         "c_date",
-                        "c_timestamp");
+                        "c_timestamp",
+                        "c_null");
         return getDocsWithTransformTimestamp(source, index);
     }
 
