@@ -115,9 +115,10 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                         Optional.empty(),
                         Optional.empty());
         testDataset = generateTestDataSet();
+        createIndexForResourceNull("st_index");
         createIndexDocs();
         createIndexWithFullType();
-        createIndexForResourceNull();
+        createIndexForResourceNull("st_index4");
     }
 
     /** create a index,and bulk some documents */
@@ -163,14 +164,14 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                 2, esRestClient.getIndexDocsCount("st_index_full_type").get(0).getDocsCount());
     }
 
-    private void createIndexForResourceNull() throws IOException {
+    private void createIndexForResourceNull(String indexName) throws IOException {
         String mapping =
                 IOUtils.toString(
                         ContainerUtil.getResourcesFile(
                                         "/elasticsearch/st_index_source_without_schema_and_sink.json")
                                 .toURI(),
                         StandardCharsets.UTF_8);
-        esRestClient.createIndex("st_index4", mapping);
+        esRestClient.createIndex(indexName, mapping);
     }
 
     @TestTemplate
