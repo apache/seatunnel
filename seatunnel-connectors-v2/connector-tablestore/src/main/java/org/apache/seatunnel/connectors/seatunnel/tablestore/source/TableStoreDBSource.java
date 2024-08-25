@@ -18,7 +18,6 @@ package org.apache.seatunnel.connectors.seatunnel.tablestore.source;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
@@ -30,7 +29,9 @@ import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.connectors.seatunnel.tablestore.config.TablestoreOptions;
+
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
@@ -50,14 +51,11 @@ public class TableStoreDBSource
         return "Tablestore";
     }
 
-
-
     public TableStoreDBSource(ReadonlyConfig config) {
         this.tablestoreOptions = TablestoreOptions.of(config);
         CatalogTableUtil.buildWithConfig(config);
         this.typeInfo = CatalogTableUtil.buildWithConfig(config).getSeaTunnelRowType();
     }
-
 
     @Override
     public Boundedness getBoundedness() {
@@ -96,6 +94,7 @@ public class TableStoreDBSource
         return new TableStoreDBSourceSplitEnumerator(
                 enumeratorContext, tablestoreOptions, checkpointState);
     }
+
     @Override
     public void setJobContext(JobContext jobContext) {
         this.jobContext = jobContext;

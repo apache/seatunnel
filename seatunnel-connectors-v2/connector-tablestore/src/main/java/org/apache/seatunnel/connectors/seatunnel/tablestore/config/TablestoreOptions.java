@@ -17,15 +17,14 @@
 
 package org.apache.seatunnel.connectors.seatunnel.tablestore.config;
 
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
 import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -49,9 +48,7 @@ public class TablestoreOptions implements Serializable {
 
     public int batchSize = Integer.parseInt(BATCH_SIZE.defaultValue());
 
-    public TablestoreOptions(){
-
-    }
+    public TablestoreOptions() {}
 
     public TablestoreOptions(Config config) {
         this.endpoint = config.getString(TablestoreConfig.END_POINT.key());
@@ -66,8 +63,8 @@ public class TablestoreOptions implements Serializable {
         }
     }
 
-    public static TablestoreOptions of(ReadonlyConfig config){
-        Map<String,Object> map = config.getSourceMap();
+    public static TablestoreOptions of(ReadonlyConfig config) {
+        Map<String, Object> map = config.getSourceMap();
         TablestoreOptions tablestoreOptions = new TablestoreOptions();
         tablestoreOptions.setEndpoint(config.get(TablestoreConfig.END_POINT));
         tablestoreOptions.setInstanceName(config.get(TablestoreConfig.INSTANCE_NAME));
