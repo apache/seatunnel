@@ -22,8 +22,12 @@ docker run --rm -it apache/seatunnel:<version_tag> ./bin/seatunnel.sh -m local -
 docker run --rm -it -v /<The-Config-Directory-To-Mount>/:/config apache/seatunnel:<version_tag> ./bin/seatunnel.sh -m local -c /config/fake_to_console.conf
 
 # Example
+
 # If you config file is in /tmp/job/fake_to_console.conf
 docker run --rm -it -v /tmp/job/:/config apache/seatunnel:<version_tag> ./bin/seatunnel.sh -m local -c /config/fake_to_console.conf
+
+# Set JVM options when running
+docker run --rm -it -v /tmp/job/:/config apache/seatunnel:<version_tag> ./bin/seatunnel.sh -DJvmOption="-Xms4G -Xmx4G" -m local -c /config/fake_to_console.conf
 ```
 
 ### Build Image By Yourself
