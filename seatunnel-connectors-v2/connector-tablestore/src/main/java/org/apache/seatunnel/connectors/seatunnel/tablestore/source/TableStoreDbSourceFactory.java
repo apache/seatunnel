@@ -16,13 +16,20 @@
  */
 package org.apache.seatunnel.connectors.seatunnel.tablestore.source;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
-import org.apache.seatunnel.connectors.seatunnel.tablestore.config.TablestoreConfig;
+import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
+
 
 import com.google.auto.service.AutoService;
+import org.apache.seatunnel.connectors.seatunnel.tablestore.config.TablestoreOptions;
+import org.apache.seatunnel.connectors.seatunnel.tablestore.config.TablestoreConfig;
+import java.io.Serializable;
 
 @AutoService(Factory.class)
 public class TableStoreDbSourceFactory implements TableSourceFactory {
@@ -40,11 +47,16 @@ public class TableStoreDbSourceFactory implements TableSourceFactory {
                         TablestoreConfig.INSTANCE_NAME,
                         TablestoreConfig.ACCESS_KEY_ID,
                         TablestoreConfig.ACCESS_KEY_SECRET,
-                        TablestoreConfig.TABLE)
-                .optional(TablestoreConfig.BATCH_SIZE)
+                        TablestoreConfig.TABLE,
+                        TablestoreConfig.PRIMARY_KEYS)
                 .build();
     }
 
+    @Override
+    public <T, SplitT extends SourceSplit, StateT extends Serializable>
+    TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
+        return () -> (SeaTunnelSource<T, SplitT, StateT>) new TableStoreDBSource(context.getOptions());
+    }
     @Override
     public Class<? extends SeaTunnelSource> getSourceClass() {
         return TableStoreDBSource.class;
