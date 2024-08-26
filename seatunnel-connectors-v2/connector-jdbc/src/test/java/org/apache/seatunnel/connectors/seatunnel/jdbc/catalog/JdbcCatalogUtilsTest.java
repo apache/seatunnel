@@ -32,7 +32,7 @@ import java.util.List;
 public class JdbcCatalogUtilsTest {
 
     @Test
-    public void test() throws SQLException, ClassNotFoundException {
+    public void testCatalogUtils() throws SQLException, ClassNotFoundException {
         List<JdbcSourceTableConfig> tablesConfig = new ArrayList<>();
         // JdbcSourceTableConfig(tablePath=null, query=select age, name,gender from `dbs`.`user`,
         // partitionColumn=null, partitionNumber=10, partitionStart=null, partitionEnd=null,
