@@ -80,31 +80,33 @@ abstract class BaseDeltaTaskWriter extends BaseTaskWriter<Record> {
             throw new RuntimeException();
         }
         IcebergRecord row = (IcebergRecord) record;
-        RowDataDeltaWriter writer = route(row);
-        switch (row.getRowKind()) {
-            case INSERT:
-            case UPDATE_AFTER:
-                if (upsert) {
-                    writer.deleteKey(keyProjection.wrap(row));
-                }
-                writer.write(row);
-                break;
-            case UPDATE_BEFORE:
-                if (upsert) {
+        try (RowDataDeltaWriter writer = route(row)) {
+            switch (row.getRowKind()) {
+                case INSERT:
+                case UPDATE_AFTER:
+                    if (upsert) {
+                        writer.deleteKey(keyProjection.wrap(row));
+                    }
+                    writer.write(row);
                     break;
-                }
-                writer.delete(row);
-                break;
-            case DELETE:
-                if (upsert) {
-                    writer.deleteKey(keyProjection.wrap(row));
-                } else {
+                case UPDATE_BEFORE:
+                    if (upsert) {
+                        break;
+                    }
                     writer.delete(row);
-                }
-                break;
+                    break;
+                case DELETE:
+                    if (upsert) {
+                        writer.deleteKey(keyProjection.wrap(row));
+                    } else {
+                        writer.delete(row);
+                    }
+                    break;
 
-            default:
-                throw new UnsupportedOperationException("Unknown row kind: " + row.getRowKind());
+                default:
+                    throw new UnsupportedOperationException(
+                            "Unknown row kind: " + row.getRowKind());
+            }
         }
     }
 

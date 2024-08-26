@@ -58,9 +58,9 @@ import static org.apache.seatunnel.connectors.seatunnel.iceberg.utils.SchemaUtil
 
 @Slf4j
 public class IcebergCatalog implements Catalog {
-    private String catalogName;
-    private ReadonlyConfig readonlyConfig;
-    private IcebergCatalogLoader icebergCatalogLoader;
+    private final String catalogName;
+    private final ReadonlyConfig readonlyConfig;
+    private final IcebergCatalogLoader icebergCatalogLoader;
     private org.apache.iceberg.catalog.Catalog catalog;
 
     public IcebergCatalog(String catalogName, ReadonlyConfig readonlyConfig) {
@@ -224,22 +224,21 @@ public class IcebergCatalog implements Catalog {
     public CatalogTable toCatalogTable(Table icebergTable, TablePath tablePath) {
         List<Types.NestedField> columns = icebergTable.schema().columns();
         TableSchema.Builder builder = TableSchema.builder();
-        columns.stream()
-                .forEach(
-                        nestedField -> {
-                            String name = nestedField.name();
-                            SeaTunnelDataType<?> seaTunnelType =
-                                    SchemaUtils.toSeaTunnelType(name, nestedField.type());
-                            PhysicalColumn physicalColumn =
-                                    PhysicalColumn.of(
-                                            name,
-                                            seaTunnelType,
-                                            (Long) null,
-                                            true,
-                                            null,
-                                            nestedField.doc());
-                            builder.column(physicalColumn);
-                        });
+        columns.forEach(
+                nestedField -> {
+                    String name = nestedField.name();
+                    SeaTunnelDataType<?> seaTunnelType =
+                            SchemaUtils.toSeaTunnelType(name, nestedField.type());
+                    PhysicalColumn physicalColumn =
+                            PhysicalColumn.of(
+                                    name,
+                                    seaTunnelType,
+                                    (Long) null,
+                                    true,
+                                    null,
+                                    nestedField.doc());
+                    builder.column(physicalColumn);
+                });
 
         List<String> partitionKeys =
                 icebergTable.spec().fields().stream()
