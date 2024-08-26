@@ -327,6 +327,7 @@ public class HudiSinkWriter
                         "Unsupported operation type: " + opType);
         }
         batchCount = 0;
+        hoodieRecords.clear();
     }
 
     private void checkFlushException() {
