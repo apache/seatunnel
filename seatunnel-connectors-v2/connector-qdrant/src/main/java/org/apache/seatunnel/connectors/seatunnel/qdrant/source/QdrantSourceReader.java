@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.utils.BufferUtils;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.qdrant.config.QdrantParameters;
@@ -163,7 +164,7 @@ public class QdrantSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
                     List<Float> list = vector.getDataList();
                     Float[] vectorArray = new Float[list.size()];
                     list.toArray(vectorArray);
-                    fields[fieldIndex] = vectorArray;
+                    fields[fieldIndex] = BufferUtils.toByteBuffer(vectorArray);
                     break;
                 default:
                     throw new QdrantConnectorException(

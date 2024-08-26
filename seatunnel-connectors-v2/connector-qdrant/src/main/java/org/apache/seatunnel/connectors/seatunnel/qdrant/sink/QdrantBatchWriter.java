@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.utils.BufferUtils;
 import org.apache.seatunnel.connectors.seatunnel.qdrant.config.QdrantParameters;
 import org.apache.seatunnel.connectors.seatunnel.qdrant.exception.QdrantConnectorException;
 
@@ -35,10 +36,13 @@ import io.qdrant.client.VectorFactory;
 import io.qdrant.client.grpc.JsonWithInt;
 import io.qdrant.client.grpc.Points;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 
 import static io.qdrant.client.PointIdFactory.id;
 import static org.apache.seatunnel.api.table.catalog.PrimaryKey.isPrimaryKeyField;
@@ -176,11 +180,9 @@ public class QdrantBatchWriter {
             case FLOAT16_VECTOR:
             case BFLOAT16_VECTOR:
             case BINARY_VECTOR:
-                List<Float> floats = new ArrayList<>();
-                for (Object o : (Object[]) value) {
-                    floats.add(Float.parseFloat(o.toString()));
-                }
-                return VectorFactory.vector(floats);
+                ByteBuffer floatVectorBuffer = (ByteBuffer) value;
+                Float[] floats = BufferUtils.toFloatArray(floatVectorBuffer);
+                return VectorFactory.vector(Arrays.stream(floats).collect(Collectors.toList()));
             default:
                 return null;
         }
