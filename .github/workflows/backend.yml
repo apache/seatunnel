@@ -553,6 +553,8 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - name: free disk space
+        run: tools/github/free_disk_space.sh
       - name: run seatunnel zeta integration test
         if: needs.changes.outputs.api == 'true'
         run: |
@@ -587,7 +589,6 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
       - name: run seatunnel zeta on k8s test
-        if: needs.changes.outputs.api == 'true'
         run: |
           ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :seatunnel-engine-k8s-e2e -am -Pci
         env:
@@ -610,6 +611,8 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - name: free disk space
+        run: tools/github/free_disk_space.sh
       - name: run transform-v2 integration test (part-1)
         if: needs.changes.outputs.api == 'true'
         run: |
@@ -634,6 +637,8 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - name: free disk space
+        run: tools/github/free_disk_space.sh
       - name: run transform-v2 integration test (part-2)
         if: needs.changes.outputs.api == 'true'
         run: |
@@ -658,6 +663,8 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - name: free disk space
+        run: tools/github/free_disk_space.sh
       - name: run connector-v2 integration test (part-1)
         if: needs.changes.outputs.api == 'true'
         run: |
@@ -685,6 +692,8 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - name: free disk space
+        run: tools/github/free_disk_space.sh
       - name: run connector-v2 integration test (part-2)
         if: needs.changes.outputs.api == 'true'
         run: |
@@ -712,6 +721,8 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - name: free disk space
+        run: tools/github/free_disk_space.sh
       - name: run connector-v2 integration test (part-3)
         if: needs.changes.outputs.api == 'true'
         run: |
@@ -739,6 +750,8 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - name: free disk space
+        run: tools/github/free_disk_space.sh
       - name: run connector-v2 integration test (part-4)
         if: needs.changes.outputs.api == 'true'
         run: |
@@ -766,6 +779,8 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - name: free disk space
+        run: tools/github/free_disk_space.sh
       - name: run connector-v2 integration test (part-5)
         if: needs.changes.outputs.api == 'true'
         run: |
@@ -793,6 +808,8 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - name: free disk space
+        run: tools/github/free_disk_space.sh
       - name: run connector-v2 integration test (part-6)
         if: needs.changes.outputs.api == 'true'
         run: |
@@ -820,6 +837,8 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - name: free disk space
+        run: tools/github/free_disk_space.sh
       - name: run connector-v2 integration test (part-7)
         if: needs.changes.outputs.api == 'true'
         run: |
@@ -899,6 +918,8 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - name: free disk space
+        run: tools/github/free_disk_space.sh
       - name: run jdbc connectors integration test (part-3)
         if: needs.changes.outputs.api == 'true'
         run: |
@@ -923,6 +944,8 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - name: free disk space
+        run: tools/github/free_disk_space.sh
       - name: run jdbc connectors integration test (part-4)
         if: needs.changes.outputs.api == 'true'
         run: |
@@ -947,6 +970,8 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - name: free disk space
+        run: tools/github/free_disk_space.sh
       - name: run jdbc connectors integration test (part-5)
         if: needs.changes.outputs.api == 'true'
         run: |
@@ -997,6 +1022,8 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - name: free disk space
+        run: tools/github/free_disk_space.sh
       - name: run jdbc connectors integration test (part-7)
         if: needs.changes.outputs.api == 'true'
         run: |
@@ -1021,6 +1048,8 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - name: free disk space
+        run: tools/github/free_disk_space.sh
       - name: run kudu connector integration test
         run: |
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :connector-kudu-e2e -am -Pci
@@ -1044,6 +1073,8 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - name: free disk space
+        run: tools/github/free_disk_space.sh
       - name: run amazonsqs connector integration test
         run: |
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :connector-amazonsqs-e2e -am -Pci
@@ -1052,7 +1083,7 @@ jobs:
 
   kafka-connector-it:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true'
+    if: needs.changes.outputs.api == 'true' || contains(needs.changes.outputs.it-modules, 'connector-kafka-e2e')
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -1067,8 +1098,9 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - name: free disk space
+        run: tools/github/free_disk_space.sh
       - name: run kafka connector integration test
-        if: needs.changes.outputs.api == 'true'
         run: |
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :connector-kafka-e2e -am -Pci
         env:
@@ -1076,7 +1108,7 @@ jobs:
 
   rocketmq-connector-it:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true'
+    if: needs.changes.outputs.api == 'true' || contains(needs.changes.outputs.it-modules, 'connector-rocketmq-e2e')
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -1091,8 +1123,9 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - name: free disk space
+        run: tools/github/free_disk_space.sh
       - name: run rocket connector integration test
-        if: needs.changes.outputs.api == 'true'
         run: |
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :connector-rocketmq-e2e -am -Pci
         env:
@@ -1142,6 +1175,8 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
+      - name: free disk space
+        run: tools/github/free_disk_space.sh
       - name: run oracle cdc connector integration test
         run: |
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true --no-snapshot-updates -pl :connector-cdc-oracle-e2e -am -Pci

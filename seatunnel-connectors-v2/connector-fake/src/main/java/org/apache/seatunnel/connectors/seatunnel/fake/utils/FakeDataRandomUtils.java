@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.fake.utils;
 
+import org.apache.seatunnel.common.utils.BufferUtils;
 import org.apache.seatunnel.connectors.seatunnel.fake.config.FakeConfig;
 
 import org.apache.commons.collections4.CollectionUtils;
@@ -24,10 +25,13 @@ import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.RandomUtils;
 
 import java.math.BigDecimal;
+import java.nio.ByteBuffer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class FakeDataRandomUtils {
     private final FakeConfig fakeConfig;
@@ -166,5 +170,80 @@ public class FakeDataRandomUtils {
             second = RandomUtils.nextInt(0, 60);
         }
         return LocalDateTime.of(year, month, day, hour, minute, second);
+    }
+
+    public ByteBuffer randomBinaryVector() {
+        int byteCount = fakeConfig.getBinaryVectorDimension() / 8;
+        // binary vector doesn't care endian since each byte is independent
+        return ByteBuffer.wrap(RandomUtils.nextBytes(byteCount));
+    }
+
+    public ByteBuffer randomFloatVector() {
+        Float[] floatVector = new Float[fakeConfig.getVectorDimension()];
+        for (int i = 0; i < fakeConfig.getVectorDimension(); i++) {
+            floatVector[i] =
+                    RandomUtils.nextFloat(
+                            fakeConfig.getVectorFloatMin(), fakeConfig.getVectorFloatMax());
+        }
+        return BufferUtils.toByteBuffer(floatVector);
+    }
+
+    public ByteBuffer randomFloat16Vector() {
+        Short[] float16Vector = new Short[fakeConfig.getVectorDimension()];
+        for (int i = 0; i < fakeConfig.getVectorDimension(); i++) {
+            float value =
+                    RandomUtils.nextFloat(
+                            fakeConfig.getVectorFloatMin(), fakeConfig.getVectorFloatMax());
+            float16Vector[i] = floatToFloat16(value);
+        }
+        return BufferUtils.toByteBuffer(float16Vector);
+    }
+
+    public ByteBuffer randomBFloat16Vector() {
+        Short[] bfloat16Vector = new Short[fakeConfig.getVectorDimension()];
+        for (int i = 0; i < fakeConfig.getVectorDimension(); i++) {
+            float value =
+                    RandomUtils.nextFloat(
+                            fakeConfig.getVectorFloatMin(), fakeConfig.getVectorFloatMax());
+            bfloat16Vector[i] = floatToBFloat16(value);
+        }
+        return BufferUtils.toByteBuffer(bfloat16Vector);
+    }
+
+    public Map<Integer, Float> randomSparseFloatVector() {
+        Map<Integer, Float> sparseVector = new HashMap<>();
+
+        Integer nonZeroElements = fakeConfig.getVectorDimension();
+        while (nonZeroElements > 0) {
+            Integer index = RandomUtils.nextInt();
+            Float value =
+                    RandomUtils.nextFloat(
+                            fakeConfig.getVectorFloatMin(), fakeConfig.getVectorFloatMax());
+            if (!sparseVector.containsKey(index)) {
+                sparseVector.put(index, value);
+                nonZeroElements--;
+            }
+        }
+
+        return sparseVector;
+    }
+
+    private static short floatToFloat16(float value) {
+        int intBits = Float.floatToIntBits(value);
+        int sign = (intBits >>> 16) & 0x8000;
+        int exponent = ((intBits >>> 23) & 0xff) - 112;
+        int mantissa = intBits & 0x007fffff;
+
+        if (exponent <= 0) {
+            return (short) sign;
+        } else if (exponent > 0x1f) {
+            return (short) (sign | 0x7c00);
+        }
+        return (short) (sign | (exponent << 10) | (mantissa >> 13));
+    }
+
+    private static short floatToBFloat16(float value) {
+        int intBits = Float.floatToIntBits(value);
+        return (short) (intBits >> 16);
     }
 }

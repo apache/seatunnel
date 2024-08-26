@@ -88,8 +88,7 @@ public class IcebergSink
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, IcebergCommitInfo, IcebergSinkState> createWriter(
-            SinkWriter.Context context) throws IOException {
+    public IcebergSinkWriter createWriter(SinkWriter.Context context) throws IOException {
         return IcebergSinkWriter.of(config, catalogTable);
     }
 
@@ -131,7 +130,6 @@ public class IcebergSink
         }
         Catalog catalog =
                 catalogFactory.createCatalog(catalogFactory.factoryIdentifier(), readonlyConfig);
-        catalog.open();
         return Optional.of(
                 new DefaultSaveModeHandler(
                         config.getSchemaSaveMode(),

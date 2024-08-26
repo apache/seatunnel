@@ -22,7 +22,6 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.DataSaveMode;
-import org.apache.seatunnel.api.sink.DefaultSaveModeHandler;
 import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
@@ -43,6 +42,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.savemode.JdbcSaveModeHandler;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcSinkState;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.XidInfo;
@@ -100,12 +100,13 @@ public class JdbcSink
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, XidInfo, JdbcSinkState> createWriter(
-            SinkWriter.Context context) {
-        SinkWriter<SeaTunnelRow, XidInfo, JdbcSinkState> sinkWriter;
+    public AbstractJdbcSinkWriter createWriter(SinkWriter.Context context) {
+        TablePath sinkTablePath = catalogTable.getTablePath();
+        AbstractJdbcSinkWriter sinkWriter;
         if (jdbcSinkConfig.isExactlyOnce()) {
             sinkWriter =
                     new JdbcExactlyOnceSinkWriter(
+                            sinkTablePath,
                             context,
                             jobContext,
                             dialect,
@@ -117,10 +118,12 @@ public class JdbcSink
                 String keyName = tableSchema.getPrimaryKey().getColumnNames().get(0);
                 int index = tableSchema.toPhysicalRowDataType().indexOf(keyName);
                 if (index > -1) {
-                    return new JdbcSinkWriter(dialect, jdbcSinkConfig, tableSchema, index);
+                    return new JdbcSinkWriter(
+                            sinkTablePath, dialect, jdbcSinkConfig, tableSchema, index);
                 }
             }
-            sinkWriter = new JdbcSinkWriter(dialect, jdbcSinkConfig, tableSchema, null);
+            sinkWriter =
+                    new JdbcSinkWriter(sinkTablePath, dialect, jdbcSinkConfig, tableSchema, null);
         }
         return sinkWriter;
     }
@@ -128,9 +131,16 @@ public class JdbcSink
     @Override
     public SinkWriter<SeaTunnelRow, XidInfo, JdbcSinkState> restoreWriter(
             SinkWriter.Context context, List<JdbcSinkState> states) throws IOException {
+        TablePath sinkTablePath = catalogTable.getTablePath();
         if (jdbcSinkConfig.isExactlyOnce()) {
             return new JdbcExactlyOnceSinkWriter(
-                    context, jobContext, dialect, jdbcSinkConfig, tableSchema, states);
+                    sinkTablePath,
+                    context,
+                    jobContext,
+                    dialect,
+                    jdbcSinkConfig,
+                    tableSchema,
+                    states);
         }
         return SeaTunnelSink.super.restoreWriter(context, states);
     }
@@ -167,6 +177,11 @@ public class JdbcSink
 
     @Override
     public Optional<SaveModeHandler> getSaveModeHandler() {
+        try {
+            Class.forName(jdbcSinkConfig.getJdbcConnectionConfig().getDriverName());
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
         if (catalogTable != null) {
             if (StringUtils.isBlank(jdbcSinkConfig.getDatabase())) {
                 return Optional.empty();
@@ -183,7 +198,6 @@ public class JdbcSink
             if (catalogOptional.isPresent()) {
                 try {
                     Catalog catalog = catalogOptional.get();
-                    catalog.open();
                     FieldIdeEnum fieldIdeEnumEnum = config.get(JdbcOptions.FIELD_IDE);
                     String fieldIde =
                             fieldIdeEnumEnum == null
@@ -204,16 +218,18 @@ public class JdbcSink
                                         catalog,
                                         tablePath,
                                         catalogTable,
-                                        config.get(JdbcOptions.CUSTOM_SQL)));
+                                        config.get(JdbcOptions.CUSTOM_SQL),
+                                        jdbcSinkConfig.isCreateIndex()));
                     }
                     return Optional.of(
-                            new DefaultSaveModeHandler(
+                            new JdbcSaveModeHandler(
                                     schemaSaveMode,
                                     dataSaveMode,
                                     catalog,
                                     tablePath,
                                     catalogTable,
-                                    config.get(JdbcOptions.CUSTOM_SQL)));
+                                    config.get(JdbcOptions.CUSTOM_SQL),
+                                    jdbcSinkConfig.isCreateIndex()));
                 } catch (Exception e) {
                     throw new JdbcConnectorException(HANDLE_SAVE_MODE_FAILED, e);
                 }

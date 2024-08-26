@@ -20,7 +20,7 @@
 set -euo pipefail
 
 PR_DIR=$1
-PR_IMG_DIR="${PR_DIR}/docs/en/images"
+PR_IMG_DIR="${PR_DIR}/docs/images"
 PR_DOC_DIR="${PR_DIR}/docs/en"
 PR_SIDEBAR_PATH="${PR_DIR}/docs/sidebars.js"
 

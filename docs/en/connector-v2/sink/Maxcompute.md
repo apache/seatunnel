@@ -53,7 +53,7 @@ Used to read data from Maxcompute.
 
 ### common options
 
-Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details.
+Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details.
 
 ## Examples
 

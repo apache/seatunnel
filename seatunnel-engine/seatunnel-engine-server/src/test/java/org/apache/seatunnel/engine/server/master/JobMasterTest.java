@@ -278,7 +278,7 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
                         .getCheckpointManager()
                         .getCheckpointCoordinator(seaTunnelTask.getTaskLocation().getPipelineId());
         await().atMost(60, TimeUnit.SECONDS)
-                .until(() -> checkpointCoordinator.getClosedIdleTask().size() == 2);
+                .until(() -> checkpointCoordinator.getClosedIdleTask().size() == 3);
         await().atMost(60, TimeUnit.SECONDS)
                 .until(() -> slotService.getWorkerProfile().getAssignedSlots().length == 3);
     }
@@ -306,7 +306,8 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
         Data data = nodeEngine.getSerializationService().toData(jobImmutableInformation);
 
         PassiveCompletableFuture<Void> voidPassiveCompletableFuture =
-                server.getCoordinatorService().submitJob(jobId, data);
+                server.getCoordinatorService()
+                        .submitJob(jobId, data, jobImmutableInformation.isStartWithSavePoint());
         voidPassiveCompletableFuture.join();
 
         JobMaster jobMaster = server.getCoordinatorService().getJobMaster(jobId);

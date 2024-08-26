@@ -17,30 +17,34 @@
 
 package org.apache.seatunnel.connectors.doris.serialize;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonGenerator;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+
+import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.table.type.RowKind;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.doris.sink.writer.LoadConstants;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.format.json.JsonSerializationSchema;
+import org.apache.seatunnel.format.text.TextSerializationSchema;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.StringJoiner;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
-import static com.google.common.base.Preconditions.checkState;
+import static org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE;
 import static org.apache.seatunnel.connectors.doris.sink.writer.LoadConstants.CSV;
 import static org.apache.seatunnel.connectors.doris.sink.writer.LoadConstants.JSON;
 import static org.apache.seatunnel.connectors.doris.sink.writer.LoadConstants.NULL_VALUE;
 
-public class SeaTunnelRowSerializer extends SeaTunnelRowConverter implements DorisSerializer {
+public class SeaTunnelRowSerializer implements DorisSerializer {
     String type;
-    private ObjectMapper objectMapper;
     private final SeaTunnelRowType seaTunnelRowType;
     private final String fieldDelimiter;
     private final boolean enableDelete;
+    private final SerializationSchema serialize;
 
     public SeaTunnelRowSerializer(
             String type,
@@ -48,51 +52,46 @@ public class SeaTunnelRowSerializer extends SeaTunnelRowConverter implements Dor
             String fieldDelimiter,
             boolean enableDelete) {
         this.type = type;
-        this.seaTunnelRowType = seaTunnelRowType;
         this.fieldDelimiter = fieldDelimiter;
         this.enableDelete = enableDelete;
-        if (JSON.equals(type)) {
-            objectMapper = new ObjectMapper();
-        }
-    }
+        List<Object> fieldNames = new ArrayList<>(Arrays.asList(seaTunnelRowType.getFieldNames()));
+        List<SeaTunnelDataType<?>> fieldTypes =
+                new ArrayList<>(Arrays.asList(seaTunnelRowType.getFieldTypes()));
 
-    @Override
-    public byte[] serialize(SeaTunnelRow seaTunnelRow) throws IOException {
-        String valString;
+        if (enableDelete) {
+            fieldNames.add(LoadConstants.DORIS_DELETE_SIGN);
+            fieldTypes.add(STRING_TYPE);
+        }
+
+        this.seaTunnelRowType =
+                new SeaTunnelRowType(
+                        fieldNames.toArray(new String[0]),
+                        fieldTypes.toArray(new SeaTunnelDataType<?>[0]));
+
         if (JSON.equals(type)) {
-            valString = buildJsonString(seaTunnelRow);
-        } else if (CSV.equals(type)) {
-            valString = buildCSVString(seaTunnelRow);
+            JsonSerializationSchema jsonSerializationSchema =
+                    new JsonSerializationSchema(this.seaTunnelRowType);
+            ObjectMapper mapper = jsonSerializationSchema.getMapper();
+            mapper.configure(JsonGenerator.Feature.WRITE_BIGDECIMAL_AS_PLAIN, true);
+            this.serialize = jsonSerializationSchema;
         } else {
-            throw new IllegalArgumentException("The type " + type + " is not supported!");
+            this.serialize =
+                    TextSerializationSchema.builder()
+                            .seaTunnelRowType(this.seaTunnelRowType)
+                            .delimiter(fieldDelimiter)
+                            .nullValue(NULL_VALUE)
+                            .build();
         }
-        return valString.getBytes(StandardCharsets.UTF_8);
     }
 
-    public String buildJsonString(SeaTunnelRow row) throws IOException {
-        Map<String, Object> rowMap = new HashMap<>(row.getFields().length);
+    public byte[] buildJsonString(SeaTunnelRow row) {
 
-        for (int i = 0; i < row.getFields().length; i++) {
-            Object value = convert(seaTunnelRowType.getFieldType(i), row.getField(i));
-            rowMap.put(seaTunnelRowType.getFieldName(i), value);
-        }
-        if (enableDelete) {
-            rowMap.put(LoadConstants.DORIS_DELETE_SIGN, parseDeleteSign(row.getRowKind()));
-        }
-        return objectMapper.writeValueAsString(rowMap);
+        return serialize.serialize(row);
     }
 
-    public String buildCSVString(SeaTunnelRow row) throws IOException {
-        StringJoiner joiner = new StringJoiner(fieldDelimiter);
-        for (int i = 0; i < row.getFields().length; i++) {
-            Object field = convert(seaTunnelRowType.getFieldType(i), row.getField(i));
-            String value = field != null ? field.toString() : NULL_VALUE;
-            joiner.add(value);
-        }
-        if (enableDelete) {
-            joiner.add(parseDeleteSign(row.getRowKind()));
-        }
-        return joiner.toString();
+    public byte[] buildCSVString(SeaTunnelRow row) {
+
+        return serialize.serialize(row);
     }
 
     public String parseDeleteSign(RowKind rowKind) {
@@ -105,45 +104,27 @@ public class SeaTunnelRowSerializer extends SeaTunnelRowConverter implements Dor
         }
     }
 
-    public static Builder builder() {
-        return new Builder();
-    }
-
-    /** Builder for RowDataSerializer. */
-    public static class Builder {
-        private SeaTunnelRowType seaTunnelRowType;
-        private String type;
-        private String fieldDelimiter;
-        private boolean deletable;
-
-        public Builder setType(String type) {
-            this.type = type;
-            return this;
-        }
-
-        public Builder setSeaTunnelRowType(SeaTunnelRowType seaTunnelRowType) {
-            this.seaTunnelRowType = seaTunnelRowType;
-            return this;
-        }
-
-        public Builder setFieldDelimiter(String fieldDelimiter) {
-            this.fieldDelimiter = fieldDelimiter;
-            return this;
-        }
-
-        public Builder enableDelete(boolean deletable) {
-            this.deletable = deletable;
-            return this;
-        }
-
-        public SeaTunnelRowSerializer build() {
-            checkState(CSV.equals(type) && fieldDelimiter != null || JSON.equals(type));
-            return new SeaTunnelRowSerializer(type, seaTunnelRowType, fieldDelimiter, deletable);
-        }
-    }
-
     @Override
     public void open() throws IOException {}
+
+    @Override
+    public byte[] serialize(SeaTunnelRow seaTunnelRow) throws IOException {
+
+        if (enableDelete) {
+
+            List<Object> newFields = new ArrayList<>(Arrays.asList(seaTunnelRow.getFields()));
+            newFields.add(parseDeleteSign(seaTunnelRow.getRowKind()));
+            seaTunnelRow = new SeaTunnelRow(newFields.toArray());
+        }
+
+        if (JSON.equals(type)) {
+            return buildJsonString(seaTunnelRow);
+        } else if (CSV.equals(type)) {
+            return buildCSVString(seaTunnelRow);
+        } else {
+            throw new IllegalArgumentException("The type " + type + " is not supported!");
+        }
+    }
 
     @Override
     public void close() throws IOException {}

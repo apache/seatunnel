@@ -2,7 +2,7 @@
 
 ## Structure of SQL Configuration File
 
-The `SQL` configuration file appears as follows.
+The `SQL` configuration file appears as follows:
 
 ### SQL
 
@@ -173,7 +173,7 @@ CREATE TABLE temp1 AS SELECT id, name, age, email FROM source_table;
 ```
 
 * This syntax creates a temporary table with the result of a `SELECT` query, used for `INSERT INTO` operations.
-* The syntax of the `SELECT` part refers to: [SQL-transform](../transform-v2/sql.md) `query` configuration item
+* The syntax of the `SELECT` part refers to: [SQL Transform](../transform-v2/sql.md) `query` configuration item
 
 ```sql
 CREATE TABLE temp1 AS SELECT id, name, age, email FROM source_table;

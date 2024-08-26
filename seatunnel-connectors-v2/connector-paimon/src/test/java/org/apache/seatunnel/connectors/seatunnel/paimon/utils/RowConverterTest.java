@@ -235,7 +235,7 @@ public class RowConverterTest {
 
     @Test
     public void paimonToSeaTunnel() {
-        SeaTunnelRow convert = RowConverter.convert(internalRow, seaTunnelRowType);
+        SeaTunnelRow convert = RowConverter.convert(internalRow, seaTunnelRowType, tableSchema);
         Assertions.assertEquals(convert, seaTunnelRow);
     }
 }
