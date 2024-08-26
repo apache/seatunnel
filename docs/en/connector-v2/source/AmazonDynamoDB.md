@@ -69,7 +69,7 @@ schema {
 
 ### common options
 
-Source Plugin common parameters, refer to [Source Plugin](common-options.md) for details
+Source Plugin common parameters, refer to [Source Plugin](../source-common-options.md) for details
 
 ### scan_item_limit
 

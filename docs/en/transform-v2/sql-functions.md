@@ -795,6 +795,15 @@ Example:
 
 MONTHNAME(CREATED)
 
+### IS_DATE
+
+```IS_DATE(string, formatString)```
+Parses a string and returns a boolean value. The most important format characters are: y year, M month, d day, H hour, m minute, s second. For details of the format, see java.time.format.DateTimeFormatter.
+
+Example:
+
+CALL IS_DATE('2021-04-08 13:34:45','yyyy-MM-dd HH:mm:ss')
+
 ### PARSEDATETIME / TO_DATE
 
 ```PARSEDATETIME | TO_DATE(string, formatString)```
@@ -880,7 +889,7 @@ CALL FROM_UNIXTIME(1672502400, 'yyyy-MM-dd HH:mm:ss','UTC+6')
 
 Converts a value to another data type.
 
-Supported data types: STRING | VARCHAR, INT | INTEGER, LONG | BIGINT, BYTE, FLOAT, DOUBLE, DECIMAL(p,s), TIMESTAMP, DATE, TIME
+Supported data types: STRING | VARCHAR, INT | INTEGER, LONG | BIGINT, BYTE, FLOAT, DOUBLE, DECIMAL(p,s), TIMESTAMP, DATE, TIME, BYTES
 
 Example:
 

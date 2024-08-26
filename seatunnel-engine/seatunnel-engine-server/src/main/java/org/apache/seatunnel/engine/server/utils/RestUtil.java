@@ -67,6 +67,6 @@ public class RestUtil {
 
     public static Config buildConfig(JsonNode jsonNode, boolean isEncrypt) {
         Map<String, Object> objectMap = JsonUtils.toMap(jsonNode);
-        return ConfigBuilder.of(objectMap, isEncrypt);
+        return ConfigBuilder.of(objectMap, isEncrypt, true);
     }
 }

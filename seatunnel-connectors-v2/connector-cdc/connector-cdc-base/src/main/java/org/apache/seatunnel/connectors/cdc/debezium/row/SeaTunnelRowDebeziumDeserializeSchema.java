@@ -119,10 +119,9 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
             SourceRecord record, Collector<SeaTunnelRow> collector) {
         SchemaChangeEvent schemaChangeEvent = schemaChangeResolver.resolve(record, resultTypeInfo);
         if (schemaChangeEvent == null) {
-            log.info("Unsupported resolve schemaChangeEvent {}, just skip.", record);
+            log.warn("Unsupported resolve schemaChangeEvent {}, just skip.", record);
             return;
         }
-
         if (resultTypeInfo instanceof MultipleRowType) {
             Map<String, SeaTunnelRowType> newRowTypeMap = new HashMap<>();
             for (Map.Entry<String, SeaTunnelRowType> entry : (MultipleRowType) resultTypeInfo) {
@@ -185,7 +184,7 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
             delete.setRowKind(RowKind.DELETE);
             delete.setTableId(tableId);
             collector.collect(delete);
-        } else {
+        } else if (operation == Envelope.Operation.UPDATE) {
             SeaTunnelRow before = extractBeforeRow(converters, record, messageStruct, valueSchema);
             before.setRowKind(RowKind.UPDATE_BEFORE);
             before.setTableId(tableId);
@@ -195,6 +194,8 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
             after.setRowKind(RowKind.UPDATE_AFTER);
             after.setTableId(tableId);
             collector.collect(after);
+        } else {
+            log.warn("Received {} operation, skip", operation);
         }
     }
 

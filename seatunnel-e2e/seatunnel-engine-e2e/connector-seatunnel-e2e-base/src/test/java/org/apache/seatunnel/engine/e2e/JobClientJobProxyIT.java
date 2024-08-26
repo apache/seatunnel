@@ -64,10 +64,64 @@ public class JobClientJobProxyIT extends SeaTunnelContainer {
     }
 
     @Test
+    public void testNoDuplicatedReleaseSlot() throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                executeJob(server, "/savemode/fake_to_inmemory_savemode.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertFalse(
+                server.getLogs().contains("wrong target release operation with job"));
+    }
+
+    @Test
     public void testMultiTableSinkFailedWithThrowable() throws IOException, InterruptedException {
         Container.ExecResult execResult =
                 executeJob(server, "/stream_fake_to_inmemory_with_throwable_error.conf");
         Assertions.assertNotEquals(0, execResult.getExitCode());
+    }
+
+    @Test
+    public void testSaveModeOnMasterOrClient() throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                executeJob(server, "/savemode/fake_to_inmemory_savemode.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        int serverLogLength = 0;
+        String serverLogs = server.getLogs();
+        Assertions.assertTrue(
+                serverLogs.contains(
+                        "org.apache.seatunnel.e2e.sink.inmemory.InMemorySaveModeHandler - handle schema savemode with table path: test.table1"));
+        Assertions.assertTrue(
+                serverLogs.contains(
+                        "org.apache.seatunnel.e2e.sink.inmemory.InMemorySaveModeHandler - handle data savemode with table path: test.table1"));
+        Assertions.assertTrue(
+                serverLogs.contains(
+                        "org.apache.seatunnel.e2e.sink.inmemory.InMemorySaveModeHandler - handle schema savemode with table path: test.table2"));
+        Assertions.assertTrue(
+                serverLogs.contains(
+                        "org.apache.seatunnel.e2e.sink.inmemory.InMemorySaveModeHandler - handle data savemode with table path: test.table2"));
+
+        // restore will not execute savemode
+        execResult = restoreJob(server, "/savemode/fake_to_inmemory_savemode.conf", "1");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        // clear old logs
+        serverLogLength += serverLogs.length();
+        serverLogs = server.getLogs().substring(serverLogLength);
+        Assertions.assertFalse(serverLogs.contains("handle schema savemode with table path"));
+        Assertions.assertFalse(serverLogs.contains("handle data savemode with table path"));
+
+        // test savemode on client side
+        Container.ExecResult execResult2 =
+                executeJob(server, "/savemode/fake_to_inmemory_savemode_client.conf");
+        Assertions.assertEquals(0, execResult2.getExitCode());
+        // clear old logs
+        serverLogLength += serverLogs.length();
+        serverLogs = server.getLogs().substring(serverLogLength);
+        Assertions.assertFalse(serverLogs.contains("handle schema savemode with table path"));
+        Assertions.assertFalse(serverLogs.contains("handle data savemode with table path"));
+
+        Assertions.assertTrue(
+                execResult2.getStdout().contains("handle schema savemode with table path"));
+        Assertions.assertTrue(
+                execResult2.getStdout().contains("handle data savemode with table path"));
     }
 
     @Test

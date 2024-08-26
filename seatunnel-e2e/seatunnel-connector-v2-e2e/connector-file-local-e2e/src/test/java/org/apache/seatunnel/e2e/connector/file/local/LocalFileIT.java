@@ -17,6 +17,11 @@
 
 package org.apache.seatunnel.e2e.connector.file.local;
 
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
+import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
+import org.apache.seatunnel.connectors.seatunnel.file.local.catalog.LocalFileCatalog;
+import org.apache.seatunnel.connectors.seatunnel.file.local.config.LocalFileHadoopConf;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.EngineType;
@@ -27,27 +32,43 @@ import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
+import org.apache.commons.lang3.StringUtils;
+
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestTemplate;
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.shaded.com.github.dockerjava.core.command.ExecStartResultCallback;
 
+import com.github.dockerjava.api.command.ExecCreateCmdResponse;
 import io.airlift.compress.lzo.LzopCodec;
+import lombok.SneakyThrows;
+import lombok.extern.slf4j.Slf4j;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
 
 @DisabledOnContainer(
         value = {TestContainerId.SPARK_2_4},
         type = {},
         disabledReason = "The apache-compress version is not compatible with apache-poi")
+@Slf4j
 public class LocalFileIT extends TestSuiteBase {
+
+    private GenericContainer<?> baseContainer;
 
     /** Copy data files to container */
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
             container -> {
+                this.baseContainer = container;
                 ContainerUtil.copyFileIntoContainers(
                         "/json/e2e.json",
                         "/seatunnel/read/json/name=tyrantlucifer/hobby=coding/e2e.json",
@@ -121,7 +142,6 @@ public class LocalFileIT extends TestSuiteBase {
     public void testLocalFileReadAndWrite(TestContainer container)
             throws IOException, InterruptedException {
         TestHelper helper = new TestHelper(container);
-
         helper.execute("/excel/fake_to_local_excel.conf");
         helper.execute("/excel/local_excel_to_assert.conf");
         helper.execute("/excel/local_excel_projection_to_assert.conf");
@@ -179,6 +199,71 @@ public class LocalFileIT extends TestSuiteBase {
             // from jobManager will be failed in Flink
             helper.execute("/binary/local_file_binary_to_assert.conf");
         }
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {TestContainerId.SPARK_2_4},
+            type = {EngineType.FLINK},
+            disabledReason =
+                    "Fink test is multi-node, LocalFile connector will use different containers for obtaining files")
+    public void testLocalFileReadAndWriteWithSaveMode(TestContainer container)
+            throws IOException, InterruptedException {
+        TestHelper helper = new TestHelper(container);
+        // test save_mode
+        String path = "/tmp/seatunnel/localfile/json/fake";
+        Assertions.assertEquals(getFileListFromContainer(path).size(), 0);
+        helper.execute("/json/fake_to_local_file_json_save_mode.conf");
+        Assertions.assertEquals(getFileListFromContainer(path).size(), 1);
+        helper.execute("/json/fake_to_local_file_json_save_mode.conf");
+        Assertions.assertEquals(getFileListFromContainer(path).size(), 1);
+    }
+
+    @SneakyThrows
+    private List<String> getFileListFromContainer(String path) {
+        String command = "ls -1 " + path;
+        ExecCreateCmdResponse execCreateCmdResponse =
+                dockerClient
+                        .execCreateCmd(baseContainer.getContainerId())
+                        .withCmd("sh", "-c", command)
+                        .withAttachStdout(true)
+                        .withAttachStderr(true)
+                        .exec();
+
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        dockerClient
+                .execStartCmd(execCreateCmdResponse.getId())
+                .exec(new ExecStartResultCallback(outputStream, System.err))
+                .awaitCompletion();
+
+        String output = new String(outputStream.toByteArray(), StandardCharsets.UTF_8).trim();
+        List<String> fileList = new ArrayList<>();
+        log.info("container path file list is :{}", output);
+        String[] files = output.split("\n");
+        for (String file : files) {
+            if (StringUtils.isNotEmpty(file)) {
+                log.info("container path file name is :{}", file);
+                fileList.add(file);
+            }
+        }
+        return fileList;
+    }
+
+    @TestTemplate
+    public void testLocalFileCatalog(TestContainer container)
+            throws IOException, InterruptedException {
+        final LocalFileCatalog localFileCatalog =
+                new LocalFileCatalog(
+                        new HadoopFileSystemProxy(new LocalFileHadoopConf()),
+                        "/tmp/seatunnel/json/test1",
+                        FileSystemType.LOCAL.getFileSystemPluginName());
+        final TablePath tablePath = TablePath.DEFAULT;
+        Assertions.assertFalse(localFileCatalog.tableExists(tablePath));
+        localFileCatalog.createTable(null, null, false);
+        Assertions.assertTrue(localFileCatalog.tableExists(tablePath));
+        Assertions.assertFalse(localFileCatalog.isExistsData(tablePath));
+        localFileCatalog.dropTable(tablePath, false);
+        Assertions.assertFalse(localFileCatalog.tableExists(tablePath));
     }
 
     private Path convertToLzoFile(File file) throws IOException {

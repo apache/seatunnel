@@ -21,24 +21,30 @@ import org.apache.seatunnel.api.serialization.SerializationSchema;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
+import org.apache.seatunnel.connectors.seatunnel.redis.client.RedisClient;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisDataType;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
+import org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisConnectorException;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 
-import redis.clients.jedis.Jedis;
-
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
 
 public class RedisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         implements SupportMultiTableSinkWriter<Void> {
     private final SeaTunnelRowType seaTunnelRowType;
     private final RedisParameters redisParameters;
     private final SerializationSchema serializationSchema;
-    private final Jedis jedis;
+    private final RedisClient redisClient;
+
+    private final int batchSize;
+
+    private final List<String> keyBuffer;
+    private final List<String> valueBuffer;
 
     public RedisSinkWriter(SeaTunnelRowType seaTunnelRowType, RedisParameters redisParameters) {
         this.seaTunnelRowType = seaTunnelRowType;
@@ -46,13 +52,15 @@ public class RedisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         // TODO according to format to initialize serializationSchema
         // Now temporary using json serializationSchema
         this.serializationSchema = new JsonSerializationSchema(seaTunnelRowType);
-        this.jedis = redisParameters.buildJedis();
+        this.redisClient = redisParameters.buildRedisClient();
+        this.batchSize = redisParameters.getBatchSize();
+        this.keyBuffer = new ArrayList<>(batchSize);
+        this.valueBuffer = new ArrayList<>(batchSize);
     }
 
     @Override
     public void write(SeaTunnelRow element) throws IOException {
         String data = new String(serializationSchema.serialize(element));
-        RedisDataType redisDataType = redisParameters.getRedisDataType();
         String keyField = redisParameters.getKeyField();
         List<String> fields = Arrays.asList(seaTunnelRowType.getFieldNames());
         String key;
@@ -61,14 +69,51 @@ public class RedisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         } else {
             key = keyField;
         }
-        long expire = redisParameters.getExpire();
-        redisDataType.set(jedis, key, data, expire);
+        keyBuffer.add(key);
+        valueBuffer.add(data);
+        if (keyBuffer.size() >= batchSize) {
+            doBatchWrite();
+            clearBuffer();
+        }
+    }
+
+    private void clearBuffer() {
+        keyBuffer.clear();
+        valueBuffer.clear();
+    }
+
+    private void doBatchWrite() {
+        RedisDataType redisDataType = redisParameters.getRedisDataType();
+        if (RedisDataType.KEY.equals(redisDataType) || RedisDataType.STRING.equals(redisDataType)) {
+            redisClient.batchWriteString(keyBuffer, valueBuffer, redisParameters.getExpire());
+            return;
+        }
+        if (RedisDataType.LIST.equals(redisDataType)) {
+            redisClient.batchWriteList(keyBuffer, valueBuffer, redisParameters.getExpire());
+            return;
+        }
+        if (RedisDataType.SET.equals(redisDataType)) {
+            redisClient.batchWriteSet(keyBuffer, valueBuffer, redisParameters.getExpire());
+            return;
+        }
+        if (RedisDataType.HASH.equals(redisDataType)) {
+            redisClient.batchWriteHash(keyBuffer, valueBuffer, redisParameters.getExpire());
+            return;
+        }
+        if (RedisDataType.ZSET.equals(redisDataType)) {
+            redisClient.batchWriteZset(keyBuffer, valueBuffer, redisParameters.getExpire());
+            return;
+        }
+        throw new RedisConnectorException(
+                CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                "UnSupport redisDataType,only support string,list,hash,set,zset");
     }
 
     @Override
     public void close() throws IOException {
-        if (Objects.nonNull(jedis)) {
-            jedis.close();
+        if (!keyBuffer.isEmpty()) {
+            doBatchWrite();
+            clearBuffer();
         }
     }
 }

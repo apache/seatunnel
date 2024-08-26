@@ -51,6 +51,7 @@ import java.util.stream.Collectors;
 import static org.apache.seatunnel.api.common.CommonOptions.PLUGIN_NAME;
 import static org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode.HANDLE_SAVE_MODE_FAILED;
 
+@SuppressWarnings({"unchecked", "rawtypes"})
 public class SinkExecuteProcessor
         extends FlinkAbstractPluginExecuteProcessor<Optional<? extends Factory>> {
 
@@ -107,14 +108,19 @@ public class SinkExecuteProcessor
                                         sinkConfig.getString(PLUGIN_NAME.key())),
                                 sinkConfig);
                 sink.setJobContext(jobContext);
-                SeaTunnelRowType sourceType = stream.getCatalogTable().getSeaTunnelRowType();
+                // TODO support sink multi sink
+                SeaTunnelRowType sourceType =
+                        stream.getCatalogTables().get(0).getSeaTunnelRowType();
                 sink.setTypeInfo(sourceType);
             } else {
+                // TODO support sink multi sink
                 TableSinkFactoryContext context =
-                        new TableSinkFactoryContext(
-                                stream.getCatalogTable(),
+                        TableSinkFactoryContext.replacePlaceholderAndCreate(
+                                stream.getCatalogTables().get(0),
                                 ReadonlyConfig.fromConfig(sinkConfig),
-                                classLoader);
+                                classLoader,
+                                ((TableSinkFactory) factory.get())
+                                        .excludeTablePlaceholderReplaceKeys());
                 ConfigValidator.of(context.getOptions()).validate(factory.get().optionRule());
                 sink = ((TableSinkFactory) factory.get()).createSink(context).createSink();
                 sink.setJobContext(jobContext);
@@ -124,6 +130,7 @@ public class SinkExecuteProcessor
                 Optional<SaveModeHandler> saveModeHandler = saveModeSink.getSaveModeHandler();
                 if (saveModeHandler.isPresent()) {
                     try (SaveModeHandler handler = saveModeHandler.get()) {
+                        handler.open();
                         new SaveModeExecuteWrapper(handler).execute();
                     } catch (Exception e) {
                         throw new SeaTunnelRuntimeException(HANDLE_SAVE_MODE_FAILED, e);
@@ -132,8 +139,8 @@ public class SinkExecuteProcessor
             }
             DataStreamSink<Row> dataStreamSink =
                     stream.getDataStream()
-                            .sinkTo(new FlinkSink<>(sink, stream.getCatalogTable()))
-                            .name(sink.getPluginName());
+                            .sinkTo(new FlinkSink<>(sink, stream.getCatalogTables().get(0)))
+                            .name(String.format("%s-Sink", sink.getPluginName()));
             if (sinkConfig.hasPath(CommonOptions.PARALLELISM.key())) {
                 int parallelism = sinkConfig.getInt(CommonOptions.PARALLELISM.key());
                 dataStreamSink.setParallelism(parallelism);

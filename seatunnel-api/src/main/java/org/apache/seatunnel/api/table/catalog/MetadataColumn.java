@@ -83,4 +83,9 @@ public class MetadataColumn extends Column {
                 defaultValue,
                 comment);
     }
+
+    @Override
+    public Column reSourceType(String sourceType) {
+        throw new UnsupportedOperationException("Not implemented");
+    }
 }
