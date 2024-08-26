@@ -50,6 +50,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class ElasticsearchSource
@@ -58,28 +59,51 @@ public class ElasticsearchSource
                 SupportParallelism,
                 SupportColumnProjection {
 
-    private final ReadonlyConfig config;
-
-    private CatalogTable catalogTable;
-
-    private List<String> source;
-
-    private Map<String, String> arrayColumn;
+    private final List<SourceConfig> sourceConfigList;
+    private final ReadonlyConfig connectionConfig;
 
     public ElasticsearchSource(ReadonlyConfig config) {
-        this.config = config;
-        if (config.getOptional(TableSchemaOptions.SCHEMA).isPresent()) {
+        this.connectionConfig = config;
+        if (config.getOptional(SourceConfig.INDEX_LIST).isPresent()) {
+            this.sourceConfigList = createMultiSource(config);
+        } else {
+            this.sourceConfigList = Collections.singletonList(parseOneIndexQueryConfig(config));
+        }
+    }
+
+    private List<SourceConfig> createMultiSource(ReadonlyConfig config) {
+        List<Map<String, Object>> configMaps = config.get(SourceConfig.INDEX_LIST);
+        List<ReadonlyConfig> configList =
+                configMaps.stream().map(ReadonlyConfig::fromMap).collect(Collectors.toList());
+        List<SourceConfig> sourceConfigList = new ArrayList<>(configList.size());
+        for (ReadonlyConfig readonlyConfig : configList) {
+            SourceConfig sourceConfig = parseOneIndexQueryConfig(readonlyConfig);
+            sourceConfigList.add(sourceConfig);
+        }
+        return sourceConfigList;
+    }
+
+    private SourceConfig parseOneIndexQueryConfig(ReadonlyConfig readonlyConfig) {
+
+        Map<String, Object> query = readonlyConfig.get(SourceConfig.QUERY);
+        String index = readonlyConfig.get(SourceConfig.INDEX);
+
+        CatalogTable catalogTable;
+        List<String> source;
+        Map<String, String> arrayColumn;
+
+        if (readonlyConfig.getOptional(TableSchemaOptions.SCHEMA).isPresent()) {
             // todo: We need to remove the schema in ES.
             log.warn(
                     "The schema config in ElasticSearch sink is deprecated, please use source config instead!");
-            catalogTable = CatalogTableUtil.buildWithConfig(config);
+            catalogTable = CatalogTableUtil.buildWithConfig(readonlyConfig);
             source = Arrays.asList(catalogTable.getSeaTunnelRowType().getFieldNames());
         } else {
-            source = config.get(SourceConfig.SOURCE);
-            arrayColumn = config.get(SourceConfig.ARRAY_COLUMN);
-            EsRestClient esRestClient = EsRestClient.createInstance(config);
+            source = readonlyConfig.get(SourceConfig.SOURCE);
+            arrayColumn = readonlyConfig.get(SourceConfig.ARRAY_COLUMN);
+            EsRestClient esRestClient = EsRestClient.createInstance(connectionConfig);
             Map<String, BasicTypeDefine<EsType>> esFieldType =
-                    esRestClient.getFieldTypeMapping(config.get(SourceConfig.INDEX), source);
+                    esRestClient.getFieldTypeMapping(index, source);
             esRestClient.close();
 
             if (CollectionUtils.isEmpty(source)) {
@@ -103,13 +127,24 @@ public class ElasticsearchSource
             }
             catalogTable =
                     CatalogTable.of(
-                            TableIdentifier.of(
-                                    "elasticsearch", null, config.get(SourceConfig.INDEX)),
+                            TableIdentifier.of("elasticsearch", null, index),
                             builder.build(),
                             Collections.emptyMap(),
                             Collections.emptyList(),
                             "");
         }
+
+        String scrollTime = readonlyConfig.get(SourceConfig.SCROLL_TIME);
+        int scrollSize = readonlyConfig.get(SourceConfig.SCROLL_SIZE);
+        SourceConfig sourceConfig = new SourceConfig();
+        sourceConfig.setSource(source);
+        sourceConfig.setCatalogTable(catalogTable);
+        sourceConfig.setQuery(query);
+        sourceConfig.setScrollTime(scrollTime);
+        sourceConfig.setScrollSize(scrollSize);
+        sourceConfig.setIndex(index);
+        sourceConfig.setCatalogTable(catalogTable);
+        return sourceConfig;
     }
 
     @Override
@@ -124,21 +159,23 @@ public class ElasticsearchSource
 
     @Override
     public List<CatalogTable> getProducedCatalogTables() {
-        return Collections.singletonList(catalogTable);
+        return sourceConfigList.stream()
+                .map(SourceConfig::getCatalogTable)
+                .collect(Collectors.toList());
     }
 
     @Override
     public SourceReader<SeaTunnelRow, ElasticsearchSourceSplit> createReader(
             SourceReader.Context readerContext) {
-        return new ElasticsearchSourceReader(
-                readerContext, config, catalogTable.getSeaTunnelRowType());
+        return new ElasticsearchSourceReader(readerContext, connectionConfig);
     }
 
     @Override
     public SourceSplitEnumerator<ElasticsearchSourceSplit, ElasticsearchSourceState>
             createEnumerator(
                     SourceSplitEnumerator.Context<ElasticsearchSourceSplit> enumeratorContext) {
-        return new ElasticsearchSourceSplitEnumerator(enumeratorContext, config, source);
+        return new ElasticsearchSourceSplitEnumerator(
+                enumeratorContext, connectionConfig, sourceConfigList);
     }
 
     @Override
@@ -147,7 +184,7 @@ public class ElasticsearchSource
                     SourceSplitEnumerator.Context<ElasticsearchSourceSplit> enumeratorContext,
                     ElasticsearchSourceState sourceState) {
         return new ElasticsearchSourceSplitEnumerator(
-                enumeratorContext, sourceState, config, source);
+                enumeratorContext, sourceState, connectionConfig, sourceConfigList);
     }
 
     @VisibleForTesting

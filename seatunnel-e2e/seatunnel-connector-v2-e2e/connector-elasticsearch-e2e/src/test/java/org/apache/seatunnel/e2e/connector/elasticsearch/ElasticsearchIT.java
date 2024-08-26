@@ -122,13 +122,14 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
 
     /** create a index,and bulk some documents */
     private void createIndexDocs() {
+        createIndexDocsByName("st_index");
+    }
+
+    private void createIndexDocsByName(String indexName) {
         StringBuilder requestBody = new StringBuilder();
         Map<String, String> indexInner = new HashMap<>();
         indexInner.put("_index", "st");
-
-        Map<String, Map<String, String>> indexParam = new HashMap<>();
-        indexParam.put("index", indexInner);
-        String indexHeader = "{\"index\":{\"_index\":\"st_index\"}\n";
+        String indexHeader = String.format("{\"index\":{\"_index\":\"%s\"}\n", indexName);
         for (int i = 0; i < testDataset.size(); i++) {
             String row = testDataset.get(i);
             requestBody.append(indexHeader);
@@ -182,6 +183,28 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         List<String> sinkData = readSinkData("st_index2");
         // for DSL is: {"range":{"c_int":{"gte":10,"lte":20}}}
         Assertions.assertIterableEquals(mapTestDatasetForDSL(), sinkData);
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "Currently SPARK/FLINK do not support multiple table read")
+    public void testElasticsSearchWithMultiSource(TestContainer container)
+            throws InterruptedException, IOException {
+        // this test will read read_index1,read_index2 write into multi_source_write_test_index
+        createIndexDocsByName("read_index1");
+        createIndexDocsByName("read_index2");
+        Container.ExecResult execResult =
+                container.executeJob("/elasticsearch/elasticsearch_multi_source_and_sink.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        List<String> sinkData = readSinkData("multi_source_write_test_index");
+        List<String> index1Data = mapTestDatasetForDSL();
+        List<String> index2Data = mapTestDatasetForDSL();
+        List<String> allData = new ArrayList<>();
+        allData.addAll(index1Data);
+        allData.addAll(index2Data);
+        Assertions.assertIterableEquals(allData, sinkData);
     }
 
     @DisabledOnContainer(
