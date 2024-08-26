@@ -43,19 +43,20 @@
         <dependency>
             <groupId>io.grpc</groupId>
             <artifactId>grpc-protobuf</artifactId>
-            <version>1.59.0</version>
+            <version>1.65.1</version>
         </dependency>
 
         <dependency>
-            <groupId>com.google.guava</groupId>
-            <artifactId>guava</artifactId>
-            <version>30.1-jre</version>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-guava</artifactId>
+            <version>${project.version}</version>
+            <classifier>optional</classifier>
         </dependency>
 
         <dependency>
             <groupId>io.qdrant</groupId>
             <artifactId>client</artifactId>
-            <version>1.10.0</version>
+            <version>1.11.0</version>
         </dependency>
 
     </dependencies>
