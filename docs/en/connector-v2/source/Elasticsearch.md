@@ -19,24 +19,25 @@ support version >= 2.x and <= 8.x.
 
 ## Options
 
-|          name           |  type   | required |   default value   |
-|-------------------------|---------|----------|-------------------|
-| hosts                   | array   | yes      | -                 |
-| username                | string  | no       | -                 |
-| password                | string  | no       | -                 |
-| index                   | string  | yes      | -                 |
-| source                  | array   | no       | -                 |
-| query                   | json    | no       | {"match_all": {}} |
-| scroll_time             | string  | no       | 1m                |
-| scroll_size             | int     | no       | 100               |
-| tls_verify_certificate  | boolean | no       | true              |
-| tls_verify_hostnames    | boolean | no       | true              |
-| array_column            | map     | no       |                   |
-| tls_keystore_path       | string  | no       | -                 |
-| tls_keystore_password   | string  | no       | -                 |
-| tls_truststore_path     | string  | no       | -                 |
-| tls_truststore_password | string  | no       | -                 |
-| common-options          |         | no       | -                 |
+| name                    | type    | required | default value                        |
+| ----------------------- | ------- | -------- | ------------------------------------ |
+| hosts                   | array   | yes      | -                                    |
+| username                | string  | no       | -                                    |
+| password                | string  | no       | -                                    |
+| index                   | string  | yes      | -                                    |
+| source                  | array   | no       | -                                    |
+| query                   | json    | no       | {"match_all": {}}                    |
+| scroll_time             | string  | no       | 1m                                   |
+| scroll_size             | int     | no       | 100                                  |
+| index_list              | array   | no       | used to define a multiple table task |
+| tls_verify_certificate  | boolean | no       | true                                 |
+| tls_verify_hostnames    | boolean | no       | true                                 |
+| array_column            | map     | no       |                                      |
+| tls_keystore_path       | string  | no       | -                                    |
+| tls_keystore_password   | string  | no       | -                                    |
+| tls_truststore_path     | string  | no       | -                                    |
+| tls_truststore_password | string  | no       | -                                    |
+| common-options          |         | no       | -                                    |
 
 ### hosts [array]
 
@@ -77,6 +78,10 @@ Amount of time Elasticsearch will keep the search context alive for scroll reque
 ### scroll_size [int]
 
 Maximum number of hits to be returned with each Elasticsearch scroll request.
+
+### index_list [array]
+
+The `index_list` is used to define multi-index synchronization tasks. It is an array that contains the parameters required for single-table synchronization, such as `query`, `source/schema`, `scroll_size`, and `scroll_time`. It is recommended that `index_list` and `query` should not be configured at the same level simultaneously. Please refer to the upcoming multi-table synchronization example for more details.
 
 ### tls_verify_certificate [boolean]
 
@@ -147,6 +152,90 @@ Elasticsearch {
 }
 ```
 
+Multi-table synchronization
+
+> This example demonstrates how to read data from read_index1 and read_index2 and write it into the multi_source_write_test_index index. In read_index1, I used source to specify the fields to be read and to indicate which fields are array fields. In read_index2, I used schema to define the fields to be read (not recommended).
+
+```hocon
+source {
+  Elasticsearch {
+    hosts = ["https://elasticsearch:9200"]
+    username = "elastic"
+    password = "elasticsearch"
+    tls_verify_certificate = false
+    tls_verify_hostname = false
+    index_list = [
+       {
+           index = "read_index1"
+           query = {"range": {"c_int": {"gte": 10, "lte": 20}}}
+           source = [
+           c_map,
+           c_array,
+           c_string,
+           c_boolean,
+           c_tinyint,
+           c_smallint,
+           c_bigint,
+           c_float,
+           c_double,
+           c_decimal,
+           c_bytes,
+           c_int,
+           c_date,
+           c_timestamp]
+           array_column = {
+           c_array = "array<tinyint>"
+           }
+       }
+       {
+           index = "read_index2"
+           query = {"match_all": {}}
+           schema = {
+             fields {
+               c_map = "map<string, tinyint>"
+               c_array = "array<tinyint>"
+               c_string = string
+               c_boolean = boolean
+               c_tinyint = tinyint
+               c_smallint = smallint
+               c_bigint = bigint
+               c_float = float
+               c_double = double
+               c_decimal = "decimal(2, 1)"
+               c_bytes = bytes
+               c_int = int
+               c_date = date
+               c_timestamp = timestamp
+             }
+           }
+       }
+
+    ]
+
+  }
+}
+
+transform {
+}
+
+sink {
+  Elasticsearch {
+    hosts = ["https://elasticsearch:9200"]
+    username = "elastic"
+    password = "elasticsearch"
+    tls_verify_certificate = false
+    tls_verify_hostname = false
+
+    index = "multi_source_write_test_index"
+    index_type = "st"
+    "schema_save_mode"="CREATE_SCHEMA_WHEN_NOT_EXIST"
+    "data_save_mode"="APPEND_DATA"
+  }
+}
+```
+
+
+
 SSL (Disable certificates validation)
 
 ```hocon
@@ -197,4 +286,3 @@ source {
 - Add Elasticsearch Source Connector
 - [Feature] Support https protocol & compatible with opensearch ([3997](https://github.com/apache/seatunnel/pull/3997))
 - [Feature] Support DSL
-

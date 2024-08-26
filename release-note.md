@@ -58,6 +58,7 @@
 - [Connector-v2] [Mongodb] Support to convert to double from numeric type that mongodb saved it as numeric internally (#6997)
 - [Connector-v2] [Redis] Using scan replace keys operation command,support batchWrite in single mode(#7030,#7085)
 - [Connector-V2] [Clickhouse] Add a new optional configuration `clickhouse.config` to the source connector of ClickHouse (#7143)
+- [Connector-V2] [ElasticsSource] Source support multiSource (#6730)
 
 ### Zeta(ST-Engine)
 
