@@ -22,7 +22,6 @@ docker run --rm -it apache/seatunnel:<version_tag> ./bin/seatunnel.sh -m local -
 docker run --rm -it -v /<The-Config-Directory-To-Mount>/:/config apache/seatunnel:<version_tag> ./bin/seatunnel.sh -m local -c /config/fake_to_console.conf
 
 # Example
-
 # If you config file is in /tmp/job/fake_to_console.conf
 docker run --rm -it -v /tmp/job/:/config apache/seatunnel:<version_tag> ./bin/seatunnel.sh -m local -c /config/fake_to_console.conf
 
@@ -35,8 +34,18 @@ docker run --rm -it -v /tmp/job/:/config apache/seatunnel:<version_tag> ./bin/se
 Build from source code. The way of downloading the source code is the same as the way of downloading the binary package.
 You can download the source code from the [download page](https://seatunnel.apache.org/download/) or clone the source code from the [GitHub repository](https://github.com/apache/seatunnel/releases)
 
+#### Build With One Command
 ```shell
 cd seatunnel
+# Use already sett maven profile
+mvn -B clean install -Dmaven.test.skip=true -Dmaven.javadoc.skip=true -Dlicense.skipAddThirdParty=true -D"docker.build.skip"=false -D"docker.verify.skip"=false -D"docker.push.skip"=true -D"docker.tag"=2.3.8 -Dmaven.deploy.skip --no-snapshot-updates -Pdocker,seatunnel
+
+# Check the docker image
+docker images | grep apache/seatunnel
+```
+
+#### Build Step By Step
+```shell
 # Build binary package from source code
 mvn clean package -DskipTests -Dskip.spotless=true
 
@@ -46,6 +55,9 @@ docker build -f src/main/docker/Dockerfile --build-arg VERSION=2.3.8 -t apache/s
 
 # If you build from dev branch, you should add SNAPSHOT suffix to the version
 docker build -f src/main/docker/Dockerfile --build-arg VERSION=2.3.8-SNAPSHOT -t apache/seatunnel:2.3.8-SNAPSHOT .
+
+# Check the docker image
+docker images | grep apache/seatunnel
 ```
 
 The Dockerfile is like this:
