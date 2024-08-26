@@ -37,8 +37,6 @@ public final class TemporaryClassLoaderContext implements AutoCloseable {
         return new TemporaryClassLoaderContext(t, original);
     }
 
-    // ------------------------------------------------------------------------
-
     private final Thread thread;
 
     private final ClassLoader originalContextClassLoader;
