@@ -122,7 +122,7 @@ public class HudiIT extends TestSuiteBase {
                             while (reader.read() != null) {
                                 rowCount++;
                             }
-                            Assertions.assertEquals(100, rowCount);
+                            Assertions.assertEquals(20, rowCount);
                         });
         FileUtils.deleteFile(TABLE_PATH);
     }
