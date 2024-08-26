@@ -318,10 +318,6 @@ spark-submit --verbose
     ...
 ```
 
-## 如何使用SeaTunnel跨HDFS集群同步数据？
-
-只需正确配置 hdfs-site.xml 即可。 参考：https://www.cnblogs.com/suanec/p/7828139.html。
-
 ## 我想学习SeaTunnel的源代码。 我应该从哪里开始？
 
 SeaTunnel 拥有完全抽象、结构化的代码实现，很多人都选择 SeaTunnel 作为学习 Spark 的方式。 您可以从主程序入口了解源代码：SeaTunnel.java

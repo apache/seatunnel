@@ -317,10 +317,6 @@ spark-submit --verbose
     ...
 ```
 
-## How do I use SeaTunnel to synchronize data across HDFS clusters?
-
-Just configure hdfs-site.xml properly. Refer to: https://www.cnblogs.com/suanec/p/7828139.html.
-
 ## I want to learn the source code of SeaTunnel. Where should I start?
 
 SeaTunnel has a completely abstract and structured code implementation, and many people have chosen SeaTunnel As a way to learn Spark. You can learn the source code from the main program entry: SeaTunnel.java
