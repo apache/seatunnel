@@ -136,6 +136,16 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                         .tablePath(TablePath.of(null, SCHEMA, SOURCE_TABLE))
                         .build();
         dialect.sampleDataFromColumn(connection, table, "INTEGER_COL", 1, 1024);
+
+        table =
+                JdbcSourceTable.builder()
+                        .tablePath(TablePath.of(null, SCHEMA, SOURCE_TABLE))
+                        .query(
+                                "select * from "
+                                        + quoteIdentifier(SOURCE_TABLE)
+                                        + " where INTEGER_COL = 1")
+                        .build();
+        dialect.sampleDataFromColumn(connection, table, "INTEGER_COL", 1, 1024);
     }
 
     @Override

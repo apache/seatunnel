@@ -19,9 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.clickhouse;
 
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
-import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
-import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
@@ -50,10 +48,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-@DisabledOnContainer(
-        value = {},
-        type = {EngineType.SPARK},
-        disabledReason = "Spark engine will lose the row kind of record")
 @Slf4j
 public class ClickhouseSinkCDCChangelogIT extends TestSuiteBase implements TestResource {
     private static final String CLICKHOUSE_DOCKER_IMAGE = "clickhouse/clickhouse-server:23.3.13.6";
@@ -195,10 +189,10 @@ public class ClickhouseSinkCDCChangelogIT extends TestSuiteBase implements TestR
 
     private void checkSinkTableRows() throws SQLException {
         Set<List<Object>> actual = new HashSet<>();
-        try (Statement statement = connection.createStatement()) {
-            ResultSet resultSet =
-                    statement.executeQuery(
-                            String.format("select * from %s.%s", DATABASE, SINK_TABLE));
+        try (Statement statement = connection.createStatement();
+                ResultSet resultSet =
+                        statement.executeQuery(
+                                String.format("select * from %s.%s", DATABASE, SINK_TABLE))) {
             while (resultSet.next()) {
                 List<Object> row =
                         Arrays.asList(

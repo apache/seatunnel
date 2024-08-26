@@ -433,7 +433,9 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 || threadName.contains("Timer for 's3a-file-system' metrics system")
                 || threadName.startsWith("MutableQuantiles-")
                 // JDBC Hana driver
-                || threadName.startsWith("Thread-");
+                || threadName.startsWith("Thread-")
+                // JNA Cleaner
+                || threadName.startsWith("JNA Cleaner");
     }
 
     @Override
