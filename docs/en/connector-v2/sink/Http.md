@@ -33,16 +33,16 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 
 ## Sink Options
 
-|            Name             |  Type  | Required | Default |                                             Description                                             |
-|-----------------------------|--------|----------|---------|-----------------------------------------------------------------------------------------------------|
-| url                         | String | Yes      | -       | Http request url                                                                                    |
-| headers                     | Map    | No       | -       | Http headers                                                                                        |
-| retry                       | Int    | No       | -       | The max retry times if request http return to `IOException`                                         |
-| retry_backoff_multiplier_ms | Int    | No       | 100     | The retry-backoff times(millis) multiplier if request http failed                                   |
-| retry_backoff_max_ms        | Int    | No       | 10000   | The maximum retry-backoff times(millis) if request http failed                                      |
-| connect_timeout_ms          | Int    | No       | 12000   | Connection timeout setting, default 12s.                                                            |
-| socket_timeout_ms           | Int    | No       | 60000   | Socket timeout setting, default 60s.                                                                |
-| common-options              |        | No       | -       | Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details |
+|            Name             |  Type  | Required | Default |                                                 Description                                                 |
+|-----------------------------|--------|----------|---------|-------------------------------------------------------------------------------------------------------------|
+| url                         | String | Yes      | -       | Http request url                                                                                            |
+| headers                     | Map    | No       | -       | Http headers                                                                                                |
+| retry                       | Int    | No       | -       | The max retry times if request http return to `IOException`                                                 |
+| retry_backoff_multiplier_ms | Int    | No       | 100     | The retry-backoff times(millis) multiplier if request http failed                                           |
+| retry_backoff_max_ms        | Int    | No       | 10000   | The maximum retry-backoff times(millis) if request http failed                                              |
+| connect_timeout_ms          | Int    | No       | 12000   | Connection timeout setting, default 12s.                                                                    |
+| socket_timeout_ms           | Int    | No       | 60000   | Socket timeout setting, default 60s.                                                                        |
+| common-options              |        | No       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details |
 
 ## Example
 

@@ -103,23 +103,24 @@ The key password for the trust store specified
 
 ### common options
 
-Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
+Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details
 
 ### schema_save_mode
 
 Before the synchronous task is turned on, different treatment schemes are selected for the existing surface structure of the target side.
 Option introduction：  
-RECREATE_SCHEMA ：Will create when the table does not exist, delete and rebuild when the table is saved  
-CREATE_SCHEMA_WHEN_NOT_EXIST ：Will Created when the table does not exist, skipped when the table is saved  
-ERROR_WHEN_SCHEMA_NOT_EXIST ：Error will be reported when the table does not exist
+`RECREATE_SCHEMA` ：Will create when the table does not exist, delete and rebuild when the table is saved  
+`CREATE_SCHEMA_WHEN_NOT_EXIST` ：Will Created when the table does not exist, skipped when the table is saved  
+`ERROR_WHEN_SCHEMA_NOT_EXIST` ：Error will be reported when the table does not exist  
+`IGNORE` ：Ignore the treatment of the table
 
 ### data_save_mode
 
 Before the synchronous task is turned on, different processing schemes are selected for data existing data on the target side.
 Option introduction：  
-DROP_DATA： Preserve database structure and delete data  
-APPEND_DATA：Preserve database structure, preserve data  
-ERROR_WHEN_DATA_EXISTS：When there is data, an error is reported
+`DROP_DATA`： Preserve database structure and delete data  
+`APPEND_DATA`：Preserve database structure, preserve data  
+`ERROR_WHEN_DATA_EXISTS`：When there is data, an error is reported
 
 ## Examples
 

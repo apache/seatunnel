@@ -175,7 +175,7 @@ Additional connection configuration parameters,when properties and URL have the 
 
 ### common options
 
-Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
+Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details
 
 ### schema_save_mode [Enum]
 
@@ -183,7 +183,8 @@ Before the synchronous task is turned on, different treatment schemes are select
 Option introduction：  
 `RECREATE_SCHEMA` ：Will create when the table does not exist, delete and rebuild when the table is saved        
 `CREATE_SCHEMA_WHEN_NOT_EXIST` ：Will Created when the table does not exist, skipped when the table is saved        
-`ERROR_WHEN_SCHEMA_NOT_EXIST` ：Error will be reported when the table does not exist
+`ERROR_WHEN_SCHEMA_NOT_EXIST` ：Error will be reported when the table does not exist  
+`IGNORE` ：Ignore the treatment of the table
 
 ### data_save_mode [Enum]
 
@@ -244,7 +245,7 @@ there are some reference value for params above.
 | Snowflake         | net.snowflake.client.jdbc.SnowflakeDriver    | jdbc&#58;snowflake://<account_name>.snowflakecomputing.com         | /                                                  | https://mvnrepository.com/artifact/net.snowflake/snowflake-jdbc                                                               |
 | Vertica           | com.vertica.jdbc.Driver                      | jdbc:vertica://localhost:5433                                      | /                                                  | https://repo1.maven.org/maven2/com/vertica/jdbc/vertica-jdbc/12.0.3-0/vertica-jdbc-12.0.3-0.jar                               |
 | Kingbase          | com.kingbase8.Driver                         | jdbc:kingbase8://localhost:54321/db_test                           | /                                                  | https://repo1.maven.org/maven2/cn/com/kingbase/kingbase8/8.6.0/kingbase8-8.6.0.jar                                            |
-| OceanBase         | com.oceanbase.jdbc.Driver                    | jdbc:oceanbase://localhost:2881                                    | /                                                  | https://repo1.maven.org/maven2/com/oceanbase/oceanbase-client/2.4.3/oceanbase-client-2.4.3.jar                                |
+| OceanBase         | com.oceanbase.jdbc.Driver                    | jdbc:oceanbase://localhost:2881                                    | /                                                  | https://repo1.maven.org/maven2/com/oceanbase/oceanbase-client/2.4.11/oceanbase-client-2.4.11.jar                              |
 | xugu              | com.xugu.cloudjdbc.Driver                    | jdbc:xugu://localhost:5138                                         | /                                                  | https://repo1.maven.org/maven2/com/xugudb/xugu-jdbc/12.2.0/xugu-jdbc-12.2.0.jar                                               |
 | InterSystems IRIS | com.intersystems.jdbc.IRISDriver             | jdbc:IRIS://localhost:1972/%SYS                                    | /                                                  | https://raw.githubusercontent.com/intersystems-community/iris-driver-distribution/main/JDBC/JDK18/intersystems-jdbc-3.8.4.jar |
 

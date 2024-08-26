@@ -198,7 +198,6 @@ public class JdbcSink
             if (catalogOptional.isPresent()) {
                 try {
                     Catalog catalog = catalogOptional.get();
-                    catalog.open();
                     FieldIdeEnum fieldIdeEnumEnum = config.get(JdbcOptions.FIELD_IDE);
                     String fieldIde =
                             fieldIdeEnumEnum == null

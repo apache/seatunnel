@@ -31,7 +31,7 @@ libfb303-xxx.jar
 
 ## Options
 
-|            name             |  type  | required |        default value         |                                                                           Description                                                                            |
+|            name             |  type  | required |        default value         | Description                                                                                                                                                      |
 |-----------------------------|--------|----------|------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | warehouse                   | String | Yes      | -                            | Paimon warehouse path                                                                                                                                            |
 | catalog_type                | String | No       | filesystem                   | Catalog type of Paimon, support filesystem and hive                                                                                                              |
