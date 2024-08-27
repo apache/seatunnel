@@ -328,7 +328,7 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
                     dbServer.getDockerImageName(),
                     images);
             try {
-                // dockerClient.removeImageCmd(dbServer.getDockerImageName()).exec();
+                dockerClient.removeImageCmd(dbServer.getDockerImageName()).exec();
             } catch (Exception ignored) {
                 log.warn("Failed to delete the image. Another container may be in use", ignored);
             }
