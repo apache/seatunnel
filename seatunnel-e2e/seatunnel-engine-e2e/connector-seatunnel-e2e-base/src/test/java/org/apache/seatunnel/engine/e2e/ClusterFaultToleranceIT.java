@@ -991,6 +991,7 @@ public class ClusterFaultToleranceIT {
                             + "\n"
                             + "          fs.oss.endpoint: "
                             + OSS_ENDPOINT
+                            + "\n"
                             + "  properties:\n"
                             + "    hazelcast.invocation.max.retry.count: 200\n"
                             + "    hazelcast.tcp.join.port.try.count: 30\n"
