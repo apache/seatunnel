@@ -115,9 +115,10 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                         Optional.empty(),
                         Optional.empty());
         testDataset = generateTestDataSet();
+        createIndexForResourceNull("st_index");
         createIndexDocs();
         createIndexWithFullType();
-        createIndexForResourceNull();
+        createIndexForResourceNull("st_index4");
     }
 
     /** create a index,and bulk some documents */
@@ -163,14 +164,14 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                 2, esRestClient.getIndexDocsCount("st_index_full_type").get(0).getDocsCount());
     }
 
-    private void createIndexForResourceNull() throws IOException {
+    private void createIndexForResourceNull(String indexName) throws IOException {
         String mapping =
                 IOUtils.toString(
                         ContainerUtil.getResourcesFile(
                                         "/elasticsearch/st_index_source_without_schema_and_sink.json")
                                 .toURI(),
                         StandardCharsets.UTF_8);
-        esRestClient.createIndex("st_index4", mapping);
+        esRestClient.createIndex(indexName, mapping);
     }
 
     @TestTemplate
@@ -268,7 +269,8 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                     "c_bytes",
                     "c_int",
                     "c_date",
-                    "c_timestamp"
+                    "c_timestamp",
+                    "c_null"
                 };
 
         List<String> documents = new ArrayList<>();
@@ -283,14 +285,16 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                         Boolean.FALSE,
                         Byte.parseByte("1"),
                         Short.parseShort("1"),
-                        i,
                         Long.parseLong("1"),
                         Float.parseFloat("1.1"),
                         Double.parseDouble("1.1"),
                         BigDecimal.valueOf(11, 1),
                         "test".getBytes(),
+                        i,
                         LocalDate.now().toString(),
-                        System.currentTimeMillis()
+                        System.currentTimeMillis(),
+                        // Null values are also a basic use case for testing
+                        null
                     };
             for (int j = 0; j < fields.length; j++) {
                 doc.put(fields[j], values[j]);
@@ -326,7 +330,8 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                         "c_bytes",
                         "c_int",
                         "c_date",
-                        "c_timestamp");
+                        "c_timestamp",
+                        "c_null");
         return getDocsWithTransformTimestamp(source, index);
     }
 
