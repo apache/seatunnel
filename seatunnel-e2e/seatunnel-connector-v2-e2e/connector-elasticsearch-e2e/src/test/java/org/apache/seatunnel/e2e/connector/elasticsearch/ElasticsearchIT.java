@@ -128,8 +128,6 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
 
     private void createIndexDocsByName(String indexName) {
         StringBuilder requestBody = new StringBuilder();
-        Map<String, String> indexInner = new HashMap<>();
-        indexInner.put("_index", "st");
         String indexHeader = String.format("{\"index\":{\"_index\":\"%s\"}\n", indexName);
         for (int i = 0; i < testDataset.size(); i++) {
             String row = testDataset.get(i);
@@ -189,8 +187,8 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     @DisabledOnContainer(
             value = {},
-            type = {EngineType.SPARK, EngineType.FLINK},
-            disabledReason = "Currently SPARK/FLINK do not support multiple table read")
+            type = {EngineType.FLINK},
+            disabledReason = "Currently FLINK do not support multiple table read")
     public void testElasticsSearchWithMultiSource(TestContainer container)
             throws InterruptedException, IOException {
         // this test will read read_index1,read_index2 write into multi_source_write_test_index
