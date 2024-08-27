@@ -40,6 +40,9 @@ import org.apache.iceberg.io.UnpartitionedWriter;
 import org.apache.iceberg.types.TypeUtil;
 import org.apache.iceberg.util.PropertyUtil;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
@@ -55,6 +58,7 @@ import static org.apache.iceberg.TableProperties.WRITE_TARGET_FILE_SIZE_BYTES_DE
 
 @Slf4j
 public class IcebergWriterFactory {
+    private static final Logger LOG = LoggerFactory.getLogger(IcebergWriterFactory.class);
     private final IcebergTableLoader tableLoader;
     private final SinkConfig config;
 

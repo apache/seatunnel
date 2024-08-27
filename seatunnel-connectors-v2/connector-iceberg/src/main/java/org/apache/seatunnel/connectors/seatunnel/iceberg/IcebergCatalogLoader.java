@@ -50,20 +50,25 @@ public class IcebergCatalogLoader implements Serializable {
     private static final long serialVersionUID = -6003040601422350869L;
     private static final List<String> HADOOP_CONF_FILES =
             ImmutableList.of("core-site.xml", "hdfs-site.xml", "hive-site.xml");
-    private final CommonConfig config;
+    private CommonConfig config;
 
     public IcebergCatalogLoader(CommonConfig config) {
         this.config = config;
     }
 
     public Catalog loadCatalog() {
-        // When using the SeaTunnel engine, set the current class loader to prevent loading failures
+        // When using the seatunel engine, set the current class loader to prevent loading failures
         Thread.currentThread().setContextClassLoader(IcebergCatalogLoader.class.getClassLoader());
         return CatalogUtil.buildIcebergCatalog(
                 config.getCatalogName(), config.getCatalogProps(), loadHadoopConfig(config));
     }
 
-    /** Loading Hadoop configuration through reflection */
+    /**
+     * Loading Hadoop configuration through reflection
+     *
+     * @param config
+     * @return
+     */
     public Object loadHadoopConfig(CommonConfig config) {
         Class<?> configClass =
                 DynClasses.builder()
