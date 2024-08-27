@@ -81,7 +81,8 @@ public class TableStoreDBSourceReader
 
     @Override
     public void close() throws IOException {
-        // client
+        tunnelClient.shutdown();
+        client.shutdown();
     }
 
     @Override
@@ -112,7 +113,6 @@ public class TableStoreDBSourceReader
         TableStoreProcessor processor =
                 new TableStoreProcessor(split.getTableName(), split.getPrimaryKey(), output);
         TunnelWorkerConfig workerConfig = new TunnelWorkerConfig(processor);
-        // 配置TunnelWorker，并启动自动化的数据处理任务。
         TunnelWorker worker = new TunnelWorker(tunnelId, tunnelClient, workerConfig);
         try {
             worker.connectAndWorking();
@@ -136,7 +136,6 @@ public class TableStoreDBSourceReader
                     new CreateTunnelRequest(
                             split.getTableName(), tunnelName, TunnelType.valueOf("BaseAndStream"));
             CreateTunnelResponse cresp = tunnelClient.createTunnel(crequest);
-            // tunnelId用于后续TunnelWorker的初始化，该值也可以通过ListTunnel或者DescribeTunnel获取。
             tunnelId = cresp.getTunnelId();
         }
         log.info("Tunnel found, Id: " + tunnelId);

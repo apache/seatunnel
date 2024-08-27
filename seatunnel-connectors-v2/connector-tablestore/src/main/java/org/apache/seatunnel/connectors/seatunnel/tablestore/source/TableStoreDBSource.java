@@ -34,7 +34,6 @@ import org.apache.seatunnel.connectors.seatunnel.tablestore.config.TablestoreOpt
 
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
@@ -54,8 +53,6 @@ public class TableStoreDBSource
 
     @Override
     public List<CatalogTable> getProducedCatalogTables() {
-        List<CatalogTable> list = new ArrayList<>();
-
         return SeaTunnelSource.super.getProducedCatalogTables();
     }
 

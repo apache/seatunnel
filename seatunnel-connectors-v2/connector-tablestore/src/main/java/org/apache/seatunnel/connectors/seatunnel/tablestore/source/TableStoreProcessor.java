@@ -48,9 +48,8 @@ public class TableStoreProcessor implements IChannelProcessor {
 
     @Override
     public void process(ProcessRecordsInput input) {
-        // ProcessRecordsInput中包含有拉取到的数据。
         log.info("Default record processor, would print records count");
-        // NextToken用于Tunnel Client的翻页。
+
         log.info(
                 String.format(
                         "Process %d records, NextToken: %s",
