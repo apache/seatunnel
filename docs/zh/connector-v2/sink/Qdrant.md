@@ -65,4 +65,4 @@ Qdrant 实例的 gRPC 端口。
 
 ### 通用选项
 
-接收插件的通用参数，请参考[源通用选项](common-options.md)了解详情。
+接收插件的通用参数，请参考[源通用选项](../sink-common-options.md)了解详情。
