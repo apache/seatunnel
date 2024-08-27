@@ -221,8 +221,11 @@ public class KafkaSourceConfig implements Serializable {
                 tableSchema,
                 new HashMap<String, String>() {
                     {
-                        put(PROTOBUF_MESSAGE_NAME.key(), readonlyConfig.get(PROTOBUF_MESSAGE_NAME));
-                        put(PROTOBUF_SCHEMA.key(), readonlyConfig.get(PROTOBUF_SCHEMA));
+                        Optional.ofNullable(readonlyConfig.get(PROTOBUF_MESSAGE_NAME))
+                                .ifPresent(value -> put(PROTOBUF_MESSAGE_NAME.key(), value));
+
+                        Optional.ofNullable(readonlyConfig.get(PROTOBUF_SCHEMA))
+                                .ifPresent(value -> put(PROTOBUF_SCHEMA.key(), value));
                     }
                 },
                 Collections.emptyList(),
@@ -233,6 +236,8 @@ public class KafkaSourceConfig implements Serializable {
             CatalogTable catalogTable, ReadonlyConfig readonlyConfig) {
         SeaTunnelRowType seaTunnelRowType = catalogTable.getSeaTunnelRowType();
 
+        MessageFormat format = readonlyConfig.get(FORMAT);
+
         if (!readonlyConfig.getOptional(TableSchemaOptions.SCHEMA).isPresent()) {
             return TextDeserializationSchema.builder()
                     .seaTunnelRowType(seaTunnelRowType)
@@ -241,7 +246,6 @@ public class KafkaSourceConfig implements Serializable {
                     .build();
         }
 
-        MessageFormat format = readonlyConfig.get(FORMAT);
         switch (format) {
             case JSON:
                 return new JsonDeserializationSchema(catalogTable, false, false);
