@@ -42,7 +42,7 @@ public class GoogleSheetsDeserializerTest {
         SeaTunnelRowType schema =
                 new SeaTunnelRowType(new String[] {"name"}, new SeaTunnelDataType[] {STRING_TYPE});
 
-        CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "", schema);
+        CatalogTable catalogTables = CatalogTableUtil.getCatalogTable("", "", "", "test", schema);
 
         final DeserializationSchema<SeaTunnelRow> deser =
                 new JsonDeserializationSchema(catalogTables, false, false);

@@ -84,6 +84,12 @@ public class SeaTunnelServer
 
     /** Lazy load for Slot Service */
     public SlotService getSlotService() {
+        // If the node is master node, the slot service is not needed.
+        if (EngineConfig.ClusterRole.MASTER.ordinal()
+                == seaTunnelConfig.getEngineConfig().getClusterRole().ordinal()) {
+            return null;
+        }
+
         if (slotService == null) {
             synchronized (this) {
                 if (slotService == null) {

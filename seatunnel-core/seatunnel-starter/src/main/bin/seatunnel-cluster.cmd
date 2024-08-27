@@ -58,7 +58,7 @@ REM Server Debug Config
 REM Usage instructions:
 REM If you need to debug your code in cluster mode, please enable this configuration option and listen to the specified
 REM port in your IDE. After that, you can happily debug your code.
-REM set "JAVA_OPTS=%JAVA_OPTS% -Xdebug -Xrunjdwp:server=y,transport=dt_socket,address=5001,suspend=y"
+REM set "JAVA_OPTS=%JAVA_OPTS% -Xdebug -Xrunjdwp:server=y,transport=dt_socket,address=5001,suspend=n"
 
 if exist "%CONF_DIR%\log4j2.properties" (
     set "JAVA_OPTS=%JAVA_OPTS% -Dhazelcast.logging.type=log4j2 -Dlog4j2.configurationFile=%CONF_DIR%\log4j2.properties"
@@ -78,7 +78,7 @@ if "%NODE_ROLE%" == "master" (
     REM SeaTunnel Engine Config
     set "HAZELCAST_CONFIG=%CONF_DIR%\hazelcast-master.yaml"
 
-) elseif "%NODE_ROLE%" == "worker" (
+) else if "%NODE_ROLE%" == "worker" (
     set "OUT=%WORKER_OUT%"
     set "JAVA_OPTS=%JAVA_OPTS% -Dseatunnel.logs.file_name=seatunnel-engine-worker"
     for /f "usebackq delims=" %%I in ("%APP_DIR%\config\jvm_worker_options") do (
@@ -89,7 +89,7 @@ if "%NODE_ROLE%" == "master" (
     )
     REM SeaTunnel Engine Config
     set "HAZELCAST_CONFIG=%CONF_DIR%\hazelcast-worker.yaml"
-) elseif "%NODE_ROLE%" == "master_and_worker" (
+) else if "%NODE_ROLE%" == "master_and_worker" (
     set "JAVA_OPTS=%JAVA_OPTS% -Dseatunnel.logs.file_name=seatunnel-engine-server"
     for /f "usebackq delims=" %%I in ("%APP_DIR%\config\jvm_options") do (
         set "line=%%I"

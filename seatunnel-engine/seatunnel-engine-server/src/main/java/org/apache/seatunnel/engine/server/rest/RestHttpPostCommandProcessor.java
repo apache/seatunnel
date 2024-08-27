@@ -131,13 +131,15 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
                         startWithSavePoint,
                         finalJobId);
         JobImmutableInformation jobImmutableInformation = restJobExecutionEnvironment.build();
-        Long jobId = jobImmutableInformation.getJobId();
+        long jobId = jobImmutableInformation.getJobId();
         if (!seaTunnelServer.isMasterNode()) {
 
             NodeEngineUtil.sendOperationToMasterNode(
                             getNode().nodeEngine,
                             new SubmitJobOperation(
-                                    jobId, getNode().nodeEngine.toData(jobImmutableInformation)))
+                                    jobId,
+                                    getNode().nodeEngine.toData(jobImmutableInformation),
+                                    jobImmutableInformation.isStartWithSavePoint()))
                     .join();
 
         } else {
@@ -147,7 +149,7 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
         this.prepareResponse(
                 httpPostCommand,
                 new JsonObject()
-                        .add(RestConstant.JOB_ID, jobId)
+                        .add(RestConstant.JOB_ID, String.valueOf(jobId))
                         .add(RestConstant.JOB_NAME, jobConfig.getName()));
     }
 
@@ -231,7 +233,9 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
                         .toData(jobImmutableInformation);
         PassiveCompletableFuture<Void> voidPassiveCompletableFuture =
                 coordinatorService.submitJob(
-                        Long.parseLong(jobConfig.getJobContext().getJobId()), data);
+                        Long.parseLong(jobConfig.getJobContext().getJobId()),
+                        data,
+                        jobImmutableInformation.isStartWithSavePoint());
         voidPassiveCompletableFuture.join();
     }
 }

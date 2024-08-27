@@ -137,7 +137,7 @@ JAVA_OPTS="${JAVA_OPTS} -Dhazelcast.config=${HAZELCAST_CONFIG}"
 # Usage instructions:
 # If you need to debug your code in cluster mode, please enable this configuration option and listen to the specified
 # port in your IDE. After that, you can happily debug your code.
-# JAVA_OPTS="${JAVA_OPTS} -Xdebug -Xrunjdwp:server=y,transport=dt_socket,address=5001,suspend=y"
+# JAVA_OPTS="${JAVA_OPTS} -Xdebug -Xrunjdwp:server=y,transport=dt_socket,address=5001,suspend=n"
 
 CLASS_PATH=${APP_DIR}/lib/*:${APP_JAR}
 

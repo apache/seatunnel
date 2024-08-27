@@ -30,10 +30,12 @@ import java.util.Map;
 
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.ENCODING;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.FAMILY_NAME;
+import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.HBASE_BATCH_CONFIG;
+import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.HBASE_CACHE_BLOCKS_CONFIG;
+import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.HBASE_CACHING_CONFIG;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.HBASE_EXTRA_CONFIG;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.HBASE_TTL_CONFIG;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.NULL_MODE;
-import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.QUERY_COLUMNS;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.ROWKEY_COLUMNS;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.ROWKEY_DELIMITER;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.TABLE;
@@ -60,7 +62,13 @@ public class HbaseParameters implements Serializable {
 
     private Map<String, String> hbaseExtraConfig;
 
+    @Builder.Default private int caching = HBASE_CACHING_CONFIG.defaultValue();
+
+    @Builder.Default private int batch = HBASE_BATCH_CONFIG.defaultValue();
+
     @Builder.Default private Long ttl = HBASE_TTL_CONFIG.defaultValue();
+
+    @Builder.Default private boolean cacheBlocks = HBASE_CACHE_BLOCKS_CONFIG.defaultValue();
 
     @Builder.Default private String rowkeyDelimiter = ROWKEY_DELIMITER.defaultValue();
 
@@ -72,7 +80,7 @@ public class HbaseParameters implements Serializable {
 
     @Builder.Default private HbaseConfig.EnCoding enCoding = ENCODING.defaultValue();
 
-    public static HbaseParameters buildWithConfig(Config pluginConfig) {
+    public static HbaseParameters buildWithSinkConfig(Config pluginConfig) {
         HbaseParametersBuilder builder = HbaseParameters.builder();
 
         // required parameters
@@ -113,17 +121,25 @@ public class HbaseParameters implements Serializable {
         return builder.build();
     }
 
-    public static HbaseParameters buildWithSinkConfig(Config pluginConfig) {
+    public static HbaseParameters buildWithSourceConfig(Config pluginConfig) {
         HbaseParametersBuilder builder = HbaseParameters.builder();
 
         // required parameters
         builder.zookeeperQuorum(pluginConfig.getString(ZOOKEEPER_QUORUM.key()));
         builder.table(pluginConfig.getString(TABLE.key()));
-        builder.columns(pluginConfig.getStringList(QUERY_COLUMNS.key()));
 
         if (pluginConfig.hasPath(HBASE_EXTRA_CONFIG.key())) {
             Config extraConfig = pluginConfig.getConfig(HBASE_EXTRA_CONFIG.key());
             builder.hbaseExtraConfig(TypesafeConfigUtils.configToMap(extraConfig));
+        }
+        if (pluginConfig.hasPath(HBASE_CACHING_CONFIG.key())) {
+            builder.caching(pluginConfig.getInt(HBASE_CACHING_CONFIG.key()));
+        }
+        if (pluginConfig.hasPath(HBASE_BATCH_CONFIG.key())) {
+            builder.batch(pluginConfig.getInt(HBASE_BATCH_CONFIG.key()));
+        }
+        if (pluginConfig.hasPath(HBASE_CACHE_BLOCKS_CONFIG.key())) {
+            builder.cacheBlocks(pluginConfig.getBoolean(HBASE_CACHE_BLOCKS_CONFIG.key()));
         }
         return builder.build();
     }

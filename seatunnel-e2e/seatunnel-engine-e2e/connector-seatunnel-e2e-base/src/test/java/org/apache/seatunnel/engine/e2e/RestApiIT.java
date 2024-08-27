@@ -34,6 +34,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import com.hazelcast.client.config.ClientConfig;
+import com.hazelcast.config.Config;
+import com.hazelcast.config.MemberAttributeConfig;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import lombok.extern.slf4j.Slf4j;
 
@@ -63,13 +65,23 @@ public class RestApiIT {
     @BeforeEach
     void beforeClass() throws Exception {
         String testClusterName = TestUtils.getClusterName("RestApiIT");
-        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
-        seaTunnelConfig.getHazelcastConfig().setClusterName(testClusterName);
-        seaTunnelConfig.getEngineConfig().getSlotServiceConfig().setDynamicSlot(false);
-        seaTunnelConfig.getEngineConfig().getSlotServiceConfig().setSlotNum(20);
-        node1 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
+        SeaTunnelConfig node1Config = ConfigProvider.locateAndGetSeaTunnelConfig();
+        node1Config.getHazelcastConfig().setClusterName(testClusterName);
+        node1Config.getEngineConfig().getSlotServiceConfig().setDynamicSlot(false);
+        node1Config.getEngineConfig().getSlotServiceConfig().setSlotNum(20);
+        MemberAttributeConfig node1Tags = new MemberAttributeConfig();
+        node1Tags.setAttribute("node", "node1");
+        node1Config.getHazelcastConfig().setMemberAttributeConfig(node1Tags);
+        node1 = SeaTunnelServerStarter.createHazelcastInstance(node1Config);
 
-        node2 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
+        MemberAttributeConfig node2Tags = new MemberAttributeConfig();
+        node2Tags.setAttribute("node", "node2");
+        Config node2hzconfig = node1Config.getHazelcastConfig().setMemberAttributeConfig(node2Tags);
+        SeaTunnelConfig node2Config = ConfigProvider.locateAndGetSeaTunnelConfig();
+        node2Config.getEngineConfig().getSlotServiceConfig().setDynamicSlot(false);
+        node2Config.getEngineConfig().getSlotServiceConfig().setSlotNum(20);
+        node2Config.setHazelcastConfig(node2hzconfig);
+        node2 = SeaTunnelServerStarter.createHazelcastInstance(node2Config);
 
         String filePath = TestUtils.getResource("stream_fakesource_to_file.conf");
         JobConfig jobConfig = new JobConfig();
@@ -79,7 +91,7 @@ public class RestApiIT {
         clientConfig.setClusterName(testClusterName);
         engineClient = new SeaTunnelClient(clientConfig);
         ClientJobExecutionEnvironment jobExecutionEnv =
-                engineClient.createExecutionContext(filePath, jobConfig, seaTunnelConfig);
+                engineClient.createExecutionContext(filePath, jobConfig, node1Config);
 
         clientJobProxy = jobExecutionEnv.execute();
 
@@ -94,7 +106,7 @@ public class RestApiIT {
         JobConfig batchConf = new JobConfig();
         batchConf.setName("fake_to_console");
         ClientJobExecutionEnvironment batchJobExecutionEnv =
-                engineClient.createExecutionContext(batchFilePath, batchConf, seaTunnelConfig);
+                engineClient.createExecutionContext(batchFilePath, batchConf, node1Config);
         batchJobProxy = batchJobExecutionEnv.execute();
         Awaitility.await()
                 .atMost(5, TimeUnit.MINUTES)
@@ -241,6 +253,27 @@ public class RestApiIT {
     }
 
     @Test
+    public void testOverviewFilterByTag() {
+        Arrays.asList(node2, node1)
+                .forEach(
+                        instance -> {
+                            given().get(
+                                            HOST
+                                                    + instance.getCluster()
+                                                            .getLocalMember()
+                                                            .getAddress()
+                                                            .getPort()
+                                                    + RestConstant.OVERVIEW
+                                                    + "?node=node1")
+                                    .then()
+                                    .statusCode(200)
+                                    .body("projectVersion", notNullValue())
+                                    .body("totalSlot", equalTo("20"))
+                                    .body("workers", equalTo("1"));
+                        });
+    }
+
+    @Test
     public void testGetRunningThreads() {
         Arrays.asList(node2, node1)
                 .forEach(
@@ -273,6 +306,8 @@ public class RestApiIT {
                                     .then()
                                     .assertThat()
                                     .time(lessThan(5000L))
+                                    .body("[0].host", equalTo("localhost"))
+                                    .body("[0].port", notNullValue())
                                     .statusCode(200);
                         });
     }

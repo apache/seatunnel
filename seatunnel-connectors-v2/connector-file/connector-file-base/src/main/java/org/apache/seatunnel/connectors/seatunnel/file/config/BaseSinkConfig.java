@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.file.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.kerberos.KerberosConfig;
 import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
@@ -34,7 +35,7 @@ import static org.apache.seatunnel.api.sink.DataSaveMode.APPEND_DATA;
 import static org.apache.seatunnel.api.sink.DataSaveMode.DROP_DATA;
 import static org.apache.seatunnel.api.sink.DataSaveMode.ERROR_WHEN_DATA_EXISTS;
 
-public class BaseSinkConfig {
+public class BaseSinkConfig extends KerberosConfig {
     public static final String SEATUNNEL = "seatunnel";
     public static final String NON_PARTITION = "NON_PARTITION";
     public static final String TRANSACTION_ID_SPLIT = "_";
@@ -227,25 +228,6 @@ public class BaseSinkConfig {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("The remote user name of hdfs");
-
-    public static final Option<String> KRB5_PATH =
-            Options.key("krb5_path")
-                    .stringType()
-                    .defaultValue("/etc/krb5.conf")
-                    .withDescription(
-                            "When use kerberos, we should set krb5 path file path such as '/seatunnel/krb5.conf' or use the default path '/etc/krb5.conf");
-
-    public static final Option<String> KERBEROS_PRINCIPAL =
-            Options.key("kerberos_principal")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Kerberos principal");
-
-    public static final Option<String> KERBEROS_KEYTAB_PATH =
-            Options.key("kerberos_keytab_path")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Kerberos keytab file path");
 
     public static final Option<Integer> MAX_ROWS_IN_MEMORY =
             Options.key("max_rows_in_memory")
