@@ -1,3 +1,7 @@
+---
+sidebar_position: 4
+---
+
 # Sink Common Options
 
 > Common parameters of sink connectors

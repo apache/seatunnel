@@ -90,7 +90,7 @@ In addition to the above parameters that must be specified by the RabbitMQ clien
 
 ### common options
 
-Sink插件常用参数，请参考[Sink常用选项](common-options.md)获取更多细节信息。
+Sink插件常用参数，请参考[Sink常用选项](../sink-common-options.md)获取更多细节信息。
 
 ## 示例
 

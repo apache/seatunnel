@@ -1,7 +1,6 @@
 ---
-
 sidebar_position: 7
--------------------
+---
 
 # Checkpoint Storage
 

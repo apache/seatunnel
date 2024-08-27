@@ -58,7 +58,7 @@
 | schema                    | config  | 否    | -              | 上游数据的模式字段。                                                                                                                                                                                                                                  |
 | sheet_name                | string  | 否    | -              | 读取工作簿的表格，仅在文件格式为 excel 时使用。                                                                                                                                                                                                                 |
 | compress_codec            | string  | 否    | none           | 文件的压缩编解码器。                                                                                                                                                                                                                                  |
-| common-options            |         | 否    | -              | 源插件通用参数，请参阅 [源通用选项](../../../en/connector-v2/source/common-options.md) 获取详细信息。                                                                                                                                                              |
+| common-options            |         | 否    | -              | 源插件通用参数，请参阅 [源通用选项](../../../en/connector-v2/source-common-options.md) 获取详细信息。                                                                                                                                                              |
 
 ### delimiter/field_delimiter [string]
 
@@ -106,7 +106,7 @@ source {
   fs.defaultFS = "hdfs://namenode001"
   }
   # 如果您想获取有关如何配置 seatunnel 和查看源插件完整列表的更多信息，
-  # 请访问 https://seatunnel.apache.org/docs/category/source-v2
+  # 请访问 https://seatunnel.apache.org/docs/connector-v2/source
 }
 
 transform {
@@ -121,7 +121,7 @@ sink {
       file_format = "orc"
     }
   # 如果您想获取有关如何配置 seatunnel 和查看接收器插件完整列表的更多信息，
-  # 请访问 https://seatunnel.apache.org/docs/category/sink-v2
+  # 请访问 https://seatunnel.apache.org/docs/connector-v2/sink
 }
 ```
 
