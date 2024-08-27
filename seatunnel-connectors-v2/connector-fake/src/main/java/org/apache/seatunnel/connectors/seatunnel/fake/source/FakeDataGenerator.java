@@ -74,7 +74,7 @@ public class FakeDataGenerator {
 
     private SeaTunnelRow randomRow() {
         // Generate random data according to the data type and data colum of the table
-        List<Column> physicalColumns = catalogTable.getTableSchema().getPhysicalColumns();
+        List<Column> physicalColumns = catalogTable.getTableSchema().getColumns();
         List<Object> randomRow = new ArrayList<>(physicalColumns.size());
         for (Column column : physicalColumns) {
             randomRow.add(randomColumnValue(column));
