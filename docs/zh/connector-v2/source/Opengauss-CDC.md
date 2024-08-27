@@ -63,7 +63,7 @@ select 'ALTER TABLE ' || schemaname || '.' || tablename || ' REPLICA IDENTITY FU
 
 ## 源端可选项
 
-|                      Name                      | Type | Required | Default  |                                                                                                    Description                                                                                                    |
+|                      Name                      | Type | Required | Default  | Description                                                                                                                                                                                                       |
 |------------------------------------------------|------|----------|----------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | base-url                                       | 字符串  | 是        | -        | JDBC连接的URL. 参考: `jdbc:postgresql://localhost:5432/postgres_cdc?loggerLevel=OFF`.                                                                                                                                  |
 | username                                       | 字符串  | 是        | -        | 连接数据库的用户名                                                                                                                                                                                                         |
@@ -87,7 +87,7 @@ select 'ALTER TABLE ' || schemaname || '.' || tablename || ' REPLICA IDENTITY FU
 | exactly_once                                   | 布尔   | 否        | false    | 启用exactly once语义                                                                                                                                                                                                  |
 | format                                         | 枚举   | 否        | DEFAULT  | Opengauss CDC可选的输出格式, 有效的枚举是`DEFAULT`, `COMPATIBLE_DEBEZIUM_JSON`.                                                                                                                                                |
 | debezium                                       | 配置   | 否        | -        | 将 [Debezium的属性](https://github.com/debezium/debezium/blob/v1.9.8.Final/documentation/modules/ROOT/pages/connectors/postgresql.adoc#connector-configuration-properties) 传递到Debezium嵌入式引擎，该引擎用于捕获来自Opengauss服务的数据更改 |
-| common-options                                 |      | 否        | -        | 源码插件通用参数, 请参考[Source Common Options](common-options.md)获取详情                                                                                                                                                       |
+| common-options                                 |      | 否        | -        | 源码插件通用参数, 请参考[Source Common Options](../source-common-options.md)获取详情                                                                                                                                                                     |
 
 ## 任务示例
 
