@@ -22,10 +22,6 @@ import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceTableConfig;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcCatalogUtils;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
@@ -43,16 +39,12 @@ import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import com.google.common.collect.Lists;
-import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
 import java.util.stream.Stream;
 
 @Slf4j
@@ -195,30 +187,6 @@ public class JdbcMySqlSaveModeCatalogIT extends TestSuiteBase implements TestRes
         mySqlCatalog.dropTable(tablePathMySqlSink, true);
         Assertions.assertFalse(mySqlCatalog.tableExists(tablePathMySqlSink));
         mySqlCatalog.close();
-    }
-
-    @SneakyThrows
-    @Test
-    public void testCatalogWithCatalogUtils() {
-        List<JdbcSourceTableConfig> tablesConfig = new ArrayList<>();
-        JdbcSourceTableConfig tableConfig =
-                JdbcSourceTableConfig.builder()
-                        .query("SELECT * FROM mysql_auto_create;")
-                        .useSelectCount(false)
-                        .build();
-        tablesConfig.add(tableConfig);
-        Map<TablePath, JdbcSourceTable> tables =
-                JdbcCatalogUtils.getTables(
-                        JdbcConnectionConfig.builder()
-                                .url(MysqlUrlInfo.getUrlWithDatabase().get())
-                                .username(MYSQL_USERNAME)
-                                .password(MYSQL_PASSWORD)
-                                .build(),
-                        tablesConfig);
-        Assertions.assertTrue(
-                tables.containsKey(
-                        TablePath.of(
-                                MysqlUrlInfo.getDefaultDatabase().get(), "mysql_auto_create")));
     }
 
     @Override

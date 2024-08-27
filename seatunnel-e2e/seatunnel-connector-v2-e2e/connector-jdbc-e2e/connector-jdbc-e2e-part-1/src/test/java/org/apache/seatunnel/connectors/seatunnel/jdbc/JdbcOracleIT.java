@@ -184,6 +184,8 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                 .configFile(CONFIG_FILE)
                 .insertSql(insertSql)
                 .testData(testDataSet)
+                // oracle jdbc not support getTables/getCatalog/getSchema , is empty
+                .tablePathFullName(TablePath.DEFAULT.getFullName())
                 .build();
     }
 
