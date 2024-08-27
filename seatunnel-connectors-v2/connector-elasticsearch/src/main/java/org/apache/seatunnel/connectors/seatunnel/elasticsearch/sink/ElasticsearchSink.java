@@ -91,7 +91,6 @@ public class ElasticsearchSink
         DataSaveMode dataSaveMode = config.get(SinkConfig.DATA_SAVE_MODE);
 
         TablePath tablePath = TablePath.of("", catalogTable.getTableId().getTableName());
-        catalog.open();
         return Optional.of(
                 new DefaultSaveModeHandler(
                         schemaSaveMode, dataSaveMode, catalog, tablePath, null, null));

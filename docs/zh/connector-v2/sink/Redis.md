@@ -130,7 +130,7 @@ Redis 节点信息，在集群模式下使用，必须按如下格式：
 
 ### common options
 
-Sink 插件通用参数，请参考 [Sink Common Options](common-options.md) 获取详情
+Sink 插件通用参数，请参考 [Sink Common Options](../sink-common-options.md) 获取详情
 
 ## 示例
 

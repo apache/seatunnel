@@ -157,7 +157,7 @@ Please note that excel type does not support any compression format
 
 #### <span id="common_options"> common options </span>
 
-> Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details.
+> Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details.
 
 ## Task Example
 
