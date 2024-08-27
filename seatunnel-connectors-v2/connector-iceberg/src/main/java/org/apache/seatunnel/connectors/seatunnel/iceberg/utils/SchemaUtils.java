@@ -105,21 +105,11 @@ public class SchemaUtils {
         SinkConfig config = new SinkConfig(readonlyConfig);
         // build auto create table
         Map<String, String> options = new HashMap<>(table.getOptions());
-        //        options.put(TableProperties.FORMAT_VERSION, "2");
         // override
         options.putAll(config.getAutoCreateProps());
         return createTable(catalog, toIcebergTableIdentifier(tablePath), config, schema, options);
     }
 
-    /**
-     * For local test
-     *
-     * @param catalog
-     * @param tableIdentifier
-     * @param config
-     * @param rowType
-     * @return
-     */
     public static Table autoCreateTable(
             Catalog catalog,
             TableIdentifier tableIdentifier,
@@ -179,7 +169,7 @@ public class SchemaUtils {
                     Optional<Integer> pkId =
                             structType.fields().stream()
                                     .filter(nestedField -> nestedField.name().equals(pk))
-                                    .map(nestedField -> nestedField.fieldId())
+                                    .map(Types.NestedField::fieldId)
                                     .findFirst();
                     if (!pkId.isPresent()) {
                         throw new IllegalArgumentException(
@@ -195,21 +185,12 @@ public class SchemaUtils {
         structType
                 .fields()
                 .forEach(
-                        field -> {
-                            fields.add(
-                                    identifierFieldIds.contains(field.fieldId())
-                                            ? field.asRequired()
-                                            : field.asOptional());
-                        });
+                        field ->
+                                fields.add(
+                                        identifierFieldIds.contains(field.fieldId())
+                                                ? field.asRequired()
+                                                : field.asOptional()));
         return new Schema(fields, identifierFieldIds);
-    }
-
-    public static TableIdentifier toIcebergTableIdentifierFromCatalogTable(
-            CatalogTable catalogTable) {
-        org.apache.seatunnel.api.table.catalog.TableIdentifier tableIdentifier =
-                catalogTable.getTableId();
-        return TableIdentifier.of(
-                tableIdentifier.getDatabaseName(), tableIdentifier.getTableName());
     }
 
     public static TableIdentifier toIcebergTableIdentifier(TablePath tablePath) {
@@ -220,12 +201,7 @@ public class SchemaUtils {
         return TablePath.of(tableIdentifier.namespace().toString(), tableIdentifier.name());
     }
 
-    /**
-     * Commit table schema updates
-     *
-     * @param table
-     * @param wrapper
-     */
+    /** Commit table schema updates */
     private static void commitSchemaUpdates(Table table, SchemaChangeWrapper wrapper) {
         // get the latest schema in case another process updated it
         table.refresh();
@@ -248,7 +224,7 @@ public class SchemaUtils {
                         .collect(toList());
 
         // Rename column name
-        List<SchemaChangeColumn> changeColumns = wrapper.changeColumns().stream().collect(toList());
+        List<SchemaChangeColumn> changeColumns = new ArrayList<>(wrapper.changeColumns());
 
         if (addColumns.isEmpty()
                 && modifyColumns.isEmpty()
@@ -293,7 +269,7 @@ public class SchemaUtils {
         return IcebergTypeMapper.mapping(fieldName, type);
     }
 
-    public static Type toIcebergType(SeaTunnelDataType rowType) {
+    public static Type toIcebergType(SeaTunnelDataType<?> rowType) {
         return IcebergTypeMapper.toIcebergType(rowType);
     }
 
