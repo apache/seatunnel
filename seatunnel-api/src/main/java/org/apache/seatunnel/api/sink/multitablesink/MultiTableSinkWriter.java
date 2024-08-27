@@ -80,7 +80,6 @@ public class MultiTableSinkWriter
             BlockingQueue<SeaTunnelRow> queue = new LinkedBlockingQueue<>(1024);
             Map<String, SinkWriter<SeaTunnelRow, ?, ?>> tableIdWriterMap = new HashMap<>();
             Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkIdentifierMap = new HashMap<>();
-            Map<SinkIdentifier, SinkWriter.Context> sinkContextIdentifierMap = new HashMap<>();
             int queueIndex = i;
             sinkWriters.entrySet().stream()
                     .filter(entry -> entry.getKey().getIndex() % queueSize == queueIndex)
@@ -89,8 +88,6 @@ public class MultiTableSinkWriter
                                 tableIdWriterMap.put(
                                         entry.getKey().getTableIdentifier(), entry.getValue());
                                 sinkIdentifierMap.put(entry.getKey(), entry.getValue());
-                                sinkContextIdentifierMap.put(
-                                        entry.getKey(), sinkWritersContext.get(entry.getKey()));
                             });
 
             sinkWritersWithIndex.add(sinkIdentifierMap);
@@ -276,6 +273,8 @@ public class MultiTableSinkWriter
 
     @Override
     public void close() throws IOException {
+        // The variables used in lambda expressions should be final or valid final, so they are
+        // modified to arrays
         final Throwable[] firstE = {null};
         try {
             checkQueueRemain();
