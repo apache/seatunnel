@@ -53,7 +53,6 @@ public class HbaseSource
                 SupportColumnProjection {
     private static final Logger LOG = LoggerFactory.getLogger(HbaseSource.class);
     public static final String PLUGIN_NAME = "Hbase";
-    private Config pluginConfig;
     private SeaTunnelRowType seaTunnelRowType;
     private HbaseParameters hbaseParameters;
 
@@ -65,7 +64,6 @@ public class HbaseSource
     }
 
     HbaseSource(Config pluginConfig) {
-        this.pluginConfig = pluginConfig;
         CheckResult result =
                 CheckConfigUtil.checkAllExists(pluginConfig, ZOOKEEPER_QUORUM.key(), TABLE.key());
         if (!result.isSuccess()) {

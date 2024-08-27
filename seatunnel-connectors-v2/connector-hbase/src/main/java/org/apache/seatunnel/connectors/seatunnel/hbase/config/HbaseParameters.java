@@ -50,6 +50,8 @@ public class HbaseParameters implements Serializable {
 
     private String zookeeperQuorum;
 
+    private String namespace;
+
     private String table;
 
     private List<String> rowkeyColumns;
@@ -85,7 +87,16 @@ public class HbaseParameters implements Serializable {
 
         // required parameters
         builder.zookeeperQuorum(pluginConfig.getString(ZOOKEEPER_QUORUM.key()));
-        builder.table(pluginConfig.getString(TABLE.key()));
+        String table = pluginConfig.getString(TABLE.key());
+        int colonIndex = table.indexOf(':');
+        if (colonIndex != -1) {
+            String namespace = table.substring(0, colonIndex);
+            builder.namespace(namespace);
+            builder.table(table.substring(colonIndex + 1));
+        } else {
+            builder.table(table);
+        }
+
         builder.rowkeyColumns(pluginConfig.getStringList(ROWKEY_COLUMNS.key()));
         builder.familyNames(
                 TypesafeConfigUtils.configToMap(pluginConfig.getConfig(FAMILY_NAME.key())));
@@ -126,7 +137,15 @@ public class HbaseParameters implements Serializable {
 
         // required parameters
         builder.zookeeperQuorum(pluginConfig.getString(ZOOKEEPER_QUORUM.key()));
-        builder.table(pluginConfig.getString(TABLE.key()));
+        String table = pluginConfig.getString(TABLE.key());
+        int colonIndex = table.indexOf(':');
+        if (colonIndex != -1) {
+            String namespace = table.substring(0, colonIndex);
+            builder.namespace(namespace);
+            builder.table(table.substring(colonIndex + 1));
+        } else {
+            builder.table(table);
+        }
 
         if (pluginConfig.hasPath(HBASE_EXTRA_CONFIG.key())) {
             Config extraConfig = pluginConfig.getConfig(HBASE_EXTRA_CONFIG.key());

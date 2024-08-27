@@ -17,45 +17,64 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hbase.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.PrepareFailException;
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.sink.DataSaveMode;
+import org.apache.seatunnel.api.sink.DefaultSaveModeHandler;
+import org.apache.seatunnel.api.sink.SaveModeHandler;
+import org.apache.seatunnel.api.sink.SchemaSaveMode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSink;
+import org.apache.seatunnel.api.sink.SupportSaveMode;
+import org.apache.seatunnel.api.table.catalog.Catalog;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.constants.PluginType;
-import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
-import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
+import org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig;
 import org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseParameters;
-import org.apache.seatunnel.connectors.seatunnel.hbase.exception.HbaseConnectorException;
-
-import com.google.auto.service.AutoService;
+import org.apache.seatunnel.connectors.seatunnel.hbase.state.HbaseAggregatedCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.hbase.state.HbaseCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.hbase.state.HbaseSinkState;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
-import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.FAMILY_NAME;
-import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.ROWKEY_COLUMNS;
-import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.TABLE;
-import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.ZOOKEEPER_QUORUM;
+import static org.apache.seatunnel.api.table.factory.FactoryUtil.discoverFactory;
 
-@AutoService(SeaTunnelSink.class)
-public class HbaseSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
+public class HbaseSink
+        implements SeaTunnelSink<
+                        SeaTunnelRow, HbaseSinkState, HbaseCommitInfo, HbaseAggregatedCommitInfo>,
+                SupportMultiTableSink,
+                SupportSaveMode {
 
-    private Config pluginConfig;
+    private ReadonlyConfig config;
+
+    private CatalogTable catalogTable;
+
+    private final HbaseParameters hbaseParameters;
 
     private SeaTunnelRowType seaTunnelRowType;
-
-    private HbaseParameters hbaseParameters;
 
     private List<Integer> rowkeyColumnIndexes = new ArrayList<>();
 
     private int versionColumnIndex = -1;
+
+    public HbaseSink(ReadonlyConfig config, CatalogTable catalogTable) {
+        this.hbaseParameters = HbaseParameters.buildWithSinkConfig(config.toConfig());
+        this.config = config;
+        this.catalogTable = catalogTable;
+        //                this.seaTunnelRowType = seaTunnelRowType;
+        //        for (String rowkeyColumn : hbaseParameters.getRowkeyColumns()) {
+        //            this.rowkeyColumnIndexes.add(seaTunnelRowType.indexOf(rowkeyColumn));
+        //        }
+        if (hbaseParameters.getVersionColumn() != null) {
+            this.versionColumnIndex = seaTunnelRowType.indexOf(hbaseParameters.getVersionColumn());
+        }
+    }
 
     @Override
     public String getPluginName() {
@@ -63,29 +82,36 @@ public class HbaseSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     }
 
     @Override
-    public void prepare(Config pluginConfig) throws PrepareFailException {
-        this.pluginConfig = pluginConfig;
-        CheckResult result =
-                CheckConfigUtil.checkAllExists(
-                        pluginConfig,
-                        ZOOKEEPER_QUORUM.key(),
-                        TABLE.key(),
-                        ROWKEY_COLUMNS.key(),
-                        FAMILY_NAME.key());
-        if (!result.isSuccess()) {
-            throw new HbaseConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SINK, result.getMsg()));
-        }
-        this.hbaseParameters = HbaseParameters.buildWithSinkConfig(pluginConfig);
-        if (hbaseParameters.getFamilyNames().size() == 0) {
-            throw new HbaseConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    "The corresponding field options should be configured and should not be empty Refer to the hbase sink document");
-        }
+    public HbaseSinkWriter createWriter(SinkWriter.Context context) throws IOException {
+        return new HbaseSinkWriter(
+                seaTunnelRowType, hbaseParameters, rowkeyColumnIndexes, versionColumnIndex);
     }
+
+    //    @Override
+    //    public void prepare(Config pluginConfig) throws PrepareFailException {
+    //        this.pluginConfig = pluginConfig;
+    //        CheckResult result =
+    //                CheckConfigUtil.checkAllExists(
+    //                        pluginConfig,
+    //                        ZOOKEEPER_QUORUM.key(),
+    //                        TABLE.key(),
+    //                        ROWKEY_COLUMNS.key(),
+    //                        FAMILY_NAME.key());
+    //        if (!result.isSuccess()) {
+    //            throw new HbaseConnectorException(
+    //                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+    //                    String.format(
+    //                            "PluginName: %s, PluginType: %s, Message: %s",
+    //                            getPluginName(), PluginType.SINK, result.getMsg()));
+    //        }
+    //        this.hbaseParameters = HbaseParameters.buildWithSinkConfig(pluginConfig);
+    //        if (hbaseParameters.getFamilyNames().size() == 0) {
+    //            throw new HbaseConnectorException(
+    //                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+    //                    "The corresponding field options should be configured and should not be
+    // empty Refer to the hbase sink document");
+    //        }
+    //    }
 
     @Override
     public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
@@ -99,9 +125,22 @@ public class HbaseSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     }
 
     @Override
-    public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context)
-            throws IOException {
-        return new HbaseSinkWriter(
-                seaTunnelRowType, hbaseParameters, rowkeyColumnIndexes, versionColumnIndex);
+    public Optional<SaveModeHandler> getSaveModeHandler() {
+        CatalogFactory catalogFactory =
+                discoverFactory(
+                        Thread.currentThread().getContextClassLoader(),
+                        CatalogFactory.class,
+                        getPluginName());
+        if (catalogFactory == null) {
+            return Optional.empty();
+        }
+        Catalog catalog = catalogFactory.createCatalog(catalogFactory.factoryIdentifier(), config);
+        SchemaSaveMode schemaSaveMode = config.get(HbaseConfig.SCHEMA_SAVE_MODE);
+        DataSaveMode dataSaveMode = config.get(HbaseConfig.DATA_SAVE_MODE);
+
+        TablePath tablePath = TablePath.of("", catalogTable.getTableId().getTableName());
+        return Optional.of(
+                new DefaultSaveModeHandler(
+                        schemaSaveMode, dataSaveMode, catalog, tablePath, null, null));
     }
 }
