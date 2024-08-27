@@ -17,28 +17,30 @@
  */
 package org.apache.seatunnel.engine.e2e.resourceIsolation;
 
-import com.hazelcast.config.Config;
-import com.hazelcast.instance.impl.HazelcastInstanceImpl;
-import com.hazelcast.spi.impl.NodeEngineImpl;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.e2e.TestUtils;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
+
 import org.awaitility.Awaitility;
 import org.awaitility.core.ThrowingRunnable;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import com.hazelcast.config.Config;
+import com.hazelcast.instance.impl.HazelcastInstanceImpl;
+import com.hazelcast.spi.impl.NodeEngineImpl;
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-/**
- * @Date 2024/08/26 17:36
- * @Created yanggld
- * @Description
- */
+/** @Date 2024/08/26 17:36 @Created yanggld @Description */
 @Slf4j
 public class WorkerTagClusterTest {
 
@@ -53,7 +55,6 @@ public class WorkerTagClusterTest {
         masterNode1 = SeaTunnelServerStarter.createMasterHazelcastInstance(masterNode1Config);
         workerNode1 = SeaTunnelServerStarter.createWorkerHazelcastInstance(workerNode1Config);
     }
-
 
     @AfterEach
     void afterClass() {
@@ -91,7 +92,8 @@ public class WorkerTagClusterTest {
         testTagFilter(new HashMap<>(), 1);
     }
 
-    public void testTagFilter(Map<String, String> tagFilter, int expectedWorkerCount) throws Exception {
+    public void testTagFilter(Map<String, String> tagFilter, int expectedWorkerCount)
+            throws Exception {
         // waiting all node added to cluster
         Awaitility.await()
                 .atMost(10000, TimeUnit.MILLISECONDS)
@@ -100,17 +102,19 @@ public class WorkerTagClusterTest {
                             @Override
                             public void run() throws Throwable {
                                 Thread.sleep(2000);
-                                //check master and worker node
-                                Assertions.assertEquals(2, masterNode1.getCluster().getMembers().size());
+                                // check master and worker node
+                                Assertions.assertEquals(
+                                        2, masterNode1.getCluster().getMembers().size());
                                 NodeEngineImpl nodeEngine = masterNode1.node.nodeEngine;
-                                SeaTunnelServer server = nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
-                                ResourceManager resourceManager = server.getCoordinatorService().getResourceManager();
+                                SeaTunnelServer server =
+                                        nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
+                                ResourceManager resourceManager =
+                                        server.getCoordinatorService().getResourceManager();
                                 // if tag matched, then worker count is 1  else 0
                                 int workerCount = resourceManager.workerCount(tagFilter);
                                 Assertions.assertEquals(expectedWorkerCount, workerCount);
                             }
-                        }
-                );
+                        });
     }
 
     private static SeaTunnelConfig getSeaTunnelConfig(String testClusterName) {
