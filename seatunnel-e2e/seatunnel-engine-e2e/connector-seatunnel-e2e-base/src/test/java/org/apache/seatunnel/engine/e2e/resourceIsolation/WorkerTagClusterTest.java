@@ -40,7 +40,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-/** @Date 2024/08/26 17:36 @Created yanggld @Description */
+/** 2024/08/26 17:36 yanggld */
 @Slf4j
 public class WorkerTagClusterTest {
 
