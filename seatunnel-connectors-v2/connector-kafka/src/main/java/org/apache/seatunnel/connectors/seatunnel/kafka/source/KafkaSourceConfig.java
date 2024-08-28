@@ -44,6 +44,7 @@ import org.apache.seatunnel.format.json.debezium.DebeziumJsonDeserializationSche
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 import org.apache.seatunnel.format.json.maxwell.MaxWellJsonDeserializationSchema;
 import org.apache.seatunnel.format.json.ogg.OggJsonDeserializationSchema;
+import org.apache.seatunnel.format.protobuf.ProtobufDeserializationSchema;
 import org.apache.seatunnel.format.text.TextDeserializationSchema;
 import org.apache.seatunnel.format.text.constant.TextFormatConstant;
 
@@ -71,6 +72,8 @@ import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.KAFK
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.MESSAGE_FORMAT_ERROR_HANDLE_WAY_OPTION;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.PATTERN;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.PROTOBUF_MESSAGE_NAME;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.PROTOBUF_SCHEMA;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.START_MODE;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.START_MODE_OFFSETS;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.Config.START_MODE_TIMESTAMP;
@@ -216,7 +219,15 @@ public class KafkaSourceConfig implements Serializable {
         return CatalogTable.of(
                 TableIdentifier.of("", tablePath),
                 tableSchema,
-                Collections.emptyMap(),
+                new HashMap<String, String>() {
+                    {
+                        Optional.ofNullable(readonlyConfig.get(PROTOBUF_MESSAGE_NAME))
+                                .ifPresent(value -> put(PROTOBUF_MESSAGE_NAME.key(), value));
+
+                        Optional.ofNullable(readonlyConfig.get(PROTOBUF_SCHEMA))
+                                .ifPresent(value -> put(PROTOBUF_SCHEMA.key(), value));
+                    }
+                },
                 Collections.emptyList(),
                 null);
     }
@@ -224,6 +235,8 @@ public class KafkaSourceConfig implements Serializable {
     private DeserializationSchema<SeaTunnelRow> createDeserializationSchema(
             CatalogTable catalogTable, ReadonlyConfig readonlyConfig) {
         SeaTunnelRowType seaTunnelRowType = catalogTable.getSeaTunnelRowType();
+
+        MessageFormat format = readonlyConfig.get(FORMAT);
 
         if (!readonlyConfig.getOptional(TableSchemaOptions.SCHEMA).isPresent()) {
             return TextDeserializationSchema.builder()
@@ -233,7 +246,6 @@ public class KafkaSourceConfig implements Serializable {
                     .build();
         }
 
-        MessageFormat format = readonlyConfig.get(FORMAT);
         switch (format) {
             case JSON:
                 return new JsonDeserializationSchema(catalogTable, false, false);
@@ -270,6 +282,8 @@ public class KafkaSourceConfig implements Serializable {
                 return new DebeziumJsonDeserializationSchema(catalogTable, true, includeSchema);
             case AVRO:
                 return new AvroDeserializationSchema(catalogTable);
+            case PROTOBUF:
+                return new ProtobufDeserializationSchema(catalogTable);
             default:
                 throw new SeaTunnelJsonFormatException(
                         CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
