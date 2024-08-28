@@ -95,7 +95,7 @@ public class ElasticsearchSource
         if (readonlyConfig.getOptional(TableSchemaOptions.SCHEMA).isPresent()) {
             // todo: We need to remove the schema in ES.
             log.warn(
-                    "The schema config in ElasticSearch sink is deprecated, please use source config instead!");
+                    "The schema config in ElasticSearch source/sink is deprecated, please use source config instead!");
             catalogTable = CatalogTableUtil.buildWithConfig(readonlyConfig);
             source = Arrays.asList(catalogTable.getSeaTunnelRowType().getFieldNames());
         } else {
@@ -114,16 +114,27 @@ public class ElasticsearchSource
 
             for (int i = 0; i < source.size(); i++) {
                 String key = source.get(i);
+                String sourceType = esFieldType.get(key).getNativeType().getType();
                 if (arrayColumn.containsKey(key)) {
                     String value = arrayColumn.get(key);
                     SeaTunnelDataType<?> dataType =
                             SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(key, value);
-                    builder.column(PhysicalColumn.of(key, dataType, 0, true, null, null));
+                    builder.column(
+                            PhysicalColumn.of(
+                                    key, dataType, 0L, true, null, null, sourceType, null));
                     continue;
                 }
 
                 builder.column(
-                        PhysicalColumn.of(source.get(i), fieldTypes[i], 0, true, null, null));
+                        PhysicalColumn.of(
+                                source.get(i),
+                                fieldTypes[i],
+                                0L,
+                                true,
+                                null,
+                                null,
+                                sourceType,
+                                null));
             }
             catalogTable =
                     CatalogTable.of(

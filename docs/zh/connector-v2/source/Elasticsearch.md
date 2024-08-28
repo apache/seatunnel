@@ -131,39 +131,9 @@ Elasticsearch {
 }
 ```
 
-案例二
+案例二：多索引同步
 
-> 案例二使用了`schema`字段配置应该读取哪些字段,`schema`是不被建议的写法，建议使用案例一的写法。
-
-```hocon
-Elasticsearch {
-    hosts = ["elasticsearch:9200"]
-    index = "st_index"
-    schema = {
-        fields {
-            c_map = "map<string, tinyint>"
-            c_array = "array<tinyint>"
-            c_string = string
-            c_boolean = boolean
-            c_tinyint = tinyint
-            c_smallint = smallint
-            c_int = int
-            c_bigint = bigint
-            c_float = float
-            c_double = double
-            c_decimal = "decimal(2, 1)"
-            c_bytes = bytes
-            c_date = date
-            c_timestamp = timestamp
-        }
-    }
-    query = {"range":{"firstPacket":{"gte":1669225429990,"lte":1669225429990}}}
-}
-```
-
-案例三：多索引同步
-
-> 此示例演示了如何从 `read_index1` 和 `read_index2` 中读取数据，并将其写入 `multi_source_write_test_index` 索引。在 `read_index1` 中，我使用 `source` 来指定要读取的字段，并指明哪些字段是数组字段。在 `read_index2` 中，我使用 `schema` 来定义要读取的字段（不推荐）。
+> 此示例演示了如何从 `read_index1` 和 `read_index2` 中读取数据，并将其写入 `multi_source_write_test_index` 索引。在 `read_index1`,`read_index2` 中，我使用 `source` 来指定要读取的字段，并指明哪些字段是数组字段。
 
 ```hocon
 source {
@@ -243,7 +213,7 @@ sink {
 }
 ```
 
-案例四：SSL（禁用证书验证）
+案例三：SSL（禁用证书验证）
 
 ```hocon
 source {
@@ -257,7 +227,7 @@ source {
 }
 ```
 
-案例五：SSL（禁用主机名验证）
+案例四：SSL（禁用主机名验证）
 
 ```hocon
 source {
@@ -271,7 +241,7 @@ source {
 }
 ```
 
-案例六：SSL（启用证书验证）
+案例五：SSL（启用证书验证）
 
 ```hocon
 source {

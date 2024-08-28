@@ -113,48 +113,23 @@ Source plugin common parameters, please refer to [Source Common Options](../sour
 
 ## Examples
 
-simple
+Demo 1
+
+> This case will read data from indices matching the seatunnel-* pattern based on a query. The query will only return documents containing the id, name, age, tags, and phones fields. In this example, the source field configuration is used to specify which fields should be read, and the array_column is used to indicate that tags and phones should be treated as arrays.
 
 ```hocon
 Elasticsearch {
     hosts = ["localhost:9200"]
     index = "seatunnel-*"
-    source = ["_id","name","age"]
+    array_column = {tags = "array<string>",phones = "array<string>"}
+    source = ["_id","name","age","tags","phones"]
     query = {"range":{"firstPacket":{"gte":1669225429990,"lte":1669225429990}}}
 }
 ```
 
-complex
+Deme 2 : Multi-table synchronization
 
-```hocon
-Elasticsearch {
-    hosts = ["elasticsearch:9200"]
-    index = "st_index"
-    schema = {
-        fields {
-            c_map = "map<string, tinyint>"
-            c_array = "array<tinyint>"
-            c_string = string
-            c_boolean = boolean
-            c_tinyint = tinyint
-            c_smallint = smallint
-            c_int = int
-            c_bigint = bigint
-            c_float = float
-            c_double = double
-            c_decimal = "decimal(2, 1)"
-            c_bytes = bytes
-            c_date = date
-            c_timestamp = timestamp
-        }
-    }
-    query = {"range":{"firstPacket":{"gte":1669225429990,"lte":1669225429990}}}
-}
-```
-
-Multi-table synchronization
-
-> This example demonstrates how to read data from read_index1 and read_index2 and write it into the multi_source_write_test_index index. In read_index1, I used source to specify the fields to be read and to indicate which fields are array fields. In read_index2, I used schema to define the fields to be read (not recommended).
+> This example demonstrates how to read data from read_index1 and read_index2 and write it into the multi_source_write_test_index index. In read_index1,read_index2, I used source to specify the fields to be read and to indicate which fields are array fields.
 
 ```hocon
 source {
@@ -190,23 +165,23 @@ source {
        {
            index = "read_index2"
            query = {"match_all": {}}
-           schema = {
-             fields {
-               c_map = "map<string, tinyint>"
-               c_array = "array<tinyint>"
-               c_string = string
-               c_boolean = boolean
-               c_tinyint = tinyint
-               c_smallint = smallint
-               c_bigint = bigint
-               c_float = float
-               c_double = double
-               c_decimal = "decimal(2, 1)"
-               c_bytes = bytes
-               c_int = int
-               c_date = date
-               c_timestamp = timestamp
-             }
+           source = [
+           c_map,
+           c_array,
+           c_string,
+           c_boolean,
+           c_tinyint,
+           c_smallint,
+           c_bigint,
+           c_float,
+           c_double,
+           c_decimal,
+           c_bytes,
+           c_int,
+           c_date,
+           c_timestamp]
+           array_column = {
+           c_array = "array<tinyint>"
            }
        }
 
@@ -236,7 +211,7 @@ sink {
 
 
 
-SSL (Disable certificates validation)
+Demo 3 : SSL (Disable certificates validation)
 
 ```hocon
 source {
@@ -250,7 +225,7 @@ source {
 }
 ```
 
-SSL (Disable hostname validation)
+Demo 4 :SSL (Disable hostname validation)
 
 ```hocon
 source {
@@ -264,7 +239,7 @@ source {
 }
 ```
 
-SSL (Enable certificates validation)
+Demo 5 :SSL (Enable certificates validation)
 
 ```hocon
 source {

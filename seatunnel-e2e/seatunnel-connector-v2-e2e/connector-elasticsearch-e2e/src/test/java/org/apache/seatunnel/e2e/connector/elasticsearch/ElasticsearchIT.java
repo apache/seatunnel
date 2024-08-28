@@ -68,10 +68,12 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -174,12 +176,12 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    public void testElasticsearch(TestContainer container)
+    public void testElasticsearchWithSchema(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
                 container.executeJob("/elasticsearch/elasticsearch_source_and_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-        List<String> sinkData = readSinkData("st_index2");
+        List<String> sinkData = readSinkDataWithSchema("st_index2");
         // for DSL is: {"range":{"c_int":{"gte":10,"lte":20}}}
         Assertions.assertIterableEquals(mapTestDatasetForDSL(), sinkData);
     }
@@ -197,10 +199,14 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         Container.ExecResult execResult =
                 container.executeJob("/elasticsearch/elasticsearch_multi_source_and_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-        List<String> sinkData = readSinkData("multi_source_write_test_index");
+        // The data read out may be unordered, so we will use LinkedHashSet comparison here.
+        Set<String> sinkData =
+                new LinkedHashSet<>(
+                        readSinkDataWithOutSchema(
+                                "multi_source_write_test_index", Lists.newArrayList("c_null")));
         List<String> index1Data = mapTestDatasetForDSL();
         List<String> index2Data = mapTestDatasetForDSL();
-        List<String> allData = new ArrayList<>();
+        Set<String> allData = new LinkedHashSet<>();
         allData.addAll(index1Data);
         allData.addAll(index2Data);
         Assertions.assertIterableEquals(allData, sinkData);
@@ -269,7 +275,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                 container.executeJob(
                         "/elasticsearch/elasticsearch_source_without_schema_and_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-        List<String> sinkData = readSinkDataWithOutSchema();
+        List<String> sinkData = readSinkDataWithOutSchema("st_index4");
         // for DSL is: {"range":{"c_int":{"gte":10,"lte":20}}}
         Assertions.assertIterableEquals(mapTestDatasetForDSL(), sinkData);
     }
@@ -325,17 +331,30 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         return documents;
     }
 
-    private List<String> readSinkDataWithOutSchema() throws InterruptedException {
+    private List<String> readSinkDataWithOutSchema(String indexName) throws InterruptedException {
         Map<String, BasicTypeDefine<EsType>> esFieldType =
-                esRestClient.getFieldTypeMapping("st_index4", Lists.newArrayList());
-        Thread.sleep(2000);
+                esRestClient.getFieldTypeMapping(indexName, Lists.newArrayList());
+        Thread.sleep(5000);
         List<String> source = new ArrayList<>(esFieldType.keySet());
-        return getDocsWithTransformDate(source, "st_index4");
+        return getDocsWithTransformDate(source, indexName);
     }
 
-    private List<String> readSinkData(String index) throws InterruptedException {
+    // Null values are also a basic use case for testing
+    // To ensure consistency in comparisons, we need to explicitly serialize null values.
+    private List<String> readSinkDataWithOutSchema(String indexName, List<String> nullAllowedFields)
+            throws InterruptedException {
+        Map<String, BasicTypeDefine<EsType>> esFieldType =
+                esRestClient.getFieldTypeMapping(indexName, Lists.newArrayList());
+        Thread.sleep(5000);
+        List<String> source = new ArrayList<>(esFieldType.keySet());
+        return getDocsWithTransformDate(source, indexName, nullAllowedFields);
+    }
+
+    // The timestamp type in Elasticsearch is incompatible with that in Seatunnel,
+    // and we need to handle the conversion here.
+    private List<String> readSinkDataWithSchema(String index) throws InterruptedException {
         // wait for index refresh
-        Thread.sleep(2000);
+        Thread.sleep(5000);
         List<String> source =
                 Lists.newArrayList(
                         "c_map",
@@ -415,6 +434,12 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
     }
 
     private List<String> getDocsWithTransformDate(List<String> source, String index) {
+        return getDocsWithTransformDate(source, index, Collections.emptyList());
+    }
+
+    //
+    private List<String> getDocsWithTransformDate(
+            List<String> source, String index, List<String> nullAllowedFields) {
         HashMap<String, Object> rangeParam = new HashMap<>();
         rangeParam.put("gte", 10);
         rangeParam.put("lte", 20);
@@ -430,6 +455,11 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                             x.remove("_index");
                             x.remove("_type");
                             x.remove("_id");
+                            for (String field : nullAllowedFields) {
+                                if (!x.containsKey(field)) {
+                                    x.put(field, null);
+                                }
+                            }
                             x.replace(
                                     "c_date",
                                     LocalDate.parse(
