@@ -89,6 +89,6 @@ public class TypesenseTypeConverter implements BasicTypeConverter<BasicTypeDefin
 
     @Override
     public BasicTypeDefine<TypesenseType> reconvert(Column column) {
-        return null;
+        throw new UnsupportedOperationException("Unsupported operation");
     }
 }
