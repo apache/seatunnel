@@ -44,7 +44,7 @@ public class JdbcHiveIT extends AbstractJdbcIT {
 
     private static final String HIVE_DATABASE = "default";
 
-    private static final String HIVE_SOURCE = "hive_e2e_table_source";
+    private static final String HIVE_SOURCE = "hive_e2e_source_table";
     private static final String HIVE_USERNAME = "root";
     private static final String HIVE_PASSWORD = null;
     private static final int HIVE_PORT = 10000;

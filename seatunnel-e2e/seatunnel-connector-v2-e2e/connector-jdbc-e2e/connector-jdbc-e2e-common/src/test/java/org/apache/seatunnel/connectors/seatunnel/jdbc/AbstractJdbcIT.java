@@ -57,7 +57,6 @@ import org.testcontainers.images.PullPolicy;
 import org.testcontainers.lifecycle.Startables;
 
 import com.github.dockerjava.api.model.Image;
-import lombok.SneakyThrows;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -461,9 +460,8 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
         }
     }
 
-    @SneakyThrows
     @Test
-    public void testCatalogWithCatalogUtils() {
+    public void testCatalogWithCatalogUtils() throws SQLException, ClassNotFoundException {
         if (StringUtils.isBlank(jdbcCase.getTablePathFullName())) {
             return;
         }
@@ -479,6 +477,7 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
                 JdbcCatalogUtils.getTables(
                         JdbcConnectionConfig.builder()
                                 .url(jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost()))
+                                .driverName(jdbcCase.getDriverClass())
                                 .username(jdbcCase.getUserName())
                                 .password(jdbcCase.getPassword())
                                 .build(),
