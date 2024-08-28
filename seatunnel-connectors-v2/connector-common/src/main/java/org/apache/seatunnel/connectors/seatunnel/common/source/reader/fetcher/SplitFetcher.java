@@ -234,19 +234,4 @@ public class SplitFetcher<E, SplitT extends SourceSplit> implements Runnable {
         taskQueue.add(task);
         nonEmpty.signal();
     }
-
-    public void enqueueTask(SplitFetcherTask task) {
-        lock.lock();
-        try {
-            enqueueTaskUnsafe(task);
-        } finally {
-            lock.unlock();
-        }
-    }
-
-    private void enqueueTaskUnsafe(SplitFetcherTask task) {
-        assert lock.isHeldByCurrentThread();
-        taskQueue.add(task);
-        nonEmpty.signal();
-    }
 }

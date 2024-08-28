@@ -82,6 +82,10 @@ public class KafkaSourceReader
                         offsetsOfFinishedSplits.put(
                                 splitState.getTopicPartition(),
                                 new OffsetAndMetadata(splitState.getCurrentOffset()));
+                    } else if (splitState.getEndOffset() > 0) {
+                        offsetsOfFinishedSplits.put(
+                                splitState.getTopicPartition(),
+                                new OffsetAndMetadata(splitState.getEndOffset()));
                     }
                 });
     }

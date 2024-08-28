@@ -85,7 +85,7 @@ public class KafkaSourceFetcherManager
         KafkaPartitionSplitReader kafkaReader =
                 (KafkaPartitionSplitReader) splitFetcher.getSplitReader();
 
-        splitFetcher.enqueueTask(
+        splitFetcher.addTask(
                 new SplitFetcherTask() {
                     @Override
                     public void run() throws IOException {
