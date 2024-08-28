@@ -15,17 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.kafka.config;
+package org.apache.seatunnel.format.protobuf.exception;
 
-public enum MessageFormat {
-    JSON,
-    TEXT,
-    CANAL_JSON,
-    DEBEZIUM_JSON,
-    COMPATIBLE_DEBEZIUM_JSON,
-    COMPATIBLE_KAFKA_CONNECT_JSON,
-    OGG_JSON,
-    AVRO,
-    MAXWELL_JSON,
-    PROTOBUF
+import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+
+public class SeaTunnelProtobufFormatException extends SeaTunnelRuntimeException {
+
+    public SeaTunnelProtobufFormatException(
+            SeaTunnelErrorCode seaTunnelErrorCode, String errorMessage) {
+        super(seaTunnelErrorCode, errorMessage);
+    }
 }
