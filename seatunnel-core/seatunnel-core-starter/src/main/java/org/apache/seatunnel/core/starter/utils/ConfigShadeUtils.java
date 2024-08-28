@@ -47,8 +47,8 @@ public final class ConfigShadeUtils {
 
     private static final String SHADE_IDENTIFIER_OPTION = "shade.identifier";
 
-    private static final String[] DEFAULT_SENSITIVE_OPTIONS =
-            new String[] {"password", "username", "auth"};
+    public static final String[] DEFAULT_SENSITIVE_KEYWORDS =
+            new String[] {"password", "username", "auth", "token"};
 
     private static final Map<String, ConfigShade> CONFIG_SHADES = new HashMap<>();
 
@@ -126,7 +126,7 @@ public final class ConfigShadeUtils {
     @SuppressWarnings("unchecked")
     private static Config processConfig(String identifier, Config config, boolean isDecrypted) {
         ConfigShade configShade = CONFIG_SHADES.getOrDefault(identifier, DEFAULT_SHADE);
-        List<String> sensitiveOptions = new ArrayList<>(Arrays.asList(DEFAULT_SENSITIVE_OPTIONS));
+        List<String> sensitiveOptions = new ArrayList<>(Arrays.asList(DEFAULT_SENSITIVE_KEYWORDS));
         sensitiveOptions.addAll(Arrays.asList(configShade.sensitiveOptions()));
         BiFunction<String, Object, String> processFunction =
                 (key, value) -> {

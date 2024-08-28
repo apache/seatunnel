@@ -89,4 +89,4 @@ connector-milvus
 connector-activemq
 connector-sls
 connector-typesense
---end--
+connector-cdc-opengauss

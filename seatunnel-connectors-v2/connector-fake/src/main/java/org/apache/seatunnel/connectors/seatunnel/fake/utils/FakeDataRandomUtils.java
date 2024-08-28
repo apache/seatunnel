@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.fake.utils;
 
+import org.apache.seatunnel.common.utils.BufferUtils;
 import org.apache.seatunnel.connectors.seatunnel.fake.config.FakeConfig;
 
 import org.apache.commons.collections4.CollectionUtils;
@@ -24,7 +25,6 @@ import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.RandomUtils;
 
 import java.math.BigDecimal;
-import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -178,14 +178,14 @@ public class FakeDataRandomUtils {
         return ByteBuffer.wrap(RandomUtils.nextBytes(byteCount));
     }
 
-    public Float[] randomFloatVector() {
+    public ByteBuffer randomFloatVector() {
         Float[] floatVector = new Float[fakeConfig.getVectorDimension()];
         for (int i = 0; i < fakeConfig.getVectorDimension(); i++) {
             floatVector[i] =
                     RandomUtils.nextFloat(
                             fakeConfig.getVectorFloatMin(), fakeConfig.getVectorFloatMax());
         }
-        return floatVector;
+        return BufferUtils.toByteBuffer(floatVector);
     }
 
     public ByteBuffer randomFloat16Vector() {
@@ -196,7 +196,7 @@ public class FakeDataRandomUtils {
                             fakeConfig.getVectorFloatMin(), fakeConfig.getVectorFloatMax());
             float16Vector[i] = floatToFloat16(value);
         }
-        return shortArrayToByteBuffer(float16Vector);
+        return BufferUtils.toByteBuffer(float16Vector);
     }
 
     public ByteBuffer randomBFloat16Vector() {
@@ -207,7 +207,7 @@ public class FakeDataRandomUtils {
                             fakeConfig.getVectorFloatMin(), fakeConfig.getVectorFloatMax());
             bfloat16Vector[i] = floatToBFloat16(value);
         }
-        return shortArrayToByteBuffer(bfloat16Vector);
+        return BufferUtils.toByteBuffer(bfloat16Vector);
     }
 
     public Map<Integer, Float> randomSparseFloatVector() {
@@ -240,20 +240,6 @@ public class FakeDataRandomUtils {
             return (short) (sign | 0x7c00);
         }
         return (short) (sign | (exponent << 10) | (mantissa >> 13));
-    }
-
-    private static ByteBuffer shortArrayToByteBuffer(Short[] shortArray) {
-        ByteBuffer byteBuffer = ByteBuffer.allocate(shortArray.length * 2);
-
-        for (Short value : shortArray) {
-            byteBuffer.putShort(value);
-        }
-
-        // Compatible compilation and running versions are not consistent
-        // Flip the buffer to prepare for reading
-        ((Buffer) byteBuffer).flip();
-
-        return byteBuffer;
     }
 
     private static short floatToBFloat16(float value) {
