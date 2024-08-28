@@ -28,10 +28,10 @@ import org.apache.commons.lang3.tuple.Pair;
 
 import org.junit.jupiter.api.Assertions;
 import org.testcontainers.containers.Container;
-import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.images.PullPolicy;
+import org.testcontainers.oceanbase.OceanBaseCEContainer;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import com.google.common.collect.Lists;
@@ -49,7 +49,7 @@ import java.util.Map;
 
 public class JdbcOceanBaseMysqlIT extends JdbcOceanBaseITBase {
 
-    private static final String IMAGE = "oceanbase/oceanbase-ce:4.2.0.0";
+    private static final String IMAGE = "oceanbase/oceanbase-ce:latest";
 
     private static final String HOSTNAME = "e2e_oceanbase_mysql";
     private static final int PORT = 2881;
@@ -294,8 +294,8 @@ public class JdbcOceanBaseMysqlIT extends JdbcOceanBaseITBase {
     }
 
     @Override
-    GenericContainer<?> initContainer() {
-        return new GenericContainer<>(IMAGE)
+    OceanBaseCEContainer initContainer() {
+        return new OceanBaseCEContainer(IMAGE)
                 .withEnv("MODE", "slim")
                 .withEnv("OB_DATAFILE_SIZE", "2G")
                 .withNetwork(NETWORK)

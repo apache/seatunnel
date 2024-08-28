@@ -102,7 +102,7 @@ hbase 写入数据 TTL 时间，默认以表设置的TTL为准，单位毫秒
 
 ### 常见选项
 
-Sink 插件常用参数，详见 Sink 常用选项 [Sink Common Options](common-options.md)
+Sink 插件常用参数，详见 Sink 常用选项 [Sink Common Options](../sink-common-options.md)
 
 ## 案例
 

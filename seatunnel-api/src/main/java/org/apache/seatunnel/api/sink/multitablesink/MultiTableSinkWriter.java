@@ -20,6 +20,7 @@ package org.apache.seatunnel.api.sink.multitablesink;
 import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
+import org.apache.seatunnel.api.sink.event.WriterCloseEvent;
 import org.apache.seatunnel.api.table.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
@@ -45,6 +46,7 @@ public class MultiTableSinkWriter
         implements SinkWriter<SeaTunnelRow, MultiTableCommitInfo, MultiTableState> {
 
     private final Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters;
+    private final Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext;
     private final Map<String, Optional<Integer>> sinkPrimaryKeys = new HashMap<>();
     private final List<Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>>> sinkWritersWithIndex;
     private final List<MultiTableWriterRunnable> runnable = new ArrayList<>();
@@ -55,8 +57,11 @@ public class MultiTableSinkWriter
     private volatile boolean submitted = false;
 
     public MultiTableSinkWriter(
-            Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters, int queueSize) {
+            Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters,
+            int queueSize,
+            Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext) {
         this.sinkWriters = sinkWriters;
+        this.sinkWritersContext = sinkWritersContext;
         AtomicInteger cnt = new AtomicInteger(0);
         executorService =
                 Executors.newFixedThreadPool(
@@ -84,6 +89,7 @@ public class MultiTableSinkWriter
                                         entry.getKey().getTableIdentifier(), entry.getValue());
                                 sinkIdentifierMap.put(entry.getKey(), entry.getValue());
                             });
+
             sinkWritersWithIndex.add(sinkIdentifierMap);
             blockingQueues.add(queue);
             MultiTableWriterRunnable r = new MultiTableWriterRunnable(tableIdWriterMap, queue);
@@ -267,26 +273,34 @@ public class MultiTableSinkWriter
 
     @Override
     public void close() throws IOException {
-        Throwable firstE = null;
+        // The variables used in lambda expressions should be final or valid final, so they are
+        // modified to arrays
+        final Throwable[] firstE = {null};
         try {
             checkQueueRemain();
         } catch (Exception e) {
-            firstE = e;
+            firstE[0] = e;
         }
         executorService.shutdownNow();
         for (int i = 0; i < sinkWritersWithIndex.size(); i++) {
             synchronized (runnable.get(i)) {
-                for (SinkWriter<SeaTunnelRow, ?, ?> sinkWriter :
-                        sinkWritersWithIndex.get(i).values()) {
-                    try {
-                        sinkWriter.close();
-                    } catch (Throwable e) {
-                        if (firstE == null) {
-                            firstE = e;
-                        }
-                        log.error("close error", e);
-                    }
-                }
+                Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkIdentifierSinkWriterMap =
+                        sinkWritersWithIndex.get(i);
+                sinkIdentifierSinkWriterMap.forEach(
+                        (identifier, sinkWriter) -> {
+                            try {
+                                sinkWriter.close();
+                                sinkWritersContext
+                                        .get(identifier)
+                                        .getEventListener()
+                                        .onEvent(new WriterCloseEvent());
+                            } catch (Throwable e) {
+                                if (firstE[0] == null) {
+                                    firstE[0] = e;
+                                }
+                                log.error("close error", e);
+                            }
+                        });
             }
         }
         try {
@@ -296,8 +310,8 @@ public class MultiTableSinkWriter
         } catch (Throwable e) {
             log.error("close resourceManager error", e);
         }
-        if (firstE != null) {
-            throw new RuntimeException(firstE);
+        if (firstE[0] != null) {
+            throw new RuntimeException(firstE[0]);
         }
     }
 

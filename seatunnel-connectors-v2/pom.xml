@@ -79,6 +79,7 @@
         <module>connector-web3j</module>
         <module>connector-milvus</module>
         <module>connector-activemq</module>
+        <module>connector-sls</module>
     </modules>
 
     <dependencyManagement>

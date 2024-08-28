@@ -36,6 +36,7 @@
         <module>connector-cdc-mongodb</module>
         <module>connector-cdc-postgres</module>
         <module>connector-cdc-oracle</module>
+        <module>connector-cdc-opengauss</module>
     </modules>
 
     <properties>
