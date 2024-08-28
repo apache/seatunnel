@@ -286,12 +286,12 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                                                                     .deserialize(bytes)))
                             .collect(Collectors.toList());
         }
+        this.writerContext = new SinkWriterContext(indexID, metricsContext, eventListener);
         if (states.isEmpty()) {
             this.writer = sinkAction.getSink().createWriter(writerContext);
         } else {
             this.writer = sinkAction.getSink().restoreWriter(writerContext, states);
         }
-        this.writerContext = new SinkWriterContext(indexID, metricsContext, eventListener);
         if (this.writer instanceof SupportResourceShare) {
             resourceManager =
                     ((SupportResourceShare) this.writer).initMultiTableResourceManager(1, 1);
