@@ -152,6 +152,7 @@ public class JdbcXuguIT extends AbstractJdbcIT {
                 .configFile(CONFIG_FILE)
                 .insertSql(insertSql)
                 .testData(testDataSet)
+                .tablePathFullName(XUGU_DATABASE + "." + XUGU_SCHEMA + "." + XUGU_SOURCE)
                 .build();
     }
 
