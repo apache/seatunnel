@@ -64,7 +64,7 @@ public class SeaTunnelSparkDataWriterFactory<CommitInfoT, StateT>
             throw new RuntimeException("Failed to create SinkCommitter.", e);
         }
         return new SeaTunnelSparkDataWriter<>(
-                writer, committer, new MultiTableManager(catalogTables), 0);
+                writer, committer, new MultiTableManager(catalogTables), 0, context);
     }
 
     @Override
