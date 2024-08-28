@@ -33,9 +33,6 @@ import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.connectors.seatunnel.hbase.client.HbaseClient;
 import org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseParameters;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Collections;
@@ -47,14 +44,9 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-/**
- * Hbase catalog implementation.
- *
- */
+/** Hbase catalog implementation. */
 @Slf4j
 public class HbaseCatalog implements Catalog {
-
-    private static final Logger LOGGER = LoggerFactory.getLogger(HbaseCatalog.class);
 
     private final String catalogName;
     private final String defaultDatabase;
@@ -62,7 +54,6 @@ public class HbaseCatalog implements Catalog {
 
     private HbaseClient hbaseClient;
 
-    // todo: do we need default database?
     public HbaseCatalog(
             String catalogName, String defaultDatabase, HbaseParameters hbaseParameters) {
         this.catalogName = checkNotNull(catalogName, "catalogName cannot be null");
@@ -127,6 +118,7 @@ public class HbaseCatalog implements Catalog {
         return CatalogTable.of(
                 TableIdentifier.of(
                         catalogName, tablePath.getDatabaseName(), tablePath.getTableName()),
+                // Hbase cannot obtain column names, so TableSchema was directly built here
                 TableSchema.builder().build(),
                 buildTableOptions(tablePath),
                 Collections.emptyList(),

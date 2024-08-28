@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseParameters;
+import org.apache.seatunnel.connectors.seatunnel.hbase.constant.HbaseIdentifier;
 
 import com.google.auto.service.AutoService;
 
@@ -31,13 +32,15 @@ public class HbaseCatalogFactory implements CatalogFactory {
 
     @Override
     public Catalog createCatalog(String catalogName, ReadonlyConfig options) {
-        HbaseParameters hbaseParameters = HbaseParameters.buildWithSourceConfig(options.toConfig());
+        // Create an instance of HbaseCatalog, passing in the catalog name, namespace, and Hbase
+        // parameters
+        HbaseParameters hbaseParameters = HbaseParameters.buildWithSinkConfig(options.toConfig());
         return new HbaseCatalog(catalogName, hbaseParameters.getNamespace(), hbaseParameters);
     }
 
     @Override
     public String factoryIdentifier() {
-        return "Hbase";
+        return HbaseIdentifier.IDENTIFIER_NAME;
     }
 
     @Override

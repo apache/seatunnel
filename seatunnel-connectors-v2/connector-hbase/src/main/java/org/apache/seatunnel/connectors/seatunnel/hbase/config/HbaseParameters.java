@@ -84,8 +84,6 @@ public class HbaseParameters implements Serializable {
 
     public static HbaseParameters buildWithSinkConfig(Config pluginConfig) {
         HbaseParametersBuilder builder = HbaseParameters.builder();
-
-        // required parameters
         builder.zookeeperQuorum(pluginConfig.getString(ZOOKEEPER_QUORUM.key()));
         String table = pluginConfig.getString(TABLE.key());
         int colonIndex = table.indexOf(':');
@@ -95,6 +93,7 @@ public class HbaseParameters implements Serializable {
             builder.table(table.substring(colonIndex + 1));
         } else {
             builder.table(table);
+            builder.namespace("default");
         }
 
         builder.rowkeyColumns(pluginConfig.getStringList(ROWKEY_COLUMNS.key()));

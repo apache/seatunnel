@@ -21,6 +21,7 @@ import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.apache.hadoop.hbase.Cell;
@@ -29,10 +30,12 @@ import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.Admin;
 import org.apache.hadoop.hbase.client.Connection;
 import org.apache.hadoop.hbase.client.Delete;
+import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.client.Result;
 import org.apache.hadoop.hbase.client.ResultScanner;
 import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.client.Table;
+import org.apache.hadoop.hbase.client.TableDescriptor;
 import org.apache.hadoop.hbase.util.Bytes;
 
 import org.junit.jupiter.api.AfterAll;
@@ -50,9 +53,13 @@ import java.util.Objects;
 
 @Slf4j
 @DisabledOnContainer(
-        value = {},
-        type = {EngineType.SEATUNNEL},
-        disabledReason = "The hbase container authentication configuration is incorrect.")
+        value = {
+            TestContainerId.FLINK_1_13,
+            TestContainerId.FLINK_1_14,
+            TestContainerId.FLINK_1_15
+        },
+        type = {EngineType.SEATUNNEL, EngineType.SPARK},
+        disabledReason = "Test only one engine for first change")
 public class HbaseIT extends TestSuiteBase implements TestResource {
 
     private static final String TABLE_NAME = "seatunnel_test";
@@ -96,6 +103,84 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
         fakeToHbase(container);
         Container.ExecResult sourceExecResult = container.executeJob("/hbase-to-assert.conf");
         Assertions.assertEquals(0, sourceExecResult.getExitCode());
+    }
+
+    @TestTemplate
+    public void testHbaseSinkWithErrorWhenDataExists(TestContainer container)
+            throws IOException, InterruptedException {
+        deleteData(table);
+        insertData(table);
+        Assertions.assertEquals(5, countData(table));
+        Container.ExecResult execResult =
+                container.executeJob("/fake_to_hbase_with_error_when_data_exists.conf");
+        Assertions.assertEquals(1, execResult.getExitCode());
+    }
+
+    @TestTemplate
+    public void testHbaseSinkWithRecreateSchema(TestContainer container)
+            throws IOException, InterruptedException {
+        String tableName = "seatunnel_test_with_recreate_schema";
+        TableName table = TableName.valueOf(tableName);
+        hbaseCluster.createTable(tableName, Arrays.asList("test_rs"));
+        TableDescriptor descriptorBefore = hbaseConnection.getTable(table).getDescriptor();
+        String[] familiesBefore =
+                Arrays.stream(descriptorBefore.getColumnFamilies())
+                        .map(f -> f.getNameAsString())
+                        .toArray(String[]::new);
+        Assertions.assertTrue(Arrays.equals(familiesBefore, new String[] {"test_rs"}));
+        Container.ExecResult execResult =
+                container.executeJob("/fake_to_hbase_with_recreate_schema.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        TableDescriptor descriptorAfter = hbaseConnection.getTable(table).getDescriptor();
+        String[] familiesAfter =
+                Arrays.stream(descriptorAfter.getColumnFamilies())
+                        .map(f -> f.getNameAsString())
+                        .toArray(String[]::new);
+        Assertions.assertTrue(!Arrays.equals(familiesBefore, familiesAfter));
+    }
+
+    @TestTemplate
+    public void testHbaseSinkWithDropData(TestContainer container)
+            throws IOException, InterruptedException {
+        deleteData(table);
+        insertData(table);
+        countData(table);
+        Assertions.assertEquals(5, countData(table));
+        Container.ExecResult execResult =
+                container.executeJob("/fake_to_hbase_with_drop_data.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(5, countData(table));
+    }
+
+    @TestTemplate
+    public void testHbaseSinkWithCreateWhenNotExists(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/fake_to_hbase_with_create_when_not_exists.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(
+                5, countData(TableName.valueOf("seatunnel_test_with_create_when_not_exists")));
+    }
+
+    @TestTemplate
+    public void testHbaseSinkWithAppendData(TestContainer container)
+            throws IOException, InterruptedException {
+        deleteData(table);
+        insertData(table);
+        countData(table);
+        Assertions.assertEquals(5, countData(table));
+        Container.ExecResult execResult =
+                container.executeJob("/fake_to_hbase_with_append_data.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(10, countData(table));
+    }
+
+    @TestTemplate
+    public void testHbaseSinkWithErrorWhenNotExists(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/fake_to_hbase_with_error_when_not_exists.conf");
+        Assertions.assertEquals(1, execResult.getExitCode());
     }
 
     @TestTemplate
@@ -199,5 +284,31 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
             Delete deleteRow = new Delete(result.getRow());
             hbaseTable.delete(deleteRow);
         }
+    }
+
+    private void insertData(TableName table) throws IOException {
+        Table hbaseTable = hbaseConnection.getTable(table);
+        for (int i = 0; i < 5; i++) {
+            String rowKey = "row" + System.currentTimeMillis();
+            String value = "value" + i;
+            hbaseTable.put(
+                    new Put(Bytes.toBytes(rowKey))
+                            .addColumn(
+                                    Bytes.toBytes(FAMILY_NAME),
+                                    Bytes.toBytes("name"),
+                                    Bytes.toBytes(value)));
+        }
+    }
+
+    private int countData(TableName table) throws IOException {
+        Table hbaseTable = hbaseConnection.getTable(table);
+        Scan scan = new Scan();
+        ResultScanner scanner = hbaseTable.getScanner(scan);
+        int count = 0;
+        for (Result result = scanner.next(); result != null; result = scanner.next()) {
+            count++;
+        }
+        scanner.close();
+        return count;
     }
 }

@@ -34,6 +34,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig;
 import org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseParameters;
+import org.apache.seatunnel.connectors.seatunnel.hbase.constant.HbaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.hbase.state.HbaseAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.hbase.state.HbaseCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.hbase.state.HbaseSinkState;
@@ -67,10 +68,7 @@ public class HbaseSink
         this.hbaseParameters = HbaseParameters.buildWithSinkConfig(config.toConfig());
         this.config = config;
         this.catalogTable = catalogTable;
-        //                this.seaTunnelRowType = seaTunnelRowType;
-        //        for (String rowkeyColumn : hbaseParameters.getRowkeyColumns()) {
-        //            this.rowkeyColumnIndexes.add(seaTunnelRowType.indexOf(rowkeyColumn));
-        //        }
+        this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
         if (hbaseParameters.getVersionColumn() != null) {
             this.versionColumnIndex = seaTunnelRowType.indexOf(hbaseParameters.getVersionColumn());
         }
@@ -78,50 +76,19 @@ public class HbaseSink
 
     @Override
     public String getPluginName() {
-        return HbaseSinkFactory.IDENTIFIER;
+        return HbaseIdentifier.IDENTIFIER_NAME;
     }
 
     @Override
     public HbaseSinkWriter createWriter(SinkWriter.Context context) throws IOException {
-        return new HbaseSinkWriter(
-                seaTunnelRowType, hbaseParameters, rowkeyColumnIndexes, versionColumnIndex);
-    }
-
-    //    @Override
-    //    public void prepare(Config pluginConfig) throws PrepareFailException {
-    //        this.pluginConfig = pluginConfig;
-    //        CheckResult result =
-    //                CheckConfigUtil.checkAllExists(
-    //                        pluginConfig,
-    //                        ZOOKEEPER_QUORUM.key(),
-    //                        TABLE.key(),
-    //                        ROWKEY_COLUMNS.key(),
-    //                        FAMILY_NAME.key());
-    //        if (!result.isSuccess()) {
-    //            throw new HbaseConnectorException(
-    //                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-    //                    String.format(
-    //                            "PluginName: %s, PluginType: %s, Message: %s",
-    //                            getPluginName(), PluginType.SINK, result.getMsg()));
-    //        }
-    //        this.hbaseParameters = HbaseParameters.buildWithSinkConfig(pluginConfig);
-    //        if (hbaseParameters.getFamilyNames().size() == 0) {
-    //            throw new HbaseConnectorException(
-    //                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-    //                    "The corresponding field options should be configured and should not be
-    // empty Refer to the hbase sink document");
-    //        }
-    //    }
-
-    @Override
-    public void setTypeInfo(SeaTunnelRowType seaTunnelRowType) {
-        this.seaTunnelRowType = seaTunnelRowType;
         for (String rowkeyColumn : hbaseParameters.getRowkeyColumns()) {
             this.rowkeyColumnIndexes.add(seaTunnelRowType.indexOf(rowkeyColumn));
         }
         if (hbaseParameters.getVersionColumn() != null) {
             this.versionColumnIndex = seaTunnelRowType.indexOf(hbaseParameters.getVersionColumn());
         }
+        return new HbaseSinkWriter(
+                seaTunnelRowType, hbaseParameters, rowkeyColumnIndexes, versionColumnIndex);
     }
 
     @Override
@@ -137,8 +104,8 @@ public class HbaseSink
         Catalog catalog = catalogFactory.createCatalog(catalogFactory.factoryIdentifier(), config);
         SchemaSaveMode schemaSaveMode = config.get(HbaseConfig.SCHEMA_SAVE_MODE);
         DataSaveMode dataSaveMode = config.get(HbaseConfig.DATA_SAVE_MODE);
-
-        TablePath tablePath = TablePath.of("", catalogTable.getTableId().getTableName());
+        TablePath tablePath =
+                TablePath.of(hbaseParameters.getNamespace(), hbaseParameters.getTable());
         return Optional.of(
                 new DefaultSaveModeHandler(
                         schemaSaveMode, dataSaveMode, catalog, tablePath, null, null));

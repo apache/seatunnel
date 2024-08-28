@@ -54,9 +54,9 @@ public class HbaseSinkWriter
 
     private final HbaseParameters hbaseParameters;
 
-    private final List<Integer> rowkeyColumnIndexes;
+    private List<Integer> rowkeyColumnIndexes;
 
-    private final int versionColumnIndex;
+    private int versionColumnIndex;
 
     private String writeAllColumnFamily;
 
@@ -119,7 +119,6 @@ public class HbaseSinkWriter
                         .collect(Collectors.toList());
         for (Integer writeColumnIndex : writeColumnIndexes) {
             String fieldName = seaTunnelRowType.getFieldName(writeColumnIndex);
-            // This is the family of columns that we define to be written through the.conf file
             Map<String, String> configurationFamilyNames = hbaseParameters.getFamilyNames();
             String familyName =
                     configurationFamilyNames.getOrDefault(fieldName, writeAllColumnFamily);

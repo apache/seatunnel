@@ -63,8 +63,13 @@ public class HbaseClient {
     private final BufferedMutator hbaseMutator;
     public static Configuration hbaseConfiguration;
 
+    /**
+     * Constructor for HbaseClient.
+     *
+     * @param connection Hbase connection
+     * @param hbaseParameters Hbase parameters
+     */
     private HbaseClient(Connection connection, HbaseParameters hbaseParameters) {
-        System.out.println("V1.000");
         this.connection = connection;
         try {
             this.admin = connection.getAdmin();
@@ -83,10 +88,22 @@ public class HbaseClient {
         }
     }
 
+    /**
+     * Create a new instance of HbaseClient.
+     *
+     * @param hbaseParameters Hbase parameters
+     * @return HbaseClient
+     */
     public static HbaseClient createInstance(HbaseParameters hbaseParameters) {
         return new HbaseClient(getHbaseConnection(hbaseParameters), hbaseParameters);
     }
 
+    /**
+     * Get Hbase connection.
+     *
+     * @param hbaseParameters Hbase parameters
+     * @return Hbase connection
+     */
     private static Connection getHbaseConnection(HbaseParameters hbaseParameters) {
         hbaseConfiguration = HBaseConfiguration.create();
         hbaseConfiguration.set("hbase.zookeeper.quorum", hbaseParameters.getZookeeperQuorum());
@@ -103,6 +120,12 @@ public class HbaseClient {
         }
     }
 
+    /**
+     * Check if a database exists.
+     *
+     * @param databaseName database name
+     * @return true if the database exists, false otherwise
+     */
     public boolean databaseExists(String databaseName) {
         try {
             return Arrays.stream(admin.listNamespaceDescriptors())
@@ -115,6 +138,11 @@ public class HbaseClient {
         }
     }
 
+    /**
+     * List all databases.
+     *
+     * @return List of database names
+     */
     public List<String> listDatabases() {
         try {
             return Arrays.stream(admin.listNamespaceDescriptors())
@@ -128,6 +156,12 @@ public class HbaseClient {
         }
     }
 
+    /**
+     * List all tables in a database.
+     *
+     * @param databaseName database name
+     * @return List of table names
+     */
     public List<String> listTables(String databaseName) {
         try {
             return Arrays.stream(admin.listTableNamesByNamespace(databaseName))
@@ -141,6 +175,12 @@ public class HbaseClient {
         }
     }
 
+    /**
+     * Check if a table exists.
+     *
+     * @param tableName table name
+     * @return true if the table exists, false otherwise
+     */
     public boolean tableExists(String tableName) {
         try {
             return admin.tableExists(TableName.valueOf(tableName));
@@ -152,6 +192,14 @@ public class HbaseClient {
         }
     }
 
+    /**
+     * Create a table.
+     *
+     * @param databaseName database name
+     * @param tableName table name
+     * @param columnFamilies column families
+     * @param ignoreIfExists ignore if the table already exists
+     */
     public void createTable(
             String databaseName,
             String tableName,
@@ -186,6 +234,12 @@ public class HbaseClient {
         }
     }
 
+    /**
+     * Drop a table.
+     *
+     * @param databaseName database name
+     * @param tableName table name
+     */
     public void dropTable(String databaseName, String tableName) {
         try {
             TableName table = TableName.valueOf(databaseName, tableName);
@@ -199,6 +253,11 @@ public class HbaseClient {
         }
     }
 
+    /**
+     * Create a namespace.
+     *
+     * @param namespace namespace name
+     */
     public void createNamespace(String namespace) {
         try {
             admin.createNamespace(NamespaceDescriptor.create(namespace).build());
@@ -210,6 +269,11 @@ public class HbaseClient {
         }
     }
 
+    /**
+     * Drop a namespace.
+     *
+     * @param namespace namespace name
+     */
     public void deleteNamespace(String namespace) {
         try {
             admin.deleteNamespace(namespace);
@@ -221,9 +285,16 @@ public class HbaseClient {
         }
     }
 
+    /**
+     * Truncate a table.
+     *
+     * @param databaseName database name
+     * @param tableName table name
+     */
     public void truncateTable(String databaseName, String tableName) {
         try {
             TableName table = TableName.valueOf(databaseName, tableName);
+            admin.disableTable(table);
             admin.truncateTable(table, true);
         } catch (IOException e) {
             throw new HbaseConnectorException(
@@ -233,6 +304,13 @@ public class HbaseClient {
         }
     }
 
+    /**
+     * Check if a table has data.
+     *
+     * @param databaseName database name
+     * @param tableName table name
+     * @return true if the table has data, false otherwise
+     */
     public boolean isExistsData(String databaseName, String tableName) {
         try {
             Table table =
@@ -243,7 +321,7 @@ public class HbaseClient {
             scan.setLimit(1);
             try (ResultScanner scanner = table.getScanner(scan)) {
                 Result result = scanner.next();
-                return result != null && result.isEmpty();
+                return !result.isEmpty();
             }
         } catch (IOException e) {
             throw new HbaseConnectorException(
@@ -253,8 +331,13 @@ public class HbaseClient {
         }
     }
 
+    /** Close Hbase connection. */
     public void close() {
         try {
+            if (hbaseMutator != null) {
+                hbaseMutator.flush();
+                hbaseMutator.close();
+            }
             if (admin != null) {
                 admin.close();
             }
@@ -266,10 +349,25 @@ public class HbaseClient {
         }
     }
 
+    /**
+     * Mutate a Put.
+     *
+     * @param put Hbase put
+     * @throws IOException exception
+     */
     public void mutate(Put put) throws IOException {
         hbaseMutator.mutate(put);
     }
 
+    /**
+     * Scan a table.
+     *
+     * @param split Hbase source split
+     * @param hbaseParameters Hbase parameters
+     * @param columnNames column names
+     * @return ResultScanner
+     * @throws IOException exception
+     */
     public ResultScanner scan(
             HbaseSourceSplit split, HbaseParameters hbaseParameters, List<String> columnNames)
             throws IOException {
@@ -288,6 +386,13 @@ public class HbaseClient {
                 .getScanner(scan);
     }
 
+    /**
+     * Get a RegionLocator.
+     *
+     * @param tableName table name
+     * @return RegionLocator
+     * @throws IOException exception
+     */
     public RegionLocator getRegionLocator(String tableName) throws IOException {
         return this.connection.getRegionLocator(TableName.valueOf(tableName));
     }
