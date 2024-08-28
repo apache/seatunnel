@@ -54,10 +54,6 @@ import static org.apache.seatunnel.connectors.seatunnel.hbase.exception.HbaseCon
 @Slf4j
 public class HbaseClient {
 
-    private static final int CONNECTION_REQUEST_TIMEOUT = 10 * 1000;
-
-    private static final int SOCKET_TIMEOUT = 5 * 60 * 1000;
-
     private final Connection connection;
     private final Admin admin;
     private final BufferedMutator hbaseMutator;
