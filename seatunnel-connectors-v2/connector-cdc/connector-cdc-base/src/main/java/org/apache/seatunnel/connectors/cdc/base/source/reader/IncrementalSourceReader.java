@@ -209,7 +209,8 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
             return new SnapshotSplitState(split.asSnapshotSplit());
         } else {
             IncrementalSplit incrementalSplit = split.asIncrementalSplit();
-            if (incrementalSplit.getCheckpointDataType() != null) {
+            if (incrementalSplit.getCheckpointDataType() != null
+                    && sourceConfig.isIncludeSchemaChanges()) {
                 log.info(
                         "The incremental split[{}] has checkpoint datatype {} for restore.",
                         incrementalSplit.splitId(),
