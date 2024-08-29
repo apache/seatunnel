@@ -88,5 +88,5 @@ connector-web3j
 connector-milvus
 connector-activemq
 connector-sls
+connector-typesense
 connector-cdc-opengauss
---end--
