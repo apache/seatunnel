@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.api.common.CommonOptions;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.env.EnvCommonOptions;
+import org.apache.seatunnel.api.sink.SaveModeExecuteLocation;
 import org.apache.seatunnel.api.sink.SaveModeExecuteWrapper;
 import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
@@ -37,6 +38,7 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.common.Constants;
+import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 import org.apache.seatunnel.common.constants.CollectionConstants;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
@@ -45,6 +47,7 @@ import org.apache.seatunnel.core.starter.execution.PluginUtil;
 import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.exception.JobDefineCheckException;
+import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.loader.SeaTunnelChildFirstClassLoader;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
@@ -68,7 +71,9 @@ import lombok.extern.slf4j.Slf4j;
 import scala.Tuple2;
 
 import java.io.Serializable;
+import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -146,7 +151,7 @@ public class MultipleTableJobConfigParser {
         this.seaTunnelJobConfig = ConfigBuilder.of(Paths.get(jobDefineFilePath), variables);
         this.envOptions = ReadonlyConfig.fromConfig(seaTunnelJobConfig.getConfig("env"));
         this.fallbackParser =
-                new JobConfigParser(idGenerator, commonPluginJars, isStartWithSavePoint);
+                new JobConfigParser(idGenerator, commonPluginJars, this, isStartWithSavePoint);
     }
 
     public MultipleTableJobConfigParser(
@@ -162,10 +167,11 @@ public class MultipleTableJobConfigParser {
         this.seaTunnelJobConfig = seaTunnelJobConfig;
         this.envOptions = ReadonlyConfig.fromConfig(seaTunnelJobConfig.getConfig("env"));
         this.fallbackParser =
-                new JobConfigParser(idGenerator, commonPluginJars, isStartWithSavePoint);
+                new JobConfigParser(idGenerator, commonPluginJars, this, isStartWithSavePoint);
     }
 
     public ImmutablePair<List<Action>, Set<URL>> parse(ClassLoaderService classLoaderService) {
+        this.fillJobConfigAndCommonJars();
         List<? extends Config> sourceConfigs =
                 TypesafeConfigUtils.getConfigList(
                         seaTunnelJobConfig, "source", Collections.emptyList());
@@ -176,7 +182,7 @@ public class MultipleTableJobConfigParser {
                 TypesafeConfigUtils.getConfigList(
                         seaTunnelJobConfig, "sink", Collections.emptyList());
 
-        List<URL> connectorJars = getConnectorJarList(sourceConfigs, sinkConfigs);
+        List<URL> connectorJars = getConnectorJarList(sourceConfigs, transformConfigs, sinkConfigs);
         if (!commonPluginJars.isEmpty()) {
             connectorJars.addAll(commonPluginJars);
         }
@@ -193,7 +199,6 @@ public class MultipleTableJobConfigParser {
         try {
             Thread.currentThread().setContextClassLoader(classLoader);
             ConfigParserUtil.checkGraph(sourceConfigs, transformConfigs, sinkConfigs);
-            this.fillJobConfig();
             LinkedHashMap<String, List<Tuple2<CatalogTable, Action>>> tableWithActionMap =
                     new LinkedHashMap<>();
 
@@ -233,18 +238,32 @@ public class MultipleTableJobConfigParser {
     }
 
     private List<URL> getConnectorJarList(
-            List<? extends Config> sourceConfigs, List<? extends Config> sinkConfigs) {
+            List<? extends Config> sourceConfigs,
+            List<? extends Config> transformConfigs,
+            List<? extends Config> sinkConfigs) {
         List<PluginIdentifier> factoryIds =
                 Stream.concat(
-                                sourceConfigs.stream()
-                                        .map(ConfigParserUtil::getFactoryId)
-                                        .map(
-                                                factory ->
-                                                        PluginIdentifier.of(
-                                                                CollectionConstants
-                                                                        .SEATUNNEL_PLUGIN,
-                                                                CollectionConstants.SOURCE_PLUGIN,
-                                                                factory)),
+                                Stream.concat(
+                                        sourceConfigs.stream()
+                                                .map(ConfigParserUtil::getFactoryId)
+                                                .map(
+                                                        factory ->
+                                                                PluginIdentifier.of(
+                                                                        CollectionConstants
+                                                                                .SEATUNNEL_PLUGIN,
+                                                                        CollectionConstants
+                                                                                .SOURCE_PLUGIN,
+                                                                        factory)),
+                                        transformConfigs.stream()
+                                                .map(ConfigParserUtil::getFactoryId)
+                                                .map(
+                                                        factory ->
+                                                                PluginIdentifier.of(
+                                                                        CollectionConstants
+                                                                                .SEATUNNEL_PLUGIN,
+                                                                        CollectionConstants
+                                                                                .TRANSFORM_PLUGIN,
+                                                                        factory))),
                                 sinkConfigs.stream()
                                         .map(ConfigParserUtil::getFactoryId)
                                         .map(
@@ -268,26 +287,34 @@ public class MultipleTableJobConfigParser {
                 });
     }
 
-    void addCommonPluginJarsToAction(Action action) {
-        action.getJarUrls().addAll(commonPluginJars);
-        if (!action.getUpstream().isEmpty()) {
-            action.getUpstream().forEach(this::addCommonPluginJarsToAction);
-        }
-    }
-
-    private void fillJobConfig() {
+    private void fillJobConfigAndCommonJars() {
         jobConfig.getJobContext().setJobMode(envOptions.get(EnvCommonOptions.JOB_MODE));
         if (StringUtils.isEmpty(jobConfig.getName())
                 || jobConfig.getName().equals(Constants.LOGO)
                 || jobConfig.getName().equals(EnvCommonOptions.JOB_NAME.defaultValue())) {
             jobConfig.setName(envOptions.get(EnvCommonOptions.JOB_NAME));
         }
-        envOptions
-                .toMap()
-                .forEach(
-                        (k, v) -> {
-                            jobConfig.getEnvOptions().put(k, v);
-                        });
+        jobConfig.getEnvOptions().putAll(envOptions.getSourceMap());
+        this.commonPluginJars.addAll(
+                new ArrayList<>(
+                        Common.getThirdPartyJars(
+                                        jobConfig
+                                                .getEnvOptions()
+                                                .getOrDefault(EnvCommonOptions.JARS.key(), "")
+                                                .toString())
+                                .stream()
+                                .map(Path::toUri)
+                                .map(
+                                        uri -> {
+                                            try {
+                                                return uri.toURL();
+                                            } catch (MalformedURLException e) {
+                                                throw new SeaTunnelEngineException(
+                                                        "the uri of jar illegal:" + uri, e);
+                                            }
+                                        })
+                                .collect(Collectors.toList())));
+        log.info("add common jar in plugins :{}", commonPluginJars);
     }
 
     private static <T extends Factory> boolean isFallback(
@@ -660,15 +687,22 @@ public class MultipleTableJobConfigParser {
         return sinkAction;
     }
 
-    public static void handleSaveMode(SeaTunnelSink<?, ?, ?, ?> sink) {
+    public void handleSaveMode(SeaTunnelSink<?, ?, ?, ?> sink) {
         if (SupportSaveMode.class.isAssignableFrom(sink.getClass())) {
             SupportSaveMode saveModeSink = (SupportSaveMode) sink;
-            Optional<SaveModeHandler> saveModeHandler = saveModeSink.getSaveModeHandler();
-            if (saveModeHandler.isPresent()) {
-                try (SaveModeHandler handler = saveModeHandler.get()) {
-                    new SaveModeExecuteWrapper(handler).execute();
-                } catch (Exception e) {
-                    throw new SeaTunnelRuntimeException(HANDLE_SAVE_MODE_FAILED, e);
+            if (envOptions
+                    .get(EnvCommonOptions.SAVEMODE_EXECUTE_LOCATION)
+                    .equals(SaveModeExecuteLocation.CLIENT)) {
+                log.warn(
+                        "SaveMode execute location on CLIENT is deprecated, please use CLUSTER instead.");
+                Optional<SaveModeHandler> saveModeHandler = saveModeSink.getSaveModeHandler();
+                if (saveModeHandler.isPresent()) {
+                    try (SaveModeHandler handler = saveModeHandler.get()) {
+                        handler.open();
+                        new SaveModeExecuteWrapper(handler).execute();
+                    } catch (Exception e) {
+                        throw new SeaTunnelRuntimeException(HANDLE_SAVE_MODE_FAILED, e);
+                    }
                 }
             }
         }

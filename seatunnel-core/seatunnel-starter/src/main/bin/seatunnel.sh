@@ -69,15 +69,6 @@ if test ${JvmOption} ;then
     JAVA_OPTS="${JAVA_OPTS} ${JvmOption}"
 fi
 
-for i in "$@"
-do
-  if [[ "${i}" == *"JvmOption"* ]]; then
-    JVM_OPTION="${i}"
-    JAVA_OPTS="${JAVA_OPTS} ${JVM_OPTION#*=}"
-    break
-  fi
-done
-
 JAVA_OPTS="${JAVA_OPTS} -Dhazelcast.client.config=${HAZELCAST_CLIENT_CONFIG}"
 JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.config=${SEATUNNEL_CONFIG}"
 JAVA_OPTS="${JAVA_OPTS} -Dhazelcast.config=${HAZELCAST_CONFIG}"
@@ -86,7 +77,7 @@ JAVA_OPTS="${JAVA_OPTS} -Dhazelcast.config=${HAZELCAST_CONFIG}"
 # Usage instructions:
 # If you need to debug your code in cluster mode, please enable this configuration option and listen to the specified
 # port in your IDE. After that, you can happily debug your code.
-# JAVA_OPTS="${JAVA_OPTS} -Xdebug -Xrunjdwp:transport=dt_socket,server=y,address=5000,suspend=y"
+# JAVA_OPTS="${JAVA_OPTS} -Xdebug -Xrunjdwp:transport=dt_socket,server=y,address=5000,suspend=n"
 
 # Log4j2 Config
 if [ -e "${CONF_DIR}/log4j2_client.properties" ]; then
@@ -107,5 +98,15 @@ while IFS= read -r line || [[ -n "$line" ]]; do
         JAVA_OPTS="$JAVA_OPTS $line"
     fi
 done < ${APP_DIR}/config/jvm_client_options
+
+# Parse JvmOption from command line, it should be parsed after jvm_client_options
+for i in "$@"
+do
+  if [[ "${i}" == *"JvmOption"* ]]; then
+    JVM_OPTION="${i}"
+    JAVA_OPTS="${JAVA_OPTS} ${JVM_OPTION#*=}"
+    break
+  fi
+done
 
 java ${JAVA_OPTS} -cp ${CLASS_PATH} ${APP_MAIN} ${args}

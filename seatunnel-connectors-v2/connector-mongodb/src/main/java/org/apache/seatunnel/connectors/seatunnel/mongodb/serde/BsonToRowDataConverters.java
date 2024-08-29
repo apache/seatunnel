@@ -353,7 +353,7 @@ public class BsonToRowDataConverters implements Serializable {
     }
 
     private static double convertToDouble(BsonValue bsonValue) {
-        if (bsonValue.isDouble()) {
+        if (bsonValue.isNumber()) {
             return bsonValue.asNumber().doubleValue();
         }
         throw new MongodbConnectorException(

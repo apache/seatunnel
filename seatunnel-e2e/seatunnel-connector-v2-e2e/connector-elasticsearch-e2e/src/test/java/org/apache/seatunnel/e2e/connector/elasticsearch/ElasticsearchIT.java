@@ -32,7 +32,9 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.BulkResponse;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.ScrollResult;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
 import org.apache.commons.io.IOUtils;
@@ -50,6 +52,7 @@ import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -112,9 +115,10 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                         Optional.empty(),
                         Optional.empty());
         testDataset = generateTestDataSet();
+        createIndexForResourceNull("st_index");
         createIndexDocs();
         createIndexWithFullType();
-        createIndexForResourceNull();
+        createIndexForResourceNull("st_index4");
     }
 
     /** create a index,and bulk some documents */
@@ -160,14 +164,14 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                 2, esRestClient.getIndexDocsCount("st_index_full_type").get(0).getDocsCount());
     }
 
-    private void createIndexForResourceNull() throws IOException {
+    private void createIndexForResourceNull(String indexName) throws IOException {
         String mapping =
                 IOUtils.toString(
                         ContainerUtil.getResourcesFile(
                                         "/elasticsearch/st_index_source_without_schema_and_sink.json")
                                 .toURI(),
                         StandardCharsets.UTF_8);
-        esRestClient.createIndex("st_index4", mapping);
+        esRestClient.createIndex(indexName, mapping);
     }
 
     @TestTemplate
@@ -176,9 +180,52 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         Container.ExecResult execResult =
                 container.executeJob("/elasticsearch/elasticsearch_source_and_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-        List<String> sinkData = readSinkData();
+        List<String> sinkData = readSinkData("st_index2");
         // for DSL is: {"range":{"c_int":{"gte":10,"lte":20}}}
         Assertions.assertIterableEquals(mapTestDatasetForDSL(), sinkData);
+    }
+
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK},
+            disabledReason = "Currently FLINK do not support multiple table read")
+    @TestTemplate
+    public void testElasticsearchWithMultiSink(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/elasticsearch/fakesource_to_elasticsearch_multi_sink.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        List<String> source5 =
+                Lists.newArrayList(
+                        "id",
+                        "c_bool",
+                        "c_tinyint",
+                        "c_smallint",
+                        "c_int",
+                        "c_bigint",
+                        "c_float",
+                        "c_double",
+                        "c_decimal",
+                        "c_string");
+        List<String> source6 =
+                Lists.newArrayList(
+                        "id",
+                        "c_bool",
+                        "c_tinyint",
+                        "c_smallint",
+                        "c_int",
+                        "c_bigint",
+                        "c_float",
+                        "c_double",
+                        "c_decimal");
+        List<String> sinkIndexData5 = readMultiSinkData("st_index5", source5);
+        List<String> sinkIndexData6 = readMultiSinkData("st_index6", source6);
+        String stIndex5 =
+                "{\"c_smallint\":2,\"c_string\":\"NEW\",\"c_float\":4.3,\"c_double\":5.3,\"c_decimal\":6.3,\"id\":1,\"c_int\":3,\"c_bigint\":4,\"c_bool\":true,\"c_tinyint\":1}";
+        String stIndex6 =
+                "{\"c_smallint\":2,\"c_float\":4.3,\"c_double\":5.3,\"c_decimal\":6.3,\"id\":1,\"c_int\":3,\"c_bigint\":4,\"c_bool\":true,\"c_tinyint\":1}";
+        Assertions.assertIterableEquals(Lists.newArrayList(stIndex5), sinkIndexData5);
+        Assertions.assertIterableEquals(Lists.newArrayList(stIndex6), sinkIndexData6);
     }
 
     @TestTemplate
@@ -222,7 +269,8 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                     "c_bytes",
                     "c_int",
                     "c_date",
-                    "c_timestamp"
+                    "c_timestamp",
+                    "c_null"
                 };
 
         List<String> documents = new ArrayList<>();
@@ -237,14 +285,16 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                         Boolean.FALSE,
                         Byte.parseByte("1"),
                         Short.parseShort("1"),
-                        i,
                         Long.parseLong("1"),
                         Float.parseFloat("1.1"),
                         Double.parseDouble("1.1"),
                         BigDecimal.valueOf(11, 1),
                         "test".getBytes(),
+                        i,
                         LocalDate.now().toString(),
-                        System.currentTimeMillis()
+                        System.currentTimeMillis(),
+                        // Null values are also a basic use case for testing
+                        null
                     };
             for (int j = 0; j < fields.length; j++) {
                 doc.put(fields[j], values[j]);
@@ -262,7 +312,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         return getDocsWithTransformDate(source, "st_index4");
     }
 
-    private List<String> readSinkData() throws InterruptedException {
+    private List<String> readSinkData(String index) throws InterruptedException {
         // wait for index refresh
         Thread.sleep(2000);
         List<String> source =
@@ -280,8 +330,35 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                         "c_bytes",
                         "c_int",
                         "c_date",
-                        "c_timestamp");
-        return getDocsWithTransformTimestamp(source, "st_index2");
+                        "c_timestamp",
+                        "c_null");
+        return getDocsWithTransformTimestamp(source, index);
+    }
+
+    private List<String> readMultiSinkData(String index, List<String> source)
+            throws InterruptedException {
+        // wait for index refresh
+        Thread.sleep(2000);
+        Map<String, Object> query = new HashMap<>();
+        query.put("match_all", Maps.newHashMap());
+
+        ScrollResult scrollResult = esRestClient.searchByScroll(index, source, query, "1m", 1000);
+        scrollResult
+                .getDocs()
+                .forEach(
+                        x -> {
+                            x.remove("_index");
+                            x.remove("_type");
+                            x.remove("_id");
+                        });
+        List<String> docs =
+                scrollResult.getDocs().stream()
+                        .sorted(
+                                Comparator.comparingInt(
+                                        o -> Integer.valueOf(o.get("c_int").toString())))
+                        .map(JsonUtils::toJsonString)
+                        .collect(Collectors.toList());
+        return docs;
     }
 
     private List<String> getDocsWithTransformTimestamp(List<String> source, String index) {
@@ -375,35 +452,78 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
     }
 
     @Test
-    public void testCatalog() {
+    public void testCatalog() throws InterruptedException, JsonProcessingException {
         Map<String, Object> configMap = new HashMap<>();
         configMap.put("username", "elastic");
         configMap.put("password", "elasticsearch");
-        configMap.put("hosts", Arrays.asList("https://" + container.getHttpHostAddress()));
+        configMap.put(
+                "hosts", Collections.singletonList("https://" + container.getHttpHostAddress()));
         configMap.put("index", "st_index3");
         configMap.put("tls_verify_certificate", false);
         configMap.put("tls_verify_hostname", false);
         configMap.put("index_type", "st");
+
         final ElasticSearchCatalog elasticSearchCatalog =
                 new ElasticSearchCatalog("Elasticsearch", "", ReadonlyConfig.fromMap(configMap));
         elasticSearchCatalog.open();
+
         TablePath tablePath = TablePath.of("", "st_index3");
-        // index exists
+
+        // Verify index does not exist initially
         final boolean existsBefore = elasticSearchCatalog.tableExists(tablePath);
-        Assertions.assertFalse(existsBefore);
-        // create index
+        Assertions.assertFalse(existsBefore, "Index should not exist initially");
+
+        // Create index
         elasticSearchCatalog.createTable(tablePath, null, false);
         final boolean existsAfter = elasticSearchCatalog.tableExists(tablePath);
-        Assertions.assertTrue(existsAfter);
-        // data exists?
-        final boolean existsData = elasticSearchCatalog.isExistsData(tablePath);
-        Assertions.assertFalse(existsData);
-        // truncate
+        Assertions.assertTrue(existsAfter, "Index should be created");
+
+        // Generate and add multiple records
+        List<String> data = generateTestData();
+        StringBuilder requestBody = new StringBuilder();
+        String indexHeader = "{\"index\":{\"_index\":\"st_index3\"}}\n";
+        for (String record : data) {
+            requestBody.append(indexHeader);
+            requestBody.append(record);
+            requestBody.append("\n");
+        }
+        esRestClient.bulk(requestBody.toString());
+        Thread.sleep(2000); // Wait for data to be indexed
+
+        // Verify data exists
+        List<String> sourceFields = Arrays.asList("field1", "field2");
+        Map<String, Object> query = new HashMap<>();
+        query.put("match_all", new HashMap<>());
+        ScrollResult scrollResult =
+                esRestClient.searchByScroll("st_index3", sourceFields, query, "1m", 100);
+        Assertions.assertFalse(scrollResult.getDocs().isEmpty(), "Data should exist in the index");
+
+        // Truncate the table
         elasticSearchCatalog.truncateTable(tablePath, false);
-        Assertions.assertTrue(elasticSearchCatalog.tableExists(tablePath));
-        // drop
+        Thread.sleep(2000); // Wait for data to be indexed
+
+        // Verify data is deleted
+        scrollResult = esRestClient.searchByScroll("st_index3", sourceFields, query, "1m", 100);
+        Assertions.assertTrue(
+                scrollResult.getDocs().isEmpty(), "Data should be deleted from the index");
+
+        // Drop the table
         elasticSearchCatalog.dropTable(tablePath, false);
-        Assertions.assertFalse(elasticSearchCatalog.tableExists(tablePath));
+        Assertions.assertFalse(
+                elasticSearchCatalog.tableExists(tablePath), "Index should be dropped");
+
         elasticSearchCatalog.close();
+    }
+
+    private List<String> generateTestData() throws JsonProcessingException {
+        List<String> data = new ArrayList<>();
+        ObjectMapper objectMapper = new ObjectMapper();
+        for (int i = 0; i < 10; i++) {
+            Map<String, Object> record = new HashMap<>();
+            record.put("field1", "value" + i);
+            record.put("field2", i);
+            data.add(objectMapper.writeValueAsString(record));
+        }
+        return data;
     }
 }

@@ -9,6 +9,7 @@ Write data to InfluxDB.
 ## Key features
 
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
+- [x] [support multiple table write](../../concept/connector-v2-features.md)
 
 ## Options
 
@@ -82,7 +83,7 @@ the timeout for connecting to InfluxDB, in milliseconds
 
 ### common options
 
-Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
+Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details
 
 ## Examples
 
@@ -98,6 +99,39 @@ sink {
     }
 }
 
+```
+
+### Multiple table
+
+#### example1
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  Mysql-CDC {
+    base-url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    username = "root"
+    password = "******"
+    
+    table-names = ["seatunnel.role","seatunnel.user","galileo.Bucket"]
+  }
+}
+
+transform {
+}
+
+sink {
+  InfluxDB {
+    url = "http://influxdb-host:8086"
+    database = "test"
+    measurement = "${table_name}_test"
+  }
+}
 ```
 
 ## Changelog

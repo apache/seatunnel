@@ -40,7 +40,7 @@ source {
   }
 
   # If you would like to get more information about how to configure SeaTunnel and see full list of source plugins,
-  # please go to https://seatunnel.apache.org/docs/category/source-v2
+  # please go to https://seatunnel.apache.org/docs/connector-v2/source
 }
 
 sink {
@@ -48,5 +48,5 @@ sink {
   }
 
   # If you would like to get more information about how to configure SeaTunnel and see full list of sink plugins,
-  # please go to https://seatunnel.apache.org/docs/category/sink-v2
+  # please go to https://seatunnel.apache.org/docs/connector-v2/sink
 }

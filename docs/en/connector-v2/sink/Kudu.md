@@ -16,6 +16,7 @@
 
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
 - [x] [cdc](../../concept/connector-v2-features.md)
+- [x] [support multiple table write](../../concept/connector-v2-features.md)
 
 ## Data Type Mapping
 
@@ -50,7 +51,7 @@
 | buffer_flush_interval                     | Int    | No       | 10000                                          | The flush interval mills, over this time, asynchronous threads will flush data.                                                             |
 | ignore_not_found                          | Bool   | No       | false                                          | If true, ignore all not found rows.                                                                                                         |
 | ignore_not_duplicate                      | Bool   | No       | false                                          | If true, ignore all dulicate rows.                                                                                                          |
-| common-options                            |        | No       | -                                              | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.                                    |
+| common-options                            |        | No       | -                                              | Source plugin common parameters, please refer to [Source Common Options](../sink-common-options.md) for details.                            |
 
 ## Task Example
 
@@ -123,75 +124,72 @@ sink {
 }
 ```
 
-### Multiple Table
+### Multiple table
+
+#### example1
 
 ```hocon
 env {
-  # You can set engine configuration here
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  Mysql-CDC {
+    base-url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    username = "root"
+    password = "******"
+    
+    table-names = ["seatunnel.role","seatunnel.user","galileo.Bucket"]
+  }
+}
+
+transform {
+}
+
+sink {
+  kudu{
+    kudu_masters = "kudu-master-cdc:7051"
+    table_name = "${database_name}_${table_name}_test"
+  }
+}
+```
+
+#### example2
+
+```hocon
+env {
   parallelism = 1
   job.mode = "BATCH"
 }
 
 source {
-  FakeSource {
-    tables_configs = [
-       {
-        schema = {
-          table = "kudu_sink_1"
-         fields {
-                id = int
-                val_bool = boolean
-                val_int8 = tinyint
-                val_int16 = smallint
-                val_int32 = int
-                val_int64 = bigint
-                val_float = float
-                val_double = double
-                val_decimal = "decimal(16, 1)"
-                val_string = string
-                val_unixtime_micros = timestamp
-      }
-        }
-            rows = [
-              {
-                kind = INSERT
-                fields = [1, true, 1, 2, 3, 4, 4.3,5.3,6.3, "NEW", "2020-02-02T02:02:02"]
-              }
-              ]
-       },
-       {
-       schema = {
-         table = "kudu_sink_2"
-              fields {
-                        id = int
-                        val_bool = boolean
-                        val_int8 = tinyint
-                        val_int16 = smallint
-                        val_int32 = int
-                        val_int64 = bigint
-                        val_float = float
-                        val_double = double
-                        val_decimal = "decimal(16, 1)"
-                        val_string = string
-                        val_unixtime_micros = timestamp
-              }
-       }
-           rows = [
-             {
-               kind = INSERT
-               fields = [1, true, 1, 2, 3, 4, 4.3,5.3,6.3, "NEW", "2020-02-02T02:02:02"]
-             }
-             ]
+  Jdbc {
+    driver = oracle.jdbc.driver.OracleDriver
+    url = "jdbc:oracle:thin:@localhost:1521/XE"
+    user = testUser
+    password = testPassword
+
+    table_list = [
+      {
+        table_path = "TESTSCHEMA.TABLE_1"
+      },
+      {
+        table_path = "TESTSCHEMA.TABLE_2"
       }
     ]
   }
 }
 
+transform {
+}
 
 sink {
-   kudu{
-    kudu_masters = "kudu-master-multiple:7051"
- }
+  kudu{
+    kudu_masters = "kudu-master-cdc:7051"
+    table_name = "${schema_name}_${table_name}_test"
+  }
 }
 ```
 

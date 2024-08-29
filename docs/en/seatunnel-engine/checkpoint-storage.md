@@ -1,7 +1,6 @@
 ---
-
 sidebar_position: 7
--------------------
+---
 
 # Checkpoint Storage
 
@@ -18,11 +17,11 @@ SeaTunnel Engine supports the following checkpoint storage types:
 - HDFS (OSS,S3,HDFS,LocalFile)
 - LocalFile (native), (it's deprecated: use Hdfs(LocalFile) instead.
 
-We used the microkernel design pattern to separate the checkpoint storage module from the engine. This allows users to implement their own checkpoint storage modules.
+We use the microkernel design pattern to separate the checkpoint storage module from the engine. This allows users to implement their own checkpoint storage modules.
 
 `checkpoint-storage-api` is the checkpoint storage module API, which defines the interface of the checkpoint storage module.
 
-if you want to implement your own checkpoint storage module, you need to implement the `CheckpointStorage` and provide the corresponding `CheckpointStorageFactory` implementation.
+If you want to implement your own checkpoint storage module, you need to implement the `CheckpointStorage` and provide the corresponding `CheckpointStorageFactory` implementation.
 
 ### Checkpoint Storage Configuration
 
@@ -46,12 +45,12 @@ Notice: namespace must end with "/".
 
 #### OSS
 
-Aliyun oss base on hdfs-file, so you can refer [hadoop oss docs](https://hadoop.apache.org/docs/stable/hadoop-aliyun/tools/hadoop-aliyun/index.html) to config oss.
+Aliyun OSS based hdfs-file you can refer [Hadoop OSS Docs](https://hadoop.apache.org/docs/stable/hadoop-aliyun/tools/hadoop-aliyun/index.html) to config oss.
 
 Except when interacting with oss buckets, the oss client needs the credentials needed to interact with buckets.
 The client supports multiple authentication mechanisms and can be configured as to which mechanisms to use, and their order of use. Custom implementations of org.apache.hadoop.fs.aliyun.oss.AliyunCredentialsProvider may also be used.
-if you used AliyunCredentialsProvider (can be obtained from the Aliyun Access Key Management), these consist of an access key, a secret key.
-you can config like this:
+If you used AliyunCredentialsProvider (can be obtained from the Aliyun Access Key Management), these consist of an access key, a secret key.
+You can config like this:
 
 ```yaml
 seatunnel:
@@ -68,21 +67,20 @@ seatunnel:
           fs.oss.accessKeyId: your-access-key
           fs.oss.accessKeySecret: your-secret-key
           fs.oss.endpoint: endpoint address
-          fs.oss.credentials.provider: org.apache.hadoop.fs.aliyun.oss.AliyunCredentialsProvider
 ```
 
-For additional reading on the Hadoop Credential Provider API see: [Credential Provider API](https://hadoop.apache.org/docs/stable/hadoop-project-dist/hadoop-common/CredentialProviderAPI.html).
+For additional reading on the Hadoop Credential Provider API, you can see: [Credential Provider API](https://hadoop.apache.org/docs/stable/hadoop-project-dist/hadoop-common/CredentialProviderAPI.html).
 
-Aliyun oss Credential Provider implements see: [Auth Credential Providers](https://github.com/aliyun/aliyun-oss-java-sdk/tree/master/src/main/java/com/aliyun/oss/common/auth)
+For Aliyun OSS Credential Provider implements, you can see: [Auth Credential Providers](https://github.com/aliyun/aliyun-oss-java-sdk/tree/master/src/main/java/com/aliyun/oss/common/auth)
 
 #### S3
 
-S3 base on hdfs-file, so you can refer [hadoop s3 docs](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html) to config s3.
+S3 based hdfs-file you can refer [hadoop s3 docs](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html) to config s3.
 
 Except when interacting with public S3 buckets, the S3A client needs the credentials needed to interact with buckets.
 The client supports multiple authentication mechanisms and can be configured as to which mechanisms to use, and their order of use. Custom implementations of com.amazonaws.auth.AWSCredentialsProvider may also be used.
-if you used SimpleAWSCredentialsProvider (can be obtained from the Amazon Security Token Service), these consist of an access key, a secret key.
-you can config like this:
+If you used SimpleAWSCredentialsProvider (can be obtained from the Amazon Security Token Service), these consist of an access key, a secret key.
+You can config like this:
 
 ```yaml
 
@@ -104,8 +102,8 @@ seatunnel:
 
 ```
 
-if you used `InstanceProfileCredentialsProvider`, this supports use of instance profile credentials if running in an EC2 VM, you could check [iam-roles-for-amazon-ec2](https://docs.aws.amazon.com/zh_cn/AWSEC2/latest/UserGuide/iam-roles-for-amazon-ec2.html).
-you can config like this:
+If you used `InstanceProfileCredentialsProvider`, which supports use of instance profile credentials if running in an EC2 VM, you can check [iam-roles-for-amazon-ec2](https://docs.aws.amazon.com/zh_cn/AWSEC2/latest/UserGuide/iam-roles-for-amazon-ec2.html).
+You can config like this:
 
 ```yaml
 
@@ -146,11 +144,11 @@ seatunnel:
        # important: The user of this key needs to have write permission for the bucket, otherwise an exception of 403 will be returned
 ```
 
-For additional reading on the Hadoop Credential Provider API see: [Credential Provider API](https://hadoop.apache.org/docs/stable/hadoop-project-dist/hadoop-common/CredentialProviderAPI.html).
+For additional reading on the Hadoop Credential Provider API, you can see: [Credential Provider API](https://hadoop.apache.org/docs/stable/hadoop-project-dist/hadoop-common/CredentialProviderAPI.html).
 
 #### HDFS
 
-if you used HDFS, you can config like this:
+if you use HDFS, you can config like this:
 
 ```yaml
 seatunnel:

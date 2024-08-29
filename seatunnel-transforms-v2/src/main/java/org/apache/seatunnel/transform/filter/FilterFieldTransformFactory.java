@@ -37,7 +37,11 @@ public class FilterFieldTransformFactory implements TableTransformFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().required(FilterFieldTransformConfig.KEY_FIELDS).build();
+        return OptionRule.builder()
+                .exclusive(
+                        FilterFieldTransformConfig.INCLUDE_FIELDS,
+                        FilterFieldTransformConfig.EXCLUDE_FIELDS)
+                .build();
     }
 
     @Override
