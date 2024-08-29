@@ -49,10 +49,6 @@ import java.util.Arrays;
 import java.util.Objects;
 
 @Slf4j
-@DisabledOnContainer(
-        value = {},
-        type = {EngineType.SEATUNNEL},
-        disabledReason = "The hbase container authentication configuration is incorrect.")
 public class HbaseIT extends TestSuiteBase implements TestResource {
 
     private static final String TABLE_NAME = "seatunnel_test";
