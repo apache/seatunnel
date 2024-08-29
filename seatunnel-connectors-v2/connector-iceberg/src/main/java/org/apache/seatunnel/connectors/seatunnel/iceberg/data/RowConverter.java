@@ -92,17 +92,17 @@ public class RowConverter {
         return nameMappingString != null ? NameMappingParser.fromJson(nameMappingString) : null;
     }
 
-    public Record convert(Object row, SeaTunnelDataType rowType) {
+    public Record convert(Object row, SeaTunnelDataType<?> rowType) {
         return convertStructValue(row, rowType, tableSchema.asStruct(), -1, null);
     }
 
-    public Record convert(Object row, SeaTunnelDataType rowType, SchemaChangeWrapper wrapper) {
+    public Record convert(Object row, SeaTunnelDataType<?> rowType, SchemaChangeWrapper wrapper) {
         return convertStructValue(row, rowType, tableSchema.asStruct(), -1, wrapper);
     }
 
     protected GenericRecord convertStructValue(
             Object value,
-            SeaTunnelDataType fromType,
+            SeaTunnelDataType<?> fromType,
             Types.StructType schema,
             int parentFieldId,
             SchemaChangeWrapper wrapper) {
@@ -120,15 +120,7 @@ public class RowConverter {
         }
     }
 
-    /**
-     * Convert RowType
-     *
-     * @param row
-     * @param fromType
-     * @param schema
-     * @param structFieldId
-     * @return
-     */
+    /** Convert RowType */
     private GenericRecord convertToStruct(
             SeaTunnelRow row,
             SeaTunnelRowType fromType,
@@ -179,7 +171,7 @@ public class RowConverter {
 
     public Object convertValue(
             Object value,
-            SeaTunnelDataType fromType,
+            SeaTunnelDataType<?> fromType,
             Type type,
             int fieldId,
             SchemaChangeWrapper wrapper) {
@@ -252,7 +244,7 @@ public class RowConverter {
 
     protected List<Object> convertListValue(
             Object value,
-            SeaTunnelDataType fromType,
+            SeaTunnelDataType<?> fromType,
             Types.ListType type,
             SchemaChangeWrapper wrapper) {
         Preconditions.checkArgument(value.getClass().isArray());
@@ -269,7 +261,7 @@ public class RowConverter {
 
     protected Map<Object, Object> convertMapValue(
             Object value,
-            SeaTunnelDataType fromType,
+            SeaTunnelDataType<?> fromType,
             Types.MapType type,
             SchemaChangeWrapper wrapper) {
         Preconditions.checkArgument(value instanceof Map);
