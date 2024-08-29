@@ -16,8 +16,7 @@
  */
 package org.apache.seatunnel.connectors.seatunnel.prometheus.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
@@ -54,7 +53,9 @@ public class PrometheusWriter extends HttpSinkWriter {
     protected final HttpClientProvider httpClient;
 
     public PrometheusWriter(
-            SeaTunnelRowType seaTunnelRowType, HttpParameter httpParameter, Config pluginConfig) {
+            SeaTunnelRowType seaTunnelRowType,
+            HttpParameter httpParameter,
+            ReadonlyConfig pluginConfig) {
 
         super(seaTunnelRowType, httpParameter);
         this.batchList = new ArrayList<>();

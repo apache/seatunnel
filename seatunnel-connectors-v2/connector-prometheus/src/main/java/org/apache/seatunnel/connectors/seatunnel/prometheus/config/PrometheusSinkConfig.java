@@ -16,10 +16,9 @@
  */
 package org.apache.seatunnel.connectors.seatunnel.prometheus.config;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
 
 import lombok.Getter;
@@ -61,19 +60,19 @@ public class PrometheusSinkConfig extends HttpConfig {
 
     private int batchSize = BATCH_SIZE.defaultValue();
 
-    public static PrometheusSinkConfig loadConfig(Config pluginConfig) {
+    public static PrometheusSinkConfig loadConfig(ReadonlyConfig pluginConfig) {
         PrometheusSinkConfig sinkConfig = new PrometheusSinkConfig();
-        if (pluginConfig.hasPath(KEY_VALUE.key())) {
-            sinkConfig.setKeyValue(pluginConfig.getString(KEY_VALUE.key()));
+        if (pluginConfig.getOptional(KEY_VALUE).isPresent()) {
+            sinkConfig.setKeyValue(pluginConfig.get(KEY_VALUE));
         }
-        if (pluginConfig.hasPath(KEY_LABEL.key())) {
-            sinkConfig.setKeyLabel(pluginConfig.getString(KEY_LABEL.key()));
+        if (pluginConfig.getOptional(KEY_LABEL).isPresent()) {
+            sinkConfig.setKeyLabel(pluginConfig.get(KEY_LABEL));
         }
-        if (pluginConfig.hasPath(KEY_TIMESTAMP.key())) {
-            sinkConfig.setKeyTimestamp(pluginConfig.getString(KEY_TIMESTAMP.key()));
+        if (pluginConfig.getOptional(KEY_TIMESTAMP).isPresent()) {
+            sinkConfig.setKeyTimestamp(pluginConfig.get(KEY_TIMESTAMP));
         }
-        if (pluginConfig.hasPath(BATCH_SIZE.key())) {
-            int batchSize = checkIntArgument(pluginConfig.getInt(BATCH_SIZE.key()));
+        if (pluginConfig.getOptional(BATCH_SIZE).isPresent()) {
+            int batchSize = checkIntArgument(pluginConfig.get(BATCH_SIZE));
             sinkConfig.setBatchSize(batchSize);
         }
         return sinkConfig;

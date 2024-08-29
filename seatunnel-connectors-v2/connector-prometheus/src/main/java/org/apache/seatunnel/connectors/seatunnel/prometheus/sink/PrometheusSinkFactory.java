@@ -16,6 +16,7 @@
  */
 package org.apache.seatunnel.connectors.seatunnel.prometheus.sink;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.sink.SinkCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -35,10 +36,10 @@ public class PrometheusSinkFactory extends HttpSinkFactory {
     }
 
     public TableSink createSink(TableSinkFactoryContext context) {
+
+        ReadonlyConfig readonlyConfig = context.getOptions();
         CatalogTable catalogTable = context.getCatalogTable();
-        return () ->
-                new PrometheusSink(
-                        context.getOptions().toConfig(), catalogTable.getSeaTunnelRowType());
+        return () -> new PrometheusSink(readonlyConfig, catalogTable.getSeaTunnelRowType());
     }
 
     @Override

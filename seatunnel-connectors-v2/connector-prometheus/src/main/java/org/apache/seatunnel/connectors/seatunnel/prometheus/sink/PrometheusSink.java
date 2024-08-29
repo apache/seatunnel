@@ -16,61 +16,34 @@
  */
 package org.apache.seatunnel.connectors.seatunnel.prometheus.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpConfig;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
-import org.apache.seatunnel.connectors.seatunnel.http.exception.HttpConnectorException;
 
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
 public class PrometheusSink extends AbstractSimpleSink<SeaTunnelRow, Void>
         implements SupportMultiTableSink {
 
     protected final HttpParameter httpParameter = new HttpParameter();
     protected SeaTunnelRowType seaTunnelRowType;
-    protected Config pluginConfig;
+    protected ReadonlyConfig pluginConfig;
 
-    public PrometheusSink(Config pluginConfig, SeaTunnelRowType rowType) {
+    public PrometheusSink(ReadonlyConfig pluginConfig, SeaTunnelRowType rowType) {
         this.pluginConfig = pluginConfig;
-        CheckResult result = CheckConfigUtil.checkAllExists(pluginConfig, HttpConfig.URL.key());
-        if (!result.isSuccess()) {
-            throw new HttpConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            getPluginName(), PluginType.SINK, result.getMsg()));
+        httpParameter.setUrl(pluginConfig.get(HttpConfig.URL));
+        if (pluginConfig.getOptional(HttpConfig.HEADERS).isPresent()) {
+            httpParameter.setHeaders(pluginConfig.get(HttpConfig.HEADERS));
         }
-        httpParameter.setUrl(pluginConfig.getString(HttpConfig.URL.key()));
-        if (pluginConfig.hasPath(HttpConfig.HEADERS.key())) {
-            httpParameter.setHeaders(
-                    pluginConfig.getConfig(HttpConfig.HEADERS.key()).entrySet().stream()
-                            .collect(
-                                    Collectors.toMap(
-                                            Map.Entry::getKey,
-                                            entry -> String.valueOf(entry.getValue().unwrapped()),
-                                            (v1, v2) -> v2)));
-        }
-        if (pluginConfig.hasPath(HttpConfig.PARAMS.key())) {
-            httpParameter.setHeaders(
-                    pluginConfig.getConfig(HttpConfig.PARAMS.key()).entrySet().stream()
-                            .collect(
-                                    Collectors.toMap(
-                                            Map.Entry::getKey,
-                                            entry -> String.valueOf(entry.getValue().unwrapped()),
-                                            (v1, v2) -> v2)));
+        if (pluginConfig.getOptional(HttpConfig.PARAMS).isPresent()) {
+            httpParameter.setHeaders(pluginConfig.get(HttpConfig.PARAMS));
         }
         this.seaTunnelRowType = rowType;
 
