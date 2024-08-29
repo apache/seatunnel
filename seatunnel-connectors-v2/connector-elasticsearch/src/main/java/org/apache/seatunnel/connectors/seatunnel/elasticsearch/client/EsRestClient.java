@@ -370,6 +370,30 @@ public class EsRestClient {
         return scrollResult;
     }
 
+    /**
+     * Instead of the getIndexDocsCount method to determine if the index exists,
+     *
+     * <p>
+     *
+     * <p>getIndexDocsCount throws an exception if the index does not exist
+     *
+     * <p>
+     *
+     * @param index index
+     * @return true or false
+     */
+    public boolean checkIndexExist(String index) {
+        Request request = new Request("HEAD", "/" + index);
+        try {
+            Response response = restClient.performRequest(request);
+            int statusCode = response.getStatusLine().getStatusCode();
+            return statusCode == 200;
+        } catch (Exception ex) {
+            throw new ElasticsearchConnectorException(
+                    ElasticsearchConnectorErrorCode.CHECK_INDEX_FAILED, ex);
+        }
+    }
+
     public List<IndexDocsCount> getIndexDocsCount(String index) {
         String endpoint = String.format("/_cat/indices/%s?h=index,docsCount&format=json", index);
         Request request = new Request("GET", endpoint);

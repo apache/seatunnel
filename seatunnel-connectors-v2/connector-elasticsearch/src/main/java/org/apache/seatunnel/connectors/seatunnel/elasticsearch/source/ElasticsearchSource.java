@@ -114,7 +114,7 @@ public class ElasticsearchSource
 
             for (int i = 0; i < source.size(); i++) {
                 String key = source.get(i);
-                String sourceType = esFieldType.get(key).getNativeType().getType();
+                String sourceType = esFieldType.get(key).getDataType();
                 if (arrayColumn.containsKey(key)) {
                     String value = arrayColumn.get(key);
                     SeaTunnelDataType<?> dataType =
