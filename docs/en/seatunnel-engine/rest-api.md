@@ -389,6 +389,106 @@ When we can't get the job info, the response will be:
 
 ------------------------------------------------------------------------------------------
 
+### Batch Submit Jobs
+
+<details>
+<summary><code>POST</code> <code><b>/hazelcast/rest/maps/submit-jobs</b></code> <code>(Returns jobId and jobName if the job is successfully submitted.)</code></summary>
+
+#### Parameters (add in the `params` field in the request body)
+
+> |    Parameter Name     |   Required   |  Type   |              Description              |
+> |----------------------|--------------|---------|---------------------------------------|
+> | jobId                | optional     | string  | job id                                |
+> | jobName              | optional     | string  | job name                              |
+> | isStartWithSavePoint | optional     | string  | if the job is started with save point |
+
+#### Request Body
+
+```json
+[
+  {
+    "params":{
+      "jobId":"123456",
+      "jobName":"SeaTunnel-01"
+    },
+    "env": {
+      "job.mode": "batch"
+    },
+    "source": [
+      {
+        "plugin_name": "FakeSource",
+        "result_table_name": "fake",
+        "row.num": 1000,
+        "schema": {
+          "fields": {
+            "name": "string",
+            "age": "int",
+            "card": "int"
+          }
+        }
+      }
+    ],
+    "transform": [
+    ],
+    "sink": [
+      {
+        "plugin_name": "Console",
+        "source_table_name": ["fake"]
+      }
+    ]
+  },
+  {
+    "params":{
+      "jobId":"1234567",
+      "jobName":"SeaTunnel-02"
+    },
+    "env": {
+      "job.mode": "batch"
+    },
+    "source": [
+      {
+        "plugin_name": "FakeSource",
+        "result_table_name": "fake",
+        "row.num": 1000,
+        "schema": {
+          "fields": {
+            "name": "string",
+            "age": "int",
+            "card": "int"
+          }
+        }
+      }
+    ],
+    "transform": [
+    ],
+    "sink": [
+      {
+        "plugin_name": "Console",
+        "source_table_name": ["fake"]
+      }
+    ]
+  }
+]
+```
+
+#### Response
+
+```json
+[
+  {
+    "jobId": "123456",
+    "jobName": "SeaTunnel-01"
+  },{
+    "jobId": "1234567",
+    "jobName": "SeaTunnel-02"
+  }
+]
+```
+
+</details>
+
+------------------------------------------------------------------------------------------
+
 ### Stop A Job
 
 <details>
@@ -414,7 +514,42 @@ When we can't get the job info, the response will be:
 </details>
 
 ------------------------------------------------------------------------------------------
+### Batch Stop Jobs
 
+<details>
+<summary><code>POST</code> <code><b>/hazelcast/rest/maps/stop-jobs</b></code> <code>(Returns jobId if the job is successfully stopped.)</code></summary>
+
+#### Request Body
+
+```json
+[
+  {
+    "jobId": 881432421482889220,
+    "isStopWithSavePoint": false
+  },
+  {
+    "jobId": 881432456517910529,
+    "isStopWithSavePoint": false
+  }
+]
+```
+
+#### Response
+
+```json
+[
+  {
+    "jobId": 881432421482889220
+  },
+  {
+    "jobId": 881432456517910529
+  }
+]
+```
+
+</details>
+
+------------------------------------------------------------------------------------------
 ### Encrypt Config
 
 <details>
