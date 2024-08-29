@@ -27,4 +27,7 @@ public enum SchemaSaveMode {
 
     // Error will be reported when the table does not exist
     ERROR_WHEN_SCHEMA_NOT_EXIST,
+
+    // Ignore creation
+    IGNORE
 }

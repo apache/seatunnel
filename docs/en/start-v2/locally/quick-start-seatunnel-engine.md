@@ -96,7 +96,7 @@ The SeaTunnel console will print some logs as below:
 
 ## Extended Example: Batch Mode from MySQL to Doris
 
-## Step 1: Download the Connector
+### Step 1: Download the Connector
 
 First, you need to add the connector name to the `${SEATUNNEL_HOME}/config/plugin_config` file. Then, execute the command to install the connector (of course, you can also manually download the connector from the [Apache Maven Repository](https://repo.maven.apache.org/maven2/org/apache/seatunnel/) and move it to the `connectors/` directory). Finally, make sure that the `connector-jdbc` and `connector-doris` connectors are in the `${SEATUNNEL_HOME}/connectors/` directory.
 
@@ -113,11 +113,11 @@ connector-doris
 sh bin/install-plugin.sh
 ```
 
-## Step 2: Place the MySQL Driver
+### Step 2: Place the MySQL Driver
 
 You need to download the [JDBC driver JAR package](https://mvnrepository.com/artifact/mysql/mysql-connector-java) and place it in the `${SEATUNNEL_HOME}/lib/` directory.
 
-## Step 3: Add Job Configuration File to Define the Job
+### Step 3: Add Job Configuration File to Define the Job
 
 ```bash
 cd seatunnel/job/
@@ -159,7 +159,7 @@ sink {
 
 For more information about the configuration, please refer to [Basic Concepts of Configuration](../../concept/config.md).
 
-## Step 4: Run the SeaTunnel Application
+### Step 4: Run the SeaTunnel Application
 
 You can start the application using the following command:
 

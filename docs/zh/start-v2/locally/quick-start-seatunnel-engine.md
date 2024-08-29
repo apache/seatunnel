@@ -95,7 +95,7 @@ SeaTunnel控制台将会打印一些如下日志信息:
 
 ## 扩展示例：从 MySQL 到 Doris 批处理模式
 
-## 步骤1：下载连接器
+### 步骤1：下载连接器
 首先，您需要在`${SEATUNNEL_HOME}/config/plugin_config`文件中加入连接器名称，然后，执行命令来安装连接器(当然，您也可以从 [Apache Maven Repository](https://repo.maven.apache.org/maven2/org/apache/seatunnel/) 手动下载连接器，然后将其移动至`connectors/`目录下)，最后，确认连接器`connector-jdbc`、`connector-doris`在`${SEATUNNEL_HOME}/connectors/`目录下即可。
 
 ```bash
@@ -111,11 +111,11 @@ connector-doris
 sh bin/install-plugin.sh
 ```
 
-## 步骤2：放入 MySQL 驱动 
+### 步骤2：放入 MySQL 驱动 
 
 您需要下载 [jdbc driver jar package](https://mvnrepository.com/artifact/mysql/mysql-connector-java) 驱动，并放置在 `${SEATUNNEL_HOME}/lib/`目录下
 
-## 步骤3：添加作业配置文件来定义作业
+### 步骤3：添加作业配置文件来定义作业
 
 ```bash
 cd seatunnel/job/
@@ -157,7 +157,7 @@ sink {
 
 关于配置的更多信息请查看[配置的基本概念](../../concept/config.md)
 
-## 步骤 4: 运行SeaTunnel应用程序
+### 步骤 4: 运行SeaTunnel应用程序
 
 您可以通过以下命令启动应用程序：
 

@@ -89,4 +89,5 @@ connector-milvus
 connector-activemq
 connector-prometheus
 connector-sls
+connector-cdc-opengauss
 --end--
