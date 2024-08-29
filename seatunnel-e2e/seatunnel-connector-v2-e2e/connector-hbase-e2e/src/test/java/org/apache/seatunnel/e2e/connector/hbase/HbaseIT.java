@@ -52,14 +52,6 @@ import java.util.Arrays;
 import java.util.Objects;
 
 @Slf4j
-@DisabledOnContainer(
-        value = {
-            TestContainerId.FLINK_1_13,
-            TestContainerId.FLINK_1_14,
-            TestContainerId.FLINK_1_15
-        },
-        type = {EngineType.SEATUNNEL, EngineType.SPARK},
-        disabledReason = "Test only one engine for first change")
 public class HbaseIT extends TestSuiteBase implements TestResource {
 
     private static final String TABLE_NAME = "seatunnel_test";
