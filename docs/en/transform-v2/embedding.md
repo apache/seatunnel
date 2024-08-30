@@ -5,7 +5,8 @@
 ## Description
 
 The `Embedding` transform plugin leverages embedding models to convert text data into vectorized representations. This
-transformation can be applied to various fields. The plugin supports multiple model providers and can be integrated with different API endpoints.
+transformation can be applied to various fields. The plugin supports multiple model providers and can be integrated with
+different API endpoints.
 
 ## Options
 
@@ -17,7 +18,7 @@ transformation can be applied to various fields. The plugin supports multiple mo
 | single_vectorized_input_number | int         | no       | 1             | The number of inputs vectorized in one request. Default is 1.                         |
 | vectorization_batch_size       | int         | no       | 100           | The batch size for each vectorization request.                                        |
 | vectorization_fields           | map<string> | yes      | -             | A mapping between input fields and their corresponding output vector fields.          |
-| model                          | string      | yes      | -             | The specific model to use for embedding (e.g: `bge_large_en` for QIANFAN).            |
+| model                          | string      | yes      | -             | The specific model to use for embedding (e.g: `text-embedding-3-small` for OPENAI).   |
 | api_path                       | string      | no       | -             | The API endpoint for the embedding service. Typically provided by the model provider. |
 | oauth_path                     | string      | no       | -             | The API endpoint for the oauth service.                                               |
 
@@ -52,8 +53,8 @@ text fields to vectorize and how to store the resulting vectors.
 
 ### model
 
-The specific embedding model to use. This depends on the `text-embedding-3-small`. For example, if using OPENAI, you
-might specify `bge_large_en`.
+The specific embedding model to use. This depends on the `embedding_model_provider`. For example, if using OPENAI, you
+might specify `text-embedding-3-small`.
 
 ### api_path
 
@@ -62,7 +63,8 @@ used. Generally, this is provided by the model provider.
 
 ### oauth_path
 
-The API endpoint for the oauth service. Get certification information. This might vary based on the provider and model used. Generally, this is provided by the model provider.
+The API endpoint for the oauth service. Get certification information. This might vary based on the provider and model
+used. Generally, this is provided by the model provider.
 
 ### common options
 
