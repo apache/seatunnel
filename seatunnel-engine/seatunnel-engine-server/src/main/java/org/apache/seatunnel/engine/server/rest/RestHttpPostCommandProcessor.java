@@ -146,7 +146,7 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
         this.prepareResponse(httpPostCommand, jsonObject);
     }
 
-    private JsonObject createJsonObject(Config config, Map<String, String> requestParams) {
+    private JsonObject submitJobInternal(Config config, Map<String, String> requestParams) {
         ReadonlyConfig envOptions = ReadonlyConfig.fromConfig(config.getConfig("env"));
         String jobName = envOptions.get(EnvCommonOptions.JOB_NAME);
 
