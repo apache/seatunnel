@@ -15,7 +15,7 @@
 |         名称         |   类型    | 是否必须 |       默认值       |
 |--------------------|---------|------|-----------------|
 | zookeeper_quorum   | string  | yes  | -               |
-| table              | string  | no   | -               |
+| table              | string  | yes  | -               |
 | rowkey_column      | list    | yes  | -               |
 | family_name        | config  | yes  | -               |
 | rowkey_delimiter   | string  | no   | ""              |
@@ -181,7 +181,8 @@ source {
 
 sink {
   Hbase {
-    zookeeper_quorum = "hbase:2181"
+    zookeeper_quorum = "hadoop001:2181,hadoop002:2181,hadoop003:2181"
+    table = "${table_name}"
     rowkey_column = ["name"]
     family_name {
       all_columns = info
