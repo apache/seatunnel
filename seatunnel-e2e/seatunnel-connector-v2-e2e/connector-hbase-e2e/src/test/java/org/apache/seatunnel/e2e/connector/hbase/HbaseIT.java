@@ -76,6 +76,7 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
     public void startUp() throws Exception {
         hbaseCluster = new HbaseCluster();
         hbaseConnection = hbaseCluster.startService();
+        admin = hbaseConnection.getAdmin();
         // Create table for hbase sink test
         log.info("initial");
         hbaseCluster.createTable(TABLE_NAME, Arrays.asList(FAMILY_NAME));
@@ -116,6 +117,7 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
             throws IOException, InterruptedException {
         String tableName = "seatunnel_test_with_recreate_schema";
         TableName table = TableName.valueOf(tableName);
+        dropTable(table);
         hbaseCluster.createTable(tableName, Arrays.asList("test_rs"));
         TableDescriptor descriptorBefore = hbaseConnection.getTable(table).getDescriptor();
         String[] familiesBefore =
@@ -150,11 +152,13 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testHbaseSinkWithCreateWhenNotExists(TestContainer container)
             throws IOException, InterruptedException {
+        TableName seatunnelTestWithCreateWhenNotExists =
+                TableName.valueOf("seatunnel_test_with_create_when_not_exists");
+        dropTable(seatunnelTestWithCreateWhenNotExists);
         Container.ExecResult execResult =
                 container.executeJob("/fake_to_hbase_with_create_when_not_exists.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-        Assertions.assertEquals(
-                5, countData(TableName.valueOf("seatunnel_test_with_create_when_not_exists")));
+        Assertions.assertEquals(5, countData(seatunnelTestWithCreateWhenNotExists));
     }
 
     @TestTemplate
@@ -268,6 +272,13 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
         }
         Assertions.assertEquals(results.size(), 5);
         scanner.close();
+    }
+
+    private void dropTable(TableName tableName) throws IOException {
+        if (admin.tableExists(tableName)) {
+            admin.disableTable(tableName);
+            admin.deleteTable(tableName);
+        }
     }
 
     private void deleteData(TableName table) throws IOException {
