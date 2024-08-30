@@ -123,7 +123,7 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
                                     String urlParams = mapToUrlParams(tuple._1);
                                     Map<String, String> requestParams = new HashMap<>();
                                     RestUtil.buildRequestParams(requestParams, urlParams);
-                                    return createJsonObject(tuple._2, requestParams);
+                                    return submitJobInternal(tuple._2, requestParams);
                                 })
                         .collect(JsonArray::new, JsonArray::add, JsonArray::add);
 
@@ -142,7 +142,7 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
         RestUtil.buildRequestParams(requestParams, uri);
         Config config = RestUtil.buildConfig(requestHandle(httpPostCommand), false);
 
-        JsonObject jsonObject = createJsonObject(config, requestParams);
+        JsonObject jsonObject = submitJobInternal(config, requestParams);
         this.prepareResponse(httpPostCommand, jsonObject);
     }
 
