@@ -150,6 +150,13 @@ public class ClickhouseSinkCDCChangelogIT extends TestSuiteBase implements TestR
         dropSinkTable();
     }
 
+    @TestTemplate
+    public void testClickhouseSourceMultiTable(TestContainer container) throws Exception {
+        initializeClickhouseMergeTreeTable();
+        Container.ExecResult execResult = container.executeJob("/multi_source_clickhouse.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
     private void initConnection() throws Exception {
         final Properties info = new Properties();
         info.put("user", this.container.getUsername());
@@ -162,15 +169,47 @@ public class ClickhouseSinkCDCChangelogIT extends TestSuiteBase implements TestR
     private void initializeClickhouseMergeTreeTable() {
         try {
             Statement statement = this.connection.createStatement();
-            String sql =
-                    String.format(
-                            "create table if not exists %s.%s(\n"
-                                    + "    `pk_id`         Int64,\n"
-                                    + "    `name`          String,\n"
-                                    + "    `score`         Int32\n"
-                                    + ")engine=MergeTree ORDER BY(pk_id) PRIMARY KEY(pk_id)",
-                            DATABASE, SINK_TABLE);
-            statement.execute(sql);
+            List<String> initSqlList =
+                    Arrays.asList(
+                            String.format(
+                                    "create table if not exists %s.%s(\n"
+                                            + "    `pk_id`         Int64,\n"
+                                            + "    `name`          String,\n"
+                                            + "    `score`         Int32\n"
+                                            + ")engine=MergeTree ORDER BY(pk_id) PRIMARY KEY(pk_id)",
+                                    DATABASE, SINK_TABLE),
+                            "create table if not exists default.t1\n"
+                                    + "(\n"
+                                    + "    `course_id` UInt32,\n"
+                                    + "    `course_name` String,\n"
+                                    + "    `instructor` String\n"
+                                    + ")\n"
+                                    + "ENGINE = MergeTree\n"
+                                    + "ORDER BY course_id\n"
+                                    + "SETTINGS index_granularity = 8192",
+                            "create table if not exists default.t2\n"
+                                    + "(\n"
+                                    + "    `course_id` UInt32,\n"
+                                    + "    `course_name` String,\n"
+                                    + "    `instructor` String\n"
+                                    + ")\n"
+                                    + "ENGINE = MergeTree\n"
+                                    + "ORDER BY course_id\n"
+                                    + "SETTINGS index_granularity = 8192",
+                            "INSERT INTO default.t1 (course_id, course_name, instructor)\n"
+                                    + "VALUES \n"
+                                    + "(1, 'Math', 'Mr. Smith'),\n"
+                                    + "(2, 'History', 'Ms. Johnson'),\n"
+                                    + "(3, 'Science', 'Dr. Brown')\n",
+                            "INSERT INTO default.t2 (course_id, course_name, instructor)\n"
+                                    + "VALUES \n"
+                                    + "(1, 'Math', 'Mr. Smith'),\n"
+                                    + "(2, 'History', 'Ms. Johnson'),\n"
+                                    + "(3, 'Science', 'Dr. Brown')\n");
+            for (String sql : initSqlList) {
+                statement.execute(sql);
+            }
+
         } catch (SQLException e) {
             throw new RuntimeException("Initializing Clickhouse table failed!", e);
         }

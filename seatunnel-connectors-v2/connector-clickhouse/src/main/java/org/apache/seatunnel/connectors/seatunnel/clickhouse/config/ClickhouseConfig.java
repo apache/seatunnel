@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.config;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
+
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
@@ -26,19 +28,6 @@ import java.util.List;
 import java.util.Map;
 
 public class ClickhouseConfig {
-
-    /** Bulk size of clickhouse jdbc */
-    public static final Option<Integer> BULK_SIZE =
-            Options.key("bulk_size")
-                    .intType()
-                    .defaultValue(20000)
-                    .withDescription("Bulk size of clickhouse jdbc");
-
-    public static final Option<String> SQL =
-            Options.key("sql")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Clickhouse sql used to query data");
 
     /** Clickhouse server host */
     public static final Option<String> HOST =
@@ -83,6 +72,39 @@ public class ClickhouseConfig {
                     .withDescription(
                             "The session time zone in database server."
                                     + "If not set, then ZoneId.systemDefault() is used to determine the server time zone");
+    /** clickhouse source sql */
+    public static final Option<String> SQL =
+            Options.key("sql")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Clickhouse sql used to query data");
+
+    /** clickhouse multi table */
+    public static final Option<List<Map<String, Object>>> TABLE_LIST =
+            Options.key("table_list")
+                    .type(new TypeReference<List<Map<String, Object>>>() {})
+                    .noDefaultValue()
+                    .withDescription("table list config");
+
+    public static final Option<String> TABLE_PATH =
+            Options.key("table_path")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("table full path");
+
+    /** Bulk size of clickhouse jdbc */
+    public static final Option<Integer> BULK_SIZE =
+            Options.key("bulk_size")
+                    .intType()
+                    .defaultValue(20000)
+                    .withDescription("Bulk size of clickhouse jdbc");
+
+    /** clickhouse conf */
+    public static final Option<Map<String, String>> CLICKHOUSE_CONFIG =
+            Options.key("clickhouse.config")
+                    .mapType()
+                    .defaultValue(Collections.emptyMap())
+                    .withDescription("Clickhouse custom config");
 
     /** Split mode when table is distributed engine */
     public static final Option<Boolean> SPLIT_MODE =
@@ -157,12 +179,6 @@ public class ClickhouseConfig {
                     .listType(NodePassConfig.class)
                     .noDefaultValue()
                     .withDescription("The password of Clickhouse server node");
-
-    public static final Option<Map<String, String>> CLICKHOUSE_CONFIG =
-            Options.key("clickhouse.config")
-                    .mapType()
-                    .defaultValue(Collections.emptyMap())
-                    .withDescription("Clickhouse custom config");
 
     public static final Option<String> FILE_FIELDS_DELIMITER =
             Options.key("file_fields_delimiter")

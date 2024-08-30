@@ -95,6 +95,51 @@ sink {
 }
 ```
 
+### Multi Table read
+
+> This is a multi-table read case
+
+```bash
+
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Clickhouse {
+    host = "clickhouse:8123"
+    database = "default"
+    username = "default"
+    password = ""
+    server_time_zone = "UTC"
+    result_table_name = "test"
+    clickhouse.config = {
+      "socket_timeout": "300000"
+    }
+    table_list = [
+      {
+        table_path = "t1"
+        sql = "select * from t1 where 1=1 "
+
+      },
+      {
+        table_path = "t2",
+        sql = "select * from t2"
+      }
+    ]
+  }
+}
+
+sink {
+  Assert {
+    rules {
+      table-names = ["t1", "t2"]
+    }
+  }
+}
+```
+
 ### Tips
 
 > 1.[SeaTunnel Deployment Document](../../start-v2/locally/deployment.md).

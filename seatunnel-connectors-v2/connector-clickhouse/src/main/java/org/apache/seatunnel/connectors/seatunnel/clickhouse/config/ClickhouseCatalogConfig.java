@@ -15,19 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.clickhouse.source;
+package org.apache.seatunnel.connectors.seatunnel.clickhouse.config;
 
-import org.apache.seatunnel.api.source.SourceSplit;
-import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 
 import lombok.Data;
 
-@Data
-public class ClickhouseSourceSplit implements SourceSplit {
-    @Override
-    public String splitId() {
-        return null;
-    }
+import java.io.Serializable;
 
-    private TablePath tablePath;
+@Data
+public class ClickhouseCatalogConfig implements Serializable {
+
+    private String sql;
+    private CatalogTable catalogTable;
 }

@@ -18,25 +18,39 @@
 package org.apache.seatunnel.connectors.seatunnel.clickhouse.source;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseCatalogConfig;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.state.ClickhouseSourceState;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 public class ClickhouseSourceSplitEnumerator
         implements SourceSplitEnumerator<ClickhouseSourceSplit, ClickhouseSourceState> {
 
     private final Context<ClickhouseSourceSplit> context;
     private final Set<Integer> readers;
-    private volatile int assigned = -1;
+    private volatile Map<TablePath, Integer> tablePathAssigned = new HashMap<>();
+
+    private Map<TablePath, ClickhouseCatalogConfig> tableClickhouseCatalogConfigMap;
 
     // TODO support read distributed engine use multi split
-    ClickhouseSourceSplitEnumerator(Context<ClickhouseSourceSplit> enumeratorContext) {
+    ClickhouseSourceSplitEnumerator(
+            Context<ClickhouseSourceSplit> enumeratorContext,
+            Map<TablePath, ClickhouseCatalogConfig> tableClickhouseCatalogConfigMap) {
         this.context = enumeratorContext;
         this.readers = new HashSet<>();
+        this.tableClickhouseCatalogConfigMap = tableClickhouseCatalogConfigMap;
+        for (TablePath tablePath : tableClickhouseCatalogConfigMap.keySet()) {
+            tablePathAssigned.put(tablePath, -1);
+        }
     }
 
     @Override
@@ -53,19 +67,28 @@ public class ClickhouseSourceSplitEnumerator
         if (splits.isEmpty()) {
             return;
         }
-        if (subtaskId == assigned) {
-            Optional<Integer> otherReader = readers.stream().filter(r -> r != subtaskId).findAny();
-            if (otherReader.isPresent()) {
-                context.assignSplit(otherReader.get(), splits);
-            } else {
-                assigned = -1;
+        for (TablePath tablePath : tableClickhouseCatalogConfigMap.keySet()) {
+            if (tablePathAssigned.get(tablePath) == subtaskId) {
+                Optional<Integer> otherReader =
+                        readers.stream().filter(r -> r != subtaskId).findAny();
+                if (otherReader.isPresent()) {
+                    context.assignSplit(otherReader.get(), splits);
+                } else {
+                    tablePathAssigned.put(tablePath, -1);
+                }
             }
         }
     }
 
     @Override
     public int currentUnassignedSplitSize() {
-        return assigned < 0 ? 0 : 1;
+        return tablePathAssigned.values().stream()
+                                .filter(value -> value < 0)
+                                .collect(Collectors.toList())
+                                .size()
+                        > 0
+                ? 0
+                : 1;
     }
 
     @Override
@@ -74,10 +97,16 @@ public class ClickhouseSourceSplitEnumerator
     @Override
     public void registerReader(int subtaskId) {
         readers.add(subtaskId);
-        if (assigned < 0) {
-            assigned = subtaskId;
-            context.assignSplit(subtaskId, new ClickhouseSourceSplit());
+        List<ClickhouseSourceSplit> clickhouseSourceSplits = new ArrayList<>();
+        for (TablePath tablePath : tablePathAssigned.keySet()) {
+            if (tablePathAssigned.get(tablePath) < 0) {
+                tablePathAssigned.put(tablePath, subtaskId);
+                ClickhouseSourceSplit clickhouseSourceSplit = new ClickhouseSourceSplit();
+                clickhouseSourceSplit.setTablePath(tablePath);
+                clickhouseSourceSplits.add(clickhouseSourceSplit);
+            }
         }
+        context.assignSplit(subtaskId, clickhouseSourceSplits);
     }
 
     @Override

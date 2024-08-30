@@ -19,9 +19,14 @@ package org.apache.seatunnel.connectors.seatunnel.clickhouse.source;
 
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.config.ClickhouseCatalogConfig;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.util.TypeConvertUtil;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.clickhouse.client.ClickHouseClient;
 import com.clickhouse.client.ClickHouseFormat;
@@ -30,32 +35,33 @@ import com.clickhouse.client.ClickHouseRequest;
 import com.clickhouse.client.ClickHouseResponse;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Deque;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 
 public class ClickhouseSourceReader implements SourceReader<SeaTunnelRow, ClickhouseSourceSplit> {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(ClickhouseSourceReader.class);
+
     private final List<ClickHouseNode> servers;
     private ClickHouseClient client;
-    private final SeaTunnelRowType rowTypeInfo;
     private final SourceReader.Context readerContext;
     private ClickHouseRequest<?> request;
-    private final String sql;
 
-    private final List<ClickhouseSourceSplit> splits;
+    private Map<TablePath, ClickhouseCatalogConfig> tableClickhouseCatalogConfigMap;
+
+    private Deque<ClickhouseSourceSplit> splits = new LinkedList<>();
 
     ClickhouseSourceReader(
             List<ClickHouseNode> servers,
             SourceReader.Context readerContext,
-            SeaTunnelRowType rowTypeInfo,
-            String sql) {
+            Map<TablePath, ClickhouseCatalogConfig> tableClickhouseCatalogConfigMap) {
         this.servers = servers;
         this.readerContext = readerContext;
-        this.rowTypeInfo = rowTypeInfo;
-        this.sql = sql;
-        this.splits = new ArrayList<>();
+        this.tableClickhouseCatalogConfigMap = tableClickhouseCatalogConfigMap;
     }
 
     @Override
@@ -75,28 +81,43 @@ public class ClickhouseSourceReader implements SourceReader<SeaTunnelRow, Clickh
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
-        if (!splits.isEmpty()) {
-            try (ClickHouseResponse response = this.request.query(sql).executeAndWait()) {
-                response.stream()
-                        .forEach(
-                                record -> {
-                                    Object[] values =
-                                            new Object[this.rowTypeInfo.getFieldNames().length];
-                                    for (int i = 0; i < record.size(); i++) {
-                                        if (record.getValue(i).isNullOrEmpty()) {
-                                            values[i] = null;
-                                        } else {
-                                            values[i] =
-                                                    TypeConvertUtil.valueUnwrap(
-                                                            this.rowTypeInfo.getFieldType(i),
-                                                            record.getValue(i));
+        synchronized (output.getCheckpointLock()) {
+            ClickhouseSourceSplit split = splits.poll();
+            if (split != null) {
+                TablePath tablePath = split.getTablePath();
+                SeaTunnelRowType seaTunnelRowType =
+                        tableClickhouseCatalogConfigMap
+                                .get(tablePath)
+                                .getCatalogTable()
+                                .getSeaTunnelRowType();
+                String sql = tableClickhouseCatalogConfigMap.get(tablePath).getSql();
+                try (ClickHouseResponse response = this.request.query(sql).executeAndWait()) {
+                    response.stream()
+                            .forEach(
+                                    record -> {
+                                        Object[] values =
+                                                new Object[seaTunnelRowType.getFieldNames().length];
+                                        for (int i = 0; i < record.size(); i++) {
+                                            if (record.getValue(i).isNullOrEmpty()) {
+                                                values[i] = null;
+                                            } else {
+                                                values[i] =
+                                                        TypeConvertUtil.valueUnwrap(
+                                                                seaTunnelRowType.getFieldType(i),
+                                                                record.getValue(i));
+                                            }
                                         }
-                                    }
-                                    output.collect(new SeaTunnelRow(values));
-                                });
+                                        SeaTunnelRow seaTunnelRow = new SeaTunnelRow(values);
+                                        seaTunnelRow.setTableId(String.valueOf(tablePath));
+                                        output.collect(seaTunnelRow);
+                                    });
+                }
+            } else if (splits.isEmpty()) {
+                // signal to the source that we have reached the end of the data.
+                readerContext.signalNoMoreElement();
+            } else {
+                Thread.sleep(1000L);
             }
-            this.readerContext.signalNoMoreElement();
-            this.splits.clear();
         }
     }
 
