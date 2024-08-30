@@ -2,17 +2,17 @@
 sidebar_position: 3
 ---
 
-# Set Up With Docker In Local Mode
+# 使用Docker启用本地模式
 
-## Zeta Engine
+## Zeta 引擎
 
-### Download
+### 下载镜像
 
 ```shell
 docker pull apache/seatunnel:<version_tag>
 ```
 
-How to submit job in local mode
+当下载完成后，可以使用如下命令来提交任务
 
 ```shell
 # Run fake source to console sink
@@ -29,25 +29,25 @@ docker run --rm -it -v /tmp/job/:/config apache/seatunnel:<version_tag> ./bin/se
 docker run --rm -it -v /tmp/job/:/config apache/seatunnel:<version_tag> ./bin/seatunnel.sh -DJvmOption="-Xms4G -Xmx4G" -m local -c /config/fake_to_console.conf
 ```
 
-### Build Image By Yourself
+### 自己构建镜像
 
-Build from source code. The way of downloading the source code is the same as the way of downloading the binary package.
-You can download the source code from the [download page](https://seatunnel.apache.org/download/) or clone the source code from the [GitHub repository](https://github.com/apache/seatunnel/releases)
+从源代码构建。下载源码的方式和下载二进制包的方式是一样的。
+你可以从[下载地址](https://seatunnel.apache.org/download/)下载源码， 或者从[GitHub 仓库](https://github.com/apache/seatunnel/releases)克隆源代码
 
-#### Build With One Command
+#### 一个命令来构建容器
 ```shell
 cd seatunnel
 # Use already sett maven profile
-sh ./mvnw -B clean install -Dmaven.test.skip=true -Dmaven.javadoc.skip=true -Dlicense.skipAddThirdParty=true -D"docker.build.skip"=false -D"docker.verify.skip"=false -D"docker.push.skip"=true -D"docker.tag"=2.3.8 -Dmaven.deploy.skip --no-snapshot-updates -Pdocker,seatunnel
+mvn -B clean install -Dmaven.test.skip=true -Dmaven.javadoc.skip=true -Dlicense.skipAddThirdParty=true -D"docker.build.skip"=false -D"docker.verify.skip"=false -D"docker.push.skip"=true -D"docker.tag"=2.3.8 -Dmaven.deploy.skip --no-snapshot-updates -Pdocker,seatunnel
 
 # Check the docker image
 docker images | grep apache/seatunnel
 ```
 
-#### Build Step By Step
+#### 分步骤构建
 ```shell
 # Build binary package from source code
-sh ./mvnw clean package -DskipTests -Dskip.spotless=true
+mvn clean package -DskipTests -Dskip.spotless=true
 
 # Build docker image
 cd seatunnel-dist
@@ -60,7 +60,7 @@ docker build -f src/main/docker/Dockerfile --build-arg VERSION=2.3.8-SNAPSHOT -t
 docker images | grep apache/seatunnel
 ```
 
-The Dockerfile is like this:
+Dockerfile文件内容为：
 ```dockerfile
 FROM openjdk:8
 
@@ -75,19 +75,18 @@ COPY ./target/apache-seatunnel-${VERSION}-bin.tar.gz /opt/
 RUN cd /opt && \
     tar -zxvf apache-seatunnel-${VERSION}-bin.tar.gz && \
     mv apache-seatunnel-${VERSION} seatunnel && \
-    rm apache-seatunnel-${VERSION}-bin.tar.gz && \
-    cp seatunnel/config/log4j2_client.properties seatunnel/config/log4j2.properties
+    rm apache-seatunnel-${VERSION}-bin.tar.gz
 
 WORKDIR /opt/seatunnel
 ```
 
-## Spark or Flink Engine
+## Spark/Flink引擎
 
 
-### Mount Spark/Flink library
+### 挂载 Spark/Flink 
 
-By default, Spark home is `/opt/spark`, Flink home is `/opt/flink`.
-If you need run with spark/flink, you can mount the related library to `/opt/spark` or `/opt/flink`.
+默认设值下，Spark的目录为`/opt/spark`, Flink的目录为 `/opt/flink`.
+如果你需要运行Spark或Flink引擎，你需要将相关依赖挂载到`/opt/spark`或`/opt/flink`目录下.
 
 ```shell
 docker run \ 
@@ -96,7 +95,7 @@ docker run \
   ...
 ```
 
-Or you can change the `SPARK_HOME`, `FLINK_HOME` environment variable in Dockerfile and re-build your  and mount the spark/flink to related path.
+或者你可以在Dockerfile中修改 `SPARK_HOME`, `FLINK_HOME`环境变量，并且重新构建基础镜像，然后再进行挂载.
 
 ```dockerfile
 FROM apache/seatunnel
@@ -113,9 +112,9 @@ docker run \
   ...
 ```
 
-### Submit job
+### 提交任务
 
-The command is different for different engines and different versions of the same engine, please choose the correct command.
+不同引擎和同一引擎的不同版本命令不同，请选择正确的命令。
 
 - Spark
 
@@ -128,7 +127,7 @@ docker run --rm -it apache/seatunnel bash ./bin/start-seatunnel-spark-3-connecto
 ```
 
 - Flink
-  before you submit job, you need start flink cluster first.
+  在提交作业之前，您需要先启动 Flink 集群。
 
 ```shell
 # flink version between `1.12.x` and `1.14.x`
@@ -139,16 +138,16 @@ docker run --rm -it apache/seatunnel bash -c '<YOUR_FLINK_HOME>/bin/start-cluste
 
 
 
-# Set Up With Docker In Cluster Mode
+# 使用Docker配置集群模式
 
-> docker cluster mode is only support zeta engine.
+docker下的集群模式仅支持Zeta引擎
 
-In this part, we will use docker to set up SeaTunnel Cluster with 1 master node and 2 worker nodes.
+有两种方式可以来创建SeaTunnel集群
+1. 使用docker-compose
+2. 直接使用docker来创建
 
-And there has 2 ways to create cluster within docker.
-
-## 1. Use Docker-compose
-`docker-compose.yaml` :
+## 1. 使用Docker-compose
+配置文件为：
 ```yaml
 version: '3.8'
 
@@ -157,13 +156,13 @@ services:
     image: apache/seatunnel
     container_name: seatunnel_master
     environment:
-      - ST_DOCKER_MEMBER_LIST=172.16.0.2,172.16.0.3,172.16.0.4    
+      - ST_DOCKER_MEMBER_LIST=172.16.0.2,172.16.0.3,172.16.0.4
     entrypoint: >
       /bin/sh -c "
       /opt/seatunnel/bin/seatunnel-cluster.sh -r master
       "    
     ports:
-      - "5801:5801"  
+      - "5801:5801"
     networks:
       seatunnel_network:
         ipv4_address: 172.16.0.2
@@ -207,22 +206,22 @@ networks:
 
 ```
 
-run `docker-compose up` command to start the cluster.
+运行 `docker-compose up`命令来启动集群，该配置会启动一个master节点，2个worker节点
 
-## 2. Use Docker Directly
+## 2. 直接使用docker来创建
 
-1. create a network
+1. 创建一个Network
 ```shell
 docker network create seatunnel-network
 ```
 
-2. get this network's Gateway IP
+2. 查看刚刚创建Network的Gateway IP
 ```shell
 docker network inspect seatunnel-network
 ```
 ![docker-network-gateway.png](../../../images/docker-network-gateway.png)
 
-3. start the nodes
+3. 启动节点
 ```shell
 ## start master and export 5801 port 
 docker run -d --name seatunnel_master \
@@ -251,8 +250,5 @@ docker run -d --name seatunnel_worker_2 \
 
 ```
 
-
-You can use `docker logs -f seatunne_master`, `docker logs -f seatunnel_worker_1` to check the node log.
-And when you call `http://localhost:5801/hazelcast/rest/maps/system-monitoring-information`, you will see there are 2 nodes as we excepted.
-
-After that, you can use client or restapi to submit job to this cluster.
+启动完成后，可以运行`docker logs -f seatunne_master`, `docker logs -f seatunnel_worker_1`来查看节点的日志  
+当你访问`http://localhost:5801/hazelcast/rest/maps/system-monitoring-information` 时，可以看到集群的状态为1个master节点，2个worker节点.
