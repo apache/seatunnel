@@ -49,6 +49,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Objects;
+import java.util.UUID;
 
 @Slf4j
 @DisabledOnContainer(
@@ -295,7 +296,7 @@ public class HbaseIT extends TestSuiteBase implements TestResource {
     private void insertData(TableName table) throws IOException {
         Table hbaseTable = hbaseConnection.getTable(table);
         for (int i = 0; i < 5; i++) {
-            String rowKey = "row" + System.currentTimeMillis();
+            String rowKey = "row" + UUID.randomUUID();
             String value = "value" + i;
             hbaseTable.put(
                     new Put(Bytes.toBytes(rowKey))
