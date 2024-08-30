@@ -77,8 +77,7 @@ public class DorisSink
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, DorisCommitInfo, DorisSinkState> createWriter(
-            SinkWriter.Context context) throws IOException {
+    public DorisSinkWriter createWriter(SinkWriter.Context context) throws IOException {
         return new DorisSinkWriter(
                 context, Collections.emptyList(), catalogTable, dorisConfig, jobId);
     }
@@ -126,7 +125,6 @@ public class DorisSink
         }
 
         Catalog catalog = catalogFactory.createCatalog(catalogFactory.factoryIdentifier(), config);
-        catalog.open();
         return Optional.of(
                 new DefaultSaveModeHandler(
                         config.get(DorisOptions.SCHEMA_SAVE_MODE),

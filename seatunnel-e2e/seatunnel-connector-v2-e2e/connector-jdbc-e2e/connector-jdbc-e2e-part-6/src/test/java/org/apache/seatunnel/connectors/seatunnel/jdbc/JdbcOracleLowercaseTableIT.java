@@ -78,6 +78,24 @@ public class JdbcOracleLowercaseTableIT extends AbstractJdbcIT {
                     + "    BINARY_DOUBLE_COL             binary_double,\n"
                     + "    DATE_COL                      date,\n"
                     + "    TIMESTAMP_WITH_3_FRAC_SEC_COL timestamp(3),\n"
+                    + "    TIMESTAMP_WITH_LOCAL_TZ       timestamp with local time zone,\n"
+                    + "    constraint PK_T_COL1 primary key (INTEGER_COL)"
+                    + ")";
+
+    private static final String SINK_CREATE_SQL =
+            "create table %s\n"
+                    + "(\n"
+                    + "    VARCHAR_10_COL                varchar2(10),\n"
+                    + "    CHAR_10_COL                   char(10),\n"
+                    + "    CLOB_COL                      clob,\n"
+                    + "    NUMBER_3_SF_2_DP              number(3, 2),\n"
+                    + "    INTEGER_COL                   integer,\n"
+                    + "    FLOAT_COL                     float(10),\n"
+                    + "    REAL_COL                      real,\n"
+                    + "    BINARY_FLOAT_COL              binary_float,\n"
+                    + "    BINARY_DOUBLE_COL             binary_double,\n"
+                    + "    DATE_COL                      date,\n"
+                    + "    TIMESTAMP_WITH_3_FRAC_SEC_COL timestamp(3),\n"
                     + "    TIMESTAMP_WITH_LOCAL_TZ       timestamp with local time zone\n"
                     + ")";
 
@@ -113,6 +131,7 @@ public class JdbcOracleLowercaseTableIT extends AbstractJdbcIT {
                 .catalogSchema(SCHEMA)
                 .catalogTable(CATALOG_TABLE)
                 .createSql(CREATE_SQL)
+                .sinkCreateSql(SINK_CREATE_SQL)
                 .configFile(CONFIG_FILE)
                 .insertSql(insertSql)
                 .testData(testDataSet)

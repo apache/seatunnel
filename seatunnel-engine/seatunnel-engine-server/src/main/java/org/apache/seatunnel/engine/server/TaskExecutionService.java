@@ -55,6 +55,7 @@ import org.apache.commons.collections4.CollectionUtils;
 
 import com.google.common.collect.Lists;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.hazelcast.core.OperationTimeoutException;
 import com.hazelcast.instance.impl.NodeState;
 import com.hazelcast.internal.metrics.DynamicMetricsProvider;
 import com.hazelcast.internal.metrics.MetricDescriptor;
@@ -624,9 +625,12 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                     });
                 });
         if (localMap.size() > 0) {
+            boolean lockedIMap = false;
             try {
-                if (!metricsImap.tryLock(
-                        Constant.IMAP_RUNNING_JOB_METRICS_KEY, 2, TimeUnit.SECONDS)) {
+                lockedIMap =
+                        metricsImap.tryLock(
+                                Constant.IMAP_RUNNING_JOB_METRICS_KEY, 5, TimeUnit.SECONDS);
+                if (!lockedIMap) {
                     logger.warning("try lock failed in update metrics");
                     return;
                 }
@@ -640,7 +644,17 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                         "The Imap acquisition failed due to the hazelcast node being offline or restarted, and will be retried next time",
                         e);
             } finally {
-                metricsImap.unlock(Constant.IMAP_RUNNING_JOB_METRICS_KEY);
+                if (lockedIMap) {
+                    boolean unLockedIMap = false;
+                    while (!unLockedIMap) {
+                        try {
+                            metricsImap.unlock(Constant.IMAP_RUNNING_JOB_METRICS_KEY);
+                            unLockedIMap = true;
+                        } catch (OperationTimeoutException e) {
+                            logger.warning("unlock imap failed in update metrics", e);
+                        }
+                    }
+                }
             }
         }
         this.printTaskExecutionRuntimeInfo();
@@ -954,10 +968,14 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 cancellationFutures.remove(taskGroupLocation);
                 try {
                     cancelAsyncFunction(taskGroupLocation);
-                } catch (Throwable e) {
-                    throw new RuntimeException(e);
+                } catch (Throwable t) {
+                    logger.severe("cancel async function failed", t);
                 }
-                updateMetricsContextInImap();
+                try {
+                    updateMetricsContextInImap();
+                } catch (Throwable t) {
+                    logger.severe("update metrics context in imap failed", t);
+                }
                 if (ex == null) {
                     logger.info(
                             String.format(

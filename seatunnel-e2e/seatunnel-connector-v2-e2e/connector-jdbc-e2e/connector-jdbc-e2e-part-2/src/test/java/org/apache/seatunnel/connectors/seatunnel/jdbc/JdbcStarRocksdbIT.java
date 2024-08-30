@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import org.apache.commons.lang3.tuple.Pair;
@@ -37,7 +38,7 @@ import java.util.List;
 
 public class JdbcStarRocksdbIT extends AbstractJdbcIT {
 
-    private static final String DOCKER_IMAGE = "d87904488/starrocks-starter:2.2.1";
+    private static final String DOCKER_IMAGE = "starrocks/allin1-ubuntu:2.5.12";
     private static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
     private static final String NETWORK_ALIASES = "e2e_starRocksdb";
     private static final int SR_PORT = 9030;
@@ -51,7 +52,8 @@ public class JdbcStarRocksdbIT extends AbstractJdbcIT {
     private static final String SINK_TABLE = "e2e_table_sink";
 
     private static final List<String> CONFIG_FILE =
-            Lists.newArrayList("/jdbc_starrocks_source_to_sink.conf");
+            Lists.newArrayList(
+                    "/jdbc_starrocks_source_to_sink.conf", "/jdbc_starrocks_dialect.conf");
 
     private static final String CREATE_SQL =
             "create table %s (\n"
@@ -104,6 +106,7 @@ public class JdbcStarRocksdbIT extends AbstractJdbcIT {
                 .configFile(CONFIG_FILE)
                 .insertSql(insertSql)
                 .testData(testDataSet)
+                .tablePathFullName(TablePath.DEFAULT.getFullName())
                 .build();
     }
 

@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.client;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.apache.seatunnel.common.config.Common;
@@ -51,13 +53,21 @@ import lombok.extern.slf4j.Slf4j;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.Spliterators;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_BYTES;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_BYTES_PER_SECONDS;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_COUNT;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_QPS;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_BYTES;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_BYTES_PER_SECONDS;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_COUNT;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_QPS;
 import static org.awaitility.Awaitility.await;
@@ -392,11 +402,14 @@ public class SeaTunnelClientTest {
                     Assertions.assertThrows(
                             Exception.class,
                             () -> jobExecutionEnvWithSameJobId.execute().waitForJobCompleteV2());
-            Assertions.assertEquals(
-                    String.format(
-                            "The job id %s has already been submitted and is not starting with a savepoint.",
-                            jobId),
-                    exception.getCause().getMessage());
+            Assertions.assertTrue(
+                    exception
+                            .getCause()
+                            .getMessage()
+                            .contains(
+                                    String.format(
+                                            "The job id %s has already been submitted and is not starting with a savepoint.",
+                                            jobId)));
         } catch (Exception e) {
             throw new RuntimeException(e);
         } finally {
@@ -539,6 +552,193 @@ public class SeaTunnelClientTest {
                                     Assertions.assertEquals(
                                             "CANCELED", jobClient.getJobStatus(jobId)));
         } catch (Exception e) {
+            throw new RuntimeException(e);
+        } finally {
+            seaTunnelClient.close();
+        }
+    }
+
+    @Test
+    public void testGetMultiTableJobMetrics() {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath = TestUtils.getResource("/batch_fake_multi_table_to_console.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setName("testGetMultiTableJobMetrics");
+
+        SeaTunnelClient seaTunnelClient = createSeaTunnelClient();
+        JobClient jobClient = seaTunnelClient.getJobClient();
+
+        try {
+            ClientJobExecutionEnvironment jobExecutionEnv =
+                    seaTunnelClient.createExecutionContext(filePath, jobConfig, SEATUNNEL_CONFIG);
+
+            final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+            CompletableFuture<JobStatus> objectCompletableFuture =
+                    CompletableFuture.supplyAsync(
+                            () -> {
+                                return clientJobProxy.waitForJobComplete();
+                            });
+            long jobId = clientJobProxy.getJobId();
+
+            await().atMost(30000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertTrue(
+                                            jobClient.getJobDetailStatus(jobId).contains("FINISHED")
+                                                    && jobClient
+                                                            .listJobStatus(true)
+                                                            .contains("FINISHED")));
+
+            String jobMetrics = jobClient.getJobMetrics(jobId);
+
+            Assertions.assertTrue(jobMetrics.contains(SOURCE_RECEIVED_COUNT + "#fake.table1"));
+            Assertions.assertTrue(
+                    jobMetrics.contains(SOURCE_RECEIVED_COUNT + "#fake.public.table2"));
+            Assertions.assertTrue(jobMetrics.contains(SINK_WRITE_COUNT + "#fake.table1"));
+            Assertions.assertTrue(jobMetrics.contains(SINK_WRITE_COUNT + "#fake.public.table2"));
+            Assertions.assertTrue(jobMetrics.contains(SOURCE_RECEIVED_BYTES + "#fake.table1"));
+            Assertions.assertTrue(
+                    jobMetrics.contains(SOURCE_RECEIVED_BYTES + "#fake.public.table2"));
+            Assertions.assertTrue(jobMetrics.contains(SINK_WRITE_BYTES + "#fake.table1"));
+            Assertions.assertTrue(jobMetrics.contains(SINK_WRITE_BYTES + "#fake.public.table2"));
+            Assertions.assertTrue(jobMetrics.contains(SOURCE_RECEIVED_QPS + "#fake.table1"));
+            Assertions.assertTrue(jobMetrics.contains(SOURCE_RECEIVED_QPS + "#fake.public.table2"));
+            Assertions.assertTrue(jobMetrics.contains(SINK_WRITE_QPS + "#fake.table1"));
+            Assertions.assertTrue(jobMetrics.contains(SINK_WRITE_QPS + "#fake.public.table2"));
+            Assertions.assertTrue(
+                    jobMetrics.contains(SOURCE_RECEIVED_BYTES_PER_SECONDS + "#fake.table1"));
+            Assertions.assertTrue(
+                    jobMetrics.contains(SOURCE_RECEIVED_BYTES_PER_SECONDS + "#fake.public.table2"));
+            Assertions.assertTrue(
+                    jobMetrics.contains(SINK_WRITE_BYTES_PER_SECONDS + "#fake.table1"));
+            Assertions.assertTrue(
+                    jobMetrics.contains(SINK_WRITE_BYTES_PER_SECONDS + "#fake.public.table2"));
+
+            log.info("jobMetrics : {}", jobMetrics);
+            JsonNode jobMetricsStr = new ObjectMapper().readTree(jobMetrics);
+            List<String> metricNameList =
+                    StreamSupport.stream(
+                                    Spliterators.spliteratorUnknownSize(
+                                            jobMetricsStr.fieldNames(), 0),
+                                    false)
+                            .collect(Collectors.toList());
+
+            Map<String, Long> totalCount =
+                    metricNameList.stream()
+                            .filter(metrics -> !metrics.contains("#"))
+                            .collect(
+                                    Collectors.toMap(
+                                            metrics -> metrics,
+                                            metrics ->
+                                                    StreamSupport.stream(
+                                                                    jobMetricsStr
+                                                                            .get(metrics)
+                                                                            .spliterator(),
+                                                                    false)
+                                                            .mapToLong(
+                                                                    value ->
+                                                                            value.get("value")
+                                                                                    .asLong())
+                                                            .sum()));
+
+            Map<String, Long> tableCount =
+                    metricNameList.stream()
+                            .filter(metrics -> metrics.contains("#"))
+                            .collect(
+                                    Collectors.toMap(
+                                            metrics -> metrics,
+                                            metrics ->
+                                                    StreamSupport.stream(
+                                                                    jobMetricsStr
+                                                                            .get(metrics)
+                                                                            .spliterator(),
+                                                                    false)
+                                                            .mapToLong(
+                                                                    value ->
+                                                                            value.get("value")
+                                                                                    .asLong())
+                                                            .sum()));
+
+            Assertions.assertEquals(
+                    totalCount.get(SOURCE_RECEIVED_COUNT),
+                    tableCount.entrySet().stream()
+                            .filter(e -> e.getKey().startsWith(SOURCE_RECEIVED_COUNT + "#"))
+                            .mapToLong(Map.Entry::getValue)
+                            .sum());
+            Assertions.assertEquals(
+                    totalCount.get(SINK_WRITE_COUNT),
+                    tableCount.entrySet().stream()
+                            .filter(e -> e.getKey().startsWith(SINK_WRITE_COUNT + "#"))
+                            .mapToLong(Map.Entry::getValue)
+                            .sum());
+            Assertions.assertEquals(
+                    totalCount.get(SOURCE_RECEIVED_BYTES),
+                    tableCount.entrySet().stream()
+                            .filter(e -> e.getKey().startsWith(SOURCE_RECEIVED_BYTES + "#"))
+                            .mapToLong(Map.Entry::getValue)
+                            .sum());
+            Assertions.assertEquals(
+                    totalCount.get(SINK_WRITE_BYTES),
+                    tableCount.entrySet().stream()
+                            .filter(e -> e.getKey().startsWith(SINK_WRITE_BYTES + "#"))
+                            .mapToLong(Map.Entry::getValue)
+                            .sum());
+            // Instantaneous rates in the same direction are directly added
+            // The size does not fluctuate more than %2 of the total value
+            Assertions.assertTrue(
+                    Math.abs(
+                                    totalCount.get(SOURCE_RECEIVED_QPS)
+                                            - tableCount.entrySet().stream()
+                                                    .filter(
+                                                            e ->
+                                                                    e.getKey()
+                                                                            .startsWith(
+                                                                                    SOURCE_RECEIVED_QPS
+                                                                                            + "#"))
+                                                    .mapToLong(Map.Entry::getValue)
+                                                    .sum())
+                            < totalCount.get(SOURCE_RECEIVED_QPS) * 0.02);
+            Assertions.assertTrue(
+                    Math.abs(
+                                    totalCount.get(SINK_WRITE_QPS)
+                                            - tableCount.entrySet().stream()
+                                                    .filter(
+                                                            e ->
+                                                                    e.getKey()
+                                                                            .startsWith(
+                                                                                    SINK_WRITE_QPS
+                                                                                            + "#"))
+                                                    .mapToLong(Map.Entry::getValue)
+                                                    .sum())
+                            < totalCount.get(SINK_WRITE_QPS) * 0.02);
+            Assertions.assertTrue(
+                    Math.abs(
+                                    totalCount.get(SOURCE_RECEIVED_BYTES_PER_SECONDS)
+                                            - tableCount.entrySet().stream()
+                                                    .filter(
+                                                            e ->
+                                                                    e.getKey()
+                                                                            .startsWith(
+                                                                                    SOURCE_RECEIVED_BYTES_PER_SECONDS
+                                                                                            + "#"))
+                                                    .mapToLong(Map.Entry::getValue)
+                                                    .sum())
+                            < totalCount.get(SOURCE_RECEIVED_BYTES_PER_SECONDS) * 0.02);
+            Assertions.assertTrue(
+                    Math.abs(
+                                    totalCount.get(SINK_WRITE_BYTES_PER_SECONDS)
+                                            - tableCount.entrySet().stream()
+                                                    .filter(
+                                                            e ->
+                                                                    e.getKey()
+                                                                            .startsWith(
+                                                                                    SINK_WRITE_BYTES_PER_SECONDS
+                                                                                            + "#"))
+                                                    .mapToLong(Map.Entry::getValue)
+                                                    .sum())
+                            < totalCount.get(SINK_WRITE_BYTES_PER_SECONDS) * 0.02);
+
+        } catch (ExecutionException | InterruptedException | JsonProcessingException e) {
             throw new RuntimeException(e);
         } finally {
             seaTunnelClient.close();

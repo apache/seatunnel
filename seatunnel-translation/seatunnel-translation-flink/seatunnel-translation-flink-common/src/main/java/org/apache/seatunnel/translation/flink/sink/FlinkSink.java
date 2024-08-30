@@ -66,10 +66,7 @@ public class FlinkSink<InputT, CommT, WriterStateT, GlobalCommT>
 
         if (states == null || states.isEmpty()) {
             return new FlinkSinkWriter<>(
-                    sink.createWriter(stContext),
-                    1,
-                    catalogTable.getSeaTunnelRowType(),
-                    stContext.getMetricsContext());
+                    sink.createWriter(stContext), 1, catalogTable.getSeaTunnelRowType(), stContext);
         } else {
             List<WriterStateT> restoredState =
                     states.stream().map(FlinkWriterState::getState).collect(Collectors.toList());
@@ -77,7 +74,7 @@ public class FlinkSink<InputT, CommT, WriterStateT, GlobalCommT>
                     sink.restoreWriter(stContext, restoredState),
                     states.get(0).getCheckpointId() + 1,
                     catalogTable.getSeaTunnelRowType(),
-                    stContext.getMetricsContext());
+                    stContext);
         }
     }
 

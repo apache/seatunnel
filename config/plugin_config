@@ -86,4 +86,7 @@ connector-rocketmq
 connector-tdengine
 connector-web3j
 connector-milvus
---end--
+connector-activemq
+connector-sls
+connector-typesense
+connector-cdc-opengauss

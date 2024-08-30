@@ -55,6 +55,11 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceMan
     }
 
     @Test
+    public void testHaveWorkerWhenUseHybridDeployment() {
+        Assertions.assertEquals(1, resourceManager.workerCount(null));
+    }
+
+    @Test
     public void testApplyRequest() throws ExecutionException, InterruptedException {
         List<ResourceProfile> resourceProfiles = new ArrayList<>();
         resourceProfiles.add(new ResourceProfile(CPU.of(0), Memory.of(100)));

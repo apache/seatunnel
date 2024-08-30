@@ -22,16 +22,12 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
-import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.saphana.SapHanaTypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.saphana.SapHanaTypeMapper;
-
-import org.apache.commons.lang3.StringUtils;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -46,39 +42,6 @@ import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.sa
 
 @Slf4j
 public class SapHanaCatalog extends AbstractJdbcCatalog {
-
-    static {
-        SYS_DATABASES.add("SYS");
-        SYS_DATABASES.add("SYSTEM");
-        SYS_DATABASES.add("SYS_DATABASES");
-        SYS_DATABASES.add("_SYS_ADVISOR");
-        SYS_DATABASES.add("_SYS_AFL");
-        SYS_DATABASES.add("_SYS_BI");
-        SYS_DATABASES.add("_SYS_BIC");
-        SYS_DATABASES.add("_SYS_DATA_ANONYMIZATION");
-        SYS_DATABASES.add("_SYS_DI");
-        SYS_DATABASES.add("_SYS_EPM");
-        SYS_DATABASES.add("_SYS_LDB");
-        SYS_DATABASES.add("_SYS_PLAN_STABILITY");
-        SYS_DATABASES.add("_SYS_REPO");
-        SYS_DATABASES.add("_SYS_RT");
-        SYS_DATABASES.add("_SYS_SECURITY");
-        SYS_DATABASES.add("_SYS_SQL_ANALYZER");
-        SYS_DATABASES.add("_SYS_STATISTICS");
-        SYS_DATABASES.add("_SYS_TABLE_REPLICAS");
-        SYS_DATABASES.add("_SYS_TASK");
-        SYS_DATABASES.add("_SYS_TELEMETRY");
-        SYS_DATABASES.add("_SYS_XS");
-        SYS_DATABASES.add("_SYS_DI_CATALOG");
-        SYS_DATABASES.add("_SYS_EPM_DATA");
-        SYS_DATABASES.add("_SYS_DI_SU");
-        SYS_DATABASES.add("_SYS_WORKLOAD_REPLAY");
-        SYS_DATABASES.add("_SYS_AUDIT");
-        SYS_DATABASES.add("_SYS_DI_BI_CATALOG");
-        SYS_DATABASES.add("_SYS_DI_CDS_CATALOG");
-        SYS_DATABASES.add("_SYS_DI_SEARCH_CATALOG");
-        SYS_DATABASES.add("_SYS_DI_TO");
-    }
 
     private static final String SELECT_COLUMNS_SQL_TEMPLATE =
             "SELECT\n"
@@ -114,6 +77,18 @@ public class SapHanaCatalog extends AbstractJdbcCatalog {
     }
 
     @Override
+    protected String getDatabaseWithConditionSql(String databaseName) {
+        return String.format(getListDatabaseSql() + " where SCHEMA_NAME = '%s'", databaseName);
+    }
+
+    @Override
+    protected String getTableWithConditionSql(TablePath tablePath) {
+        return String.format(
+                getListTableSql(tablePath.getDatabaseName()) + " and TABLE_NAME = '%s'",
+                tablePath.getTableName());
+    }
+
+    @Override
     protected String getListDatabaseSql() {
         return "SELECT SCHEMA_NAME FROM SCHEMAS";
     }
@@ -129,8 +104,9 @@ public class SapHanaCatalog extends AbstractJdbcCatalog {
     }
 
     @Override
-    protected String getCreateTableSql(TablePath tablePath, CatalogTable table) {
-        return new SapHanaCreateTableSqlBuilder(table).build(tablePath);
+    protected String getCreateTableSql(
+            TablePath tablePath, CatalogTable table, boolean createIndex) {
+        return new SapHanaCreateTableSqlBuilder(table, createIndex).build(tablePath);
     }
 
     @Override
@@ -201,20 +177,6 @@ public class SapHanaCatalog extends AbstractJdbcCatalog {
     @Override
     protected String getOptionTableName(TablePath tablePath) {
         return tablePath.getTableName();
-    }
-
-    @Override
-    public boolean tableExists(TablePath tablePath) throws CatalogException {
-        try {
-            if (StringUtils.isNotBlank(tablePath.getDatabaseName())) {
-                return databaseExists(tablePath.getDatabaseName())
-                        && listTables(tablePath.getDatabaseName())
-                                .contains(tablePath.getTableName());
-            }
-            return listTables().contains(tablePath.getSchemaAndTableName());
-        } catch (DatabaseNotExistException e) {
-            return false;
-        }
     }
 
     private List<String> listTables() {

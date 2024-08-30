@@ -1,7 +1,6 @@
 ---
-
 sidebar_position: 6
--------------------
+---
 
 # 部署 SeaTunnel Engine 分离模式集群
 
@@ -272,7 +271,17 @@ map:
         fs.oss.accessKeyId: OSS access key id
         fs.oss.accessKeySecret: OSS access key secret
         fs.oss.endpoint: OSS endpoint
-        fs.oss.credentials.provider: org.apache.hadoop.fs.aliyun.oss.AliyunCredentialsProvider
+```
+
+注意：使用OSS 时，确保 lib目录下有这几个jar.
+
+```
+aliyun-sdk-oss-3.13.2.jar
+hadoop-aliyun-3.3.6.jar
+jdom2-2.0.6.jar
+netty-buffer-4.1.89.Final.jar 
+netty-common-4.1.89.Final.jar
+seatunnel-hadoop3-3.1.4-uber.jar
 ```
 
 ## 5. 配置 SeaTunnel Engine 网络服务

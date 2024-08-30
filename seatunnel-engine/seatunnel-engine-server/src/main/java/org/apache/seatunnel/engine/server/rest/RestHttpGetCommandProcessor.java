@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.engine.common.Constant;
@@ -42,6 +43,8 @@ import org.apache.seatunnel.engine.server.operation.GetJobStatusOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.GetOverviewOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.OverviewInfo;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
+
+import org.apache.commons.lang3.ArrayUtils;
 
 import com.hazelcast.cluster.Address;
 import com.hazelcast.cluster.Cluster;
@@ -66,8 +69,18 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_500;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_BYTES;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_BYTES_PER_SECONDS;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_COUNT;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_QPS;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_BYTES;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_BYTES_PER_SECONDS;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_COUNT;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_RECEIVED_QPS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.FINISHED_JOBS_INFO;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.JOB_INFO_URL;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.OVERVIEW;
@@ -78,12 +91,22 @@ import static org.apache.seatunnel.engine.server.rest.RestConstant.SYSTEM_MONITO
 
 public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCommand> {
 
-    private static final String SOURCE_RECEIVED_COUNT = "SourceReceivedCount";
-    private static final String SINK_WRITE_COUNT = "SinkWriteCount";
+    private static final String TABLE_SOURCE_RECEIVED_COUNT = "TableSourceReceivedCount";
+    private static final String TABLE_SINK_WRITE_COUNT = "TableSinkWriteCount";
+    private static final String TABLE_SOURCE_RECEIVED_QPS = "TableSourceReceivedQPS";
+    private static final String TABLE_SINK_WRITE_QPS = "TableSinkWriteQPS";
+    private static final String TABLE_SOURCE_RECEIVED_BYTES = "TableSourceReceivedBytes";
+    private static final String TABLE_SINK_WRITE_BYTES = "TableSinkWriteBytes";
+    private static final String TABLE_SOURCE_RECEIVED_BYTES_PER_SECONDS =
+            "TableSourceReceivedBytesPerSeconds";
+    private static final String TABLE_SINK_WRITE_BYTES_PER_SECONDS =
+            "TableSinkWriteBytesPerSeconds";
+
     private final Log4j2HttpGetCommandProcessor original;
     private NodeEngine nodeEngine;
 
     public RestHttpGetCommandProcessor(TextCommandService textCommandService) {
+
         this(textCommandService, new Log4j2HttpGetCommandProcessor(textCommandService));
     }
 
@@ -362,27 +385,190 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                         .collect(JsonArray::new, JsonArray::add, JsonArray::add));
     }
 
-    private Map<String, Long> getJobMetrics(String jobMetrics) {
-        Map<String, Long> metricsMap = new HashMap<>();
-        long sourceReadCount = 0L;
-        long sinkWriteCount = 0L;
+    private Map<String, Object> getJobMetrics(String jobMetrics) {
+        Map<String, Object> metricsMap = new HashMap<>();
+        // To add metrics, populate the corresponding array,
+        String[] countMetricsNames = {
+            SOURCE_RECEIVED_COUNT, SINK_WRITE_COUNT, SOURCE_RECEIVED_BYTES, SINK_WRITE_BYTES
+        };
+        String[] rateMetricsNames = {
+            SOURCE_RECEIVED_QPS,
+            SINK_WRITE_QPS,
+            SOURCE_RECEIVED_BYTES_PER_SECONDS,
+            SINK_WRITE_BYTES_PER_SECONDS
+        };
+        String[] tableCountMetricsNames = {
+            TABLE_SOURCE_RECEIVED_COUNT,
+            TABLE_SINK_WRITE_COUNT,
+            TABLE_SOURCE_RECEIVED_BYTES,
+            TABLE_SINK_WRITE_BYTES
+        };
+        String[] tableRateMetricsNames = {
+            TABLE_SOURCE_RECEIVED_QPS,
+            TABLE_SINK_WRITE_QPS,
+            TABLE_SOURCE_RECEIVED_BYTES_PER_SECONDS,
+            TABLE_SINK_WRITE_BYTES_PER_SECONDS
+        };
+        Long[] metricsSums =
+                Stream.generate(() -> 0L).limit(countMetricsNames.length).toArray(Long[]::new);
+        Double[] metricsRates =
+                Stream.generate(() -> 0D).limit(rateMetricsNames.length).toArray(Double[]::new);
+
+        // Used to store various indicators at the table
+        Map<String, JsonNode>[] tableMetricsMaps =
+                new Map[] {
+                    new HashMap<>(), // Source Received Count
+                    new HashMap<>(), // Sink Write Count
+                    new HashMap<>(), // Source Received Bytes
+                    new HashMap<>(), // Sink Write Bytes
+                    new HashMap<>(), // Source Received QPS
+                    new HashMap<>(), // Sink Write QPS
+                    new HashMap<>(), // Source Received Bytes Per Second
+                    new HashMap<>() // Sink Write Bytes Per Second
+                };
+
         try {
             JsonNode jobMetricsStr = new ObjectMapper().readTree(jobMetrics);
-            JsonNode sourceReceivedCountJson = jobMetricsStr.get(SOURCE_RECEIVED_COUNT);
-            JsonNode sinkWriteCountJson = jobMetricsStr.get(SINK_WRITE_COUNT);
-            for (int i = 0; i < jobMetricsStr.get(SOURCE_RECEIVED_COUNT).size(); i++) {
-                JsonNode sourceReader = sourceReceivedCountJson.get(i);
-                JsonNode sinkWriter = sinkWriteCountJson.get(i);
-                sourceReadCount += sourceReader.get("value").asLong();
-                sinkWriteCount += sinkWriter.get("value").asLong();
-            }
-        } catch (JsonProcessingException | NullPointerException e) {
+
+            jobMetricsStr
+                    .fieldNames()
+                    .forEachRemaining(
+                            metricName -> {
+                                if (metricName.contains("#")) {
+                                    String tableName =
+                                            TablePath.of(metricName.split("#")[1]).getFullName();
+                                    JsonNode metricNode = jobMetricsStr.get(metricName);
+                                    processMetric(
+                                            metricName, tableName, metricNode, tableMetricsMaps);
+                                }
+                            });
+
+            // Aggregation summary and rate metrics
+            aggregateMetrics(
+                    jobMetricsStr,
+                    metricsSums,
+                    metricsRates,
+                    ArrayUtils.addAll(countMetricsNames, rateMetricsNames));
+
+        } catch (JsonProcessingException e) {
             return metricsMap;
         }
-        metricsMap.put(SOURCE_RECEIVED_COUNT, sourceReadCount);
-        metricsMap.put(SINK_WRITE_COUNT, sinkWriteCount);
+
+        populateMetricsMap(
+                metricsMap,
+                tableMetricsMaps,
+                ArrayUtils.addAll(tableCountMetricsNames, tableRateMetricsNames),
+                countMetricsNames.length);
+        populateMetricsMap(
+                metricsMap,
+                Stream.concat(Arrays.stream(metricsSums), Arrays.stream(metricsRates))
+                        .toArray(Number[]::new),
+                ArrayUtils.addAll(countMetricsNames, rateMetricsNames),
+                metricsSums.length);
 
         return metricsMap;
+    }
+
+    private void processMetric(
+            String metricName,
+            String tableName,
+            JsonNode metricNode,
+            Map<String, JsonNode>[] tableMetricsMaps) {
+        if (metricNode == null) return;
+
+        // Define index constant
+        final int SOURCE_COUNT_IDX = 0,
+                SINK_COUNT_IDX = 1,
+                SOURCE_BYTES_IDX = 2,
+                SINK_BYTES_IDX = 3,
+                SOURCE_QPS_IDX = 4,
+                SINK_QPS_IDX = 5,
+                SOURCE_BYTES_SEC_IDX = 6,
+                SINK_BYTES_SEC_IDX = 7;
+        if (metricName.startsWith(SOURCE_RECEIVED_COUNT + "#")) {
+            tableMetricsMaps[SOURCE_COUNT_IDX].put(tableName, metricNode);
+        } else if (metricName.startsWith(SINK_WRITE_COUNT + "#")) {
+            tableMetricsMaps[SINK_COUNT_IDX].put(tableName, metricNode);
+        } else if (metricName.startsWith(SOURCE_RECEIVED_BYTES + "#")) {
+            tableMetricsMaps[SOURCE_BYTES_IDX].put(tableName, metricNode);
+        } else if (metricName.startsWith(SINK_WRITE_BYTES + "#")) {
+            tableMetricsMaps[SINK_BYTES_IDX].put(tableName, metricNode);
+        } else if (metricName.startsWith(SOURCE_RECEIVED_QPS + "#")) {
+            tableMetricsMaps[SOURCE_QPS_IDX].put(tableName, metricNode);
+        } else if (metricName.startsWith(SINK_WRITE_QPS + "#")) {
+            tableMetricsMaps[SINK_QPS_IDX].put(tableName, metricNode);
+        } else if (metricName.startsWith(SOURCE_RECEIVED_BYTES_PER_SECONDS + "#")) {
+            tableMetricsMaps[SOURCE_BYTES_SEC_IDX].put(tableName, metricNode);
+        } else if (metricName.startsWith(SINK_WRITE_BYTES_PER_SECONDS + "#")) {
+            tableMetricsMaps[SINK_BYTES_SEC_IDX].put(tableName, metricNode);
+        }
+    }
+
+    private void aggregateMetrics(
+            JsonNode jobMetricsStr,
+            Long[] metricsSums,
+            Double[] metricsRates,
+            String[] metricsNames) {
+        for (int i = 0; i < metricsNames.length; i++) {
+            JsonNode metricNode = jobMetricsStr.get(metricsNames[i]);
+            if (metricNode != null && metricNode.isArray()) {
+                for (JsonNode node : metricNode) {
+                    // Match Rate Metrics vs. Value Metrics
+                    if (i < metricsSums.length) {
+                        metricsSums[i] += node.path("value").asLong();
+                    } else {
+                        metricsRates[i - metricsSums.length] += node.path("value").asDouble();
+                    }
+                }
+            }
+        }
+    }
+
+    private void populateMetricsMap(
+            Map<String, Object> metricsMap,
+            Object[] metrics,
+            String[] metricNames,
+            int countMetricNames) {
+        for (int i = 0; i < metrics.length; i++) {
+            if (metrics[i] != null) {
+                if (metrics[i] instanceof Map) {
+                    metricsMap.put(
+                            metricNames[i],
+                            aggregateMap(
+                                    (Map<String, JsonNode>) metrics[i], i >= countMetricNames));
+                } else {
+                    metricsMap.put(metricNames[i], metrics[i]);
+                }
+            }
+        }
+    }
+
+    public static Map<String, Object> aggregateMap(Map<String, JsonNode> inputMap, boolean isRate) {
+        return isRate
+                ? inputMap.entrySet().stream()
+                        .collect(
+                                Collectors.toMap(
+                                        Map.Entry::getKey,
+                                        entry ->
+                                                StreamSupport.stream(
+                                                                entry.getValue().spliterator(),
+                                                                false)
+                                                        .mapToDouble(
+                                                                node ->
+                                                                        node.path("value")
+                                                                                .asDouble())
+                                                        .sum()))
+                : inputMap.entrySet().stream()
+                        .collect(
+                                Collectors.toMap(
+                                        Map.Entry::getKey,
+                                        entry ->
+                                                StreamSupport.stream(
+                                                                entry.getValue().spliterator(),
+                                                                false)
+                                                        .mapToLong(
+                                                                node -> node.path("value").asLong())
+                                                        .sum()));
     }
 
     private SeaTunnelServer getSeaTunnelServer(boolean shouldBeMaster) {
@@ -475,9 +661,22 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                 .add(
                         RestConstant.IS_START_WITH_SAVE_POINT,
                         jobImmutableInformation.isStartWithSavePoint())
-                .add(RestConstant.METRICS, JsonUtil.toJsonObject(getJobMetrics(jobMetrics)));
+                .add(RestConstant.METRICS, toJsonObject(getJobMetrics(jobMetrics)));
 
         return jobInfoJson;
+    }
+
+    private JsonObject toJsonObject(Map<String, Object> jobMetrics) {
+        JsonObject members = new JsonObject();
+        jobMetrics.forEach(
+                (key, value) -> {
+                    if (value instanceof Map) {
+                        members.add(key, toJsonObject((Map<String, Object>) value));
+                    } else {
+                        members.add(key, value.toString());
+                    }
+                });
+        return members;
     }
 
     private JsonObject getJobInfoJson(JobState jobState, String jobMetrics, JobDAGInfo jobDAGInfo) {
@@ -498,6 +697,6 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                                 DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS))
                 .add(RestConstant.JOB_DAG, JsonUtils.toJsonString(jobDAGInfo))
                 .add(RestConstant.PLUGIN_JARS_URLS, new JsonArray())
-                .add(RestConstant.METRICS, JsonUtil.toJsonObject(getJobMetrics(jobMetrics)));
+                .add(RestConstant.METRICS, toJsonObject(getJobMetrics(jobMetrics)));
     }
 }

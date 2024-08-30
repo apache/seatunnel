@@ -27,10 +27,11 @@ libfb303-xxx.jar
 ## Key features
 
 - [x] [exactly-once](../../concept/connector-v2-features.md)
+- [x] [support multiple table write](../../concept/connector-v2-features.md)
 
 ## Options
 
-|            name             |  type  | required |        default value         |                                                                           Description                                                                            |
+|            name             |  type  | required |        default value         | Description                                                                                                                                                      |
 |-----------------------------|--------|----------|------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | warehouse                   | String | Yes      | -                            | Paimon warehouse path                                                                                                                                            |
 | catalog_type                | String | No       | filesystem                   | Catalog type of Paimon, support filesystem and hive                                                                                                              |
@@ -42,7 +43,7 @@ libfb303-xxx.jar
 | data_save_mode              | Enum   | No       | APPEND_DATA                  | The data save mode                                                                                                                                               |
 | paimon.table.primary-keys   | String | No       | -                            | Default comma-separated list of columns (primary key) that identify a row in tables.(Notice: The partition field needs to be included in the primary key fields) |
 | paimon.table.partition-keys | String | No       | -                            | Default comma-separated list of partition fields to use when creating tables.                                                                                    |
-| paimon.table.write-props    | Map    | No       | -                            | Properties passed through to paimon table initialization, [reference](https://paimon.apache.org/docs/0.6/maintenance/configurations/#coreoptions).               |
+| paimon.table.write-props    | Map    | No       | -                            | Properties passed through to paimon table initialization, [reference](https://paimon.apache.org/docs/master/maintenance/configurations/#coreoptions).            |
 | paimon.hadoop.conf          | Map    | No       | -                            | Properties in hadoop conf                                                                                                                                        |
 | paimon.hadoop.conf-path     | String | No       | -                            | The specified loading path for the 'core-site.xml', 'hdfs-site.xml', 'hive-site.xml' files                                                                       |
 
@@ -242,6 +243,8 @@ sink {
 
 ### Multiple table
 
+#### example1
+
 ```hocon
 env {
   parallelism = 1
@@ -254,6 +257,7 @@ source {
     base-url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
     username = "root"
     password = "******"
+    
     table-names = ["seatunnel.role","seatunnel.user","galileo.Bucket"]
   }
 }
@@ -265,8 +269,47 @@ sink {
   Paimon {
     catalog_name="seatunnel_test"
     warehouse="file:///tmp/seatunnel/paimon/hadoop-sink/"
-    database="${database_name}"
-    table="${table_name}"
+    database="${database_name}_test"
+    table="${table_name}_test"
+  }
+}
+```
+
+#### example2
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Jdbc {
+    driver = oracle.jdbc.driver.OracleDriver
+    url = "jdbc:oracle:thin:@localhost:1521/XE"
+    user = testUser
+    password = testPassword
+
+    table_list = [
+      {
+        table_path = "TESTSCHEMA.TABLE_1"
+      },
+      {
+        table_path = "TESTSCHEMA.TABLE_2"
+      }
+    ]
+  }
+}
+
+transform {
+}
+
+sink {
+  Paimon {
+    catalog_name="seatunnel_test"
+    warehouse="file:///tmp/seatunnel/paimon/hadoop-sink/"
+    database="${schema_name}_test"
+    table="${table_name}_test"
   }
 }
 ```
