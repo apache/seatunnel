@@ -28,8 +28,6 @@ import org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseParameters;
 
 import com.google.auto.service.AutoService;
 
-import java.util.Collections;
-
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.ENCODING;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.FAMILY_NAME;
 import static org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseConfig.HBASE_EXTRA_CONFIG;
@@ -70,11 +68,6 @@ public class HbaseSinkFactory implements TableSinkFactory {
 
     @Override
     public TableSink createSink(TableSinkFactoryContext context) {
-        TableSinkFactoryContext.replacePlaceholderAndCreate(
-                context.getCatalogTable(),
-                context.getOptions(),
-                Thread.currentThread().getContextClassLoader(),
-                Collections.emptyList());
         HbaseParameters hbaseParameters = HbaseParameters.buildWithConfig(context.getOptions());
         CatalogTable catalogTable = context.getCatalogTable();
         return () -> new HbaseSink(hbaseParameters, catalogTable);
