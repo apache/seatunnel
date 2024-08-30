@@ -15,16 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform.llm.model.openai;
+package org.apache.seatunnel.transform.nlpmodel.remote.embadding.processor.openai;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ArrayNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.api.table.type.SqlType;
-import org.apache.seatunnel.transform.llm.model.AbstractModel;
+import org.apache.seatunnel.transform.nlpmodel.remote.embadding.processor.AbstractModel;
 
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -35,15 +33,11 @@ import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 
 import com.google.common.annotations.VisibleForTesting;
-import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
-/**
- * OpenAI model. Refer <a href="https://platform.openai.com/docs/api-reference/chat">chat api </a>
- */
-@Slf4j
 public class OpenAIModel extends AbstractModel {
 
     private final CloseableHttpClient client;
@@ -51,47 +45,65 @@ public class OpenAIModel extends AbstractModel {
     private final String model;
     private final String apiPath;
 
-    public OpenAIModel(
-            SeaTunnelRowType rowType,
-            SqlType outputType,
-            String prompt,
-            String model,
-            String apiKey,
-            String apiPath) {
-        super(rowType, outputType, prompt);
+    public OpenAIModel(String apiKey, String model, String apiPath, Integer vectorizedNumber) {
+        super(vectorizedNumber);
         this.apiKey = apiKey;
-        this.apiPath = apiPath;
         this.model = model;
+        this.apiPath = apiPath;
         this.client = HttpClients.createDefault();
     }
 
     @Override
-    protected List<String> chatWithModel(String prompt, String data) throws IOException {
+    protected List<List<Float>> vector(Object[] fields) throws IOException {
+        if (fields.length > 1) {
+            throw new IllegalArgumentException("OpenAI model only supports single input");
+        }
+        return vectorGeneration(fields);
+    }
+
+    @Override
+    public Integer dimension() throws IOException {
+        return vectorGeneration(new Object[] {DIMENSION_EXAMPLE}).size();
+    }
+
+    private List<List<Float>> vectorGeneration(Object[] fields) throws IOException {
         HttpPost post = new HttpPost(apiPath);
         post.setHeader("Authorization", "Bearer " + apiKey);
         post.setHeader("Content-Type", "application/json");
-        ObjectNode objectNode = createJsonNodeFromData(prompt, data);
-        post.setEntity(new StringEntity(OBJECT_MAPPER.writeValueAsString(objectNode), "UTF-8"));
         post.setConfig(
                 RequestConfig.custom().setConnectTimeout(20000).setSocketTimeout(20000).build());
+
+        post.setEntity(
+                new StringEntity(
+                        OBJECT_MAPPER.writeValueAsString(createJsonNodeFromData(fields)), "UTF-8"));
+
         CloseableHttpResponse response = client.execute(post);
         String responseStr = EntityUtils.toString(response.getEntity());
+
         if (response.getStatusLine().getStatusCode() != 200) {
-            throw new IOException("Failed to chat with model, response: " + responseStr);
+            throw new IOException("Failed to get vector from openai, response: " + responseStr);
         }
 
-        JsonNode result = OBJECT_MAPPER.readTree(responseStr);
-        String resultData = result.get("choices").get(0).get("message").get("content").asText();
-        return OBJECT_MAPPER.readValue(resultData, new TypeReference<List<String>>() {});
+        JsonNode data = OBJECT_MAPPER.readTree(responseStr).get("data");
+        List<List<Float>> embeddings = new ArrayList<>();
+
+        if (data.isArray()) {
+            for (JsonNode node : data) {
+                JsonNode embeddingNode = node.get("embedding");
+                List<Float> embedding =
+                        OBJECT_MAPPER.readValue(
+                                embeddingNode.traverse(), new TypeReference<List<Float>>() {});
+                embeddings.add(embedding);
+            }
+        }
+        return embeddings;
     }
 
     @VisibleForTesting
-    public ObjectNode createJsonNodeFromData(String prompt, String data) {
+    public ObjectNode createJsonNodeFromData(Object[] data) throws JsonProcessingException {
         ObjectNode objectNode = OBJECT_MAPPER.createObjectNode();
         objectNode.put("model", model);
-        ArrayNode messages = objectNode.putArray("messages");
-        messages.addObject().put("role", "system").put("content", prompt);
-        messages.addObject().put("role", "user").put("content", data);
+        objectNode.put("input", data[0].toString());
         return objectNode;
     }
 

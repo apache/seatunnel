@@ -12,17 +12,16 @@ different API endpoints.
 
 | Name                           | Type   | Required | Default Value | Description                                                                           |
 |--------------------------------|--------|----------|---------------|---------------------------------------------------------------------------------------|
-| embedding_model_provider       | enum   | yes      | -             | The model provider for embedding. Options may include `QIANFAN`, `OPENAI`, etc.       |
+| model_provider                 | enum   | yes      | -             | The model provider for embedding. Options may include `QIANFAN`, `OPENAI`, etc.       |
 | api_key                        | string | yes      | -             | The API key required to authenticate with the embedding service.                      |
 | secret_key                     | string | yes      | -             | The secret key required for additional authentication with the embedding service.     |
 | single_vectorized_input_number | int    | no       | 1             | The number of inputs vectorized in one request. Default is 1.                         |
-| vectorization_batch_size       | int    | no       | 100           | The batch size for each vectorization request.                                        |
 | vectorization_fields           | map    | yes      | -             | A mapping between input fields and their corresponding output vector fields.          |
 | model                          | string | yes      | -             | The specific model to use for embedding (e.g: `text-embedding-3-small` for OPENAI).   |
 | api_path                       | string | no       | -             | The API endpoint for the embedding service. Typically provided by the model provider. |
 | oauth_path                     | string | no       | -             | The API endpoint for the oauth service.                                               |
 
-### embedding_model_provider
+### model_provider
 
 The model provider to use for generating embeddings. Common options might include `QIANFAN`, `OPENAI`, etc. Depending on
 the provider, different models and API paths may be available.
@@ -38,12 +37,7 @@ The secret key used for additional authentication. Some providers may require th
 
 ### single_vectorized_input_number
 
-Specifies how many inputs are processed in a single vectorization request. The default is 1. Adjust this based on the
-service limitations or your specific needs.
-
-### vectorization_batch_size
-
-Defines the number of rows that will be sent in a single batch for vectorization. Adjust based on your processing
+Specifies how many inputs are processed in a single vectorization request. The default is 1. Adjust based on your processing
 capacity and the model provider's API limitations.
 
 ### vectorization_fields

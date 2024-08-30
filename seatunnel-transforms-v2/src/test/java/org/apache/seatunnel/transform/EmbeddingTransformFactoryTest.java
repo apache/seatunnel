@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.transform;
 
-import org.apache.seatunnel.transform.embadding.EmbeddingTransformFactory;
+import org.apache.seatunnel.transform.nlpmodel.remote.embadding.EmbeddingTransformFactory;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;

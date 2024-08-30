@@ -15,43 +15,52 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform.embadding;
+package org.apache.seatunnel.transform.nlpmodel.remote.llm;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableTransform;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactory;
 import org.apache.seatunnel.api.table.factory.TableTransformFactoryContext;
+import org.apache.seatunnel.transform.nlpmodel.remote.ModelProvider;
+import org.apache.seatunnel.transform.nlpmodel.remote.ModelTransformConfig;
 
 import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
-public class EmbeddingTransformFactory implements TableTransformFactory {
+public class LLMTransformFactory implements TableTransformFactory {
     @Override
     public String factoryIdentifier() {
-        return "Embedding";
+        return "LLM";
     }
 
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(
-                        EmbeddingTransformConfig.EMBEDDING_MODEL_PROVIDER,
-                        EmbeddingTransformConfig.MODEL,
-                        EmbeddingTransformConfig.VECTORIZATION_FIELDS,
-                        EmbeddingTransformConfig.API_KEY,
-                        EmbeddingTransformConfig.API_PATH)
+                        LLMTransformConfig.MODEL_PROVIDER,
+                        LLMTransformConfig.MODEL,
+                        LLMTransformConfig.PROMPT,
+                        LLMTransformConfig.API_KEY)
                 .optional(
-                        EmbeddingTransformConfig.OAUTH_PATH,
-                        EmbeddingTransformConfig.SECRET_KEY,
-                        EmbeddingTransformConfig.SINGLE_VECTORIZED_INPUT_NUMBER,
-                        EmbeddingTransformConfig.VECTORIZATION_BATCH_SIZE)
+                        LLMTransformConfig.API_PATH,
+                        LLMTransformConfig.OUTPUT_DATA_TYPE,
+                        LLMTransformConfig.PROCESS_BATCH_SIZE)
+                .conditional(
+                        LLMTransformConfig.MODEL_PROVIDER,
+                        ModelProvider.QIANFAN,
+                        LLMTransformConfig.SECRET_KEY)
+                .conditional(
+                        LLMTransformConfig.MODEL_PROVIDER,
+                        ModelProvider.QIANFAN,
+                        ModelTransformConfig.OAUTH_PATH)
                 .build();
     }
 
     @Override
     public TableTransform createTransform(TableTransformFactoryContext context) {
-        return () ->
-                new EmbeddingTransform(context.getOptions(), context.getCatalogTables().get(0));
+        CatalogTable catalogTable = context.getCatalogTables().get(0);
+        return () -> new LLMTransform(context.getOptions(), catalogTable);
     }
 }

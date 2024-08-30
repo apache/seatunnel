@@ -10,11 +10,10 @@
 
 | 名称                             | 类型     | 是否必填 | 默认值 | 描述                                                               |
 |--------------------------------|--------|------|-----|------------------------------------------------------------------|
-| embedding_model_provider       | enum   | 是    | -   | embedding模型的提供商。可选项包括 `QIANFAN`、`OPENAI` 等。                      |
+| model_provider                 | enum   | 是    | -   | embedding模型的提供商。可选项包括 `QIANFAN`、`OPENAI` 等。                      |
 | api_key                        | string | 是    | -   | 用于验证embedding服务的API密钥。                                           |
 | secret_key                     | string | 是    | -   | 用于额外验证的密钥。一些提供商可能需要此密钥进行安全的API请求。                                |
-| single_vectorized_input_number | int    | 否    | 1   | 单次请求向量化的输入数量。默认值为8。                                              |
-| vectorization_batch_size       | int    | 否    | 100 | 每次向量化请求的批量大小。                                                    |
+| single_vectorized_input_number | int    | 否    | 1   | 单次请求向量化的输入数量。默认值为1。                                              |
 | vectorization_fields           | map    | 是    | -   | 输入字段和相应的输出向量字段之间的映射。                                             |
 | model                          | string | 是    | -   | 要使用的具体embedding模型。例如，如果提供商为OPENAI，可以指定 `text-embedding-3-small`。 |
 | api_path                       | string | 否    | -   | embedding服务的API。通常由模型提供商提供。                                      |
@@ -34,11 +33,7 @@
 
 ### single_vectorized_input_number
 
-指定单次请求向量化的输入数量。默认值为8。根据服务限制或具体需求进行调整。
-
-### vectorization_batch_size
-
-定义将发送进行向量化的每批行数。根据处理能力和模型提供商的API限制进行调整。
+指定单次请求向量化的输入数量。默认值为1。根据处理能力和模型提供商的API限制进行调整。
 
 ### vectorization_fields
 

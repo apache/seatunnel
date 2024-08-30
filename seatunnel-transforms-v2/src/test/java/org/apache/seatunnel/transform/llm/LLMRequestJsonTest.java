@@ -24,7 +24,7 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
-import org.apache.seatunnel.transform.llm.model.openai.OpenAIModel;
+import org.apache.seatunnel.transform.nlpmodel.remote.llm.processor.openai.OpenAIModel;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform.embadding.processor;
+package org.apache.seatunnel.transform.nlpmodel.remote.embadding.processor;
 
 import java.io.Closeable;
 import java.io.IOException;

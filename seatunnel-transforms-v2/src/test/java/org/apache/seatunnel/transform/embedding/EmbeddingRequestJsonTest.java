@@ -20,9 +20,9 @@ package org.apache.seatunnel.transform.embedding;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
-import org.apache.seatunnel.transform.embadding.processor.doubao.DoubaoModel;
-import org.apache.seatunnel.transform.embadding.processor.openai.OpenAIModel;
-import org.apache.seatunnel.transform.embadding.processor.qianfan.QianfanModel;
+import org.apache.seatunnel.transform.nlpmodel.remote.embadding.processor.doubao.DoubaoModel;
+import org.apache.seatunnel.transform.nlpmodel.remote.embadding.processor.openai.OpenAIModel;
+import org.apache.seatunnel.transform.nlpmodel.remote.embadding.processor.qianfan.QianfanModel;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform.embadding;
+package org.apache.seatunnel.transform.nlpmodel.remote.embadding;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -25,11 +25,13 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.VectorType;
 import org.apache.seatunnel.transform.common.MultipleFieldOutputTransform;
 import org.apache.seatunnel.transform.common.SeaTunnelRowAccessor;
-import org.apache.seatunnel.transform.embadding.processor.Model;
-import org.apache.seatunnel.transform.embadding.processor.doubao.DoubaoModel;
-import org.apache.seatunnel.transform.embadding.processor.openai.OpenAIModel;
-import org.apache.seatunnel.transform.embadding.processor.qianfan.QianfanModel;
 import org.apache.seatunnel.transform.exception.TransformCommonError;
+import org.apache.seatunnel.transform.nlpmodel.remote.ModelProvider;
+import org.apache.seatunnel.transform.nlpmodel.remote.ModelTransformConfig;
+import org.apache.seatunnel.transform.nlpmodel.remote.embadding.processor.Model;
+import org.apache.seatunnel.transform.nlpmodel.remote.embadding.processor.doubao.DoubaoModel;
+import org.apache.seatunnel.transform.nlpmodel.remote.embadding.processor.openai.OpenAIModel;
+import org.apache.seatunnel.transform.nlpmodel.remote.embadding.processor.qianfan.QianfanModel;
 
 import lombok.NonNull;
 import lombok.SneakyThrows;
@@ -60,16 +62,16 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
     @Override
     public void open() {
         // Initialize model
-        EmbeddingModelProvider provider =
-                config.get(EmbeddingTransformConfig.EMBEDDING_MODEL_PROVIDER);
+        ModelProvider provider = config.get(ModelTransformConfig.MODEL_PROVIDER);
         try {
             switch (provider) {
                 case OPENAI:
                     model =
                             new OpenAIModel(
-                                    config.get(EmbeddingTransformConfig.API_KEY),
-                                    config.get(EmbeddingTransformConfig.MODEL),
-                                    config.get(EmbeddingTransformConfig.API_PATH),
+                                    config.get(ModelTransformConfig.API_KEY),
+                                    config.get(ModelTransformConfig.MODEL),
+                                    provider.usedEmbeddingPath(
+                                            config.get(ModelTransformConfig.API_PATH)),
                                     config.get(
                                             EmbeddingTransformConfig
                                                     .SINGLE_VECTORIZED_INPUT_NUMBER));
@@ -77,9 +79,10 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
                 case DOUBAO:
                     model =
                             new DoubaoModel(
-                                    config.get(EmbeddingTransformConfig.API_KEY),
-                                    config.get(EmbeddingTransformConfig.MODEL),
-                                    config.get(EmbeddingTransformConfig.API_PATH),
+                                    config.get(ModelTransformConfig.API_KEY),
+                                    config.get(ModelTransformConfig.MODEL),
+                                    provider.usedEmbeddingPath(
+                                            config.get(ModelTransformConfig.API_PATH)),
                                     config.get(
                                             EmbeddingTransformConfig
                                                     .SINGLE_VECTORIZED_INPUT_NUMBER));
@@ -87,11 +90,12 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
                 case QIANFAN:
                     model =
                             new QianfanModel(
-                                    config.get(EmbeddingTransformConfig.API_KEY),
-                                    config.get(EmbeddingTransformConfig.SECRET_KEY),
-                                    config.get(EmbeddingTransformConfig.MODEL),
-                                    config.get(EmbeddingTransformConfig.API_PATH),
-                                    config.get(EmbeddingTransformConfig.OAUTH_PATH),
+                                    config.get(ModelTransformConfig.API_KEY),
+                                    config.get(ModelTransformConfig.SECRET_KEY),
+                                    config.get(ModelTransformConfig.MODEL),
+                                    provider.usedEmbeddingPath(
+                                            config.get(ModelTransformConfig.API_PATH)),
+                                    config.get(ModelTransformConfig.OAUTH_PATH),
                                     config.get(
                                             EmbeddingTransformConfig
                                                     .SINGLE_VECTORIZED_INPUT_NUMBER));
