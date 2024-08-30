@@ -89,5 +89,5 @@ connector-milvus
 connector-activemq
 connector-prometheus
 connector-sls
+connector-typesense
 connector-cdc-opengauss
---end--
