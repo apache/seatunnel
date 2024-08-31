@@ -439,7 +439,6 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         return getDocsWithTransformDate(source, index, Collections.emptyList());
     }
 
-    //
     private List<String> getDocsWithTransformDate(
             List<String> source, String index, List<String> nullAllowedFields) {
         HashMap<String, Object> rangeParam = new HashMap<>();
