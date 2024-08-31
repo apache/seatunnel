@@ -58,6 +58,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import javax.net.ssl.SSLContext;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -76,7 +77,7 @@ import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsT
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsType.OBJECT;
 
 @Slf4j
-public class EsRestClient {
+public class EsRestClient implements Closeable {
 
     private static final int CONNECTION_REQUEST_TIMEOUT = 10 * 1000;
 
@@ -258,6 +259,7 @@ public class EsRestClient {
         }
     }
 
+    @Override
     public void close() {
         try {
             restClient.close();

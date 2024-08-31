@@ -101,11 +101,7 @@ public class ElasticsearchSource
         } else {
             source = readonlyConfig.get(SourceConfig.SOURCE);
             arrayColumn = readonlyConfig.get(SourceConfig.ARRAY_COLUMN);
-            EsRestClient esRestClient = EsRestClient.createInstance(connectionConfig);
-            Map<String, BasicTypeDefine<EsType>> esFieldType =
-                    esRestClient.getFieldTypeMapping(index, source);
-            esRestClient.close();
-
+            Map<String, BasicTypeDefine<EsType>> esFieldType = getFieldTypeMapping(index, source);
             if (CollectionUtils.isEmpty(source)) {
                 source = new ArrayList<>(esFieldType.keySet());
             }
@@ -209,5 +205,14 @@ public class ElasticsearchSource
             fieldTypes[i] = seaTunnelDataType;
         }
         return fieldTypes;
+    }
+
+    private Map<String, BasicTypeDefine<EsType>> getFieldTypeMapping(
+            String index, List<String> source) {
+        // EsRestClient#getFieldTypeMapping may throw runtime exception
+        // so here we use try-resources-finally to close the resource
+        try (EsRestClient esRestClient = EsRestClient.createInstance(connectionConfig)) {
+            return esRestClient.getFieldTypeMapping(index, source);
+        }
     }
 }
