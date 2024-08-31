@@ -68,6 +68,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -82,7 +83,9 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
 
     private static final long INDEX_REFRESH_MILL_DELAY = 5000L;
 
-    private List<String> testDataset;
+    private List<String> testDataset1;
+
+    private List<String> testDataset2;
 
     private ElasticsearchContainer container;
 
@@ -118,7 +121,8 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty());
-        testDataset = generateTestDataSet();
+        testDataset1 = generateTestDataSet1();
+        testDataset2 = generateTestDataSet2();
         createIndexForResourceNull("st_index");
         createIndexDocs();
         createIndexWithFullType();
@@ -131,10 +135,14 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
     }
 
     private void createIndexDocsByName(String indexName) {
+        createIndexDocsByName(indexName, testDataset1);
+    }
+
+    private void createIndexDocsByName(String indexName, List<String> testDataSet) {
         StringBuilder requestBody = new StringBuilder();
         String indexHeader = String.format("{\"index\":{\"_index\":\"%s\"}\n", indexName);
-        for (int i = 0; i < testDataset.size(); i++) {
-            String row = testDataset.get(i);
+        for (int i = 0; i < testDataSet.size(); i++) {
+            String row = testDataSet.get(i);
             requestBody.append(indexHeader);
             requestBody.append(row);
             requestBody.append("\n");
@@ -196,22 +204,29 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
     public void testElasticsSearchWithMultiSource(TestContainer container)
             throws InterruptedException, IOException {
         // this test will read read_index1,read_index2 write into multi_source_write_test_index
-        createIndexDocsByName("read_index1");
-        createIndexDocsByName("read_index2");
+        createIndexDocsByName("read_index1", testDataset1);
+        createIndexDocsByName("read_index2", testDataset2);
         Container.ExecResult execResult =
                 container.executeJob("/elasticsearch/elasticsearch_multi_source_and_sink.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-        // The data read out may be unordered, so we will use LinkedHashSet comparison here.
+        // data read out may be unordered, so we will use HashSet comparison here.
         Set<String> sinkData =
-                new LinkedHashSet<>(
+                new HashSet<>(
                         readSinkDataWithOutSchema(
                                 "multi_source_write_test_index", Lists.newArrayList("c_null")));
-        List<String> index1Data = mapTestDatasetForDSL();
-        List<String> index2Data = mapTestDatasetForDSL();
+        List<String> index1Data = mapTestDatasetForDSL(testDataset1);
+        List<String> index2Data = mapTestDatasetForDSL(testDataset2);
         Set<String> allData = new LinkedHashSet<>();
         allData.addAll(index1Data);
         allData.addAll(index2Data);
-        Assertions.assertIterableEquals(allData, sinkData);
+        Assertions.assertTrue(allData.size() > 0);
+        Assertions.assertTrue(sinkData.size() > 0);
+        Assertions.assertEquals(allData.size(), sinkData.size());
+        for (String data : allData) {
+            sinkData.remove(data);
+        }
+        // data is completely consistent, and the size is zero after deletion
+        Assertions.assertEquals(0, sinkData.size());
     }
 
     @DisabledOnContainer(
@@ -282,7 +297,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         Assertions.assertIterableEquals(mapTestDatasetForDSL(), sinkData);
     }
 
-    private List<String> generateTestDataSet() throws JsonProcessingException {
+    private List<String> generateTestDataSet1() throws JsonProcessingException {
         String[] fields =
                 new String[] {
                     "c_map",
@@ -319,6 +334,59 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                         Double.parseDouble("1.1"),
                         BigDecimal.valueOf(11, 1),
                         "test".getBytes(),
+                        i,
+                        LocalDate.now().toString(),
+                        System.currentTimeMillis(),
+                        // Null values are also a basic use case for testing
+                        null
+                    };
+            for (int j = 0; j < fields.length; j++) {
+                doc.put(fields[j], values[j]);
+            }
+            documents.add(objectMapper.writeValueAsString(doc));
+        }
+        return documents;
+    }
+
+    private List<String> generateTestDataSet2() throws JsonProcessingException {
+        String[] fields =
+                new String[] {
+                    "c_map",
+                    "c_array",
+                    "c_string",
+                    "c_boolean",
+                    "c_tinyint",
+                    "c_smallint",
+                    "c_bigint",
+                    "c_float",
+                    "c_double",
+                    "c_decimal",
+                    "c_bytes",
+                    "c_int",
+                    "c_date",
+                    "c_timestamp",
+                    "c_null"
+                };
+
+        List<String> documents = new ArrayList<>();
+        ObjectMapper objectMapper = new ObjectMapper();
+        for (int i = 0; i < 100; i++) {
+            Map<String, Object> doc = new HashMap<>();
+            Object[] values =
+                    new Object[] {
+                        Collections.singletonMap("key", Short.parseShort(String.valueOf(i))),
+                        new Byte[] {
+                            Byte.parseByte("11"), Byte.parseByte("22"), Byte.parseByte("33")
+                        },
+                        "string2",
+                        Boolean.FALSE,
+                        Byte.parseByte("2"),
+                        Short.parseShort("2"),
+                        Long.parseLong("2"),
+                        Float.parseFloat("2.2"),
+                        Double.parseDouble("2.2"),
+                        BigDecimal.valueOf(22, 1),
+                        "test2".getBytes(),
                         i,
                         LocalDate.now().toString(),
                         System.currentTimeMillis(),
@@ -480,6 +548,10 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
     }
 
     private List<String> mapTestDatasetForDSL() {
+        return mapTestDatasetForDSL(testDataset1);
+    }
+
+    private List<String> mapTestDatasetForDSL(List<String> testDataset) {
         return testDataset.stream()
                 .map(JsonUtils::parseObject)
                 .filter(
