@@ -152,6 +152,9 @@
         <e2e.dependency.skip>true</e2e.dependency.skip>
         <skip.spotless>false</skip.spotless>
 
+        <!-- prometheus simpleclient -->
+        <prometheus.simpleclient.version>0.16.0</prometheus.simpleclient.version>
+
     </properties>
 
     <dependencyManagement>
@@ -539,6 +542,25 @@
             <groupId>org.mockito</groupId>
             <artifactId>mockito-junit-jupiter</artifactId>
             <scope>test</scope>
+        </dependency>
+
+        <!-- The prometheus simpleclient -->
+        <dependency>
+            <groupId>io.prometheus</groupId>
+            <artifactId>simpleclient</artifactId>
+            <version>${prometheus.simpleclient.version}</version>
+        </dependency>
+        <!-- Hotspot JVM metrics-->
+        <dependency>
+            <groupId>io.prometheus</groupId>
+            <artifactId>simpleclient_hotspot</artifactId>
+            <version>${prometheus.simpleclient.version}</version>
+        </dependency>
+        <!-- Exposition HTTPServer-->
+        <dependency>
+            <groupId>io.prometheus</groupId>
+            <artifactId>simpleclient_httpserver</artifactId>
+            <version>${prometheus.simpleclient.version}</version>
         </dependency>
 
     </dependencies>
