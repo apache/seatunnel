@@ -80,6 +80,8 @@ import java.util.stream.Stream;
 @Slf4j
 public class ElasticsearchIT extends TestSuiteBase implements TestResource {
 
+    private static final long INDEX_REFRESH_MILL_DELAY = 5000L;
+
     private List<String> testDataset;
 
     private ElasticsearchContainer container;
@@ -160,7 +162,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                                 + "\n");
         Assertions.assertFalse(response.isErrors(), response.getResponse());
         // waiting index refresh
-        Thread.sleep(2000L);
+        Thread.sleep(INDEX_REFRESH_MILL_DELAY);
         Assertions.assertEquals(
                 2, esRestClient.getIndexDocsCount("st_index_full_type").get(0).getDocsCount());
     }
@@ -261,7 +263,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         Container.ExecResult execResult =
                 container.executeJob("/elasticsearch/elasticsearch_source_and_sink_full_type.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-        Thread.sleep(2000L);
+        Thread.sleep(INDEX_REFRESH_MILL_DELAY);
         Assertions.assertEquals(
                 1,
                 esRestClient.getIndexDocsCount("st_index_full_type_target").get(0).getDocsCount());
@@ -334,7 +336,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
     private List<String> readSinkDataWithOutSchema(String indexName) throws InterruptedException {
         Map<String, BasicTypeDefine<EsType>> esFieldType =
                 esRestClient.getFieldTypeMapping(indexName, Lists.newArrayList());
-        Thread.sleep(5000);
+        Thread.sleep(INDEX_REFRESH_MILL_DELAY);
         List<String> source = new ArrayList<>(esFieldType.keySet());
         return getDocsWithTransformDate(source, indexName);
     }
@@ -345,7 +347,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
             throws InterruptedException {
         Map<String, BasicTypeDefine<EsType>> esFieldType =
                 esRestClient.getFieldTypeMapping(indexName, Lists.newArrayList());
-        Thread.sleep(5000);
+        Thread.sleep(INDEX_REFRESH_MILL_DELAY);
         List<String> source = new ArrayList<>(esFieldType.keySet());
         return getDocsWithTransformDate(source, indexName, nullAllowedFields);
     }
@@ -354,7 +356,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
     // and we need to handle the conversion here.
     private List<String> readSinkDataWithSchema(String index) throws InterruptedException {
         // wait for index refresh
-        Thread.sleep(5000);
+        Thread.sleep(INDEX_REFRESH_MILL_DELAY);
         List<String> source =
                 Lists.newArrayList(
                         "c_map",
@@ -378,7 +380,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
     private List<String> readMultiSinkData(String index, List<String> source)
             throws InterruptedException {
         // wait for index refresh
-        Thread.sleep(2000);
+        Thread.sleep(INDEX_REFRESH_MILL_DELAY);
         Map<String, Object> query = new HashMap<>();
         query.put("match_all", Maps.newHashMap());
 
@@ -539,7 +541,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
             requestBody.append("\n");
         }
         esRestClient.bulk(requestBody.toString());
-        Thread.sleep(2000); // Wait for data to be indexed
+        Thread.sleep(INDEX_REFRESH_MILL_DELAY); // Wait for data to be indexed
 
         // Verify data exists
         List<String> sourceFields = Arrays.asList("field1", "field2");
@@ -551,7 +553,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
 
         // Truncate the table
         elasticSearchCatalog.truncateTable(tablePath, false);
-        Thread.sleep(2000); // Wait for data to be indexed
+        Thread.sleep(INDEX_REFRESH_MILL_DELAY); // Wait for data to be indexed
 
         // Verify data is deleted
         scrollResult = esRestClient.searchByScroll("st_index3", sourceFields, query, "1m", 100);
