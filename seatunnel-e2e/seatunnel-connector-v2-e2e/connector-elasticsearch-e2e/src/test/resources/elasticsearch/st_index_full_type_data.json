@@ -38,7 +38,13 @@
       0.0
     ]
   },
-  "point": [-74.006,40.7128],
+  "point": {
+    "type": "Point",
+    "coordinates": [
+      100.0,
+      0.0
+    ]
+  },
   "integer_range": {
     "gte": 10,
     "lte": 20
