@@ -274,6 +274,44 @@ public class RestApiIT {
     }
 
     @Test
+    public void testUpdateTags() {
+
+        String config = "{\n" +
+                "    \"tags\": {\n" +
+                "        \"tag1\": \"dev_1\",\n" +
+                "        \"tag2\": \"dev_2\"\n" +
+                "    }\n" +
+                "}";
+
+        given().body(config)
+                .put(
+                        HOST
+                                + node1.getCluster()
+                                .getLocalMember()
+                                .getAddress()
+                                .getPort()
+                                + RestConstant.UPDATE_TAGS_URL)
+                .then()
+                .statusCode(200)
+                .body("message", equalTo("success"));
+
+
+        given().get(
+                        HOST
+                                + node1.getCluster()
+                                .getLocalMember()
+                                .getAddress()
+                                .getPort()
+                                + RestConstant.OVERVIEW
+                                + "?tag1=dev_1")
+                .then()
+                .statusCode(200)
+                .body("projectVersion", notNullValue())
+                .body("totalSlot", equalTo("20"))
+                .body("workers", equalTo("1"));
+    }
+
+    @Test
     public void testGetRunningThreads() {
         Arrays.asList(node2, node1)
                 .forEach(
