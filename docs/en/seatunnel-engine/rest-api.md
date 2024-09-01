@@ -637,3 +637,31 @@ For more information about customize encryption, please refer to the documentati
 
 </details>
 
+
+------------------------------------------------------------------------------------------
+
+### Update the tags of running node
+
+<details>
+<summary><code>POST</code> <code><b>/hazelcast/rest/maps/update-tags</b></code> <code>(Returns message "success" if update successfully.)</code></summary>
+
+#### Body
+
+```json
+{
+    "tags": {
+        "tag1": "value_1",
+        "tag2": "value_2"
+    }
+}
+```
+#### Responses
+
+```json
+{
+    "message": "success"
+}
+```
+
+</details>
+
