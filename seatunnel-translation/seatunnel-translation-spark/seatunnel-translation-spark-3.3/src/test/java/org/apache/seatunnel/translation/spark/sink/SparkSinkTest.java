@@ -135,6 +135,11 @@ public class SparkSinkTest {
                         new Object[] {
                             (byte) 1,
                             "test.test.test",
+                            new HashMap<String, String>() {
+                                {
+                                    put("k", "v");
+                                }
+                            },
                             42,
                             "string1",
                             true,
@@ -202,6 +207,11 @@ public class SparkSinkTest {
                         new Object[] {
                             (byte) 1,
                             "test.test.test",
+                            new HashMap<String, String>() {
+                                {
+                                    put("k", "v");
+                                }
+                            },
                             12,
                             "string2",
                             false,
@@ -269,6 +279,11 @@ public class SparkSinkTest {
                         new Object[] {
                             (byte) 1,
                             "test.test.test",
+                            new HashMap<String, String>() {
+                                {
+                                    put("k", "v");
+                                }
+                            },
                             233,
                             "string3",
                             true,

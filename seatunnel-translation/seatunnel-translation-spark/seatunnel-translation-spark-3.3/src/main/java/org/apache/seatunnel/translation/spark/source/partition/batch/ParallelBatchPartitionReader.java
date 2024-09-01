@@ -18,11 +18,9 @@
 package org.apache.seatunnel.translation.spark.source.partition.batch;
 
 import org.apache.seatunnel.api.source.SeaTunnelSource;
-import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.Handover;
 import org.apache.seatunnel.translation.source.BaseSourceFunction;
-import org.apache.seatunnel.translation.source.ParallelSource;
 import org.apache.seatunnel.translation.spark.execution.MultiTableManager;
 import org.apache.seatunnel.translation.spark.serialization.InternalRowCollector;
 import org.apache.seatunnel.translation.util.ThreadPoolExecutorFactory;
@@ -32,8 +30,6 @@ import org.apache.spark.sql.catalyst.InternalRow;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.io.Serializable;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 
@@ -125,7 +121,7 @@ public class ParallelBatchPartitionReader {
     }
 
     protected BaseSourceFunction<SeaTunnelRow> createInternalSource() {
-        return new InternalParallelSource<>(source, null, parallelism, jobId, subtaskId);
+        return new InternalParallelBatchSource<>(this, source, null, parallelism, jobId, subtaskId);
     }
 
     public InternalRow get() {
@@ -146,24 +142,5 @@ public class ParallelBatchPartitionReader {
             throw new RuntimeException(e);
         }
         executorService.shutdown();
-    }
-
-    public class InternalParallelSource<SplitT extends SourceSplit, StateT extends Serializable>
-            extends ParallelSource<SeaTunnelRow, SplitT, StateT> {
-
-        public InternalParallelSource(
-                SeaTunnelSource<SeaTunnelRow, SplitT, StateT> source,
-                Map<Integer, List<byte[]>> restoredState,
-                int parallelism,
-                String jobId,
-                int subtaskId) {
-            super(source, restoredState, parallelism, jobId, subtaskId);
-        }
-
-        @Override
-        protected void handleNoMoreElement() {
-            super.handleNoMoreElement();
-            running = false;
-        }
     }
 }

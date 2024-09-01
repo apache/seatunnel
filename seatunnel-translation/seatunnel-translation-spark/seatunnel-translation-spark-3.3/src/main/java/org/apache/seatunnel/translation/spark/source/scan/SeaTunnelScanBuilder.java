@@ -20,10 +20,10 @@ package org.apache.seatunnel.translation.spark.source.scan;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.translation.spark.execution.MultiTableManager;
+import org.apache.seatunnel.translation.spark.utils.CaseInsensitiveStringMap;
 
 import org.apache.spark.sql.connector.read.Scan;
 import org.apache.spark.sql.connector.read.ScanBuilder;
-import org.apache.spark.sql.util.CaseInsensitiveStringMap;
 
 /** The builder for {@link SeaTunnelScan} used to build {@link SeaTunnelScan} */
 public class SeaTunnelScanBuilder implements ScanBuilder {

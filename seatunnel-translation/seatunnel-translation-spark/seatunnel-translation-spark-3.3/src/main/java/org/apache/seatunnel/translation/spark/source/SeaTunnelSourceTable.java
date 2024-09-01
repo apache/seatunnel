@@ -85,7 +85,12 @@ public class SeaTunnelSourceTable implements Table, SupportsRead {
                 Integer.parseInt(properties.getOrDefault(CommonOptions.PARALLELISM.key(), "1"));
         String applicationId = SparkSession.getActiveSession().get().sparkContext().applicationId();
         return new SeaTunnelScanBuilder(
-                source, parallelism, applicationId, caseInsensitiveStringMap, multiTableManager);
+                source,
+                parallelism,
+                applicationId,
+                new org.apache.seatunnel.translation.spark.utils.CaseInsensitiveStringMap(
+                        caseInsensitiveStringMap.asCaseSensitiveMap()),
+                multiTableManager);
     }
 
     /** A name to identify this table */

@@ -15,33 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.translation.spark.source.partition.micro;
+package org.apache.spark.sql.execution.streaming.continuous.seatunnel.rpc;
 
-import org.apache.spark.sql.catalyst.InternalRow;
-import org.apache.spark.sql.connector.read.PartitionReader;
+import org.apache.spark.rpc.RpcCallContext;
+import org.apache.spark.rpc.RpcEnv;
+import org.apache.spark.rpc.ThreadSafeRpcEndpoint;
 
-import java.io.IOException;
+import scala.PartialFunction;
+import scala.runtime.BoxedUnit;
 
-public class SeaTunnelMicroBatchPartitionReader implements PartitionReader<InternalRow> {
+public class SplitEnumeratorEndPoint implements ThreadSafeRpcEndpoint {
 
-    private final ParallelMicroBatchPartitionReader partitionReader;
-
-    public SeaTunnelMicroBatchPartitionReader(ParallelMicroBatchPartitionReader partitionReader) {
-        this.partitionReader = partitionReader;
+    @Override
+    public RpcEnv rpcEnv() {
+        return null;
     }
 
     @Override
-    public boolean next() throws IOException {
-        return partitionReader.next();
-    }
-
-    @Override
-    public InternalRow get() {
-        return partitionReader.get();
-    }
-
-    @Override
-    public void close() throws IOException {
-        partitionReader.close();
+    public PartialFunction<Object, BoxedUnit> receiveAndReply(RpcCallContext context) {
+        return null;
     }
 }

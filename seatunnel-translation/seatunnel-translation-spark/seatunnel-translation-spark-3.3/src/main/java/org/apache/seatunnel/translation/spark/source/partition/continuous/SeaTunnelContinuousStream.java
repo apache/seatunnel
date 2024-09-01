@@ -15,78 +15,75 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.translation.spark.source.scan;
+package org.apache.seatunnel.translation.spark.source.partition.continuous;
 
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.translation.spark.execution.MultiTableManager;
-import org.apache.seatunnel.translation.spark.source.partition.batch.SeaTunnelBatch;
-import org.apache.seatunnel.translation.spark.source.partition.continuous.SeaTunnelContinuousStream;
-import org.apache.seatunnel.translation.spark.source.partition.micro.SeaTunnelMicroBatch;
 import org.apache.seatunnel.translation.spark.utils.CaseInsensitiveStringMap;
 
-import org.apache.spark.sql.connector.read.Batch;
-import org.apache.spark.sql.connector.read.Scan;
+import org.apache.spark.sql.connector.read.InputPartition;
+import org.apache.spark.sql.connector.read.streaming.ContinuousPartitionReaderFactory;
 import org.apache.spark.sql.connector.read.streaming.ContinuousStream;
-import org.apache.spark.sql.connector.read.streaming.MicroBatchStream;
-import org.apache.spark.sql.types.StructType;
+import org.apache.spark.sql.connector.read.streaming.Offset;
+import org.apache.spark.sql.connector.read.streaming.PartitionOffset;
 
-import java.util.Map;
-
-public class SeaTunnelScan implements Scan {
-
+public class SeaTunnelContinuousStream implements ContinuousStream {
     private final SeaTunnelSource<SeaTunnelRow, ?, ?> source;
-
     private final int parallelism;
     private final String jobId;
-
+    private final String checkpointLocation;
     private final CaseInsensitiveStringMap caseInsensitiveStringMap;
-
     private final MultiTableManager multiTableManager;
 
-    public SeaTunnelScan(
+    public SeaTunnelContinuousStream(
             SeaTunnelSource<SeaTunnelRow, ?, ?> source,
             int parallelism,
             String jobId,
+            String checkpointLocation,
             CaseInsensitiveStringMap caseInsensitiveStringMap,
             MultiTableManager multiTableManager) {
         this.source = source;
         this.parallelism = parallelism;
         this.jobId = jobId;
+        this.checkpointLocation = checkpointLocation;
         this.caseInsensitiveStringMap = caseInsensitiveStringMap;
         this.multiTableManager = multiTableManager;
     }
 
     @Override
-    public StructType readSchema() {
-        return multiTableManager.getTableSchema();
+    public InputPartition[] planInputPartitions(Offset start) {
+        return new InputPartition[0];
     }
 
     @Override
-    public Batch toBatch() {
-        Map<String, String> envOptions = caseInsensitiveStringMap.asCaseSensitiveMap();
-        return new SeaTunnelBatch(source, parallelism, jobId, envOptions, multiTableManager);
+    public ContinuousPartitionReaderFactory createContinuousReaderFactory() {
+        return null;
     }
 
     @Override
-    public MicroBatchStream toMicroBatchStream(String checkpointLocation) {
-        return new SeaTunnelMicroBatch(
-                source,
-                parallelism,
-                jobId,
-                checkpointLocation,
-                caseInsensitiveStringMap,
-                multiTableManager);
+    public Offset mergeOffsets(PartitionOffset[] offsets) {
+        return null;
     }
 
     @Override
-    public ContinuousStream toContinuousStream(String checkpointLocation) {
-        return new SeaTunnelContinuousStream(
-                source,
-                parallelism,
-                jobId,
-                checkpointLocation,
-                caseInsensitiveStringMap,
-                multiTableManager);
+    public boolean needsReconfiguration() {
+        return ContinuousStream.super.needsReconfiguration();
     }
+
+    @Override
+    public Offset initialOffset() {
+        return null;
+    }
+
+    @Override
+    public Offset deserializeOffset(String json) {
+        return null;
+    }
+
+    @Override
+    public void commit(Offset end) {}
+
+    @Override
+    public void stop() {}
 }

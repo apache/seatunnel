@@ -102,6 +102,7 @@ public class MicroBatchSourceReader implements MicroBatchReader {
     @Override
     public void commit(Offset end) {
         // nothing
+        System.out.println(end);
     }
 
     @Override

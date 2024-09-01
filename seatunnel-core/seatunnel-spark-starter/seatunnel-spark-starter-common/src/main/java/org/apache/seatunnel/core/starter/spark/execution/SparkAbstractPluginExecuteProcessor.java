@@ -20,6 +20,8 @@ package org.apache.seatunnel.core.starter.spark.execution;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.JobContext;
+import org.apache.seatunnel.api.env.EnvCommonOptions;
+import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.core.starter.execution.PluginExecuteProcessor;
 import org.apache.seatunnel.translation.spark.execution.DatasetTableInfo;
@@ -49,6 +51,16 @@ public abstract class SparkAbstractPluginExecuteProcessor<T>
         this.jobContext = jobContext;
         this.pluginConfigs = pluginConfigs;
         this.plugins = initializePlugins(pluginConfigs);
+    }
+
+    public boolean isStreaming() {
+        if (sparkRuntimeEnvironment.getConfig().hasPath(EnvCommonOptions.JOB_MODE.key())) {
+            return sparkRuntimeEnvironment
+                    .getConfig()
+                    .getString(EnvCommonOptions.JOB_MODE.key())
+                    .equalsIgnoreCase(JobMode.STREAMING.name());
+        }
+        return false;
     }
 
     @Override

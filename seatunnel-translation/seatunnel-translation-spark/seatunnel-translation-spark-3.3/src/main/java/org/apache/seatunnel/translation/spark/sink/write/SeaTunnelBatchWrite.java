@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.translation.spark.sink;
+package org.apache.seatunnel.translation.spark.sink.write;
 
 import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
@@ -23,8 +23,6 @@ import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SupportResourceShare;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.translation.spark.sink.write.SeaTunnelSparkDataWriterFactory;
-import org.apache.seatunnel.translation.spark.sink.write.SeaTunnelSparkWriterCommitMessage;
 
 import org.apache.spark.sql.connector.write.BatchWrite;
 import org.apache.spark.sql.connector.write.DataWriterFactory;
@@ -32,11 +30,13 @@ import org.apache.spark.sql.connector.write.PhysicalWriteInfo;
 import org.apache.spark.sql.connector.write.WriterCommitMessage;
 import org.apache.spark.sql.connector.write.streaming.StreamingDataWriterFactory;
 import org.apache.spark.sql.connector.write.streaming.StreamingWrite;
+import org.apache.spark.sql.types.StructType;
 
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
@@ -48,18 +48,27 @@ public class SeaTunnelBatchWrite<StateT, CommitInfoT, AggregatedCommitInfoT>
     private final SinkAggregatedCommitter<CommitInfoT, AggregatedCommitInfoT> aggregatedCommitter;
 
     private MultiTableResourceManager resourceManager;
+    private final Map<String, String> properties;
 
     private final CatalogTable[] catalogTables;
+    private final StructType schema;
+    private final String checkpointLocation;
 
     private final String jobId;
 
     public SeaTunnelBatchWrite(
             SeaTunnelSink<SeaTunnelRow, StateT, CommitInfoT, AggregatedCommitInfoT> sink,
+            Map<String, String> properties,
             CatalogTable[] catalogTables,
+            StructType schema,
+            String checkpointLocation,
             String jobId)
             throws IOException {
         this.sink = sink;
+        this.properties = properties;
         this.catalogTables = catalogTables;
+        this.schema = schema;
+        this.checkpointLocation = checkpointLocation;
         this.jobId = jobId;
         this.aggregatedCommitter = sink.createAggregatedCommitter().orElse(null);
         if (aggregatedCommitter != null) {
@@ -78,7 +87,8 @@ public class SeaTunnelBatchWrite<StateT, CommitInfoT, AggregatedCommitInfoT>
 
     @Override
     public DataWriterFactory createBatchWriterFactory(PhysicalWriteInfo info) {
-        return new SeaTunnelSparkDataWriterFactory<>(sink, catalogTables, jobId);
+        return new SeaTunnelSparkDataWriterFactory<>(
+                sink, properties, catalogTables, schema, checkpointLocation, jobId);
     }
 
     @Override

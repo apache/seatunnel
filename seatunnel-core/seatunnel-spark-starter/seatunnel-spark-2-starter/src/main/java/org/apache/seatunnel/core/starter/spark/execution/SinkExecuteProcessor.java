@@ -41,6 +41,8 @@ import org.apache.seatunnel.translation.spark.sink.SparkSinkInjector;
 
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
+import org.apache.spark.sql.streaming.StreamingQuery;
+import org.apache.spark.sql.streaming.StreamingQueryException;
 
 import java.net.URL;
 import java.util.ArrayList;
@@ -124,9 +126,22 @@ public class SinkExecuteProcessor
                     sparkRuntimeEnvironment.getSparkSession().sparkContext().applicationId();
             CatalogTable[] catalogTables =
                     datasetTableInfo.getCatalogTables().toArray(new CatalogTable[0]);
-            SparkSinkInjector.inject(dataset.write(), sink, catalogTables, applicationId)
-                    .option("checkpointLocation", "/tmp")
-                    .save();
+            if (isStreaming()) {
+                StreamingQuery streamingQuery =
+                        SparkSinkInjector.inject(
+                                        dataset.writeStream(), sink, catalogTables, applicationId)
+                                .option("checkpointLocation", "/tmp/test-spark-seatunnel")
+                                .start();
+                try {
+                    streamingQuery.awaitTermination();
+                } catch (StreamingQueryException e) {
+                    throw new RuntimeException(e);
+                }
+            } else {
+                SparkSinkInjector.inject(dataset.write(), sink, catalogTables, applicationId)
+                        .option("checkpointLocation", "/tmp/test-spark-seatunnel")
+                        .save();
+            }
         }
         // the sink is the last stream
         return null;

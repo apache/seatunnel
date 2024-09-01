@@ -42,12 +42,16 @@ import org.apache.seatunnel.translation.spark.sink.SparkSinkInjector;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SaveMode;
+import org.apache.spark.sql.streaming.OutputMode;
+import org.apache.spark.sql.streaming.StreamingQuery;
+import org.apache.spark.sql.streaming.StreamingQueryException;
 
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode.HANDLE_SAVE_MODE_FAILED;
@@ -124,10 +128,29 @@ public class SinkExecuteProcessor
                     sparkRuntimeEnvironment.getStreamingContext().sparkContext().applicationId();
             CatalogTable[] catalogTables =
                     datasetTableInfo.getCatalogTables().toArray(new CatalogTable[0]);
-            SparkSinkInjector.inject(dataset.write(), sink, catalogTables, applicationId)
-                    .option("checkpointLocation", "/tmp")
-                    .mode(SaveMode.Append)
-                    .save();
+            if (isStreaming()) {
+                try {
+                    StreamingQuery streamingQuery =
+                            SparkSinkInjector.inject(
+                                            dataset.writeStream(),
+                                            sink,
+                                            catalogTables,
+                                            applicationId)
+                                    .option("checkpointLocation", "/tmp/test-spark-seatunnel")
+                                    .outputMode(OutputMode.Append())
+                                    .start();
+                    streamingQuery.awaitTermination();
+                } catch (TimeoutException e) {
+                    throw new RuntimeException(e);
+                } catch (StreamingQueryException e) {
+                    throw new RuntimeException(e);
+                }
+            } else {
+                SparkSinkInjector.inject(dataset.write(), sink, catalogTables, applicationId)
+                        .option("checkpointLocation", "/tmp/test-spark-seatunnel")
+                        .mode(SaveMode.Append)
+                        .save();
+            }
         }
         // the sink is the last stream
         return null;

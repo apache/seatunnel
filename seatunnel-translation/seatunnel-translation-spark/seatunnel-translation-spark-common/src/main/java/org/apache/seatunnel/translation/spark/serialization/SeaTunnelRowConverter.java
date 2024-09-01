@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.translation.serialization.RowConverter;
+import org.apache.seatunnel.translation.spark.execution.CheckpointMetadata;
 import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
 
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema;
@@ -61,18 +62,43 @@ public class SeaTunnelRowConverter extends RowConverter<SeaTunnelRow> {
     }
 
     public GenericRowWithSchema parcel(SeaTunnelRow seaTunnelRow) {
+        // 0 -> RowKind, 1 -> TableId, 2 -> Metadata
+        int offset = 3;
         SeaTunnelRowType rowType = (SeaTunnelRowType) dataType;
         int arity = rowType.getTotalFields();
-        Object[] fields = new Object[arity + 2];
+        Object[] fields = new Object[arity + offset];
         fields[0] = seaTunnelRow.getRowKind().toByteValue();
         fields[1] = seaTunnelRow.getTableId();
+        fields[2] =
+                convertMap(
+                        seaTunnelRow.getMetadata(),
+                        new MapType<String, String>(BasicType.STRING_TYPE, BasicType.STRING_TYPE));
         StructType schema = (StructType) TypeConverterUtils.parcel(rowType);
         for (int i = 0; i < arity; i++) {
             Object fieldValue = convert(seaTunnelRow.getField(i), rowType.getFieldType(i));
             if (fieldValue != null) {
-                fields[i + 2] = fieldValue;
+                fields[i + offset] = fieldValue;
             }
         }
+        return new GenericRowWithSchema(fields, schema);
+    }
+
+    public GenericRowWithSchema checkpointEvent(
+            StructType schema, RowKind rowKind, String tableId, CheckpointMetadata metadata) {
+        // 0 -> RowKind, 1 -> TableId, 2 -> Metadata
+        Object[] fields = new Object[schema.fields().length];
+        fields[0] = rowKind.toByteValue();
+        fields[1] = tableId;
+        fields[2] =
+                CheckpointMetadata.create(
+                        metadata.location(),
+                        metadata.batchId(),
+                        metadata.subTaskId(),
+                        metadata.checkpointId());
+        fields[2] =
+                convertMap(
+                        (Map<?, ?>) fields[2],
+                        new MapType<String, String>(BasicType.STRING_TYPE, BasicType.STRING_TYPE));
         return new GenericRowWithSchema(fields, schema);
     }
 
@@ -148,7 +174,7 @@ public class SeaTunnelRowConverter extends RowConverter<SeaTunnelRow> {
             keys[i] = convert(keys[i], mapType.getKeyType());
             values[i] = convert(values[i], mapType.getValueType());
             Tuple2<Object, Object> tuple2 = new Tuple2<>(keys[i], values[i]);
-            newMap = newMap.$plus(tuple2);
+            newMap = newMap.<Object>$plus(tuple2);
         }
 
         return newMap;
@@ -172,16 +198,20 @@ public class SeaTunnelRowConverter extends RowConverter<SeaTunnelRow> {
     }
 
     public SeaTunnelRow unpack(GenericRowWithSchema engineRow) throws IOException {
+        // 0 -> RowKind, 1 -> TableId, 2 -> Metadata
+        int offset = 3;
         SeaTunnelRowType rowType = (SeaTunnelRowType) dataType;
         RowKind rowKind = RowKind.fromByteValue(engineRow.getByte(0));
         String tableId = engineRow.getString(1);
+        Map<String, String> metadata = engineRow.getJavaMap(2);
         Object[] fields = new Object[rowType.getTotalFields()];
         for (int i = 0; i < fields.length; i++) {
-            fields[i] = reconvert(engineRow.get(i + 2), rowType.getFieldType(i));
+            fields[i] = reconvert(engineRow.get(i + offset), rowType.getFieldType(i));
         }
         SeaTunnelRow seaTunnelRow = new SeaTunnelRow(fields);
         seaTunnelRow.setRowKind(rowKind);
         seaTunnelRow.setTableId(tableId);
+        seaTunnelRow.setMetadata(metadata);
         return seaTunnelRow;
     }
 

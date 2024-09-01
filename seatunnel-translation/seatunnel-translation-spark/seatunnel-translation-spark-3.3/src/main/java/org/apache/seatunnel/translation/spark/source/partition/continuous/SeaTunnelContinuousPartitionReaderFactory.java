@@ -15,33 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.translation.spark.source.partition.micro;
+package org.apache.seatunnel.translation.spark.source.partition.continuous;
 
+import org.apache.spark.SparkEnv;
+import org.apache.spark.rpc.RpcEndpointRef;
 import org.apache.spark.sql.catalyst.InternalRow;
-import org.apache.spark.sql.connector.read.PartitionReader;
+import org.apache.spark.sql.connector.read.InputPartition;
+import org.apache.spark.sql.connector.read.streaming.ContinuousPartitionReader;
+import org.apache.spark.sql.connector.read.streaming.ContinuousPartitionReaderFactory;
+import org.apache.spark.util.RpcUtils;
 
-import java.io.IOException;
-
-public class SeaTunnelMicroBatchPartitionReader implements PartitionReader<InternalRow> {
-
-    private final ParallelMicroBatchPartitionReader partitionReader;
-
-    public SeaTunnelMicroBatchPartitionReader(ParallelMicroBatchPartitionReader partitionReader) {
-        this.partitionReader = partitionReader;
-    }
-
+public class SeaTunnelContinuousPartitionReaderFactory implements ContinuousPartitionReaderFactory {
     @Override
-    public boolean next() throws IOException {
-        return partitionReader.next();
-    }
+    public ContinuousPartitionReader<InternalRow> createReader(InputPartition partition) {
+        RpcEndpointRef endpointRef =
+                RpcUtils.makeDriverRef("", SparkEnv.get().conf(), SparkEnv.get().rpcEnv());
 
-    @Override
-    public InternalRow get() {
-        return partitionReader.get();
-    }
-
-    @Override
-    public void close() throws IOException {
-        partitionReader.close();
+        return null;
     }
 }

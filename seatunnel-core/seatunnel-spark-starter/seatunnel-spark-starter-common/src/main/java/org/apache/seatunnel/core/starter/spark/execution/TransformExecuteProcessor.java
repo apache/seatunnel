@@ -31,6 +31,7 @@ import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
 import org.apache.seatunnel.core.starter.execution.PluginUtil;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelFactoryDiscovery;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelTransformPluginDiscovery;
+import org.apache.seatunnel.translation.spark.execution.CheckpointMetadata;
 import org.apache.seatunnel.translation.spark.execution.DatasetTableInfo;
 import org.apache.seatunnel.translation.spark.serialization.SeaTunnelRowConverter;
 import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
@@ -180,19 +181,19 @@ public class TransformExecuteProcessor
     private static class TransformIterator implements Iterator<Row>, Serializable {
         private Iterator<Row> sourceIterator;
         private SeaTunnelTransform<SeaTunnelRow> transform;
-        private StructType structType;
+        private StructType outputSchema;
         private SeaTunnelRowConverter inputRowConverter;
         private SeaTunnelRowConverter outputRowConverter;
 
         public TransformIterator(
                 Iterator<Row> sourceIterator,
                 SeaTunnelTransform<SeaTunnelRow> transform,
-                StructType structType,
+                StructType outputSchema,
                 SeaTunnelRowConverter inputRowConverter,
                 SeaTunnelRowConverter outputRowConverter) {
             this.sourceIterator = sourceIterator;
             this.transform = transform;
-            this.structType = structType;
+            this.outputSchema = outputSchema;
             this.inputRowConverter = inputRowConverter;
             this.outputRowConverter = outputRowConverter;
         }
@@ -207,6 +208,16 @@ public class TransformExecuteProcessor
             try {
                 Row row = sourceIterator.next();
                 SeaTunnelRow seaTunnelRow = inputRowConverter.unpack((GenericRowWithSchema) row);
+                if (CheckpointMetadata.of(seaTunnelRow.getMetadata()).isCheckpoint()) {
+                    /*
+                     * Skip checkpoint event
+                     */
+                    return outputRowConverter.checkpointEvent(
+                            outputSchema,
+                            seaTunnelRow.getRowKind(),
+                            seaTunnelRow.getTableId(),
+                            CheckpointMetadata.of(seaTunnelRow.getMetadata()));
+                }
                 seaTunnelRow = (SeaTunnelRow) transform.map(seaTunnelRow);
                 if (seaTunnelRow == null) {
                     return null;
