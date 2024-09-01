@@ -101,6 +101,12 @@ public abstract class AbstractResourceManager implements ResourceManager {
         log.info("registerWorker: {}", registerWorker);
     }
 
+
+    public void registerWorker(Address address, WorkerProfile workerProfile) {
+        registerWorker.remove(address);
+        registerWorker.put(address, workerProfile);
+    }
+
     @Override
     public CompletableFuture<SlotProfile> applyResource(
             long jobId, ResourceProfile resourceProfile, Map<String, String> tagFilter)

@@ -39,7 +39,7 @@ public class YarnResourceManager extends AbstractResourceManager
     }
 
     @Override
-    public CompletableFuture<Void> releaseWorker(String workerID) {
+    public CompletableFuture<Void> releaseWorker(String workerId) {
         return null;
     }
 }

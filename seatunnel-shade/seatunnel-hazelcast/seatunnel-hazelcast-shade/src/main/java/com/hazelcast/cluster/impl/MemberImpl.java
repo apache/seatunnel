@@ -23,11 +23,13 @@ import com.hazelcast.core.HazelcastInstanceAware;
 import com.hazelcast.instance.EndpointQualifier;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.internal.cluster.impl.ClusterDataSerializerHook;
+import com.hazelcast.internal.util.CollectionUtil;
 import com.hazelcast.internal.util.Preconditions;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import com.hazelcast.version.MemberVersion;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -169,6 +171,14 @@ public final class MemberImpl extends AbstractMember
         isNotNull(value, "value");
 
         attributes.put(key, value);
+    }
+
+    public void updateAttribute(Map<String,String> tags) {
+        ensureLocalMember();
+        if(tags != null && tags.size() > 0){
+            attributes.clear();
+            attributes.putAll(tags);
+        }
     }
 
     public int getFactoryId() {

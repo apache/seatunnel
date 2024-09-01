@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.server.rest;
 
+import com.hazelcast.cluster.impl.MemberImpl;
+import com.hazelcast.spi.impl.NodeEngineImpl;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
@@ -50,18 +52,12 @@ import com.hazelcast.internal.serialization.Data;
 import scala.Tuple2;
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_400;
 import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_500;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.ENCRYPT_CONFIG;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.STOP_JOBS_URL;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.STOP_JOB_URL;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.SUBMIT_JOBS_URL;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.SUBMIT_JOB_URL;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.*;
 
 public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostCommand> {
 
@@ -94,6 +90,8 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
                 handleStopJob(httpPostCommand);
             } else if (uri.startsWith(ENCRYPT_CONFIG)) {
                 handleEncrypt(httpPostCommand);
+            } else if (uri.startsWith(UPDATE_TAGS_URL)) {
+                handleUpdateTags(httpPostCommand);
             } else {
                 original.handle(httpPostCommand);
             }
@@ -255,6 +253,18 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
                 encryptConfig.root().render(ConfigRenderOptions.concise().setJson(true));
         JsonObject jsonObject = Json.parse(encryptString).asObject();
         this.prepareResponse(httpPostCommand, jsonObject);
+    }
+
+    private void handleUpdateTags(HttpPostCommand httpPostCommand) {
+        Map<String, Object> params = JsonUtils.toMap(requestHandle(httpPostCommand));
+        SeaTunnelServer seaTunnelServer = getSeaTunnelServer();
+
+        NodeEngineImpl nodeEngine = seaTunnelServer.getNodeEngine();
+        MemberImpl localMember = nodeEngine.getLocalMember();
+        if (!params.isEmpty() && params.containsKey("tags")) {
+            localMember.updateAttribute((Map<String, String>) params.get("tags"));
+        }
+        this.prepareResponse(httpPostCommand,new JsonObject().add("message","success"));
     }
 
     @Override
