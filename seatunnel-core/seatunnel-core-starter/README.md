@@ -2,7 +2,7 @@
 
 This module is the base start module for SeaTunnel new connector API.
 
-![seatunnel_architecture.png](../../docs/en/images/seatunnel_architecture.png)
+![seatunnel_architecture.png](../../docs/images/seatunnel_architecture.png)
 
 # SeaTunnel Job Execute Process
 

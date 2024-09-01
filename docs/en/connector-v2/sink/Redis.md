@@ -18,6 +18,7 @@ Used to write data to Redis.
 | port           | int    | yes                   | -             |
 | key            | string | yes                   | -             |
 | data_type      | string | yes                   | -             |
+| batch_size     | int    | no                    | 10            |
 | user           | string | no                    | -             |
 | auth           | string | no                    | -             |
 | db_num         | int    | no                    | 0             |
@@ -83,6 +84,10 @@ Redis data types, support `key` `hash` `list` `set` `zset`
 - zset
 
 > Each data from upstream will be added to the configured zset key with a weight of 1. So the order of data in zset is based on the order of data consumption.
+>
+  ### batch_size [int]
+
+ensure the batch write size in single-machine mode; no guarantees in cluster mode.
 
 ### user [string]
 
@@ -132,7 +137,7 @@ Set redis expiration time, the unit is second. The default value is -1, keys do 
 
 ### common options
 
-Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
+Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details
 
 ## Example
 

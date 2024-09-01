@@ -23,6 +23,7 @@ import lombok.ToString;
 
 @ToString(callSuper = true)
 public abstract class AlterTableColumnEvent extends AlterTableEvent {
+
     public AlterTableColumnEvent(TableIdentifier tableIdentifier) {
         super(tableIdentifier);
     }

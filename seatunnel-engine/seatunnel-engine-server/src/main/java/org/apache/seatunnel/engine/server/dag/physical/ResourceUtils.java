@@ -42,14 +42,16 @@ public class ResourceUtils {
                         coordinator ->
                                 futures.put(
                                         coordinator.getTaskGroupLocation(),
-                                        applyResourceForTask(resourceManager, coordinator)));
+                                        applyResourceForTask(
+                                                resourceManager, coordinator, subPlan.getTags())));
 
         subPlan.getPhysicalVertexList()
                 .forEach(
                         task ->
                                 futures.put(
                                         task.getTaskGroupLocation(),
-                                        applyResourceForTask(resourceManager, task)));
+                                        applyResourceForTask(
+                                                resourceManager, task, subPlan.getTags())));
 
         futures.forEach(
                 (key, value) -> {
@@ -68,9 +70,9 @@ public class ResourceUtils {
     }
 
     public static CompletableFuture<SlotProfile> applyResourceForTask(
-            ResourceManager resourceManager, PhysicalVertex task) {
+            ResourceManager resourceManager, PhysicalVertex task, Map<String, String> tags) {
         // TODO custom resource size
         return resourceManager.applyResource(
-                task.getTaskGroupLocation().getJobId(), new ResourceProfile());
+                task.getTaskGroupLocation().getJobId(), new ResourceProfile(), tags);
     }
 }

@@ -44,7 +44,7 @@ Source connector for Apache RocketMQ.
 | start.mode.offsets                  |         | no       |                            |                                                                                                                                                                                                                    |
 | start.mode.timestamp                | Long    | no       |                            | The time required for consumption mode to be "CONSUME_FROM_TIMESTAMP".                                                                                                                                             |
 | partition.discovery.interval.millis | long    | no       | -1                         | The interval for dynamically discovering topics and partitions.                                                                                                                                                    |
-| common-options                      | config  | no       | -                          | Source plugin common parameters, please refer to [Source Common Options](common-options.md) for details.                                                                                                           |
+| common-options                      | config  | no       | -                          | Source plugin common parameters, please refer to [Source Common Options](../source-common-options.md) for details.                                                                                                 |
 
 ### start.mode.offsets
 

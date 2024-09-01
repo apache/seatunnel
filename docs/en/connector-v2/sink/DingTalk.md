@@ -2,33 +2,39 @@
 
 > DinkTalk sink connector
 
-## Description
+## Support Those Engines
 
-A sink plugin which use DingTalk robot send message
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
 
 ## Key features
 
 - [ ] [exactly-once](../../concept/connector-v2-features.md)
 
+## Description
+
+A sink plugin which use DingTalk robot send message
+
 ## Options
 
 |      name      |  type  | required | default value |
 |----------------|--------|----------|---------------|
-| url            | string | yes      | -             |
-| secret         | string | yes      | -             |
+| url            | String | yes      | -             |
+| secret         | String | yes      | -             |
 | common-options |        | no       | -             |
 
-### url [string]
+### url [String]
 
-DingTalk robot address format is https://oapi.dingtalk.com/robot/send?access_token=XXXXXX（string）
+DingTalk robot address format is https://oapi.dingtalk.com/robot/send?access_token=XXXXXX（String）
 
-### secret [string]
+### secret [String]
 
-DingTalk robot secret (string)
+DingTalk robot secret (String)
 
 ### common options
 
-Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details
+Sink plugin common parameters, please refer to [Sink Common Options](../sink-common-options.md) for details
 
 ## Example
 

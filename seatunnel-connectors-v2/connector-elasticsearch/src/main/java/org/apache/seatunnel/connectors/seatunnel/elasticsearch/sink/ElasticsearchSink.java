@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.sink.SupportSaveMode;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -47,6 +48,7 @@ public class ElasticsearchSink
                         ElasticsearchSinkState,
                         ElasticsearchCommitInfo,
                         ElasticsearchAggregatedCommitInfo>,
+                SupportMultiTableSink,
                 SupportSaveMode {
 
     private ReadonlyConfig config;
@@ -69,8 +71,7 @@ public class ElasticsearchSink
     }
 
     @Override
-    public SinkWriter<SeaTunnelRow, ElasticsearchCommitInfo, ElasticsearchSinkState> createWriter(
-            SinkWriter.Context context) {
+    public ElasticsearchSinkWriter createWriter(SinkWriter.Context context) {
         return new ElasticsearchSinkWriter(
                 context, catalogTable, config, maxBatchSize, maxRetryCount);
     }
@@ -90,7 +91,6 @@ public class ElasticsearchSink
         DataSaveMode dataSaveMode = config.get(SinkConfig.DATA_SAVE_MODE);
 
         TablePath tablePath = TablePath.of("", catalogTable.getTableId().getTableName());
-        catalog.open();
         return Optional.of(
                 new DefaultSaveModeHandler(
                         schemaSaveMode, dataSaveMode, catalog, tablePath, null, null));

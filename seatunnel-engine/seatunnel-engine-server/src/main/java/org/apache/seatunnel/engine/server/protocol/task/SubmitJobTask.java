@@ -39,7 +39,10 @@ public class SubmitJobTask
 
     @Override
     protected Operation prepareOperation() {
-        return new SubmitJobOperation(parameters.jobId, parameters.jobImmutableInformation);
+        return new SubmitJobOperation(
+                parameters.jobId,
+                parameters.jobImmutableInformation,
+                parameters.isStartWithSavePoint);
     }
 
     @Override

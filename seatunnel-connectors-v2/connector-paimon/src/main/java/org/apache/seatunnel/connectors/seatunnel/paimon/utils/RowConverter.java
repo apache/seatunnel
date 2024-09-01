@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonConfig;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.paimon.data.BinaryArray;
 import org.apache.paimon.data.BinaryArrayWriter;
 import org.apache.paimon.data.BinaryMap;
@@ -55,6 +56,7 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /** The converter for converting {@link InternalRow} and {@link SeaTunnelRow} */
 public class RowConverter {
@@ -238,7 +240,8 @@ public class RowConverter {
      * @param seaTunnelRowType SeaTunnel row type
      * @return SeaTunnel row
      */
-    public static SeaTunnelRow convert(InternalRow rowData, SeaTunnelRowType seaTunnelRowType) {
+    public static SeaTunnelRow convert(
+            InternalRow rowData, SeaTunnelRowType seaTunnelRowType, TableSchema tableSchema) {
         Object[] objects = new Object[seaTunnelRowType.getTotalFields()];
         for (int i = 0; i < objects.length; i++) {
             // judge the field is or not equals null
@@ -289,9 +292,15 @@ public class RowConverter {
                     objects[i] = DateTimeUtils.toLocalDate(dateInt);
                     break;
                 case TIMESTAMP:
-                    // Now SeaTunnel not supported assigned the timezone for timestamp,
-                    // so we use the default precision 6
-                    Timestamp timestamp = rowData.getTimestamp(i, 6);
+                    int precision = TimestampType.DEFAULT_PRECISION;
+                    Optional<DataField> precisionOptional =
+                            tableSchema.fields().stream()
+                                    .filter(dataField -> dataField.name().equals(fieldName))
+                                    .findFirst();
+                    if (precisionOptional.isPresent()) {
+                        precision = ((TimestampType) precisionOptional.get().type()).getPrecision();
+                    }
+                    Timestamp timestamp = rowData.getTimestamp(i, precision);
                     objects[i] = timestamp.toLocalDateTime();
                     break;
                 case ARRAY:
@@ -320,7 +329,7 @@ public class RowConverter {
                     SeaTunnelDataType<?> rowType = seaTunnelRowType.getFieldType(i);
                     InternalRow row =
                             rowData.getRow(i, ((SeaTunnelRowType) rowType).getTotalFields());
-                    objects[i] = convert(row, (SeaTunnelRowType) rowType);
+                    objects[i] = convert(row, (SeaTunnelRowType) rowType, tableSchema);
                     break;
                 default:
                     throw CommonError.unsupportedDataType(
@@ -337,13 +346,20 @@ public class RowConverter {
      *
      * @param seaTunnelRow SeaTunnel row object
      * @param seaTunnelRowType SeaTunnel row type
-     * @param tableSchema Paimon table schema
+     * @param sinkTableSchema Paimon table schema
      * @return Paimon row object
      */
     public static InternalRow reconvert(
-            SeaTunnelRow seaTunnelRow, SeaTunnelRowType seaTunnelRowType, TableSchema tableSchema) {
-        List<DataField> fields = tableSchema.fields();
-        BinaryRow binaryRow = new BinaryRow(seaTunnelRowType.getTotalFields());
+            SeaTunnelRow seaTunnelRow,
+            SeaTunnelRowType seaTunnelRowType,
+            TableSchema sinkTableSchema) {
+        List<DataField> sinkTotalFields = sinkTableSchema.fields();
+        int sourceTotalFields = seaTunnelRowType.getTotalFields();
+        if (sourceTotalFields != sinkTotalFields.size()) {
+            throw CommonError.writeRowErrorWithFiledsCountNotMatch(
+                    "Paimon", sourceTotalFields, sinkTotalFields.size());
+        }
+        BinaryRow binaryRow = new BinaryRow(sourceTotalFields);
         BinaryWriter binaryWriter = new BinaryRowWriter(binaryRow);
         // Convert SeaTunnel RowKind to Paimon RowKind
         org.apache.paimon.types.RowKind rowKind =
@@ -362,6 +378,7 @@ public class RowConverter {
                 binaryWriter.setNullAt(i);
                 continue;
             }
+            checkCanWriteWithType(i, seaTunnelRowType, sinkTotalFields);
             String fieldName = seaTunnelRowType.getFieldName(i);
             switch (fieldTypes[i].getSqlType()) {
                 case TINYINT:
@@ -383,14 +400,17 @@ public class RowConverter {
                     binaryWriter.writeDouble(i, (Double) seaTunnelRow.getField(i));
                     break;
                 case DECIMAL:
-                    DecimalType fieldType = (DecimalType) seaTunnelRowType.getFieldType(i);
+                    DataField decimalDataField =
+                            SchemaUtil.getDataField(sinkTotalFields, fieldName);
+                    org.apache.paimon.types.DecimalType decimalType =
+                            (org.apache.paimon.types.DecimalType) decimalDataField.type();
                     binaryWriter.writeDecimal(
                             i,
                             Decimal.fromBigDecimal(
                                     (BigDecimal) seaTunnelRow.getField(i),
-                                    fieldType.getPrecision(),
-                                    fieldType.getScale()),
-                            fieldType.getPrecision());
+                                    decimalType.getPrecision(),
+                                    decimalType.getScale()),
+                            decimalType.getPrecision());
                     break;
                 case STRING:
                     binaryWriter.writeString(
@@ -408,7 +428,7 @@ public class RowConverter {
                             .setValue(binaryWriter, i, DateTimeUtils.toInternal(date));
                     break;
                 case TIMESTAMP:
-                    DataField dataField = SchemaUtil.getDataField(fields, fieldName);
+                    DataField dataField = SchemaUtil.getDataField(sinkTotalFields, fieldName);
                     int precision = ((TimestampType) dataField.type()).getPrecision();
                     LocalDateTime datetime = (LocalDateTime) seaTunnelRow.getField(i);
                     binaryWriter.writeTimestamp(
@@ -448,9 +468,12 @@ public class RowConverter {
                     SeaTunnelDataType<?> rowType = seaTunnelRowType.getFieldType(i);
                     Object row = seaTunnelRow.getField(i);
                     InternalRow paimonRow =
-                            reconvert((SeaTunnelRow) row, (SeaTunnelRowType) rowType, tableSchema);
+                            reconvert(
+                                    (SeaTunnelRow) row,
+                                    (SeaTunnelRowType) rowType,
+                                    sinkTableSchema);
                     RowType paimonRowType =
-                            RowTypeConverter.reconvert((SeaTunnelRowType) rowType, tableSchema);
+                            RowTypeConverter.reconvert((SeaTunnelRowType) rowType, sinkTableSchema);
                     binaryWriter.writeRow(i, paimonRow, new InternalRowSerializer(paimonRowType));
                     break;
                 default:
@@ -461,5 +484,37 @@ public class RowConverter {
             }
         }
         return binaryRow;
+    }
+
+    private static void checkCanWriteWithType(
+            int i, SeaTunnelRowType seaTunnelRowType, List<DataField> fields) {
+        String sourceFieldName = seaTunnelRowType.getFieldName(i);
+        SeaTunnelDataType<?> sourceFieldType = seaTunnelRowType.getFieldType(i);
+        DataField sinkDataField = fields.get(i);
+        DataType exceptDataType =
+                RowTypeConverter.reconvert(sourceFieldName, seaTunnelRowType.getFieldType(i));
+        DataField exceptDataField = new DataField(i, sourceFieldName, exceptDataType);
+        DataType sinkDataType = sinkDataField.type();
+        if (!exceptDataType.getTypeRoot().equals(sinkDataType.getTypeRoot())) {
+            throw CommonError.writeRowErrorWithSchemaIncompatibleSchema(
+                    "Paimon",
+                    sourceFieldName + StringUtils.SPACE + sourceFieldType.getSqlType(),
+                    exceptDataField.asSQLString(),
+                    sinkDataField.asSQLString());
+        }
+        if (sourceFieldType instanceof DecimalType
+                && sinkDataType instanceof org.apache.paimon.types.DecimalType) {
+            DecimalType sourceDecimalType = (DecimalType) sourceFieldType;
+            org.apache.paimon.types.DecimalType sinkDecimalType =
+                    (org.apache.paimon.types.DecimalType) sinkDataType;
+            if (sinkDecimalType.getPrecision() < sourceDecimalType.getPrecision()
+                    || sinkDecimalType.getScale() < sourceDecimalType.getScale()) {
+                throw CommonError.writeRowErrorWithSchemaIncompatibleSchema(
+                        "Paimon",
+                        sourceFieldName + StringUtils.SPACE + sourceFieldType.getSqlType(),
+                        exceptDataField.asSQLString(),
+                        sinkDataField.asSQLString());
+            }
+        }
     }
 }

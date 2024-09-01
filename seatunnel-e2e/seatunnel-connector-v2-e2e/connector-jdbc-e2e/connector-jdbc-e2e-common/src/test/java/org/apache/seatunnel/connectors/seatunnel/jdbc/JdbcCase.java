@@ -52,8 +52,13 @@ public class JdbcCase {
     private List<String> configFile;
     private Pair<String[], List<SeaTunnelRow>> testData;
     private Map<String, String> containerEnv;
+    private boolean useSaveModeCreateTable;
 
     private String catalogDatabase;
     private String catalogSchema;
     private String catalogTable;
+
+    // The full path of the table created when initializing data
+    // According to whether jdbc api supports setting
+    private String tablePathFullName;
 }

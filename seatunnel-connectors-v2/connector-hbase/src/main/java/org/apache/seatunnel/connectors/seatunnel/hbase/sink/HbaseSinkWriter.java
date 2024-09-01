@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hbase.sink;
 
+import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -44,7 +45,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-public class HbaseSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
+public class HbaseSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
+        implements SupportMultiTableSinkWriter<Void> {
 
     private static final String ALL_COLUMNS = "all_columns";
 
@@ -76,7 +78,8 @@ public class HbaseSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         this.versionColumnIndex = versionColumnIndex;
 
         if (hbaseParameters.getFamilyNames().size() == 1) {
-            defaultFamilyName = hbaseParameters.getFamilyNames().getOrDefault(ALL_COLUMNS, "value");
+            defaultFamilyName =
+                    hbaseParameters.getFamilyNames().getOrDefault(ALL_COLUMNS, defaultFamilyName);
         }
 
         // initialize hbase configuration
@@ -117,6 +120,9 @@ public class HbaseSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             timestamp = (Long) row.getField(versionColumnIndex);
         }
         Put put = new Put(rowkey, timestamp);
+        if (hbaseParameters.getTtl() != -1 && hbaseParameters.getTtl() > 0) {
+            put.setTTL(hbaseParameters.getTtl());
+        }
         if (!hbaseParameters.isWalWrite()) {
             put.setDurability(Durability.SKIP_WAL);
         }
