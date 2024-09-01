@@ -52,12 +52,19 @@ import com.hazelcast.internal.serialization.Data;
 import scala.Tuple2;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_400;
 import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_500;
-import static org.apache.seatunnel.engine.server.rest.RestConstant.*;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.ENCRYPT_CONFIG;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.STOP_JOBS_URL;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.STOP_JOB_URL;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.SUBMIT_JOBS_URL;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.SUBMIT_JOB_URL;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.UPDATE_TAGS_URL;
 
 public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostCommand> {
 
