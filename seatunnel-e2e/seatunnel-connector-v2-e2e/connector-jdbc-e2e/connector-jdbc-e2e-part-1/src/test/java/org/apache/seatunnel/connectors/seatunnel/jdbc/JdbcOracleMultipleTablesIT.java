@@ -171,11 +171,11 @@ public class JdbcOracleMultipleTablesIT extends TestSuiteBase implements TestRes
                                                         Assertions.assertIterableEquals(
                                                                 query(
                                                                         String.format(
-                                                                                "SELECT * FROM %s.%s",
+                                                                                "SELECT * FROM %s.%s order by INTEGER_COL asc",
                                                                                 SCHEMA, table)),
                                                                 query(
                                                                         String.format(
-                                                                                "SELECT * FROM %s.%s",
+                                                                                "SELECT * FROM %s.%s order by INTEGER_COL asc",
                                                                                 SCHEMA,
                                                                                 "SINK_" + table))))
                         .collect(Collectors.toList());
@@ -198,8 +198,7 @@ public class JdbcOracleMultipleTablesIT extends TestSuiteBase implements TestRes
             tables.forEach(
                     tableName -> {
                         try {
-                            statement.execute(
-                                    String.format(CREATE_TABLE_SQL, SCHEMA + "." + tableName));
+                            statement.execute(String.format(CREATE_TABLE_SQL, tableName));
                         } catch (SQLException e) {
                             throw new RuntimeException(e);
                         }
