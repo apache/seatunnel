@@ -23,12 +23,12 @@ different API endpoints.
 | custom_config                  | map    | no       |               | Custom configurations for the model.                                                                        |
 | custom_response_parse          | string | no       |               | Specifies how to parse the response from the model using JsonPath. Example: `$.choices[*].message.content`. |
 | custom_request_headers         | map    | no       |               | Custom headers for the request to the model.                                                                |
-| custom_request_body            | map    | no       |               | Custom body for the request. Supports placeholders like `${model}`, `${input}`, `${prompt}`.                |
+| custom_request_body            | map    | no       |               | Custom body for the request. Supports placeholders like `${model}`, `${input}`.                             |
 
 ### model_provider
 
-The model provider to use for generating embeddings. Common options might include `QIANFAN`, `OPENAI`, etc. Depending on
-the provider, different models and API paths may be available.
+The providers for generating embeddings include common options such as `DOUBAO`, `QIANFAN`, and `OPENAI`. Additionally,
+you can choose `CUSTOM` to implement requests and retrievals for custom embedding models.
 
 ### api_key
 
@@ -79,9 +79,34 @@ can define various settings that might be required by the specific model you're 
 
 ### custom_response_parse
 
-The `custom_response_parse` option allows you to specify how the model's response should be parsed. You can use JsonPath
-to extract the specific data you need from the response. For example, if the response contains a list of choices with
-messages, you might use `$.choices[*].message.content` to extract the content of each message.
+The `custom_response_parse` option allows you to specify how to parse the model's response. You can use JsonPath to
+extract the specific data you need from the response. For example, by using `$.data[*].embedding`, you can extract
+the `embedding` field values from the following JSON and obtain a `List` of nested `List` results. For more details on
+using JsonPath, please refer to
+the [JsonPath Getting Started guide](https://github.com/json-path/JsonPath?tab=readme-ov-file#getting-started).
+
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "object": "embedding",
+      "index": 0,
+      "embedding": [
+        -0.006929283495992422,
+        -0.005336422007530928,
+        -0.00004547132266452536,
+        -0.024047505110502243
+      ]
+    }
+  ],
+  "model": "text-embedding-3-small",
+  "usage": {
+    "prompt_tokens": 5,
+    "total_tokens": 5
+  }
+}
+```
 
 ### custom_request_headers
 
@@ -94,7 +119,8 @@ tokens, content types, etc.
 The `custom_request_body` option supports placeholders:
 
 - `${model}`: Placeholder for the model name.
-- `${input}`: Placeholder to determine input type. Example: `["${input}"]`.
+- `${input}`: Placeholder to determine input value and define request body request type based on the type of body
+  value. Example: `["${input}"]` -> ["input"] (list)
 
 ### common options
 
@@ -291,7 +317,7 @@ transform {
         }
         custom_request_body ={
             modelx = "${model}"
-            inputx = ["${input}","${input}"]
+            inputx = ["${input}"]
         }
     }
     result_table_name = "embedding_output_3"

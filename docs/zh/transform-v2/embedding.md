@@ -8,24 +8,25 @@
 
 ## 配置选项
 
-| 名称                       | 类型     | 是否必填 | 默认值 | 描述                                                               |
-|--------------------------|--------|------|-----|------------------------------------------------------------------|
-| model_provider           | enum   | 是    | -   | embedding模型的提供商。可选项包括 `QIANFAN`、`OPENAI` 等。                      |
-| api_key                  | string | 是    | -   | 用于验证embedding服务的API密钥。                                           |
-| secret_key               | string | 是    | -   | 用于额外验证的密钥。一些提供商可能需要此密钥进行安全的API请求。                                |
+| 名称                             | 类型     | 是否必填 | 默认值 | 描述                                                               |
+|--------------------------------|--------|------|-----|------------------------------------------------------------------|
+| model_provider                 | enum   | 是    | -   | embedding模型的提供商。可选项包括 `QIANFAN`、`OPENAI` 等。                      |
+| api_key                        | string | 是    | -   | 用于验证embedding服务的API密钥。                                           |
+| secret_key                     | string | 是    | -   | 用于额外验证的密钥。一些提供商可能需要此密钥进行安全的API请求。                                |
 | single_vectorized_input_number | int    | 否    | 1   | 单次请求向量化的输入数量。默认值为1。                                              |
-| vectorization_fields     | map    | 是    | -   | 输入字段和相应的输出向量字段之间的映射。                                             |
-| model                    | string | 是    | -   | 要使用的具体embedding模型。例如，如果提供商为OPENAI，可以指定 `text-embedding-3-small`。 |
-| api_path                 | string | 否    | -   | embedding服务的API。通常由模型提供商提供。                                      |
-| oauth_path               | string | 否    | -   | oauth 服务的 API 。                                                  |
-| custom_config            | map    | 否    |     | 模型的自定义配置。                                                        |
-| custom_response_parse    | string | 否    |     | 使用 JsonPath 解析模型响应的方式。示例：`$.choices[*].message.content`。         |
-| custom_request_headers   | map    | 否    |     | 发送到模型的请求的自定义头信息。                                                 |
-| custom_request_body      | map    | 否    |     | 请求体的自定义配置。支持占位符如 `${model}`、`${input}`、`${prompt}`。              |
+| vectorization_fields           | map    | 是    | -   | 输入字段和相应的输出向量字段之间的映射。                                             |
+| model                          | string | 是    | -   | 要使用的具体embedding模型。例如，如果提供商为OPENAI，可以指定 `text-embedding-3-small`。 |
+| api_path                       | string | 否    | -   | embedding服务的API。通常由模型提供商提供。                                      |
+| oauth_path                     | string | 否    | -   | oauth 服务的 API 。                                                  |
+| custom_config                  | map    | 否    |     | 模型的自定义配置。                                                        |
+| custom_response_parse          | string | 否    |     | 使用 JsonPath 解析模型响应的方式。示例：`$.choices[*].message.content`。         |
+| custom_request_headers         | map    | 否    |     | 发送到模型的请求的自定义头信息。                                                 |
+| custom_request_body            | map    | 否    |     | 请求体的自定义配置。支持占位符如 `${model}`、`${input}`。                          |
 
 ### embedding_model_provider
 
-用于生成 embedding 的模型提供商。常见选项可能包括 `QIANFAN`、`OPENAI` 等。根据提供商的不同，可用的模型和API路径也可能不同。
+用于生成 embedding 的模型提供商。常见选项包括 `DOUBAO`、`QIANFAN`、`OPENAI` 等，同时可选择 `CUSTOM` 实现自定义 embedding
+模型的请求以及获取。
 
 ### api_key
 
@@ -69,7 +70,32 @@ vectorization_fields {
 ### custom_response_parse
 
 `custom_response_parse` 选项允许您指定如何解析模型的响应。您可以使用 JsonPath
-从响应中提取所需的特定数据。例如，如果响应包含带有消息的选择列表，您可能会使用 `$.choices[*].message.content` 提取每条消息的内容。
+从响应中提取所需的特定数据。例如，使用 `$.data[*].embedding` 提取如下json中的 `embedding` 字段
+值,获取 `List` 嵌套 `List` 的结果。JsonPath
+的使用请参考 [JsonPath 快速入门](https://github.com/json-path/JsonPath?tab=readme-ov-file#getting-started)
+
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "object": "embedding",
+      "index": 0,
+      "embedding": [
+        -0.006929283495992422,
+        -0.005336422007530928,
+        -0.00004547132266452536,
+        -0.024047505110502243
+      ]
+    }
+  ],
+  "model": "text-embedding-3-small",
+  "usage": {
+    "prompt_tokens": 5,
+    "total_tokens": 5
+  }
+}
+```
 
 ### custom_request_headers
 
@@ -81,8 +107,8 @@ vectorization_fields {
 `custom_request_body` 选项支持占位符：
 
 - `${model}`：用于模型名称的占位符。
-- `${input}`：用于确定输入类型的占位符。例如：`["${input}"]`。
-- `${prompt}`：用于 LLM 模型提示的占位符。
+- `${input}`：用于确定输入值的占位符,同时根据 body value 的类型定义请求体请求类型。例如：`["${input}"]` -> ["input"] (
+  list)。
 
 ### common options
 
@@ -281,7 +307,7 @@ transform {
         }
         custom_request_body ={
             modelx = "${model}"
-            inputx = ["${input}","${input}"]
+            inputx = ["${input}"]
         }
     }
     result_table_name = "embedding_output_3"
