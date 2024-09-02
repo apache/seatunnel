@@ -346,17 +346,18 @@ public class RowConverter {
      *
      * @param seaTunnelRow SeaTunnel row object
      * @param seaTunnelRowType SeaTunnel row type
-     * @param tableSchema Paimon table schema
+     * @param sinkTableSchema Paimon table schema
      * @return Paimon row object
      */
     public static InternalRow reconvert(
-            SeaTunnelRow seaTunnelRow, SeaTunnelRowType seaTunnelRowType, TableSchema tableSchema) {
-        List<DataField> sinkTotalFields = tableSchema.fields();
+            SeaTunnelRow seaTunnelRow,
+            SeaTunnelRowType seaTunnelRowType,
+            TableSchema sinkTableSchema) {
+        List<DataField> sinkTotalFields = sinkTableSchema.fields();
         int sourceTotalFields = seaTunnelRowType.getTotalFields();
         if (sourceTotalFields != sinkTotalFields.size()) {
-            throw new CommonError()
-                    .writeRowErrorWithFiledsCountNotMatch(
-                            "Paimon", sourceTotalFields, sinkTotalFields.size());
+            throw CommonError.writeRowErrorWithFiledsCountNotMatch(
+                    "Paimon", sourceTotalFields, sinkTotalFields.size());
         }
         BinaryRow binaryRow = new BinaryRow(sourceTotalFields);
         BinaryWriter binaryWriter = new BinaryRowWriter(binaryRow);
@@ -399,14 +400,17 @@ public class RowConverter {
                     binaryWriter.writeDouble(i, (Double) seaTunnelRow.getField(i));
                     break;
                 case DECIMAL:
-                    DecimalType fieldType = (DecimalType) seaTunnelRowType.getFieldType(i);
+                    DataField decimalDataField =
+                            SchemaUtil.getDataField(sinkTotalFields, fieldName);
+                    org.apache.paimon.types.DecimalType decimalType =
+                            (org.apache.paimon.types.DecimalType) decimalDataField.type();
                     binaryWriter.writeDecimal(
                             i,
                             Decimal.fromBigDecimal(
                                     (BigDecimal) seaTunnelRow.getField(i),
-                                    fieldType.getPrecision(),
-                                    fieldType.getScale()),
-                            fieldType.getPrecision());
+                                    decimalType.getPrecision(),
+                                    decimalType.getScale()),
+                            decimalType.getPrecision());
                     break;
                 case STRING:
                     binaryWriter.writeString(
@@ -464,9 +468,12 @@ public class RowConverter {
                     SeaTunnelDataType<?> rowType = seaTunnelRowType.getFieldType(i);
                     Object row = seaTunnelRow.getField(i);
                     InternalRow paimonRow =
-                            reconvert((SeaTunnelRow) row, (SeaTunnelRowType) rowType, tableSchema);
+                            reconvert(
+                                    (SeaTunnelRow) row,
+                                    (SeaTunnelRowType) rowType,
+                                    sinkTableSchema);
                     RowType paimonRowType =
-                            RowTypeConverter.reconvert((SeaTunnelRowType) rowType, tableSchema);
+                            RowTypeConverter.reconvert((SeaTunnelRowType) rowType, sinkTableSchema);
                     binaryWriter.writeRow(i, paimonRow, new InternalRowSerializer(paimonRowType));
                     break;
                 default:
@@ -489,12 +496,25 @@ public class RowConverter {
         DataField exceptDataField = new DataField(i, sourceFieldName, exceptDataType);
         DataType sinkDataType = sinkDataField.type();
         if (!exceptDataType.getTypeRoot().equals(sinkDataType.getTypeRoot())) {
-            throw new CommonError()
-                    .writeRowErrorWithSchemaIncompatibleSchema(
-                            "Paimon",
-                            sourceFieldName + StringUtils.SPACE + sourceFieldType.getSqlType(),
-                            exceptDataField.asSQLString(),
-                            sinkDataField.asSQLString());
+            throw CommonError.writeRowErrorWithSchemaIncompatibleSchema(
+                    "Paimon",
+                    sourceFieldName + StringUtils.SPACE + sourceFieldType.getSqlType(),
+                    exceptDataField.asSQLString(),
+                    sinkDataField.asSQLString());
+        }
+        if (sourceFieldType instanceof DecimalType
+                && sinkDataType instanceof org.apache.paimon.types.DecimalType) {
+            DecimalType sourceDecimalType = (DecimalType) sourceFieldType;
+            org.apache.paimon.types.DecimalType sinkDecimalType =
+                    (org.apache.paimon.types.DecimalType) sinkDataType;
+            if (sinkDecimalType.getPrecision() < sourceDecimalType.getPrecision()
+                    || sinkDecimalType.getScale() < sourceDecimalType.getScale()) {
+                throw CommonError.writeRowErrorWithSchemaIncompatibleSchema(
+                        "Paimon",
+                        sourceFieldName + StringUtils.SPACE + sourceFieldType.getSqlType(),
+                        exceptDataField.asSQLString(),
+                        sinkDataField.asSQLString());
+            }
         }
     }
 }
