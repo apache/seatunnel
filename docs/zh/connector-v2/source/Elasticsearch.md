@@ -133,7 +133,8 @@ Elasticsearch {
 
 案例二：多索引同步
 
-> 此示例演示了如何从 `read_index1` 和 `read_index2` 中读取数据，并将其写入 `multi_source_write_test_index` 索引。在 `read_index1`,`read_index2` 中，我使用 `source` 来指定要读取的字段，并指明哪些字段是数组字段。
+> 此示例演示了如何从 `read_index1` 和 `read_index2` 中读取不同的数据数据，并将其分别写入 `read_index1_copy`,`read_index12_copy` 索引。
+> 在 `read_index1` 中，我使用 `source` 来指定要读取的字段，并使用`array_column`指明哪些字段是数组字段。
 
 ```hocon
 source {
@@ -161,7 +162,8 @@ source {
            c_bytes,
            c_int,
            c_date,
-           c_timestamp]
+           c_timestamp
+           ]
            array_column = {
            c_array = "array<tinyint>"
            }
@@ -169,24 +171,12 @@ source {
        {
            index = "read_index2"
            query = {"match_all": {}}
-           schema = {
-             fields {
-               c_map = "map<string, tinyint>"
-               c_array = "array<tinyint>"
-               c_string = string
-               c_boolean = boolean
-               c_tinyint = tinyint
-               c_smallint = smallint
-               c_bigint = bigint
-               c_float = float
-               c_double = double
-               c_decimal = "decimal(2, 1)"
-               c_bytes = bytes
-               c_int = int
-               c_date = date
-               c_timestamp = timestamp
-             }
-           }
+           source = [
+           c_int2,
+           c_date2,
+           c_null
+           ]
+           
        }
 
     ]

@@ -20,6 +20,7 @@ package org.apache.seatunnel.e2e.connector.elasticsearch;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.TablePath;
@@ -69,12 +70,13 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -201,32 +203,100 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
             value = {},
             type = {EngineType.FLINK},
             disabledReason = "Currently FLINK do not support multiple table read")
-    public void testElasticsSearchWithMultiSource(TestContainer container)
+    public void testElasticsSearchWithMultiSourceByFilter(TestContainer container)
             throws InterruptedException, IOException {
-        // this test will read read_index1,read_index2 write into multi_source_write_test_index
-        createIndexDocsByName("read_index1", testDataset1);
-        createIndexDocsByName("read_index2", testDataset2);
+        // read read_filter_index1,read_filter_index2
+        // write into read_filter_index1_copy,read_filter_index2_copy
+        createIndexDocsByName("read_filter_index1", testDataset1);
+        createIndexDocsByName("read_filter_index2", testDataset2);
+
         Container.ExecResult execResult =
-                container.executeJob("/elasticsearch/elasticsearch_multi_source_and_sink.conf");
+                container.executeJob(
+                        "/elasticsearch/elasticsearch_multi_source_and_sink_by_filter.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-        // data read out may be unordered, so we will use HashSet comparison here.
-        Set<String> sinkData =
+
+        HashMap<String, Object> rangeParam = new HashMap<>();
+        rangeParam.put("gte", 10);
+        rangeParam.put("lte", 20);
+        HashMap<String, Object> range1 = new HashMap<>();
+        range1.put("c_int", rangeParam);
+        Map<String, Object> query1 = new HashMap<>();
+        query1.put("range", range1);
+
+        Map<String, Object> query2 = new HashMap<>();
+        HashMap<String, Object> range2 = new HashMap<>();
+        range2.put("c_int2", rangeParam);
+        query2.put("range", range2);
+
+        // read all data from read_index1_copy,order by c_int,format c_date,
+        // allowed c_null serialized if null
+        Set<String> sinkData1 =
                 new HashSet<>(
-                        readSinkDataWithOutSchema(
-                                "multi_source_write_test_index", Lists.newArrayList("c_null")));
-        List<String> index1Data = mapTestDatasetForDSL(testDataset1);
-        List<String> index2Data = mapTestDatasetForDSL(testDataset2);
-        Set<String> allData = new LinkedHashSet<>();
-        allData.addAll(index1Data);
-        allData.addAll(index2Data);
-        Assertions.assertTrue(allData.size() > 0);
-        Assertions.assertTrue(sinkData.size() > 0);
-        Assertions.assertEquals(allData.size(), sinkData.size());
-        for (String data : allData) {
-            sinkData.remove(data);
-        }
+                        getDocsWithTransformDate(
+                                // read all field
+                                Collections.emptyList(),
+                                // read indexName
+                                "read_filter_index1_copy",
+                                // allowed c_null serialized if null
+                                Lists.newArrayList("c_null"),
+                                // query condition
+                                query1,
+                                // transformDate field:c_date
+                                Lists.newArrayList("c_date"),
+                                // order field
+                                "c_int"));
+        // predicate -> true,read data by filter
+        List<String> index1Data =
+                mapTestDatasetForDSL(
+                        // use testDataset1
+                        testDataset1,
+                        // filter testDataset1 match sinkData1
+                        doc -> {
+                            if (doc.has("c_int")) {
+                                int cInt = doc.get("c_int").asInt();
+                                return cInt >= 10 && cInt <= 20;
+                            }
+                            return false;
+                        },
+                        JsonNode::toString);
+        Assertions.assertEquals(sinkData1.size(), index1Data.size());
+        index1Data.forEach(sinkData1::remove);
         // data is completely consistent, and the size is zero after deletion
-        Assertions.assertEquals(0, sinkData.size());
+        Assertions.assertEquals(0, sinkData1.size());
+
+        List<String> index2Data =
+                mapTestDatasetForDSL(
+                        testDataset2,
+                        // use customer predicate filter data to match sinkData2
+                        doc -> {
+                            if (doc.has("c_int2")) {
+                                int cInt = doc.get("c_int2").asInt();
+                                return cInt >= 10 && cInt <= 20;
+                            }
+                            return false;
+                        },
+                        // mapping doc to string,keep only three fields
+                        doc -> {
+                            Map<String, Object> map = new HashMap<>();
+                            map.put("c_int2", doc.get("c_int2"));
+                            map.put("c_null2", doc.get("c_null2"));
+                            map.put("c_date2", doc.get("c_date2"));
+                            return JsonUtils.toJsonString(map);
+                        });
+        Set<String> sinkData2 =
+                new HashSet<>(
+                        getDocsWithTransformDate(
+                                // read three fields from index
+                                Lists.newArrayList("c_int2", "c_null2", "c_date2"),
+                                "read_filter_index2_copy",
+                                //// allowed c_null serialized if null
+                                Lists.newArrayList("c_null2"),
+                                query2,
+                                Lists.newArrayList("c_date2"),
+                                "c_int2"));
+        Assertions.assertEquals(sinkData2.size(), index2Data.size());
+        index2Data.forEach(sinkData2::remove);
+        Assertions.assertEquals(0, sinkData2.size());
     }
 
     @DisabledOnContainer(
@@ -351,21 +421,21 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
     private List<String> generateTestDataSet2() throws JsonProcessingException {
         String[] fields =
                 new String[] {
-                    "c_map",
-                    "c_array",
-                    "c_string",
-                    "c_boolean",
-                    "c_tinyint",
-                    "c_smallint",
-                    "c_bigint",
-                    "c_float",
-                    "c_double",
-                    "c_decimal",
-                    "c_bytes",
-                    "c_int",
-                    "c_date",
-                    "c_timestamp",
-                    "c_null"
+                    "c_map2",
+                    "c_array2",
+                    "c_string2",
+                    "c_boolean2",
+                    "c_tinyint2",
+                    "c_smallint2",
+                    "c_bigint2",
+                    "c_float2",
+                    "c_double2",
+                    "c_decimal2",
+                    "c_bytes2",
+                    "c_int2",
+                    "c_date2",
+                    "c_timestamp2",
+                    "c_null2"
                 };
 
         List<String> documents = new ArrayList<>();
@@ -374,7 +444,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
             Map<String, Object> doc = new HashMap<>();
             Object[] values =
                     new Object[] {
-                        Collections.singletonMap("key", Short.parseShort(String.valueOf(i))),
+                        Collections.singletonMap("key2", Short.parseShort(String.valueOf(i))),
                         new Byte[] {
                             Byte.parseByte("11"), Byte.parseByte("22"), Byte.parseByte("33")
                         },
@@ -507,6 +577,14 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         return getDocsWithTransformDate(source, index, Collections.emptyList());
     }
 
+    /**
+     * use default query: c_int >= 10 and c_int <=20
+     *
+     * @param source The field to be read
+     * @param index indexName
+     * @param nullAllowedFields If the value of the field is null, it will be serialized to 'null'
+     * @return serialized data as jsonString
+     */
     private List<String> getDocsWithTransformDate(
             List<String> source, String index, List<String> nullAllowedFields) {
         HashMap<String, Object> rangeParam = new HashMap<>();
@@ -547,10 +625,74 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         return docs;
     }
 
+    /**
+     * use customer query read data
+     *
+     * @param source The field to be read
+     * @param index read index
+     * @param nullAllowedFields If the value of the field is null, it will be serialized to 'null'
+     * @param query dls query
+     * @param dateFields dateField will format with yyyy-MM-dd'T'HH:mm
+     * @param orderField how to oder data
+     * @return serialized data as jsonString
+     */
+    private List<String> getDocsWithTransformDate(
+            List<String> source,
+            String index,
+            List<String> nullAllowedFields,
+            Map<String, Object> query,
+            List<String> dateFields,
+            String orderField) {
+        ScrollResult scrollResult = esRestClient.searchByScroll(index, source, query, "1m", 1000);
+        scrollResult
+                .getDocs()
+                .forEach(
+                        x -> {
+                            x.remove("_index");
+                            x.remove("_type");
+                            x.remove("_id");
+                            for (String field : nullAllowedFields) {
+                                if (!x.containsKey(field)) {
+                                    x.put(field, null);
+                                }
+                            }
+                            for (String dateField : dateFields) {
+                                if (x.containsKey(dateField)) {
+                                    x.replace(
+                                            dateField,
+                                            LocalDate.parse(
+                                                            x.get(dateField).toString(),
+                                                            DateTimeFormatter.ofPattern(
+                                                                    "yyyy-MM-dd'T'HH:mm"))
+                                                    .toString());
+                                }
+                            }
+                        });
+        List<String> docs =
+                scrollResult.getDocs().stream()
+                        .sorted(
+                                Comparator.comparingInt(
+                                        o -> Integer.parseInt(o.get(orderField).toString())))
+                        .map(JsonUtils::toJsonString)
+                        .collect(Collectors.toList());
+        return docs;
+    }
+
+    /**
+     * default testDataset1
+     *
+     * @return testDataset1 as jsonString array
+     */
     private List<String> mapTestDatasetForDSL() {
         return mapTestDatasetForDSL(testDataset1);
     }
 
+    /**
+     * default query filter,c_int >=10 and c_int <= 20
+     *
+     * @param testDataset testDataset
+     * @return c_int >=10 and c_int <= 20 filtered data
+     */
     private List<String> mapTestDatasetForDSL(List<String> testDataset) {
         return testDataset.stream()
                 .map(JsonUtils::parseObject)
@@ -563,6 +705,25 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                             return false;
                         })
                 .map(JsonNode::toString)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Use custom filtering criteria to query data
+     *
+     * @param testDataset testDataset
+     * @param predicate customer query filter
+     * @param mapStrFunc mapping doc to string
+     * @return filtered data
+     */
+    private List<String> mapTestDatasetForDSL(
+            List<String> testDataset,
+            Predicate<ObjectNode> predicate,
+            Function<ObjectNode, String> mapStrFunc) {
+        return testDataset.stream()
+                .map(JsonUtils::parseObject)
+                .filter(predicate)
+                .map(mapStrFunc)
                 .collect(Collectors.toList());
     }
 
@@ -649,5 +810,19 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
             data.add(objectMapper.writeValueAsString(record));
         }
         return data;
+    }
+
+    /**
+     * elastic query all dsl
+     *
+     * @return elastic query all dsl
+     */
+    private Map<String, Object> queryAll() {
+        //  "query": {
+        //    "match_all": {}
+        //  }
+        Map<String, Object> matchAll = new HashMap<>();
+        matchAll.put("match_all", new HashMap<>());
+        return matchAll;
     }
 }

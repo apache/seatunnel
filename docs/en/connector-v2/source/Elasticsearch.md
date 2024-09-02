@@ -127,9 +127,10 @@ Elasticsearch {
 }
 ```
 
-Deme 2 : Multi-table synchronization
+Demo 2 : Multi-table synchronization
 
-> This example demonstrates how to read data from read_index1 and read_index2 and write it into the multi_source_write_test_index index. In read_index1,read_index2, I used source to specify the fields to be read and to indicate which fields are array fields.
+> This example demonstrates how to read different data from read_index1 and read_index2 and write separately to ``read_index1_copy``,``read_index2_copy``.
+> in `read_index1`,I used source to specify the fields to be read and  specify which fields are array fields using the 'array_column'.
 
 ```hocon
 source {
@@ -166,23 +167,11 @@ source {
            index = "read_index2"
            query = {"match_all": {}}
            source = [
-           c_map,
-           c_array,
-           c_string,
-           c_boolean,
-           c_tinyint,
-           c_smallint,
-           c_bigint,
-           c_float,
-           c_double,
-           c_decimal,
-           c_bytes,
-           c_int,
-           c_date,
-           c_timestamp]
-           array_column = {
-           c_array = "array<tinyint>"
-           }
+           c_int2,
+           c_date2,
+           c_null
+           ]
+           
        }
 
     ]
@@ -201,7 +190,7 @@ sink {
     tls_verify_certificate = false
     tls_verify_hostname = false
 
-    index = "multi_source_write_test_index"
+    index = "${table_name}_copy"
     index_type = "st"
     "schema_save_mode"="CREATE_SCHEMA_WHEN_NOT_EXIST"
     "data_save_mode"="APPEND_DATA"
