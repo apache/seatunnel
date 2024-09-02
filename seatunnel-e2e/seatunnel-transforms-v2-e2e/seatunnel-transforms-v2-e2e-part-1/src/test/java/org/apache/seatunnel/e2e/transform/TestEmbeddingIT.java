@@ -92,4 +92,11 @@ public class TestEmbeddingIT extends TestSuiteBase implements TestResource {
         Container.ExecResult execResult = container.executeJob("/embedding_transform.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
+
+    @TestTemplate
+    public void testEmbeddingWithCustomModel(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeJob("/embedding_transform_custom.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
 }

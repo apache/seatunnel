@@ -15,14 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform.nlpmodel.remote.embadding.processor.doubao;
+package org.apache.seatunnel.transform.nlpmodel.embadding.remote.doubao;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ArrayNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
-import org.apache.seatunnel.transform.nlpmodel.remote.embadding.processor.AbstractModel;
+import org.apache.seatunnel.transform.nlpmodel.embadding.remote.AbstractModel;
 
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
@@ -79,7 +79,7 @@ public class DoubaoModel extends AbstractModel {
         String responseStr = EntityUtils.toString(response.getEntity());
 
         if (response.getStatusLine().getStatusCode() != 200) {
-            throw new IOException("Failed to get vector from openai, response: " + responseStr);
+            throw new IOException("Failed to get vector from doubao, response: " + responseStr);
         }
 
         JsonNode data = OBJECT_MAPPER.readTree(responseStr).get("data");

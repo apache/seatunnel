@@ -15,9 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform.nlpmodel.remote.embadding.processor;
+package org.apache.seatunnel.transform.nlpmodel.embadding.remote;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+
+import org.apache.seatunnel.common.utils.BufferUtils;
 
 import org.apache.commons.lang3.ArrayUtils;
 
@@ -43,7 +45,7 @@ public abstract class AbstractModel implements Model {
 
         List<List<Float>> vectors = batchProcess(fields, singleVectorizedInputNumber);
         for (List<Float> vector : vectors) {
-            result.add(transformToBuffer(vector));
+            result.add(BufferUtils.toByteBuffer(vector.toArray(new Float[0])));
         }
         return result;
     }
@@ -60,12 +62,17 @@ public abstract class AbstractModel implements Model {
             List<List<Float>> vector = vector(batch);
             merged.addAll(vector);
         }
+        if (array.length != merged.size()) {
+            throw new RuntimeException(
+                    "The number of vectors is not equal to the number of inputs, Please verify the configuration of the input field and the result returned.");
+        }
         return merged;
     }
 
-    ByteBuffer transformToBuffer(List<Float> vector) {
+    public ByteBuffer toBuffer(List<Float> vector) {
         if (vector != null) {
             ByteBuffer buffer = ByteBuffer.allocate(vector.size() * Float.BYTES);
+            System.out.println(vector);
             for (Float f : vector) {
                 buffer.putFloat(f);
             }

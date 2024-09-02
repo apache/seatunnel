@@ -15,14 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform.nlpmodel.remote;
+package org.apache.seatunnel.transform.nlpmodel;
 
 import org.apache.commons.lang3.StringUtils;
 
 public enum ModelProvider {
     OPENAI("https://api.openai.com/v1/chat/completions", "https://api.openai.com/v1/embeddings"),
     DOUBAO("", "https://ark.cn-beijing.volces.com/api/v3/embeddings"),
-    QIANFAN("", "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/embeddings");
+    QIANFAN("", "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/embeddings"),
+    CUSTOM("", ""),
+    LOCAL("", "");
 
     private final String LLMProviderPath;
     private final String EmbeddingProviderPath;

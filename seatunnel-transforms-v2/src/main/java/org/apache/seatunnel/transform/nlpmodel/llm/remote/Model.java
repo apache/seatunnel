@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform.nlpmodel.remote.llm.processor;
+package org.apache.seatunnel.transform.nlpmodel.llm.remote;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 

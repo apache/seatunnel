@@ -15,20 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform.nlpmodel.remote.llm;
+package org.apache.seatunnel.transform.nlpmodel.llm;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.api.table.type.SqlType;
-import org.apache.seatunnel.transform.nlpmodel.remote.ModelTransformConfig;
+import org.apache.seatunnel.transform.nlpmodel.ModelTransformConfig;
 
 public class LLMTransformConfig extends ModelTransformConfig {
-
-    public static final Option<SqlType> OUTPUT_DATA_TYPE =
-            Options.key("output_data_type")
-                    .enumType(SqlType.class)
-                    .defaultValue(SqlType.STRING)
-                    .withDescription("The output data type of LLM");
 
     public static final Option<String> PROMPT =
             Options.key("prompt")

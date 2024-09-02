@@ -15,12 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform.nlpmodel.remote;
+package org.apache.seatunnel.transform.nlpmodel;
+
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.table.type.SqlType;
 
 import java.io.Serializable;
+import java.util.Map;
 
 public class ModelTransformConfig implements Serializable {
 
@@ -29,6 +33,12 @@ public class ModelTransformConfig implements Serializable {
                     .enumType(ModelProvider.class)
                     .noDefaultValue()
                     .withDescription("The model provider of LLM/Embedding");
+
+    public static final Option<SqlType> OUTPUT_DATA_TYPE =
+            Options.key("output_data_type")
+                    .enumType(SqlType.class)
+                    .defaultValue(SqlType.STRING)
+                    .withDescription("The output data type of LLM");
 
     public static final Option<String> MODEL =
             Options.key("model")
@@ -68,4 +78,38 @@ public class ModelTransformConfig implements Serializable {
                     .defaultValue(100)
                     .withFallbackKeys("inference_batch_size")
                     .withDescription("The row batch size of each process");
+
+    public static class CustomRequestConfig {
+
+        // Custom response parsing
+        public static final Option<Map<String, Object>> CUSTOM_CONFIG =
+                Options.key("custom_config")
+                        .type(new TypeReference<Map<String, Object>>() {})
+                        .noDefaultValue()
+                        .withDescription("The custom config of the custom model.");
+
+        public static final Option<String> CUSTOM_RESPONSE_PARSE =
+                Options.key("custom_response_parse")
+                        .stringType()
+                        .noDefaultValue()
+                        .withDescription(
+                                "The response parse of the custom model. You can use Jsonpath to parse the return object you want to parse. eg: $.choices[*].message.content");
+
+        public static final Option<Map<String, String>> CUSTOM_REQUEST_HEADERS =
+                Options.key("custom_request_headers")
+                        .mapType()
+                        .noDefaultValue()
+                        .withDescription("The custom request headers of the custom model.");
+
+        public static final Option<Map<String, Object>> CUSTOM_REQUEST_BODY =
+                Options.key("custom_request_body")
+                        .type(new TypeReference<Map<String, Object>>() {})
+                        .noDefaultValue()
+                        .withDescription(
+                                "The custom request body of the custom model."
+                                        + "1. ${model} placeholder for selecting model name."
+                                        + "2. ${input} placeholder for Determine input type. eg: [\"${input}\"]"
+                                        + "3. ${prompt} placeholder for LLM model "
+                                        + "4. ...");
+    }
 }

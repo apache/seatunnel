@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform.nlpmodel.remote.embadding;
+package org.apache.seatunnel.transform.nlpmodel.embadding;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -26,12 +26,14 @@ import org.apache.seatunnel.api.table.type.VectorType;
 import org.apache.seatunnel.transform.common.MultipleFieldOutputTransform;
 import org.apache.seatunnel.transform.common.SeaTunnelRowAccessor;
 import org.apache.seatunnel.transform.exception.TransformCommonError;
-import org.apache.seatunnel.transform.nlpmodel.remote.ModelProvider;
-import org.apache.seatunnel.transform.nlpmodel.remote.ModelTransformConfig;
-import org.apache.seatunnel.transform.nlpmodel.remote.embadding.processor.Model;
-import org.apache.seatunnel.transform.nlpmodel.remote.embadding.processor.doubao.DoubaoModel;
-import org.apache.seatunnel.transform.nlpmodel.remote.embadding.processor.openai.OpenAIModel;
-import org.apache.seatunnel.transform.nlpmodel.remote.embadding.processor.qianfan.QianfanModel;
+import org.apache.seatunnel.transform.nlpmodel.ModelProvider;
+import org.apache.seatunnel.transform.nlpmodel.ModelTransformConfig;
+import org.apache.seatunnel.transform.nlpmodel.embadding.remote.Model;
+import org.apache.seatunnel.transform.nlpmodel.embadding.remote.custom.CustomModel;
+import org.apache.seatunnel.transform.nlpmodel.embadding.remote.doubao.DoubaoModel;
+import org.apache.seatunnel.transform.nlpmodel.embadding.remote.openai.OpenAIModel;
+import org.apache.seatunnel.transform.nlpmodel.embadding.remote.qianfan.QianfanModel;
+import org.apache.seatunnel.transform.nlpmodel.llm.LLMTransformConfig;
 
 import lombok.NonNull;
 import lombok.SneakyThrows;
@@ -65,6 +67,34 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
         ModelProvider provider = config.get(ModelTransformConfig.MODEL_PROVIDER);
         try {
             switch (provider) {
+                case CUSTOM:
+                    // load custom_config from the configuration
+                    ReadonlyConfig customConfig =
+                            config.getOptional(
+                                            ModelTransformConfig.CustomRequestConfig.CUSTOM_CONFIG)
+                                    .map(ReadonlyConfig::fromMap)
+                                    .orElseThrow(
+                                            () ->
+                                                    new IllegalArgumentException(
+                                                            "Custom config can't be null"));
+                    model =
+                            new CustomModel(
+                                    config.get(ModelTransformConfig.MODEL),
+                                    provider.usedEmbeddingPath(
+                                            config.get(ModelTransformConfig.API_PATH)),
+                                    customConfig.get(
+                                            LLMTransformConfig.CustomRequestConfig
+                                                    .CUSTOM_REQUEST_HEADERS),
+                                    customConfig.get(
+                                            ModelTransformConfig.CustomRequestConfig
+                                                    .CUSTOM_REQUEST_BODY),
+                                    customConfig.get(
+                                            LLMTransformConfig.CustomRequestConfig
+                                                    .CUSTOM_RESPONSE_PARSE),
+                                    config.get(
+                                            EmbeddingTransformConfig
+                                                    .SINGLE_VECTORIZED_INPUT_NUMBER));
+                    break;
                 case OPENAI:
                     model =
                             new OpenAIModel(
@@ -100,6 +130,7 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
                                             EmbeddingTransformConfig
                                                     .SINGLE_VECTORIZED_INPUT_NUMBER));
                     break;
+                case LOCAL:
                 default:
                     throw new IllegalArgumentException("Unsupported model provider: " + provider);
             }

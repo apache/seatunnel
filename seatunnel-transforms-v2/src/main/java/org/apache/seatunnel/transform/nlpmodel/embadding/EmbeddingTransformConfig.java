@@ -15,11 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform.nlpmodel.remote.embadding;
+package org.apache.seatunnel.transform.nlpmodel.embadding;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.transform.nlpmodel.remote.ModelTransformConfig;
+import org.apache.seatunnel.transform.nlpmodel.ModelTransformConfig;
 
 import java.util.Map;
 
