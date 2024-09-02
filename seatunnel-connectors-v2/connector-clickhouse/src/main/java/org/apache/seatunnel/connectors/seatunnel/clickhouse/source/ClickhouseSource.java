@@ -31,7 +31,10 @@ import org.apache.seatunnel.api.source.SupportColumnProjection;
 import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -117,38 +120,54 @@ public class ClickhouseSource
                 servers.get(ThreadLocalRandom.current().nextInt(servers.size()));
 
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(config);
+        String sql = readonlyConfig.getOptional(SQL).orElse(null);
+
         if (readonlyConfig.getOptional(TABLE_LIST).isPresent()) {
             readonlyConfig.get(TABLE_LIST).stream()
                     .map(ReadonlyConfig::fromMap)
                     .forEach(
                             conf -> {
+                                String confSql = conf.getOptional(SQL).get();
                                 SeaTunnelRowType clickhouseRowType =
-                                        getClickhouseRowType(
-                                                currentServer, conf.getOptional(SQL).get());
+                                        getClickhouseRowType(currentServer, confSql);
                                 TablePath tablePath =
-                                        TablePath.of(conf.getOptional(TABLE_PATH).get());
-
+                                        TablePath.of(conf.getOptional(TABLE_PATH).orElse(""));
                                 CatalogTable catalogTable =
-                                        CatalogTableUtil.getCatalogTable(
-                                                tablePath.getTableName(), clickhouseRowType);
+                                        createCatalogTable(clickhouseRowType, tablePath);
+
                                 ClickhouseCatalogConfig clickhouseCatalogConfig =
                                         new ClickhouseCatalogConfig();
-                                clickhouseCatalogConfig.setSql(conf.getOptional(SQL).get());
+                                clickhouseCatalogConfig.setSql(confSql);
                                 clickhouseCatalogConfig.setCatalogTable(catalogTable);
                                 tableClickhouseCatalogConfigMap.put(
                                         tablePath, clickhouseCatalogConfig);
                             });
         } else {
-            SeaTunnelRowType clickhouseRowType =
-                    getClickhouseRowType(currentServer, readonlyConfig.getOptional(SQL).get());
+            SeaTunnelRowType clickhouseRowType = getClickhouseRowType(currentServer, sql);
             CatalogTable catalogTable =
                     CatalogTableUtil.getCatalogTable(defaultTablePath, clickhouseRowType);
+
             ClickhouseCatalogConfig clickhouseCatalogConfig = new ClickhouseCatalogConfig();
             clickhouseCatalogConfig.setCatalogTable(catalogTable);
-            clickhouseCatalogConfig.setSql(readonlyConfig.getOptional(SQL).get());
+            clickhouseCatalogConfig.setSql(sql);
             tableClickhouseCatalogConfigMap.put(
                     TablePath.of(defaultTablePath), clickhouseCatalogConfig);
         }
+    }
+
+    private CatalogTable createCatalogTable(SeaTunnelRowType rowType, TablePath tablePath) {
+        TableSchema.Builder schemaBuilder = TableSchema.builder();
+        for (int i = 0; i < rowType.getTotalFields(); i++) {
+            schemaBuilder.column(
+                    PhysicalColumn.of(
+                            rowType.getFieldName(i), rowType.getFieldType(i), 0, true, null, null));
+        }
+        return CatalogTable.of(
+                TableIdentifier.of("", tablePath),
+                schemaBuilder.build(),
+                Collections.emptyMap(),
+                Collections.emptyList(),
+                null);
     }
 
     public SeaTunnelRowType getClickhouseRowType(ClickHouseNode currentServer, String sql) {
