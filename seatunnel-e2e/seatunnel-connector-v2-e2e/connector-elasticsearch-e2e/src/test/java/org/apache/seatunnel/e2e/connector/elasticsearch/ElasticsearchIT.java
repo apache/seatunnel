@@ -228,8 +228,6 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         range2.put("c_int2", rangeParam);
         query2.put("range", range2);
 
-        // read all data from read_index1_copy,order by c_int,format c_date,
-        // allowed c_null serialized if null
         Set<String> sinkData1 =
                 new HashSet<>(
                         getDocsWithTransformDate(
@@ -245,7 +243,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                                 Lists.newArrayList("c_date"),
                                 // order field
                                 "c_int"));
-        // predicate -> true,read data by filter
+
         List<String> index1Data =
                 mapTestDatasetForDSL(
                         // use testDataset1
@@ -258,6 +256,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                             }
                             return false;
                         },
+                        // mapping document all field to string
                         JsonNode::toString);
         Assertions.assertEquals(sinkData1.size(), index1Data.size());
         index1Data.forEach(sinkData1::remove);
@@ -292,7 +291,9 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                                 //// allowed c_null serialized if null
                                 Lists.newArrayList("c_null2"),
                                 query2,
+                                // // transformDate field:c_date2
                                 Lists.newArrayList("c_date2"),
+                                // order by c_int2
                                 "c_int2"));
         Assertions.assertEquals(sinkData2.size(), index2Data.size());
         index2Data.forEach(sinkData2::remove);
