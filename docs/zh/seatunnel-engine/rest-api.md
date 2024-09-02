@@ -641,3 +641,29 @@ network:
 
 </details>
 
+------------------------------------------------------------------------------------------
+
+### 更新运行节点的tags
+
+<details>
+<summary><code>POST</code> <code><b>/hazelcast/rest/maps/update-tags</b></code> <code>(如果更新成功，则返回"success"信息)</code></summary>
+
+#### 请求体
+
+```json
+{
+    "tags": {
+        "tag1": "value_1",
+        "tag2": "value_2"
+    }
+}
+```
+#### 响应
+
+```json
+{
+    "message": "success"
+}
+```
+
+</details>
