@@ -129,7 +129,7 @@ Elasticsearch {
 
 Demo 2 : Multi-table synchronization
 
-> This example demonstrates how to read different data from read_index1 and read_index2 and write separately to ``read_index1_copy``,``read_index2_copy``.
+> This example demonstrates how to read different data from ``read_index1`` and ``read_index2`` and write separately to ``read_index1_copy``,``read_index2_copy``.
 > in `read_index1`,I used source to specify the fields to be read and  specify which fields are array fields using the 'array_column'.
 
 ```hocon
