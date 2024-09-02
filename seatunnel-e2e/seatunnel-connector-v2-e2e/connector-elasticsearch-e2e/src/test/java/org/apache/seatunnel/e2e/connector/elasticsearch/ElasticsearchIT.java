@@ -75,6 +75,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.LockSupport;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -228,6 +230,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         range2.put("c_int2", rangeParam);
         query2.put("range", range2);
 
+        LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(INDEX_REFRESH_MILL_DELAY));
         Set<String> sinkData1 =
                 new HashSet<>(
                         getDocsWithTransformDate(
@@ -282,6 +285,8 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                             map.put("c_date2", doc.get("c_date2"));
                             return JsonUtils.toJsonString(map);
                         });
+
+        LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(INDEX_REFRESH_MILL_DELAY));
         Set<String> sinkData2 =
                 new HashSet<>(
                         getDocsWithTransformDate(
