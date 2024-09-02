@@ -25,11 +25,11 @@ import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
-import com.hazelcast.spi.impl.operationservice.Operation;
 
 import java.io.IOException;
 
-public class NotifyTaskStatusOperation extends Operation implements IdentifiedDataSerializable {
+public class NotifyTaskStatusOperation extends TracingOperation
+        implements IdentifiedDataSerializable {
 
     private TaskGroupLocation taskGroupLocation;
     private TaskExecutionState taskExecutionState;
@@ -68,7 +68,7 @@ public class NotifyTaskStatusOperation extends Operation implements IdentifiedDa
     }
 
     @Override
-    public void run() throws Exception {
+    public void runInternal() throws Exception {
         SeaTunnelServer server = getService();
         server.getCoordinatorService().updateTaskExecutionState(taskExecutionState);
     }
