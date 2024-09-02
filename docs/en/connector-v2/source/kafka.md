@@ -244,7 +244,11 @@ sink {
 }
 ```
 
+### Protobuf configuration
 
+Set `format` to `protobuf`, configure `protobuf` data structure, `protobuf_message_name` and `protobuf_schema` parameters
+
+Example:
 
 ```hocon
 source {
