@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.paimon.utils;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.paimon.data.PaimonTypeMapper;
 
@@ -30,6 +31,7 @@ import org.apache.paimon.types.DataType;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 /** The util seatunnel schema to paimon schema */
 public class SchemaUtil {
@@ -69,9 +71,14 @@ public class SchemaUtil {
     }
 
     public static DataField getDataField(List<DataField> fields, String fieldName) {
-        return fields.parallelStream()
-                .filter(field -> field.name().equals(fieldName))
-                .findFirst()
-                .get();
+        Optional<DataField> firstField =
+                fields.parallelStream().filter(field -> field.name().equals(fieldName)).findFirst();
+        if (firstField.isPresent()) {
+            return firstField.get();
+        }
+        throw new SeaTunnelException(
+                String.format(
+                        "Con not get the DataField named: [%s] in sink schema. The schema of paimon is case-sensitive in default. Please check it.",
+                        fieldName));
     }
 }
