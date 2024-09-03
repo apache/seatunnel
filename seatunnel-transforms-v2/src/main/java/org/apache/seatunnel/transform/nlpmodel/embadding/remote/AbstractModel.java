@@ -24,7 +24,6 @@ import org.apache.seatunnel.common.utils.BufferUtils;
 import org.apache.commons.lang3.ArrayUtils;
 
 import java.io.IOException;
-import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
@@ -67,18 +66,5 @@ public abstract class AbstractModel implements Model {
                     "The number of vectors is not equal to the number of inputs, Please verify the configuration of the input field and the result returned.");
         }
         return merged;
-    }
-
-    public ByteBuffer toBuffer(List<Float> vector) {
-        if (vector != null) {
-            ByteBuffer buffer = ByteBuffer.allocate(vector.size() * Float.BYTES);
-            System.out.println(vector);
-            for (Float f : vector) {
-                buffer.putFloat(f);
-            }
-            ((Buffer) buffer).flip();
-            return buffer;
-        }
-        return null;
     }
 }

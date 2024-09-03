@@ -97,7 +97,6 @@ public class QianfanModel extends AbstractModel {
             throw new IOException("Failed to Oauth for qianfan, response: " + responseStr);
         }
         JsonNode result = OBJECT_MAPPER.readTree(responseStr);
-        System.out.println(responseStr);
         return result.get("access_token").asText();
     }
 
