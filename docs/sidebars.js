@@ -84,7 +84,7 @@ const sidebars = {
         },
         {
             "type": "category",
-            "label": "Concept",
+            "label": "Concepts",
             "items": [
                 "concept/config",
                 "concept/connector-v2-features",
