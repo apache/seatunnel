@@ -656,12 +656,26 @@ For more information about customize encryption, please refer to the documentati
 }
 ```
 #### Responses
-
+If  the parameters in the example request body, the tags will be updated successfully, the response body will be:
 ```json
 {
-    "message": "success"
+  "status": "success",
+  "message": "update node tags done"
 }
 ```
-
+If  request body param is empty  or not contain param `tags` , the response body will be:
+```json
+{
+    "status": "fail",
+    "message": "param tags can not be empty"
+}
+```
+If param  `tags` are not instanceof  `Map`, the response body  will be:
+```json
+{
+    "status": "fail",
+    "message": "class java.lang.String cannot be cast to class java.util.Map (java.lang.String and java.util.Map are in module java.base of loader 'bootstrap')"
+}
+```
 </details>
 

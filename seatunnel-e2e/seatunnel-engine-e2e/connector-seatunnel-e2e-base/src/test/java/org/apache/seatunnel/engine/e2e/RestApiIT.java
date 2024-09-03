@@ -276,32 +276,26 @@ public class RestApiIT {
     @Test
     public void testUpdateTags() {
 
-        String config = "{\n" +
-                "    \"tags\": {\n" +
-                "        \"tag1\": \"dev_1\",\n" +
-                "        \"tag2\": \"dev_2\"\n" +
-                "    }\n" +
-                "}";
+        String config =
+                "{\n"
+                        + "    \"tags\": {\n"
+                        + "        \"tag1\": \"dev_1\",\n"
+                        + "        \"tag2\": \"dev_2\"\n"
+                        + "    }\n"
+                        + "}";
 
         given().body(config)
                 .put(
                         HOST
-                                + node1.getCluster()
-                                .getLocalMember()
-                                .getAddress()
-                                .getPort()
+                                + node1.getCluster().getLocalMember().getAddress().getPort()
                                 + RestConstant.UPDATE_TAGS_URL)
                 .then()
                 .statusCode(200)
                 .body("message", equalTo("success"));
 
-
         given().get(
                         HOST
-                                + node1.getCluster()
-                                .getLocalMember()
-                                .getAddress()
-                                .getPort()
+                                + node1.getCluster().getLocalMember().getAddress().getPort()
                                 + RestConstant.OVERVIEW
                                 + "?tag1=dev_1")
                 .then()

@@ -659,10 +659,25 @@ network:
 }
 ```
 #### 响应
-
+如果示例请求正文中的参数，标签将成功更新，响应正文将是：
 ```json
 {
-    "message": "success"
+  "status": "success",
+  "message": "update node tags done"
+}
+```
+如果请求体参数为空或不包含参数 "tags"，则响应体将为：
+```json
+{
+    "status": "fail",
+    "message": "param tags can not be empty"
+}
+```
+如果参数 "tags" 不是"Map"的实例，则响应体将是：
+```json
+{
+    "status": "fail",
+    "message": "class java.lang.String cannot be cast to class java.util.Map (java.lang.String and java.util.Map are in module java.base of loader 'bootstrap')"
 }
 ```
 

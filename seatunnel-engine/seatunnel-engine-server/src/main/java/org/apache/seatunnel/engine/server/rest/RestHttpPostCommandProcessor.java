@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.engine.server.rest;
 
-import com.hazelcast.cluster.impl.MemberImpl;
-import com.hazelcast.spi.impl.NodeEngineImpl;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
@@ -42,6 +40,7 @@ import org.apache.seatunnel.engine.server.utils.RestUtil;
 
 import org.apache.commons.lang3.StringUtils;
 
+import com.hazelcast.cluster.impl.MemberImpl;
 import com.hazelcast.internal.ascii.TextCommandService;
 import com.hazelcast.internal.ascii.rest.HttpCommandProcessor;
 import com.hazelcast.internal.ascii.rest.HttpPostCommand;
@@ -49,6 +48,7 @@ import com.hazelcast.internal.json.Json;
 import com.hazelcast.internal.json.JsonArray;
 import com.hazelcast.internal.json.JsonObject;
 import com.hazelcast.internal.serialization.Data;
+import com.hazelcast.spi.impl.NodeEngineImpl;
 import scala.Tuple2;
 
 import java.io.IOException;
@@ -270,8 +270,18 @@ public class RestHttpPostCommandProcessor extends HttpCommandProcessor<HttpPostC
         MemberImpl localMember = nodeEngine.getLocalMember();
         if (!params.isEmpty() && params.containsKey("tags")) {
             localMember.updateAttribute((Map<String, String>) params.get("tags"));
+            this.prepareResponse(
+                    httpPostCommand,
+                    new JsonObject()
+                            .add("status", ResponseType.SUCCESS.toString())
+                            .add("message", "update node tags done"));
+        } else {
+            this.prepareResponse(
+                    httpPostCommand,
+                    new JsonObject()
+                            .add("status", ResponseType.FAIL.toString())
+                            .add("message", "param tags can not be empty"));
         }
-        this.prepareResponse(httpPostCommand,new JsonObject().add("message","success"));
     }
 
     @Override
