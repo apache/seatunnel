@@ -15,15 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform.llm.model;
+package org.apache.seatunnel.transform;
 
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.transform.nlpmodel.embadding.EmbeddingTransformFactory;
 
-import java.io.Closeable;
-import java.io.IOException;
-import java.util.List;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-public interface Model extends Closeable {
+public class EmbeddingTransformFactoryTest {
 
-    List<String> inference(List<SeaTunnelRow> rows) throws IOException;
+    @Test
+    public void testOptionRule() throws Exception {
+        EmbeddingTransformFactory embeddingTransformFactory = new EmbeddingTransformFactory();
+        Assertions.assertNotNull(embeddingTransformFactory.optionRule());
+    }
 }

@@ -15,18 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform;
+package org.apache.seatunnel.transform.nlpmodel.llm.remote;
 
-import org.apache.seatunnel.transform.nlpmodel.llm.LLMTransformFactory;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
+import java.io.Closeable;
+import java.io.IOException;
+import java.util.List;
 
-public class LLMTransformFactoryTest {
+public interface Model extends Closeable {
 
-    @Test
-    public void testOptionRule() throws Exception {
-        LLMTransformFactory replaceTransformFactory = new LLMTransformFactory();
-        Assertions.assertNotNull(replaceTransformFactory.optionRule());
-    }
+    List<String> inference(List<SeaTunnelRow> rows) throws IOException;
 }

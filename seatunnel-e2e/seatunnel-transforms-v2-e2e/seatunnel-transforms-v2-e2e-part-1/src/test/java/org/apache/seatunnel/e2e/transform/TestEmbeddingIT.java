@@ -18,7 +18,9 @@
 package org.apache.seatunnel.e2e.transform;
 
 import org.apache.seatunnel.e2e.common.TestResource;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -39,7 +41,11 @@ import java.net.URL;
 import java.util.Optional;
 import java.util.stream.Stream;
 
-public class TestLLMIT extends TestSuiteBase implements TestResource {
+@DisabledOnContainer(
+        value = {},
+        type = {EngineType.SPARK, EngineType.FLINK},
+        disabledReason = "Currently SPARK and FLINK not support adapt")
+public class TestEmbeddingIT extends TestSuiteBase implements TestResource {
     private static final String TMP_DIR = "/tmp";
     private GenericContainer<?> mockserverContainer;
     private static final String IMAGE = "mockserver/mockserver:5.14.0";
@@ -48,7 +54,7 @@ public class TestLLMIT extends TestSuiteBase implements TestResource {
     @Override
     public void startUp() {
         Optional<URL> resource =
-                Optional.ofNullable(TestLLMIT.class.getResource("/mockserver-config.json"));
+                Optional.ofNullable(TestLLMIT.class.getResource("/mock-embedding.json"));
         this.mockserverContainer =
                 new GenericContainer<>(DockerImageName.parse(IMAGE))
                         .withNetwork(NETWORK)
@@ -63,10 +69,10 @@ public class TestLLMIT extends TestSuiteBase implements TestResource {
                                                                                         "Can not get config file of mockServer"))
                                                                 .getPath())
                                                 .getAbsolutePath()),
-                                TMP_DIR + "/mockserver-config.json")
+                                TMP_DIR + "/mock-embedding.json")
                         .withEnv(
                                 "MOCKSERVER_INITIALIZATION_JSON_PATH",
-                                TMP_DIR + "/mockserver-config.json")
+                                TMP_DIR + "/mock-embedding.json")
                         .withEnv("MOCKSERVER_LOG_LEVEL", "WARN")
                         .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)))
                         .waitingFor(new HttpWaitStrategy().forPath("/").forStatusCode(404));
@@ -82,16 +88,15 @@ public class TestLLMIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    public void testLLMWithOpenAI(TestContainer container)
-            throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/llm_openai_transform.conf");
+    public void testEmbedding(TestContainer container) throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeJob("/embedding_transform.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
     @TestTemplate
-    public void testLLMWithCustomModel(TestContainer container)
+    public void testEmbeddingWithCustomModel(TestContainer container)
             throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/llm_transform_custom.conf");
+        Container.ExecResult execResult = container.executeJob("/embedding_transform_custom.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 }
