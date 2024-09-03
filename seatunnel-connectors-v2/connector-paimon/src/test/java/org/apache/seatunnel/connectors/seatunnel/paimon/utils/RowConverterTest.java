@@ -28,7 +28,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
-import org.apache.seatunnel.common.utils.SeaTunnelException;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.paimon.data.BinaryArray;
@@ -43,6 +42,7 @@ import org.apache.paimon.data.Timestamp;
 import org.apache.paimon.data.serializer.InternalArraySerializer;
 import org.apache.paimon.data.serializer.InternalMapSerializer;
 import org.apache.paimon.schema.TableSchema;
+import org.apache.paimon.types.DataField;
 import org.apache.paimon.types.DataType;
 import org.apache.paimon.types.DataTypes;
 import org.apache.paimon.types.RowType;
@@ -71,6 +71,23 @@ public class RowConverterTest {
     private SeaTunnelRowType seaTunnelRowType;
 
     private volatile boolean isCaseSensitive = false;
+    private volatile int index = 0;
+    private static final String[] filedNames = {
+        "c_tinyint",
+        "c_smallint",
+        "c_int",
+        "c_bigint",
+        "c_float",
+        "c_double",
+        "c_decimal",
+        "c_string",
+        "c_bytes",
+        "c_boolean",
+        "c_date",
+        "c_timestamp",
+        "c_map",
+        "c_array"
+    };
 
     public static final List<String> KEY_NAME_LIST = Arrays.asList("c_tinyint");
 
@@ -121,8 +138,8 @@ public class RowConverterTest {
     }
 
     @BeforeEach
-    public void before() {
-        initSeaTunnelRowTypeCaseSensitive(isCaseSensitive);
+    public void generateTestData() {
+        initSeaTunnelRowTypeCaseSensitive(isCaseSensitive, index);
         byte tinyint = 1;
         short smallint = 2;
         int intNum = 3;
@@ -199,32 +216,14 @@ public class RowConverterTest {
         internalRow = binaryRow;
     }
 
-    private void initSeaTunnelRowTypeCaseSensitive(boolean isUpperCase) {
-        String[] filedNames = {
-            "c_tinyint",
-            "c_smallint",
-            "c_int",
-            "c_bigint",
-            "c_float",
-            "c_double",
-            "c_decimal",
-            "c_string",
-            "c_bytes",
-            "c_boolean",
-            "c_date",
-            "c_timestamp",
-            "c_map",
-            "c_array"
-        };
-        String[] upperCaseFieldNames = new String[filedNames.length];
+    private void initSeaTunnelRowTypeCaseSensitive(boolean isUpperCase, int index) {
+        String[] oneUpperCaseFiledNames = Arrays.copyOf(filedNames, filedNames.length);
         if (isUpperCase) {
-            for (int i = 0; i < filedNames.length; i++) {
-                upperCaseFieldNames[i] = filedNames[i].toUpperCase();
-            }
+            oneUpperCaseFiledNames[index] = oneUpperCaseFiledNames[index].toUpperCase();
         }
         seaTunnelRowType =
                 new SeaTunnelRowType(
-                        isUpperCase ? upperCaseFieldNames : filedNames,
+                        oneUpperCaseFiledNames,
                         new SeaTunnelDataType<?>[] {
                             BasicType.BYTE_TYPE,
                             BasicType.SHORT_TYPE,
@@ -264,16 +263,32 @@ public class RowConverterTest {
         Assertions.assertEquals(reconvert, internalRow);
 
         isCaseSensitive = true;
-        before();
-        SeaTunnelException actualException1 =
-                Assertions.assertThrows(
-                        SeaTunnelException.class,
-                        () ->
-                                RowConverter.reconvert(
-                                        seaTunnelRow, seaTunnelRowType, getTableSchema(30, 8)));
-        Assertions.assertEquals(
-                "Con not get the DataField named: [C_DECIMAL] in sink schema. The schema of paimon is case-sensitive in default. Please check it.",
-                actualException1.getMessage());
+
+        for (int i = 0; i < filedNames.length; i++) {
+            index = i;
+            generateTestData();
+            String sourceFiledname = seaTunnelRowType.getFieldName(i);
+            DataType exceptDataType =
+                    RowTypeConverter.reconvert(sourceFiledname, seaTunnelRowType.getFieldType(i));
+            DataField exceptDataField = new DataField(i, sourceFiledname, exceptDataType);
+            TableSchema sinkTableSchema = getTableSchema(30, 8);
+            SeaTunnelRuntimeException actualException1 =
+                    Assertions.assertThrows(
+                            SeaTunnelRuntimeException.class,
+                            () ->
+                                    RowConverter.reconvert(
+                                            seaTunnelRow, seaTunnelRowType, sinkTableSchema));
+            Assertions.assertEquals(
+                    CommonError.writeRowErrorWithSchemaIncompatibleSchema(
+                                    "Paimon",
+                                    sourceFiledname
+                                            + StringUtils.SPACE
+                                            + seaTunnelRowType.getFieldType(i).getSqlType(),
+                                    exceptDataField.asSQLString(),
+                                    sinkTableSchema.fields().get(i).asSQLString())
+                            .getMessage(),
+                    actualException1.getMessage());
+        }
     }
 
     @Test

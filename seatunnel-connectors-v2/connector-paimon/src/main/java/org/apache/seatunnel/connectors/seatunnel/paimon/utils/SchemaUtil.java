@@ -20,9 +20,10 @@ package org.apache.seatunnel.connectors.seatunnel.paimon.utils;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
-import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.paimon.data.PaimonTypeMapper;
+import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorException;
 
 import org.apache.paimon.schema.Schema;
 import org.apache.paimon.types.DataField;
@@ -72,13 +73,12 @@ public class SchemaUtil {
 
     public static DataField getDataField(List<DataField> fields, String fieldName) {
         Optional<DataField> firstField =
-                fields.parallelStream().filter(field -> field.name().equals(fieldName)).findFirst();
-        if (firstField.isPresent()) {
-            return firstField.get();
+                fields.stream().filter(field -> field.name().equals(fieldName)).findFirst();
+        if (!firstField.isPresent()) {
+            throw new PaimonConnectorException(
+                    PaimonConnectorErrorCode.GET_FILED_FAILED,
+                    "Can not get the filed [" + fieldName + "] from source table");
         }
-        throw new SeaTunnelException(
-                String.format(
-                        "Con not get the DataField named: [%s] in sink schema. The schema of paimon is case-sensitive in default. Please check it.",
-                        fieldName));
+        return firstField.get();
     }
 }
