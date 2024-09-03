@@ -192,6 +192,18 @@ sql = """ select * from "table" """
 
 在配置文件中,我们可以定义一些变量并在运行时替换它们。但是注意仅支持 hocon 格式的文件。
 
+变量使用方法：
+ - `${varName}`，如果变量未传值，则抛出异常。
+ - `${varName:default}`，如果变量未传值，则使用默认值。如果设置默认值则变量需要写在双引号中。
+ - `${varName:}`，如果变量未传值，则使用空字符串。
+
+如果您在配置文件中设置变量变量，但在执行中未传递，则会抛出异常。
+如：
+```shell
+Caused by: org.apache.seatunnel.core.starter.exception.CommandExecuteException: Variable substitution error: ${resName}_table
+```
+
+具体样例：
 ```hocon
 env {
   job.mode = "BATCH"
@@ -201,14 +213,14 @@ env {
 
 source {
   FakeSource {
-    result_table_name = ${resName}
-    row.num = ${rowNum}
+    result_table_name = "${resName:fake_test}_table"
+    row.num = "${rowNum:50}"
     string.template = ${strTemplate}
     int.template = [20, 21]
     schema = {
       fields {
-        name = ${nameType}
-        age = "int"
+        name = "${nameType:string}"
+        age = ${ageType}
       }
     }
   }
@@ -216,9 +228,9 @@ source {
 
 transform {
     sql {
-      source_table_name = "fake"
+      source_table_name = "${resName:fake_test}_table"
       result_table_name = "sql"
-      query = "select * from "${resName}" where name = '"${nameVal}"' "
+      query = "select * from ${resName:fake_test}_table where name = '${nameVal}' "
     }
 
 }
@@ -230,7 +242,6 @@ sink {
      password = ${password}
   }
 }
-
 ```
 
 在上述配置中,我们定义了一些变量,如 ${rowNum}、${resName}。
@@ -239,15 +250,16 @@ sink {
 ```shell
 ./bin/seatunnel.sh -c <this_config_file> 
 -i jobName='this_is_a_job_name' 
--i resName=fake 
--i rowNum=10 
 -i strTemplate=['abc','d~f','hi'] 
--i nameType=string 
+-i ageType=int
 -i nameVal=abc 
 -i username=seatunnel=2.3.1 
 -i password='$a^b%c.d~e0*9(' 
 -e local
 ```
+
+其中 `resName`，`rowNum`，`nameType` 我们未设置，他将获取默认值
+
 
 然后最终提交的配置是:
 
@@ -260,8 +272,8 @@ env {
 
 source {
   FakeSource {
-    result_table_name = "fake"
-    row.num = 10
+    result_table_name = "fake_test_table"
+    row.num = 50
     string.template = ['abc','d~f','hi']
     int.template = [20, 21]
     schema = {
@@ -275,9 +287,9 @@ source {
 
 transform {
     sql {
-      source_table_name = "fake"
+      source_table_name = "fake_test_table"
       result_table_name = "sql"
-      query = "select * from "fake" where name = 'abc' "
+      query = "select * from fake_test_table where name = 'abc' "
     }
 
 }
@@ -286,7 +298,7 @@ sink {
   Console {
      source_table_name = "sql"
      username = "seatunnel=2.3.1"
-        password = "$a^b%c.d~e0*9("
+     password = "$a^b%c.d~e0*9("
     }
 }
 

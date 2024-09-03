@@ -33,9 +33,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+
+import static org.apache.seatunnel.common.utils.PlaceholderUtils.replacePlaceholders;
 
 public class TablePlaceholder {
     // Placeholder ${database_name} or ${database_name:default_value}
@@ -56,33 +56,6 @@ public class TablePlaceholder {
     public static final String REPLACE_FIELD_NAMES_KEY = "field_names";
     public static final String NAME_DELIMITER = ".";
     public static final String FIELD_DELIMITER = ",";
-
-    private static String replacePlaceholders(String input, String placeholderName, String value) {
-        return replacePlaceholders(input, placeholderName, value, null);
-    }
-
-    private static String replacePlaceholders(
-            String input, String placeholderName, String value, String defaultValue) {
-        String placeholderRegex = "\\$\\{" + Pattern.quote(placeholderName) + "(:[^}]*)?\\}";
-        Pattern pattern = Pattern.compile(placeholderRegex);
-        Matcher matcher = pattern.matcher(input);
-
-        StringBuffer result = new StringBuffer();
-        while (matcher.find()) {
-            String replacement =
-                    value != null && !value.isEmpty()
-                            ? value
-                            : (matcher.group(1) != null
-                                    ? matcher.group(1).substring(1).trim()
-                                    : defaultValue);
-            if (replacement == null) {
-                continue;
-            }
-            matcher.appendReplacement(result, Matcher.quoteReplacement(replacement));
-        }
-        matcher.appendTail(result);
-        return result.toString();
-    }
 
     private static String replaceTableIdentifier(
             String placeholder, TableIdentifier identifier, String defaultValue) {

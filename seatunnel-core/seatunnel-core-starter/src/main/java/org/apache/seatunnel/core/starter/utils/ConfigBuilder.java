@@ -28,20 +28,25 @@ import org.apache.seatunnel.shade.com.typesafe.config.impl.Parseable;
 import org.apache.seatunnel.api.configuration.ConfigAdapter;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.common.utils.ParserException;
+import org.apache.seatunnel.core.starter.exception.CommandExecuteException;
 
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import static org.apache.seatunnel.common.utils.PlaceholderUtils.replacePlaceholders;
 import static org.apache.seatunnel.core.starter.utils.ConfigShadeUtils.DEFAULT_SENSITIVE_KEYWORDS;
 
 /** Used to build the {@link Config} from config file. */
@@ -50,6 +55,8 @@ public class ConfigBuilder {
 
     public static final ConfigRenderOptions CONFIG_RENDER_OPTIONS =
             ConfigRenderOptions.concise().setFormatted(true);
+
+    private static final String PLACEHOLDER_REGEX = "\\$\\{([^:{}]+)(?::[^}]*)?\\}";
 
     private ConfigBuilder() {
         // utility class and cannot be instantiated
@@ -180,10 +187,75 @@ public class ConfigBuilder {
                                             .setOriginDescription("system properties"))
                             .parse()
                             .toConfig();
-            return config.resolveWith(
-                    systemConfig, ConfigResolveOptions.defaults().setAllowUnresolved(true));
+
+            Config resolvedConfig =
+                    config.resolveWith(
+                            systemConfig, ConfigResolveOptions.defaults().setAllowUnresolved(true));
+
+            Map<String, Object> configMap = resolvedConfig.root().unwrapped();
+
+            configMap.forEach(
+                    (key, value) -> {
+                        if (value instanceof Map) {
+                            processMap((Map<String, Object>) value);
+                        } else if (value instanceof List) {
+                            ((List<Map<String, Object>>) value).forEach(map -> processMap(map));
+                        }
+                    });
+
+            return ConfigFactory.parseMap(configMap);
         }
         return config;
+    }
+
+    private static void processMap(Map<String, Object> mapValue) {
+        mapValue.forEach(
+                (innerKey, innerValue) -> {
+                    if (innerValue instanceof Map) {
+                        processMap((Map<String, Object>) innerValue);
+                    } else {
+                        processVariable(innerKey, innerValue, mapValue);
+                    }
+                });
+    }
+
+    private static void processVariable(
+            String variableKey, Object variableValue, Map<String, Object> parentMap) {
+        String variableString = variableValue.toString();
+        List<String> placeholders = extractPlaceholder(variableString);
+
+        for (String placeholder : placeholders) {
+            String replacedValue =
+                    replacePlaceholders(
+                            variableString, placeholder, System.getProperty(placeholder), null);
+            if (variableString.equals(replacedValue)) {
+                throw new CommandExecuteException("Variable substitution error: " + variableValue);
+            }
+            variableString = replacedValue;
+        }
+
+        if (!placeholders.isEmpty()) {
+            parentMap.put(variableKey, variableString);
+        }
+    }
+
+    public static List<String> extractPlaceholder(String input) {
+        Pattern pattern = Pattern.compile(PLACEHOLDER_REGEX);
+        Matcher matcher = pattern.matcher(input);
+        List<String> placeholders = new ArrayList<>();
+
+        while (matcher.find()) {
+            placeholders.add(matcher.group(1));
+        }
+
+        return placeholders;
+    }
+
+    public static boolean isValidPlaceholder(String input) {
+        // 使用 Pattern 类来编译正则表达式
+        Pattern pattern = Pattern.compile(PLACEHOLDER_REGEX);
+        // 使用 pattern 的 matcher 方法匹配输入字符串
+        return pattern.matcher(input).matches();
     }
 
     public static String mapToString(Map<String, Object> configMap) {
