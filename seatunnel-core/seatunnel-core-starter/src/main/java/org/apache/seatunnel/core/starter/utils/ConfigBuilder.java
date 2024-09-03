@@ -251,13 +251,6 @@ public class ConfigBuilder {
         return placeholders;
     }
 
-    public static boolean isValidPlaceholder(String input) {
-        // 使用 Pattern 类来编译正则表达式
-        Pattern pattern = Pattern.compile(PLACEHOLDER_REGEX);
-        // 使用 pattern 的 matcher 方法匹配输入字符串
-        return pattern.matcher(input).matches();
-    }
-
     public static String mapToString(Map<String, Object> configMap) {
         ConfigParseOptions configParseOptions =
                 ConfigParseOptions.defaults().setSyntax(ConfigSyntax.JSON);
