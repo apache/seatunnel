@@ -34,6 +34,7 @@ import org.apache.paimon.catalog.Catalog;
 import org.apache.paimon.catalog.Identifier;
 import org.apache.paimon.data.InternalRow;
 import org.apache.paimon.reader.RecordReader;
+import org.apache.paimon.table.FileStoreTable;
 import org.apache.paimon.table.Table;
 import org.apache.paimon.table.source.ReadBuilder;
 import org.apache.paimon.table.source.TableRead;
@@ -50,6 +51,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import static org.awaitility.Awaitility.given;
 
@@ -203,5 +205,132 @@ public class PaimonSinkHdfsIT extends TestSuiteBase {
         Container.ExecResult readResult =
                 container.executeJob("/paimon_to_assert_with_hivecatalog.conf");
         Assertions.assertEquals(0, readResult.getExitCode());
+    }
+
+    @TestTemplate
+    public void testSinkPaimonHdfsTruncateTable(TestContainer container) throws Exception {
+        Container.ExecResult writeResult =
+                container.executeJob("/fake_sink_paimon_truncate_with_hdfs_case1.conf");
+        Assertions.assertEquals(0, writeResult.getExitCode());
+        Container.ExecResult readResult =
+                container.executeJob("/fake_sink_paimon_truncate_with_hdfs_case2.conf");
+        Assertions.assertEquals(0, readResult.getExitCode());
+        given().ignoreExceptions()
+                .await()
+                .atLeast(100L, TimeUnit.MILLISECONDS)
+                .atMost(180L, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            PaimonSinkConfig paimonSinkConfig =
+                                    new PaimonSinkConfig(
+                                            ReadonlyConfig.fromMap(PAIMON_SINK_PROPERTIES));
+                            PaimonCatalogLoader paimonCatalogLoader =
+                                    new PaimonCatalogLoader(paimonSinkConfig);
+                            Catalog catalog = paimonCatalogLoader.loadCatalog();
+                            List<PaimonRecord> paimonRecords =
+                                    loadPaimonData(catalog, "seatunnel_namespace11", "st_test");
+                            Assertions.assertEquals(2, paimonRecords.size());
+                            paimonRecords.forEach(
+                                    paimonRecord -> {
+                                        if (paimonRecord.getPkId() == 1) {
+                                            Assertions.assertEquals("Aa", paimonRecord.getName());
+                                        }
+                                        if (paimonRecord.getPkId() == 2) {
+                                            Assertions.assertEquals("Bb", paimonRecord.getName());
+                                        }
+                                        Assertions.assertEquals(200, paimonRecord.getScore());
+                                    });
+                            List<Long> ids =
+                                    paimonRecords.stream()
+                                            .map(PaimonRecord::getPkId)
+                                            .collect(Collectors.toList());
+                            Assertions.assertFalse(ids.contains(3L));
+                        });
+    }
+
+    @TestTemplate
+    public void testSinkPaimonHiveTruncateTable(TestContainer container) throws Exception {
+        Container.ExecResult writeResult =
+                container.executeJob("/fake_sink_paimon_truncate_with_hive_case1.conf");
+        Assertions.assertEquals(0, writeResult.getExitCode());
+        Container.ExecResult readResult =
+                container.executeJob("/fake_sink_paimon_truncate_with_hive_case2.conf");
+        Assertions.assertEquals(0, readResult.getExitCode());
+        given().ignoreExceptions()
+                .await()
+                .atLeast(100L, TimeUnit.MILLISECONDS)
+                .atMost(180L, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            PaimonSinkConfig paimonSinkConfig =
+                                    new PaimonSinkConfig(
+                                            ReadonlyConfig.fromMap(PAIMON_SINK_PROPERTIES));
+                            PaimonCatalogLoader paimonCatalogLoader =
+                                    new PaimonCatalogLoader(paimonSinkConfig);
+                            Catalog catalog = paimonCatalogLoader.loadCatalog();
+                            List<PaimonRecord> paimonRecords =
+                                    loadPaimonData(catalog, "seatunnel_namespace12", "st_test");
+                            Assertions.assertEquals(2, paimonRecords.size());
+                            paimonRecords.forEach(
+                                    paimonRecord -> {
+                                        if (paimonRecord.getPkId() == 1) {
+                                            Assertions.assertEquals("Aa", paimonRecord.getName());
+                                        }
+                                        if (paimonRecord.getPkId() == 2) {
+                                            Assertions.assertEquals("Bb", paimonRecord.getName());
+                                        }
+                                        Assertions.assertEquals(200, paimonRecord.getScore());
+                                    });
+                            List<Long> ids =
+                                    paimonRecords.stream()
+                                            .map(PaimonRecord::getPkId)
+                                            .collect(Collectors.toList());
+                            Assertions.assertFalse(ids.contains(3L));
+                        });
+    }
+
+    @TestTemplate
+    public void testSinkPaimonHiveTruncateTable1(TestContainer container) throws Exception {
+        PaimonSinkConfig paimonSinkConfig =
+                new PaimonSinkConfig(ReadonlyConfig.fromMap(PAIMON_SINK_PROPERTIES));
+        PaimonCatalogLoader paimonCatalogLoader = new PaimonCatalogLoader(paimonSinkConfig);
+        Catalog catalog = paimonCatalogLoader.loadCatalog();
+        List<PaimonRecord> paimonRecords =
+                loadPaimonData(catalog, "seatunnel_namespace11", "st_test");
+        Assertions.assertEquals(2, paimonRecords.size());
+        paimonRecords.forEach(
+                paimonRecord -> {
+                    if (paimonRecord.getPkId() == 1) {
+                        Assertions.assertEquals("Aa", paimonRecord.getName());
+                    }
+                    if (paimonRecord.getPkId() == 2) {
+                        Assertions.assertEquals("Bb", paimonRecord.getName());
+                    }
+                    Assertions.assertEquals(200, paimonRecord.getScore());
+                });
+        List<Long> ids =
+                paimonRecords.stream().map(PaimonRecord::getPkId).collect(Collectors.toList());
+        Assertions.assertFalse(ids.contains(3L));
+    }
+
+    private List<PaimonRecord> loadPaimonData(Catalog catalog, String dbName, String tbName)
+            throws Exception {
+        FileStoreTable table = (FileStoreTable) catalog.getTable(Identifier.create(dbName, tbName));
+        ReadBuilder readBuilder = table.newReadBuilder();
+        TableScan.Plan plan = readBuilder.newScan().plan();
+        TableRead tableRead = readBuilder.newRead();
+        List<PaimonRecord> result = new ArrayList<>();
+        try (RecordReader<InternalRow> reader = tableRead.createReader(plan)) {
+            reader.forEachRemaining(
+                    row -> {
+                        PaimonRecord paimonRecord =
+                                new PaimonRecord(row.getLong(0), row.getString(1).toString());
+                        if (table.schema().fieldNames().contains("score")) {
+                            paimonRecord.setScore(row.getInt(2));
+                        }
+                        result.add(paimonRecord);
+                    });
+        }
+        return result;
     }
 }
