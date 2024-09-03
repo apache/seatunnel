@@ -15,8 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform.llm;
+package org.apache.seatunnel.transform.nlpmodel.embadding.remote;
 
-public enum ModelProvider {
-    OPENAI
+import java.io.Closeable;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.util.List;
+
+public interface Model extends Closeable {
+
+    List<ByteBuffer> vectorization(Object[] fields) throws IOException;
+
+    Integer dimension() throws IOException;
 }

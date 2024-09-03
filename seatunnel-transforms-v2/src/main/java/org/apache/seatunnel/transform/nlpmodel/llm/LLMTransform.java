@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform.llm;
+package org.apache.seatunnel.transform.nlpmodel.llm;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -26,8 +26,11 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.transform.common.SeaTunnelRowAccessor;
 import org.apache.seatunnel.transform.common.SingleFieldOutputTransform;
-import org.apache.seatunnel.transform.llm.model.Model;
-import org.apache.seatunnel.transform.llm.model.openai.OpenAIModel;
+import org.apache.seatunnel.transform.nlpmodel.ModelProvider;
+import org.apache.seatunnel.transform.nlpmodel.ModelTransformConfig;
+import org.apache.seatunnel.transform.nlpmodel.llm.remote.Model;
+import org.apache.seatunnel.transform.nlpmodel.llm.remote.custom.CustomModel;
+import org.apache.seatunnel.transform.nlpmodel.llm.remote.openai.OpenAIModel;
 
 import lombok.NonNull;
 import lombok.SneakyThrows;
@@ -61,18 +64,47 @@ public class LLMTransform extends SingleFieldOutputTransform {
 
     @Override
     public void open() {
-        ModelProvider provider = config.get(LLMTransformConfig.MODEL_PROVIDER);
-        if (provider.equals(ModelProvider.OPENAI)) {
-            model =
-                    new OpenAIModel(
-                            inputCatalogTable.getSeaTunnelRowType(),
-                            outputDataType.getSqlType(),
-                            config.get(LLMTransformConfig.PROMPT),
-                            config.get(LLMTransformConfig.MODEL),
-                            config.get(LLMTransformConfig.API_KEY),
-                            config.get(LLMTransformConfig.OPENAI_API_PATH));
-        } else {
-            throw new IllegalArgumentException("Unsupported model provider: " + provider);
+        ModelProvider provider = config.get(ModelTransformConfig.MODEL_PROVIDER);
+        switch (provider) {
+            case CUSTOM:
+                // load custom_config from the configuration
+                ReadonlyConfig customConfig =
+                        config.getOptional(ModelTransformConfig.CustomRequestConfig.CUSTOM_CONFIG)
+                                .map(ReadonlyConfig::fromMap)
+                                .orElseThrow(
+                                        () ->
+                                                new IllegalArgumentException(
+                                                        "Custom config can't be null"));
+                model =
+                        new CustomModel(
+                                inputCatalogTable.getSeaTunnelRowType(),
+                                outputDataType.getSqlType(),
+                                config.get(LLMTransformConfig.PROMPT),
+                                config.get(LLMTransformConfig.MODEL),
+                                provider.usedLLMPath(config.get(LLMTransformConfig.API_PATH)),
+                                customConfig.get(
+                                        LLMTransformConfig.CustomRequestConfig
+                                                .CUSTOM_REQUEST_HEADERS),
+                                customConfig.get(
+                                        LLMTransformConfig.CustomRequestConfig.CUSTOM_REQUEST_BODY),
+                                customConfig.get(
+                                        LLMTransformConfig.CustomRequestConfig
+                                                .CUSTOM_RESPONSE_PARSE));
+                break;
+            case OPENAI:
+                model =
+                        new OpenAIModel(
+                                inputCatalogTable.getSeaTunnelRowType(),
+                                outputDataType.getSqlType(),
+                                config.get(LLMTransformConfig.PROMPT),
+                                config.get(LLMTransformConfig.MODEL),
+                                config.get(LLMTransformConfig.API_KEY),
+                                provider.usedLLMPath(config.get(LLMTransformConfig.API_PATH)));
+                break;
+            case QIANFAN:
+            case DOUBAO:
+            default:
+                throw new IllegalArgumentException("Unsupported model provider: " + provider);
         }
     }
 
