@@ -123,7 +123,7 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
     protected URLClassLoader getUrlClassLoader() throws MalformedURLException {
         if (urlClassLoader == null) {
             urlClassLoader =
-                    new URLClassLoader(
+                    new InsecureURLClassLoader(
                             new URL[] {new URL(driverUrl())},
                             AbstractJdbcIT.class.getClassLoader());
             Thread.currentThread().setContextClassLoader(urlClassLoader);

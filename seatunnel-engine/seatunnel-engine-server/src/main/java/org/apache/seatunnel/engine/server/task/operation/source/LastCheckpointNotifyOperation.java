@@ -20,15 +20,16 @@ package org.apache.seatunnel.engine.server.task.operation.source;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
+import org.apache.seatunnel.engine.server.task.operation.TracingOperation;
 
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
-import com.hazelcast.spi.impl.operationservice.Operation;
 
 import java.io.IOException;
 
-public class LastCheckpointNotifyOperation extends Operation implements IdentifiedDataSerializable {
+public class LastCheckpointNotifyOperation extends TracingOperation
+        implements IdentifiedDataSerializable {
 
     private long jobId;
     private TaskLocation taskLocation;
@@ -41,7 +42,7 @@ public class LastCheckpointNotifyOperation extends Operation implements Identifi
     }
 
     @Override
-    public void run() throws Exception {
+    public void runInternal() throws Exception {
         SeaTunnelServer server = getService();
         server.getCoordinatorService()
                 .getJobMaster(jobId)
@@ -51,12 +52,14 @@ public class LastCheckpointNotifyOperation extends Operation implements Identifi
 
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
+        super.writeInternal(out);
         out.writeLong(jobId);
         out.writeObject(taskLocation);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
+        super.readInternal(in);
         jobId = in.readLong();
         taskLocation = in.readObject();
     }
