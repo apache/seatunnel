@@ -291,7 +291,7 @@ public class RestApiIT {
                                 + RestConstant.UPDATE_TAGS_URL)
                 .then()
                 .statusCode(200)
-                .body("message", equalTo("success"));
+                .body("message", equalTo("update node tags done"));
 
         given().get(
                         HOST
