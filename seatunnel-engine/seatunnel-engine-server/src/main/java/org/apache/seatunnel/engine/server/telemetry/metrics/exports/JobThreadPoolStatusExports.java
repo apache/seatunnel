@@ -89,6 +89,22 @@ public class JobThreadPoolStatusExports extends AbstractCollector {
         taskCount.addMetric(labelValues, threadPoolStatusMetrics.getTaskCount());
         mfs.add(taskCount);
 
+        GaugeMetricFamily queueTaskCount =
+                new GaugeMetricFamily(
+                        "job_thread_pool_queueTaskCount",
+                        String.format(HELP, "queueTaskCount"),
+                        labelNames);
+        queueTaskCount.addMetric(labelValues, threadPoolStatusMetrics.getQueueTaskCount());
+        mfs.add(queueTaskCount);
+
+        CounterMetricFamily rejectedTaskCount =
+                new CounterMetricFamily(
+                        "job_thread_pool_rejection",
+                        String.format(HELP, "rejectionCount"),
+                        labelNames);
+        rejectedTaskCount.addMetric(labelValues, threadPoolStatusMetrics.getRejectionCount());
+        mfs.add(rejectedTaskCount);
+
         return mfs;
     }
 }

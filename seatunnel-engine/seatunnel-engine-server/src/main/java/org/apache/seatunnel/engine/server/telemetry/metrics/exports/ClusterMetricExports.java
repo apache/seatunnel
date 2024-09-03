@@ -75,7 +75,7 @@ public class ClusterMetricExports extends AbstractCollector {
             e.printStackTrace();
         }
 
-        metricFamily.addMetric(labelValues, 1);
+        metricFamily.addMetric(labelValues, 1.0);
         mfs.add(metricFamily);
     }
 
@@ -87,7 +87,7 @@ public class ClusterMetricExports extends AbstractCollector {
                         "node_count", "Cluster node total count ", clusterLabelNames());
         List<String> labelValues = labelValues();
 
-        metricFamily.addMetric(labelValues, memberImpls == null ? 0 : memberImpls.size());
+        metricFamily.addMetric(labelValues, memberImpls.size());
         mfs.add(metricFamily);
     }
 }

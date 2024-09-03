@@ -85,6 +85,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
@@ -179,10 +180,16 @@ public class CoordinatorService {
         this.nodeEngine = nodeEngine;
         this.logger = nodeEngine.getLogger(getClass());
         this.executorService =
-                Executors.newCachedThreadPool(
+                new ThreadPoolExecutor(
+                        0,
+                        Integer.MAX_VALUE,
+                        60L,
+                        TimeUnit.SECONDS,
+                        new SynchronousQueue<>(),
                         new ThreadFactoryBuilder()
                                 .setNameFormat("seatunnel-coordinator-service-%d")
-                                .build());
+                                .build(),
+                        new ThreadPoolStatus.RejectionCountingHandler());
         this.seaTunnelServer = seaTunnelServer;
         this.engineConfig = engineConfig;
         masterActiveListener = Executors.newSingleThreadScheduledExecutor();
@@ -873,13 +880,21 @@ public class CoordinatorService {
 
     public ThreadPoolStatus getThreadPoolStatusMetrics() {
         ThreadPoolExecutor threadPoolExecutor = (ThreadPoolExecutor) executorService;
+
+        long rejectionCount =
+                ((ThreadPoolStatus.RejectionCountingHandler)
+                                threadPoolExecutor.getRejectedExecutionHandler())
+                        .getRejectionCount();
+        long queueTaskSize = threadPoolExecutor.getQueue().size();
         return new ThreadPoolStatus(
                 threadPoolExecutor.getActiveCount(),
                 threadPoolExecutor.getCorePoolSize(),
                 threadPoolExecutor.getMaximumPoolSize(),
                 threadPoolExecutor.getPoolSize(),
                 threadPoolExecutor.getCompletedTaskCount(),
-                threadPoolExecutor.getTaskCount());
+                threadPoolExecutor.getTaskCount(),
+                queueTaskSize,
+                rejectionCount);
     }
 
     public ConnectorPackageService getConnectorPackageService() {

@@ -20,6 +20,9 @@ package org.apache.seatunnel.engine.server.telemetry.metrics.entity;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.atomic.AtomicLong;
+
 @Data
 @AllArgsConstructor
 public class ThreadPoolStatus {
@@ -29,4 +32,21 @@ public class ThreadPoolStatus {
     private int poolSize;
     private long completedTaskCount;
     private long taskCount;
+    private long queueTaskCount;
+    private long rejectionCount;
+
+    public static class RejectionCountingHandler extends ThreadPoolExecutor.AbortPolicy {
+
+        private final AtomicLong rejectionCount = new AtomicLong(0);
+
+        @Override
+        public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
+            rejectionCount.incrementAndGet();
+            super.rejectedExecution(r, executor);
+        }
+
+        public long getRejectionCount() {
+            return rejectionCount.get();
+        }
+    }
 }
