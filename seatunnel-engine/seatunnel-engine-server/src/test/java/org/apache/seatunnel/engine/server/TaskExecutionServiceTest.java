@@ -17,12 +17,14 @@
 
 package org.apache.seatunnel.engine.server;
 
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.server.execution.BlockTask;
 import org.apache.seatunnel.engine.server.execution.ExceptionTestTask;
 import org.apache.seatunnel.engine.server.execution.FixedCallTestTimeTask;
 import org.apache.seatunnel.engine.server.execution.StopTimeTestTask;
 import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
+import org.apache.seatunnel.engine.server.execution.TaskGroup;
 import org.apache.seatunnel.engine.server.execution.TaskGroupDefaultImpl;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TestTask;
@@ -33,6 +35,7 @@ import org.junit.jupiter.api.Test;
 
 import com.google.common.collect.Lists;
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
+import lombok.NonNull;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -43,6 +46,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static java.util.Collections.emptyList;
 import static org.apache.seatunnel.engine.server.execution.ExecutionState.CANCELED;
 import static org.apache.seatunnel.engine.server.execution.ExecutionState.FAILED;
 import static org.apache.seatunnel.engine.server.execution.ExecutionState.FINISHED;
@@ -63,6 +67,12 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         FLAKE_ID_GENERATOR = instance.getFlakeIdGenerator("test");
     }
 
+    private PassiveCompletableFuture<TaskExecutionState> deployLocalTask(
+            TaskExecutionService taskExecutionService, @NonNull TaskGroup taskGroup) {
+        return taskExecutionService.deployLocalTask(
+                taskGroup, Thread.currentThread().getContextClassLoader(), emptyList());
+    }
+
     @Test
     public void testCancel() {
         TaskExecutionService taskExecutionService = server.getTaskExecutionService();
@@ -79,7 +89,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                         "ts",
                         Lists.newArrayList(testTask1, testTask2));
         CompletableFuture<TaskExecutionState> completableFuture =
-                taskExecutionService.deployLocalTask(ts);
+                deployLocalTask(taskExecutionService, ts);
 
         taskExecutionService.cancelTaskGroup(ts.getTaskGroupLocation());
 
@@ -101,7 +111,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                         "ts",
                         Lists.newArrayList(testTask1, testTask2));
         CompletableFuture<TaskExecutionState> completableFuture =
-                taskExecutionService.deployLocalTask(ts);
+                deployLocalTask(taskExecutionService, ts);
 
         Thread.sleep(5000);
 
@@ -124,7 +134,8 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         TestTask testTask2 = new TestTask(stop, LOGGER, sleepTime, false);
 
         final CompletableFuture<TaskExecutionState> completableFuture =
-                taskExecutionService.deployLocalTask(
+                deployLocalTask(
+                        taskExecutionService,
                         new TaskGroupDefaultImpl(
                                 new TaskGroupLocation(
                                         jobId, pipeLineId, FLAKE_ID_GENERATOR.newId()),
@@ -158,7 +169,8 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         TaskExecutionService taskExecutionService = server.getTaskExecutionService();
 
         CompletableFuture<TaskExecutionState> taskCts =
-                taskExecutionService.deployLocalTask(
+                deployLocalTask(
+                        taskExecutionService,
                         new TaskGroupDefaultImpl(
                                 new TaskGroupLocation(
                                         jobId, pipeLineId, FLAKE_ID_GENERATOR.newId()),
@@ -211,7 +223,8 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         Collections.shuffle(tasks);
 
         CompletableFuture<TaskExecutionState> taskCts =
-                taskExecutionService.deployLocalTask(
+                deployLocalTask(
+                        taskExecutionService,
                         new TaskGroupDefaultImpl(
                                 new TaskGroupLocation(
                                         jobId, pipeLineId, FLAKE_ID_GENERATOR.newId()),
@@ -219,7 +232,8 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                                 Lists.newArrayList(tasks)));
 
         CompletableFuture<TaskExecutionState> t1c =
-                taskExecutionService.deployLocalTask(
+                deployLocalTask(
+                        taskExecutionService,
                         new TaskGroupDefaultImpl(
                                 new TaskGroupLocation(
                                         jobId, pipeLineId, FLAKE_ID_GENERATOR.newId()),
@@ -227,7 +241,8 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                                 Lists.newArrayList(t1)));
 
         CompletableFuture<TaskExecutionState> t2c =
-                taskExecutionService.deployLocalTask(
+                deployLocalTask(
+                        taskExecutionService,
                         new TaskGroupDefaultImpl(
                                 new TaskGroupLocation(
                                         jobId, pipeLineId, FLAKE_ID_GENERATOR.newId()),
@@ -285,7 +300,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         TaskExecutionService taskExecutionService = server.getTaskExecutionService();
 
         CompletableFuture<TaskExecutionState> completableFuture =
-                taskExecutionService.deployLocalTask(taskGroup);
+                deployLocalTask(taskExecutionService, taskGroup);
 
         // stop tasks
         Thread.sleep(taskRunTime);

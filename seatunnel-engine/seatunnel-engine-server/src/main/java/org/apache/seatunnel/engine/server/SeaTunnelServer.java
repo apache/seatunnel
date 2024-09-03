@@ -147,9 +147,7 @@ public class SeaTunnelServer
     }
 
     private void startWorker() {
-        taskExecutionService =
-                new TaskExecutionService(
-                        classLoaderService, nodeEngine, nodeEngine.getProperties());
+        taskExecutionService = new TaskExecutionService(classLoaderService, nodeEngine);
         nodeEngine.getMetricsRegistry().registerDynamicMetricsProvider(taskExecutionService);
         taskExecutionService.start();
         getSlotService();

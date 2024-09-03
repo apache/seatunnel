@@ -69,8 +69,6 @@ import com.hazelcast.logging.ILogger;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
-import com.hazelcast.spi.properties.HazelcastProperties;
-import lombok.Getter;
 import lombok.NonNull;
 import lombok.SneakyThrows;
 
@@ -153,10 +151,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     private final BlockingQueue<Event> eventBuffer;
     private final ExecutorService eventForwardService;
 
-    public TaskExecutionService(
-            ClassLoaderService classLoaderService,
-            NodeEngineImpl nodeEngine,
-            HazelcastProperties properties) {
+    public TaskExecutionService(ClassLoaderService classLoaderService, NodeEngineImpl nodeEngine) {
         seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         this.hzInstanceName = nodeEngine.getHazelcastInstance().getName();
         this.nodeEngine = nodeEngine;
@@ -377,13 +372,6 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                             ExceptionUtils.getMessage(t)));
             return TaskDeployState.failed(t);
         }
-    }
-
-    @Deprecated
-    public PassiveCompletableFuture<TaskExecutionState> deployLocalTask(
-            @NonNull TaskGroup taskGroup) {
-        return deployLocalTask(
-                taskGroup, Thread.currentThread().getContextClassLoader(), emptyList());
     }
 
     public PassiveCompletableFuture<TaskExecutionState> deployLocalTask(
@@ -628,7 +616,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                         }
                                     });
                 });
-        if (localMap.size() > 0) {
+        if (!localMap.isEmpty()) {
             boolean lockedIMap = false;
             try {
                 lockedIMap =
@@ -768,16 +756,16 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         public AtomicReference<TaskTracker> exclusiveTaskTracker = new AtomicReference<>();
         final TaskCallTimer timer;
         private Thread myThread;
-        public LinkedBlockingDeque<TaskTracker> taskqueue;
+        public LinkedBlockingDeque<TaskTracker> taskQueue;
         private Future<?> thisTaskFuture;
         private BlockingQueue<Future<?>> futureBlockingQueue;
 
         public CooperativeTaskWorker(
-                LinkedBlockingDeque<TaskTracker> taskqueue,
+                LinkedBlockingDeque<TaskTracker> taskQueue,
                 RunBusWorkSupplier runBusWorkSupplier,
                 BlockingQueue<Future<?>> futureBlockingQueue) {
             logger.info(String.format("Created new BusWork : %s", this.hashCode()));
-            this.taskqueue = taskqueue;
+            this.taskQueue = taskQueue;
             this.timer = new TaskCallTimer(50, keep, runBusWorkSupplier, this);
             this.futureBlockingQueue = futureBlockingQueue;
         }
@@ -792,7 +780,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 TaskTracker taskTracker =
                         null != exclusiveTaskTracker.get()
                                 ? exclusiveTaskTracker.get()
-                                : taskqueue.takeFirst();
+                                : taskQueue.takeFirst();
                 TaskGroupExecutionTracker taskGroupExecutionTracker =
                         taskTracker.taskGroupExecutionTracker;
                 if (taskGroupExecutionTracker.executionCompletedExceptionally()) {
@@ -859,7 +847,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                         // Task is not completed. Put task to the end of the queue
                         // If the current work has an exclusive tracker, it will not be put back
                         if (null == exclusiveTaskTracker.get()) {
-                            taskqueue.offer(taskTracker);
+                            taskQueue.offer(taskTracker);
                         }
                     }
                 }
@@ -880,7 +868,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         }
 
         public boolean runNewBusWork(boolean checkTaskQueue) {
-            if (!checkTaskQueue || taskQueue.size() > 0) {
+            if (!checkTaskQueue || !taskQueue.isEmpty()) {
                 BlockingQueue<Future<?>> futureBlockingQueue = new LinkedBlockingQueue<>();
                 CooperativeTaskWorker cooperativeTaskWorker =
                         new CooperativeTaskWorker(taskQueue, this, futureBlockingQueue);
@@ -907,7 +895,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
 
         private final AtomicBoolean isCancel = new AtomicBoolean(false);
 
-        @Getter private Map<Long, Future<?>> currRunningTaskFuture = new ConcurrentHashMap<>();
+        private final Map<Long, Future<?>> currRunningTaskFuture = new ConcurrentHashMap<>();
 
         TaskGroupExecutionTracker(
                 @NonNull CompletableFuture<Void> cancellationFuture,
