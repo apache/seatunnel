@@ -40,6 +40,8 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.catalog.ElasticSe
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsRestClient;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsType;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorException;
 
 import org.apache.commons.collections4.CollectionUtils;
 
@@ -64,7 +66,18 @@ public class ElasticsearchSource
 
     public ElasticsearchSource(ReadonlyConfig config) {
         this.connectionConfig = config;
-        if (config.getOptional(SourceConfig.INDEX_LIST).isPresent()) {
+        boolean multiSource = config.getOptional(SourceConfig.INDEX_LIST).isPresent();
+        boolean singleSource = config.getOptional(SourceConfig.INDEX).isPresent();
+        if (multiSource && singleSource) {
+            log.warn(
+                    "Elasticsearch Source config warn: when both 'index' and 'index_list' are present in the configuration, only the 'index_list' configuration will take effect");
+        }
+        if (!multiSource && !singleSource) {
+            throw new ElasticsearchConnectorException(
+                    ElasticsearchConnectorErrorCode.SOURCE_CONFIG_ERROR_01,
+                    ElasticsearchConnectorErrorCode.SOURCE_CONFIG_ERROR_01.getDescription());
+        }
+        if (multiSource) {
             this.sourceConfigList = createMultiSource(config);
         } else {
             this.sourceConfigList = Collections.singletonList(parseOneIndexQueryConfig(config));
