@@ -221,6 +221,9 @@ public class ConfigBuilder {
 
     private static void processVariable(
             String variableKey, Object variableValue, Map<String, Object> parentMap) {
+        if (Objects.isNull(variableValue)) {
+            return;
+        }
         String variableString = variableValue.toString();
         List<String> placeholders = extractPlaceholder(variableString);
 
