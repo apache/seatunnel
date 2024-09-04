@@ -25,6 +25,8 @@ import org.apache.seatunnel.engine.client.job.ClientJobProxy;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.config.server.TelemetryConfig;
+import org.apache.seatunnel.engine.common.config.server.TelemetryMetricConfig;
 import org.apache.seatunnel.engine.core.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 
@@ -60,11 +62,11 @@ public class TelemetryApiIT {
         testClusterName = TestUtils.getClusterName("TelemetryApiIT");
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         seaTunnelConfig.getHazelcastConfig().setClusterName(testClusterName);
-        //        TelemetryMetricConfig telemetryMetricConfig = new TelemetryMetricConfig();
-        //        telemetryMetricConfig.setEnabled(true);
-        //        TelemetryConfig telemetryConfig = new TelemetryConfig();
-        //        telemetryConfig.setMetric(telemetryMetricConfig);
-        //        seaTunnelConfig.getEngineConfig().setTelemetryConfig(telemetryConfig);
+        TelemetryMetricConfig telemetryMetricConfig = new TelemetryMetricConfig();
+        telemetryMetricConfig.setEnabled(true);
+        TelemetryConfig telemetryConfig = new TelemetryConfig();
+        telemetryConfig.setMetric(telemetryMetricConfig);
+        seaTunnelConfig.getEngineConfig().setTelemetryConfig(telemetryConfig);
         hazelcastInstance = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = TestUtils.getResource("stream_fakesource_to_file.conf");
