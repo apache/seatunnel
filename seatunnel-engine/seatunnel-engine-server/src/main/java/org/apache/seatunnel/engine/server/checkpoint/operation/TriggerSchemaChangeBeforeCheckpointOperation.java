@@ -20,11 +20,11 @@ package org.apache.seatunnel.engine.server.checkpoint.operation;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.serializable.CheckpointDataSerializerHook;
+import org.apache.seatunnel.engine.server.task.operation.TracingOperation;
 
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
-import com.hazelcast.spi.impl.operationservice.Operation;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -36,7 +36,7 @@ import java.io.IOException;
 @Getter
 @AllArgsConstructor
 @NoArgsConstructor
-public class TriggerSchemaChangeBeforeCheckpointOperation extends Operation
+public class TriggerSchemaChangeBeforeCheckpointOperation extends TracingOperation
         implements IdentifiedDataSerializable {
 
     private TaskLocation taskLocation;
@@ -62,7 +62,7 @@ public class TriggerSchemaChangeBeforeCheckpointOperation extends Operation
     }
 
     @Override
-    public void run() {
+    public void runInternal() {
         log.debug("call TriggerSchemaChangeBeforeCheckpointOperation {}", taskLocation);
         ((SeaTunnelServer) getService())
                 .getCoordinatorService()

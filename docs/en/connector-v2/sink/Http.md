@@ -27,9 +27,9 @@ Used to launch web hooks using data.
 In order to use the Http connector, the following dependencies are required.
 They can be downloaded via install-plugin.sh or from the Maven central repository.
 
-| Datasource | Supported Versions |                                                 Dependency                                                 |
-|------------|--------------------|------------------------------------------------------------------------------------------------------------|
-| Http       | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/seatunnel-connectors-v2/connector-http) |
+| Datasource | Supported Versions | Dependency                                                                         |
+|------------|--------------------|------------------------------------------------------------------------------------|
+| Http       | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-http) |
 
 ## Sink Options
 

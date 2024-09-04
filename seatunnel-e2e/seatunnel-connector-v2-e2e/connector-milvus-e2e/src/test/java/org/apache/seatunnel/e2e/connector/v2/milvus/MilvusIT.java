@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.e2e.connector.v2.milvus;
 
+import org.apache.seatunnel.common.utils.BufferUtils;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.EngineType;
@@ -54,7 +55,6 @@ import io.milvus.param.index.CreateIndexParam;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -227,7 +227,7 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
             List<Float> vector = Arrays.asList((float) i, (float) i, (float) i, (float) i);
             row.add(VECTOR_FIELD, gson.toJsonTree(vector));
             Short[] shorts = {(short) i, (short) i, (short) i, (short) i};
-            ByteBuffer shortByteBuffer = shortArrayToByteBuffer(shorts);
+            ByteBuffer shortByteBuffer = BufferUtils.toByteBuffer(shorts);
             row.add(VECTOR_FIELD2, gson.toJsonTree(shortByteBuffer.array()));
             ByteBuffer binaryByteBuffer = ByteBuffer.wrap(new byte[] {16});
             row.add(VECTOR_FIELD3, gson.toJsonTree(binaryByteBuffer.array()));
@@ -361,19 +361,5 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
         Assertions.assertTrue(fileds.contains("book_intro_2"));
         Assertions.assertTrue(fileds.contains("book_intro_3"));
         Assertions.assertTrue(fileds.contains("book_intro_4"));
-    }
-
-    private static ByteBuffer shortArrayToByteBuffer(Short[] shortArray) {
-        ByteBuffer byteBuffer = ByteBuffer.allocate(shortArray.length * 2); // 2 bytes per short
-
-        for (Short value : shortArray) {
-            byteBuffer.putShort(value);
-        }
-
-        // Compatible compilation and running versions are not consistent
-        // Flip the buffer to prepare for reading
-        ((Buffer) byteBuffer).flip();
-
-        return byteBuffer;
     }
 }

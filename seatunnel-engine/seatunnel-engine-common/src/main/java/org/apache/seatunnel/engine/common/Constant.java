@@ -24,6 +24,8 @@ public class Constant {
 
     public static final String DEFAULT_SEATUNNEL_CLUSTER_NAME = "seatunnel";
 
+    public static final String REST_SUBMIT_JOBS_PARAMS = "params";
+
     /**
      * The default port number for the cluster auto-discovery mechanism's multicast communication.
      */

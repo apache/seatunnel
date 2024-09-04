@@ -32,6 +32,7 @@ import lombok.NoArgsConstructor;
 public class PaimonRecord {
     public Long pkId;
     public String name;
+    public Integer score;
     public String dt;
     public Timestamp oneTime;
     public Timestamp twoTime;

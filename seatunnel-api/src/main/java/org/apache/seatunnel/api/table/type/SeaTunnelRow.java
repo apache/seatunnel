@@ -143,7 +143,6 @@ public final class SeaTunnelRow implements Serializable {
             case TIMESTAMP:
                 return 48;
             case FLOAT_VECTOR:
-                return getArrayNotNullSize((Object[]) v) * 4;
             case FLOAT16_VECTOR:
             case BFLOAT16_VECTOR:
             case BINARY_VECTOR:
@@ -296,6 +295,9 @@ public final class SeaTunnelRow implements Serializable {
                     size += getBytesForValue(entry.getKey()) + getBytesForValue(entry.getValue());
                 }
                 return size;
+            case "HeapByteBuffer":
+            case "ByteBuffer":
+                return ((ByteBuffer) v).capacity();
             case "SeaTunnelRow":
                 int rowSize = 0;
                 SeaTunnelRow row = (SeaTunnelRow) v;

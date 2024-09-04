@@ -85,8 +85,6 @@ public class JdbcSourceTableConfig implements Serializable {
                             .partitionNumber(connectorConfig.get(JdbcOptions.PARTITION_NUM))
                             .partitionStart(connectorConfig.get(JdbcOptions.PARTITION_LOWER_BOUND))
                             .partitionEnd(connectorConfig.get(JdbcOptions.PARTITION_UPPER_BOUND))
-                            .useSelectCount(connectorConfig.get(JdbcSourceOptions.USE_SELECT_COUNT))
-                            .skipAnalyze(connectorConfig.get(JdbcSourceOptions.SKIP_ANALYZE))
                             .build();
             tableList = Collections.singletonList(tableProperty);
         }
@@ -96,6 +94,9 @@ public class JdbcSourceTableConfig implements Serializable {
                     if (tableConfig.getPartitionNumber() == null) {
                         tableConfig.setPartitionNumber(DEFAULT_PARTITION_NUMBER);
                     }
+                    tableConfig.setUseSelectCount(
+                            connectorConfig.get(JdbcSourceOptions.USE_SELECT_COUNT));
+                    tableConfig.setSkipAnalyze(connectorConfig.get(JdbcSourceOptions.SKIP_ANALYZE));
                 });
 
         if (tableList.size() > 1) {
