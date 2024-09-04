@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.task.group;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+import org.apache.seatunnel.engine.server.execution.TaskGroupType;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.group.queue.AbstractIntermediateQueue;
 import org.apache.seatunnel.engine.server.task.group.queue.IntermediateBlockingQueue;
@@ -54,5 +55,10 @@ public class TaskGroupWithIntermediateBlockingQueue extends AbstractTaskGroupWit
     public AbstractIntermediateQueue<?> getQueueCache(long id) {
         blockingQueueCache.computeIfAbsent(id, i -> new ArrayBlockingQueue<>(QUEUE_SIZE));
         return new IntermediateBlockingQueue(blockingQueueCache.get(id));
+    }
+
+    @Override
+    public TaskGroupType getTaskGroupType() {
+        return TaskGroupType.INTERMEDIATE_BLOCKING_QUEUE;
     }
 }

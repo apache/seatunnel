@@ -36,13 +36,13 @@ public class RequestSplitOperation extends TracingOperation implements Identifie
 
     private TaskLocation enumeratorTaskID;
 
-    private TaskLocation taskID;
+    private TaskLocation taskLocation;
 
     public RequestSplitOperation() {}
 
-    public RequestSplitOperation(TaskLocation taskID, TaskLocation enumeratorTaskID) {
+    public RequestSplitOperation(TaskLocation taskLocation, TaskLocation enumeratorTaskID) {
         this.enumeratorTaskID = enumeratorTaskID;
-        this.taskID = taskID;
+        this.taskLocation = taskLocation;
     }
 
     @Override
@@ -54,12 +54,12 @@ public class RequestSplitOperation extends TracingOperation implements Identifie
                     ClassLoader classLoader =
                             server.getTaskExecutionService()
                                     .getExecutionContext(enumeratorTaskID.getTaskGroupLocation())
-                                    .getClassLoader();
+                                    .getClassLoader(taskLocation.getTaskID());
                     ClassLoader oldClassLoader = Thread.currentThread().getContextClassLoader();
                     Thread.currentThread().setContextClassLoader(classLoader);
                     SourceSplitEnumeratorTask<?> task =
                             server.getTaskExecutionService().getTask(enumeratorTaskID);
-                    task.requestSplit(taskID.getTaskIndex());
+                    task.requestSplit(taskLocation.getTaskIndex());
                     Thread.currentThread().setContextClassLoader(oldClassLoader);
                     return null;
                 },
@@ -81,14 +81,14 @@ public class RequestSplitOperation extends TracingOperation implements Identifie
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         super.writeInternal(out);
-        out.writeObject(taskID);
+        out.writeObject(taskLocation);
         out.writeObject(enumeratorTaskID);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         super.readInternal(in);
-        taskID = in.readObject();
+        taskLocation = in.readObject();
         enumeratorTaskID = in.readObject();
     }
 

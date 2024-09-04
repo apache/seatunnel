@@ -54,7 +54,7 @@ public class SourceReaderEventOperation extends SourceEventOperation {
                     ClassLoader classLoader =
                             server.getTaskExecutionService()
                                     .getExecutionContext(taskLocation.getTaskGroupLocation())
-                                    .getClassLoader();
+                                    .getClassLoader(task.getTaskID());
                     task.handleSourceEvent(
                             currentTaskLocation.getTaskIndex(),
                             SerializationUtils.deserialize(sourceEvent, classLoader));

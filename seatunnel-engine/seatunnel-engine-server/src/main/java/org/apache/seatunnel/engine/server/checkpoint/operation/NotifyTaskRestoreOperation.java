@@ -98,7 +98,8 @@ public class NotifyTaskRestoreOperation extends TaskOperation {
                                         () -> {
                                             Thread.currentThread()
                                                     .setContextClassLoader(
-                                                            groupContext.getClassLoader());
+                                                            groupContext.getClassLoader(
+                                                                    task.getTaskID()));
                                             try {
                                                 log.debug(
                                                         "NotifyTaskRestoreOperation.restoreState "

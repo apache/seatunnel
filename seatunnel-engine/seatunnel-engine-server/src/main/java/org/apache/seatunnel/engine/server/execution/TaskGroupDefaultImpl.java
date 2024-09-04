@@ -18,9 +18,8 @@
 package org.apache.seatunnel.engine.server.execution;
 
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 public class TaskGroupDefaultImpl implements TaskGroup {
     private final TaskGroupLocation taskGroupLocation;
@@ -33,7 +32,10 @@ public class TaskGroupDefaultImpl implements TaskGroup {
             TaskGroupLocation taskGroupLocation, String taskGroupName, Collection<Task> tasks) {
         this.taskGroupLocation = taskGroupLocation;
         this.taskGroupName = taskGroupName;
-        this.tasks = tasks.stream().collect(Collectors.toMap(Task::getTaskID, Function.identity()));
+        // keep the order of tasks, make sure the order of tasks is the same as the jars order in
+        // {@link PhysicalVertex::pluginJarsUrls}
+        this.tasks = new LinkedHashMap<>();
+        tasks.forEach(t -> this.tasks.put(t.getTaskID(), t));
     }
 
     public String getTaskGroupName() {
@@ -60,4 +62,9 @@ public class TaskGroupDefaultImpl implements TaskGroup {
 
     @Override
     public void setTasksContext(Map<Long, TaskExecutionContext> taskExecutionContextMap) {}
+
+    @Override
+    public TaskGroupType getTaskGroupType() {
+        return TaskGroupType.DEFAULT;
+    }
 }
