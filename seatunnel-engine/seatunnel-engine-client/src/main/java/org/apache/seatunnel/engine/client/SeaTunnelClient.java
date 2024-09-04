@@ -170,7 +170,8 @@ public class SeaTunnelClient implements SeaTunnelClientInstance, AutoCloseable {
     public Map<String, String> getClusterHealthMetrics() {
         Set<Member> members = hazelcastClient.getHazelcastInstance().getCluster().getMembers();
         Map<String, String> healthMetricsMap = new HashMap<>();
-        members.forEach(
+        members
+                .forEach(
                         member -> {
                             String metrics =
                                     hazelcastClient.requestAndDecodeResponse(
