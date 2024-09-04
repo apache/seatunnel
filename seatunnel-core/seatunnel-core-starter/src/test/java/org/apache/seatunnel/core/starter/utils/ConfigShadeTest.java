@@ -188,14 +188,13 @@ public class ConfigShadeTest {
         String username = "seatunnel=2.3.1";
         String password = "$a^b%c.d~e0*9(";
         String blankSpace = "2023-12-26 11:30:00";
+        String sourceTableName = "sql";
         List<String> variables = new ArrayList<>();
         variables.add("jobName=" + jobName);
         variables.add("strTemplate=[abc,de~,f h]");
         variables.add("ageType=" + ageType);
         variables.add("nameVal=abc");
-        variables.add("username=" + username);
-        variables.add("password=" + password);
-        variables.add("blankSpace=" + blankSpace);
+        variables.add("sourceTableName=" + sourceTableName);
         URL resource =
                 ConfigShadeTest.class.getResource("/config_variables_with_default_value.conf");
         Assertions.assertNotNull(resource);
@@ -222,9 +221,7 @@ public class ConfigShadeTest {
         List<? extends ConfigObject> sinkConfigs = config.getObjectList("sink");
         for (ConfigObject sinkObject : sinkConfigs) {
             Config sinkConfig = sinkObject.toConfig();
-            Assertions.assertEquals(sinkConfig.getString("username"), username);
-            Assertions.assertEquals(sinkConfig.getString("password"), password);
-            Assertions.assertEquals(sinkConfig.getString("blankSpace"), blankSpace);
+            Assertions.assertEquals(sinkConfig.getString("source_table_name"), sourceTableName);
         }
     }
 
