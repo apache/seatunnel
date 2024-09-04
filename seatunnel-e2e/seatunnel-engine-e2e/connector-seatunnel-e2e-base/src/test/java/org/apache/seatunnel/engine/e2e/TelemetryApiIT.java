@@ -60,9 +60,12 @@ public class TelemetryApiIT {
         testClusterName = TestUtils.getClusterName("TelemetryApiIT");
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         seaTunnelConfig.getHazelcastConfig().setClusterName(testClusterName);
+        //        TelemetryMetricConfig telemetryMetricConfig = new TelemetryMetricConfig();
+        //        telemetryMetricConfig.setEnabled(true);
+        //        TelemetryConfig telemetryConfig = new TelemetryConfig();
+        //        telemetryConfig.setMetric(telemetryMetricConfig);
+        //        seaTunnelConfig.getEngineConfig().setTelemetryConfig(telemetryConfig);
         hazelcastInstance = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
-        // createTelemetryInstance
-        SeaTunnelServerStarter.initTelemetryInstance(hazelcastInstance.node);
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = TestUtils.getResource("stream_fakesource_to_file.conf");
         JobConfig jobConfig = new JobConfig();

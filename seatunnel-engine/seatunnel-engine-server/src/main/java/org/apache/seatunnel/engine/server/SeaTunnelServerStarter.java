@@ -52,7 +52,7 @@ public class SeaTunnelServerStarter {
 
     private static HazelcastInstanceImpl initializeHazelcastInstance(
             @NonNull SeaTunnelConfig seaTunnelConfig, String customInstanceName) {
-        checkTelemetryConfig(seaTunnelConfig);
+        boolean condition = checkTelemetryConfig(seaTunnelConfig);
         String instanceName =
                 customInstanceName != null
                         ? customInstanceName
@@ -66,7 +66,10 @@ public class SeaTunnelServerStarter {
                                         instanceName,
                                         new SeaTunnelNodeContext(seaTunnelConfig)))
                         .getOriginal();
-        initTelemetryInstance(original.node);
+        // init telemetry instance
+        if (condition) {
+            initTelemetryInstance(original.node);
+        }
         return original;
     }
 
@@ -119,13 +122,15 @@ public class SeaTunnelServerStarter {
         ExportsInstanceInitializer.init(node);
     }
 
-    private static void checkTelemetryConfig(SeaTunnelConfig seaTunnelConfig) {
+    private static boolean checkTelemetryConfig(SeaTunnelConfig seaTunnelConfig) {
         // "hazelcast.jmx" need to set "true", for hazelcast metrics
         if (seaTunnelConfig.getEngineConfig().getTelemetryConfig().getMetric().isEnabled()) {
             seaTunnelConfig
                     .getHazelcastConfig()
                     .getProperties()
                     .setProperty("hazelcast.jmx", "true");
+            return true;
         }
+        return false;
     }
 }
