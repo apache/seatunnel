@@ -15,15 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform.llm.model;
-
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+package org.apache.seatunnel.transform.nlpmodel.embadding.remote;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.util.List;
 
 public interface Model extends Closeable {
 
-    List<String> inference(List<SeaTunnelRow> rows) throws IOException;
+    List<ByteBuffer> vectorization(Object[] fields) throws IOException;
+
+    Integer dimension() throws IOException;
 }

@@ -8,14 +8,14 @@
 
 ## 属性
 
-|        名称        |   类型   | 是否必须 |                    默认值                     |
-|------------------|--------|------|--------------------------------------------|
-| model_provider   | enum   | yes  |                                            |
-| output_data_type | enum   | no   | String                                     |
-| prompt           | string | yes  |                                            |
-| model            | string | yes  |                                            |
-| api_key          | string | yes  |                                            |
-| openai.api_path  | string | no   | https://api.openai.com/v1/chat/completions |
+| 名称               | 类型     | 是否必须 | 默认值    |
+|------------------|--------|------|--------|
+| model_provider   | enum   | yes  |        |
+| output_data_type | enum   | no   | String |
+| prompt           | string | yes  |        |
+| model            | string | yes  |        |
+| api_key          | string | yes  |        |
+| api_path         | string | no   |        |
 
 ### model_provider
 
@@ -34,7 +34,7 @@ STRING,INT,BIGINT,DOUBLE,BOOLEAN.
 
 从源读取的数据是这样的表格:
 
-|     name      | age |
+| name          | age |
 |---------------|-----|
 | Jia Fan       | 20  |
 | Hailin Wang   | 20  |
@@ -49,7 +49,7 @@ Determine whether someone is Chinese or American by their name
 
 这将返回:
 
-|     name      | age | llm_output |
+| name          | age | llm_output |
 |---------------|-----|------------|
 | Jia Fan       | 20  | Chinese    |
 | Hailin Wang   | 20  | Chinese    |
@@ -66,9 +66,9 @@ Determine whether someone is Chinese or American by their name
 用于模型提供者的 API 密钥。
 如果使用 OpenAI 模型，请参考 https://platform.openai.com/docs/api-reference/api-keys 文档的如何获取 API 密钥。
 
-### openai.api_path
+### api_path
 
-用于 OpenAI 模型提供者的 API 路径。在大多数情况下，您不需要更改此配置。如果使用 API 代理的服务，您可能需要将其配置为代理的 API 地址。
+用于模型提供者的 API 路径。在大多数情况下，您不需要更改此配置。如果使用 API 代理的服务，您可能需要将其配置为代理的 API 地址。
 
 ### common options [string]
 

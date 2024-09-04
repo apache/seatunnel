@@ -15,8 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.transform.llm;
+package org.apache.seatunnel.transform.nlpmodel.llm.remote;
 
-public enum ModelProvider {
-    OPENAI
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+
+import java.io.Closeable;
+import java.io.IOException;
+import java.util.List;
+
+public interface Model extends Closeable {
+
+    List<String> inference(List<SeaTunnelRow> rows) throws IOException;
 }

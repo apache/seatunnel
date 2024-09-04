@@ -15,21 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source;
+package org.apache.seatunnel.transform;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import org.apache.seatunnel.transform.nlpmodel.embadding.EmbeddingTransformFactory;
 
-import java.io.Serializable;
-import java.util.List;
-import java.util.Map;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-@Data
-@AllArgsConstructor
-public class SourceIndexInfo implements Serializable {
-    private String index;
-    private List<String> source;
-    private Map<String, Object> query;
-    private String scrollTime;
-    private int scrollSize;
+public class EmbeddingTransformFactoryTest {
+
+    @Test
+    public void testOptionRule() throws Exception {
+        EmbeddingTransformFactory embeddingTransformFactory = new EmbeddingTransformFactory();
+        Assertions.assertNotNull(embeddingTransformFactory.optionRule());
+    }
 }

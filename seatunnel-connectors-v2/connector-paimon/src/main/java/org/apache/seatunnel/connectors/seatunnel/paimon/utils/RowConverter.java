@@ -378,7 +378,7 @@ public class RowConverter {
                 binaryWriter.setNullAt(i);
                 continue;
             }
-            checkCanWriteWithType(i, seaTunnelRowType, sinkTotalFields);
+            checkCanWriteWithSchema(i, seaTunnelRowType, sinkTotalFields);
             String fieldName = seaTunnelRowType.getFieldName(i);
             switch (fieldTypes[i].getSqlType()) {
                 case TINYINT:
@@ -486,7 +486,7 @@ public class RowConverter {
         return binaryRow;
     }
 
-    private static void checkCanWriteWithType(
+    private static void checkCanWriteWithSchema(
             int i, SeaTunnelRowType seaTunnelRowType, List<DataField> fields) {
         String sourceFieldName = seaTunnelRowType.getFieldName(i);
         SeaTunnelDataType<?> sourceFieldType = seaTunnelRowType.getFieldType(i);
@@ -495,7 +495,8 @@ public class RowConverter {
                 RowTypeConverter.reconvert(sourceFieldName, seaTunnelRowType.getFieldType(i));
         DataField exceptDataField = new DataField(i, sourceFieldName, exceptDataType);
         DataType sinkDataType = sinkDataField.type();
-        if (!exceptDataType.getTypeRoot().equals(sinkDataType.getTypeRoot())) {
+        if (!exceptDataType.getTypeRoot().equals(sinkDataType.getTypeRoot())
+                || !StringUtils.equals(sourceFieldName, sinkDataField.name())) {
             throw CommonError.writeRowErrorWithSchemaIncompatibleSchema(
                     "Paimon",
                     sourceFieldName + StringUtils.SPACE + sourceFieldType.getSqlType(),
