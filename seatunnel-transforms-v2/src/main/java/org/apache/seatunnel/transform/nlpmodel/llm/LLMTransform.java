@@ -92,6 +92,7 @@ public class LLMTransform extends SingleFieldOutputTransform {
                                                 .CUSTOM_RESPONSE_PARSE));
                 break;
             case OPENAI:
+            case DOUBAO:
                 model =
                         new OpenAIModel(
                                 inputCatalogTable.getSeaTunnelRowType(),
@@ -102,7 +103,6 @@ public class LLMTransform extends SingleFieldOutputTransform {
                                 provider.usedLLMPath(config.get(LLMTransformConfig.API_PATH)));
                 break;
             case QIANFAN:
-            case DOUBAO:
             default:
                 throw new IllegalArgumentException("Unsupported model provider: " + provider);
         }
