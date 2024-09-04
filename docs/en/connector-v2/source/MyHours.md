@@ -37,7 +37,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 
 | Datasource | Supported Versions |                                         Dependency                                          |
 |------------|--------------------|---------------------------------------------------------------------------------------------|
-| My Hours   | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/seatunnel-connectors-v2) |
+| My Hours   | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel) |
 
 ## Source Options
 
