@@ -10,14 +10,14 @@ more.
 
 ## Options
 
-|       name       |  type  | required |               default value                |
-|------------------|--------|----------|--------------------------------------------|
-| model_provider   | enum   | yes      |                                            |
-| output_data_type | enum   | no       | String                                     |
-| prompt           | string | yes      |                                            |
-| model            | string | yes      |                                            |
-| api_key          | string | yes      |                                            |
-| openai.api_path  | string | no       | https://api.openai.com/v1/chat/completions |
+| name             | type   | required | default value |
+|------------------|--------|----------|---------------|
+| model_provider   | enum   | yes      |               |
+| output_data_type | enum   | no       | String        |
+| prompt           | string | yes      |               |
+| model            | string | yes      |               |
+| api_key          | string | yes      |               |
+| api_path         | string | no       |               |
 
 ### model_provider
 
@@ -36,7 +36,7 @@ The prompt to send to the LLM. This parameter defines how LLM will process and r
 
 The data read from source is a table like this:
 
-|     name      | age |
+| name          | age |
 |---------------|-----|
 | Jia Fan       | 20  |
 | Hailin Wang   | 20  |
@@ -51,7 +51,7 @@ Determine whether someone is Chinese or American by their name
 
 The result will be:
 
-|     name      | age | llm_output |
+| name          | age | llm_output |
 |---------------|-----|------------|
 | Jia Fan       | 20  | Chinese    |
 | Hailin Wang   | 20  | Chinese    |
@@ -61,16 +61,18 @@ The result will be:
 ### model
 
 The model to use. Different model providers have different models. For example, the OpenAI model can be `gpt-4o-mini`.
-If you use OpenAI model, please refer https://platform.openai.com/docs/models/model-endpoint-compatibility of `/v1/chat/completions` endpoint.
+If you use OpenAI model, please refer https://platform.openai.com/docs/models/model-endpoint-compatibility
+of `/v1/chat/completions` endpoint.
 
 ### api_key
 
 The API key to use for the model provider.
 If you use OpenAI model, please refer https://platform.openai.com/docs/api-reference/api-keys of how to get the API key.
 
-### openai.api_path
+### api_path
 
-The API path to use for the OpenAI model provider. In most cases, you do not need to change this configuration. If you are using an API agent's service, you may need to configure it to the agent's API address.
+The API path to use for the model provider. In most cases, you do not need to change this configuration. If you
+are using an API agent's service, you may need to configure it to the agent's API address.
 
 ### common options [string]
 

@@ -15,21 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source;
+package org.apache.seatunnel.api.tracing;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import java.util.concurrent.Executor;
 
-import java.io.Serializable;
-import java.util.List;
-import java.util.Map;
+/** Executor that sets MDC context before calling the delegate and clears it afterwards. */
+public class MDCExecutor implements Executor {
+    private final MDCContext context;
+    private final Executor delegate;
 
-@Data
-@AllArgsConstructor
-public class SourceIndexInfo implements Serializable {
-    private String index;
-    private List<String> source;
-    private Map<String, Object> query;
-    private String scrollTime;
-    private int scrollSize;
+    public MDCExecutor(MDCContext context, Executor delegate) {
+        this.context = context;
+        this.delegate = delegate;
+    }
+
+    @Override
+    public void execute(Runnable command) {
+        delegate.execute(new MDCRunnable(context, command));
+    }
 }
