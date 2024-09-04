@@ -68,6 +68,8 @@ public class KafkaRecordEmitter
             } else {
                 deserializationSchema.deserialize(consumerRecord.value(), outputCollector);
             }
+            // consumerRecord.offset + 1 is the offset commit to Kafka and also the start offset
+            // for the next run
             splitState.setCurrentOffset(consumerRecord.offset() + 1);
         } catch (IOException e) {
             if (this.messageFormatErrorHandleWay == MessageFormatErrorHandleWay.SKIP) {
