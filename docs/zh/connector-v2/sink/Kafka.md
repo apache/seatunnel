@@ -24,9 +24,9 @@
 为了使用 Kafka 连接器，需要以下依赖项
 可以通过 install-plugin.sh 或从 Maven 中央存储库下载
 
-|  数据源  | 支持版本 |                                                 Maven                                                 |
-|-------|------|-------------------------------------------------------------------------------------------------------|
-| Kafka | 通用   | [下载](https://mvnrepository.com/artifact/org.apache.seatunnel/seatunnel-connectors-v2/connector-kafka) |
+| 数据源   | 支持版本 | Maven                                                                         |
+|-------|------|-------------------------------------------------------------------------------|
+| Kafka | 通用   | [下载](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-kafka) |
 
 ## 接收器选项
 

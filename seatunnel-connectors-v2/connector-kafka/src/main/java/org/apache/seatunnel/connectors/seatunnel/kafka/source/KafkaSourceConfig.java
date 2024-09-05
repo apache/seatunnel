@@ -89,6 +89,7 @@ public class KafkaSourceConfig implements Serializable {
     @Getter private final Properties properties;
     @Getter private final long discoveryIntervalMillis;
     @Getter private final MessageFormatErrorHandleWay messageFormatErrorHandleWay;
+    @Getter private final String consumerGroup;
 
     public KafkaSourceConfig(ReadonlyConfig readonlyConfig) {
         this.bootstrap = readonlyConfig.get(BOOTSTRAP_SERVERS);
@@ -98,6 +99,7 @@ public class KafkaSourceConfig implements Serializable {
         this.discoveryIntervalMillis = readonlyConfig.get(KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS);
         this.messageFormatErrorHandleWay =
                 readonlyConfig.get(MESSAGE_FORMAT_ERROR_HANDLE_WAY_OPTION);
+        this.consumerGroup = readonlyConfig.get(CONSUMER_GROUP);
     }
 
     private Properties createKafkaProperties(ReadonlyConfig readonlyConfig) {
@@ -131,7 +133,6 @@ public class KafkaSourceConfig implements Serializable {
         ConsumerMetadata consumerMetadata = new ConsumerMetadata();
         consumerMetadata.setTopic(readonlyConfig.get(TOPIC));
         consumerMetadata.setPattern(readonlyConfig.get(PATTERN));
-        consumerMetadata.setConsumerGroup(readonlyConfig.get(CONSUMER_GROUP));
         consumerMetadata.setProperties(new Properties());
         // Create a catalog
         CatalogTable catalogTable = createCatalogTable(readonlyConfig);

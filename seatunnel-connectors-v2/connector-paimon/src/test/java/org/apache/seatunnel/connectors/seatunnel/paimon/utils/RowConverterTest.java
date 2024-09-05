@@ -42,6 +42,7 @@ import org.apache.paimon.data.Timestamp;
 import org.apache.paimon.data.serializer.InternalArraySerializer;
 import org.apache.paimon.data.serializer.InternalMapSerializer;
 import org.apache.paimon.schema.TableSchema;
+import org.apache.paimon.types.DataField;
 import org.apache.paimon.types.DataType;
 import org.apache.paimon.types.DataTypes;
 import org.apache.paimon.types.RowType;
@@ -68,6 +69,25 @@ public class RowConverterTest {
     private InternalRow internalRow;
 
     private SeaTunnelRowType seaTunnelRowType;
+
+    private volatile boolean isCaseSensitive = false;
+    private volatile int index = 0;
+    private static final String[] filedNames = {
+        "c_tinyint",
+        "c_smallint",
+        "c_int",
+        "c_bigint",
+        "c_float",
+        "c_double",
+        "c_decimal",
+        "c_string",
+        "c_bytes",
+        "c_boolean",
+        "c_date",
+        "c_timestamp",
+        "c_map",
+        "c_array"
+    };
 
     public static final List<String> KEY_NAME_LIST = Arrays.asList("c_tinyint");
 
@@ -118,41 +138,8 @@ public class RowConverterTest {
     }
 
     @BeforeEach
-    public void before() {
-        seaTunnelRowType =
-                new SeaTunnelRowType(
-                        new String[] {
-                            "c_tinyint",
-                            "c_smallint",
-                            "c_int",
-                            "c_bigint",
-                            "c_float",
-                            "c_double",
-                            "c_decimal",
-                            "c_string",
-                            "c_bytes",
-                            "c_boolean",
-                            "c_date",
-                            "c_timestamp",
-                            "c_map",
-                            "c_array"
-                        },
-                        new SeaTunnelDataType<?>[] {
-                            BasicType.BYTE_TYPE,
-                            BasicType.SHORT_TYPE,
-                            BasicType.INT_TYPE,
-                            BasicType.LONG_TYPE,
-                            BasicType.FLOAT_TYPE,
-                            BasicType.DOUBLE_TYPE,
-                            new DecimalType(30, 8),
-                            BasicType.STRING_TYPE,
-                            PrimitiveByteArrayType.INSTANCE,
-                            BasicType.BOOLEAN_TYPE,
-                            LocalTimeType.LOCAL_DATE_TYPE,
-                            LocalTimeType.LOCAL_DATE_TIME_TYPE,
-                            new MapType<>(BasicType.STRING_TYPE, BasicType.STRING_TYPE),
-                            ArrayType.STRING_ARRAY_TYPE
-                        });
+    public void generateTestData() {
+        initSeaTunnelRowTypeCaseSensitive(isCaseSensitive, index);
         byte tinyint = 1;
         short smallint = 2;
         int intNum = 3;
@@ -229,6 +216,32 @@ public class RowConverterTest {
         internalRow = binaryRow;
     }
 
+    private void initSeaTunnelRowTypeCaseSensitive(boolean isUpperCase, int index) {
+        String[] oneUpperCaseFiledNames = Arrays.copyOf(filedNames, filedNames.length);
+        if (isUpperCase) {
+            oneUpperCaseFiledNames[index] = oneUpperCaseFiledNames[index].toUpperCase();
+        }
+        seaTunnelRowType =
+                new SeaTunnelRowType(
+                        oneUpperCaseFiledNames,
+                        new SeaTunnelDataType<?>[] {
+                            BasicType.BYTE_TYPE,
+                            BasicType.SHORT_TYPE,
+                            BasicType.INT_TYPE,
+                            BasicType.LONG_TYPE,
+                            BasicType.FLOAT_TYPE,
+                            BasicType.DOUBLE_TYPE,
+                            new DecimalType(30, 8),
+                            BasicType.STRING_TYPE,
+                            PrimitiveByteArrayType.INSTANCE,
+                            BasicType.BOOLEAN_TYPE,
+                            LocalTimeType.LOCAL_DATE_TYPE,
+                            LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                            new MapType<>(BasicType.STRING_TYPE, BasicType.STRING_TYPE),
+                            ArrayType.STRING_ARRAY_TYPE
+                        });
+    }
+
     @Test
     public void seaTunnelToPaimon() {
         SeaTunnelRuntimeException actualException =
@@ -248,6 +261,34 @@ public class RowConverterTest {
         InternalRow reconvert =
                 RowConverter.reconvert(seaTunnelRow, seaTunnelRowType, getTableSchema(30, 8));
         Assertions.assertEquals(reconvert, internalRow);
+
+        isCaseSensitive = true;
+
+        for (int i = 0; i < filedNames.length; i++) {
+            index = i;
+            generateTestData();
+            String sourceFiledname = seaTunnelRowType.getFieldName(i);
+            DataType exceptDataType =
+                    RowTypeConverter.reconvert(sourceFiledname, seaTunnelRowType.getFieldType(i));
+            DataField exceptDataField = new DataField(i, sourceFiledname, exceptDataType);
+            TableSchema sinkTableSchema = getTableSchema(30, 8);
+            SeaTunnelRuntimeException actualException1 =
+                    Assertions.assertThrows(
+                            SeaTunnelRuntimeException.class,
+                            () ->
+                                    RowConverter.reconvert(
+                                            seaTunnelRow, seaTunnelRowType, sinkTableSchema));
+            Assertions.assertEquals(
+                    CommonError.writeRowErrorWithSchemaIncompatibleSchema(
+                                    "Paimon",
+                                    sourceFiledname
+                                            + StringUtils.SPACE
+                                            + seaTunnelRowType.getFieldType(i).getSqlType(),
+                                    exceptDataField.asSQLString(),
+                                    sinkTableSchema.fields().get(i).asSQLString())
+                            .getMessage(),
+                    actualException1.getMessage());
+        }
     }
 
     @Test

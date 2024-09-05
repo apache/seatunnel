@@ -25,9 +25,9 @@ The MongoDB CDC connector allows for reading snapshot data and incremental data 
 In order to use the Mongodb CDC connector, the following dependencies are required.
 They can be downloaded via install-plugin.sh or from the Maven central repository.
 
-| Datasource | Supported Versions |                                                    Dependency                                                     |
-|------------|--------------------|-------------------------------------------------------------------------------------------------------------------|
-| MongoDB    | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/seatunnel-connectors-v2/connector-cdc-mongodb) |
+| Datasource | Supported Versions | Dependency                                                                                |
+|------------|--------------------|-------------------------------------------------------------------------------------------|
+| MongoDB    | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-cdc-mongodb) |
 
 ## Availability Settings
 

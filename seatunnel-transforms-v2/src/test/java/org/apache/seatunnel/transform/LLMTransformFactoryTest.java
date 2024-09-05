@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.transform;
 
-import org.apache.seatunnel.transform.llm.LLMTransformFactory;
+import org.apache.seatunnel.transform.nlpmodel.llm.LLMTransformFactory;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
