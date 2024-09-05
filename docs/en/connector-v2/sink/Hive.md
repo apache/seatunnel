@@ -90,7 +90,16 @@ By default, we use 2PC commit to ensure `exactly-once`
 | abort_drop_partition_metadata | boolean | no               | true                         | Flag to decide whether to drop partition metadata from Hive Metastore during an abort operation. Note: this only affects the metadata in the metastore, the data in the partition will always be deleted(data generated during the synchronization process).                                                                    |
 | common-options                |         | no               | -                            | Sink plugin common parameters, please refer to [Sink Common Options](common-options.md) for details                                                                                                                                                                                                                             |
 
-### schema_save_mode [Enum]
+
+### About Save Mode Feature (added in version x.x.x)
+
+If the table is not exist in hive, or the table struct is not right, we can use this feature to create, re-create table with upstream table's schema before data synchronous.
+
+When you need this feature, you need addiction add `hive_jdbc_url` parameter. we use hive jdbc to hive jdbc to create, re-create table. (If you don't need this feature, just ignore this parameter.)
+
+Here are some related parameter about this feature :
+
+#### schema_save_mode [Enum]
 
 Before the synchronous task is turned on, different treatment schemes are selected for the existing surface structure of the target side.  
 Option introduction：  
@@ -98,14 +107,14 @@ Option introduction：
 `CREATE_SCHEMA_WHEN_NOT_EXIST` ：Will Created when the table does not exist, skipped when the table is existed        
 `ERROR_WHEN_SCHEMA_NOT_EXIST` ：Error will be reported when the table does not exist
 
-### data_save_mode[Enum]
+#### data_save_mode[Enum]
 
 Before the synchronous task is turned on, different processing schemes are selected for data existing data on the target side.  
 Option introduction：  
 `APPEND_DATA`：Preserve database structure, preserve data  
 `ERROR_WHEN_DATA_EXISTS`：When there is data, an error is reported. this will run query `select * from table limit 1` to check whether data exist. so it maybe very slow if the table is big.
 
-### save_mode_create_template
+#### save_mode_create_template
 
 Required when schema_save_mode are `RECREATE_SCHEMA` or `CREATE_SCHEMA_WHEN_NOT_EXIST`  
 No default value, you need config it manually.  
@@ -133,7 +142,7 @@ location '/tmp/hive/warehouse/default/${database}/${table_name}'
 1. if you set `partition key`, you need also put it in `save_mode_partition_keys`
 2. all the hard code config will apply to all tables, so if you want partition by `colA`, please make sure all upstream table has `colA`
 
-### save_mode_partition_keys
+#### save_mode_partition_keys
 
 only required when `save_mode_create_template` has partition definition.  
 as we know in hive ddl, partition col is not in column list, so we need this parameter to remove from column lists.
