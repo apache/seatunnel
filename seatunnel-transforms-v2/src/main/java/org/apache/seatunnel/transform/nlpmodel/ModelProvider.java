@@ -21,7 +21,9 @@ import org.apache.commons.lang3.StringUtils;
 
 public enum ModelProvider {
     OPENAI("https://api.openai.com/v1/chat/completions", "https://api.openai.com/v1/embeddings"),
-    DOUBAO("", "https://ark.cn-beijing.volces.com/api/v3/embeddings"),
+    DOUBAO(
+            "https://ark.cn-beijing.volces.com/api/v3/chat/completions",
+            "https://ark.cn-beijing.volces.com/api/v3/embeddings"),
     QIANFAN("", "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/embeddings"),
     CUSTOM("", ""),
     LOCAL("", "");

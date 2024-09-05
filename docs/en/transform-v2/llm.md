@@ -10,19 +10,23 @@ more.
 
 ## Options
 
-| name             | type   | required | default value |
-|------------------|--------|----------|---------------|
-| model_provider   | enum   | yes      |               |
-| output_data_type | enum   | no       | String        |
-| prompt           | string | yes      |               |
-| model            | string | yes      |               |
-| api_key          | string | yes      |               |
-| api_path         | string | no       |               |
+| name                   | type   | required | default value |
+|------------------------|--------|----------|---------------|
+| model_provider         | enum   | yes      |               |
+| output_data_type       | enum   | no       | String        |
+| prompt                 | string | yes      |               |
+| model                  | string | yes      |               |
+| api_key                | string | yes      |               |
+| api_path               | string | no       |               |
+| custom_config          | map    | no       |               | 
+| custom_response_parse  | string | no       |               | 
+| custom_request_headers | map    | no       |               |
+| custom_request_body    | map    | no       |               | 
 
 ### model_provider
 
 The model provider to use. The available options are:
-OPENAI
+OPENAI、DOUBAO、CUSTOM
 
 ### output_data_type
 
@@ -74,6 +78,61 @@ If you use OpenAI model, please refer https://platform.openai.com/docs/api-refer
 The API path to use for the model provider. In most cases, you do not need to change this configuration. If you
 are using an API agent's service, you may need to configure it to the agent's API address.
 
+### custom_config
+
+The `custom_config` option allows you to provide additional custom configurations for the model. This is a map where you
+can define various settings that might be required by the specific model you're using.
+
+### custom_response_parse
+
+The `custom_response_parse` option allows you to specify how to parse the model's response. You can use JsonPath to
+extract the specific data you need from the response. For example, by using `$.choices[*].message.content`, you can
+extract the `content` field values from the following JSON. For more details on using JsonPath, please refer to
+the [JsonPath Getting Started guide](https://github.com/json-path/JsonPath?tab=readme-ov-file#getting-started).
+
+```json
+{
+  "id": "chatcmpl-9s4hoBNGV0d9Mudkhvgzg64DAWPnx",
+  "object": "chat.completion",
+  "created": 1722674828,
+  "model": "gpt-4o-mini",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "[\"Chinese\"]"
+      },
+      "logprobs": null,
+      "finish_reason": "stop"
+    }
+  ],
+  "usage": {
+    "prompt_tokens": 107,
+    "completion_tokens": 3,
+    "total_tokens": 110
+  },
+  "system_fingerprint": "fp_0f03d4f0ee",
+  "code": 0,
+  "msg": "ok"
+}
+```
+
+### custom_request_headers
+
+The `custom_request_headers` option allows you to define custom headers that should be included in the request sent to
+the model's API. This is useful if the API requires additional headers beyond the standard ones, such as authorization
+tokens, content types, etc.
+
+### custom_request_body
+
+The `custom_request_body` option supports placeholders:
+
+- `${model}`: Placeholder for the model name.
+- `${input}`: Placeholder to determine input value and define request body request type based on the type of body
+  value. Example: `"${input}"` -> "input"
+- `${prompt}`：Placeholder for LLM model prompts.
+
 ### common options [string]
 
 Transform plugin common parameters, please refer to [Transform Plugin](common-options.md) for details
@@ -118,6 +177,85 @@ transform {
 
 sink {
   console {
+  }
+}
+```
+
+### Customize the LLM model
+
+```hocon
+env {
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    row.num = 5
+    schema = {
+      fields {
+        id = "int"
+        name = "string"
+      }
+    }
+    rows = [
+      {fields = [1, "Jia Fan"], kind = INSERT}
+      {fields = [2, "Hailin Wang"], kind = INSERT}
+      {fields = [3, "Tomas"], kind = INSERT}
+      {fields = [4, "Eric"], kind = INSERT}
+      {fields = [5, "Guangdong Liu"], kind = INSERT}
+    ]
+    result_table_name = "fake"
+  }
+}
+
+transform {
+  LLM {
+    source_table_name = "fake"
+    model_provider = CUSTOM
+    model = gpt-4o-mini
+    api_key = sk-xxx
+    prompt = "Determine whether someone is Chinese or American by their name"
+    openai.api_path = "http://mockserver:1080/v1/chat/completions"
+    custom_config={
+            custom_response_parse = "$.choices[*].message.content"
+            custom_request_headers = {
+                Content-Type = "application/json"
+                Authorization = "Bearer xxxxxxxx"            
+            }
+            custom_request_body ={
+                model = "${model}"
+                messages = [
+                {
+                    role = "system"
+                    content = "${prompt}"
+                },
+                {
+                    role = "user"
+                    content = "${input}"
+                }]
+            }
+        }
+    result_table_name = "llm_output"
+  }
+}
+
+sink {
+  Assert {
+    source_table_name = "llm_output"
+    rules =
+      {
+        field_rules = [
+          {
+            field_name = llm_output
+            field_type = string
+            field_value = [
+              {
+                rule_type = NOT_NULL
+              }
+            ]
+          }
+        ]
+      }
   }
 }
 ```
