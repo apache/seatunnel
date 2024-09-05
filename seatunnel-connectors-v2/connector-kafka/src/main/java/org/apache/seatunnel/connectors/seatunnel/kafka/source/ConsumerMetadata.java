@@ -37,7 +37,6 @@ public class ConsumerMetadata implements Serializable {
     private String topic;
     private boolean isPattern = false;
     private Properties properties;
-    private String consumerGroup;
     private StartMode startMode = StartMode.GROUP_OFFSETS;
     private Map<TopicPartition, Long> specificStartOffsets;
     private Long startOffsetsTimestamp;
